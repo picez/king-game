@@ -1,0 +1,34 @@
+# King — systemd unit for the server-authoritative WebSocket server.
+# ---------------------------------------------------------------------------
+# Install:
+#   sudo cp /srv/king/deploy/king.service /etc/systemd/system/king.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now king
+#   systemctl status king          # check it's running
+#   journalctl -u king -f          # follow logs (look for the startup line)
+#
+# Adjust User/WorkingDirectory and the npm path (`which npm`) to your box.
+# Requires devDependencies installed (tsx runs the TS server) — use `npm ci`.
+# ---------------------------------------------------------------------------
+[Unit]
+Description=King card game (server-authoritative WebSocket server)
+After=network.target
+
+[Service]
+Type=simple
+User=king
+Group=king
+WorkingDirectory=/srv/king
+EnvironmentFile=/srv/king/.env
+ExecStart=/usr/bin/npm run server:prod
+Restart=always
+RestartSec=3
+
+# Hardening (the service only needs to read the app and write .data/).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/srv/king/.data
+
+[Install]
+WantedBy=multi-user.target

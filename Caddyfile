@@ -1,0 +1,42 @@
+# King — production Caddyfile (automatic HTTPS via Let's Encrypt)
+# ---------------------------------------------------------------------------
+# Usage on the VPS:
+#   sudo caddy run --config /srv/king/Caddyfile          # foreground test
+#   sudo cp /srv/king/Caddyfile /etc/caddy/Caddyfile     # then: systemctl reload caddy
+#
+# Replace king.example.com with your domain. Caddy obtains and renews the TLS
+# certificate automatically once the domain's A/AAAA record points at this VPS
+# and ports 80 + 443 are open.
+# ---------------------------------------------------------------------------
+
+# (optional) global options — set an email for Let's Encrypt expiry notices:
+# {
+#     email you@example.com
+# }
+
+king.example.com {
+    encode gzip zstd
+
+    # --- WebSocket → Node server (server-authoritative game socket) ---
+    # The client connects to wss://king.example.com/ws (built via VITE_WS_URL).
+    # Caddy upgrades the connection automatically; no extra headers needed.
+    @ws path /ws /ws/*
+    reverse_proxy @ws 127.0.0.1:3001
+
+    # --- Health check → Node server ---
+    @health path /health
+    reverse_proxy @health 127.0.0.1:3001
+
+    # --- Everything else → static client build (SPA) ---
+    root * /srv/king/dist
+    try_files {path} /index.html
+    file_server
+
+    # A few sensible security headers (HSTS is added by Caddy on HTTPS).
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}

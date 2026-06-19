@@ -1,0 +1,35 @@
+{
+  "name": "king-card-game",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "icons": "node scripts/generate-icons.mjs",
+    "e2e": "tsx scripts/e2e-online.mjs",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "server": "tsx server/index.ts",
+    "server:prod": "NODE_ENV=production tsx server/index.ts",
+    "server:relay": "node server/index.mjs",
+    "rooms:cleanup": "tsx server/cleanup.ts"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vitest": "^4.1.9"
+  }
+}

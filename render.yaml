@@ -1,0 +1,49 @@
+# Render Blueprint — King as a single Web Service (client + WebSocket on one
+# domain). Commit this file; in Render: New → Blueprint → pick this repo, or
+# create a Web Service manually with the same Build/Start commands.
+#
+# Render gives HTTPS/TLS at the load balancer, injects PORT, and supports
+# WebSockets — the server binds 0.0.0.0:$PORT and serves dist/ + /ws + /health.
+# See RENDER_DEPLOY.md for the click-by-click guide.
+services:
+  - type: web
+    name: king
+    runtime: node
+    plan: free                      # free tier sleeps when idle; upgrade for always-on + disks
+    # region: oregon                # optional
+    autoDeploy: true                # redeploy on push to the connected branch
+    buildCommand: npm install && npm run build
+    startCommand: npm run server:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0              # Render requires binding 0.0.0.0
+      # PORT is injected by Render automatically — do NOT set it here.
+      - key: ROOM_TTL_HOURS
+        value: "24"
+      - key: ROOM_HARD_TTL_HOURS
+        value: "48"
+      # Lock the socket to your service origin once you know the URL.
+      # Set in the dashboard after the first deploy, e.g.
+      #   https://<your-service>.onrender.com
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # OPTIONAL. The client is served from the SAME origin, so without this it
+      # auto-connects to wss://<this-domain>/ws — correct on Render with no
+      # build-time domain needed. Set it only if you host the client elsewhere.
+      # If you DO set it (e.g. wss://<your-service>.onrender.com/ws), a redeploy
+      # is required because it is baked into the client at build time.
+      - key: VITE_WS_URL
+        sync: false
+
+    # --- Persistent rooms (OPTIONAL, requires a paid instance) ---------------
+    # Free instances have an EPHEMERAL filesystem: .data/rooms.json is wiped on
+    # every redeploy/restart. For durable rooms, upgrade the plan, attach a disk,
+    # and set ROOM_STORAGE_FILE to a path on the mount:
+    # disk:
+    #   name: king-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # (then add envVar ROOM_STORAGE_FILE=/var/data/rooms.json)

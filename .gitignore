@@ -1,0 +1,16 @@
+node_modules/
+dist/
+
+# Server-side room persistence (file storage default location)
+.data/
+# E2E / smoke temp data dirs (auto-created, auto-removed)
+.data-*/
+# Atomic-write temp files
+*.tmp
+
+# Editor / OS noise
+.DS_Store
+*.log
+
+# Mobile QA screenshots (local only)
+.shots/
