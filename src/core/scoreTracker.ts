@@ -7,7 +7,7 @@ import { seatMarker } from './avatars';
  * Rows = players; columns = the 9 game slots + Total. Because every dealer plays
  * every game once (Trump split into 1/2/3), a cell can hold several entries —
  * one per dealer who chose that mode — each being THIS row-player's own score in
- * that dealer's round, tagged with the dealer's marker (①..④). A small "played"
+ * that dealer's round, tagged with the dealer's avatar + seat colour. A "played"
  * dot marks the cell when the ROW player is the one who dealt that game (so you
  * can see which games each player still owes). A legend maps marker → player.
  *
@@ -48,7 +48,11 @@ export function columnForRecord(rec: Pick<RoundRecord, 'modeId' | 'trumpOccurren
 
 export interface TrackerEntry {
   dealerId: string;
+  /** Semantic marker id (①..④) — kept for stable identity; UI shows avatar+colour. */
   dealerMarker: string;
+  /** Dealer's seat index → drives the player colour (see avatars.seatColor). */
+  dealerSeat: number;
+  dealerAvatar?: string;
   dealerName: string;
   score: number;
   roundNumber: number;
@@ -69,6 +73,8 @@ export interface TrackerRow {
   name: string;
   avatar?: string;
   marker: string;
+  /** Seat index → drives the player colour (see avatars.seatColor). */
+  seat: number;
   cells: TrackerCell[]; // aligned to TRACKER_COLUMNS (9)
   total: number;
 }
@@ -78,6 +84,8 @@ export interface LegendEntry {
   name: string;
   avatar?: string;
   marker: string;
+  /** Seat index → drives the player colour (see avatars.seatColor). */
+  seat: number;
 }
 
 export interface ScoreTrackerModel {
@@ -91,13 +99,15 @@ export function buildScoreTracker(state: GameState): ScoreTrackerModel {
   const history: RoundRecord[] = state.roundHistory ?? [];
   const lastRoundNumber = history.length ? history[history.length - 1].roundNumber : null;
 
-  // Stable marker per player by seat order.
+  // Stable marker + seat (colour) per player by seat order.
   const markerOf = new Map<string, string>();
-  state.players.forEach((p, i) => markerOf.set(p.id, seatMarker(i)));
+  const seatOf = new Map<string, number>();
+  state.players.forEach((p, i) => { markerOf.set(p.id, seatMarker(i)); seatOf.set(p.id, i); });
   const nameOf = new Map(state.players.map((p) => [p.id, p.name]));
+  const avatarOf = new Map(state.players.map((p) => [p.id, p.avatar]));
 
-  const legend: LegendEntry[] = state.players.map((p) => ({
-    playerId: p.id, name: p.name, avatar: p.avatar, marker: markerOf.get(p.id)!,
+  const legend: LegendEntry[] = state.players.map((p, i) => ({
+    playerId: p.id, name: p.name, avatar: p.avatar, marker: markerOf.get(p.id)!, seat: i,
   }));
 
   // Index rounds by column.
@@ -114,6 +124,8 @@ export function buildScoreTracker(state: GameState): ScoreTrackerModel {
         .map((r) => ({
           dealerId: r.dealerId,
           dealerMarker: markerOf.get(r.dealerId) ?? '?',
+          dealerSeat: seatOf.get(r.dealerId) ?? -1,
+          dealerAvatar: avatarOf.get(r.dealerId),
           dealerName: nameOf.get(r.dealerId) ?? '—',
           score: r.scoreByPlayer[p.id] ?? 0,
           roundNumber: r.roundNumber,
@@ -125,7 +137,7 @@ export function buildScoreTracker(state: GameState): ScoreTrackerModel {
       return { column: c.id, entries, playedByRow, isLast };
     });
     const total = history.reduce((s, r) => s + (r.scoreByPlayer[p.id] ?? 0), 0);
-    return { playerId: p.id, name: p.name, avatar: p.avatar, marker: markerOf.get(p.id)!, cells, total };
+    return { playerId: p.id, name: p.name, avatar: p.avatar, marker: markerOf.get(p.id)!, seat: seatOf.get(p.id)!, cells, total };
   });
 
   return { legend, rows, columns: TRACKER_COLUMNS, lastRoundNumber };

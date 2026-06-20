@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AVATARS, isValidAvatar, defaultAvatar, sanitizeAvatar, seatMarker, BOT_AVATAR } from './avatars';
+import { AVATARS, isValidAvatar, defaultAvatar, sanitizeAvatar, seatMarker, seatColor, SEAT_COLORS, BOT_AVATAR } from './avatars';
 
 describe('avatars', () => {
   it('validates only whitelisted ids (no XSS / free text)', () => {
@@ -28,5 +28,14 @@ describe('avatars', () => {
 
   it('bot avatar is the robot', () => {
     expect(BOT_AVATAR).toBe('🤖');
+  });
+
+  it('seat colours are stable, distinct, and defined per seat', () => {
+    expect(SEAT_COLORS).toHaveLength(4);
+    expect(new Set(SEAT_COLORS).size).toBe(4); // all distinct
+    expect([0, 1, 2, 3].map(seatColor)).toEqual(SEAT_COLORS);
+    SEAT_COLORS.forEach((c) => expect(c).toMatch(/^#[0-9a-f]{6}$/i));
+    // out-of-range seat falls back to a neutral colour (never undefined)
+    expect(typeof seatColor(9)).toBe('string');
   });
 });

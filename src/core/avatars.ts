@@ -28,8 +28,17 @@ export function sanitizeAvatar(id: unknown, seed: string): string {
   return isValidAvatar(id) ? id : defaultAvatar(seed);
 }
 
-/** Stable per-seat marker for the score-tracker legend (①..④). */
+/** Stable per-seat marker id (semantic only — UI shows avatar + colour, not this). */
 export const SEAT_MARKERS = ['①', '②', '③', '④'];
 export function seatMarker(index: number): string {
   return SEAT_MARKERS[index] ?? `#${index + 1}`;
+}
+
+/**
+ * Stable per-seat player colour for score-tracker chips/legend. Bright, high
+ * contrast on the dark-green table; distinct hues (blue / gold / pink / teal).
+ */
+export const SEAT_COLORS = ['#5db4ff', '#ffd24a', '#ff8fb0', '#62e0b8'];
+export function seatColor(index: number): string {
+  return SEAT_COLORS[index] ?? '#cfd8dc';
 }

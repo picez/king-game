@@ -68,6 +68,7 @@ export default function CardView({
     <button
       className={
         `card ${colorClass} ${stateClass}` +
+        ` card--rank-${card.rank.toLowerCase()}` +
         (isFace ? ' card--face' : '') +
         (preview ? ' card--preview' : '') +
         (small ? ' card--small' : '') +

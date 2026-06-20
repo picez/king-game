@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { buildScoreTracker, columnForRecord, TRACKER_COLUMNS } from './scoreTracker';
 import type { GameState, RoundRecord } from '../models/types';
 
+const TEST_AVATARS = ['🦊', '🐼', '🐯', '🦁'];
 function stateWith(playerIds: string[], history: RoundRecord[]): GameState {
-  const players = playerIds.map((id, i) => ({ id, name: id.toUpperCase(), seatIndex: i, hand: [], isDealer: false, type: 'human' }));
+  const players = playerIds.map((id, i) => ({ id, name: id.toUpperCase(), avatar: TEST_AVATARS[i], seatIndex: i, hand: [], isDealer: false, type: 'human' }));
   return { players, roundHistory: history } as unknown as GameState;
 }
 function rec(roundNumber: number, dealerId: string, modeId: RoundRecord['modeId'], trumpOccurrence: number, scoreByPlayer: Record<string, number>): RoundRecord {
@@ -33,6 +34,20 @@ describe('buildScoreTracker — single table', () => {
     const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], []));
     expect(m.legend.map((l) => l.marker)).toEqual(['①', '②', '③']);
     expect(m.legend.map((l) => l.playerId)).toEqual(['alice', 'bob', 'carol']);
+  });
+
+  it('markers carry avatar + seat (colour) metadata — UI does not depend on circled digits', () => {
+    const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
+      rec(0, 'bob', 'trump', 2, { alice: 32, bob: 48, carol: 16 }),
+    ]));
+    // Legend + rows expose a stable seat index (drives the player colour) and the avatar.
+    expect(m.legend.map((l) => l.seat)).toEqual([0, 1, 2]);
+    expect(m.legend.map((l) => l.avatar)).toEqual(['🦊', '🐼', '🐯']);
+    expect(m.rows.map((r) => r.seat)).toEqual([0, 1, 2]);
+    // Cell entries identify the dealer by seat (colour) + avatar, not just ①..④.
+    const entry = cell(m, 'alice', 'trump2').entries[0];
+    expect(entry.dealerSeat).toBe(1);          // bob is seat 1
+    expect(entry.dealerAvatar).toBe('🐼');     // bob's avatar
   });
 
   it("a Trump round records ALL players' scores in one table, tagged with the dealer's marker", () => {
