@@ -92,6 +92,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
         onStart={net.startGame}
         onLeave={() => { net.leave(); onExit(); }}
         onKick={net.kick}
+        onAddBot={net.addBot}
         error={net.error}
       />
     );

@@ -40,6 +40,7 @@ describe('translate', () => {
       'finished.title', 'finished.gamesTitle',
       'finished.playAgain', 'wait.waitingFor', 'wait.to.choose', 'lobby.title',
       'lobby.host', 'lobby.kick', 'lobby.kickConfirm', 'err.KICKED_BY_HOST',
+      'lobby.addBot', 'lobby.bot', 'lobby.aiPlayer', 'wait.botThinking',
       'track.title', 'track.tricks', 'track.jacks', 'track.queens', 'track.trump', 'track.total',
       'net.connecting', 'net.dealing',
     ];

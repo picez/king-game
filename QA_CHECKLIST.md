@@ -33,7 +33,12 @@ All three must be green.
 - [ ] Two phones/tabs join with the code (and password if set).
 - [ ] Lobby shows all players + online/offline + host badge; 🔒 if protected.
 - [ ] Wrong/blank password on a protected room shows a clear error.
-- [ ] Host **Start Game** enabled only when seats are full.
+- [ ] **Bots**: host taps **Add bot** to fill a free seat (🤖 AI badge appears);
+      host can **Remove** a bot; non-host has no add/remove buttons.
+- [ ] **2 humans + 1 bot**: with one bot added, **Start Game** enables and the
+      game starts; the bot takes its turns on its own (waiting view shows
+      "Bot is thinking…"); the bot's cards are never shown to humans.
+- [ ] Host **Start Game** enabled only when seats are full (humans + bots).
 - [ ] On each device: action screen only on your turn; otherwise a read-only
       "Waiting for <name> to <action>" view with **your own hand only**.
 - [ ] Opponents' cards never visible (card backs / counts only).

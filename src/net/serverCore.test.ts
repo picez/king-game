@@ -6,6 +6,7 @@ import {
   sanitizedStateFor, reconnectMember, markDisconnected, snapshot, roomHasPassword,
   verifyPassword, serializeRoom, deserializeRoom, MemoryRoomStorage,
   roomSummary, listRoomSummaries, roomsToExpire, kickMember,
+  addBot, activePlayers, botMemberToAct, applyBotTurn,
   type ServerRoom,
 } from './serverCore';
 
@@ -222,7 +223,7 @@ describe('persistence (serialize / restore)', () => {
     // Member shape is the documented set only.
     const persisted = serializeRoom(room);
     expect(Object.keys(persisted.members[0]).sort()).toEqual(
-      ['clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex'],
+      ['clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex', 'type'],
     );
   });
 
@@ -581,6 +582,131 @@ describe('kickMember (host removes a lobby member before start)', () => {
     kickMember(room, host.clientId, c.clientId);
     const snap = snapshot(room);
     expect(snap.members.filter((m) => m.role === 'player').map((m) => m.seatIndex)).toEqual([0, 1, 2]);
+  });
+});
+
+describe('server-side bots', () => {
+  const arr = (room: ServerRoom) => [...room.members.values()];
+  function botRoom(): ServerRoom {
+    return createRoom({
+      code: 'BOTR', playerCount: 3, modeSelectionType: 'dealer_choice',
+      host: { clientId: id(), reconnectToken: id(), name: 'Host' },
+    });
+  }
+
+  it('host can add a bot before start (seat assigned, type ai, name "Bot 1")', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    const res = addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    expect(res.ok).toBe(true);
+    expect(res.bot?.type).toBe('ai');
+    expect(res.bot?.name).toBe('Bot 1');
+    expect(res.bot?.role).toBe('player');
+    expect(typeof res.bot?.seatIndex).toBe('number');
+    expect(activePlayers(room)).toHaveLength(2);
+  });
+
+  it('non-host cannot add a bot (NOT_HOST)', () => {
+    const room = botRoom();
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'Bob' });
+    const nonHost = arr(room)[1];
+    expect(addBot(room, nonHost.clientId, { clientId: id(), reconnectToken: id() }))
+      .toMatchObject({ ok: false, error: 'NOT_HOST' });
+  });
+
+  it('cannot add a bot when the room is full (ROOM_FULL)', () => {
+    const room = botRoom(); // 3 seats
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }); // 3/3
+    expect(addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }))
+      .toMatchObject({ ok: false, error: 'ROOM_FULL' });
+  });
+
+  it('cannot add a bot after the game started', () => {
+    const room = room4pFixed();
+    startGame(room);
+    const host = arr(room)[0];
+    expect(addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }))
+      .toMatchObject({ ok: false, error: 'GAME_ALREADY_STARTED' });
+  });
+
+  it('host can remove a bot (via kickMember)', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    const { bot } = addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    expect(kickMember(room, host.clientId, bot!.clientId).ok).toBe(true);
+    expect(room.members.has(bot!.clientId)).toBe(false);
+  });
+
+  it('bots survive serialize/restore (stay ai + present; humans disconnect)', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    const restored = deserializeRoom(serializeRoom(room))!;
+    const bot = [...restored.members.values()].find((m) => m.type === 'ai')!;
+    const human = [...restored.members.values()].find((m) => m.type === 'human')!;
+    expect(bot.connected).toBe(true);   // bots are always present
+    expect(human.connected).toBe(false); // no live socket after restore
+  });
+
+  it('a bot cannot be reconnected via its token', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: 'bot-token-xyz' });
+    expect(reconnectMember(room, 'bot-token-xyz')).toBeNull();
+  });
+
+  it('start game with 2 humans + 1 bot → that seat is type ai in the GameState', () => {
+    const room = botRoom();
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'Bob' });
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    expect(activePlayers(room)).toHaveLength(3);
+    startGame(room, { seed: 5 });
+    const botSeat = [...room.members.values()].find((m) => m.type === 'ai')!.seatIndex!;
+    expect(room.gameState!.players[botSeat].type).toBe('ai');
+    expect(room.gameState!.players.filter((p) => p.type === 'ai')).toHaveLength(1);
+  });
+
+  it('a bot hand is redacted for human viewers', () => {
+    const room = botRoom();
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'Bob' });
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    startGame(room, { seed: 9 });
+    const botSeat = [...room.members.values()].find((m) => m.type === 'ai')!.seatIndex!;
+    const view = sanitizedStateFor(room, host.clientId)!;
+    expect(view.players[botSeat].hand.every((c) => c.rank === '?')).toBe(true);
+  });
+
+  it('server drives a bot dealer through setup + first play via the reducer', () => {
+    // Find a seed where the bot is the dealer so applyBotTurn must act.
+    let room: ServerRoom | null = null;
+    for (let i = 0; i < 100 && !room; i++) {
+      const r = botRoom();
+      addMember(r, { clientId: id(), reconnectToken: id(), name: 'Bob' });
+      const host = [...r.members.values()][0];
+      addBot(r, host.clientId, { clientId: id(), reconnectToken: id() });
+      startGame(r, { seed: i });
+      const botSeat = [...r.members.values()].find((m) => m.type === 'ai')!.seatIndex!;
+      if (r.gameState!.dealerIndex === botSeat) room = r;
+    }
+    expect(room).not.toBeNull();
+    const r = room!;
+    expect(r.gameState!.status).toBe('mode_selection');
+    expect(botMemberToAct(r)).not.toBeNull();
+
+    // Each bot turn must be accepted by the authoritative reducer (legal moves
+    // only — covers CHOOSE_MODE, SELECT_TRUMP, legal kitty discard, forced ruff).
+    let guard = 0;
+    while (botMemberToAct(r) && guard++ < 40) {
+      expect(applyBotTurn(r).acted).toBe(true);
+    }
+    // The bot (dealer) has acted through setup and led the first trick; the turn
+    // is now a human's (or a public screen), never stuck on the bot.
+    expect(botMemberToAct(r)).toBeNull();
+    expect(['playing', 'trick_complete', 'round_scoring']).toContain(r.gameState!.status);
   });
 });
 

@@ -12,7 +12,8 @@
 
 import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
-import { gameReducer } from '../core/gameEngine';
+import { gameReducer, getActingPlayerId, getCurrentPlayer } from '../core/gameEngine';
+import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards, aiChooseCard } from '../core/ai';
 import { makeRng, randomSeed, hashString } from '../core/rng';
 import { redactStateFor } from './messages';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
@@ -50,6 +51,8 @@ export interface ServerMember {
   seatIndex: number | null;
   isHost: boolean;
   connected: boolean;
+  /** 'ai' for a server-side bot (no socket, never reconnects); else 'human'. */
+  type: 'human' | 'ai';
 }
 
 export interface ServerRoom {
@@ -144,6 +147,7 @@ export function createRoom(opts: {
     seatIndex: null,
     isHost: true,
     connected: true,
+    type: 'human',
   });
   assignSeats(room);
   return room;
@@ -189,14 +193,52 @@ export function addMember(
     seatIndex: null,
     isHost: false,
     connected: true,
+    type: 'human',
   });
   assignSeats(room);
   return { ok: true };
 }
 
+/**
+ * Host-only: add a server-side AI bot to a free player seat BEFORE the game
+ * starts. The bot occupies a seat like a normal player (assigned in order) but
+ * has no socket and is marked `type: 'ai'`. Its `reconnectToken` is never sent
+ * to any client (bots receive no WELCOME), so it cannot be hijacked. The caller
+ * supplies a fresh clientId/reconnectToken (the pure core has no UUID source).
+ */
+export function addBot(
+  room: ServerRoom,
+  hostClientId: string,
+  ids: { clientId: string; reconnectToken: string },
+): OpResult & { bot?: ServerMember } {
+  if (!room.members.get(hostClientId)?.isHost) return { ok: false, error: 'NOT_HOST' };
+  if (room.started) return { ok: false, error: 'GAME_ALREADY_STARTED' };
+  if (activePlayers(room).length >= Math.min(room.playerCount, MAX_PLAYERS)) {
+    return { ok: false, error: 'ROOM_FULL' };
+  }
+  // First free "Bot N" name (unique among current members).
+  const taken = new Set([...room.members.values()].map((m) => m.name));
+  let n = 1;
+  while (taken.has(`Bot ${n}`)) n++;
+  const bot: ServerMember = {
+    clientId: ids.clientId,
+    reconnectToken: ids.reconnectToken,
+    name: `Bot ${n}`,
+    role: 'player',
+    seatIndex: null,
+    isHost: false,
+    connected: true, // bots are always "present"
+    type: 'ai',
+  };
+  room.members.set(bot.clientId, bot);
+  assignSeats(room);
+  return { ok: true, bot };
+}
+
 export function reconnectMember(room: ServerRoom, reconnectToken: string): ServerMember | null {
   const member = [...room.members.values()].find((m) => m.reconnectToken === reconnectToken);
   if (!member) return null;
+  if (member.type === 'ai') return null; // bots have no client and never reconnect
   member.connected = true;
   return member;
 }
@@ -314,6 +356,75 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Server-side bots (AI seats with no socket)
+// ---------------------------------------------------------------------------
+
+/** The seat index encoded in an engine player id (`player-N`). */
+function playerIdToSeat(playerId: string): number {
+  return Number(playerId.split('-')[1]);
+}
+
+/**
+ * If the player who must act right now is a bot, return that member; else null.
+ * Returns null on public/no-actor screens (handled by the advance timer).
+ */
+export function botMemberToAct(room: ServerRoom): ServerMember | null {
+  const s = room.gameState;
+  if (!s) return null;
+  const actingId = getActingPlayerId(s);
+  if (!actingId) return null;
+  const seat = playerIdToSeat(actingId);
+  const member = [...room.members.values()].find((m) => m.role === 'player' && m.seatIndex === seat);
+  return member && member.type === 'ai' ? member : null;
+}
+
+/**
+ * The action a bot should take for the current acting player, using the shared
+ * core heuristics. Pure (reads the unredacted server state — the server legally
+ * sees every hand). Returns null on screens a bot does not drive.
+ */
+export function botAction(state: GameState): GameAction | null {
+  switch (state.status) {
+    case 'mode_selection': {
+      const dealer = state.players[state.dealerIndex];
+      return { type: 'CHOOSE_MODE', modeId: aiChooseMode(state.dealerModes[dealer.id]) };
+    }
+    case 'select_trump': {
+      const dealer = state.players[state.dealerIndex];
+      return { type: 'SELECT_TRUMP', suit: aiChooseTrump(dealer.hand) };
+    }
+    case 'kitty_exchange': {
+      const dealer = state.players[state.dealerIndex];
+      return {
+        type: 'EXCHANGE_KITTY',
+        discards: aiChooseKittyDiscards(dealer.hand, state.config.kittySize, state.currentRound.mode.id),
+      };
+    }
+    case 'playing': {
+      const p = getCurrentPlayer(state);
+      return { type: 'PLAY_CARD', playerId: p.id, card: aiChooseCard(state) };
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * If it is a bot's turn, compute its action and apply it through the SAME
+ * authorised reducer path as a human (so all legality — follow-suit, forced
+ * ruff, legal discards, turn order — is enforced, never bypassed). Returns
+ * whether a bot acted.
+ */
+export function applyBotTurn(room: ServerRoom): { acted: boolean } {
+  const bot = botMemberToAct(room);
+  if (!bot || !room.gameState) return { acted: false };
+  const action = botAction(room.gameState);
+  if (!action) return { acted: false };
+  const res = applyActionRequest(room, bot.clientId, action);
+  return { acted: res.ok };
+}
+
+// ---------------------------------------------------------------------------
 // Deal audit (private; server-only)
 // ---------------------------------------------------------------------------
 
@@ -355,6 +466,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       seatIndex: m.seatIndex,
       isHost: m.isHost,
       connected: m.connected,
+      type: m.type,
     })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -405,7 +517,9 @@ export function roomsToExpire(
   const expired: string[] = [];
   for (const room of rooms) {
     const idle = now - room.updatedAt;
-    const hasConnected = [...room.members.values()].some((m) => m.connected);
+    // Only connected HUMANS keep a room on the longer hard-TTL; bots are always
+    // "present" and must not keep an abandoned room alive forever.
+    const hasConnected = [...room.members.values()].some((m) => m.connected && m.type !== 'ai');
     if (hasConnected ? idle > hardTtlMs : idle > ttlMs) expired.push(room.code);
   }
   return expired;
@@ -492,7 +606,9 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
       role: m.role === 'spectator' ? 'spectator' : 'player',
       seatIndex: typeof m.seatIndex === 'number' ? m.seatIndex : null,
       isHost: m.isHost === true,
-      connected: false, // no live socket after restore
+      // Bots are always "present"; humans have no live socket after a restore.
+      connected: m.type === 'ai',
+      type: m.type === 'ai' ? 'ai' : 'human',
     });
   }
 

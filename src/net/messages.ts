@@ -34,6 +34,8 @@ export interface RoomMember {
   /** True for the member who controls game settings and the Start button. */
   isHost: boolean;
   connected: boolean;
+  /** 'ai' for a server-side bot occupying a seat; 'human' for real clients. */
+  type: 'human' | 'ai';
 }
 
 export interface RoomSnapshot {
@@ -78,8 +80,10 @@ export type ClientMessage =
   /** Discovery: request the public room list (no session required). */
   | { t: 'LIST_ROOMS' }
   | { t: 'LEAVE_ROOM' }
-  /** Host-only: remove another member from the room before the game starts. */
+  /** Host-only: remove another member (human or bot) before the game starts. */
   | { t: 'KICK_MEMBER'; clientId: string }
+  /** Host-only: add a server-side AI bot to a free player seat before start. */
+  | { t: 'ADD_BOT' }
   | { t: 'UPDATE_SETTINGS'; playerCount?: 3 | 4; modeSelectionType?: 'fixed' | 'dealer_choice' }
   | { t: 'START_GAME' }
   /** A request to mutate game state; the authority validates and applies it. */

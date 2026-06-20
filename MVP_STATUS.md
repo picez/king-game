@@ -20,6 +20,11 @@ linked docs.
 - **Online (server-authoritative)**: Node `ws` server owns the GameState, runs
   the reducer, redacts hands per client. Lobby with room code, host start,
   per-turn screens, read-only waiting view.
+- **Online bots**: the host can add server-side AI bots to free seats in the
+  lobby (and remove them) before start — e.g. **2 humans + 1 bot** play a full
+  3-player game. Bots run entirely on the server (no extra socket/client), play
+  through the same authoritative reducer, and their hands are redacted like any
+  opponent's. (See ONLINE_ARCHITECTURE.md → Online bots.)
 - **Room discovery**: the Join screen lists open rooms from the server (tap to
   join; 🔒 protected rooms ask for a password). Manual room code still works.
 - **Server-controlled deal** with per-round seed + deal audit log (server-side

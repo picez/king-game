@@ -30,7 +30,9 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
   const me = state.players.find((p) => p.id === myPlayerId);
   const dealer = state.players[state.dealerIndex];
   const actingId = getActingPlayerId(state);
-  const actingName = state.players.find((p) => p.id === actingId)?.name ?? '…';
+  const actingPlayer = state.players.find((p) => p.id === actingId);
+  const actingName = actingPlayer?.name ?? '…';
+  const actingIsBot = actingPlayer?.type === 'ai';
   const what = t(WAIT_KEY[state.status] ?? 'wait.to.play');
 
   // During Dealer's-Choice mode selection the round mode is still a placeholder
@@ -57,8 +59,9 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
       )}
 
       <div className="leader-banner">
-        <span className="leader-arrow">▶</span>
-        {t('wait.waitingFor')} <strong>&nbsp;{actingName}</strong>&nbsp;{what}
+        <span className="leader-arrow">{actingIsBot ? '🤖' : '▶'}</span>
+        {t('wait.waitingFor')} <strong>&nbsp;{actingName}</strong>&nbsp;
+        {actingIsBot ? t('wait.botThinking') : what}
       </div>
 
       <div className="game-body">

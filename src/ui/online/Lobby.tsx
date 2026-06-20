@@ -11,6 +11,8 @@ interface Props {
   onLeave: () => void;
   /** Host-only: remove another member (by clientId) before the game starts. */
   onKick: (clientId: string) => void;
+  /** Host-only: add a server-side AI bot to a free seat before the game starts. */
+  onAddBot: () => void;
   error: string | null;
 }
 
@@ -19,10 +21,11 @@ interface Props {
  * a Start button enabled once enough players have joined. The host can also
  * remove other members before the game starts.
  */
-export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, error }: Props) {
+export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, error }: Props) {
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
   const enough = players.length === room.playerCount;
+  const hasFreeSeat = players.length < room.playerCount;
 
   function handleKick(clientId: string) {
     // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
@@ -58,10 +61,13 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
                   </span>
                   <span className="lobby-member__tags">
                     {m.isHost && <span className="tag tag--host">{t('lobby.host')}</span>}
+                    {m.type === 'ai' && <span className="tag tag--bot" title={t('lobby.aiPlayer')}>🤖 {t('lobby.bot')}</span>}
                     {m.role === 'spectator' && <span className="tag">{t('lobby.spectator')}</span>}
-                    <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>
-                      {m.connected ? t('lobby.online') : t('lobby.offline')}
-                    </span>
+                    {m.type !== 'ai' && (
+                      <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>
+                        {m.connected ? t('lobby.online') : t('lobby.offline')}
+                      </span>
+                    )}
                     {isHost && !room.started && m.clientId !== myClientId && (
                       <button
                         type="button"
@@ -77,6 +83,10 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             })}
           </ul>
         </div>
+
+        {isHost && !room.started && hasFreeSeat && (
+          <button className="btn btn--outline" onClick={onAddBot}>🤖 {t('lobby.addBot')}</button>
+        )}
 
         {error && <p className="lobby-error">{error}</p>}
 

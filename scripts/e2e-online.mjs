@@ -35,7 +35,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function startServer() {
   const child = spawn('npx tsx server/index.ts', {
     shell: true,
-    env: { ...process.env, PORT: String(PORT), ROOM_STORAGE_FILE: STORE },
+    // Fast bot delay so the e2e bot scenario resolves quickly.
+    env: { ...process.env, PORT: String(PORT), ROOM_STORAGE_FILE: STORE, BOT_DELAY_MS: '40' },
     stdio: 'ignore',
   });
   return child;
@@ -210,6 +211,71 @@ async function main() {
   await sleep(200);
   check(!dJoin2.lastError, 'new player can join after host promotion');
   dJoin.ws.close(); dJoin2.ws.close(); dHost.ws.close();
+
+  // 2e) Online bot: 2 humans + 1 server-side bot can start and the bot plays
+  console.log('\n[2e] online bot (2 humans + 1 bot)');
+  const bHost = await connect();
+  sendMsg(bHost, { t: 'CREATE_ROOM', name: 'BHost', playerCount: 3, modeSelectionType: 'dealer_choice' });
+  await sleep(150);
+  const bCode = bHost.room.code;
+  const bJoin = await connect();
+  sendMsg(bJoin, { t: 'JOIN_ROOM', code: bCode, name: 'BJoin' });
+  await sleep(200);
+
+  // non-host cannot add a bot
+  sendMsg(bJoin, { t: 'ADD_BOT' });
+  await sleep(150);
+  check(bJoin.lastError?.code === 'NOT_HOST', 'non-host ADD_BOT rejected (NOT_HOST)');
+
+  // host adds a bot → 3 seats filled (2 human + 1 ai)
+  sendMsg(bHost, { t: 'ADD_BOT' });
+  await sleep(200);
+  const botMember = bHost.room.members.find((m) => m.type === 'ai');
+  check(!!botMember, 'bot member present with type ai');
+  check(bHost.room.members.filter((m) => m.role === 'player').length === 3, '3 player seats (2 human + 1 bot)');
+  const botSeat = botMember?.seatIndex;
+  const botSeatId = `player-${botSeat}`;
+
+  // start the game
+  sendMsg(bHost, { t: 'START_GAME' });
+  await sleep(300);
+  check(bHost.state != null, 'game started with a bot seat');
+  check(bHost.state.players[botSeat].type === 'ai', 'bot seat is type ai in GameState');
+  check(bHost.state.players[botSeat].hand.every((c) => c.rank === '?'), 'bot hand is redacted for humans');
+
+  // drive the humans through their turns; the bot acts server-side. Detect a bot play.
+  const humansBySeat = {};
+  humansBySeat[bHost.seat] = bHost; humansBySeat[bJoin.seat] = bJoin;
+  let botPlayed = false;
+  for (let step = 0; step < 80 && !botPlayed; step++) {
+    const ref = bHost.state;
+    if (!ref || ref.status === 'round_scoring' || ref.status === 'game_finished') break;
+    const actingId = getActingPlayerId(ref);
+    if (!actingId) { await sleep(100); continue; } // trick_complete → server timer
+    const seat = Number(actingId.split('-')[1]);
+    const human = humansBySeat[seat];
+    if (!human) { // bot's turn → wait for the server to act, then look for a bot play
+      await sleep(100);
+      const all = [
+        ...(bHost.state.currentRound?.tricks ?? []).flatMap((t) => t.plays),
+        ...(bHost.state.currentTrick?.plays ?? []),
+      ];
+      if (all.some((p) => p.playerId === botSeatId)) botPlayed = true;
+      continue;
+    }
+    const st = human.state;
+    if (st.status === 'mode_selection') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_MODE', modeId: 'no_tricks' } });
+    else if (st.status === 'select_trump') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: null } });
+    else if (st.status === 'kitty_exchange') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'EXCHANGE_KITTY', discards: st.players[seat].hand.slice(0, 2) } });
+    else if (st.status === 'playing') {
+      const led = st.currentTrick?.ledSuit ?? null;
+      const valid = getValidCards(st.players[seat].hand, led, st.currentRound.mode.id, st.trumpSuit);
+      sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'PLAY_CARD', playerId: `player-${seat}`, card: valid[0] } });
+    }
+    await sleep(110);
+  }
+  check(botPlayed, 'server-side bot played a card on its turn');
+  bHost.ws.close(); bJoin.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

@@ -71,9 +71,10 @@ export function seatToPlayerId(seat: number): string {
 
 /**
  * Builds the START_GAME action from a started room: seated players in seat
- * order, all human (online seats are real clients). The resulting player ids
- * (`player-0..n`) line up with `seatToPlayerId`, so the server's per-seat
- * redaction targets the right hand.
+ * order. Human seats are real clients; AI seats are server-side bots (their
+ * engine player gets `type: 'ai'` so the server drives them). The resulting
+ * player ids (`player-0..n`) line up with `seatToPlayerId`, so the server's
+ * per-seat redaction targets the right hand.
  */
 export function buildStartAction(room: RoomSnapshot): GameAction {
   const players = room.members
@@ -83,7 +84,7 @@ export function buildStartAction(room: RoomSnapshot): GameAction {
   return {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
-    playerTypes: players.map(() => 'human' as const),
+    playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human') as 'human' | 'ai'),
     modeSelectionType: room.modeSelectionType,
   };
 }

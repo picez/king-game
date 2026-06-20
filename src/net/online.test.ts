@@ -130,10 +130,10 @@ describe('buildStartAction', () => {
       started: true,
       hasPassword: false,
       members: [
-        { clientId: 'c2', name: 'Bob',   role: 'player',    seatIndex: 1, isHost: false, connected: true },
-        { clientId: 'c1', name: 'Alice', role: 'player',    seatIndex: 0, isHost: true,  connected: true },
-        { clientId: 'c3', name: 'Cara',  role: 'player',    seatIndex: 2, isHost: false, connected: true },
-        { clientId: 'c4', name: 'Watch', role: 'spectator', seatIndex: null, isHost: false, connected: true },
+        { clientId: 'c2', name: 'Bob',   role: 'player',    seatIndex: 1, isHost: false, connected: true, type: 'human' },
+        { clientId: 'c1', name: 'Alice', role: 'player',    seatIndex: 0, isHost: true,  connected: true, type: 'human' },
+        { clientId: 'c3', name: 'Cara',  role: 'player',    seatIndex: 2, isHost: false, connected: true, type: 'human' },
+        { clientId: 'c4', name: 'Watch', role: 'spectator', seatIndex: null, isHost: false, connected: true, type: 'human' },
       ],
     };
     const action = buildStartAction(room);
@@ -141,6 +141,24 @@ describe('buildStartAction', () => {
       type: 'START_GAME',
       playerNames: ['Alice', 'Bob', 'Cara'], // seat order, spectator excluded
       playerTypes: ['human', 'human', 'human'],
+      modeSelectionType: 'dealer_choice',
+    });
+  });
+
+  it('marks bot seats as type ai in seat order (2 humans + 1 bot)', () => {
+    const room: RoomSnapshot = {
+      code: 'BOT1', playerCount: 3, modeSelectionType: 'dealer_choice', started: true, hasPassword: false,
+      members: [
+        { clientId: 'h1', name: 'Alice', role: 'player', seatIndex: 0, isHost: true,  connected: true, type: 'human' },
+        { clientId: 'b1', name: 'Bot 1', role: 'player', seatIndex: 2, isHost: false, connected: true, type: 'ai' },
+        { clientId: 'h2', name: 'Bob',   role: 'player', seatIndex: 1, isHost: false, connected: true, type: 'human' },
+      ],
+    };
+    const action = buildStartAction(room);
+    expect(action).toEqual({
+      type: 'START_GAME',
+      playerNames: ['Alice', 'Bob', 'Bot 1'],
+      playerTypes: ['human', 'human', 'ai'], // seat 2 is the bot
       modeSelectionType: 'dealer_choice',
     });
   });

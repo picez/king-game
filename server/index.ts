@@ -22,9 +22,9 @@ import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
 import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
 import {
-  createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember,
+  createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember, addBot,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
-  listRoomSummaries, roomsToExpire, roomHasPassword,
+  listRoomSummaries, roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage } from './storage';
@@ -74,6 +74,8 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const TRICK_ADVANCE_MS = 1800;
 const ROUND_ADVANCE_MS = 10000; // give everyone time to read the round scores
+// Pause before a server-side bot makes its move, so play does not snap instantly.
+const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 800);
 
 // Room auto-clean: idle rooms expire after ROOM_TTL; rooms with a connected
 // player survive until the longer hard TTL.
@@ -96,6 +98,7 @@ function verifyOrigin(info: { origin?: string }): boolean {
 const rooms = new Map<string, ServerRoom>();
 const sockets = new Map<string, WebSocket>();              // clientId → socket
 const advanceTimers = new Map<string, ReturnType<typeof setTimeout>>(); // code → timer
+const botTimers = new Map<string, ReturnType<typeof setTimeout>>();     // code → bot-move timer
 
 const storage = createStorage();
 
@@ -139,28 +142,57 @@ function broadcastState(room: ServerRoom): void {
   }
 }
 
-/** Broadcast the new state, then schedule server-side advancement if public. */
+/**
+ * Broadcast the new state, then schedule the next server-driven step:
+ *  - public screens (trick_complete / round_scoring) auto-advance on a timer;
+ *  - otherwise, if the player to act is a bot, schedule its move after a delay.
+ * Re-entrant: each scheduled step calls this again, so a chain of bot turns (or
+ * a bot that wins a trick then leads) keeps flowing without an infinite loop —
+ * a step only reschedules when it actually changed the state.
+ */
+function clearRoomTimers(code: string): void {
+  const a = advanceTimers.get(code);
+  if (a) { clearTimeout(a); advanceTimers.delete(code); }
+  const b = botTimers.get(code);
+  if (b) { clearTimeout(b); botTimers.delete(code); }
+}
+
 function broadcastAndAdvance(room: ServerRoom): void {
   broadcastState(room);
-  const existing = advanceTimers.get(room.code);
-  if (existing) { clearTimeout(existing); advanceTimers.delete(room.code); }
+  clearRoomTimers(room.code);
 
   const status = room.gameState?.status;
   const delay = status === 'trick_complete' ? TRICK_ADVANCE_MS
     : status === 'round_scoring' ? ROUND_ADVANCE_MS
     : null;
-  if (delay == null) return;
 
-  advanceTimers.set(room.code, setTimeout(() => {
-    advanceTimers.delete(room.code);
-    if (!rooms.has(room.code)) return;
-    const before = room.dealLog.length;
-    if (autoAdvance(room, { now: Date.now() })) {
-      if (room.dealLog.length > before) logLatestDeal(room); // a new round was dealt
-      broadcastAndAdvance(room);
-      persistRoom(room);
-    }
-  }, delay));
+  if (delay != null) {
+    advanceTimers.set(room.code, setTimeout(() => {
+      advanceTimers.delete(room.code);
+      if (!rooms.has(room.code)) return;
+      const before = room.dealLog.length;
+      if (autoAdvance(room, { now: Date.now() })) {
+        if (room.dealLog.length > before) logLatestDeal(room); // a new round was dealt
+        broadcastAndAdvance(room);
+        persistRoom(room);
+      }
+    }, delay));
+    return;
+  }
+
+  // A player-owned screen: if that player is a bot, play its move after a pause.
+  if (botMemberToAct(room)) {
+    botTimers.set(room.code, setTimeout(() => {
+      botTimers.delete(room.code);
+      if (!rooms.has(room.code)) return;
+      const before = room.dealLog.length;
+      if (applyBotTurn(room).acted) {
+        if (room.dealLog.length > before) logLatestDeal(room); // bot dealt a new round
+        broadcastAndAdvance(room);
+        persistRoom(room);
+      }
+    }, BOT_DELAY_MS));
+  }
 }
 
 function welcome(socket: WebSocket, member: ServerMember, room: ServerRoom): void {
@@ -385,6 +417,18 @@ wss.on('connection', (socket: WebSocket) => {
         break;
       }
 
+      case 'ADD_BOT': {
+        if (!session) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+        const { room, clientId } = session;
+        // addBot itself rejects non-host / started / full.
+        const res = addBot(room, clientId, { clientId: randomUUID(), reconnectToken: randomUUID() });
+        if (!res.ok) return sendError(socket, res.error!, 'Cannot add bot');
+        broadcastRoom(room);
+        persistRoom(room);
+        logRoomEvent('ADD_BOT', room.code, room);
+        break;
+      }
+
       case 'LEAVE_ROOM': {
         if (session) handleLeave(session.room, session.clientId);
         session = null;
@@ -412,9 +456,11 @@ wss.on('connection', (socket: WebSocket) => {
 function handleLeave(room: ServerRoom, clientId: string): void {
   sockets.delete(clientId);
   const { empty } = removeMember(room, clientId);
-  if (empty) {
-    const timer = advanceTimers.get(room.code);
-    if (timer) { clearTimeout(timer); advanceTimers.delete(room.code); }
+  // Tear the room down once no humans remain (bots alone must not keep it alive
+  // or be promoted to host).
+  const hasHuman = [...room.members.values()].some((m) => m.type === 'human');
+  if (empty || !hasHuman) {
+    clearRoomTimers(room.code);
     rooms.delete(room.code);
     storage.deleteRoom(room.code);
     return;
@@ -423,10 +469,12 @@ function handleLeave(room: ServerRoom, clientId: string): void {
   persistRoom(room);
 }
 
-/** Reschedule server-driven advancement for a restored mid-public-screen room. */
+/** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
 function rescheduleAdvance(room: ServerRoom): void {
   const status = room.gameState?.status;
-  if (status === 'trick_complete' || status === 'round_scoring') broadcastAndAdvance(room);
+  if (status === 'trick_complete' || status === 'round_scoring' || botMemberToAct(room)) {
+    broadcastAndAdvance(room);
+  }
 }
 
 // Remove idle rooms (and their persistence + timers). Returns how many were
@@ -435,8 +483,7 @@ function rescheduleAdvance(room: ServerRoom): void {
 function cleanupRooms(): number {
   const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS);
   for (const code of expired) {
-    const timer = advanceTimers.get(code);
-    if (timer) { clearTimeout(timer); advanceTimers.delete(code); }
+    clearRoomTimers(code);
     rooms.delete(code);
     storage.deleteRoom(code); // also drop it from the persistence file
     console.log(`[King] auto-cleaned idle room ${code}`);

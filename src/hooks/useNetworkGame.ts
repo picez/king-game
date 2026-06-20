@@ -29,6 +29,8 @@ export interface NetworkGame {
   startGame: () => void;
   /** Host-only: remove another member (by clientId) from the lobby. */
   kick: (clientId: string) => void;
+  /** Host-only: add a server-side AI bot to a free seat in the lobby. */
+  addBot: () => void;
   leave: () => void;
 }
 
@@ -210,6 +212,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
 
   const startGame = useCallback(() => send({ t: 'START_GAME' }), [send]);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
+  const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
   const leave = useCallback(() => {
     // Explicit leave / back to menu: drop the saved session so we don't offer
     // to resume a game the player intentionally left.
@@ -223,6 +226,6 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   return {
     status, error, errorCode, room, state, myPlayerId,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
-    myTurn, dispatch, startGame, kick, leave,
+    myTurn, dispatch, startGame, kick, addBot, leave,
   };
 }

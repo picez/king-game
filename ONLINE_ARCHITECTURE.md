@@ -68,9 +68,42 @@ this canonical helper directly (`src/net/serverCore.ts` → `redactStateFor`).
   authoritative state.
 - **Members**: `player` (takes a seat, `seatIndex` → `player-<seatIndex>`,
   matching the ids `gameEngine` assigns) or `spectator` (receives fully
-  redacted state, cannot act).
-- **Host**: controls settings and `START_GAME`; promoted automatically if the
-  current host leaves.
+  redacted state, cannot act). Each member has a `type`: `human` or `ai` (bot).
+- **Host**: controls settings, `START_GAME`, `KICK_MEMBER`, and `ADD_BOT`;
+  promoted automatically if the current host leaves (never to a bot — a room
+  with no humans left is torn down).
+
+### Online bots (server-side AI seats)
+
+The host can fill free player seats with **AI bots** before the game starts, so
+e.g. **two humans + one bot** play a full 3-player game.
+
+- **Lobby**: host sends `ADD_BOT` (host-only, lobby-only, seat free, name `Bot N`
+  unique). A bot is a normal `player` member with `type: 'ai'`, `connected: true`,
+  a seat assigned in order, and **no socket**. Remove a bot with `KICK_MEMBER`
+  (same as a human). A bot's `reconnectToken` is never sent to any client (bots
+  get no `WELCOME`), and `reconnectMember` refuses bot tokens — so a bot cannot
+  be hijacked.
+- **Start**: `buildStartAction` maps each seat to `playerTypes` (`human`/`ai`),
+  so the engine's `players[seat].type` marks the bot.
+- **Play**: the server drives bots. After every state transition, if the acting
+  player is a bot (`botMemberToAct`), the server schedules `applyBotTurn` after
+  `BOT_DELAY_MS` (default 800ms). The bot's action comes from the shared core
+  heuristics (`aiChooseMode/Trump/KittyDiscards/Card`) and is applied through the
+  **same authorised reducer path** as a human (`applyActionRequest`) — so all
+  legality (follow-suit, forced ruff, legal discards, turn order) is enforced,
+  never bypassed. Public screens (`trick_complete`/`round_scoring`) keep their
+  existing auto-advance timers; a bot that wins a trick then leads is handled by
+  re-entering the advance/bot scheduler. The chain only re-schedules when a step
+  actually changed state, so there is no infinite loop.
+- **Bots are MVP heuristic AI** — the same opponents used in local play, run
+  server-side. They are *not* a strong engine.
+- **Privacy**: a bot's hand is redacted exactly like any other opponent's hand
+  (`redactStateFor` hides every non-viewer hand); bots are never a viewer.
+  Snapshots/room list expose only the bot's name + `type: 'ai'` — no socket,
+  token, or cards.
+- **Persistence**: bots are part of the persisted room; a restored room with
+  bots resumes (bots stay `connected: true`; their turns are rescheduled).
 - **Reconnect**: each member gets a `reconnectToken` in `WELCOME`. On a dropped
   socket the member is kept and marked disconnected; sending `RECONNECT { code,
   reconnectToken }` re-attaches the new socket and re-syncs room + state.

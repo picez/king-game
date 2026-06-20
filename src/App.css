@@ -900,6 +900,7 @@ body {
   color: var(--text-muted);
 }
 .tag--host { background: rgba(245,197,24,0.18); color: var(--accent); }
+.tag--bot  { background: rgba(120,170,255,0.18); color: #9cc0ff; }
 .tag--ok   { background: rgba(109,255,109,0.15); color: #6dff6d; }
 .tag--off  { background: rgba(255,112,112,0.15); color: #ff7070; }
 
