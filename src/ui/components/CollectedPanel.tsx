@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { useI18n } from '../../i18n';
-import { SUIT_SYMBOL } from './CardView';
+import CardView from './CardView';
 import { sortHand } from '../../core/rules';
 import { wonTrickGroups } from '../../core/tricks';
 import type { Card } from '../../models/types';
@@ -11,18 +11,12 @@ interface Props {
   playerId: string | null;
 }
 
-function isRed(suit: Card['suit']) {
-  return suit === 'hearts' || suit === 'diamonds';
-}
-
 function MiniCards({ cards, emptyLabel }: { cards: Card[]; emptyLabel: string }) {
   if (cards.length === 0) return <span className="mini-card--none">{emptyLabel}</span>;
   return (
-    <div className="mini-cards">
+    <div className="card-strip">
       {sortHand(cards).map((c, i) => (
-        <span key={i} className={`mini-card ${isRed(c.suit) ? 'mini-card--red' : 'mini-card--black'}`}>
-          {c.rank}{SUIT_SYMBOL[c.suit]}
-        </span>
+        <CardView key={`${c.suit}-${c.rank}-${i}`} card={c} small />
       ))}
     </div>
   );
@@ -77,15 +71,10 @@ export default function CollectedPanel({ playerId }: Props) {
                     <span className="trick-group__num">{t('trick.label')} {tr.trickNumber}</span>
                     <span className="trick-group__lead">▸ {nameOf(tr.leadPlayerId)}</span>
                   </div>
-                  <div className="mini-cards">
+                  <div className="card-strip">
                     {tr.plays.map((pl, i) => (
-                      <span key={i}
-                        title={nameOf(pl.playerId)}
-                        className={
-                          `mini-card ${isRed(pl.card.suit) ? 'mini-card--red' : 'mini-card--black'}` +
-                          (pl.playerId === playerId ? ' mini-card--win' : '')
-                        }>
-                        {pl.card.rank}{SUIT_SYMBOL[pl.card.suit]}
+                      <span key={i} title={nameOf(pl.playerId)} className="card-strip__slot">
+                        <CardView card={pl.card} small highlight={pl.playerId === playerId} />
                       </span>
                     ))}
                   </div>

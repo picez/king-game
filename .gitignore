@@ -14,3 +14,7 @@ dist/
 
 # Mobile QA screenshots (local only)
 .shots/
+
+# Large source sprite-sheets for card art (kept locally; sliced into
+# public/cards/faces/ which IS committed). Not needed at runtime.
+card-sources/

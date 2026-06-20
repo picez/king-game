@@ -7,8 +7,10 @@
   --card-border:  #c0c0c0;
   --card-red:     #cc0000;
   --card-black:   #111111;
+  /* Aspect ratio matches the face artwork (~0.62) so object-fit never crops the
+     printed corner indices. */
   --card-w:       58px;
-  --card-h:       86px;
+  --card-h:       94px;
   --accent:       #f5c518;
   --accent-dark:  #c49c0e;
   --text:         #f0f0f0;
@@ -314,6 +316,24 @@ body {
 
 .card:disabled { cursor: not-allowed; }
 
+/* ----- Face artwork (public/cards/faces/{suit}-{rank}.png) ----- */
+.card__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* Cream backing hides any sub-pixel gap; only shown when art is present. */
+.card--art { background: #efe7d2; }
+/* Artwork already carries its own indices + motif — drop the text layer. */
+.card--art .card__corner,
+.card--art .card__center { display: none; }
+
 .card__corner {
   position: absolute;
   display: flex;
@@ -340,14 +360,33 @@ body {
 /* Read-only, readable preview card (mode-choice dealer hand). Fixed size so it
    stays legible on a phone, independent of the interactive --card-w used in play. */
 .card--preview {
-  width: 52px;
-  height: 74px;
+  width: 54px;
+  height: 87px;
   cursor: default;
 }
 .card--preview:disabled { cursor: default; opacity: 1; }
 .card--preview .card__rank { font-size: 0.95rem; }
 .card--preview .card__suit { font-size: 0.9rem; }
 .card--preview .card__center { font-size: 1.85rem; }
+
+/* Compact, non-interactive card for dense lists (My-tricks / discard review). */
+.card--small {
+  width: 40px;
+  height: 64px;
+  cursor: default;
+}
+.card--small:hover:not(:disabled):not(.card--dimmed) {
+  transform: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.card--small .card__rank { font-size: 0.7rem; }
+.card--small .card__suit { font-size: 0.68rem; }
+.card--small .card__center { font-size: 1.15rem; }
+
+/* Static highlight ring (no hover lift) — e.g. the player's own winning card. */
+.card--highlight {
+  box-shadow: 0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.45);
+}
 
 /* ===== Player Hand ===== */
 .player-hand {
@@ -713,7 +752,7 @@ body {
 
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
-  :root { --card-w: 46px; --card-h: 68px; }
+  :root { --card-w: 46px; --card-h: 74px; }
   .screen { padding: 0.6rem; }
   .card__rank { font-size: 0.85rem; }
   .card__suit { font-size: 1rem; }
@@ -733,7 +772,7 @@ body {
 
 /* Keep the hand reachable: it scrolls horizontally rather than wrapping huge */
 @media (max-width: 420px) {
-  :root { --card-w: 42px; --card-h: 62px; }
+  :root { --card-w: 42px; --card-h: 68px; }
 }
 
 /* ===== Mode Selection (Dealer's Choice) ===== */
@@ -843,6 +882,15 @@ body {
 .mini-card--red   { color: #c0392b; }
 .mini-card--black { color: #1a1a2e; }
 .mini-card--none  { color: var(--text-muted); font-style: italic; }
+
+/* Strip of small visual cards (My-tricks / discard review). */
+.card-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.card-strip__slot { display: inline-flex; }
 
 /* ===== PassScreen ===== */
 .pass-screen {
