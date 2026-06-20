@@ -240,6 +240,52 @@ describe('round history (score tracker source)', () => {
   });
 });
 
+describe('surrender (concede a round)', () => {
+  it('No Hearts: all remaining hearts are charged to the surrendering player', () => {
+    const s0 = start(['A', 'B', 'C', 'D'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'no_hearts' })!;
+    expect(s1.status).toBe('playing'); // 4p, no kitty
+    const actor = getCurrentPlayer(s1); // dealer leads
+    const surr = gameReducer(s1, { type: 'SURRENDER_ROUND', playerId: actor.id })!;
+    expect(surr.status).toBe('round_scoring');
+    expect(surr.currentRound.surrenderedBy).toBe(actor.id);
+    // 13 hearts in a 52-card deck, none collected yet → all to the surrenderer.
+    expect(surr.currentRound.scores[actor.id]).toBe(13 * s1.config.scoring.perHeart);
+    for (const p of surr.players) {
+      if (p.id !== actor.id) expect(surr.currentRound.scores[p.id] + 0).toBe(0); // +0 normalizes -0
+    }
+    // Recorded for ALL players in the score-tracker history.
+    expect(surr.roundHistory).toHaveLength(1);
+    expect(Object.keys(surr.roundHistory[0].scoreByPlayer).sort())
+      .toEqual(['player-0', 'player-1', 'player-2', 'player-3']);
+  });
+
+  it('No Tricks: all remaining tricks are charged to the surrendering player', () => {
+    const s0 = start(['A', 'B', 'C', 'D'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'no_tricks' })!;
+    const actor = getCurrentPlayer(s1);
+    const surr = gameReducer(s1, { type: 'SURRENDER_ROUND', playerId: actor.id })!;
+    expect(surr.currentRound.scores[actor.id]).toBe(13 * s1.config.scoring.perTrick);
+  });
+
+  it('cannot surrender as another player (reducer no-op)', () => {
+    const s0 = start(['A', 'B', 'C', 'D'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'no_hearts' })!;
+    const actor = getCurrentPlayer(s1);
+    const other = s1.players.find((p) => p.id !== actor.id)!;
+    expect(gameReducer(s1, { type: 'SURRENDER_ROUND', playerId: other.id })!).toBe(s1);
+  });
+
+  it('surrender is rejected in Trump (MVP rule)', () => {
+    const s0 = start(['A', 'B', 'C', 'D'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'trump' })!;
+    const s2 = gameReducer(s1, { type: 'SELECT_TRUMP', suit: 'hearts' })!;
+    expect(s2.status).toBe('playing');
+    const actor = getCurrentPlayer(s2);
+    expect(gameReducer(s2, { type: 'SURRENDER_ROUND', playerId: actor.id })!).toBe(s2);
+  });
+});
+
 describe('per-dealer mode sets (Dealer\'s Choice)', () => {
   function sumCounts(counts: Record<string, number>): number {
     return Object.values(counts).reduce((a, b) => a + b, 0);

@@ -21,6 +21,7 @@ export type GameAction =
   | { type: 'SELECT_TRUMP'; suit: Suit | null }
   | { type: 'EXCHANGE_KITTY'; discards: Card[] }
   | { type: 'CHOOSE_MODE'; modeId: GameModeId }
+  | { type: 'SURRENDER_ROUND'; playerId: string }
   | { type: 'NEXT_TRICK' }
   | { type: 'NEXT_ROUND' }
   | { type: 'RESET' };
@@ -55,6 +56,8 @@ export function gameReducer(
       return state ? handleKittyExchange(state, action.discards) : null;
     case 'CHOOSE_MODE':
       return state ? handleChooseMode(state, action.modeId) : null;
+    case 'SURRENDER_ROUND':
+      return state ? handleSurrender(state, action.playerId) : null;
     case 'NEXT_TRICK':
       return state ? handleNextTrick(state) : null;
     case 'NEXT_ROUND':
@@ -499,6 +502,96 @@ function appendRoundHistory(
       scoreByPlayer,
     },
   ];
+}
+
+/** Penalty-card predicate for a per-card negative mode (surrender accounting). */
+function isModePenaltyCard(card: Card, modeId: GameModeId): boolean {
+  switch (modeId) {
+    case 'no_hearts':      return card.suit === 'hearts';
+    case 'no_queens':      return card.rank === 'Q';
+    case 'no_jacks':       return card.rank === 'J';
+    case 'king_of_hearts': return card.suit === 'hearts' && card.rank === 'K';
+    default:               return false;
+  }
+}
+
+/**
+ * Surrender (concede the round). MVP rule (KING_RULES.md → Surrender): only the
+ * current actor may concede, and only in a NEGATIVE mode (disabled in Trump).
+ * The round ends now; every penalty still in play is charged to the surrendering
+ * player, then the round is scored normally:
+ *  - per-card modes (No Hearts/Queens/Jacks, King of Hearts): all uncollected
+ *    penalty cards (in hands + the current trick) go to the surrendering player;
+ *  - per-trick modes (No Tricks, Last Two Tricks): every remaining trick is
+ *    awarded to the surrendering player.
+ * This can never be an advantageous exploit — you take all the outstanding
+ * penalties yourself.
+ */
+function handleSurrender(state: GameState, playerId: string): GameState {
+  if (state.status !== 'playing') return state;
+  if (getCurrentPlayer(state).id !== playerId) return state;       // self, on turn only
+  const modeId = state.currentRound.mode.id;
+  if (modeId === 'trump') return state;                            // disabled in Trump (MVP)
+
+  const playerIds = state.players.map((p) => p.id);
+  const collectedFinal: Record<string, Card[]> = {};
+  for (const pid of playerIds) collectedFinal[pid] = [...state.currentRound.collectedCards[pid]];
+  let tricksFinal = state.currentRound.tricks;
+
+  if (modeId === 'no_tricks' || modeId === 'last_two_tricks') {
+    // Award every remaining trick to the surrendering player.
+    const remaining = state.config.tricksPerRound - state.currentRound.tricks.length;
+    const synthetic: Trick[] = Array.from({ length: Math.max(0, remaining) }, (_, i) => ({
+      trickNumber: state.currentRound.tricks.length + i + 1,
+      leadPlayerId: playerId,
+      ledSuit: 'spades' as Suit,
+      plays: [],
+      winnerId: playerId,
+    }));
+    tricksFinal = [...state.currentRound.tricks, ...synthetic];
+  } else {
+    // Per-card mode: all uncollected penalty cards (hands + current trick) go to
+    // the surrendering player.
+    const inPlay: Card[] = [
+      ...state.players.flatMap((p) => p.hand),
+      ...(state.currentTrick?.plays.map((pl) => pl.card) ?? []),
+    ];
+    const remainingPenalties = inPlay.filter((c) => isModePenaltyCard(c, modeId));
+    collectedFinal[playerId] = [...collectedFinal[playerId], ...remainingPenalties];
+  }
+
+  const roundScores = calculateRoundScore(
+    modeId, tricksFinal, collectedFinal, playerIds, state.config.scoring,
+  );
+
+  const newScores = { ...state.scores };
+  for (const pid of playerIds) {
+    const rs = roundScores[pid] ?? 0;
+    newScores[pid] = {
+      ...newScores[pid],
+      roundScores: [...newScores[pid].roundScores, rs],
+      total: newScores[pid].total + rs,
+    };
+  }
+
+  const completedRound: Round = {
+    ...state.currentRound,
+    tricks: tricksFinal,
+    collectedCards: collectedFinal,
+    scores: roundScores,
+    status: 'complete',
+    surrenderedBy: playerId,
+  };
+  const roundHistory = appendRoundHistory(state, completedRound, roundScores);
+
+  return {
+    ...state,
+    scores: newScores,
+    currentRound: completedRound,
+    currentTrick: null,
+    status: 'round_scoring',
+    roundHistory,
+  };
 }
 
 function handleSelectTrump(state: GameState, suit: Suit | null): GameState {

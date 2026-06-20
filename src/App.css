@@ -392,8 +392,71 @@ body {
   color: #9dff9d;
 }
 
+/* ===== Modal sheet (in-game score tracker, etc.) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  padding: 0;
+}
+.modal-sheet {
+  background: var(--green-mid, #14532d);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+}
+.modal-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.modal-sheet__head h3 { font-size: 1.05rem; }
+
 /* ===== Score tracker table (per-dealer game matrix) ===== */
 .score-tracker { width: 100%; margin-top: 0.75rem; }
+.score-tracker__section { margin-bottom: 0.9rem; }
+.score-tracker__dealer {
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.score-tracker__grand { margin-top: 0.6rem; }
+.score-tracker__grand-title {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.35rem;
+}
+.score-tracker__grand-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.score-tracker__grand-list li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.82rem;
+}
 .score-tracker__scroll {
   width: 100%;
   overflow-x: auto;

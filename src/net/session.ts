@@ -1,10 +1,12 @@
 /**
- * Online session persistence (sessionStorage).
+ * Online session persistence (localStorage).
  *
  * Stores ONLY the small reconnect handle needed to rejoin a room after a tab
- * reload or short drop — never the GameState and never any hand. The pure
- * serialize/parse/validate functions are unit-tested; the thin save/load/clear
- * wrappers do the storage I/O and accept an injectable storage for tests.
+ * reload, a short drop, OR a full tab/browser close — never the GameState and
+ * never any hand. localStorage (not sessionStorage) is used so the "Resume"
+ * option survives closing the tab, within the TTL; older sessions are treated as
+ * stale. The pure serialize/parse/validate functions are unit-tested; the thin
+ * save/load/clear wrappers do the storage I/O and accept an injectable storage.
  */
 
 export const SESSION_VERSION = 1;
@@ -85,9 +87,10 @@ export function parseSession(raw: string | null, now: number): OnlineSession | n
 
 function defaultStorage(): StorageLike | null {
   try {
-    return typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+    // localStorage so Resume survives a full tab/browser close (within the TTL).
+    return typeof localStorage !== 'undefined' ? localStorage : null;
   } catch {
-    return null; // sessionStorage can throw in some sandboxed contexts
+    return null; // storage can throw in some sandboxed contexts
   }
 }
 

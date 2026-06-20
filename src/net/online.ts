@@ -106,6 +106,9 @@ export function authorizeAction(
     case 'PLAY_CARD':
       // Must claim to be the seat that sent it; the reducer enforces turn order.
       return action.playerId === actorId;
+    case 'SURRENDER_ROUND':
+      // You may only concede for yourself; the reducer also checks it's your turn.
+      return action.playerId === actorId;
     case 'SELECT_TRUMP':
     case 'EXCHANGE_KITTY':
     case 'CHOOSE_MODE':

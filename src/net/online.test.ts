@@ -189,6 +189,14 @@ describe('authorizeAction', () => {
     expect(authorizeAction(state, { type: 'SELECT_TRUMP', suit: 'hearts' }, nonDealerSeat)).toBe(false);
   });
 
+  it('allows SURRENDER_ROUND only for the sender\'s own seat', () => {
+    const state = start4p();
+    expect(authorizeAction(state, { type: 'SURRENDER_ROUND', playerId: 'player-2' }, 2)).toBe(true);
+    // Cannot concede on behalf of another seat.
+    expect(authorizeAction(state, { type: 'SURRENDER_ROUND', playerId: 'player-3' }, 2)).toBe(false);
+    expect(authorizeAction(state, { type: 'SURRENDER_ROUND', playerId: 'player-2' }, null)).toBe(false);
+  });
+
   it('never accepts host-internal actions from a client', () => {
     const state = start4p();
     expect(authorizeAction(state, { type: 'NEXT_TRICK' }, 0)).toBe(false);

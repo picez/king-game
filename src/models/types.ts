@@ -103,6 +103,8 @@ export interface Round {
   collectedCards: Record<string, Card[]>;
   scores: Record<string, number>;
   status: 'playing' | 'complete';
+  /** Set to the player id who conceded, if the round ended by surrender. */
+  surrenderedBy?: string;
 }
 
 export interface Score {

@@ -247,22 +247,20 @@ async function main() {
   const humansBySeat = {};
   humansBySeat[bHost.seat] = bHost; humansBySeat[bJoin.seat] = bJoin;
   let botPlayed = false;
+  const botHasPlayed = () => [
+    ...(bHost.state?.currentRound?.tricks ?? []).flatMap((t) => t.plays),
+    ...(bHost.state?.currentTrick?.plays ?? []),
+  ].some((p) => p.playerId === botSeatId);
   for (let step = 0; step < 80 && !botPlayed; step++) {
+    // Detect a bot play every iteration — the bot may act between polls.
+    if (botHasPlayed()) { botPlayed = true; break; }
     const ref = bHost.state;
     if (!ref || ref.status === 'round_scoring' || ref.status === 'game_finished') break;
     const actingId = getActingPlayerId(ref);
     if (!actingId) { await sleep(100); continue; } // trick_complete → server timer
     const seat = Number(actingId.split('-')[1]);
     const human = humansBySeat[seat];
-    if (!human) { // bot's turn → wait for the server to act, then look for a bot play
-      await sleep(100);
-      const all = [
-        ...(bHost.state.currentRound?.tricks ?? []).flatMap((t) => t.plays),
-        ...(bHost.state.currentTrick?.plays ?? []),
-      ];
-      if (all.some((p) => p.playerId === botSeatId)) botPlayed = true;
-      continue;
-    }
+    if (!human) { await sleep(100); continue; } // bot's turn → let the server act
     const st = human.state;
     if (st.status === 'mode_selection') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_MODE', modeId: 'no_tricks' } });
     else if (st.status === 'select_trump') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: null } });
@@ -276,6 +274,48 @@ async function main() {
   }
   check(botPlayed, 'server-side bot played a card on its turn');
   bHost.ws.close(); bJoin.ws.close();
+
+  // 2f) Reconnect after a drop + NAME_TAKEN guidance (lobby, pre-start)
+  console.log('\n[2f] reconnect after drop + NAME_TAKEN');
+  const rHost = await connect();
+  sendMsg(rHost, { t: 'CREATE_ROOM', name: 'RHost', playerCount: 4, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const rCode = rHost.room.code;
+  const rJoin = await connect();
+  sendMsg(rJoin, { t: 'JOIN_ROOM', code: rCode, name: 'Dropper' });
+  await sleep(200);
+  const dropperToken = rJoin.token;
+  const dropperClientId = rJoin.clientId;
+  check(rHost.room.members.length === 2, 'joiner present before the drop');
+
+  // Simulate a network drop: close the socket WITHOUT leaving the room.
+  rJoin.ws.close();
+  await sleep(250);
+
+  // The reconnect token still re-attaches the held seat.
+  const rBack = await connect();
+  sendMsg(rBack, { t: 'RECONNECT', code: rCode, reconnectToken: dropperToken });
+  await sleep(250);
+  check(!rBack.lastError && rBack.room?.members?.some((m) => m.name === 'Dropper'),
+    'reconnect with the saved token restores the seat');
+  rBack.ws.close();
+  await sleep(250);
+
+  // A NEW client joining with the same name as the (offline) member → NAME_TAKEN.
+  const rDup = await connect();
+  sendMsg(rDup, { t: 'JOIN_ROOM', code: rCode, name: 'Dropper' });
+  await sleep(150);
+  check(rDup.lastError?.code === 'NAME_TAKEN', 'join with an offline member name → NAME_TAKEN');
+  rDup.ws.close();
+
+  // Host removes the stale disconnected seat → the name frees up → join works.
+  sendMsg(rHost, { t: 'KICK_MEMBER', clientId: dropperClientId });
+  await sleep(200);
+  const rNew = await connect();
+  sendMsg(rNew, { t: 'JOIN_ROOM', code: rCode, name: 'Dropper' });
+  await sleep(200);
+  check(!rNew.lastError, 'after the host removes the old seat, the name can join');
+  rNew.ws.close(); rHost.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

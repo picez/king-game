@@ -9,6 +9,7 @@ import PlayerHand from './components/PlayerHand';
 import TablePlayers from './components/TablePlayers';
 import CollectedPanel from './components/CollectedPanel';
 import ScoreBoard from './components/ScoreBoard';
+import ScoreTracker from './components/ScoreTracker';
 
 const SUIT_COLOR_CLASS: Record<Suit, string> = {
   hearts:   'trump-suit--red',
@@ -21,6 +22,7 @@ export default function GameScreen() {
   const { state, dispatch } = useGame();
   const { t } = useI18n();
   const [showScores, setShowScores] = useState(false);
+  const [showTracker, setShowTracker] = useState(false);
 
   if (!state) return null;
 
@@ -39,6 +41,14 @@ export default function GameScreen() {
   function handlePlay(card: Card) {
     dispatch({ type: 'PLAY_CARD', playerId: currentPlayer.id, card });
   }
+
+  function handleSurrender() {
+    if (typeof window === 'undefined' || window.confirm(t('game.surrenderConfirm'))) {
+      dispatch({ type: 'SURRENDER_ROUND', playerId: currentPlayer.id });
+    }
+  }
+  // Surrender is a concede for the current actor; disabled in Trump (MVP rule).
+  const canSurrender = !isAI && currentRound.mode.id !== 'trump';
 
   return (
     <div className="screen game-screen">
@@ -63,15 +73,35 @@ export default function GameScreen() {
           ) : null}
         </div>
 
-        <button
-          className="btn btn--ghost btn--small"
-          onClick={() => setShowScores((s) => !s)}
-        >
-          {showScores ? t('game.hideScores') : t('game.scores')}
-        </button>
+        <div className="button-row">
+          <button
+            className="btn btn--ghost btn--small"
+            onClick={() => setShowScores((s) => !s)}
+          >
+            {showScores ? t('game.hideScores') : t('game.scores')}
+          </button>
+          <button
+            className="btn btn--ghost btn--small"
+            onClick={() => setShowTracker(true)}
+          >
+            {t('track.title')}
+          </button>
+        </div>
       </div>
 
       {showScores && <ScoreBoard players={players} scores={scores} />}
+
+      {showTracker && (
+        <div className="modal-overlay" onClick={() => setShowTracker(false)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-sheet__head">
+              <h3>{t('track.title')}</h3>
+              <button className="btn btn--ghost btn--small" onClick={() => setShowTracker(false)}>✕</button>
+            </div>
+            <ScoreTracker state={state} />
+          </div>
+        </div>
+      )}
 
       {/* ── Table: seats around a central trick zone ── */}
       <div className="game-body">
@@ -107,6 +137,12 @@ export default function GameScreen() {
         )}
 
         {!isAI && <CollectedPanel playerId={currentPlayer.id} />}
+
+        {canSurrender && (
+          <button className="btn btn--ghost btn--small surrender-btn" onClick={handleSurrender}>
+            🏳️ {t('game.surrender')}
+          </button>
+        )}
 
         {isAI ? (
           <div className="ai-hand-placeholder">

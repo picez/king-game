@@ -130,6 +130,10 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 {errText(joinError)} <span className="error-code">({joinError})</span>
               </p>
             )}
+            {/* If the name clash is the player's own offline seat, offer Resume. */}
+            {joinError === 'NAME_TAKEN' && resumable && resumable.roomCode === code.trim().toUpperCase() && (
+              <button className="btn btn--primary" onClick={resume}>{t('menu.resume')}</button>
+            )}
 
             <div className="field-group">
               <label>{t('form.name')}</label>

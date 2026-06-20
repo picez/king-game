@@ -194,22 +194,50 @@ mode has already been collected (it cannot change the score to play on):
 On early end the round is scored from the tricks actually played and the game
 proceeds to round scoring, then the next dealer/round.
 
+## Surrender (concede a round) — MVP
+
+A player may concede the current round instead of playing it out.
+
+- **Who/when:** only the **current actor**, only while `status === 'playing'`, and
+  only in a **negative** mode. **Surrender is disabled in Trump** (the remaining-
+  trick reward is ambiguous; revisit later).
+- **Scoring (Variant A — no exploit):** the round ends immediately and every
+  outstanding penalty is charged to the **surrendering** player, then scored
+  normally:
+  - **No Hearts / No Queens / No Jacks / King of Hearts:** all penalty cards of
+    the mode still in play (in any hand + the current trick) are added to the
+    surrendering player's collected pile.
+  - **No Tricks / Last Two Tricks:** every remaining trick of the round is
+    awarded to the surrendering player.
+  - Already-collected cards / completed tricks keep their real owners.
+- The round then goes to `round_scoring`; `Round.surrenderedBy` records who
+  conceded, and the round is written to the score-tracker history for **all**
+  players like any other round.
+- **Online:** a client sends `SURRENDER_ROUND { playerId }`; the server only
+  accepts it for the sender's own seat and only when it is their turn (the
+  reducer re-checks). Bots never surrender.
+
 ## Score Tracker
 
 A per-dealer score-tracker table is shown on round scoring and at game end.
 
-- **Rows:** the players.
-- **Columns (in order):** No Tricks, No Hearts, No Jacks, No Queens, King of
-  Hearts, Last Two Tricks, Trump 1, Trump 2, Trump 3, Total.
-- Each row is read as "how this player scored in the 9 games **they dealt**".
-  A cell `[player p][game g]` holds p's own score in the round where **p was the
-  dealer** and the chosen mode was `g`. Trump is split into three columns by the
-  order in which that dealer played their (up to 3) Trump games.
-- Unplayed games are blank (`—`). The most recent round is highlighted.
-- **Total** (right) is the player's overall standing (sum of their score across
-  **all** rounds, including rounds dealt by others) — equal to `scores[p].total`.
-- Works for 3 and 4 players (9 games per dealer). The table scrolls horizontally
-  on mobile; headers are translated (EN/UK/DE/AR).
+The board is **grouped per dealer**: one section for each player as dealer.
+
+- **Per dealer section** — columns (in order): No Tricks, No Hearts, No Jacks,
+  No Queens, King of Hearts, Last Two Tricks, Trump 1, Trump 2, Trump 3, plus a
+  per-section Subtotal. **Rows are ALL players.**
+- A cell `[dealer D][player P][game g]` holds **P's own score** in the round
+  where D was the dealer and chose mode `g`. So **every player's score for a
+  round is recorded** — not only the dealer's. (Earlier bug: only the dealer's
+  score was stored; fixed.) Trump is split into three columns by the order D
+  played their (up to 3) Trump games.
+- Unplayed games are blank (`—`); the most recent round is highlighted.
+- A **grand-total per player** (sum across every round, all dealers) is shown
+  below the sections — equal to `scores[p].total`.
+- Works for 3 and 4 players (9 games per dealer). Each section scrolls
+  horizontally on mobile; headers are translated (EN/UK/DE/AR).
+- Viewable **during a round** (a "Score table" button on the game screen opens a
+  modal); the in-progress round's cells are still blank until it is scored.
 
 To make this possible the game keeps a **round history** in state — one record
 per completed round: `{ roundNumber, dealerId, modeId, trumpOccurrence (1..3 for
@@ -249,9 +277,18 @@ are recorded exactly like full rounds.
   - game finishes after 27 rounds (3p) and 36 rounds (4p);
   - mode selection uses per-dealer counts, not a global shared pool;
 - score tracker:
-  - a score lands in the correct mode column for its dealer;
+  - **all players'** scores land in the dealer's chosen mode column (not only
+    the dealer's) — e.g. a Trump round records every player's score in that
+    dealer's Trump slot;
   - three Trump games fill Trump 1 / 2 / 3 in play order;
   - unplayed cells are empty;
-  - the row Total equals the player's overall total;
+  - the grand total per player equals `scores[playerId].total`;
   - early-ended rounds are still recorded in the history;
   - the round history survives serialize/restore (server persistence).
+- surrender:
+  - conceding charges all remaining penalties to the surrendering player
+    (per-card modes: uncollected penalty cards; per-trick modes: remaining
+    tricks);
+  - cannot surrender as another player (online auth) or out of turn;
+  - surrender is rejected in Trump (MVP);
+  - the surrendered round is recorded for all players in the score tracker.

@@ -41,7 +41,8 @@ describe('translate', () => {
       'finished.playAgain', 'wait.waitingFor', 'wait.to.choose', 'lobby.title',
       'lobby.host', 'lobby.kick', 'lobby.kickConfirm', 'err.KICKED_BY_HOST',
       'lobby.addBot', 'lobby.bot', 'lobby.aiPlayer', 'wait.botThinking',
-      'track.title', 'track.tricks', 'track.jacks', 'track.queens', 'track.trump', 'track.total',
+      'track.title', 'track.no_tricks', 'track.no_jacks', 'track.no_queens',
+      'track.king_of_hearts', 'track.last_two_tricks', 'track.trump', 'track.subtotal', 'track.total',
       'net.connecting', 'net.dealing',
     ];
     for (const { code } of LANGS) {
