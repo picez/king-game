@@ -24,10 +24,30 @@ import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/message
 import {
   createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
-  listRoomSummaries, roomsToExpire,
+  listRoomSummaries, roomsToExpire, roomHasPassword,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage } from './storage';
+
+/**
+ * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
+ * non-sensitive routing info (code, status, seats, hasPassword, errorCode) —
+ * NEVER passwords, tokens, names, or hands.
+ */
+function logRoomEvent(event: string, code: string, room: ServerRoom | null, errorCode?: string): void {
+  if (!room) {
+    console.log(`[King] ${event} room=${code || '?'} → ${errorCode ?? 'NO_ROOM'}`);
+    return;
+  }
+  const players = [...room.members.values()].filter((m) => m.role === 'player');
+  const occupied = players.length;
+  const connected = [...room.members.values()].filter((m) => m.connected).length;
+  const status = room.started ? 'in_game' : occupied >= room.playerCount ? 'full' : 'lobby';
+  console.log(
+    `[King] ${event} room=${code} status=${status} seats=${occupied}/${room.playerCount} ` +
+    `connected=${connected} hasPassword=${roomHasPassword(room)}${errorCode ? ` → ${errorCode}` : ' → OK'}`,
+  );
+}
 
 /** Logs a deal record summary for audit/debug — never logs hands. */
 function logLatestDeal(room: ServerRoom): void {
@@ -261,17 +281,23 @@ wss.on('connection', (socket: WebSocket) => {
         welcome(socket, room.members.get(clientId)!, room);
         broadcastRoom(room);
         persistRoom(room);
+        logRoomEvent('CREATE_ROOM', code, room);
         break;
       }
 
       case 'JOIN_ROOM': {
-        const room = rooms.get(String(msg.code || '').toUpperCase());
-        if (!room) return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
+        const reqCode = String(msg.code || '').toUpperCase();
+        const room = rooms.get(reqCode);
+        if (!room) {
+          logRoomEvent('JOIN_ROOM', reqCode, null, 'ROOM_NOT_FOUND');
+          return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
+        }
         const clientId = randomUUID();
         const res = addMember(room, {
           clientId, reconnectToken: randomUUID(), name: msg.name, role: msg.role, password: msg.password,
         });
         if (!res.ok) {
+          logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
           const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password' : 'Cannot join room';
           return sendError(socket, res.error!, message);
         }
@@ -281,14 +307,22 @@ wss.on('connection', (socket: WebSocket) => {
         broadcastRoom(room);
         if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId) });
         persistRoom(room);
+        logRoomEvent('JOIN_ROOM', reqCode, room);
         break;
       }
 
       case 'RECONNECT': {
-        const room = rooms.get(String(msg.code || '').toUpperCase());
-        if (!room) return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
+        const reqCode = String(msg.code || '').toUpperCase();
+        const room = rooms.get(reqCode);
+        if (!room) {
+          logRoomEvent('RECONNECT', reqCode, null, 'ROOM_NOT_FOUND');
+          return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
+        }
         const member = reconnectMember(room, msg.reconnectToken);
-        if (!member) return sendError(socket, 'ROOM_NOT_FOUND', 'Unknown reconnect token');
+        if (!member) {
+          logRoomEvent('RECONNECT', reqCode, room, 'UNKNOWN_TOKEN');
+          return sendError(socket, 'ROOM_NOT_FOUND', 'Unknown reconnect token');
+        }
         sockets.set(member.clientId, socket);
         session = { room, clientId: member.clientId };
         welcome(socket, member, room);

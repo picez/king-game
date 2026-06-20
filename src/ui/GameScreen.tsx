@@ -31,7 +31,7 @@ export default function GameScreen() {
   const currentPlayer = getCurrentPlayer(state);
   const isAI = currentPlayer.type === 'ai';
   const ledSuit = currentTrick?.ledSuit ?? null;
-  const validCards = isAI ? [] : getValidCards(currentPlayer.hand, ledSuit, currentRound.mode.id);
+  const validCards = isAI ? [] : getValidCards(currentPlayer.hand, ledSuit, currentRound.mode.id, state.trumpSuit);
 
   const modeLabel = t(`mode.${currentRound.mode.id}`);
   const modeType  = currentRound.mode.type;

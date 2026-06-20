@@ -64,6 +64,52 @@ describe('getValidCards — no leading hearts (No Hearts / King of Hearts)', () 
   });
 });
 
+describe('getValidCards — Trump forced-ruff', () => {
+  // hand has no spades; spades is led, hearts is trump.
+  const hand: Card[] = [card('hearts', 5), card('hearts', 9), card('clubs', 7)];
+
+  it('no led suit in hand + holds trump → only trumps are valid', () => {
+    const valid = getValidCards(hand, 'spades', 'trump', 'hearts');
+    expect(valid).toHaveLength(2);
+    expect(valid.every((c) => c.suit === 'hearts')).toBe(true);
+  });
+
+  it('no led suit + no trump in hand → any card valid', () => {
+    const noTrump: Card[] = [card('clubs', 7), card('diamonds', 9)];
+    const valid = getValidCards(noTrump, 'spades', 'trump', 'hearts');
+    expect(valid).toHaveLength(2); // can play anything
+  });
+
+  it('holds the led suit + holds trump → led suit still forced (no ruff)', () => {
+    const withLed: Card[] = [card('spades', 4), card('hearts', 9), card('clubs', 7)];
+    const valid = getValidCards(withLed, 'spades', 'trump', 'hearts');
+    expect(valid).toHaveLength(1);
+    expect(valid[0].suit).toBe('spades');
+  });
+
+  it('No Trump (trumpSuit null) → any card when void, no forced ruff', () => {
+    const valid = getValidCards(hand, 'spades', 'trump', null);
+    expect(valid).toHaveLength(3);
+  });
+
+  it('non-trump modes are unaffected: void → any card (no ruff)', () => {
+    expect(getValidCards(hand, 'spades', 'no_tricks', 'hearts')).toHaveLength(3);
+    expect(getValidCards(hand, 'spades', 'no_hearts')).toHaveLength(3);
+  });
+
+  it('led suit IS the trump suit → ordinary follow-suit applies', () => {
+    // hearts led and is trump; must follow hearts.
+    const valid = getValidCards(hand, 'hearts', 'trump', 'hearts');
+    expect(valid.every((c) => c.suit === 'hearts')).toBe(true);
+    expect(valid).toHaveLength(2);
+  });
+
+  it('isValidPlay enforces the forced ruff', () => {
+    expect(isValidPlay(card('clubs', 7), hand, 'spades', 'trump', 'hearts')).toBe(false); // must ruff
+    expect(isValidPlay(card('hearts', 5), hand, 'spades', 'trump', 'hearts')).toBe(true);
+  });
+});
+
 describe('isValidPlay', () => {
   const hand: Card[] = [card('spades', 5), card('hearts', 3)];
 

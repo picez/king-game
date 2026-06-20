@@ -5,10 +5,21 @@ import type { Card, GameModeId, Suit, Trick } from '../models/types';
  *
  * `modeId` enables the "no leading hearts" rule for No Hearts / King of Hearts:
  * a player leading a trick may not lead a heart while holding any non-heart
- * card (KING_RULES.md). Following suit is unaffected. When `modeId` is omitted
- * the restriction is not applied (backward compatible).
+ * card (KING_RULES.md). Following suit is unaffected.
+ *
+ * `trumpSuit` enables the **Trump forced-ruff** rule: in Trump mode, a player
+ * who cannot follow the led suit MUST play a trump if they hold one. (When the
+ * led suit is itself the trump suit, ordinary follow-suit already covers it;
+ * with No Trump, `trumpSuit` is null and any off-suit card is allowed.)
+ *
+ * Both `modeId` and `trumpSuit` are optional for backward compatibility.
  */
-export function getValidCards(hand: Card[], ledSuit: Suit | null, modeId?: GameModeId): Card[] {
+export function getValidCards(
+  hand: Card[],
+  ledSuit: Suit | null,
+  modeId?: GameModeId,
+  trumpSuit?: Suit | null,
+): Card[] {
   if (!ledSuit) {
     // Leading: in heart-penalty modes you can't open with hearts unless that's
     // all you have left.
@@ -19,11 +30,23 @@ export function getValidCards(hand: Card[], ledSuit: Suit | null, modeId?: GameM
     return hand;
   }
   const suited = hand.filter((c) => c.suit === ledSuit);
-  return suited.length > 0 ? suited : hand; // must follow suit if possible
+  if (suited.length > 0) return suited; // must follow suit
+  // Cannot follow: Trump mode forces a ruff if the player holds a trump.
+  if (modeId === 'trump' && trumpSuit && ledSuit !== trumpSuit) {
+    const trumps = hand.filter((c) => c.suit === trumpSuit);
+    if (trumps.length > 0) return trumps;
+  }
+  return hand; // no led suit and (no trump / not trump mode) → anything
 }
 
-export function isValidPlay(card: Card, hand: Card[], ledSuit: Suit | null, modeId?: GameModeId): boolean {
-  return getValidCards(hand, ledSuit, modeId).some((c) => cardEquals(c, card));
+export function isValidPlay(
+  card: Card,
+  hand: Card[],
+  ledSuit: Suit | null,
+  modeId?: GameModeId,
+  trumpSuit?: Suit | null,
+): boolean {
+  return getValidCards(hand, ledSuit, modeId, trumpSuit).some((c) => cardEquals(c, card));
 }
 
 /**

@@ -125,7 +125,11 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           <>
             <h2>{pane === 'host' ? t('host.title') : t('join.title')}</h2>
 
-            {joinError && <p className="lobby-error">{errText(joinError)}</p>}
+            {joinError && (
+              <p className="lobby-error">
+                {errText(joinError)} <span className="error-code">({joinError})</span>
+              </p>
+            )}
 
             <div className="field-group">
               <label>{t('form.name')}</label>

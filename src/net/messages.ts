@@ -179,6 +179,11 @@ export function redactStateFor(
       collectedCards,
       // The discard is private to the dealer (others get an empty array).
       discard: isDealer ? state.currentRound.discard : [],
+      // The kitty is never shown directly — and during Trump it stays pending
+      // (untaken) until the suit is chosen, so it must not leak to anyone,
+      // including the dealer, before then. The dealer interacts with it via
+      // `kittyForExchange` once taken. Redact it for every viewer.
+      kitty: [],
     },
   };
 }

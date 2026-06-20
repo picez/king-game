@@ -165,6 +165,81 @@ describe('PLAY_CARD validity (4-player game, plays immediately)', () => {
   });
 });
 
+describe('Trump flow — trump chosen BEFORE the kitty', () => {
+  it('3p DC: mode_selection → select_trump (kitty pending, hand 10) → kitty_exchange (12) → playing', () => {
+    const s0 = start(['A', 'B', 'C'], 'dealer_choice');
+    expect(s0.status).toBe('mode_selection');
+    const dealerIdx = s0.dealerIndex;
+
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'trump' })!;
+    expect(s1.status).toBe('select_trump');                  // trump first, not kitty
+    expect(s1.players[dealerIdx].hand).toHaveLength(10);     // kitty NOT taken yet
+    expect(s1.currentRound.kitty).toHaveLength(2);           // kitty still pending
+    expect(s1.trumpSuit).toBeNull();
+    expect(s1.kittyForExchange).toHaveLength(0);             // not revealed to the dealer
+
+    const s2 = gameReducer(s1, { type: 'SELECT_TRUMP', suit: 'hearts' })!;
+    expect(s2.status).toBe('kitty_exchange');                // now the kitty step
+    expect(s2.trumpSuit).toBe('hearts');
+    expect(s2.players[dealerIdx].hand).toHaveLength(12);     // kitty taken AFTER trump
+    expect(s2.currentRound.kitty).toHaveLength(0);
+
+    const discards = s2.players[dealerIdx].hand.slice(0, 2);
+    const s3 = gameReducer(s2, { type: 'EXCHANGE_KITTY', discards })!;
+    expect(s3.status).toBe('playing');
+    expect(s3.trumpSuit).toBe('hearts');
+    expect(s3.players[s3.dealerIndex].hand).toHaveLength(10);
+  });
+
+  it('4p DC: trump → select_trump → playing (no kitty)', () => {
+    const s0 = start(['A', 'B', 'C', 'D'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'trump' })!;
+    expect(s1.status).toBe('select_trump');
+    expect(s1.players[s1.dealerIndex].hand).toHaveLength(13);
+    const s2 = gameReducer(s1, { type: 'SELECT_TRUMP', suit: 'spades' })!;
+    expect(s2.status).toBe('playing');
+    expect(s2.trumpSuit).toBe('spades');
+  });
+
+  it('non-Trump 3p still takes the kitty first (kitty_exchange immediately)', () => {
+    const s0 = start(['A', 'B', 'C'], 'dealer_choice');
+    const s1 = gameReducer(s0, { type: 'CHOOSE_MODE', modeId: 'no_tricks' })!;
+    expect(s1.status).toBe('kitty_exchange');
+    expect(s1.players[s1.dealerIndex].hand).toHaveLength(12);
+  });
+});
+
+describe('round history (score tracker source)', () => {
+  function playUntilRoundScoring(state: GameState): GameState {
+    let s = state;
+    for (let guard = 0; guard < 300 && s.status !== 'round_scoring'; guard++) {
+      if (s.status === 'trick_complete') { s = gameReducer(s, { type: 'NEXT_TRICK' })!; continue; }
+      if (s.status !== 'playing') break;
+      const p = getCurrentPlayer(s);
+      const ledSuit = s.currentTrick?.ledSuit ?? null;
+      const valid = getValidCards(p.hand, ledSuit, s.currentRound.mode.id, s.trumpSuit);
+      s = gameReducer(s, { type: 'PLAY_CARD', playerId: p.id, card: valid[0] })!;
+    }
+    return s;
+  }
+
+  it('appends one record (scores only) per completed round', () => {
+    const s0 = start(['A', 'B', 'C', 'D']); // 4p fixed first mode → playing
+    expect(s0.roundHistory).toHaveLength(0);
+    const done = playUntilRoundScoring(s0);
+    expect(done.status).toBe('round_scoring');
+    expect(done.roundHistory).toHaveLength(1);
+    const rec = done.roundHistory[0];
+    expect(rec.dealerId).toBe(s0.players[s0.dealerIndex].id);
+    expect(rec.modeId).toBe(done.currentRound.mode.id);
+    expect(Object.keys(rec.scoreByPlayer).sort()).toEqual(['player-0', 'player-1', 'player-2', 'player-3']);
+    // matches the round's authoritative scores
+    for (const pid of Object.keys(rec.scoreByPlayer)) {
+      expect(rec.scoreByPlayer[pid]).toBe(done.currentRound.scores[pid]);
+    }
+  });
+});
+
 describe('per-dealer mode sets (Dealer\'s Choice)', () => {
   function sumCounts(counts: Record<string, number>): number {
     return Object.values(counts).reduce((a, b) => a + b, 0);

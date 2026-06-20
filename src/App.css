@@ -392,6 +392,53 @@ body {
   color: #9dff9d;
 }
 
+/* ===== Score tracker table (per-dealer game matrix) ===== */
+.score-tracker { width: 100%; margin-top: 0.75rem; }
+.score-tracker__scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.score-tracker__table {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.score-tracker__table th,
+.score-tracker__table td {
+  padding: 0.3rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.score-tracker__col,
+.score-tracker__total-h {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+/* Pin the player-name column so it stays visible while scrolling. */
+.score-tracker__corner,
+.score-tracker__name {
+  position: sticky;
+  left: 0;
+  text-align: left;
+  background: var(--green-mid, #14532d);
+  font-weight: 700;
+  z-index: 1;
+}
+.score-tracker__cell--empty { color: var(--text-muted); }
+.score-tracker__cell--last {
+  outline: 2px solid var(--accent);
+  border-radius: 4px;
+}
+.score-tracker__total,
+.score-tracker__total-h {
+  border-left: 2px solid rgba(255,255,255,0.18);
+  font-weight: 800;
+}
+
 .finished-games { width: 100%; }
 .finished-games__title {
   font-size: 0.95rem;
@@ -864,6 +911,12 @@ body {
   border: 1px solid rgba(255,112,112,0.5);
 }
 .lobby-kick:hover { background: rgba(255,112,112,0.15); }
+
+.error-code {
+  font-size: 0.72rem;
+  opacity: 0.7;
+  font-family: ui-monospace, monospace;
+}
 
 .lobby-error {
   color: #ff9090;

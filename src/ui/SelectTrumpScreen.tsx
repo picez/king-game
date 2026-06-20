@@ -1,7 +1,8 @@
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import type { Suit } from '../models/types';
-import { SUIT_SYMBOL } from './components/CardView';
+import CardView, { SUIT_SYMBOL } from './components/CardView';
+import { sortHand } from '../core/rules';
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 
@@ -28,6 +29,13 @@ export default function SelectTrumpScreen() {
           {t('common.round')} {roundNum}/{totalRounds} · {t('common.dealer')}: <strong>{dealer.name}</strong>
         </p>
         <p className="modal-card__desc">{t('trump.desc')}</p>
+
+        {/* The dealer chooses trump BEFORE taking the kitty, so show their hand. */}
+        <div className="mode-hand mode-hand--preview">
+          {sortHand(dealer.hand).map((c, i) => (
+            <CardView key={i} card={c} preview disabled />
+          ))}
+        </div>
 
         <div className="suit-buttons">
           {SUITS.map((suit) => (

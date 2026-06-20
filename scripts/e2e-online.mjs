@@ -170,6 +170,47 @@ async function main() {
   check(kBack.lastError?.code === 'ROOM_NOT_FOUND', 'old reconnect token no longer works after kick');
   kBack.ws.close(); kJoin.ws.close(); kHost.ws.close();
 
+  // 2d) Lobby robustness: NAME_TAKEN, host-leave promotion, room-list joinability
+  console.log('\n[2d] lobby robustness (join diagnostics)');
+  const dHost = await connect();
+  sendMsg(dHost, { t: 'CREATE_ROOM', name: 'DHost', playerCount: 4, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const dCode = dHost.room.code;
+
+  // duplicate name → NAME_TAKEN
+  const dup = await connect();
+  sendMsg(dup, { t: 'JOIN_ROOM', code: dCode, name: 'DHost' });
+  await sleep(150);
+  check(dup.lastError?.code === 'NAME_TAKEN', 'duplicate name → NAME_TAKEN');
+  dup.ws.close();
+
+  const dJoin = await connect();
+  sendMsg(dJoin, { t: 'JOIN_ROOM', code: dCode, name: 'DJoin' });
+  await sleep(200);
+  check(dHost.room.members.length === 2, 'joiner present (2 members)');
+
+  // room list summary matches actual joinability
+  const dlist = await connect();
+  sendMsg(dlist, { t: 'LIST_ROOMS' });
+  await sleep(150);
+  const drow = (dlist.roomsList ?? []).find((r) => r.code === dCode);
+  check(drow?.status === 'lobby', 'room list status=lobby (joinable)');
+  check(drow?.occupiedSeats === 2 && drow?.playerCount === 4, 'room list shows seats 2/4');
+  dlist.ws.close();
+
+  // host leaves before start → a remaining member is promoted; room stays valid
+  sendMsg(dHost, { t: 'LEAVE_ROOM' });
+  await sleep(200);
+  check(dJoin.room.members.length === 1, 'after host leaves, room remains (1 member)');
+  check(dJoin.room.members.some((m) => m.isHost), 'host promotion: a remaining member is now host');
+
+  // a new player can still join the promoted-host room (not blocked / not full)
+  const dJoin2 = await connect();
+  sendMsg(dJoin2, { t: 'JOIN_ROOM', code: dCode, name: 'DJoin2' });
+  await sleep(200);
+  check(!dJoin2.lastError, 'new player can join after host promotion');
+  dJoin.ws.close(); dJoin2.ws.close(); dHost.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });
@@ -190,19 +231,33 @@ async function main() {
   const nonDealer = clients.find((c) => c.seat !== dealerSeat);
   check(!!dealer, `dealer identified (seat ${dealerSeat}, ${dealer?.room.members[dealerSeat]?.name})`);
 
-  // 4) Only the dealer may choose the mode
-  console.log('\n[3] dealer chooses Trump');
+  // 4) Only the dealer may choose the mode (Trump). Trump is chosen BEFORE the
+  //    kitty now, so the order is: CHOOSE_MODE → select_trump → kitty_exchange.
+  console.log('\n[3] dealer chooses Trump → select_trump (before kitty)');
   sendMsg(nonDealer, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_MODE', modeId: 'trump' } });
   await sleep(150);
   check(nonDealer.lastError?.code === 'NOT_YOUR_TURN', 'non-dealer CHOOSE_MODE rejected');
 
   sendMsg(dealer, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_MODE', modeId: 'trump' } });
   await sleep(250);
-  check(dealer.state?.status === 'kitty_exchange', 'dealer chose Trump → kitty_exchange');
-  check(dealer.state.players[dealerSeat].hand.length === 12, 'dealer drew the kitty (12 cards)');
+  check(dealer.state?.status === 'select_trump', 'dealer chose Trump → select_trump (not kitty)');
+  check(dealer.state.players[dealerSeat].hand.length === 10, 'dealer hand still 10 (kitty NOT taken yet)');
+  check((dealer.state?.currentRound.kitty?.length ?? 0) === 0, 'kitty is not revealed before trump (redacted)');
 
-  // 5) Kitty exchange — dealer only
-  console.log('\n[4] kitty exchange + trump select');
+  // 3b) Select trump → NOW the dealer takes the kitty
+  console.log('\n[3b] select trump → kitty_exchange');
+  sendMsg(nonDealer, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: 'hearts' } });
+  await sleep(120);
+  check(nonDealer.lastError?.code === 'NOT_YOUR_TURN', 'non-dealer SELECT_TRUMP rejected');
+
+  sendMsg(dealer, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: 'hearts' } });
+  await sleep(250);
+  check(dealer.state?.status === 'kitty_exchange', 'trump chosen → kitty_exchange');
+  check(dealer.state?.trumpSuit === 'hearts', 'trump suit is hearts');
+  check(dealer.state.players[dealerSeat].hand.length === 12, 'dealer drew the kitty AFTER trump (12 cards)');
+
+  // 5) Kitty exchange — dealer only → playing
+  console.log('\n[4] kitty exchange → playing');
   sendMsg(nonDealer, { t: 'ACTION_REQUEST', action: { type: 'EXCHANGE_KITTY', discards: [] } });
   await sleep(120);
   check(nonDealer.lastError?.code === 'NOT_YOUR_TURN', 'non-dealer kitty exchange rejected');
@@ -210,14 +265,9 @@ async function main() {
   const discards = dealer.state.players[dealerSeat].hand.slice(0, 2);
   sendMsg(dealer, { t: 'ACTION_REQUEST', action: { type: 'EXCHANGE_KITTY', discards } });
   await sleep(250);
-  check(dealer.state?.status === 'select_trump', 'kitty exchanged → select_trump');
+  check(dealer.state?.status === 'playing', 'kitty exchanged → playing');
   check((dealer.state?.currentRound.discard?.length ?? 0) === 2, 'dealer sees their own discard');
   check((nonDealer.state?.currentRound.discard?.length ?? 0) === 0, 'non-dealer cannot see the dealer discard');
-
-  sendMsg(dealer, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: 'hearts' } });
-  await sleep(250);
-  check(dealer.state?.status === 'playing', 'trump chosen → playing');
-  check(dealer.state?.trumpSuit === 'hearts', 'trump suit is hearts');
 
   // 6) Redaction: each client sees only its own hand
   console.log('\n[5] redaction + a valid play');

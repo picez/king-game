@@ -26,11 +26,28 @@ Each round, in order:
 1. Cards are dealt.
 2. The dealer looks at **their own initial hand** (without the kitty).
 3. The dealer picks the game mode from their remaining personal set.
-4. The dealer takes the kitty into hand.
-5. The dealer discards the same number of cards (legal discards only).
-6. If the mode is Trump, the dealer chooses the trump suit.
+4. **If the mode is Trump, the dealer chooses the trump suit *now* — BEFORE
+   taking the kitty.** The dealer must not see the kitty before choosing trump.
+5. The dealer takes the kitty into hand (when a kitty exists).
+6. The dealer discards the same number of cards (legal discards only).
 7. Play begins — **the dealer leads (plays first) the first trick.** Turn order
    then proceeds clockwise (by seat). The winner of each trick leads the next.
+
+Exact step order per mode (the trump suit is chosen *before* the kitty):
+
+- **Trump:** deal → dealer sees hand → choose Trump mode → **choose trump suit**
+  → take kitty → discard → dealer leads.
+- **Non-Trump:** deal → dealer sees hand → choose mode → take kitty → discard →
+  dealer leads.
+
+The authoritative status order is therefore:
+- Trump (3p): `mode_selection` → `select_trump` → `kitty_exchange` → `playing`.
+- Trump (4p, no kitty): `mode_selection` → `select_trump` → `playing`.
+- Non-Trump (3p): `mode_selection` → `kitty_exchange` → `playing`.
+- Non-Trump (4p): `mode_selection` → `playing`.
+
+The server is authoritative for this order online; clients only render the
+screen for the current status.
 
 - **Dealer's Choice is the primary mode.** Fixed order is a secondary option
   only.
@@ -121,7 +138,14 @@ Implementation requirements:
   Hearts** a player may not *lead* with a heart while they still hold a
   non-heart card (if hearts are all they have, they may lead a heart).
 - Once a suit is led, a player must follow suit if they hold a card of that
-  suit; otherwise they may play any card.
+  suit.
+- **Trump forced-ruff:** in **Trump** mode, if a player cannot follow the led
+  suit but holds a card of the trump suit, they **must** play a trump. If they
+  hold neither the led suit nor a trump, they may play any card. (When the led
+  suit *is* the trump suit, ordinary follow-suit already covers this. With "No
+  Trump", there is no trump suit, so any card may be played when off-suit.)
+- In non-Trump modes there is no trump, so a player who cannot follow suit may
+  play any card.
 - Trick winner:
   - if a trump exists and the trick contains trumps, the highest trump wins;
   - otherwise the highest card of the led suit wins.
@@ -129,10 +153,12 @@ Implementation requirements:
 ## Trump
 
 - Trump is a positive mode.
-- The dealer chooses the trump suit.
-- No Trump is allowed: the dealer may choose "No Trump".
-- In Trump, the dealer also takes the kitty and discards (when a kitty exists),
-  before selecting trump.
+- The dealer chooses the trump suit **before taking the kitty** (so the kitty
+  cards cannot influence the trump choice and stay hidden until trump is set).
+- No Trump is allowed: the dealer may choose "No Trump" (then no forced-ruff).
+- After choosing trump, the dealer takes the kitty and discards (when a kitty
+  exists), then leads the first trick.
+- Forced-ruff applies during play: see Trick Rules.
 
 ## Scoring
 
@@ -168,11 +194,44 @@ mode has already been collected (it cannot change the score to play on):
 On early end the round is scored from the tricks actually played and the game
 proceeds to round scoring, then the next dealer/round.
 
+## Score Tracker
+
+A per-dealer score-tracker table is shown on round scoring and at game end.
+
+- **Rows:** the players.
+- **Columns (in order):** No Tricks, No Hearts, No Jacks, No Queens, King of
+  Hearts, Last Two Tricks, Trump 1, Trump 2, Trump 3, Total.
+- Each row is read as "how this player scored in the 9 games **they dealt**".
+  A cell `[player p][game g]` holds p's own score in the round where **p was the
+  dealer** and the chosen mode was `g`. Trump is split into three columns by the
+  order in which that dealer played their (up to 3) Trump games.
+- Unplayed games are blank (`—`). The most recent round is highlighted.
+- **Total** (right) is the player's overall standing (sum of their score across
+  **all** rounds, including rounds dealt by others) — equal to `scores[p].total`.
+- Works for 3 and 4 players (9 games per dealer). The table scrolls horizontally
+  on mobile; headers are translated (EN/UK/DE/AR).
+
+To make this possible the game keeps a **round history** in state — one record
+per completed round: `{ roundNumber, dealerId, modeId, trumpOccurrence (1..3 for
+Trump, else 0), scoreByPlayer }`. It holds only scores (no hands/cards), is part
+of the authoritative state, and survives server persistence/restore. The pure
+helper `buildScoreTracker(state)` derives the table from it. Early-ended rounds
+are recorded exactly like full rounds.
+
 ## Tests Required For Rule Changes
 
 - deck creation 32/52 without duplicates;
 - dealing for 3/4 players;
 - follow-suit rule;
+- trump forced-ruff:
+  - Trump mode, no led suit in hand + holds a trump → only trumps are valid;
+  - no led suit + no trump → any card valid;
+  - holds the led suit + holds a trump → led suit still forced;
+  - non-Trump modes are unaffected (off-suit → any card);
+- trump-before-kitty order:
+  - Trump 3p: `mode_selection` → `select_trump` → `kitty_exchange` → `playing`;
+  - the dealer's hand stays 10 cards (kitty not taken) until trump is chosen;
+  - the kitty is never visible (to anyone) before trump is selected;
 - trick winner with and without trump;
 - scoring of all modes (3p and 4p);
 - kitty discard legality:
@@ -188,4 +247,11 @@ proceeds to round scoring, then the next dealer/round.
   - choosing Trump decrements only that dealer's Trump count (3 → 2);
   - one dealer's choice does not remove the mode for other dealers;
   - game finishes after 27 rounds (3p) and 36 rounds (4p);
-  - mode selection uses per-dealer counts, not a global shared pool.
+  - mode selection uses per-dealer counts, not a global shared pool;
+- score tracker:
+  - a score lands in the correct mode column for its dealer;
+  - three Trump games fill Trump 1 / 2 / 3 in play order;
+  - unplayed cells are empty;
+  - the row Total equals the player's overall total;
+  - early-ended rounds are still recorded in the history;
+  - the round history survives serialize/restore (server persistence).

@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 import type { Card } from '../models/types';
 import { sortHand, cardEquals } from '../core/rules';
 import { canDiscardToKitty } from '../core/kitty';
-import CardView from './components/CardView';
+import CardView, { SUIT_SYMBOL } from './components/CardView';
 
 export default function KittyExchangeScreen() {
   const { state, dispatch } = useGame();
@@ -42,14 +42,17 @@ export default function KittyExchangeScreen() {
       <div className="modal-card modal-card--wide">
         <h2>{t('kitty.title')}</h2>
         <p className="modal-card__sub">
-          <strong>{modeName}</strong> · {t('common.dealer')}: <strong>{dealer.name}</strong>
+          <strong>{modeName}</strong>
+          {isTrump && (
+            <> · {t('common.trump')}: <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : t('common.noTrump')}</strong></>
+          )}
+          {' '}· {t('common.dealer')}: <strong>{dealer.name}</strong>
         </p>
         <p className="modal-card__desc">
           {t('kitty.intro')}
           {modeId !== 'no_tricks' && modeId !== 'last_two_tricks' && !isTrump && (
             <> {t('kitty.locked')}</>
           )}
-          {isTrump && <> {t('kitty.thenTrump')}</>}
         </p>
 
         <p className="kitty-counter">
@@ -80,9 +83,7 @@ export default function KittyExchangeScreen() {
           disabled={selected.length !== kittySize}
           onClick={handleConfirm}
         >
-          {isTrump
-            ? `${t('kitty.discard')} ${kittySize} ${t('kitty.andTrump')} →`
-            : `${t('kitty.discard')} ${kittySize} →`}
+          {`${t('kitty.discard')} ${kittySize} →`}
         </button>
       </div>
     </div>

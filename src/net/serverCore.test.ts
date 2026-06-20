@@ -164,6 +164,22 @@ describe('persistence (serialize / restore)', () => {
     expect(restored.started).toBe(true);
   });
 
+  it('keeps the score-tracker round history through a save/load round-trip', () => {
+    const room = room4pFixed();
+    startGame(room, { seed: 7 });
+    // Inject a completed-round record (scores only) as the engine would.
+    room.gameState = {
+      ...room.gameState!,
+      roundHistory: [
+        { roundNumber: 0, dealerId: 'player-0', modeId: 'trump', trumpOccurrence: 1, scoreByPlayer: { 'player-0': 24, 'player-1': 0, 'player-2': 8, 'player-3': 0 } },
+      ],
+    };
+    const storage = new MemoryRoomStorage();
+    storage.saveRoom(room);
+    const [restored] = storage.loadRooms();
+    expect(restored.gameState!.roundHistory).toEqual(room.gameState!.roundHistory);
+  });
+
   it('reconnect works after a restore (token survives, sockets do not)', () => {
     const room = room4pFixed();
     startGame(room, { seed: 5 });

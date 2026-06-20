@@ -152,6 +152,7 @@ function startGame(
       trumpSuit: null,
       kittyForExchange: [],
       dealerModes,
+      roundHistory: [],
     },
     0,
     rng,
@@ -239,18 +240,20 @@ function startRound(state: GameState, roundIdx: number, rng: Rng = Math.random):
 
   let roundKitty: Card[] = kitty;
   let kittyForExchange: Card[] = [];
+  let status: GameStatus;
 
-  // The dealer always takes the kitty (every mode) when one exists, then
-  // discards in kitty_exchange. Discarded cards leave the game (KING_RULES.md).
-  if (hasKitty) {
+  // Trump chooses the suit BEFORE the kitty: keep the kitty pending (in
+  // round.kitty) and the dealer's hand untouched until trump is selected. Every
+  // other mode takes the kitty now (when one exists) and discards first.
+  if (isTrump) {
+    status = 'select_trump';
+  } else if (hasKitty) {
     kittyForExchange = kitty;
-    const dealerId = updatedPlayers[dealerIdx].id;
-    updatedPlayers = updatedPlayers.map((p) =>
-      p.id === dealerId
-        ? { ...p, hand: [...p.hand, ...kitty] }
-        : p,
-    );
+    updatedPlayers = takeKitty(updatedPlayers, dealerIdx, kitty);
     roundKitty = [];
+    status = 'kitty_exchange';
+  } else {
+    status = 'playing';
   }
 
   const collectedCards: Record<string, Card[]> = {};
@@ -269,11 +272,6 @@ function startRound(state: GameState, roundIdx: number, rng: Rng = Math.random):
   };
 
   const leaderIdx = dealerIdx; // the dealer leads the first trick (KING_RULES.md)
-
-  let status: GameStatus;
-  if (hasKitty)        status = 'kitty_exchange'; // dealer discards first (all modes)
-  else if (isTrump)    status = 'select_trump';   // 4P trump: straight to selection
-  else                 status = 'playing';
 
   // Consume this mode from the dealer's personal set (mirrors Dealer's Choice).
   const fixedDealerModes = consumeDealerMode(
@@ -295,6 +293,12 @@ function startRound(state: GameState, roundIdx: number, rng: Rng = Math.random):
     kittyForExchange,
     dealerModes: fixedDealerModes,
   };
+}
+
+/** Moves the round's kitty cards into the dealer's hand (the kitty_exchange step). */
+function takeKitty(players: Player[], dealerIdx: number, kitty: Card[]): Player[] {
+  const dealerId = players[dealerIdx].id;
+  return players.map((p) => (p.id === dealerId ? { ...p, hand: [...p.hand, ...kitty] } : p));
 }
 
 /**
@@ -357,7 +361,8 @@ function handlePlayCard(
   if (currentPlayer.id !== playerId) return state;
 
   const ledSuit = state.currentTrick?.ledSuit ?? null;
-  if (!isValidPlay(card, currentPlayer.hand, ledSuit, state.currentRound.mode.id)) return state;
+  // Pass the trump suit so Trump mode can enforce the forced-ruff rule.
+  if (!isValidPlay(card, currentPlayer.hand, ledSuit, state.currentRound.mode.id, state.trumpSuit)) return state;
 
   // Remove card from hand
   const newHand = removeCardFromHand(currentPlayer.hand, card);
@@ -453,6 +458,10 @@ function handlePlayCard(
     status: 'complete',
   };
 
+  // Append a scores-only record to the round history (powers the score tracker).
+  // Records every completed round identically, including early-ended ones.
+  const roundHistory = appendRoundHistory(state, completedRound, roundScores);
+
   return {
     ...state,
     players: newPlayers,
@@ -461,13 +470,55 @@ function handlePlayCard(
     currentTrick: resolvedTrick,
     currentLeaderIdx: winnerIdx,
     status: 'round_scoring',
+    roundHistory,
   };
+}
+
+/**
+ * Builds the next round-history array with one record for the just-completed
+ * round. Trump games are numbered per dealer in play order (1st, 2nd, 3rd).
+ */
+function appendRoundHistory(
+  state: GameState,
+  completedRound: Round,
+  roundScores: Record<string, number>,
+): GameState['roundHistory'] {
+  const history = state.roundHistory ?? [];
+  const dealerId = completedRound.dealerId;
+  const modeId = completedRound.mode.id;
+  const priorTrump = history.filter((r) => r.dealerId === dealerId && r.modeId === 'trump').length;
+  const scoreByPlayer: Record<string, number> = {};
+  for (const p of state.players) scoreByPlayer[p.id] = roundScores[p.id] ?? 0;
+  return [
+    ...history,
+    {
+      roundNumber: state.currentRoundIdx,
+      dealerId,
+      modeId,
+      trumpOccurrence: modeId === 'trump' ? priorTrump + 1 : 0,
+      scoreByPlayer,
+    },
+  ];
 }
 
 function handleSelectTrump(state: GameState, suit: Suit | null): GameState {
   if (state.status !== 'select_trump') return state;
-  // Update trumpSuit on the current round's mode and on state
+  // Trump is chosen BEFORE the kitty. Now that the suit is set, the dealer takes
+  // the still-pending kitty (if any) and moves on to discard; with no kitty
+  // (4-player) play starts immediately.
   const updatedMode = { ...state.currentRound.mode, trumpSuit: suit };
+  const pendingKitty = state.currentRound.kitty; // untaken during trump flow
+  if (pendingKitty.length > 0) {
+    const players = takeKitty(state.players, state.dealerIndex, pendingKitty);
+    return {
+      ...state,
+      players,
+      trumpSuit: suit,
+      currentRound: { ...state.currentRound, mode: updatedMode, kitty: [] },
+      kittyForExchange: pendingKitty,
+      status: 'kitty_exchange',
+    };
+  }
   return {
     ...state,
     trumpSuit: suit,
@@ -492,45 +543,44 @@ function handleChooseMode(state: GameState, modeId: GameModeId): GameState {
 
   const isTrump = modeId === 'trump';
   // Whenever a kitty exists (3-player games) the dealer takes it and discards
-  // in EVERY mode. 4-player games have no kitty.
+  // (non-Trump modes). 4-player games have no kitty.
   const hasKitty = config.kittySize > 0;
 
   // Decrement only THIS dealer's count for the chosen mode.
   const dealerModes = consumeDealerMode(state.dealerModes, dealerId, modeId);
 
+  // Trump: the dealer chooses the suit BEFORE taking the kitty. Leave the hand
+  // and the (pending) kitty untouched and go to trump selection. The kitty is
+  // taken later, in handleSelectTrump — so it never becomes visible first.
+  if (isTrump) {
+    return {
+      ...state,
+      currentRound: { ...state.currentRound, mode },
+      dealerModes,
+      kittyForExchange: [],
+      trumpSuit: null,
+      status: 'select_trump',
+    };
+  }
+
+  // Non-Trump: take the kitty now (if any) and discard; otherwise start playing.
   let updatedPlayers = state.players;
   let kittyForExchange: Card[] = [];
   let roundKitty = state.currentRound.kitty;
-
   if (hasKitty) {
-    // Move the kitty cards into the dealer's hand; the dealer then discards
-    // the same number (legal cards only) in KittyExchangeScreen. Discarded
-    // cards leave the game entirely (KING_RULES.md).
     kittyForExchange = state.currentRound.kitty;
-    const dealerId = state.players[dealerIdx].id;
-    updatedPlayers = state.players.map((p) =>
-      p.id === dealerId
-        ? { ...p, hand: [...p.hand, ...state.currentRound.kitty] }
-        : p,
-    );
+    updatedPlayers = takeKitty(state.players, dealerIdx, state.currentRound.kitty);
     roundKitty = [];
   }
-
-  const updatedRound = { ...state.currentRound, mode, kitty: roundKitty };
-
-  let status: GameStatus;
-  if (hasKitty)     status = 'kitty_exchange';  // dealer discards first (all modes)
-  else if (isTrump) status = 'select_trump';    // 4P trump: straight to selection
-  else              status = 'playing';          // 4P negative modes: start playing
 
   return {
     ...state,
     players: updatedPlayers,
-    currentRound: updatedRound,
+    currentRound: { ...state.currentRound, mode, kitty: roundKitty },
     dealerModes,
     kittyForExchange,
     trumpSuit: null,
-    status,
+    status: hasKitty ? 'kitty_exchange' : 'playing',
   };
 }
 
@@ -570,8 +620,9 @@ function handleKittyExchange(state: GameState, discards: Card[]): GameState {
     // Keep the discard privately on the round so the dealer can review it.
     currentRound: { ...state.currentRound, discard: discards },
     kittyForExchange: [],
-    // Trump still needs a suit chosen; every other mode starts playing now.
-    status: modeId === 'trump' ? 'select_trump' : 'playing',
+    // Trump's suit was already chosen before the kitty, so every mode now starts
+    // playing right after the discard.
+    status: 'playing',
   };
 }
 

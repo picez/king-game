@@ -1,6 +1,6 @@
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
-import GamesMatrix from './components/GamesMatrix';
+import ScoreTracker from './components/ScoreTracker';
 
 interface RankedPlayer {
   name: string;
@@ -61,10 +61,10 @@ export default function GameFinishedScreen() {
           </tbody>
         </table>
 
-        {/* Completed-games matrix: confirms every player closed all 9 games. */}
+        {/* Per-dealer score-tracker table (all 9 games of each dealer). */}
         <div className="finished-games">
-          <h3 className="finished-games__title">{t('finished.gamesTitle')}</h3>
-          <GamesMatrix state={state} />
+          <h3 className="finished-games__title">{t('track.title')}</h3>
+          <ScoreTracker state={state} />
         </div>
 
         {online ? (

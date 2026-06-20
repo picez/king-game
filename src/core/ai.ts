@@ -136,8 +136,8 @@ export function aiChooseCard(state: GameState): Card {
   const ledSuit = state.currentTrick?.ledSuit ?? null;
   const plays = state.currentTrick?.plays ?? [];
   const modeId = state.currentRound.mode.id;
-  // Respects the "no leading hearts" rule in heart-penalty modes.
-  const validCards = getValidCards(currentPlayer.hand, ledSuit, modeId);
+  // Respects the "no leading hearts" rule and the Trump forced-ruff rule.
+  const validCards = getValidCards(currentPlayer.hand, ledSuit, modeId, state.trumpSuit);
 
   if (validCards.length === 0) return currentPlayer.hand[0]; // fallback (shouldn't happen)
   if (validCards.length === 1) return validCards[0];

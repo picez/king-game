@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import { SUIT_SYMBOL } from './components/CardView';
-import GamesMatrix from './components/GamesMatrix';
+import ScoreTracker from './components/ScoreTracker';
 import type { Card, Suit } from '../models/types';
 
 const SUIT_ORDER: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -93,15 +93,15 @@ export default function RoundScoringScreen() {
           </tbody>
         </table>
 
-        {/* Games remaining (per-player dealer-mode progress) */}
+        {/* Score tracker: per-dealer game matrix with totals */}
         <div className="collected-section">
           <button
             className="btn btn--outline btn--small"
             onClick={() => setShowGames((v) => !v)}
           >
-            {t('scoring.gamesTitle')} {showGames ? '▴' : '▾'}
+            {t('track.title')} {showGames ? '▴' : '▾'}
           </button>
-          {showGames && <GamesMatrix state={st} dealerId={currentRound.dealerId} />}
+          {showGames && <ScoreTracker state={st} />}
         </div>
 
         {/* Collected cards toggle */}

@@ -122,6 +122,20 @@ export interface ModeQueueEntry {
  */
 export type ModeCounts = Record<GameModeId, number>;
 
+/**
+ * One completed round, kept for the score-tracker table. Holds ONLY scores
+ * (never hands/cards), so it is safe to send to every client and to persist.
+ */
+export interface RoundRecord {
+  roundNumber: number;
+  dealerId: string;
+  modeId: GameModeId;
+  /** 1..3 for the dealer's n-th Trump game this game; 0 for non-Trump modes. */
+  trumpOccurrence: number;
+  /** Each player's score for this round (playerId → points). */
+  scoreByPlayer: Record<string, number>;
+}
+
 export interface GameState {
   config: GameConfig;
   players: Player[];
@@ -142,4 +156,10 @@ export interface GameState {
    * only from their own set; one dealer's choice never affects another's.
    */
   dealerModes: Record<string, ModeCounts>;
+  /**
+   * Append-only history of completed rounds (scores only) powering the
+   * score-tracker table. Survives serialize/restore. Older persisted states may
+   * lack this field — read it as `?? []`.
+   */
+  roundHistory: RoundRecord[];
 }
