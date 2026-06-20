@@ -7,6 +7,7 @@ import {
   verifyPassword, serializeRoom, deserializeRoom, MemoryRoomStorage,
   roomSummary, listRoomSummaries, roomsToExpire, kickMember,
   addBot, activePlayers, botMemberToAct, applyBotTurn,
+  setTimer, normalizeTimer, applyTimeoutAction,
   type ServerRoom,
 } from './serverCore';
 
@@ -223,7 +224,7 @@ describe('persistence (serialize / restore)', () => {
     // Member shape is the documented set only.
     const persisted = serializeRoom(room);
     expect(Object.keys(persisted.members[0]).sort()).toEqual(
-      ['clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex', 'type'],
+      ['avatar', 'clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex', 'type'],
     );
   });
 
@@ -707,6 +708,89 @@ describe('server-side bots', () => {
     // is now a human's (or a public screen), never stuck on the bot.
     expect(botMemberToAct(r)).toBeNull();
     expect(['playing', 'trick_complete', 'round_scoring']).toContain(r.gameState!.status);
+  });
+});
+
+describe('avatars (member identity)', () => {
+  it('snapshot exposes each member\'s avatar; host avatar is whitelisted', () => {
+    const room = createRoom({
+      code: 'AVT', playerCount: 4, modeSelectionType: 'fixed',
+      host: { clientId: id(), reconnectToken: id(), name: 'Host', avatar: '🦊' },
+    });
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'B', avatar: '<script>' }); // invalid → default
+    const snap = snapshot(room);
+    expect(snap.members[0].avatar).toBe('🦊');
+    expect(typeof snap.members[1].avatar).toBe('string');
+    expect(snap.members[1].avatar).not.toContain('<'); // sanitized, never raw text
+  });
+
+  it('start game carries avatars into GameState players', () => {
+    const room = createRoom({
+      code: 'AVT2', playerCount: 4, modeSelectionType: 'fixed',
+      host: { clientId: id(), reconnectToken: id(), name: 'Host', avatar: '🐼' },
+    });
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'B' });
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'C' });
+    addMember(room, { clientId: id(), reconnectToken: id(), name: 'D' });
+    startGame(room, { seed: 1 });
+    expect(room.gameState!.players[0].avatar).toBe('🐼');
+    expect(room.gameState!.players.every((p) => typeof p.avatar === 'string')).toBe(true);
+  });
+});
+
+describe('turn timer (host setting + auto-action)', () => {
+  const arr = (room: ServerRoom) => [...room.members.values()];
+
+  it('normalizeTimer accepts only 30/60/90, else 0', () => {
+    expect(normalizeTimer(30)).toBe(30);
+    expect(normalizeTimer(60)).toBe(60);
+    expect(normalizeTimer(90)).toBe(90);
+    expect(normalizeTimer(45)).toBe(0);
+    expect(normalizeTimer('60')).toBe(0);
+    expect(normalizeTimer(undefined)).toBe(0);
+  });
+
+  it('host can set the timer before start; non-host cannot', () => {
+    const room = room4pFixed();
+    const [host, b] = arr(room);
+    expect(setTimer(room, host.clientId, 60).ok).toBe(true);
+    expect(room.turnTimerSec).toBe(60);
+    expect(setTimer(room, b.clientId, 30)).toMatchObject({ ok: false, error: 'NOT_HOST' });
+    expect(room.turnTimerSec).toBe(60); // unchanged
+  });
+
+  it('cannot change the timer after the game started', () => {
+    const room = room4pFixed();
+    const host = arr(room)[0];
+    startGame(room);
+    expect(setTimer(room, host.clientId, 30)).toMatchObject({ ok: false, error: 'GAME_ALREADY_STARTED' });
+  });
+
+  it('the timer setting survives serialize/restore', () => {
+    const room = room4pFixed();
+    setTimer(room, arr(room)[0].clientId, 90);
+    const restored = deserializeRoom(serializeRoom(room))!;
+    expect(restored.turnTimerSec).toBe(90);
+  });
+
+  it('applyTimeoutAction plays a legal move for the current actor via the reducer', () => {
+    const room = room4pFixed();
+    startGame(room); // 4p fixed → playing, dealer leads
+    const before = room.gameState!.currentTrick?.plays.length ?? 0;
+    const res = applyTimeoutAction(room);
+    expect(res.acted).toBe(true);
+    expect(room.gameState!.currentTrick?.plays.length ?? 0).toBe(before + 1);
+  });
+});
+
+describe('disconnect status (snapshot)', () => {
+  it('markDisconnected flips connected to false; reconnect restores true', () => {
+    const room = room4pFixed();
+    const m = [...room.members.values()][1];
+    markDisconnected(room, m.clientId);
+    expect(snapshot(room).members.find((x) => x.clientId === m.clientId)!.connected).toBe(false);
+    reconnectMember(room, m.reconnectToken);
+    expect(snapshot(room).members.find((x) => x.clientId === m.clientId)!.connected).toBe(true);
   });
 });
 

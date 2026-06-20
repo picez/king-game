@@ -3,6 +3,7 @@ import { useI18n } from '../i18n';
 import type { GameModeId } from '../models/types';
 import { sortHand } from '../core/rules';
 import CardView from './components/CardView';
+import TurnTimer from './components/TurnTimer';
 
 const MODE_META: Record<GameModeId, 'negative' | 'positive'> = {
   no_tricks: 'negative', no_hearts: 'negative', no_queens: 'negative', no_jacks: 'negative',
@@ -33,6 +34,7 @@ export default function ModeSelectionScreen() {
   return (
     <div className="screen center-screen">
       <div className="modal-card modal-card--wide">
+        <div className="modal-card__timer"><TurnTimer /></div>
         <h2>{t('mode.choose')}</h2>
         <p className="modal-card__sub">
           {t('common.round')} {roundNum}/{totalRounds} · {t('common.dealer')}: <strong>{dealer.name}</strong>
@@ -68,6 +70,7 @@ export default function ModeSelectionScreen() {
               >
                 <span className="mode-btn__name">{label}</span>
                 <span className="mode-btn__desc">{t(`modeDesc.${id}`)}</span>
+                <span className="mode-btn__rule">{t(`ruleFull.${id}`)}</span>
                 <span className={`mode-btn__type mode-btn__type--${type}`}>
                   {t(`type.${type}`)}
                 </span>

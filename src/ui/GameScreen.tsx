@@ -10,6 +10,7 @@ import TablePlayers from './components/TablePlayers';
 import CollectedPanel from './components/CollectedPanel';
 import ScoreBoard from './components/ScoreBoard';
 import ScoreTracker from './components/ScoreTracker';
+import TurnTimer from './components/TurnTimer';
 
 const SUIT_COLOR_CLASS: Record<Suit, string> = {
   hearts:   'trump-suit--red',
@@ -23,6 +24,7 @@ export default function GameScreen() {
   const { t } = useI18n();
   const [showScores, setShowScores] = useState(false);
   const [showTracker, setShowTracker] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   if (!state) return null;
 
@@ -88,6 +90,37 @@ export default function GameScreen() {
           </button>
         </div>
       </div>
+
+      {/* ── Prominent current-game banner ── */}
+      <div className={`game-banner game-banner--${modeType}`}>
+        <span className="game-banner__mode">{modeLabel}</span>
+        {state.trumpSuit ? (
+          <span className={`game-banner__trump ${SUIT_COLOR_CLASS[state.trumpSuit]}`}>
+            {t('common.trump')}: {SUIT_SYMBOL[state.trumpSuit]}
+          </span>
+        ) : currentRound.mode.id === 'trump' ? (
+          <span className="game-banner__trump">{t('common.trump')}: {t('common.noTrump')}</span>
+        ) : null}
+        <span className="game-banner__dealer">👑 {dealer?.name}</span>
+        <TurnTimer />
+        <button className="game-banner__info" onClick={() => setShowRules(true)} aria-label={t('game.rules')}>ⓘ</button>
+        <p className="game-banner__rule">
+          {modeType === 'positive' ? t('tip.positive') : t(`tip.${currentRound.mode.id}`)}
+        </p>
+      </div>
+
+      {showRules && (
+        <div className="modal-overlay" onClick={() => setShowRules(false)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-sheet__head">
+              <h3>{modeLabel} — {t('game.rules')}</h3>
+              <button className="btn btn--ghost btn--small" onClick={() => setShowRules(false)}>✕</button>
+            </div>
+            <p className="modal-card__desc">{t(`modeDesc.${currentRound.mode.id}`)}</p>
+            <p className="modal-card__desc">{t(`ruleFull.${currentRound.mode.id}`)}</p>
+          </div>
+        </div>
+      )}
 
       {showScores && <ScoreBoard players={players} scores={scores} />}
 

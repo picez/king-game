@@ -5,6 +5,7 @@ import { SUIT_SYMBOL } from '../components/CardView';
 import PlayerHand from '../components/PlayerHand';
 import TablePlayers from '../components/TablePlayers';
 import CollectedPanel from '../components/CollectedPanel';
+import TurnTimer from '../components/TurnTimer';
 
 interface Props {
   myPlayerId: string | null;
@@ -23,7 +24,7 @@ const WAIT_KEY: Record<string, string> = {
  * already redacted out of the received state, so nothing private leaks.
  */
 export default function OnlineWaitingScreen({ myPlayerId }: Props) {
-  const { state } = useGame();
+  const { state, disconnectedSeats } = useGame();
   const { t } = useI18n();
   if (!state) return null;
 
@@ -33,6 +34,7 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
   const actingPlayer = state.players.find((p) => p.id === actingId);
   const actingName = actingPlayer?.name ?? '…';
   const actingIsBot = actingPlayer?.type === 'ai';
+  const actingOffline = actingPlayer != null && (disconnectedSeats ?? []).includes(actingPlayer.seatIndex);
   const what = t(WAIT_KEY[state.status] ?? 'wait.to.play');
 
   // During Dealer's-Choice mode selection the round mode is still a placeholder
@@ -58,10 +60,24 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
         <p className="first-dealer-note">🎲 {t('game.firstDealer')}: <strong>{dealer?.name}</strong></p>
       )}
 
+      {modeChosen && (
+        <div className={`game-banner game-banner--${state.currentRound.mode.type}`}>
+          <span className="game-banner__mode">{modeLabel}</span>
+          {state.trumpSuit && (
+            <span className="game-banner__trump">{t('common.trump')}: {SUIT_SYMBOL[state.trumpSuit]}</span>
+          )}
+          <span className="game-banner__dealer">👑 {dealer?.name}</span>
+          <p className="game-banner__rule">
+            {state.currentRound.mode.type === 'positive' ? t('tip.positive') : t(`tip.${state.currentRound.mode.id}`)}
+          </p>
+        </div>
+      )}
+
       <div className="leader-banner">
-        <span className="leader-arrow">{actingIsBot ? '🤖' : '▶'}</span>
+        <span className="leader-arrow">{actingOffline ? '📴' : actingIsBot ? '🤖' : '▶'}</span>
         {t('wait.waitingFor')} <strong>&nbsp;{actingName}</strong>&nbsp;
-        {actingIsBot ? t('wait.botThinking') : what}
+        {actingOffline ? t('wait.reconnect') : actingIsBot ? t('wait.botThinking') : what}
+        <TurnTimer />
       </div>
 
       <div className="game-body">

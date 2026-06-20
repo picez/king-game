@@ -3,6 +3,7 @@ import { useI18n } from '../i18n';
 import type { Suit } from '../models/types';
 import CardView, { SUIT_SYMBOL } from './components/CardView';
 import { sortHand } from '../core/rules';
+import TurnTimer from './components/TurnTimer';
 
 const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 
@@ -24,6 +25,7 @@ export default function SelectTrumpScreen() {
   return (
     <div className="screen center-screen">
       <div className="modal-card">
+        <div className="modal-card__timer"><TurnTimer /></div>
         <h2>{t('trump.title')}</h2>
         <p className="modal-card__sub">
           {t('common.round')} {roundNum}/{totalRounds} · {t('common.dealer')}: <strong>{dealer.name}</strong>

@@ -5,9 +5,11 @@
  */
 
 import type { StorageLike } from './session';
+import { isValidAvatar } from '../core/avatars';
 
 const NICK_KEY = 'king.nickname.v1';
 const LANG_KEY = 'king.lang.v1';
+const AVATAR_KEY = 'king.avatar.v1';
 
 function defaultStorage(): StorageLike | null {
   try {
@@ -34,4 +36,15 @@ export function loadLang(storage: StorageLike | null = defaultStorage()): string
 
 export function saveLang(lang: string, storage: StorageLike | null = defaultStorage()): void {
   try { storage?.setItem(LANG_KEY, lang); } catch { /* non-fatal */ }
+}
+
+/** Loads the saved avatar id, or null if none/invalid (whitelist-checked). */
+export function loadAvatar(storage: StorageLike | null = defaultStorage()): string | null {
+  const v = storage?.getItem(AVATAR_KEY) ?? null;
+  return isValidAvatar(v) ? v : null;
+}
+
+export function saveAvatar(avatar: string, storage: StorageLike | null = defaultStorage()): void {
+  if (!isValidAvatar(avatar)) return; // never persist anything off the whitelist
+  try { storage?.setItem(AVATAR_KEY, avatar); } catch { /* non-fatal */ }
 }

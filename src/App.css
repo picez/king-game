@@ -236,6 +236,47 @@ body {
 
 .mode-tip { font-size: 0.82rem; color: var(--text-muted); }
 
+/* ===== Prominent current-game banner ===== */
+.game-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  border-left: 4px solid var(--accent);
+}
+.game-banner--negative { border-left-color: #e74c3c; }
+.game-banner--positive { border-left-color: var(--accent); }
+.game-banner__mode { font-weight: 800; font-size: 1.05rem; }
+.game-banner__trump { font-weight: 700; }
+.game-banner__dealer { font-size: 0.85rem; color: var(--text-muted); }
+.game-banner__info {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 50%;
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.game-banner__rule { flex-basis: 100%; font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+.mode-btn__rule { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+/* ===== Turn timer countdown ===== */
+.turn-timer {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.turn-timer--low { color: #ff7070; }
+.modal-card__timer { display: flex; justify-content: flex-end; }
+
 /* ===== Cards ===== */
 .card {
   position: relative;
@@ -420,6 +461,64 @@ body {
   margin-bottom: 0.5rem;
 }
 .modal-sheet__head h3 { font-size: 1.05rem; }
+
+/* ===== Score tracker (single table) ===== */
+.member-avatar { font-size: 1.05em; line-height: 1; }
+
+/* Avatar picker (start menu) */
+.avatar-current { font-size: 1.2rem; }
+.avatar-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.avatar-chip {
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: var(--surface, rgba(255,255,255,0.06));
+  cursor: pointer;
+}
+.avatar-chip--active { border-color: var(--accent); background: rgba(245,197,24,0.15); }
+.score-tracker__legend {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.score-tracker__legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+.score-tracker__marker { font-weight: 700; color: var(--accent); }
+.score-tracker__entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 2px;
+  white-space: nowrap;
+}
+.score-tracker__entry-marker { color: var(--accent); font-size: 0.85em; }
+.score-tracker__cell { position: relative; }
+.score-tracker__dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
 
 /* ===== Score tracker table (per-dealer game matrix) ===== */
 .score-tracker { width: 100%; margin-top: 0.75rem; }
@@ -626,7 +725,7 @@ body {
   .round-info, .dealer-info { font-size: 0.78rem; }
   .modal-card { padding: 1.5rem 1.25rem; }
   .suit-buttons { grid-template-columns: 1fr 1fr; }
-  .mode-selection-grid { grid-template-columns: 1fr; }
+  .mode-btn { padding: 0.6rem 0.7rem; }
   .turn-banner { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0.75rem; }
   .pass-card-back { font-size: 3.5rem; }
   .pass-name { font-size: 2rem; }
@@ -638,11 +737,16 @@ body {
 }
 
 /* ===== Mode Selection (Dealer's Choice) ===== */
+/* Modes fill LEFT-TO-RIGHT: 3 columns on desktop/tablet, 2 on phones. The
+   mobile override is declared AFTER the base rule so it wins on small screens. */
 .mode-selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
   margin-top: 1rem;
+}
+@media (max-width: 700px) {
+  .mode-selection-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 }
 
 .mode-btn {
@@ -964,6 +1068,11 @@ body {
 }
 .tag--host { background: rgba(245,197,24,0.18); color: var(--accent); }
 .tag--bot  { background: rgba(120,170,255,0.18); color: #9cc0ff; }
+
+/* Offline member emphasis (lobby + table) */
+.lobby-member--offline { opacity: 0.6; }
+.tseat--offline { opacity: 0.5; filter: grayscale(0.5); }
+.tseat__offline { margin-left: 0.2rem; }
 .tag--ok   { background: rgba(109,255,109,0.15); color: #6dff6d; }
 .tag--off  { background: rgba(255,112,112,0.15); color: #ff7070; }
 

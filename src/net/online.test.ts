@@ -127,6 +127,7 @@ describe('buildStartAction', () => {
       code: 'KQJ7',
       playerCount: 3,
       modeSelectionType: 'dealer_choice',
+      turnTimerSec: 0,
       started: true,
       hasPassword: false,
       members: [
@@ -141,13 +142,14 @@ describe('buildStartAction', () => {
       type: 'START_GAME',
       playerNames: ['Alice', 'Bob', 'Cara'], // seat order, spectator excluded
       playerTypes: ['human', 'human', 'human'],
+      playerAvatars: [undefined, undefined, undefined],
       modeSelectionType: 'dealer_choice',
     });
   });
 
   it('marks bot seats as type ai in seat order (2 humans + 1 bot)', () => {
     const room: RoomSnapshot = {
-      code: 'BOT1', playerCount: 3, modeSelectionType: 'dealer_choice', started: true, hasPassword: false,
+      code: 'BOT1', playerCount: 3, modeSelectionType: 'dealer_choice', turnTimerSec: 0, started: true, hasPassword: false,
       members: [
         { clientId: 'h1', name: 'Alice', role: 'player', seatIndex: 0, isHost: true,  connected: true, type: 'human' },
         { clientId: 'b1', name: 'Bot 1', role: 'player', seatIndex: 2, isHost: false, connected: true, type: 'ai' },
@@ -159,6 +161,7 @@ describe('buildStartAction', () => {
       type: 'START_GAME',
       playerNames: ['Alice', 'Bob', 'Bot 1'],
       playerTypes: ['human', 'human', 'ai'], // seat 2 is the bot
+      playerAvatars: [undefined, undefined, undefined],
       modeSelectionType: 'dealer_choice',
     });
   });

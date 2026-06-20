@@ -5,7 +5,8 @@ import type { RoomSummary } from '../net/messages';
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
-import { loadNickname, saveNickname } from '../net/prefs';
+import { loadNickname, saveNickname, loadAvatar, saveAvatar } from '../net/prefs';
+import { AVATARS, defaultAvatar } from '../core/avatars';
 import { useI18n, LanguageSelector } from '../i18n';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
@@ -36,6 +37,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [resumable, setResumable] = useState(() => loadSession());
 
   const [name, setName] = useState(defaultName);
+  const [avatar, setAvatar] = useState<string>(() => loadAvatar() ?? defaultAvatar(loadNickname() ?? 'King'));
   const [url, setUrl] = useState(() => defaultServerUrl(undefined, ENV_WS_URL));
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -57,20 +59,20 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   function host() {
     if (!name.trim() || !url.trim()) return;
-    saveNickname(name);
+    saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
     onOnline(url.trim(), {
-      kind: 'create', name: name.trim(), playerCount, modeSelectionType,
+      kind: 'create', name: name.trim(), playerCount, modeSelectionType, avatar,
       ...(pw ? { password: pw } : {}),
     });
   }
 
   function join() {
     if (!name.trim() || !url.trim() || code.trim().length < 4) return;
-    saveNickname(name);
+    saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
     onOnline(url.trim(), {
-      kind: 'join', code: code.trim().toUpperCase(), name: name.trim(),
+      kind: 'join', code: code.trim().toUpperCase(), name: name.trim(), avatar,
       ...(pw ? { password: pw } : {}),
     });
   }
@@ -87,8 +89,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     }
     setNeedPassword(false);
     if (!name.trim() || !url.trim()) return;
-    saveNickname(name);
-    onOnline(url.trim(), { kind: 'join', code: room.code, name: name.trim() });
+    saveNickname(name); saveAvatar(avatar);
+    onOnline(url.trim(), { kind: 'join', code: room.code, name: name.trim(), avatar });
   }
 
   return (
@@ -143,6 +145,20 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 onChange={(e) => { setName(e.target.value); if (joinError === 'NAME_TAKEN') setJoinError(null); }}
                 placeholder={t('form.name')}
               />
+            </div>
+
+            <div className="field-group">
+              <label>{t('lobby.avatar')} <span className="avatar-current">{avatar}</span></label>
+              <div className="avatar-picker">
+                {AVATARS.map((a) => (
+                  <button key={a} type="button"
+                    className={`avatar-chip ${avatar === a ? 'avatar-chip--active' : ''}`}
+                    aria-label={`avatar ${a}`} aria-pressed={avatar === a}
+                    onClick={() => setAvatar(a)}>
+                    {a}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="field-group">

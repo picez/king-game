@@ -40,6 +40,8 @@ export interface Player {
   seatIndex: number;
   isDealer: boolean;
   type: PlayerType;
+  /** Whitelisted emoji avatar id (see core/avatars). Public, never private. */
+  avatar?: string;
 }
 
 export interface GameMode {

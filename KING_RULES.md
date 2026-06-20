@@ -217,27 +217,36 @@ A player may concede the current round instead of playing it out.
   accepts it for the sender's own seat and only when it is their turn (the
   reducer re-checks). Bots never surrender.
 
+## Turn Timer (online, optional)
+
+The host may set a per-turn timer in the lobby: **Off / 30s / 60s / 90s**
+(stored on the room). When on, it applies to every action a player owns —
+CHOOSE_MODE, SELECT_TRUMP, EXCHANGE_KITTY, PLAY_CARD. If a player does not act
+in time the **server auto-plays a safe move** for them using the same AI
+heuristics, applied through the normal authorised reducer (so it is always a
+legal move). The timer resets on every state transition and is cleared when the
+room ends/cleans up. Off by default; local pass-and-play has no timer.
+
 ## Score Tracker
 
-A per-dealer score-tracker table is shown on round scoring and at game end.
+**One compact table** is shown on round scoring, at game end, and on demand
+during play (a "Score table" button opens a modal).
 
-The board is **grouped per dealer**: one section for each player as dealer.
-
-- **Per dealer section** — columns (in order): No Tricks, No Hearts, No Jacks,
-  No Queens, King of Hearts, Last Two Tricks, Trump 1, Trump 2, Trump 3, plus a
-  per-section Subtotal. **Rows are ALL players.**
-- A cell `[dealer D][player P][game g]` holds **P's own score** in the round
-  where D was the dealer and chose mode `g`. So **every player's score for a
-  round is recorded** — not only the dealer's. (Earlier bug: only the dealer's
-  score was stored; fixed.) Trump is split into three columns by the order D
-  played their (up to 3) Trump games.
-- Unplayed games are blank (`—`); the most recent round is highlighted.
-- A **grand-total per player** (sum across every round, all dealers) is shown
-  below the sections — equal to `scores[p].total`.
-- Works for 3 and 4 players (9 games per dealer). Each section scrolls
-  horizontally on mobile; headers are translated (EN/UK/DE/AR).
-- Viewable **during a round** (a "Score table" button on the game screen opens a
-  modal); the in-progress round's cells are still blank until it is scored.
+- **Rows = players.** **Columns (in order):** No Tricks, No Hearts, No Jacks,
+  No Queens, King of Hearts, Last Two Tricks, Trump 1, Trump 2, Trump 3, Total.
+- A cell `[player P][game g]` lists **P's own score in EACH dealer's round of
+  that game** — so every dealer plays every game, a 3-/4-player cell holds up to
+  3/4 values. Each value is tagged with the **dealer's marker** (①..④). A legend
+  maps marker → avatar + name.
+- A small **dot** marks a cell on row P's column g when **P is the dealer who
+  played that game** — so you can see which of their 9 games each player still
+  owes (Trump dot lands in Trump 1/2/3 by how many trumps they've dealt).
+- Every player's score for a round is recorded (not only the dealer's — the
+  earlier dealer-only bug is fixed). Trump is split into 1/2/3 by the dealer's
+  play order. Unplayed games are blank (`—`); the latest round is highlighted.
+- **Total** (right) = the player's overall standing (`scores[p].total`).
+- Works for 3 and 4 players; the table scrolls horizontally on mobile; headers
+  and the legend are translated (EN/UK/DE/AR).
 
 To make this possible the game keeps a **round history** in state — one record
 per completed round: `{ roundNumber, dealerId, modeId, trumpOccurrence (1..3 for

@@ -5,6 +5,7 @@ import type { Card } from '../models/types';
 import { sortHand, cardEquals } from '../core/rules';
 import { canDiscardToKitty } from '../core/kitty';
 import CardView, { SUIT_SYMBOL } from './components/CardView';
+import TurnTimer from './components/TurnTimer';
 
 export default function KittyExchangeScreen() {
   const { state, dispatch } = useGame();
@@ -40,6 +41,7 @@ export default function KittyExchangeScreen() {
   return (
     <div className="screen center-screen">
       <div className="modal-card modal-card--wide">
+        <div className="modal-card__timer"><TurnTimer /></div>
         <h2>{t('kitty.title')}</h2>
         <p className="modal-card__sub">
           <strong>{modeName}</strong>

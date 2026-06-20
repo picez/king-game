@@ -93,6 +93,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
         onLeave={() => { net.leave(); onExit(); }}
         onKick={net.kick}
         onAddBot={net.addBot}
+        onSetTimer={net.setTimer}
         error={net.error}
       />
     );
@@ -108,9 +109,16 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   const actorId = getActingPlayerId(net.state);
   const showAction = isPublic || actorId === net.myPlayerId;
   const exitToMenu = () => { net.leave(); onExit(); };
+  // Human seats currently disconnected (for offline badges / dimming at the table).
+  const disconnectedSeats = (net.room?.members ?? [])
+    .filter((m) => m.type === 'human' && !m.connected && m.seatIndex != null)
+    .map((m) => m.seatIndex as number);
 
   return (
-    <GameContext.Provider value={{ state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu }}>
+    <GameContext.Provider value={{
+      state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
+      turnTimerSec: net.room?.turnTimerSec ?? 0, disconnectedSeats,
+    }}>
       {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
     </GameContext.Provider>
   );

@@ -3,6 +3,7 @@ import type {
   ModeQueueEntry, Player, PlayerType, Round, Score, Suit, Trick,
 } from '../models/types';
 import { ALL_MODES, freshDealerModeCounts } from '../config/gameModes';
+import { sanitizeAvatar } from './avatars';
 import { getConfig } from '../config/gameConfigs';
 import { createDeck, dealCards, shuffleDeck, validateDeck } from './deck';
 import { cardEquals, isValidPlay, removeCardFromHand, resolveTrick } from './rules';
@@ -16,7 +17,7 @@ import type { Rng } from './rng';
 // ---------------------------------------------------------------------------
 
 export type GameAction =
-  | { type: 'START_GAME'; playerNames: string[]; playerTypes?: PlayerType[]; modeSelectionType?: 'fixed' | 'dealer_choice' }
+  | { type: 'START_GAME'; playerNames: string[]; playerTypes?: PlayerType[]; playerAvatars?: (string | undefined)[]; modeSelectionType?: 'fixed' | 'dealer_choice' }
   | { type: 'PLAY_CARD'; playerId: string; card: Card }
   | { type: 'SELECT_TRUMP'; suit: Suit | null }
   | { type: 'EXCHANGE_KITTY'; discards: Card[] }
@@ -47,7 +48,7 @@ export function gameReducer(
 ): GameState | null {
   switch (action.type) {
     case 'START_GAME':
-      return startGame(action.playerNames, action.modeSelectionType ?? 'fixed', action.playerTypes, ctx?.rng);
+      return startGame(action.playerNames, action.modeSelectionType ?? 'fixed', action.playerTypes, ctx?.rng, action.playerAvatars);
     case 'PLAY_CARD':
       return state ? handlePlayCard(state, action.playerId, action.card) : null;
     case 'SELECT_TRUMP':
@@ -114,6 +115,7 @@ function startGame(
   modeSelectionType: 'fixed' | 'dealer_choice' = 'fixed',
   playerTypes?: PlayerType[],
   rng: Rng = Math.random,
+  playerAvatars?: (string | undefined)[],
 ): GameState {
   const playerCount = playerNames.length as 3 | 4;
   const config = getConfig(playerCount, modeSelectionType);
@@ -125,6 +127,8 @@ function startGame(
     seatIndex: i,
     isDealer: false,
     type: playerTypes?.[i] ?? 'human',
+    // Whitelisted avatar; fall back to a stable default per name (never blank).
+    avatar: sanitizeAvatar(playerAvatars?.[i], name || `player-${i}`),
   }));
 
   const scores: Record<string, Score> = {};

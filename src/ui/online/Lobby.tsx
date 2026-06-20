@@ -13,15 +13,19 @@ interface Props {
   onKick: (clientId: string) => void;
   /** Host-only: add a server-side AI bot to a free seat before the game starts. */
   onAddBot: () => void;
+  /** Host-only: set the per-turn timer (seconds; 0 = off). */
+  onSetTimer: (turnTimerSec: number) => void;
   error: string | null;
 }
+
+const TIMER_OPTIONS = [0, 30, 60, 90];
 
 /**
  * Minimal lobby: shows the room code to share, the members, and (for the host)
  * a Start button enabled once enough players have joined. The host can also
  * remove other members before the game starts.
  */
-export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, error }: Props) {
+export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, onSetTimer, error }: Props) {
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
   const enough = players.length === room.playerCount;
@@ -55,8 +59,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {room.members.map((m) => {
               const isMe = `player-${m.seatIndex}` === myPlayerId;
               return (
-                <li key={m.clientId} className="lobby-member">
+                <li key={m.clientId} className={`lobby-member ${m.type === 'human' && !m.connected ? 'lobby-member--offline' : ''}`}>
                   <span className="lobby-member__name">
+                    {m.avatar && <span className="member-avatar">{m.avatar}</span>}
                     {m.name}{isMe ? ` ${t('lobby.you')}` : ''}
                   </span>
                   <span className="lobby-member__tags">
@@ -87,6 +92,24 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
         {isHost && !room.started && hasFreeSeat && (
           <button className="btn btn--outline" onClick={onAddBot}>🤖 {t('lobby.addBot')}</button>
         )}
+
+        {/* Per-turn timer (host sets; others see the current value). */}
+        <div className="field-group">
+          <label>⏱ {t('lobby.turnTimer')}</label>
+          {isHost && !room.started ? (
+            <div className="button-row">
+              {TIMER_OPTIONS.map((sec) => (
+                <button key={sec}
+                  className={`btn btn--outline btn--small ${room.turnTimerSec === sec ? 'btn--active' : ''}`}
+                  onClick={() => onSetTimer(sec)}>
+                  {sec === 0 ? t('lobby.timerOff') : `${sec}s`}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="setup-hint">{room.turnTimerSec === 0 ? t('lobby.timerOff') : `${room.turnTimerSec}s`}</p>
+          )}
+        </div>
 
         {error && <p className="lobby-error">{error}</p>}
 

@@ -14,6 +14,7 @@ import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { gameReducer, getActingPlayerId, getCurrentPlayer } from '../core/gameEngine';
 import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards, aiChooseCard } from '../core/ai';
+import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
 import { makeRng, randomSeed, hashString } from '../core/rng';
 import { redactStateFor } from './messages';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
@@ -53,6 +54,8 @@ export interface ServerMember {
   connected: boolean;
   /** 'ai' for a server-side bot (no socket, never reconnects); else 'human'. */
   type: 'human' | 'ai';
+  /** Whitelisted emoji avatar id (sanitized on entry; never free text). */
+  avatar: string;
 }
 
 export interface ServerRoom {
@@ -61,6 +64,8 @@ export interface ServerRoom {
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
+  /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
+  turnTimerSec: number;
   started: boolean;
   /** Authoritative, UNREDACTED game state. Never sent to clients as-is. */
   gameState: GameState | null;
@@ -115,10 +120,12 @@ export function createRoom(opts: {
   code: string;
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
-  host: { clientId: string; reconnectToken: string; name: string };
+  host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
+  /** Per-turn timer in seconds (0 = off). */
+  turnTimerSec?: number;
   /** Epoch ms for createdAt/updatedAt (injected by the I/O layer). */
   now?: number;
 }): ServerRoom {
@@ -131,6 +138,7 @@ export function createRoom(opts: {
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
+    turnTimerSec: normalizeTimer(opts.turnTimerSec),
     started: false,
     gameState: null,
     dealLog: [],
@@ -148,6 +156,7 @@ export function createRoom(opts: {
     isHost: true,
     connected: true,
     type: 'human',
+    avatar: sanitizeAvatar(opts.host.avatar, opts.host.name),
   });
   assignSeats(room);
   return room;
@@ -165,9 +174,22 @@ export function assignSeats(room: ServerRoom): void {
   }
 }
 
+/** Allowed per-turn timer values (seconds); anything else falls back to 0 (off). */
+export function normalizeTimer(sec: unknown): number {
+  return sec === 30 || sec === 60 || sec === 90 ? sec : 0;
+}
+
+/** Host-only: set the per-turn timer before the game starts. */
+export function setTimer(room: ServerRoom, hostClientId: string, turnTimerSec: number): OpResult {
+  if (!room.members.get(hostClientId)?.isHost) return { ok: false, error: 'NOT_HOST' };
+  if (room.started) return { ok: false, error: 'GAME_ALREADY_STARTED' };
+  room.turnTimerSec = normalizeTimer(turnTimerSec);
+  return { ok: true };
+}
+
 export function addMember(
   room: ServerRoom,
-  member: { clientId: string; reconnectToken: string; name: string; role?: SeatRole; password?: string },
+  member: { clientId: string; reconnectToken: string; name: string; role?: SeatRole; password?: string; avatar?: string },
 ): OpResult {
   // Protected rooms require the correct password before anything else.
   if (!verifyPassword(room, member.password)) {
@@ -194,6 +216,7 @@ export function addMember(
     isHost: false,
     connected: true,
     type: 'human',
+    avatar: sanitizeAvatar(member.avatar, member.name),
   });
   assignSeats(room);
   return { ok: true };
@@ -229,6 +252,7 @@ export function addBot(
     isHost: false,
     connected: true, // bots are always "present"
     type: 'ai',
+    avatar: BOT_AVATAR,
   };
   room.members.set(bot.clientId, bot);
   assignSeats(room);
@@ -368,14 +392,33 @@ function playerIdToSeat(playerId: string): number {
  * If the player who must act right now is a bot, return that member; else null.
  * Returns null on public/no-actor screens (handled by the advance timer).
  */
-export function botMemberToAct(room: ServerRoom): ServerMember | null {
+/** The member (human or bot) who must act right now, or null on a public screen. */
+export function actingMember(room: ServerRoom): ServerMember | null {
   const s = room.gameState;
   if (!s) return null;
   const actingId = getActingPlayerId(s);
   if (!actingId) return null;
   const seat = playerIdToSeat(actingId);
-  const member = [...room.members.values()].find((m) => m.role === 'player' && m.seatIndex === seat);
-  return member && member.type === 'ai' ? member : null;
+  return [...room.members.values()].find((m) => m.role === 'player' && m.seatIndex === seat) ?? null;
+}
+
+export function botMemberToAct(room: ServerRoom): ServerMember | null {
+  const m = actingMember(room);
+  return m && m.type === 'ai' ? m : null;
+}
+
+/**
+ * Turn-timer expiry: play an automatic move for the current actor (human or
+ * bot) using the shared AI heuristics, through the same authorised reducer path.
+ * Returns whether an action was applied. Used by the server when a turn timer
+ * runs out so a slow/absent player never stalls the table.
+ */
+export function applyTimeoutAction(room: ServerRoom): { acted: boolean } {
+  const m = actingMember(room);
+  if (!m || !room.gameState) return { acted: false };
+  const action = botAction(room.gameState);
+  if (!action) return { acted: false };
+  return { acted: applyActionRequest(room, m.clientId, action).ok };
 }
 
 /**
@@ -467,9 +510,11 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       isHost: m.isHost,
       connected: m.connected,
       type: m.type,
+      avatar: m.avatar,
     })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
+    turnTimerSec: room.turnTimerSec,
     started: room.started,
     // Expose only WHETHER a password is required — never the secret/hash/salt.
     hasPassword: roomHasPassword(room),
@@ -554,6 +599,7 @@ export interface PersistedRoom {
   members: ServerMember[];
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
+  turnTimerSec: number;
   started: boolean;
   gameState: GameState | null;
   dealLog: DealRecord[];
@@ -571,6 +617,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
+    turnTimerSec: room.turnTimerSec,
     started: room.started,
     gameState: room.gameState,
     dealLog: room.dealLog,
@@ -609,6 +656,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
       // Bots are always "present"; humans have no live socket after a restore.
       connected: m.type === 'ai',
       type: m.type === 'ai' ? 'ai' : 'human',
+      avatar: sanitizeAvatar(m.avatar, typeof m.name === 'string' ? m.name : 'player'),
     });
   }
 
@@ -618,6 +666,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,
+    turnTimerSec: normalizeTimer(o.turnTimerSec),
     started: o.started === true,
     gameState: (o.gameState ?? null) as GameState | null,
     dealLog: Array.isArray(o.dealLog) ? (o.dealLog as DealRecord[]) : [],

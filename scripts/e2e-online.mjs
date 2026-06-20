@@ -317,6 +317,27 @@ async function main() {
   check(!rNew.lastError, 'after the host removes the old seat, the name can join');
   rNew.ws.close(); rHost.ws.close();
 
+  // 2g) Avatar + turn timer (host-only setting)
+  console.log('\n[2g] avatar + turn timer');
+  const gHost = await connect();
+  sendMsg(gHost, { t: 'CREATE_ROOM', name: 'GHost', playerCount: 3, modeSelectionType: 'fixed', avatar: '🦊' });
+  await sleep(150);
+  const gCode = gHost.room.code;
+  check(gHost.room.members[0].avatar === '🦊', 'host avatar appears in the snapshot');
+  const gJoin = await connect();
+  sendMsg(gJoin, { t: 'JOIN_ROOM', code: gCode, name: 'GJoin', avatar: '🐼' });
+  await sleep(150);
+  check(gHost.room.members.some((m) => m.avatar === '🐼'), 'joiner avatar appears in the snapshot');
+
+  sendMsg(gJoin, { t: 'SET_TIMER', turnTimerSec: 60 });
+  await sleep(120);
+  check(gJoin.lastError?.code === 'NOT_HOST', 'non-host SET_TIMER rejected (NOT_HOST)');
+
+  sendMsg(gHost, { t: 'SET_TIMER', turnTimerSec: 60 });
+  await sleep(150);
+  check(gHost.room.turnTimerSec === 60, 'host set the turn timer to 60s (in snapshot)');
+  gHost.ws.close(); gJoin.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });

@@ -9,19 +9,19 @@ function stateWith(playerIds: string[], history: RoundRecord[]): GameState {
 function rec(roundNumber: number, dealerId: string, modeId: RoundRecord['modeId'], trumpOccurrence: number, scoreByPlayer: Record<string, number>): RoundRecord {
   return { roundNumber, dealerId, modeId, trumpOccurrence, scoreByPlayer };
 }
-const sectionFor = (m: ReturnType<typeof buildScoreTracker>, dealerId: string) =>
-  m.sections.find((s) => s.dealerId === dealerId)!;
-const cell = (m: ReturnType<typeof buildScoreTracker>, dealerId: string, playerId: string, col: string) =>
-  sectionFor(m, dealerId).rows.find((r) => r.playerId === playerId)!.cells.find((c) => c.column === col)!;
+const row = (m: ReturnType<typeof buildScoreTracker>, playerId: string) =>
+  m.rows.find((r) => r.playerId === playerId)!;
+const cell = (m: ReturnType<typeof buildScoreTracker>, playerId: string, col: string) =>
+  row(m, playerId).cells.find((c) => c.column === col)!;
 
 describe('columnForRecord', () => {
   it('maps modes and trump occurrences', () => {
     expect(columnForRecord({ modeId: 'no_hearts', trumpOccurrence: 0 })).toBe('no_hearts');
-    expect(columnForRecord({ modeId: 'trump', trumpOccurrence: 2 })).toBe('trump2');
+    expect(columnForRecord({ modeId: 'trump', trumpOccurrence: 3 })).toBe('trump3');
   });
 });
 
-describe('buildScoreTracker — all players recorded per round (the fix)', () => {
+describe('buildScoreTracker — single table', () => {
   it('column order: Jacks before Queens; Trump 1/2/3 last', () => {
     expect(TRACKER_COLUMNS.map((c) => c.id)).toEqual([
       'no_tricks', 'no_hearts', 'no_jacks', 'no_queens', 'king_of_hearts',
@@ -29,80 +29,85 @@ describe('buildScoreTracker — all players recorded per round (the fix)', () =>
     ]);
   });
 
-  it("Trump round: ALL players' scores land in that Trump slot (not just the dealer)", () => {
-    // Bob deals Trump #2; Alice +32, Bob +48, Carol +16.
+  it('legend assigns stable markers ①②③ by seat', () => {
+    const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], []));
+    expect(m.legend.map((l) => l.marker)).toEqual(['①', '②', '③']);
+    expect(m.legend.map((l) => l.playerId)).toEqual(['alice', 'bob', 'carol']);
+  });
+
+  it("a Trump round records ALL players' scores in one table, tagged with the dealer's marker", () => {
+    // Bob (marker ②) deals Trump #2: Alice +32, Bob +48, Carol +16.
     const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
       rec(0, 'bob', 'trump', 2, { alice: 32, bob: 48, carol: 16 }),
     ]));
-    expect(cell(m, 'bob', 'alice', 'trump2').score).toBe(32);
-    expect(cell(m, 'bob', 'bob', 'trump2').score).toBe(48);
-    expect(cell(m, 'bob', 'carol', 'trump2').score).toBe(16);
-    // not the dealer-only bug: every player's row in Bob's section is filled.
-    expect(sectionFor(m, 'bob').rows.every((r) => r.cells.find((c) => c.column === 'trump2')!.score !== null)).toBe(true);
-    // other Trump columns remain empty
-    expect(cell(m, 'bob', 'alice', 'trump1').score).toBeNull();
+    expect(cell(m, 'alice', 'trump2').entries).toEqual([
+      expect.objectContaining({ dealerMarker: '②', score: 32 }),
+    ]);
+    expect(cell(m, 'bob', 'trump2').entries[0]).toMatchObject({ dealerMarker: '②', score: 48 });
+    expect(cell(m, 'carol', 'trump2').entries[0]).toMatchObject({ dealerMarker: '②', score: 16 });
   });
 
-  it("negative round: all players' scores land in the chosen mode slot", () => {
+  it('the played dot is only on the row of the player who dealt that game', () => {
+    const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
+      rec(0, 'bob', 'trump', 2, { alice: 32, bob: 48, carol: 16 }),
+    ]));
+    expect(cell(m, 'bob', 'trump2').playedByRow).toBe(true);     // Bob dealt it
+    expect(cell(m, 'alice', 'trump2').playedByRow).toBe(false);
+    expect(cell(m, 'carol', 'trump2').playedByRow).toBe(false);
+    // and Bob has no dot on trump1 (didn't deal that yet)
+    expect(cell(m, 'bob', 'trump1').playedByRow).toBe(false);
+  });
+
+  it('several dealers of the same mode stack as multiple marker-tagged entries', () => {
     const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
       rec(0, 'alice', 'no_hearts', 0, { alice: -5, bob: -25, carol: 0 }),
+      rec(1, 'bob', 'no_hearts', 0, { alice: -10, bob: 0, carol: -20 }),
     ]));
-    expect(cell(m, 'alice', 'alice', 'no_hearts').score).toBe(-5);
-    expect(cell(m, 'alice', 'bob', 'no_hearts').score).toBe(-25);
-    expect(cell(m, 'alice', 'carol', 'no_hearts').score).toBe(0);
+    // Carol's No Hearts cell shows her score in BOTH dealers' rounds.
+    const c = cell(m, 'carol', 'no_hearts');
+    expect(c.entries).toHaveLength(2);
+    expect(c.entries.map((e) => e.dealerMarker)).toEqual(['①', '②']); // alice, bob
+    expect(c.entries.map((e) => e.score)).toEqual([0, -20]);
   });
 
-  it('three Trump rounds by the same dealer fill Trump 1/2/3 with all players', () => {
+  it('three Trump rounds by a dealer fill Trump 1/2/3', () => {
     const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
       rec(0, 'bob', 'trump', 1, { alice: 8, bob: 24, carol: 32 }),
       rec(3, 'bob', 'trump', 2, { alice: 32, bob: 16, carol: 16 }),
       rec(6, 'bob', 'trump', 3, { alice: 16, bob: 40, carol: 8 }),
     ]));
-    expect(cell(m, 'bob', 'alice', 'trump1').score).toBe(8);
-    expect(cell(m, 'bob', 'alice', 'trump2').score).toBe(32);
-    expect(cell(m, 'bob', 'alice', 'trump3').score).toBe(16);
-    expect(cell(m, 'bob', 'carol', 'trump2').score).toBe(16);
+    expect(cell(m, 'bob', 'trump1').entries[0].score).toBe(24);
+    expect(cell(m, 'bob', 'trump2').entries[0].score).toBe(16);
+    expect(cell(m, 'bob', 'trump3').entries[0].score).toBe(40);
+    expect(cell(m, 'bob', 'trump1').playedByRow).toBe(true);
+    expect(cell(m, 'bob', 'trump3').playedByRow).toBe(true);
   });
 
-  it('grand total matches the sum across all rounds for each player', () => {
+  it('totals equal the sum across all rounds for each player', () => {
     const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
       rec(0, 'bob', 'trump', 2, { alice: 32, bob: 48, carol: 16 }),
       rec(1, 'alice', 'no_hearts', 0, { alice: -5, bob: -25, carol: 0 }),
     ]));
-    const total = (id: string) => m.grandTotals.find((g) => g.playerId === id)!.total;
-    expect(total('alice')).toBe(27);  // 32 - 5
-    expect(total('bob')).toBe(23);    // 48 - 25
-    expect(total('carol')).toBe(16);  // 16 + 0
-    // per-section subtotal is that dealer's slice only
-    expect(sectionFor(m, 'bob').rows.find((r) => r.playerId === 'alice')!.subtotal).toBe(32);
-    expect(sectionFor(m, 'alice').rows.find((r) => r.playerId === 'bob')!.subtotal).toBe(-25);
+    expect(row(m, 'alice').total).toBe(27);
+    expect(row(m, 'bob').total).toBe(23);
+    expect(row(m, 'carol').total).toBe(16);
   });
 
-  it('unplayed games are empty; sections exist for every player', () => {
-    const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], []));
-    expect(m.sections).toHaveLength(3);
-    expect(m.sections.every((s) => !s.hasPlayed)).toBe(true);
-    expect(cell(m, 'alice', 'bob', 'no_tricks').score).toBeNull();
-    expect(m.grandTotals.every((g) => g.total === 0)).toBe(true);
-  });
-
-  it('an early-ended round is recorded for all players like any other', () => {
-    // Same shape as a normal record — the engine appends early-ends identically.
-    const m = buildScoreTracker(stateWith(['alice', 'bob', 'carol'], [
-      rec(0, 'carol', 'king_of_hearts', 0, { alice: 0, bob: 0, carol: -40 }),
+  it('unplayed cells are empty; isLast flags the most recent round', () => {
+    const m = buildScoreTracker(stateWith(['alice', 'bob'], [
+      rec(5, 'bob', 'no_hearts', 0, { alice: -5, bob: -10 }),
     ]));
-    expect(cell(m, 'carol', 'carol', 'king_of_hearts').score).toBe(-40);
-    expect(cell(m, 'carol', 'alice', 'king_of_hearts').score).toBe(0);
-    expect(m.lastRoundNumber).toBe(0);
+    expect(cell(m, 'alice', 'no_tricks').entries).toHaveLength(0);
+    expect(cell(m, 'alice', 'no_hearts').isLast).toBe(true);
+    expect(m.lastRoundNumber).toBe(5);
   });
 
-  it('works for a 4-player table (4 sections, 4 rows each)', () => {
+  it('works for a 4-player table', () => {
     const m = buildScoreTracker(stateWith(['p0', 'p1', 'p2', 'p3'], [
       rec(0, 'p3', 'last_two_tricks', 0, { p0: 0, p1: -26, p2: 0, p3: -52 }),
     ]));
-    expect(m.sections).toHaveLength(4);
-    expect(m.sections.every((s) => s.rows.length === 4)).toBe(true);
-    expect(cell(m, 'p3', 'p1', 'last_two_tricks').score).toBe(-26);
-    expect(cell(m, 'p3', 'p3', 'last_two_tricks').score).toBe(-52);
+    expect(m.legend).toHaveLength(4);
+    expect(cell(m, 'p1', 'last_two_tricks').entries[0]).toMatchObject({ dealerMarker: '④', score: -26 });
+    expect(cell(m, 'p3', 'last_two_tricks').playedByRow).toBe(true);
   });
 });

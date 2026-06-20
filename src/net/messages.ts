@@ -36,6 +36,8 @@ export interface RoomMember {
   connected: boolean;
   /** 'ai' for a server-side bot occupying a seat; 'human' for real clients. */
   type: 'human' | 'ai';
+  /** Whitelisted emoji avatar id (see core/avatars). */
+  avatar?: string;
 }
 
 export interface RoomSnapshot {
@@ -44,6 +46,8 @@ export interface RoomSnapshot {
   /** Game settings chosen by the host before Start. */
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
+  /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
+  turnTimerSec: number;
   /** True once the host has started the game. */
   started: boolean;
   /**
@@ -74,9 +78,11 @@ export interface RoomSummary {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount: 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string }
-  | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string }
+  | { t: 'CREATE_ROOM'; name: string; playerCount: 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number }
+  | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
+  /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */
+  | { t: 'SET_TIMER'; turnTimerSec: number }
   /** Discovery: request the public room list (no session required). */
   | { t: 'LIST_ROOMS' }
   | { t: 'LEAVE_ROOM' }

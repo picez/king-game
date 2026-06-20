@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { translate, isRtl, LANGS, I18N_KEYS } from './index';
-import { saveNickname, loadNickname, saveLang, loadLang } from '../net/prefs';
+import { saveNickname, loadNickname, saveLang, loadLang, saveAvatar, loadAvatar } from '../net/prefs';
+import { AVATARS } from '../core/avatars';
 import type { StorageLike } from '../net/session';
 
 function mem(): StorageLike {
@@ -40,7 +41,9 @@ describe('translate', () => {
       'finished.title', 'finished.gamesTitle',
       'finished.playAgain', 'wait.waitingFor', 'wait.to.choose', 'lobby.title',
       'lobby.host', 'lobby.kick', 'lobby.kickConfirm', 'err.KICKED_BY_HOST',
-      'lobby.addBot', 'lobby.bot', 'lobby.aiPlayer', 'wait.botThinking',
+      'lobby.addBot', 'lobby.bot', 'lobby.aiPlayer', 'wait.botThinking', 'wait.reconnect',
+      'lobby.turnTimer', 'lobby.timerOff', 'lobby.avatar', 'track.youDealt',
+      'game.rules', 'ruleFull.no_tricks', 'ruleFull.king_of_hearts', 'ruleFull.trump',
       'track.title', 'track.no_tricks', 'track.no_jacks', 'track.no_queens',
       'track.king_of_hearts', 'track.last_two_tricks', 'track.trump', 'track.subtotal', 'track.total',
       'net.connecting', 'net.dealing',
@@ -102,6 +105,15 @@ describe('prefs persistence', () => {
     expect(loadNickname(s)).toBeNull();
     saveNickname('Alice', s);
     expect(loadNickname(s)).toBe('Alice');
+  });
+
+  it('saves/loads a whitelisted avatar; rejects invalid ones', () => {
+    const s = mem();
+    expect(loadAvatar(s)).toBeNull();
+    saveAvatar(AVATARS[2], s);
+    expect(loadAvatar(s)).toBe(AVATARS[2]);
+    saveAvatar('<script>', s);           // invalid → not persisted
+    expect(loadAvatar(s)).toBe(AVATARS[2]); // unchanged
   });
 
   it('trims and caps the nickname; ignores blank', () => {

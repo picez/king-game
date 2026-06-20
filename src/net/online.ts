@@ -32,8 +32,8 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; playerCount: 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string }
-  | { kind: 'join'; code: string; name: string; password?: string }
+  | { kind: 'create'; name: string; playerCount: 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number }
+  | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string };
 
@@ -50,6 +50,8 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
       playerCount: intent.playerCount,
       modeSelectionType: intent.modeSelectionType,
       ...(intent.password ? { password: intent.password } : {}),
+      ...(intent.avatar ? { avatar: intent.avatar } : {}),
+      ...(intent.turnTimerSec ? { turnTimerSec: intent.turnTimerSec } : {}),
     };
   }
   if (intent.kind === 'resume') {
@@ -61,6 +63,7 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
     code: intent.code,
     name: intent.name,
     ...(intent.password ? { password: intent.password } : {}),
+    ...(intent.avatar ? { avatar: intent.avatar } : {}),
   };
 }
 
@@ -85,6 +88,7 @@ export function buildStartAction(room: RoomSnapshot): GameAction {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human') as 'human' | 'ai'),
+    playerAvatars: players.map((m) => m.avatar),
     modeSelectionType: room.modeSelectionType,
   };
 }

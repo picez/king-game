@@ -25,6 +25,7 @@ import {
   createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember, addBot,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   listRoomSummaries, roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
+  setTimer, actingMember, applyTimeoutAction,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage } from './storage';
@@ -99,6 +100,7 @@ const rooms = new Map<string, ServerRoom>();
 const sockets = new Map<string, WebSocket>();              // clientId → socket
 const advanceTimers = new Map<string, ReturnType<typeof setTimeout>>(); // code → timer
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>();     // code → bot-move timer
+const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();    // code → human turn-timeout
 
 const storage = createStorage();
 
@@ -151,10 +153,10 @@ function broadcastState(room: ServerRoom): void {
  * a step only reschedules when it actually changed the state.
  */
 function clearRoomTimers(code: string): void {
-  const a = advanceTimers.get(code);
-  if (a) { clearTimeout(a); advanceTimers.delete(code); }
-  const b = botTimers.get(code);
-  if (b) { clearTimeout(b); botTimers.delete(code); }
+  for (const map of [advanceTimers, botTimers, turnTimers]) {
+    const tmr = map.get(code);
+    if (tmr) { clearTimeout(tmr); map.delete(code); }
+  }
 }
 
 function broadcastAndAdvance(room: ServerRoom): void {
@@ -192,6 +194,24 @@ function broadcastAndAdvance(room: ServerRoom): void {
         persistRoom(room);
       }
     }, BOT_DELAY_MS));
+    return;
+  }
+
+  // Human's turn: if a turn timer is set, auto-play a safe AI move on timeout so
+  // a slow/absent player never stalls the table. Reset on every transition.
+  const acting = actingMember(room);
+  if (acting && acting.type === 'human' && room.turnTimerSec > 0) {
+    turnTimers.set(room.code, setTimeout(() => {
+      turnTimers.delete(room.code);
+      if (!rooms.has(room.code)) return;
+      const before = room.dealLog.length;
+      if (applyTimeoutAction(room).acted) {
+        if (room.dealLog.length > before) logLatestDeal(room);
+        console.log(`[King] room ${room.code} turn timeout → auto-action for seat ${acting.seatIndex}`);
+        broadcastAndAdvance(room);
+        persistRoom(room);
+      }
+    }, room.turnTimerSec * 1000));
   }
 }
 
@@ -302,10 +322,11 @@ wss.on('connection', (socket: WebSocket) => {
           code,
           playerCount: msg.playerCount === 3 ? 3 : 4,
           modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
-          host: { clientId, reconnectToken: randomUUID(), name: msg.name },
+          host: { clientId, reconnectToken: randomUUID(), name: msg.name, avatar: msg.avatar },
           // Optional join password — hashed with a fresh salt inside serverCore.
           password: msg.password,
           salt: randomUUID(),
+          turnTimerSec: msg.turnTimerSec,
         });
         rooms.set(code, room);
         sockets.set(clientId, socket);
@@ -326,7 +347,7 @@ wss.on('connection', (socket: WebSocket) => {
         }
         const clientId = randomUUID();
         const res = addMember(room, {
-          clientId, reconnectToken: randomUUID(), name: msg.name, role: msg.role, password: msg.password,
+          clientId, reconnectToken: randomUUID(), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
         });
         if (!res.ok) {
           logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
@@ -426,6 +447,16 @@ wss.on('connection', (socket: WebSocket) => {
         broadcastRoom(room);
         persistRoom(room);
         logRoomEvent('ADD_BOT', room.code, room);
+        break;
+      }
+
+      case 'SET_TIMER': {
+        if (!session) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+        const { room, clientId } = session;
+        const res = setTimer(room, clientId, Number(msg.turnTimerSec));
+        if (!res.ok) return sendError(socket, res.error!, 'Cannot set timer');
+        broadcastRoom(room);
+        persistRoom(room);
         break;
       }
 

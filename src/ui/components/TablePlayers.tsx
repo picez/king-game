@@ -27,8 +27,9 @@ interface Props {
  * "collect" and the winning seat pulses.
  */
 export default function TablePlayers({ viewerId }: Props) {
-  const { state } = useGame();
+  const { state, disconnectedSeats } = useGame();
   if (!state) return null;
+  const offline = new Set(disconnectedSeats ?? []);
 
   const players = state.players;
   const count = players.length;
@@ -53,15 +54,18 @@ export default function TablePlayers({ viewerId }: Props) {
         ]?.id === p.id;
         const isWinner = p.id === winnerId;
         const isViewer = p.id === viewerId;
+        const isOffline = offline.has(p.seatIndex);
         return (
           <div
             key={p.id}
-            className={`tseat tseat--${pos} ${isActive ? 'tseat--active' : ''} ${isWinner ? 'tseat--winner' : ''} ${isViewer ? 'tseat--you' : ''}`}
+            className={`tseat tseat--${pos} ${isActive ? 'tseat--active' : ''} ${isWinner ? 'tseat--winner' : ''} ${isViewer ? 'tseat--you' : ''} ${isOffline ? 'tseat--offline' : ''}`}
           >
             <div className="tseat__name">
               {isDealer && <span title="Dealer">👑</span>}
+              {p.avatar && <span className="member-avatar">{p.avatar}</span>}
               {p.name}
               {p.type === 'ai' && <span className="ai-badge" title="AI">🤖</span>}
+              {isOffline && <span className="tseat__offline" title="Offline">📴</span>}
               {isActive && <span className="tseat__turn"> ▶</span>}
             </div>
             <div className={`tseat__tricks ${isWinner ? 'tseat__tricks--bump' : ''}`} title="Tricks won">
