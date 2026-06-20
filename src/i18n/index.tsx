@@ -55,12 +55,15 @@ const EN: Dict = {
   'lobby.share': 'Room code — share with players',
   'lobby.players': 'Players',
   'lobby.waitingHost': 'Waiting for the host to start the game…',
+  'lobby.kick': 'Kick',
+  'lobby.kickConfirm': 'Remove this player from the room?',
   'err.ROOM_NOT_FOUND': 'Room not found',
   'err.ROOM_FULL': 'Room is full',
   'err.BAD_PASSWORD': 'Wrong room password',
   'err.NAME_TAKEN': 'This name is already used in this room. Please choose another name.',
   'err.GAME_ALREADY_STARTED': 'Game already started',
   'err.generic': 'Could not join room',
+  'err.KICKED_BY_HOST': 'You were removed from the room by the host.',
   'mode.no_tricks': 'No Tricks',
   'mode.no_hearts': 'No Hearts',
   'mode.no_queens': 'No Queens',
@@ -204,12 +207,15 @@ const UK: Dict = {
   'lobby.share': 'Код кімнати — поділіться з гравцями',
   'lobby.players': 'Гравці',
   'lobby.waitingHost': 'Очікуємо, поки хост почне гру…',
+  'lobby.kick': 'Видалити',
+  'lobby.kickConfirm': 'Видалити цього гравця з кімнати?',
   'err.ROOM_NOT_FOUND': 'Кімнату не знайдено',
   'err.ROOM_FULL': 'Кімната заповнена',
   'err.BAD_PASSWORD': 'Невірний пароль кімнати',
   'err.NAME_TAKEN': "Таке ім'я вже є в кімнаті. Будь ласка, оберіть інше ім'я.",
   'err.GAME_ALREADY_STARTED': 'Гра вже почалася',
   'err.generic': 'Не вдалося приєднатися',
+  'err.KICKED_BY_HOST': 'Хост видалив вас із кімнати.',
   'mode.no_tricks': 'Без взяток',
   'mode.no_hearts': 'Без чирв',
   'mode.no_queens': 'Без дам',
@@ -353,12 +359,15 @@ const DE: Dict = {
   'lobby.share': 'Raumcode — mit Spielern teilen',
   'lobby.players': 'Spieler',
   'lobby.waitingHost': 'Warte, bis der Host das Spiel startet…',
+  'lobby.kick': 'Entfernen',
+  'lobby.kickConfirm': 'Diesen Spieler aus dem Raum entfernen?',
   'err.ROOM_NOT_FOUND': 'Raum nicht gefunden',
   'err.ROOM_FULL': 'Raum ist voll',
   'err.BAD_PASSWORD': 'Falsches Raumpasswort',
   'err.NAME_TAKEN': 'Dieser Name ist im Raum bereits vergeben. Bitte wähle einen anderen.',
   'err.GAME_ALREADY_STARTED': 'Spiel bereits gestartet',
   'err.generic': 'Beitritt fehlgeschlagen',
+  'err.KICKED_BY_HOST': 'Du wurdest vom Host aus dem Raum entfernt.',
   'mode.no_tricks': 'Keine Stiche',
   'mode.no_hearts': 'Keine Herzen',
   'mode.no_queens': 'Keine Damen',
@@ -502,12 +511,15 @@ const AR: Dict = {
   'lobby.share': 'رمز الغرفة — شاركه مع اللاعبين',
   'lobby.players': 'اللاعبون',
   'lobby.waitingHost': 'بانتظار أن يبدأ المضيف اللعبة…',
+  'lobby.kick': 'طرد',
+  'lobby.kickConfirm': 'إزالة هذا اللاعب من الغرفة؟',
   'err.ROOM_NOT_FOUND': 'الغرفة غير موجودة',
   'err.ROOM_FULL': 'الغرفة ممتلئة',
   'err.BAD_PASSWORD': 'كلمة مرور الغرفة خاطئة',
   'err.NAME_TAKEN': 'هذا الاسم مستخدم بالفعل في الغرفة. الرجاء اختيار اسم آخر.',
   'err.GAME_ALREADY_STARTED': 'بدأت اللعبة بالفعل',
   'err.generic': 'تعذّر الانضمام إلى الغرفة',
+  'err.KICKED_BY_HOST': 'قام المضيف بإزالتك من الغرفة.',
   'mode.no_tricks': 'بدون أكلات',
   'mode.no_hearts': 'بدون قلوب',
   'mode.no_queens': 'بدون بنات',
@@ -614,6 +626,9 @@ const AR: Dict = {
 };
 
 const DICTS: Record<Lang, Dict> = { en: EN, uk: UK, de: DE, ar: AR };
+
+/** Every translation key (English is the source of truth). Exposed for tests. */
+export const I18N_KEYS: string[] = Object.keys(EN);
 
 /** Pure translator: chosen language → English fallback → the key itself. */
 export function translate(lang: Lang, key: string): string {

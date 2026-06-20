@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { translate, isRtl, LANGS } from './index';
+import { translate, isRtl, LANGS, I18N_KEYS } from './index';
 import { saveNickname, loadNickname, saveLang, loadLang } from '../net/prefs';
 import type { StorageLike } from '../net/session';
 
@@ -39,7 +39,8 @@ describe('translate', () => {
       'trick.takes', 'scoring.player', 'scoring.nextRoundIn', 'scoring.gamesTitle',
       'finished.title', 'finished.gamesTitle',
       'finished.playAgain', 'wait.waitingFor', 'wait.to.choose', 'lobby.title',
-      'lobby.host', 'net.connecting', 'net.dealing',
+      'lobby.host', 'lobby.kick', 'lobby.kickConfirm', 'err.KICKED_BY_HOST',
+      'net.connecting', 'net.dealing',
     ];
     for (const { code } of LANGS) {
       for (const key of keys) {
@@ -52,6 +53,43 @@ describe('translate', () => {
     // Simulate: a key present in EN. Any language should at worst return the EN text.
     expect(translate('ar', 'menu.play')).toBeTruthy();
     expect(translate('ar', 'menu.play')).not.toBe('menu.play');
+  });
+});
+
+describe('i18n encoding integrity (no mojibake; 4 languages only)', () => {
+  it('exposes exactly the 4 supported languages with correct native labels (no Russian)', () => {
+    expect(LANGS.map((l) => l.code)).toEqual(['en', 'uk', 'de', 'ar']);
+    const labels = Object.fromEntries(LANGS.map((l) => [l.code, l.label]));
+    expect(labels.en).toBe('English');
+    expect(labels.uk).toBe('Українська');
+    expect(labels.de).toBe('Deutsch');
+    expect(labels.ar).toBe('العربية');
+    // There is no Russian language in the UI.
+    expect(LANGS.some((l) => l.code === 'ru')).toBe(false);
+    expect(LANGS.some((l) => /Русск/i.test(l.label))).toBe(false);
+  });
+
+  it('renders real native text per language (not corrupted bytes)', () => {
+    expect(translate('uk', 'app.title')).toContain('Кінг');     // not "Рљ.."/"Р.."
+    expect(translate('de', 'app.title')).toContain('Kartenspiel'); // not "Г.."
+    expect(translate('ar', 'app.title')).toMatch(/[؀-ۿ]/); // Arabic block, not "Щ.."
+    expect(translate('uk', 'app.title')).not.toMatch(/Рљ|Рџ|РЈ/);
+    expect(translate('de', 'app.title')).not.toContain('Г');
+    expect(translate('ar', 'app.title')).not.toContain('Щ');
+  });
+
+  it('no visible translation string contains classic mojibake markers', () => {
+    // 2-char Cyrillic/Latin double-encoding sequences + the Arabic "lam" mojibake
+    // (Щ„). None of these can occur in correct uk/de/ar/en text.
+    const MOJIBAKE = ['РЈ', 'Рљ', 'Рџ', 'СЊ', 'СЏ', 'вЂ', 'рџ', 'Г¤', 'Г¶', 'Г¼', 'ГŸ', 'Щ„'];
+    for (const { code } of LANGS) {
+      for (const key of I18N_KEYS) {
+        const s = translate(code, key);
+        for (const m of MOJIBAKE) {
+          expect(s.includes(m), `${code}:${key} contains "${m}" → "${s}"`).toBe(false);
+        }
+      }
+    }
   });
 });
 

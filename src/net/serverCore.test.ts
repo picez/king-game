@@ -5,7 +5,7 @@ import {
   createRoom, addMember, startGame, applyActionRequest, autoAdvance,
   sanitizedStateFor, reconnectMember, markDisconnected, snapshot, roomHasPassword,
   verifyPassword, serializeRoom, deserializeRoom, MemoryRoomStorage,
-  roomSummary, listRoomSummaries, roomsToExpire,
+  roomSummary, listRoomSummaries, roomsToExpire, kickMember,
   type ServerRoom,
 } from './serverCore';
 
@@ -495,6 +495,76 @@ describe('deal metadata (server-controlled randomness)', () => {
       if (p.id === 'player-0') continue;
       expect(p.hand.every((c) => c.rank === '?')).toBe(true);
     }
+  });
+});
+
+describe('kickMember (host removes a lobby member before start)', () => {
+  const arr = (room: ServerRoom) => [...room.members.values()];
+
+  it('host can kick a player before the game starts; seats are renumbered', () => {
+    const room = room4pFixed();
+    const host = arr(room)[0];
+    const victim = arr(room)[2]; // 'C'
+    expect(host.isHost).toBe(true);
+    const res = kickMember(room, host.clientId, victim.clientId);
+    expect(res.ok).toBe(true);
+    expect(res.removed?.clientId).toBe(victim.clientId);
+    expect(room.members.has(victim.clientId)).toBe(false);
+    expect(arr(room).filter((m) => m.role === 'player').map((m) => m.seatIndex)).toEqual([0, 1, 2]);
+  });
+
+  it('rejects a non-host kicker (NOT_HOST)', () => {
+    const room = room4pFixed();
+    const [, nonHost, other] = arr(room);
+    expect(kickMember(room, nonHost.clientId, other.clientId)).toEqual({ ok: false, error: 'NOT_HOST' });
+    expect(room.members.has(other.clientId)).toBe(true); // unchanged
+  });
+
+  it('rejects kicking after the game has started (ILLEGAL_ACTION)', () => {
+    const room = room4pFixed();
+    const [host, b] = arr(room);
+    startGame(room);
+    expect(kickMember(room, host.clientId, b.clientId)).toEqual({ ok: false, error: 'ILLEGAL_ACTION' });
+    expect(room.members.has(b.clientId)).toBe(true);
+  });
+
+  it('host cannot kick themselves (use Leave instead)', () => {
+    const room = room4pFixed();
+    const host = arr(room)[0];
+    expect(kickMember(room, host.clientId, host.clientId)).toEqual({ ok: false, error: 'ILLEGAL_ACTION' });
+  });
+
+  it('rejects an unknown target (BAD_MESSAGE)', () => {
+    const room = room4pFixed();
+    expect(kickMember(room, arr(room)[0].clientId, 'no-such-client')).toEqual({ ok: false, error: 'BAD_MESSAGE' });
+  });
+
+  it('a kicked member is removed from persistence', () => {
+    const room = room4pFixed();
+    const [host, victim] = arr(room);
+    const storage = new MemoryRoomStorage();
+    storage.saveRoom(room);
+    kickMember(room, host.clientId, victim.clientId);
+    storage.saveRoom(room); // server persists after a kick
+    const [restored] = storage.loadRooms();
+    expect(restored.members.has(victim.clientId)).toBe(false);
+    expect([...restored.members.values()]).toHaveLength(3);
+  });
+
+  it('a kicked member cannot reconnect with the old token', () => {
+    const room = room4pFixed();
+    const [host, victim] = arr(room);
+    const token = victim.reconnectToken;
+    kickMember(room, host.clientId, victim.clientId);
+    expect(reconnectMember(room, token)).toBeNull();
+  });
+
+  it('snapshot reflects the updated seats after a kick', () => {
+    const room = room4pFixed();
+    const [host, , c] = arr(room);
+    kickMember(room, host.clientId, c.clientId);
+    const snap = snapshot(room);
+    expect(snap.members.filter((m) => m.role === 'player').map((m) => m.seatIndex)).toEqual([0, 1, 2]);
   });
 });
 

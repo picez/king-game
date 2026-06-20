@@ -206,6 +206,27 @@ export function markDisconnected(room: ServerRoom, clientId: string): void {
   if (m) m.connected = false;
 }
 
+/**
+ * Host-only kick of another member BEFORE the game starts. Validates the
+ * request (host, lobby-only, real target, not self) and removes the target,
+ * which re-numbers seats. The removed member's reconnectToken leaves with it, so
+ * a kicked client can no longer RECONNECT. Returns the removed member on success.
+ */
+export function kickMember(
+  room: ServerRoom,
+  hostClientId: string,
+  targetClientId: string,
+): OpResult & { removed?: ServerMember } {
+  const host = room.members.get(hostClientId);
+  if (!host?.isHost) return { ok: false, error: 'NOT_HOST' };
+  if (room.started) return { ok: false, error: 'ILLEGAL_ACTION' };       // lobby only
+  if (targetClientId === hostClientId) return { ok: false, error: 'ILLEGAL_ACTION' }; // use Leave for self
+  const target = room.members.get(targetClientId);
+  if (!target) return { ok: false, error: 'BAD_MESSAGE' };               // unknown target
+  removeMember(room, targetClientId);                                    // re-numbers seats
+  return { ok: true, removed: target };
+}
+
 /** Removes a member; promotes a new host if needed. Returns true if the room is now empty. */
 export function removeMember(room: ServerRoom, clientId: string): { empty: boolean } {
   const wasHost = room.members.get(clientId)?.isHost ?? false;

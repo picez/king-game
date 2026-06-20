@@ -10,7 +10,7 @@ import { saveSession, clearSession } from '../net/session';
 
 export type { OnlineIntent };
 
-export type OnlineStatus = 'connecting' | 'lobby' | 'in_game' | 'finished' | 'error' | 'disconnected';
+export type OnlineStatus = 'connecting' | 'lobby' | 'in_game' | 'finished' | 'error' | 'disconnected' | 'kicked';
 
 export interface NetworkGame {
   status: OnlineStatus;
@@ -20,11 +20,15 @@ export interface NetworkGame {
   /** Authoritative state, already redacted by the server for this client. */
   state: GameState | null;
   myPlayerId: string | null;
+  /** This client's stable connection id (used to identify self in the lobby). */
+  myClientId: string | null;
   isHost: boolean;
   /** True when it is this client's turn to act. */
   myTurn: boolean;
   dispatch: (action: GameAction) => void;
   startGame: () => void;
+  /** Host-only: remove another member (by clientId) from the lobby. */
+  kick: (clientId: string) => void;
   leave: () => void;
 }
 
@@ -52,6 +56,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   );
   const isHostRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
+  // Set when the host kicks us: suppresses auto-reconnect and the 'disconnected'
+  // state so we land on a clear "removed by host" screen instead.
+  const kickedRef = useRef(false);
   // StrictMode-safe connection guard: teardown is deferred one tick so a dev
   // double-mount reuses the same transport instead of opening a second one
   // (which would create a duplicate room / seat).
@@ -85,6 +92,20 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         setState(msg.state);
         if (msg.state?.status === 'game_finished') setStatus('finished');
         else if (msg.state) setStatus('in_game');
+        break;
+      }
+      case 'KICKED': {
+        // Host removed us before the game started. Kill reconnect + saved
+        // session (the old token is already invalid server-side) and show a
+        // clear message. The UI surfaces err.KICKED_BY_HOST.
+        kickedRef.current = true;
+        tokenRef.current = null;
+        codeRef.current = null;
+        clearSession();
+        setErrorCode('KICKED_BY_HOST');
+        setError(null);
+        setStatus('kicked');
+        transportRef.current?.close();
         break;
       }
       case 'ERROR': {
@@ -140,6 +161,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
       transport.onMessage(handleMessage);
       transport.onClose(() => {
         if (!liveRef.current || transportRef.current !== transport) return;
+        if (kickedRef.current) return; // kicked: stay on the removed-by-host screen
         setStatus('disconnected');
         scheduleReconnect();
       });
@@ -187,6 +209,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   }, [send]);
 
   const startGame = useCallback(() => send({ t: 'START_GAME' }), [send]);
+  const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const leave = useCallback(() => {
     // Explicit leave / back to menu: drop the saved session so we don't offer
     // to resume a game the player intentionally left.
@@ -197,5 +220,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
 
   const myTurn = !!state && getActingPlayerId(state) === myPlayerId;
 
-  return { status, error, errorCode, room, state, myPlayerId, isHost: isHostRef.current, myTurn, dispatch, startGame, leave };
+  return {
+    status, error, errorCode, room, state, myPlayerId,
+    myClientId: clientIdRef.current, isHost: isHostRef.current,
+    myTurn, dispatch, startGame, kick, leave,
+  };
 }

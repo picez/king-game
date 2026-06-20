@@ -856,6 +856,15 @@ body {
 .tag--ok   { background: rgba(109,255,109,0.15); color: #6dff6d; }
 .tag--off  { background: rgba(255,112,112,0.15); color: #ff7070; }
 
+/* Host-only remove button next to a lobby member (compact, danger-tinted). */
+.lobby-kick {
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  color: #ff8a8a;
+  border: 1px solid rgba(255,112,112,0.5);
+}
+.lobby-kick:hover { background: rgba(255,112,112,0.15); }
+
 .lobby-error {
   color: #ff9090;
   font-size: 0.85rem;

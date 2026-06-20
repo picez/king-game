@@ -75,6 +75,7 @@ function connect() {
     if (o.t === 'ROOM_UPDATE') c.room = o.room;
     if (o.t === 'STATE_UPDATE') c.state = o.state;
     if (o.t === 'ROOMS_LIST') c.roomsList = o.rooms;
+    if (o.t === 'KICKED') c.kicked = o;
     if (o.t === 'ERROR') c.lastError = o;
     if (c.room && c.clientId) {
       const me = c.room.members.find((x) => x.clientId === c.clientId);
@@ -137,6 +138,37 @@ async function main() {
   await sleep(150);
   check(extra.lastError?.code === 'ROOM_FULL', `full room → ROOM_FULL ("${humanError(extra.lastError?.code)}")`);
   extra.ws.close();
+
+  // 2k) Host kick in the lobby (self-contained room, before any start)
+  console.log('\n[2k] host kicks a lobby member before start');
+  const kHost = await connect();
+  sendMsg(kHost, { t: 'CREATE_ROOM', name: 'KHost', playerCount: 4, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const kCode = kHost.room.code;
+  const kJoin = await connect();
+  sendMsg(kJoin, { t: 'JOIN_ROOM', code: kCode, name: 'Victim' });
+  await sleep(200);
+  check(kHost.room.members.length === 2, 'kick room has 2 members before kick');
+  const victimToken = kJoin.token;
+  const victimClientId = kJoin.clientId;
+
+  // non-host cannot kick
+  sendMsg(kJoin, { t: 'KICK_MEMBER', clientId: kHost.clientId });
+  await sleep(150);
+  check(kJoin.lastError?.code === 'NOT_HOST', 'non-host kick rejected (NOT_HOST)');
+
+  // host removes the joiner
+  sendMsg(kHost, { t: 'KICK_MEMBER', clientId: victimClientId });
+  await sleep(250);
+  check(kJoin.kicked?.reason === 'HOST_REMOVED', 'kicked client received KICKED (HOST_REMOVED)');
+  check(kHost.room.members.length === 1, 'host lobby updated: victim removed');
+
+  // the kicked client cannot reconnect with the old token
+  const kBack = await connect();
+  sendMsg(kBack, { t: 'RECONNECT', code: kCode, reconnectToken: victimToken });
+  await sleep(200);
+  check(kBack.lastError?.code === 'ROOM_NOT_FOUND', 'old reconnect token no longer works after kick');
+  kBack.ws.close(); kJoin.ws.close(); kHost.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
 import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
 import {
-  createRoom, addMember, reconnectMember, markDisconnected, removeMember,
+  createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   listRoomSummaries, roomsToExpire,
   type ServerRoom, type ServerMember,
@@ -331,6 +331,25 @@ wss.on('connection', (socket: WebSocket) => {
       // Legacy host-authoritative messages — ignored in server-authoritative mode.
       case 'HOST_STATE':
         break;
+
+      case 'KICK_MEMBER': {
+        if (!session) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+        const { room, clientId } = session;
+        const target = String(msg.clientId || '');
+        const res = kickMember(room, clientId, target);
+        if (!res.ok) return sendError(socket, res.error!, 'Cannot remove member');
+        // Tell the kicked client, then drop its socket. Its membership (and
+        // reconnect token) is already gone, so it cannot RECONNECT.
+        const targetSocket = sockets.get(target);
+        if (targetSocket) {
+          send(targetSocket, { t: 'KICKED', reason: 'HOST_REMOVED' });
+          try { targetSocket.close(); } catch { /* already closing */ }
+        }
+        sockets.delete(target);
+        broadcastRoom(room);
+        persistRoom(room);
+        break;
+      }
 
       case 'LEAVE_ROOM': {
         if (session) handleLeave(session.room, session.clientId);

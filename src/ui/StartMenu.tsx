@@ -28,7 +28,8 @@ type Pane = 'menu' | 'host' | 'join';
 
 export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const { t } = useI18n();
-  const errText = (code: ErrorCode) => t(JOIN_ERR_CODES.has(code) ? `err.${code}` : 'err.generic');
+  const errText = (code: ErrorCode) =>
+    t(JOIN_ERR_CODES.has(code) || code === 'KICKED_BY_HOST' ? `err.${code}` : 'err.generic');
 
   const [pane, setPane] = useState<Pane>(initialError ? 'join' : 'menu');
   const [joinError, setJoinError] = useState<ErrorCode | null>(initialError ?? null);

@@ -5,19 +5,29 @@ interface Props {
   room: RoomSnapshot;
   isHost: boolean;
   myPlayerId: string | null;
+  /** This client's connection id — used to never show "Kick" against yourself. */
+  myClientId: string | null;
   onStart: () => void;
   onLeave: () => void;
+  /** Host-only: remove another member (by clientId) before the game starts. */
+  onKick: (clientId: string) => void;
   error: string | null;
 }
 
 /**
  * Minimal lobby: shows the room code to share, the members, and (for the host)
- * a Start button enabled once enough players have joined.
+ * a Start button enabled once enough players have joined. The host can also
+ * remove other members before the game starts.
  */
-export default function Lobby({ room, isHost, myPlayerId, onStart, onLeave, error }: Props) {
+export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, error }: Props) {
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
   const enough = players.length === room.playerCount;
+
+  function handleKick(clientId: string) {
+    // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
+    if (typeof window === 'undefined' || window.confirm(t('lobby.kickConfirm'))) onKick(clientId);
+  }
 
   return (
     <div className="screen setup-screen">
@@ -52,6 +62,15 @@ export default function Lobby({ room, isHost, myPlayerId, onStart, onLeave, erro
                     <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>
                       {m.connected ? t('lobby.online') : t('lobby.offline')}
                     </span>
+                    {isHost && !room.started && m.clientId !== myClientId && (
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--small lobby-kick"
+                        onClick={() => handleKick(m.clientId)}
+                      >
+                        {t('lobby.kick')}
+                      </button>
+                    )}
                   </span>
                 </li>
               );

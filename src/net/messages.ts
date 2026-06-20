@@ -78,6 +78,8 @@ export type ClientMessage =
   /** Discovery: request the public room list (no session required). */
   | { t: 'LIST_ROOMS' }
   | { t: 'LEAVE_ROOM' }
+  /** Host-only: remove another member from the room before the game starts. */
+  | { t: 'KICK_MEMBER'; clientId: string }
   | { t: 'UPDATE_SETTINGS'; playerCount?: 3 | 4; modeSelectionType?: 'fixed' | 'dealer_choice' }
   | { t: 'START_GAME' }
   /** A request to mutate game state; the authority validates and applies it. */
@@ -116,6 +118,8 @@ export type ServerMessage =
   | { t: 'ACTION_FORWARD'; action: GameAction; fromSeat: number | null }
   /** A request was rejected (not your turn, illegal move, room full, …). */
   | { t: 'ERROR'; code: ErrorCode; message: string }
+  /** The host removed this client from the room (before game start). */
+  | { t: 'KICKED'; reason: 'HOST_REMOVED' }
   | { t: 'PONG' };
 
 export type ErrorCode =
@@ -127,6 +131,8 @@ export type ErrorCode =
   | 'NOT_YOUR_TURN'
   | 'ILLEGAL_ACTION'
   | 'NOT_HOST'
+  /** The client was removed from the room by the host (UI message key). */
+  | 'KICKED_BY_HOST'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

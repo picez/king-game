@@ -69,6 +69,18 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     );
   }
 
+  if (net.status === 'kicked') {
+    // Host removed this client from the lobby. Show a clear message; the menu
+    // also surfaces err.KICKED_BY_HOST when we exit.
+    return (
+      <CenterNote title={t('lobby.title')} sub={t('err.KICKED_BY_HOST')}>
+        <button className="btn btn--primary" onClick={() => onExit('KICKED_BY_HOST')}>
+          {t('btn.backToMenu')}
+        </button>
+      </CenterNote>
+    );
+  }
+
   // Lobby (room exists, game not started yet).
   if (net.room && !net.room.started) {
     return (
@@ -76,8 +88,10 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
         room={net.room}
         isHost={net.isHost}
         myPlayerId={net.myPlayerId}
+        myClientId={net.myClientId}
         onStart={net.startGame}
         onLeave={() => { net.leave(); onExit(); }}
+        onKick={net.kick}
         error={net.error}
       />
     );
