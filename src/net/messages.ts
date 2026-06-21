@@ -58,13 +58,28 @@ export interface RoomSnapshot {
 }
 
 /**
+ * Which card game a room is running. King-only today; the discovery list is
+ * game-aware so future card games (e.g. other trick-taking games) can share the
+ * same server browser. Always present in a summary; older/unknown rooms fall
+ * back to 'king' at the source.
+ */
+export type GameType = 'king';
+
+/**
  * Public, privacy-safe summary of a room for the discovery list. Contains ONLY
  * non-sensitive fields — never reconnectToken, password/hash/salt, gameState,
- * hands, dealLog or seeds.
+ * hands, dealLog or seeds. `hostAvatar` is a whitelisted emoji id (sanitized at
+ * the source, never free text), so it can never carry HTML/script.
  */
 export interface RoomSummary {
   code: RoomCode;
   hostName: string;
+  /** Whitelisted emoji avatar id of the host (sanitized; safe to render). */
+  hostAvatar: string;
+  /** Whether the host currently has a live socket (MVP connection-quality cue). */
+  hostConnected: boolean;
+  /** Which card game this room runs. 'king' today; future games extend the union. */
+  gameType: GameType;
   playerCount: 3 | 4;
   occupiedSeats: number;
   hasPassword: boolean;

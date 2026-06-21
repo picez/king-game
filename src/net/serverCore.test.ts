@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getCurrentPlayer } from '../core/gameEngine';
 import { getValidCards } from '../core/rules';
+import { AVATARS } from '../core/avatars';
 import {
   createRoom, addMember, startGame, applyActionRequest, autoAdvance,
   sanitizedStateFor, reconnectMember, markDisconnected, snapshot, roomHasPassword,
@@ -118,7 +119,8 @@ describe('room discovery (public summaries)', () => {
 
     const summary = roomSummary(room);
     expect(Object.keys(summary).sort()).toEqual(
-      ['code', 'hasPassword', 'hostName', 'occupiedSeats', 'playerCount', 'status', 'updatedAt'],
+      ['code', 'gameType', 'hasPassword', 'hostAvatar', 'hostConnected',
+       'hostName', 'occupiedSeats', 'playerCount', 'status', 'updatedAt'],
     );
     expect(summary.hasPassword).toBe(true);
     expect(summary.hostName).toBe('Host');
@@ -128,6 +130,22 @@ describe('room discovery (public summaries)', () => {
     expect(json).not.toContain(room.passwordHash); // hash
     expect(json).not.toContain('token-xyz');       // reconnect token
     expect(json).not.toMatch(/dealLog|gameState|seed|hand/i);
+  });
+
+  it('discovery is game-aware (gameType=king today)', () => {
+    expect(roomSummary(lobbyRoom()).gameType).toBe('king');
+  });
+
+  it('exposes a whitelisted host avatar (never free text) and a boolean connection flag', () => {
+    const summary = roomSummary(lobbyRoom());
+    expect(AVATARS).toContain(summary.hostAvatar);   // sanitized to the emoji whitelist
+    expect(typeof summary.hostConnected).toBe('boolean');
+    // A freshly-created host is connected; it flips to false once marked disconnected.
+    expect(summary.hostConnected).toBe(true);
+    const room = lobbyRoom();
+    const hostId = [...room.members.values()].find((m) => m.isHost)!.clientId;
+    markDisconnected(room, hostId);
+    expect(roomSummary(room).hostConnected).toBe(false);
   });
 
   it('marks status: lobby / full / in_game', () => {

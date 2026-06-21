@@ -214,29 +214,69 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                   </div>
 
                   {roomList.error && <p className="lobby-error">{roomList.error}</p>}
-                  {!roomList.error && roomList.rooms.length === 0 && !roomList.loading && (
+                  {roomList.loading && roomList.rooms.length === 0 && (
+                    <p className="setup-hint">{t('net.connecting')}…</p>
+                  )}
+                  {!roomList.error && !roomList.loading && roomList.rooms.length === 0 && (
                     <p className="setup-hint">{t('join.noRooms')}</p>
                   )}
 
-                  <ul className="room-list">
-                    {roomList.rooms.map((r) => {
-                      const joinable = r.status === 'lobby';
-                      return (
-                        <li key={r.code}>
-                          <button
-                            className={`room-list__item ${code === r.code ? 'room-list__item--selected' : ''}`}
-                            onClick={() => pickRoom(r)} disabled={!joinable}>
-                            <span className="room-list__code">
-                              {r.code}{r.hasPassword && <span title="Password required"> 🔒</span>}
-                            </span>
-                            <span className="room-list__host">{r.hostName}</span>
-                            <span className="room-list__seats">{r.occupiedSeats}/{r.playerCount}</span>
-                            <span className={`tag room-list__status--${r.status}`}>{t(`status.${r.status}`)}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  {roomList.rooms.length > 0 && (
+                    <div className="server-browser" role="table" aria-label={t('join.openRooms')}>
+                      <div className="server-browser__head" role="row">
+                        <span role="columnheader">{t('join.col.host')}</span>
+                        <span role="columnheader">{t('join.col.game')}</span>
+                        <span role="columnheader">{t('join.col.players')}</span>
+                        <span role="columnheader">{t('join.col.password')}</span>
+                        <span role="columnheader">{t('join.col.connection')}</span>
+                        <span role="columnheader">{t('join.col.status')}</span>
+                      </div>
+                      <ul className="server-browser__body">
+                        {roomList.rooms.map((r) => {
+                          const joinable = r.status === 'lobby';
+                          const gameType = r.gameType ?? 'king';
+                          const online = r.hostConnected;
+                          const statusLabel = t(`status.${r.status}`);
+                          return (
+                            <li key={r.code}>
+                              <button
+                                type="button" role="row"
+                                className={`server-browser__row ${code === r.code ? 'server-browser__row--selected' : ''}`}
+                                onClick={() => pickRoom(r)} disabled={!joinable}
+                                aria-disabled={!joinable} title={joinable ? r.code : statusLabel}>
+                                <span className="sb-cell sb-host" data-label={t('join.col.host')} role="cell">
+                                  <span className="sb-host__avatar" aria-hidden="true">{r.hostAvatar}</span>
+                                  <span className="sb-host__meta">
+                                    <span className="sb-host__name">{r.hostName}</span>
+                                    <span className="sb-host__code">{r.code}</span>
+                                  </span>
+                                  <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
+                                </span>
+                                <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
+                                  {t(`gameType.${gameType}`)}
+                                </span>
+                                <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
+                                  {r.occupiedSeats}/{r.playerCount}
+                                </span>
+                                <span className="sb-cell sb-pass" data-label={t('join.col.password')} role="cell">
+                                  {r.hasPassword
+                                    ? <span className="sb-lock">🔒 {t('join.locked')}</span>
+                                    : <span className="sb-open">{t('join.open')}</span>}
+                                </span>
+                                <span className="sb-cell sb-conn" data-label={t('join.col.connection')} role="cell">
+                                  <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
+                                  {online ? t('join.good') : t('join.poor')}
+                                </span>
+                                <span className="sb-cell sb-status" data-label={t('join.col.status')} role="cell">
+                                  <span className={`tag room-list__status--${r.status}`}>{statusLabel}</span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 <div className="field-group">

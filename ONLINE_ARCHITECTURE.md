@@ -38,7 +38,12 @@ with a `t` discriminator.
 **Client → Server** (`ClientMessage`)
 - `CREATE_ROOM` / `JOIN_ROOM` / `RECONNECT` / `LEAVE_ROOM`
 - `LIST_ROOMS` — discovery; replies with `ROOMS_LIST` of public `RoomSummary`
-  (code, hostName, seats, hasPassword, status) — never tokens/hash/state/hands.
+  (code, hostName, hostAvatar, hostConnected, gameType, seats, hasPassword,
+  status) — never tokens/hash/state/hands. **Room discovery is game-aware:**
+  `gameType` is `'king'` today but is emitted from the room so the same server
+  browser can list future card games without a protocol change. `hostAvatar` is
+  re-sanitized to the emoji whitelist at the source (never free text);
+  `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state
 - `HOST_STATE { state }` — relay-mode only (see §4)

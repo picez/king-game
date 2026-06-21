@@ -532,9 +532,19 @@ export function roomSummary(room: ServerRoom): RoomSummary {
   const status: RoomSummary['status'] = room.started
     ? 'in_game'
     : occupiedSeats >= room.playerCount ? 'full' : 'lobby';
+  // The host is always a player; look across all members so we still surface the
+  // host's avatar/connection even in edge cases.
+  const host = [...room.members.values()].find((m) => m.isHost);
   return {
     code: room.code,
-    hostName: players.find((m) => m.isHost)?.name ?? '—',
+    hostName: host?.name ?? '—',
+    // Re-sanitize: the summary is public, so guarantee a whitelisted emoji id
+    // (never free text) regardless of how the member was stored.
+    hostAvatar: sanitizeAvatar(host?.avatar, host?.name ?? room.code),
+    hostConnected: host?.connected ?? false,
+    // King-only today; emitted from the room so future games extend without a
+    // protocol change. Discovery is game-aware (see ONLINE_ARCHITECTURE.md).
+    gameType: 'king',
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
