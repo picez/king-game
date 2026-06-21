@@ -11,7 +11,7 @@
 // imported and the server runs on file/memory storage exactly as before.
 // ---------------------------------------------------------------------------
 
-import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey, unique } from 'drizzle-orm/pg-core';
 import type { PersistedRoom } from '../../src/net/serverCore';
 
 export const rooms = pgTable('rooms', {
@@ -85,3 +85,47 @@ export const userGameSettings = pgTable('user_game_settings', {
 export type UsersTable = typeof users;
 export type UserSettingsTable = typeof userSettings;
 export type UserGameSettingsTable = typeof userGameSettings;
+
+// ---------------------------------------------------------------------------
+// Stage 4 — sessions & external auth accounts (DB-backed; opt-in).
+//
+// Both are game-agnostic identity tables (no game_type). A session is the source
+// of truth for a login/device: we store only the HASH of the cookie token, so a
+// DB dump can't be replayed (ARCHITECTURE_DB_AUTH.md §2.3/§5). `auth_accounts`
+// is the seam for Google/Apple login — it exists now (forward-compat) but is
+// unused until OAuth lands; a guest needs no auth_accounts row.
+// ---------------------------------------------------------------------------
+
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** SHA-256(token + SESSION_SECRET) — never the plaintext token. Unique. */
+  tokenHash: text('token_hash').notNull().unique(),
+  /** 'web_cookie' today; 'mobile_refresh' reserved for later (Stage 6). */
+  kind: text('kind').notNull().default('web_cookie'),
+  /** Coarse fingerprints for security review (optional, minimised). */
+  userAgent: text('user_agent'),
+  ipHash: text('ip_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  /** Set on logout/revoke; a revoked session is rejected even before expiry. */
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+});
+
+export const authAccounts = pgTable('auth_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** 'google' | 'apple' | … */
+  provider: text('provider').notNull(),
+  /** The provider's stable subject id (`sub`). Unique per provider. */
+  providerAccountId: text('provider_account_id').notNull(),
+  emailAtProvider: text('email_at_provider'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  providerAccount: unique('auth_accounts_provider_account_uq').on(t.provider, t.providerAccountId),
+}));
+
+export type SessionsTable = typeof sessions;
+export type AuthAccountsTable = typeof authAccounts;

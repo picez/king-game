@@ -189,10 +189,77 @@ TEST_DATABASE_URL=postgres://… npm test   # runs users.integration.test.ts too
 - **No stats** (Stage 5). `email`/`email_verified`/`status`/`deleted_at` columns
   exist as forward-compat but are unused in Stage 3.
 
-## Not in Stage 3 (later stages)
+## Stage 4 — sessions + profile/settings API + guest bridge (no auth wall)
 
-- Google login + sessions, and wiring `/api/profile` · `/api/settings` ·
-  `/api/games/<type>/settings` to the repository (Stage 4).
+Stage 4 wires the Stage 3 repository to an HTTP API, adds **DB-backed sessions**,
+and a **guest identity bridge** — all **opt-in** and behind `DATABASE_URL`. The
+server, lobby, local pass-and-play, and online guest rooms keep working with **no
+database** (every `/api/*` route returns a clean 503).
+
+What landed:
+
+| Piece | File |
+|---|---|
+| Migration (`sessions`, `auth_accounts`) | `server/db/migrations/0002_sessions_auth.sql` |
+| Drizzle tables | `server/db/schema.ts` (`sessions`, `authAccounts`) |
+| Session repository (create/find/revoke) | `server/db/sessions.ts` |
+| Session token hash/verify + TTL (node:crypto) | `server/sessionTokens.ts` |
+| Pure cookie/CSRF helpers | `src/net/cookies.ts` (+ `cookies.test.ts`) |
+| HTTP API (routes + 503-when-disabled) | `server/api.ts` (+ `apiDisabled.test.ts`) |
+| Client API adaptor + soft sync | `src/net/profileApi.ts`, `src/ui/AccountPanel.tsx` |
+
+**Apply the schema** (adds `sessions` + `auth_accounts` alongside the earlier
+tables; idempotent):
+
+```bash
+DATABASE_URL=postgres://… npm run db:migrate   # applies 0000 + 0001 + 0002
+```
+
+**API surface** (all JSON; share the WS server's port — no second service):
+
+| Method + path | Auth | Purpose |
+|---|---|---|
+| `GET /api/me` | optional | current identity + global settings (anonymous if no session) |
+| `POST /api/guest-session` | — | create/reuse a guest user (by device handle) + set session cookie |
+| `POST /api/logout` | optional | revoke the session + clear the cookie |
+| `PATCH /api/profile` | session | update display name |
+| `GET/PATCH /api/settings` | session | global settings (lang/avatar/cardStyle) |
+| `GET/PATCH /api/games/king/settings` | session | King per-game prefs (e.g. defaultTimer) |
+| `GET /auth/google/start` · `/callback` | — | OAuth scaffold — 503 `oauth_disabled` until set up |
+
+**Sessions are DB-backed and revocable.** The browser holds an opaque token in an
+**httpOnly** cookie; the DB stores only `SHA-256(token + SESSION_SECRET)` (never
+plaintext), with `expires_at`/`revoked_at`. Logout/revoke works (a stateless JWT
+can't be revoked). Set `SESSION_SECRET` in production (see `.env.example`).
+
+**Guests, still no auth.** `POST /api/guest-session` calls `getOrCreateGuest`
+keyed by the client's **public device handle** (`king.guest.v1` in localStorage —
+a lookup key, **not** a credential) and issues a session. Login remains an
+upgrade, never a gate.
+
+**Client stays localStorage-first.** `AccountPanel` (an optional area in the start
+menu) hydrates from `/api/me` when reachable and writes through on change; if the
+API is down or DB-disabled it silently uses localStorage prefs exactly as before.
+
+Validate without a DB via `npm test` (pure helpers + API-disabled path) or,
+against a real Postgres, with the gated integration test:
+
+```bash
+TEST_DATABASE_URL=postgres://… npm test   # runs sessions.integration.test.ts too
+```
+
+### Stage 4 limits (deferred to a next substage)
+
+- **No full Google OAuth yet.** Routes exist but return 503 until
+  `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + the Authorization-Code/PKCE flow +
+  ID-token validation + `auth_accounts` upsert are implemented.
+- **No `/api/games` catalog** (`game_catalog`/`rulesets`) yet (Stage 5 area).
+- **No guest→account claim/merge** yet; **WS still identifies players by
+  `clientId`+`reconnectToken`** (auth only *names* a player).
+
+## Not in Stage 4 (later stages)
+
+- Full Google login + guest→account merge, `/api/games` catalog seed.
 - Stats tables + `game_catalog` (Stage 5).
 - Normalised `room_members`/`games`/`rounds` tables (the room payload stays a
   single JSONB blob).

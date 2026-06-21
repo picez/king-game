@@ -1533,6 +1533,26 @@ body {
   flex-direction: column;
   gap: 0.5rem;
 }
+/* ===== Account / profile panel (Stage 4) ===== */
+.account-panel {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--surface-3);
+  padding-top: 0.75rem;
+}
+.account-panel__toggle { width: 100%; }
+.account-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+.account-panel__status { font-size: 0.85rem; color: var(--text-muted); }
+.account-panel__status strong { color: var(--accent); }
+.account-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 /* ===== Language selector / top bar ===== */
 .topbar {
   width: 100%;

@@ -154,6 +154,27 @@ without a paid disk, and the path forward for accounts/stats later.
   unset keeps today's behaviour exactly.
 - **Stage 2 stores rooms only** (no accounts/auth/stats yet). See `DB_SETUP.md`.
 
+### Profiles, settings & sessions (optional, Stage 4)
+
+Once `DATABASE_URL` is set and migrated (`0002_sessions_auth.sql` runs as part of
+`npm run db:migrate`), the same Web Service also serves the **profile/settings
+API** and **guest sessions** on the same port — no extra service. Add:
+
+| Key | Value | Notes |
+|-----|-------|-------|
+| `DATABASE_URL` | _(Render Postgres URL)_ | enables `/api/*`; without it everything 503s and play is unaffected |
+| `SESSION_SECRET` | _(strong random, e.g. `openssl rand -hex 32`)_ | **required in prod** — pepper for hashing session tokens; rotating it logs everyone out |
+| `COOKIE_SECURE` | `true` | optional override; defaults to secure when `NODE_ENV=production` |
+| `SESSION_TTL_DAYS` | `30` | optional; session lifetime (1..365) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(optional)_ | Google OAuth is **staged**; routes 503 until these + the flow exist |
+
+- The client is served from the **same origin**, so credentialed `/api` fetches
+  and the CSRF origin check work with no extra config. (Only a **split-origin**
+  client needs its origin added to `ALLOWED_ORIGINS`.)
+- **No login wall:** with or without these vars, local play and online guest
+  rooms work. Migrations are idempotent — see the room-storage note above for
+  running `npm run db:migrate` (a release step or one-off Job).
+
 ---
 
 ## Security notes

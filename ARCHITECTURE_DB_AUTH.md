@@ -75,6 +75,14 @@ handler and keep `WebSocketServer({ server })` attached to the same
 `http.Server`, so there is still **one port, one service** (important for the
 Render free plan). Hono is a fine alternative if we want a smaller dependency.
 
+> **Implementation note (Stage 4):** the API surface turned out small enough
+> (six JSON routes + a guest/logout/OAuth scaffold) that we implemented it on the
+> **raw `http.Server`** (`server/api.ts`) — a tiny router, cookie/CSRF helpers,
+> and a JSON body reader — rather than adding Express. Same single port, zero new
+> dependencies, fully reversible. If the surface grows (many routes, complex
+> middleware), swapping in Express/Hono behind the same `handleApiRequest` seam is
+> straightforward.
+
 ```
             ┌──────────────────────────────────────────┐
             │            http.Server (one port)         │
@@ -752,21 +760,56 @@ localStorage as the source of truth.
 - **Acceptance (met):** logged-out/local play unchanged; settings round-trip for
   a guest via the repository; no login wall; tests/build/e2e green without a DB.
 
-### Stage 4 — Google login + profile/settings API
-- Add Express `/auth/google` + callback (Authorization Code + PKCE), ID-token
-  validation, `auth_accounts` upsert, `sessions` + httpOnly cookie.
-- WS resolves identity from the cookie; **seat/reconnect authority unchanged**.
-- **Wire the Stage 3 repository to HTTP** (deferred here so routes attach to a
-  session): `/api/profile`, `/api/settings`, `/api/games/king/settings`, and
-  `/api/games` (seed `game_catalog`/`rulesets` with King). Guests get an
-  ephemeral guest user lazily via `getOrCreateGuest`.
-- Client: if logged in/guest-with-row, hydrate settings from the server and
-  write through; **localStorage stays the fallback**.
-- Add "Save progress / Sign in" entry point (never a gate). Implement guest →
-  account **claim/merge**.
-- **Acceptance:** sign in with Google, refresh keeps you logged in, logout
-  revokes the session; guest play still works without signing in; settings API
-  round-trips for guest + logged-in.
+### Stage 4 — session/profile/settings API + guest bridge — PARTIAL (foundation DONE)
+Split into a **session/profile/settings foundation** (done now) and **full
+Google OAuth** (documented next substage). The foundation is complete and wired;
+OAuth is scaffolded but disabled.
+
+**Done in Stage 4 (HTTP API + sessions + guest bridge + soft client sync):**
+- **HTTP routing on the existing `http.Server`** (no Express, no second port):
+  `server/api.ts` owns `/api/*` + `/auth/*`; `/health`, static `dist/`, the SPA
+  fallback, and the `/ws` upgrade are untouched. When `DATABASE_URL` is unset (or
+  the DB is unreachable) every route returns a clean **503** and play is
+  unaffected; the drizzle/pg driver is imported **dynamically**, only DB-on.
+- **API surface:** `GET /api/me`, `PATCH /api/profile`, `GET/PATCH /api/settings`,
+  `GET/PATCH /api/games/king/settings`, plus `POST /api/guest-session` and
+  `POST /api/logout`. All wired to the Stage 3 repository; no private game state
+  is ever exposed.
+- **DB-backed sessions** (`sessions` table, migration `0002_sessions_auth.sql`):
+  opaque token in an **httpOnly cookie**, stored only as a **peppered SHA-256
+  hash** (`server/sessionTokens.ts`), with `expires_at`/`revoked_at` so
+  logout/revoke works (not a stateless JWT). `auth_accounts` table added now
+  (forward-compat for Google/Apple; unused until OAuth lands).
+- **Guest bridge:** `POST /api/guest-session` lazily creates/reuses a guest user
+  via `getOrCreateGuest` keyed by a **public device handle** (localStorage
+  `king.guest.v1`; a lookup key, **not** a credential) and issues a session.
+- **Pure helpers + tests:** cookie parse/serialize, cookie options (dev vs prod),
+  CSRF origin check (`src/net/cookies.ts`); token hash/verify + TTL
+  (`server/sessionTokens.ts`); API-disabled-without-DB; client `apiBaseFromWsUrl`;
+  prefs round-trip; gated session integration test.
+- **Soft client sync:** an optional account/profile area (`AccountPanel`) shows
+  Guest/Signed-in status, display name, avatar, language, and the per-game King
+  default timer. It hydrates from `/api/me` when available and writes through;
+  **localStorage stays the source of truth and fallback** — no login wall.
+- **Security:** session token hashes only (never plaintext), httpOnly + `Secure`
+  (prod) + `SameSite=Lax` cookie, CSRF via SameSite + an Origin allowlist/same-
+  origin check on mutations, credentialed CORS (never `*`), no
+  cookie/token/PII logging. `SESSION_SECRET` is the hash pepper.
+
+**Deferred to a Stage 4 next substage (documented, not built):** the full Google
+OAuth flow (`/auth/google/start` + `/auth/google/callback` exist but return 503
+`oauth_disabled` until `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` + the
+Authorization-Code/PKCE exchange + ID-token validation + `auth_accounts` upsert
+are implemented), `/api/games` catalog (`game_catalog`/`rulesets` seed), guest →
+account **claim/merge**, and WS identity resolution from the cookie. Seat/
+reconnect authority stays on the existing `clientId`+`reconnectToken` model
+regardless.
+
+- **Acceptance (met):** server starts without `DATABASE_URL` exactly as before;
+  `/api/*` 503s gracefully with no DB; with `DATABASE_URL` + migrations, `/api/me`
+  and the settings/guest endpoints round-trip; local play and online guest rooms
+  work without login; no gameplay/rules/scoring/deck change; no private state in
+  the API. Google OAuth staged.
 
 ### Stage 5 — Stats from completed games (per game_type)
 - On `game_finished`, write `games` + `game_players` + `rounds` (from

@@ -82,8 +82,12 @@ All optional; defaults keep LAN/dev simple.
 | `ROOM_STORAGE`    | _(file)_      | `file` (default) → JSON file; `memory` → no persistence (rooms lost on restart); `pg` → Postgres (Stage 2, **requires `DATABASE_URL`**). |
 | `ROOM_STORAGE_FILE` | `.data/rooms.json` | Path to the rooms JSON file (overrides `DATA_DIR`). File mode only. |
 | `DATA_DIR`        | `.data`       | Directory for `rooms.json` when `ROOM_STORAGE_FILE` is unset. File mode only. |
-| `DATABASE_URL`    | _(unset)_     | Postgres connection string. Required when `ROOM_STORAGE=pg`; also enables the `/health` DB probe. Unset = file/memory (current default). |
+| `DATABASE_URL`    | _(unset)_     | Postgres connection string. Required when `ROOM_STORAGE=pg`; also enables the `/health` DB probe **and the Stage 4 `/api/*` profile/settings/session surface**. Unset = file/memory + every `/api/*` returns 503 (play unaffected). |
 | `DATABASE_POOL_MAX` | `5`         | Max Postgres connections in the pool (pg mode). |
+| `SESSION_SECRET`  | _(empty)_     | Stage 4: server-side pepper for hashing session tokens. **Required in production** (e.g. `openssl rand -hex 32`); rotating it invalidates all sessions. |
+| `COOKIE_SECURE`   | _(prod=on)_   | Stage 4: force the `Secure` session-cookie flag (`true`/`false`). Default = secure when `NODE_ENV=production`, off on dev `http://localhost`. |
+| `SESSION_TTL_DAYS`| `30`          | Stage 4: session lifetime in days (clamped 1..365). |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(unset)_ | Stage 4 (staged): Google OAuth. While unset, `/auth/google/*` return 503 `oauth_disabled`; the server never crashes. |
 | `ROOM_TTL_HOURS`  | `24`          | Idle rooms with **no connected players** are deleted after this many hours. |
 | `ROOM_HARD_TTL_HOURS` | `48`      | Rooms with a connected player survive until this hard cap (so an active table is never yanked). |
 | `ROOM_CLEANUP_INTERVAL_MS` | `600000` | How often (ms) the server sweeps for expired rooms. Cleanup also runs once at startup. |

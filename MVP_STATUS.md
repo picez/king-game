@@ -40,6 +40,17 @@ linked docs.
   (see DEPLOYMENT.md).
 - **PWA**: installable on Android (manifest, icons, app-shell service worker).
 - **Production path**: env config, `/health`, origin allowlist, HTTPS/WSS guide.
+- **Profiles/auth foundation (partial — Stage 4)**: an **opt-in** HTTP API
+  (`/api/me` · `/api/profile` · `/api/settings` · `/api/games/king/settings` ·
+  `/api/guest-session` · `/api/logout`) on the **same port** as the WS server,
+  backed by **DB-backed, revocable sessions** (httpOnly cookie; only a hashed
+  token stored) and a **guest identity bridge** (no login wall). An optional
+  account/profile area syncs display name, avatar, language, and the per-game
+  King default timer, with **localStorage as the fallback**. With **no
+  `DATABASE_URL` the whole API gracefully 503s and play is unaffected**. Google
+  OAuth is **scaffolded but disabled** (next substage). See
+  [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §3 Stage 4 and
+  [`DB_SETUP.md`](DB_SETUP.md).
 
 ## Run it
 

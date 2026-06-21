@@ -10,6 +10,11 @@ import { isValidAvatar } from '../core/avatars';
 const NICK_KEY = 'king.nickname.v1';
 const LANG_KEY = 'king.lang.v1';
 const AVATAR_KEY = 'king.avatar.v1';
+const TIMER_KEY = 'king.defaultTimer.v1';
+const GUEST_KEY = 'king.guest.v1';
+
+/** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
+const TIMER_VALUES = [0, 30, 60, 90];
 
 function defaultStorage(): StorageLike | null {
   try {
@@ -47,4 +52,30 @@ export function loadAvatar(storage: StorageLike | null = defaultStorage()): stri
 export function saveAvatar(avatar: string, storage: StorageLike | null = defaultStorage()): void {
   if (!isValidAvatar(avatar)) return; // never persist anything off the whitelist
   try { storage?.setItem(AVATAR_KEY, avatar); } catch { /* non-fatal */ }
+}
+
+/** Preferred default turn timer (seconds) for hosting; 0/30/60/90 only. */
+export function loadDefaultTimer(storage: StorageLike | null = defaultStorage()): number {
+  const n = Number(storage?.getItem(TIMER_KEY));
+  return TIMER_VALUES.includes(n) ? n : 0;
+}
+
+export function saveDefaultTimer(seconds: number, storage: StorageLike | null = defaultStorage()): void {
+  if (!TIMER_VALUES.includes(seconds)) return; // ignore anything off the whitelist
+  try { storage?.setItem(TIMER_KEY, String(seconds)); } catch { /* non-fatal */ }
+}
+
+/**
+ * A stable per-device guest handle. PUBLIC, non-sensitive — a lookup key the
+ * server maps to a guest user row (NOT a credential, NOT a password). Persisted
+ * so the same device reuses its guest profile across sessions.
+ */
+export function loadGuestKey(storage: StorageLike | null = defaultStorage()): string | null {
+  const v = storage?.getItem(GUEST_KEY) ?? null;
+  return v && v.trim() ? v : null;
+}
+
+export function saveGuestKey(key: string, storage: StorageLike | null = defaultStorage()): void {
+  if (!key.trim()) return;
+  try { storage?.setItem(GUEST_KEY, key.trim().slice(0, 64)); } catch { /* non-fatal */ }
 }

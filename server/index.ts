@@ -31,6 +31,7 @@ import {
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled, checkDbHealth } from './db/client';
+import { handleApiRequest } from './api';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -311,10 +312,23 @@ async function handleHealth(res: ServerResponse): Promise<void> {
 }
 
 const httpServer = createServer((req, res) => {
-  if ((req.url ?? '').split('?')[0] === '/health') {
+  const path = (req.url ?? '').split('?')[0];
+  if (path === '/health') {
     void handleHealth(res).catch(() => {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ status: 'ok', db: 'error', rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+    });
+    return;
+  }
+  // Profiles/settings/auth API (Stage 4). Shares this port; never touches /ws,
+  // /health, static, or the SPA fallback. Gracefully 503s when no DATABASE_URL.
+  if (path === '/api' || path.startsWith('/api/') || path.startsWith('/auth/')) {
+    void handleApiRequest(req, res).catch((err) => {
+      console.error('[King] /api handler crashed:', String(err?.message ?? err));
+      if (!res.headersSent) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'internal' }));
+      }
     });
     return;
   }

@@ -5,9 +5,10 @@ import type { RoomSummary } from '../net/messages';
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
-import { loadNickname, saveNickname, loadAvatar, saveAvatar } from '../net/prefs';
+import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } from '../net/prefs';
 import { AVATARS, defaultAvatar } from '../core/avatars';
 import { useI18n, LanguageSelector } from '../i18n';
+import AccountPanel from './AccountPanel';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -43,6 +44,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [password, setPassword] = useState('');
   const [playerCount, setPlayerCount] = useState<3 | 4>(4);
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
+  const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
 
   const roomList = useRoomList();
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -63,6 +65,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     const pw = password.trim();
     onOnline(url.trim(), {
       kind: 'create', name: name.trim(), playerCount, modeSelectionType, avatar,
+      ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
   }
@@ -120,6 +123,13 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <button className="btn btn--primary btn--large" onClick={onLocal}>{t('menu.local')}</button>
             <button className="btn btn--outline btn--large" onClick={() => setPane('host')}>{t('menu.host')}</button>
             <button className="btn btn--outline btn--large" onClick={openJoin}>{t('menu.join')}</button>
+
+            <AccountPanel
+              serverUrl={url}
+              name={name} onName={setName}
+              avatar={avatar} onAvatar={setAvatar}
+              defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
+            />
           </>
         )}
 
