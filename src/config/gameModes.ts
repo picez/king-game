@@ -3,8 +3,8 @@ import type { GameMode, GameModeId, ModeCounts } from '../models/types';
 export const ALL_MODES: GameMode[] = [
   { id: 'no_tricks',       name: 'No Tricks',       type: 'negative', trumpSuit: null },
   { id: 'no_hearts',       name: 'No Hearts',       type: 'negative', trumpSuit: null },
-  { id: 'no_queens',       name: 'No Queens',       type: 'negative', trumpSuit: null },
   { id: 'no_jacks',        name: 'No Jacks',        type: 'negative', trumpSuit: null },
+  { id: 'no_queens',       name: 'No Queens',       type: 'negative', trumpSuit: null },
   { id: 'king_of_hearts',  name: 'King of Hearts',  type: 'negative', trumpSuit: null },
   { id: 'last_two_tricks', name: 'Last Two Tricks', type: 'negative', trumpSuit: null },
   { id: 'trump',           name: 'Trump',           type: 'positive', trumpSuit: null },
@@ -17,8 +17,8 @@ export const ALL_MODES: GameMode[] = [
 export const DEALER_MODE_COUNTS: ModeCounts = {
   no_tricks: 1,
   no_hearts: 1,
-  no_queens: 1,
   no_jacks: 1,
+  no_queens: 1,
   king_of_hearts: 1,
   last_two_tricks: 1,
   trump: 3,
@@ -28,8 +28,8 @@ export const DEALER_MODE_COUNTS: ModeCounts = {
 export const DEALER_MODE_ORDER: GameModeId[] = [
   'no_tricks',
   'no_hearts',
-  'no_queens',
   'no_jacks',
+  'no_queens',
   'king_of_hearts',
   'last_two_tricks',
   'trump',

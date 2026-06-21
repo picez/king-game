@@ -66,8 +66,8 @@ screen for the current status.
 Seven modes exist:
 - No Tricks
 - No Hearts
-- No Queens
 - No Jacks
+- No Queens
 - King of Hearts
 - Last Two Tricks
 - Trump
@@ -81,8 +81,8 @@ trump):
 |-----------------|-------|
 | No Tricks       | 1     |
 | No Hearts       | 1     |
-| No Queens       | 1     |
 | No Jacks        | 1     |
+| No Queens       | 1     |
 | King of Hearts  | 1     |
 | Last Two Tricks | 1     |
 | Trump           | 3     |
@@ -109,8 +109,8 @@ Choice).
 
 Forbidden discards by mode:
 - No Hearts: cannot discard hearts.
-- No Queens: cannot discard Q.
 - No Jacks: cannot discard J.
+- No Queens: cannot discard Q.
 - King of Hearts: cannot discard **any heart** (not just K♥) — so the King can
   never be removed from play via the discard.
 - No Tricks: any card may be discarded.
@@ -165,8 +165,8 @@ Implementation requirements:
 For 3 players:
 - No Tricks: -4 per trick.
 - No Hearts: -5 per heart.
-- No Queens: -10 per queen.
 - No Jacks: -10 per jack.
+- No Queens: -10 per queen.
 - King of Hearts: -40.
 - Last Two Tricks: -20 per each of the last two tricks.
 - Trump: +8 per trick.
@@ -174,8 +174,8 @@ For 3 players:
 For 4 players:
 - No Tricks: -4 per trick.
 - No Hearts: -4 per heart.
-- No Queens: -13 per queen.
 - No Jacks: -13 per jack.
+- No Queens: -13 per queen.
 - King of Hearts: -52.
 - Last Two Tricks: -26 per each of the last two tricks.
 - Trump: +4 per trick.
@@ -186,8 +186,8 @@ A round can end before all tricks are played when every penalty card of the
 mode has already been collected (it cannot change the score to play on):
 
 - No Hearts — all hearts collected.
-- No Queens — all four queens collected.
 - No Jacks — all four jacks collected.
+- No Queens — all four queens collected.
 - King of Hearts — the K♥ collected.
 - No Tricks / Last Two Tricks / Trump — **no early end** (every trick matters).
 
@@ -204,7 +204,7 @@ A player may concede the current round instead of playing it out.
 - **Scoring (Variant A — no exploit):** the round ends immediately and every
   outstanding penalty is charged to the **surrendering** player, then scored
   normally:
-  - **No Hearts / No Queens / No Jacks / King of Hearts:** all penalty cards of
+  - **No Hearts / No Jacks / No Queens / King of Hearts:** all penalty cards of
     the mode still in play (in any hand + the current trick) are added to the
     surrendering player's collected pile.
   - **No Tricks / Last Two Tricks:** every remaining trick of the round is
@@ -273,8 +273,8 @@ are recorded exactly like full rounds.
 - scoring of all modes (3p and 4p);
 - kitty discard legality:
   - cannot discard hearts in No Hearts;
-  - cannot discard Q in No Queens;
   - cannot discard J in No Jacks;
+  - cannot discard Q in No Queens;
   - cannot discard K♥ in King of Hearts;
   - can discard anything in No Tricks, Last Two Tricks, Trump;
 - reducer rejects illegal discard;

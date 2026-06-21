@@ -9,7 +9,7 @@ import PlayerHand from './components/PlayerHand';
 import TablePlayers from './components/TablePlayers';
 import CollectedPanel from './components/CollectedPanel';
 import ScoreBoard from './components/ScoreBoard';
-import ScoreTracker from './components/ScoreTracker';
+import ScoreTrackerButton from './components/ScoreTrackerButton';
 import TurnTimer from './components/TurnTimer';
 
 const SUIT_COLOR_CLASS: Record<Suit, string> = {
@@ -23,7 +23,6 @@ export default function GameScreen() {
   const { state, dispatch } = useGame();
   const { t } = useI18n();
   const [showScores, setShowScores] = useState(false);
-  const [showTracker, setShowTracker] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
   if (!state) return null;
@@ -82,12 +81,7 @@ export default function GameScreen() {
           >
             {showScores ? t('game.hideScores') : t('game.scores')}
           </button>
-          <button
-            className="btn btn--ghost btn--small"
-            onClick={() => setShowTracker(true)}
-          >
-            {t('track.title')}
-          </button>
+          <ScoreTrackerButton />
         </div>
       </div>
 
@@ -123,18 +117,6 @@ export default function GameScreen() {
       )}
 
       {showScores && <ScoreBoard players={players} scores={scores} />}
-
-      {showTracker && (
-        <div className="modal-overlay" onClick={() => setShowTracker(false)}>
-          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-sheet__head">
-              <h3>{t('track.title')}</h3>
-              <button className="btn btn--ghost btn--small" onClick={() => setShowTracker(false)}>✕</button>
-            </div>
-            <ScoreTracker state={state} />
-          </div>
-        </div>
-      )}
 
       {/* ── Table: seats around a central trick zone ── */}
       <div className="game-body">

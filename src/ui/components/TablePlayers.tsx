@@ -20,11 +20,13 @@ interface Props {
 }
 
 /**
- * Visual table: opponent seats arranged clockwise around a central trick zone.
- * Shows name, dealer 👑, active-turn ▶, AI badge and a trick-count stack for
- * every player. Never shows anyone's hand — only the public current trick in
- * the centre and per-player trick counts. On trick_complete the centre cards
- * "collect" and the winning seat pulses.
+ * Visual table: an oval felt with the opponents seated clockwise around it. The
+ * current trick is laid out by SEAT POSITION (each card sits in front of the
+ * player who played it) rather than as a central stack. Shows name, dealer 👑,
+ * active-turn ▶, AI badge and a trick-count stack for every player. Never shows
+ * anyone's hand — only the public current trick and per-player trick counts.
+ * On trick_complete the winning seat and its played card pulse, then the cards
+ * fade as the next trick is dealt (no chaotic fly-to-pile animation).
  */
 export default function TablePlayers({ viewerId }: Props) {
   const { state, disconnectedSeats } = useGame();
@@ -41,11 +43,17 @@ export default function TablePlayers({ viewerId }: Props) {
   const winnerId = collecting ? trick?.winnerId : null;
   const tricksWon = (pid: string) => state.currentRound.tricks.filter((t) => t.winnerId === pid).length;
 
+  /** Relative seat position (bottom/left/top/right) of a player from the viewer. */
+  const relPos = (seatIndex: number): SeatPos =>
+    positions[(seatIndex - viewerSeat + count) % count];
+
   return (
     <div className={`table table--${count}`}>
+      {/* Felt surface (decorative); seats and trick cards sit on top of it. */}
+      <div className="table__surface" aria-hidden="true" />
+
       {players.map((p) => {
-        const rel = (p.seatIndex - viewerSeat + count) % count;
-        const pos = positions[rel];
+        const pos = relPos(p.seatIndex);
         const isDealer = p.id === state.currentRound.dealerId;
         const isActive = !collecting && state.players[
           state.currentTrick
@@ -75,13 +83,22 @@ export default function TablePlayers({ viewerId }: Props) {
         );
       })}
 
+      {/* Current trick: each played card positioned in front of its player. */}
       <div className={`table__center ${collecting ? 'table__center--collecting' : ''}`}>
         {trick && trick.plays.length > 0 ? (
-          trick.plays.map((play) => (
-            <div key={play.playerId} className="table-card">
-              <CardView card={play.card} />
-            </div>
-          ))
+          trick.plays.map((play) => {
+            const seat = players.find((p) => p.id === play.playerId)?.seatIndex ?? viewerSeat;
+            const pos = relPos(seat);
+            const isWinning = collecting && play.playerId === winnerId;
+            return (
+              <div
+                key={play.playerId}
+                className={`trick-slot trick-slot--${pos} ${isWinning ? 'trick-slot--winning' : ''}`}
+              >
+                <CardView card={play.card} size="table" highlight={isWinning} />
+              </div>
+            );
+          })
         ) : (
           <span className="table__waiting">·</span>
         )}

@@ -2,13 +2,10 @@ import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import type { GameModeId } from '../models/types';
 import { sortHand } from '../core/rules';
+import { ALL_MODES } from '../config/gameModes';
 import CardView from './components/CardView';
+import ScoreTrackerButton from './components/ScoreTrackerButton';
 import TurnTimer from './components/TurnTimer';
-
-const MODE_META: Record<GameModeId, 'negative' | 'positive'> = {
-  no_tricks: 'negative', no_hearts: 'negative', no_queens: 'negative', no_jacks: 'negative',
-  king_of_hearts: 'negative', last_two_tricks: 'negative', trump: 'positive',
-};
 
 export default function ModeSelectionScreen() {
   const { state, dispatch } = useGame();
@@ -34,7 +31,10 @@ export default function ModeSelectionScreen() {
   return (
     <div className="screen center-screen">
       <div className="modal-card modal-card--wide">
-        <div className="modal-card__timer"><TurnTimer /></div>
+        <div className="modal-card__bar">
+          <ScoreTrackerButton />
+          <TurnTimer />
+        </div>
         <h2>{t('mode.choose')}</h2>
         <p className="modal-card__sub">
           {t('common.round')} {roundNum}/{totalRounds} · {t('common.dealer')}: <strong>{dealer.name}</strong>
@@ -50,13 +50,12 @@ export default function ModeSelectionScreen() {
             Larger, readable preview cards that wrap on a phone (no overflow). */}
         <div className="mode-hand mode-hand--preview">
           {sortHand(dealer.hand).map((c, i) => (
-            <CardView key={i} card={c} preview disabled />
+            <CardView key={i} card={c} size="preview" disabled />
           ))}
         </div>
 
         <div className="mode-selection-grid">
-          {(Object.keys(MODE_META) as GameModeId[]).map((id) => {
-            const type = MODE_META[id];
+          {ALL_MODES.map(({ id, type }) => {
             const count = remaining[id] ?? 0;
             const isAvailable = count > 0;
             const label = id === 'trump' ? `${t('mode.trump')} (${count} ${t('mode.gamesLeft')})` : t(`mode.${id}`);

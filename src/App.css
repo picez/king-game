@@ -7,10 +7,18 @@
   --card-border:  #c0c0c0;
   --card-red:     #cc0000;
   --card-black:   #111111;
-  /* Aspect ratio matches the face artwork (~0.62) so object-fit never crops the
-     printed corner indices. */
-  --card-w:       58px;
-  --card-h:       94px;
+  /* Card sizing (post-playtest fix #1 — bigger, readable cards). Aspect ratio
+     matches the face artwork (~0.62) so object-fit never crops the corner
+     indices. `--card-w/h` is the default (the player's hand); the variants scale
+     with it so every breakpoint stays consistent. */
+  --card-w:         78px;   /* hand (default, interactive) */
+  --card-h:         124px;
+  --card-w-table:   62px;   /* card laid in the current trick */
+  --card-h-table:   99px;
+  --card-w-preview: 62px;   /* dealer's read-only hand (mode/trump screens) */
+  --card-h-preview: 99px;
+  --card-w-mini:    42px;   /* dense lists (My-tricks / discard review) */
+  --card-h-mini:    67px;
   --accent:       #f5c518;
   --accent-dark:  #c49c0e;
   --text:         #f0f0f0;
@@ -278,11 +286,22 @@ body {
 }
 .turn-timer--low { color: #ff7070; }
 .modal-card__timer { display: flex; justify-content: flex-end; }
+/* Header bar inside a center-screen card: score-tracker button (left) + timer. */
+.modal-card__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.score-tracker-btn { white-space: nowrap; }
 
 /* ===== Cards ===== */
 .card {
   position: relative;
   display: inline-block;
+  /* Default size = the player's hand. Variants below override via their own
+     CSS variables (see :root). */
   width: var(--card-w);
   height: var(--card-h);
   border: 1px solid var(--card-border);
@@ -295,9 +314,18 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
 
-.card:hover:not(:disabled):not(.card--dimmed) {
-  transform: translateY(-10px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+.card--hand    { width: var(--card-w);         height: var(--card-h); }
+.card--table   { width: var(--card-w-table);   height: var(--card-h-table); }
+.card--preview { width: var(--card-w-preview); height: var(--card-h-preview); cursor: default; }
+.card--mini    { width: var(--card-w-mini);    height: var(--card-h-mini);    cursor: default; }
+
+/* Hover-lift only on devices with a real hover pointer (desktop). On touch the
+   hand can be a horizontal scroller, where a vertical lift would be clipped. */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover:not(:disabled):not(.card--dimmed):not(.card--preview):not(.card--mini) {
+    transform: translateY(-10px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  }
 }
 
 .card--red   { color: var(--card-red); }
@@ -363,31 +391,16 @@ body {
 }
 .card--face .card__center { font-size: 2rem; }
 
-/* Read-only, readable preview card (mode-choice dealer hand). Fixed size so it
-   stays legible on a phone, independent of the interactive --card-w used in play. */
-.card--preview {
-  width: 54px;
-  height: 87px;
-  cursor: default;
-}
+/* Read-only, readable preview card (mode-choice / trump dealer hand). */
 .card--preview:disabled { cursor: default; opacity: 1; }
 .card--preview .card__rank { font-size: 0.95rem; }
 .card--preview .card__suit { font-size: 0.9rem; }
 .card--preview .card__center { font-size: 1.85rem; }
 
 /* Compact, non-interactive card for dense lists (My-tricks / discard review). */
-.card--small {
-  width: 40px;
-  height: 64px;
-  cursor: default;
-}
-.card--small:hover:not(:disabled):not(.card--dimmed) {
-  transform: none;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
-}
-.card--small .card__rank { font-size: 0.7rem; }
-.card--small .card__suit { font-size: 0.68rem; }
-.card--small .card__center { font-size: 1.15rem; }
+.card--mini .card__rank { font-size: 0.7rem; }
+.card--mini .card__suit { font-size: 0.68rem; }
+.card--mini .card__center { font-size: 1.15rem; }
 
 /* Static highlight ring (no hover lift) — e.g. the player's own winning card. */
 .card--highlight {
@@ -395,11 +408,12 @@ body {
 }
 
 /* ===== Player Hand ===== */
+/* Desktop/tablet: cards wrap and centre, with room above for the hover lift. */
 .player-hand {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0 0.5rem;
   justify-content: center;
 }
 
@@ -782,11 +796,17 @@ body {
 
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
-  :root { --card-w: 46px; --card-h: 74px; }
+  /* Cards stay big and readable on a phone (fix #1). The hand becomes a single
+     horizontal scroller (below) so big cards never overflow the viewport. */
+  :root {
+    --card-w: 64px;   --card-h: 102px;
+    --card-w-table:   54px; --card-h-table:   86px;
+    --card-w-preview: 54px; --card-h-preview: 86px;
+    --card-w-mini:    40px; --card-h-mini:    64px;
+  }
   .screen { padding: 0.6rem; }
   .card__rank { font-size: 0.85rem; }
   .card__suit { font-size: 1rem; }
-  .player-hand { gap: 4px; }
   .setup-card { padding: 1.25rem; }
   .screen__title { font-size: 2.2rem; }
   .game-header { padding: 0.5rem 0.6rem; gap: 0.4rem; }
@@ -798,11 +818,33 @@ body {
   .turn-banner { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0.75rem; }
   .pass-card-back { font-size: 3.5rem; }
   .pass-name { font-size: 2rem; }
+
+  /* Hand: readable cards in one horizontal row (no wrapping, no page overflow).
+     Only the player's own interactive hand scrolls — not the kitty/discard
+     selection, which still wraps. */
+  .game-footer .player-hand,
+  .player-hand--scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 0.4rem 0.2rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .game-footer .player-hand > .card,
+  .player-hand--scroll > .card { scroll-snap-align: center; }
 }
 
-/* Keep the hand reachable: it scrolls horizontally rather than wrapping huge */
-@media (max-width: 420px) {
-  :root { --card-w: 42px; --card-h: 68px; }
+/* Smaller phones (≤390): keep cards legible; the scroll hand absorbs the width. */
+@media (max-width: 390px) {
+  :root {
+    --card-w: 58px;   --card-h: 93px;
+    --card-w-table:   48px; --card-h-table:   77px;
+    --card-w-preview: 50px; --card-h-preview: 80px;
+  }
 }
 
 /* ===== Mode Selection (Dealer's Choice) ===== */
@@ -1210,40 +1252,62 @@ body {
 /* RTL: keep card corners legible (don't mirror the glyphs) */
 [dir="rtl"] .card, [dir="rtl"] .mini-card { direction: ltr; }
 
-/* ===== Table seats (players around the table) ===== */
+/* ===== Card table (oval felt with seats around it) ===== */
+/* A board-like oval: seats sit at the edges, the current trick is laid out by
+   seat position in the centre. Sized so the table never dominates the screen —
+   on mobile the hand stays the main focus (see the responsive override). */
 .table {
   position: relative;
   width: 100%;
-  max-width: 520px;
-  min-height: 250px;
+  max-width: 560px;
+  aspect-ratio: 7 / 5;
+  min-height: 280px;
+  max-height: 60vh;
   margin: 0 auto;
-  align-self: stretch;
 }
+
+/* Decorative felt surface. Inset top/bottom so the bottom/top seats rest at the
+   oval's ends; the seats and trick cards render above it. */
+.table__surface {
+  position: absolute;
+  inset: 2.6rem 0.5rem;
+  border-radius: 50% / 44%;
+  background:
+    radial-gradient(ellipse at 50% 42%, var(--green-mid) 0%, var(--green-table) 45%, var(--green-dark) 100%);
+  box-shadow:
+    inset 0 0 46px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.04),
+    0 6px 22px rgba(0, 0, 0, 0.4);
+  border: 7px solid rgba(0, 0, 0, 0.22);
+}
+
 .tseat {
   position: absolute;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
   min-width: 4.2rem;
   max-width: 8rem;
-  padding: 0.3rem 0.5rem;
-  background: var(--surface);
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   text-align: center;
+  backdrop-filter: blur(2px);
 }
 .tseat--bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
 .tseat--top    { top: 0;    left: 50%; transform: translateX(-50%); }
-.tseat--left   { left: 0;   top: 44%;  transform: translateY(-50%); }
-.tseat--right  { right: 0;  top: 44%;  transform: translateY(-50%); }
+.tseat--left   { left: 0;   top: 50%;  transform: translateY(-50%); }
+.tseat--right  { right: 0;  top: 50%;  transform: translateY(-50%); }
 /* 3-player: put the two opponents along the top corners */
 .table--3 .tseat--left  { left: 0;  top: 0; transform: none; }
 .table--3 .tseat--right { right: 0; top: 0; transform: none; }
 .tseat--active {
   border-color: var(--accent);
-  background: rgba(245, 197, 24, 0.16);
-  box-shadow: 0 0 0 1px var(--accent) inset;
+  background: rgba(245, 197, 24, 0.22);
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 0 10px rgba(245, 197, 24, 0.35);
 }
 .tseat--you::after {
   content: '•';
@@ -1257,27 +1321,54 @@ body {
 .tseat__tricks { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .tseat__tricks--bump { display: inline-block; animation: trick-bump 0.6s ease; }
 
+/* Centre overlay holds the current trick; each card is absolutely positioned in
+   front of the seat that played it. */
 .table__center {
   position: absolute;
-  top: 46%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  justify-content: center;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
-.table-card { transition: transform 0.2s; }
-.table__center--collecting .table-card { animation: trick-collect 0.85s ease-in forwards; }
-.table__waiting { color: var(--text-muted); opacity: 0.4; font-size: 2rem; }
+.table__waiting {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  opacity: 0.4;
+  font-size: 2rem;
+}
+
+/* A single played card, anchored toward its player's seat. */
+.trick-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+}
+.trick-slot--bottom { top: 70%; }
+.trick-slot--top    { top: 30%; }
+.trick-slot--left   { left: 33%; }
+.trick-slot--right  { left: 67%; }
+
+/* Trick complete: dim the losing cards, lift + ring the winning one. The whole
+   trick then fades out naturally when the next trick is dealt (no fly-away). */
+.table__center--collecting .trick-slot:not(.trick-slot--winning) { opacity: 0.5; }
+.trick-slot--winning {
+  z-index: 3;
+  animation: card-win 0.7s ease;
+}
 
 .tseat--winner {
   border-color: var(--accent);
   animation: winner-pulse 0.85s ease 2;
 }
 
-@keyframes trick-collect {
-  to { transform: scale(0.35) translateY(-26px); opacity: 0; }
+@keyframes card-win {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  45%  { transform: translate(-50%, -50%) scale(1.14); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes winner-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(245,197,24,0.0); }
@@ -1287,6 +1378,22 @@ body {
   0% { transform: scale(1); }
   40% { transform: scale(1.45); color: var(--accent); }
   100% { transform: scale(1); }
+}
+
+/* Respect reduced-motion: keep state changes, drop the pulses. */
+@media (prefers-reduced-motion: reduce) {
+  .trick-slot--winning,
+  .tseat--winner,
+  .tseat__tricks--bump { animation: none; }
+}
+
+/* Mobile: shrink the table so the hand below stays the main focus. */
+@media (max-width: 600px) {
+  .table { max-width: 440px; min-height: 220px; max-height: 44vh; }
+  .table__surface { inset: 2.2rem 0.25rem; }
+  .game-body { padding: 0.5rem 0; }
+  .tseat { min-width: 3.6rem; padding: 0.2rem 0.4rem; }
+  .tseat__name { font-size: 0.74rem; max-width: 6rem; }
 }
 
 .trick-toast-bar {

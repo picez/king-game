@@ -16,7 +16,7 @@ function MiniCards({ cards, emptyLabel }: { cards: Card[]; emptyLabel: string })
   return (
     <div className="card-strip">
       {sortHand(cards).map((c, i) => (
-        <CardView key={`${c.suit}-${c.rank}-${i}`} card={c} small />
+        <CardView key={`${c.suit}-${c.rank}-${i}`} card={c} size="mini" />
       ))}
     </div>
   );
@@ -74,7 +74,7 @@ export default function CollectedPanel({ playerId }: Props) {
                   <div className="card-strip">
                     {tr.plays.map((pl, i) => (
                       <span key={i} title={nameOf(pl.playerId)} className="card-strip__slot">
-                        <CardView card={pl.card} small highlight={pl.playerId === playerId} />
+                        <CardView card={pl.card} size="mini" highlight={pl.playerId === playerId} />
                       </span>
                     ))}
                   </div>

@@ -22,20 +22,25 @@ function centerGlyph(card: Card): string {
   return FACE_GLYPH[card.rank] ?? SUIT_SYMBOL[card.suit];
 }
 
+/**
+ * Card size variants (post-playtest fix #1 — bigger, readable cards):
+ *  - `hand`    the player's interactive hand (largest, the default);
+ *  - `table`   a card laid in the current trick on the table;
+ *  - `preview` the dealer's read-only hand on the mode/trump screens;
+ *  - `mini`    dense, non-interactive lists (My-tricks / discard review).
+ * Each maps to its own width/height CSS variables (see App.css :root) so all
+ * sizes scale together per breakpoint.
+ */
+export type CardSize = 'hand' | 'table' | 'preview' | 'mini';
+
 interface CardViewProps {
   card: Card;
   onClick?: () => void;
   disabled?: boolean;
   selected?: boolean;
   dimmed?: boolean;
-  /**
-   * Read-only, larger non-interactive presentation (e.g. the dealer's hand on
-   * the mode-choice screen). Bigger than a mini-card and readable on a phone,
-   * without affecting the interactive card size used in play.
-   */
-  preview?: boolean;
-  /** Compact, non-interactive size for dense lists (e.g. the My-tricks panel). */
-  small?: boolean;
+  /** Visual size variant (default `hand`). */
+  size?: CardSize;
   /** Static highlight ring (no hover lift) — e.g. the player's winning card. */
   highlight?: boolean;
 }
@@ -46,8 +51,7 @@ export default function CardView({
   disabled = false,
   selected = false,
   dimmed = false,
-  preview = false,
-  small = false,
+  size = 'hand',
   highlight = false,
 }: CardViewProps) {
   const colorClass = IS_RED[card.suit] ? 'card--red' : 'card--black';
@@ -67,11 +71,9 @@ export default function CardView({
   return (
     <button
       className={
-        `card ${colorClass} ${stateClass}` +
+        `card card--${size} ${colorClass} ${stateClass}` +
         ` card--rank-${card.rank.toLowerCase()}` +
         (isFace ? ' card--face' : '') +
-        (preview ? ' card--preview' : '') +
-        (small ? ' card--small' : '') +
         (highlight ? ' card--highlight' : '') +
         (showArt ? ' card--art' : '')
       }

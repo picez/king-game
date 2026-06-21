@@ -5,6 +5,7 @@ import { SUIT_SYMBOL } from '../components/CardView';
 import PlayerHand from '../components/PlayerHand';
 import TablePlayers from '../components/TablePlayers';
 import CollectedPanel from '../components/CollectedPanel';
+import ScoreTrackerButton from '../components/ScoreTrackerButton';
 import TurnTimer from '../components/TurnTimer';
 
 interface Props {
@@ -53,6 +54,9 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
           {state.trumpSuit && (
             <span className="trump-info trump-suit-badge">{SUIT_SYMBOL[state.trumpSuit]}</span>
           )}
+        </div>
+        <div className="button-row">
+          <ScoreTrackerButton />
         </div>
       </div>
 

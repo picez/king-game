@@ -29,6 +29,7 @@ import {
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage } from './storage';
+import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -73,7 +74,10 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const TRICK_ADVANCE_MS = 1800;
+// How long a completed trick stays on the table before the server auto-advances
+// to the next trick. Long enough to read the cards (post-playtest fix #2);
+// overridable via TRICK_ADVANCE_MS env (clamped to a sane range).
+const TRICK_ADVANCE_MS = resolveTrickAdvanceMs(process.env.TRICK_ADVANCE_MS);
 const ROUND_ADVANCE_MS = 10000; // give everyone time to read the round scores
 // Pause before a server-side bot makes its move, so play does not snap instantly.
 const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 800);
