@@ -38,6 +38,17 @@ services:
       - key: VITE_WS_URL
         sync: false
 
+      # --- Database (OPTIONAL, Stage 1) --------------------------------------
+      # Postgres is OFF unless DATABASE_URL is set. With it unset the service
+      # behaves exactly as today (file/memory rooms). To enable later, add a
+      # Render PostgreSQL instance and reference it here, then run the migration
+      # (DATABASE_URL=… npm run db:migrate) as a one-off / release step. Stage 1
+      # does NOT move room persistence to Postgres — that is Stage 2.
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: king-db
+      #     property: connectionString
+
     # --- Persistent rooms (OPTIONAL, requires a paid instance) ---------------
     # Free instances have an EPHEMERAL filesystem: .data/rooms.json is wiped on
     # every redeploy/restart. For durable rooms, upgrade the plan, attach a disk,

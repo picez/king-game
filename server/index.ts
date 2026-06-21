@@ -28,8 +28,9 @@ import {
   setTimer, actingMember, applyTimeoutAction,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
-import { createStorage } from './storage';
+import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
+import { isDbEnabled, checkDbHealth } from './db/client';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -106,7 +107,10 @@ const advanceTimers = new Map<string, ReturnType<typeof setTimeout>>(); // code 
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>();     // code → bot-move timer
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();    // code → human turn-timeout
 
-const storage = createStorage();
+// Assigned once in bootstrap() (createStorage is async for the pg backend).
+// Declared with `let` so the I/O handlers below can close over it; they only
+// run after the server is listening, by which point it is set.
+let storage: AppStorage;
 
 /** Persist a changed room (stamps updatedAt). Called on meaningful changes only. */
 function persistRoom(room: ServerRoom): void {
@@ -290,10 +294,28 @@ function notFound(res: ServerResponse): void {
 // A tiny HTTP server hosts /health, serves the static client (if built), and
 // shares the port with the WebSocket upgrade. Upgrade requests (the WS on /ws)
 // are handled by `ws` via the 'upgrade' event, so they never hit this handler.
+/**
+ * /health — always 200 (the process is up). Reports `db`:
+ *   • 'disabled' when no DATABASE_URL (file/memory MVP) — unchanged behaviour;
+ *   • 'ok' / 'error' when a DB is configured (probed with `select 1`).
+ * The DB is OPTIONAL in Stage 1, so a DB error never fails the health check.
+ */
+async function handleHealth(res: ServerResponse): Promise<void> {
+  let db: string = 'disabled';
+  if (isDbEnabled()) {
+    const h = await checkDbHealth();
+    db = h.state; // 'ok' | 'error' | 'disabled'
+  }
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ status: 'ok', db, rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+}
+
 const httpServer = createServer((req, res) => {
   if ((req.url ?? '').split('?')[0] === '/health') {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+    void handleHealth(res).catch(() => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', db: 'error', rooms: rooms.size, uptime: Math.round(process.uptime()) }));
+    });
     return;
   }
   if (SERVE_STATIC) { void serveStatic(req, res); return; }
@@ -526,43 +548,67 @@ function cleanupRooms(): number {
   return expired.length;
 }
 
-// Restore persisted rooms so a server restart doesn't drop in-progress games.
-let restored = 0;
-for (const room of storage.loadRooms()) {
-  rooms.set(room.code, room);
-  rescheduleAdvance(room);
-  restored++;
-}
-// Explicit startup sweep: delete already-expired rooms right away (and remove
-// them from storage) rather than waiting for the first interval to fire.
-const expiredOnStartup = cleanupRooms();
-
-setInterval(cleanupRooms, CLEANUP_INTERVAL_MS);
-
 // Flush pending writes on shutdown so the latest state survives a restart.
-function shutdown(): void {
-  const s = storage as { flush?: () => void };
-  if (typeof s.flush === 'function') s.flush();
+// (flush() may be async for the Postgres backend — await it before exiting.)
+async function shutdown(): Promise<void> {
+  try {
+    if (storage && typeof storage.flush === 'function') await storage.flush();
+  } catch (err) {
+    console.error('[King] shutdown flush failed:', String(err));
+  }
   process.exit(0);
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => { void shutdown(); });
+process.on('SIGTERM', () => { void shutdown(); });
 
-httpServer.listen(PORT, HOST, () => {
-  console.log(`[King] server-authoritative server listening on ${HOST}:${PORT} (${NODE_ENV})`);
-  console.log(`[King] health: http://${HOST}:${PORT}/health`);
-  console.log(SERVE_STATIC
-    ? `[King] serving static client from ${DIST} (single-service mode; WS on /ws)`
-    : `[King] no dist/ build found — WS + /health only (run "npm run build" to serve the client here)`);
-  console.log(
-    `[King] startup: restored ${restored} room(s) from storage, removed ${expiredOnStartup} expired ` +
-    `(TTL ${ROOM_TTL_MS / HOUR_MS}h, hard TTL ${ROOM_HARD_TTL_MS / HOUR_MS}h)`,
-  );
-  if (ALLOWED_ORIGINS.length > 0) {
-    console.log(`[King] origin allowlist: ${ALLOWED_ORIGINS.join(', ')}`);
-  } else if (NODE_ENV === 'production') {
-    console.warn('[King] WARNING: no ALLOWED_ORIGINS set in production — any browser origin may connect. Set ALLOWED_ORIGINS and serve behind TLS/WSS.');
-  } else {
-    console.log(`[King] LAN clients connect to ws://<this-machine-ip>:${PORT}`);
+/**
+ * Async startup: pick the storage backend (file/memory/pg), let it initialise
+ * (Postgres preloads its cache here; file/memory are no-ops), restore persisted
+ * rooms, sweep expired ones, schedule cleanup, then listen. A fatal storage
+ * error (e.g. ROOM_STORAGE=pg without DATABASE_URL, or an unreachable DB)
+ * rejects here and exits — the non-DB default path is unaffected.
+ */
+async function bootstrap(): Promise<void> {
+  storage = await createStorage();
+  if (storage.init) await storage.init();
+
+  // Restore persisted rooms so a server restart doesn't drop in-progress games.
+  let restored = 0;
+  for (const room of storage.loadRooms()) {
+    rooms.set(room.code, room);
+    rescheduleAdvance(room);
+    restored++;
   }
+  // Explicit startup sweep: delete already-expired rooms right away (and remove
+  // them from storage) rather than waiting for the first interval to fire.
+  const expiredOnStartup = cleanupRooms();
+
+  setInterval(cleanupRooms, CLEANUP_INTERVAL_MS);
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`[King] server-authoritative server listening on ${HOST}:${PORT} (${NODE_ENV})`);
+    console.log(`[King] health: http://${HOST}:${PORT}/health`);
+    console.log(SERVE_STATIC
+      ? `[King] serving static client from ${DIST} (single-service mode; WS on /ws)`
+      : `[King] no dist/ build found — WS + /health only (run "npm run build" to serve the client here)`);
+    console.log(isDbEnabled()
+      ? '[King] database: DATABASE_URL set — /health probes Postgres'
+      : '[King] database: disabled (no DATABASE_URL)');
+    console.log(
+      `[King] startup: restored ${restored} room(s) from storage, removed ${expiredOnStartup} expired ` +
+      `(TTL ${ROOM_TTL_MS / HOUR_MS}h, hard TTL ${ROOM_HARD_TTL_MS / HOUR_MS}h)`,
+    );
+    if (ALLOWED_ORIGINS.length > 0) {
+      console.log(`[King] origin allowlist: ${ALLOWED_ORIGINS.join(', ')}`);
+    } else if (NODE_ENV === 'production') {
+      console.warn('[King] WARNING: no ALLOWED_ORIGINS set in production — any browser origin may connect. Set ALLOWED_ORIGINS and serve behind TLS/WSS.');
+    } else {
+      console.log(`[King] LAN clients connect to ws://<this-machine-ip>:${PORT}`);
+    }
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error('[King] fatal startup error:', String(err?.message ?? err));
+  process.exit(1);
 });

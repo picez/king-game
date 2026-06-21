@@ -1,0 +1,65 @@
+// ---------------------------------------------------------------------------
+// Pure mapping between a ServerRoom and a Postgres `rooms` row (Stage 1).
+//
+// This module has NO database/driver imports — it is a plain transform built on
+// the existing serialize/deserialize helpers, so it can be unit-tested without a
+// live database. The Postgres-backed storage (server/db/pgRoomStorage.ts) wires
+// these to drizzle; everything DB-specific stays out of here.
+//
+// Stage 1 keeps the row deliberately minimal: the full PersistedRoom is stored
+// as JSONB in `data`, with a few denormalised columns (code/player_count/
+// started/updated_at) lifted out for indexing and TTL sweeps. The normalised
+// schema (members/games/rounds/snapshots) arrives in later migration stages.
+// ---------------------------------------------------------------------------
+
+import {
+  serializeRoom, deserializeRoom,
+  type ServerRoom, type PersistedRoom,
+} from './serverCore';
+
+/**
+ * The only card game today. The `rooms.game_type` column exists so the same
+ * table can host other games later without a backfill (ARCHITECTURE_DB_AUTH.md
+ * §2.0); until a second game's room type carries its own gameType, King rooms
+ * map to this default.
+ */
+export const DEFAULT_GAME_TYPE = 'king';
+
+/** Plain, driver-agnostic shape of one `rooms` table row. */
+export interface RoomRow {
+  code: string;
+  /** Which game this room is (multi-game foundation; 'king' for now). */
+  gameType: string;
+  playerCount: number;
+  started: boolean;
+  /** Epoch ms; mirrors ServerRoom.updatedAt (also lives inside `data`). */
+  updatedAt: number;
+  /** Authoritative room payload (same JSON the file store writes). */
+  data: PersistedRoom;
+}
+
+/**
+ * ServerRoom → row. The `data` column is exactly `serializeRoom(room)`; the
+ * `gameType` is metadata for routing/filtering and is not part of the payload.
+ * King rooms use the default; the param is the seam for future games.
+ */
+export function roomToRow(room: ServerRoom, gameType: string = DEFAULT_GAME_TYPE): RoomRow {
+  return {
+    code: room.code,
+    gameType,
+    playerCount: room.playerCount,
+    started: room.started,
+    updatedAt: room.updatedAt,
+    data: serializeRoom(room),
+  };
+}
+
+/**
+ * Row → ServerRoom. Reads the authoritative payload from `data`, reusing the
+ * shared deserializer (so the same validation/skip-on-corrupt rules apply).
+ * Returns null for a malformed row, matching deserializeRoom's contract.
+ */
+export function rowToRoom(row: { data: unknown }): ServerRoom | null {
+  if (row == null || typeof row !== 'object') return null;
+  return deserializeRoom(row.data);
+}

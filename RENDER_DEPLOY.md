@@ -126,6 +126,34 @@ Render also polls this path; a non-200 marks the deploy unhealthy.
   and the **salted password hash** — never the plaintext password. Treat the
   disk as sensitive; do not expose it publicly.
 
+### Postgres room storage on Render (optional, Stage 2)
+
+Instead of a disk, you can persist rooms to **Render PostgreSQL** — durable
+without a paid disk, and the path forward for accounts/stats later.
+
+1. **Create a Render PostgreSQL** instance; copy its **Internal Database URL**.
+2. **Add env vars** to the Web Service:
+   | Key | Value |
+   |-----|-------|
+   | `ROOM_STORAGE` | `pg` |
+   | `DATABASE_URL` | _(the Render Postgres connection string)_ |
+   (With `render.yaml`, uncomment the `DATABASE_URL` `fromDatabase` block.)
+3. **Run the migration once** before the first pg start. Either:
+   - set the **Start Command** to `npm run db:migrate && npm run server:prod`
+     (simple; safe because the migration is idempotent), **or**
+   - run `npm run db:migrate` once via a Render **Job**/one-off shell, keeping
+     the Start Command as `npm run server:prod` (preferred if you don't want a
+     migrate on every boot).
+4. Deploy. The startup log shows `room storage: postgres` and
+   `/health` reports `"db":"ok"`.
+
+- **Fail-fast:** `ROOM_STORAGE=pg` without `DATABASE_URL` exits with a clear
+  error — it never silently falls back.
+- **Rollback:** remove `ROOM_STORAGE` (or set `=file`) and redeploy to return to
+  the file/disk behaviour. The **non-DB deploy is unaffected** — leaving these
+  unset keeps today's behaviour exactly.
+- **Stage 2 stores rooms only** (no accounts/auth/stats yet). See `DB_SETUP.md`.
+
 ---
 
 ## Security notes

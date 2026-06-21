@@ -16,9 +16,14 @@
     "server": "tsx server/index.ts",
     "server:prod": "NODE_ENV=production tsx server/index.ts",
     "server:relay": "node server/index.mjs",
-    "rooms:cleanup": "tsx server/cleanup.ts"
+    "rooms:cleanup": "tsx server/cleanup.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx server/db/migrate.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ws": "^8.21.0"
@@ -28,6 +33,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.1",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.22.4",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",

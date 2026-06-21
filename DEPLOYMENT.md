@@ -79,9 +79,11 @@ All optional; defaults keep LAN/dev simple.
 | `HOST`            | `0.0.0.0`     | Bind address. Behind a proxy on the same box use `127.0.0.1`. |
 | `NODE_ENV`        | `development` | `production` enables stricter startup warnings.               |
 | `ALLOWED_ORIGINS` | _(empty)_     | Comma-separated browser origins allowed to connect, e.g. `https://king.example.com`. Empty = allow any (LAN/dev). Non-browser clients (no Origin header) are always allowed. |
-| `ROOM_STORAGE`    | _(file)_      | `memory` to disable persistence (rooms lost on restart). Anything else → file storage. |
-| `ROOM_STORAGE_FILE` | `.data/rooms.json` | Path to the rooms JSON file (overrides `DATA_DIR`). |
-| `DATA_DIR`        | `.data`       | Directory for `rooms.json` when `ROOM_STORAGE_FILE` is unset. |
+| `ROOM_STORAGE`    | _(file)_      | `file` (default) → JSON file; `memory` → no persistence (rooms lost on restart); `pg` → Postgres (Stage 2, **requires `DATABASE_URL`**). |
+| `ROOM_STORAGE_FILE` | `.data/rooms.json` | Path to the rooms JSON file (overrides `DATA_DIR`). File mode only. |
+| `DATA_DIR`        | `.data`       | Directory for `rooms.json` when `ROOM_STORAGE_FILE` is unset. File mode only. |
+| `DATABASE_URL`    | _(unset)_     | Postgres connection string. Required when `ROOM_STORAGE=pg`; also enables the `/health` DB probe. Unset = file/memory (current default). |
+| `DATABASE_POOL_MAX` | `5`         | Max Postgres connections in the pool (pg mode). |
 | `ROOM_TTL_HOURS`  | `24`          | Idle rooms with **no connected players** are deleted after this many hours. |
 | `ROOM_HARD_TTL_HOURS` | `48`      | Rooms with a connected player survive until this hard cap (so an active table is never yanked). |
 | `ROOM_CLEANUP_INTERVAL_MS` | `600000` | How often (ms) the server sweeps for expired rooms. Cleanup also runs once at startup. |
@@ -248,6 +250,39 @@ open, or session in `sessionStorage`) can `RECONNECT` after a restart.
   - if you back it up, encrypt/limit access to the backup.
 - **Limitations**: single-file, single-instance MVP. For multiple instances or
   high volume, move to Redis/DB (the `RoomStorage` interface is the seam).
+
+### Postgres room storage (optional, Stage 2)
+
+The same `RoomStorage` seam now has a Postgres backend, selected with
+`ROOM_STORAGE=pg`. It is **opt-in** — with `DATABASE_URL` unset (or
+`ROOM_STORAGE` left at its file default) nothing changes.
+
+1. **Provision Postgres** and set `DATABASE_URL`
+   (`postgres://user:pass@host:5432/king`).
+2. **Run migrations once** before starting in pg mode:
+   ```bash
+   DATABASE_URL=postgres://… npm run db:migrate
+   ```
+   Migrations are **not** run automatically on server start (avoids racing
+   schema changes across instances/redeploys). Run them as a deliberate step.
+3. **Start in pg mode:**
+   ```bash
+   ROOM_STORAGE=pg DATABASE_URL=postgres://… npm run server:prod
+   ```
+   On boot the server preloads rooms from Postgres, then behaves identically
+   (restore, reconnect, TTL cleanup). If `ROOM_STORAGE=pg` and `DATABASE_URL` is
+   missing, the server **fails fast** with a clear error rather than silently
+   losing persistence.
+- **Rollback to file storage:** unset `ROOM_STORAGE` (or set `ROOM_STORAGE=file`)
+  and restart. No data migration is required to switch back; the two stores are
+  independent.
+- **What's stored:** one `rooms` row per room — the full `PersistedRoom` as JSONB
+  (same shape as `rooms.json`), plus `game_type` (`'king'` today, the multi-game
+  foundation) and `updated_at` for TTL. See `DB_SETUP.md` and
+  `ARCHITECTURE_DB_AUTH.md`.
+- **Stage 2 limits:** rooms only. No user accounts/auth/profiles/stats yet
+  (later stages). Reconnect tokens are stored inside the JSONB payload as today
+  (hashing them is a later-stage hardening).
 
 ### Cleaning up old / inactive rooms
 
