@@ -23,8 +23,8 @@
      with it so every breakpoint stays consistent. */
   --card-w:         78px;   /* hand (default, interactive) */
   --card-h:         124px;
-  --card-w-table:   62px;   /* card laid in the current trick */
-  --card-h-table:   99px;
+  --card-w-table:   74px;   /* card laid in the current trick (near hand-size) */
+  --card-h-table:   118px;
   --card-w-preview: 62px;   /* dealer's read-only hand (mode/trump screens) */
   --card-h-preview: 99px;
   --card-w-mini:    42px;   /* dense lists (My-tricks / discard review) */
@@ -540,6 +540,23 @@ body {
 .card--art .card__corner,
 .card--art .card__center { display: none; }
 
+/* Table (current-trick) cards are scaled down and object-fit:cover crops the
+   artwork's own corner indices, so the suit can be hard to read at a glance.
+   Re-show ONE compact rank+suit badge (top-left) on top of the artwork — a small
+   white pill keeps it legible over any card colour. Only the trick uses this; the
+   hand/preview/mini text layers stay hidden behind their full-size artwork. */
+.card--table.card--art .card__corner--tl {
+  display: flex;
+  top: 2px;
+  left: 2px;
+  padding: 0 3px 1px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
+}
+.card--table .card__rank { font-size: 0.72rem; font-weight: 800; }
+.card--table .card__suit { font-size: 0.74rem; }
+
 /* The Ace artwork in this deck is squarer (ratio ~0.81) than every other rank
    (~0.62). With object-fit:cover it would be scaled to fill the taller card slot
    and its sides — including the corner indices — would be clipped. `contain`
@@ -1052,7 +1069,7 @@ body {
      horizontal scroller (below) so big cards never overflow the viewport. */
   :root {
     --card-w: 64px;   --card-h: 102px;
-    --card-w-table:   54px; --card-h-table:   86px;
+    --card-w-table:   62px; --card-h-table:   99px;
     --card-w-preview: 54px; --card-h-preview: 86px;
     --card-w-mini:    40px; --card-h-mini:    64px;
   }
@@ -1094,7 +1111,7 @@ body {
 @media (max-width: 390px) {
   :root {
     --card-w: 58px;   --card-h: 93px;
-    --card-w-table:   48px; --card-h-table:   77px;
+    --card-w-table:   54px; --card-h-table:   86px;
     --card-w-preview: 50px; --card-h-preview: 80px;
   }
 }
