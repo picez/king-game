@@ -424,6 +424,38 @@ async function main() {
   check(lHost.room.members.length === 2, 'rejoined member is back in the lobby');
   lHost.ws.close(); lJoin.ws.close(); lRejoin.ws.close();
 
+  // 2k) Active-game "Leave game" = a socket DROP (NOT LEAVE_ROOM): the member is
+  // kept reconnectable (vs the lobby "Leave lobby", which removes the seat).
+  console.log('\n[2l] active-game leave keeps the seat reconnectable');
+  const qHost = await connect();
+  sendMsg(qHost, { t: 'CREATE_ROOM', name: 'QHost', playerCount: 3, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const qCode = qHost.room.code;
+  const qJoin = await connect();
+  sendMsg(qJoin, { t: 'JOIN_ROOM', code: qCode, name: 'Quitter' });
+  await sleep(200);
+  sendMsg(qHost, { t: 'ADD_BOT' });
+  await sleep(200);
+  sendMsg(qHost, { t: 'START_GAME' });
+  await sleep(400);
+  check(!!qJoin.state, 'joiner is in the active game');
+  const qToken = qJoin.token, qSeat = qJoin.seat;
+
+  // "Leave game": drop the socket WITHOUT sending LEAVE_ROOM.
+  qJoin.ws.close();
+  await sleep(300);
+  const stillThere = qHost.room.members.find((m) => m.name === 'Quitter');
+  check(!!stillThere, 'after leave game the member is NOT removed (still in room)');
+  check(stillThere && stillThere.connected === false, 'member marked offline (reconnectable), not gone');
+
+  // The saved reconnect token restores the seat + the player's own hand → Resume.
+  const qBack = await connect();
+  sendMsg(qBack, { t: 'RECONNECT', code: qCode, reconnectToken: qToken });
+  await sleep(300);
+  check(!qBack.lastError && qBack.state != null, 'reconnect after leave game restores the game');
+  check(qBack.state?.players[qSeat]?.hand.every((c) => c.rank !== '?'), 'reconnected player sees their own hand');
+  qHost.ws.close(); qBack.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });

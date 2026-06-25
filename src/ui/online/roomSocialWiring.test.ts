@@ -26,10 +26,32 @@ describe('room-social wiring', () => {
   });
 
   it('lifts the controls above the hand on the playing screen', () => {
-    expect(online).toContain("renderSocial(status === 'playing')");
+    expect(online).toContain("renderSocial(status === 'playing'");
   });
 
   it('LocalGame does NOT render the room-social overlay (online-only)', () => {
     expect(local).not.toContain('RoomSocial');
+  });
+});
+
+describe('active-game "Leave game" wiring', () => {
+  const online = read('./OnlineGame.tsx');
+  const social = read('./RoomSocial.tsx');
+
+  it('uses backToMenu (keeps Resume), NOT leave (removes member)', () => {
+    expect(online).toMatch(/leaveGameToMenu\s*=\s*\(\)\s*=>\s*\{\s*net\.backToMenu\(\);\s*onExit\(\);/);
+  });
+
+  it('passes Leave game to the overlay during the game + dealing, but NOT the lobby', () => {
+    expect(online).toContain('renderSocial(false, leaveGameToMenu)');               // dealing
+    expect(online).toContain("renderSocial(status === 'playing', leaveGameToMenu)"); // in-game
+    expect(online).toMatch(/renderSocial\(false\)\}/);                               // lobby: no leave arg
+  });
+
+  it('RoomSocial shows the Leave game action only when onLeaveGame is provided', () => {
+    expect(social).toContain('onLeaveGame');
+    expect(social).toContain('social-leave');
+    expect(social).toContain("t('online.leaveGame')");
+    expect(social).toMatch(/\{onLeaveGame && \(/);  // gated on the prop (active game only)
   });
 });

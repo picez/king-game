@@ -40,12 +40,15 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   // switches (mode_selection → playing → trick_complete → …) or when the view
   // flips between the action screen and the waiting screen. `handVisible` lifts
   // the corner controls above the hand on the playing screen so cards stay clear.
-  const renderSocial = (handVisible: boolean) => (
+  // Active-game "Leave game": return to the menu but stay reconnectable so the
+  // start menu still offers Resume (does NOT remove the seat or log out).
+  const leaveGameToMenu = () => { net.backToMenu(); onExit(); };
+  const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
     <RoomSocial
       reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
       onReact={net.sendReaction} onChat={net.sendChat}
       notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
-      handVisible={handVisible}
+      handVisible={handVisible} onLeaveGame={onLeaveGame}
     />
   );
 
@@ -122,7 +125,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     return (
       <>
         <CenterNote title={t('net.dealing')} />
-        {renderSocial(false)}
+        {renderSocial(false, leaveGameToMenu)}
       </>
     );
   }
@@ -145,7 +148,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>
-      {renderSocial(status === 'playing')}
+      {renderSocial(status === 'playing', leaveGameToMenu)}
     </>
   );
 }

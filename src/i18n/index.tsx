@@ -271,6 +271,8 @@ const EN: Dict = {
   'net.joinFailTitle': "Couldn't join the room",
   'net.backRetry': 'Back — fix and retry',
   'net.forgetSaved': 'Forget saved game',
+  'online.leaveGame': 'Leave game',
+  'online.leaveGameConfirm': 'Leave game? You can resume later.',
 };
 
 const UK: Dict = {
@@ -527,6 +529,8 @@ const UK: Dict = {
   'net.joinFailTitle': 'Не вдалося приєднатися',
   'net.backRetry': 'Назад — виправити й повторити',
   'net.forgetSaved': 'Забути збережену гру',
+  'online.leaveGame': 'Вийти з гри',
+  'online.leaveGameConfirm': 'Вийти з гри? Ви зможете повернутися пізніше.',
 };
 
 const DE: Dict = {
@@ -783,6 +787,8 @@ const DE: Dict = {
   'net.joinFailTitle': 'Beitritt fehlgeschlagen',
   'net.backRetry': 'Zurück — korrigieren und erneut',
   'net.forgetSaved': 'Gespeichertes Spiel verwerfen',
+  'online.leaveGame': 'Spiel verlassen',
+  'online.leaveGameConfirm': 'Spiel verlassen? Du kannst später fortsetzen.',
 };
 
 const AR: Dict = {
@@ -1039,6 +1045,8 @@ const AR: Dict = {
   'net.joinFailTitle': 'تعذّر الانضمام إلى الغرفة',
   'net.backRetry': 'رجوع — صحّح وأعد المحاولة',
   'net.forgetSaved': 'تجاهل اللعبة المحفوظة',
+  'online.leaveGame': 'مغادرة اللعبة',
+  'online.leaveGameConfirm': 'مغادرة اللعبة؟ يمكنك المتابعة لاحقًا.',
 };
 
 const DICTS: Record<Lang, Dict> = { en: EN, uk: UK, de: DE, ar: AR };

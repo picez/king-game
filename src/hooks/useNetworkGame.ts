@@ -48,7 +48,11 @@ export interface NetworkGame {
   addBot: () => void;
   /** Host-only: set the per-turn timer (seconds; 0 = off) before start. */
   setTimer: (turnTimerSec: number) => void;
+  /** Lobby "Leave lobby": remove the member + clear the saved session. */
   leave: () => void;
+  /** Active-game "Leave game": drop the socket only — stays reconnectable +
+   *  the saved session is kept so the menu still offers Resume. */
+  backToMenu: () => void;
   // ── Room social (Stage 7) ──
   /** Recent reaction events (transient; the UI prunes by age). */
   reactions: ReactionEvent[];
@@ -94,6 +98,11 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   // Set when the host kicks us: suppresses auto-reconnect and the 'disconnected'
   // state so we land on a clear "removed by host" screen instead.
   const kickedRef = useRef(false);
+  // Set when the player deliberately backs out of an ACTIVE game ("Leave game"):
+  // we drop the socket (server marks us disconnected → seat stays reconnectable)
+  // and suppress auto-reconnect, but DO NOT remove the member or clear the saved
+  // session — so the start menu still offers "Resume online game".
+  const leavingRef = useRef(false);
   // StrictMode-safe connection guard: teardown is deferred one tick so a dev
   // double-mount reuses the same transport instead of opening a second one
   // (which would create a duplicate room / seat).
@@ -219,7 +228,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
       transport.onMessage(handleMessage);
       transport.onClose(() => {
         if (!liveRef.current || transportRef.current !== transport) return;
-        if (kickedRef.current) return; // kicked: stay on the removed-by-host screen
+        if (kickedRef.current) return;   // kicked: stay on the removed-by-host screen
+        if (leavingRef.current) return;  // deliberate "Leave game": no auto-reconnect
         setStatus('disconnected');
         scheduleReconnect();
       });
@@ -274,19 +284,27 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
   const setTimer = useCallback((turnTimerSec: number) => send({ t: 'SET_TIMER', turnTimerSec }), [send]);
   const leave = useCallback(() => {
-    // Explicit leave / back to menu: drop the saved session so we don't offer
-    // to resume a game the player intentionally left.
+    // Explicit LEAVE the room (lobby "Leave lobby"): remove the member + drop the
+    // saved session so we don't offer to resume a game the player left for good.
     send({ t: 'LEAVE_ROOM' });
     clearSession();
     transportRef.current?.close();
   }, [send]);
+
+  const backToMenu = useCallback(() => {
+    // Active-game "Leave game / Back to menu": just drop the socket (the server
+    // marks us disconnected → the seat stays reconnectable). We do NOT send
+    // LEAVE_ROOM (keeps the member) and do NOT clearSession (keeps Resume).
+    leavingRef.current = true;
+    transportRef.current?.close();
+  }, []);
 
   const myTurn = !!state && getActingPlayerId(state) === myPlayerId;
 
   return {
     status, error, errorCode, room, state, myPlayerId,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
-    myTurn, dispatch, startGame, kick, addBot, setTimer, leave,
+    myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, socialNotice, clearSocialNotice,
   };
 }

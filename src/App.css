@@ -1846,6 +1846,18 @@ body {
 .social-controls--raised { bottom: calc(9.5rem + env(safe-area-inset-bottom)); }
 .social-toast--raised { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
 .social-controls__row { display: flex; gap: 8px; }
+/* "Leave game" — a clearly-labelled danger pill shown ONLY during an active
+   online game (sits above the reaction/chat FABs, clear of the hand). */
+.social-leave {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0.4rem 0.85rem; min-height: 40px;
+  background: var(--danger-soft); color: var(--danger-light);
+  border: 1px solid var(--danger); border-radius: 999px;
+  font-size: 0.84rem; font-weight: 700; cursor: pointer;
+  box-shadow: var(--shadow-2); white-space: nowrap;
+}
+.social-leave:hover { background: rgba(229, 72, 77, 0.28); }
+.social-leave:active { transform: translateY(1px); }
 .social-fab {
   position: relative; width: 46px; height: 46px; border-radius: 50%;
   background: var(--panel); border: 1px solid var(--border-strong);
