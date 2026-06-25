@@ -51,6 +51,19 @@ linked docs.
   OAuth is **scaffolded but disabled** (next substage). See
   [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §3 Stage 4 and
   [`DB_SETUP.md`](DB_SETUP.md).
+- **Stats & leaderboard (Stage 5 / 5.1 / 5.2)**: when a `DATABASE_URL` is set,
+  finished **online** games record per-`(user, game_type)` stats (bots excluded;
+  idempotent; **score-only**, no cards). `GET /api/games/king/stats` returns a
+  full derived view (games, win rate, avg, **best/worst**, **trump/negative
+  rounds**, per-mode breakdown, last game) and `GET /api/games/king/leaderboard`
+  returns public rows (display name, **avatar**, counters, `self` marker — **no
+  user id**). A collapsible **Statistics** panel in the start menu shows My stats
+  + a mobile-clean leaderboard (no horizontal overflow, RTL-safe), degrading to a
+  soft "unavailable" with **no DB** and "save progress" for signed-out guests.
+  King fields live in the `user_stats.stats` JSONB (`STATS_VERSION = 2`; old rows
+  read tolerantly, recomputable via `rebuildUserStats`). **No gameplay/rules/
+  scoring change.** See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md)
+  §3 Stage 5/5.1/5.2.
 
 ## Run it
 

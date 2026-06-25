@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Client adaptor for the Stage 5 King stats + leaderboard API (read-only).
+// Client adaptor for the King stats + leaderboard API (read-only; Stage 5/5.2).
 //
 // SOFT by design, like profileApi: every call degrades gracefully and never
 // throws. Each helper returns a small discriminated `Loadable` so the UI can
@@ -9,36 +9,61 @@
 //   • 'unavailable'     → 503/404: DB disabled or route missing → soft empty
 //   • 'error'           → network/CORS/unknown → non-blocking retry state
 //
-// Only public, score-level data is read here. The leaderboard exposes display
-// name + counters only (no userId-as-identity, no email/session). Nothing here
-// logs cookies/tokens. Pure derivations (win rate, averages, date formatting)
-// are exported separately so they are unit-tested without a network.
+// Stage 5.2: the server now returns a FLAT, fully-derived stats view (win rate,
+// averages, best/worst, trump/negative round counts, per-mode breakdown) and a
+// richer public leaderboard (display name + avatar + counters, with a `self`
+// marker instead of a user id). The parser tolerates missing fields so older
+// servers / partial rows never crash the UI. Only public, score-level data is
+// read here; nothing logs cookies/tokens.
 // ---------------------------------------------------------------------------
 
 import type { Lang } from '../i18n';
 
-/** My King stats (flattened from the API's `{ stats: { …, stats: {…} } }`). */
+/** Per-mode aggregate: rounds played under the mode + summed/avg score. */
+export interface ModeStat {
+  rounds: number;
+  totalScore: number;
+  averageScore: number | null;
+}
+
+/** My King stats — the flat, server-derived view. */
 export interface KingStats {
   gamesPlayed: number;
   gamesWon: number;
   gamesLost: number;
+  /** 0–100 integer, or null when no games. Server-derived. */
+  winRate: number | null;
   roundsPlayed: number;
   /** Cumulative sum of final game totals (King: higher is better). */
   totalScore: number;
+  averageScore: number | null;
   /** Best (highest) single-game total, or null when no games yet. */
-  bestGameScore: number | null;
-  /** modeId → cumulative score under that mode (King-specific). */
-  modeBreakdown: Record<string, number>;
+  bestScore: number | null;
+  /** Worst (lowest) single-game total, or null when no games yet. */
+  worstScore: number | null;
+  trumpRoundsPlayed: number;
+  negativeRoundsPlayed: number;
+  surrenderedCount: number;
+  /** False until RoundRecord carries `surrenderedBy` (no rules change yet). */
+  surrenderedSupported: boolean;
+  /** modeId → { rounds, totalScore, averageScore }. */
+  modeBreakdown: Record<string, ModeStat>;
   /** ISO timestamp of the last completed game, or null. */
-  lastPlayedAt: string | null;
+  lastGameAt: string | null;
 }
 
-/** One public leaderboard row (no identity/private fields). */
+/** One public leaderboard row — no user id; `self` marks the caller's own row. */
 export interface LeaderboardEntry {
-  userId: string;
   displayName: string | null;
+  avatar: string | null;
   gamesPlayed: number;
   gamesWon: number;
+  winRate: number | null;
+  averageScore: number | null;
+  bestScore: number | null;
+  totalScore: number;
+  lastGameAt: string | null;
+  self: boolean;
 }
 
 export type Loadable<T> =
@@ -72,25 +97,52 @@ async function getJson(base: string, path: string): Promise<{ status: number; da
 function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
+function numOrNull(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+function str(v: unknown): string | null {
+  return typeof v === 'string' ? v : null;
+}
 
-/** Flattens the API stats payload into a flat, well-typed KingStats. */
+function parseModeBreakdown(raw: unknown): Record<string, ModeStat> {
+  const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const out: Record<string, ModeStat> = {};
+  for (const [mode, v] of Object.entries(o)) {
+    if (v && typeof v === 'object') {
+      const ov = v as Record<string, unknown>;
+      out[mode] = { rounds: num(ov.rounds), totalScore: num(ov.totalScore), averageScore: numOrNull(ov.averageScore) };
+    } else if (typeof v === 'number') {
+      // Legacy v1 server (modeId → score only): keep the score, rounds unknown.
+      out[mode] = { rounds: 0, totalScore: v, averageScore: null };
+    }
+  }
+  return out;
+}
+
+/** Flattens the API stats payload (`{ stats: <view> }`) into KingStats. */
 export function parseKingStats(raw: unknown): KingStats {
   const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
   const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
-  const inner = (s.stats && typeof s.stats === 'object') ? s.stats as Record<string, unknown> : {};
-  const mbRaw = (inner.modeBreakdown && typeof inner.modeBreakdown === 'object')
-    ? inner.modeBreakdown as Record<string, unknown> : {};
-  const modeBreakdown: Record<string, number> = {};
-  for (const [k, v] of Object.entries(mbRaw)) if (typeof v === 'number') modeBreakdown[k] = v;
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  // winRate/averageScore: prefer the server value, else derive (older servers).
+  const winRate = 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null);
   return {
-    gamesPlayed: num(s.gamesPlayed),
-    gamesWon: num(s.gamesWon),
+    gamesPlayed,
+    gamesWon,
     gamesLost: num(s.gamesLost),
+    winRate,
     roundsPlayed: num(s.roundsPlayed),
-    totalScore: num(inner.totalScore),
-    bestGameScore: typeof inner.bestGameScore === 'number' ? inner.bestGameScore : null,
-    modeBreakdown,
-    lastPlayedAt: typeof s.lastPlayedAt === 'string' ? s.lastPlayedAt : null,
+    totalScore: num(s.totalScore),
+    averageScore: 'averageScore' in s ? numOrNull(s.averageScore) : (gamesPlayed > 0 ? Math.round(num(s.totalScore) / gamesPlayed) : null),
+    bestScore: numOrNull(s.bestScore),
+    worstScore: numOrNull(s.worstScore),
+    trumpRoundsPlayed: num(s.trumpRoundsPlayed),
+    negativeRoundsPlayed: num(s.negativeRoundsPlayed),
+    surrenderedCount: num(s.surrenderedCount),
+    surrenderedSupported: s.surrenderedSupported === true,
+    modeBreakdown: parseModeBreakdown(s.modeBreakdown),
+    lastGameAt: str(s.lastGameAt) ?? str(s.lastPlayedAt),
   };
 }
 
@@ -101,20 +153,32 @@ export async function fetchKingStats(base: string): Promise<Loadable<KingStats>>
   return failFor(status);
 }
 
-/** GET /api/games/king/leaderboard — public top players (counters only). */
+function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    averageScore: numOrNull(e.averageScore),
+    bestScore: numOrNull(e.bestScore),
+    totalScore: num(e.totalScore),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/king/leaderboard — public top players (counters + avatar). */
 export async function fetchKingLeaderboard(base: string): Promise<Loadable<LeaderboardEntry[]>> {
   const { status, data } = await getJson(base, '/api/games/king/leaderboard');
   if (status === 200) {
     const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
       ? (data as { leaderboard: unknown[] }).leaderboard : [];
-    const rows: LeaderboardEntry[] = list
+    const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
-      .map((e) => ({
-        userId: typeof e.userId === 'string' ? e.userId : '',
-        displayName: typeof e.displayName === 'string' ? e.displayName : null,
-        gamesPlayed: num(e.gamesPlayed),
-        gamesWon: num(e.gamesWon),
-      }));
+      .map(parseLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);
@@ -160,15 +224,18 @@ export const MODE_ORDER = [
   'no_tricks', 'no_hearts', 'no_jacks', 'no_queens', 'king_of_hearts', 'last_two_tricks', 'trump',
 ] as const;
 
-/** Per-mode rows present in the breakdown, in canonical order (points, not counts). */
-export function modeBreakdownRows(mb: Record<string, number>): Array<{ modeId: string; points: number }> {
-  const rows: Array<{ modeId: string; points: number }> = [];
-  for (const modeId of MODE_ORDER) {
-    if (modeId in mb) rows.push({ modeId, points: mb[modeId] });
-  }
-  // Any unknown future modes appended after the known ones.
-  for (const [modeId, points] of Object.entries(mb)) {
-    if (!(MODE_ORDER as readonly string[]).includes(modeId)) rows.push({ modeId, points });
+/** Per-mode rows present in the breakdown, in canonical order (Trump last). */
+export function modeBreakdownRows(
+  mb: Record<string, ModeStat>,
+): Array<{ modeId: string; rounds: number; totalScore: number; averageScore: number | null }> {
+  const rows: Array<{ modeId: string; rounds: number; totalScore: number; averageScore: number | null }> = [];
+  const push = (modeId: string) => {
+    const m = mb[modeId];
+    if (m) rows.push({ modeId, rounds: m.rounds, totalScore: m.totalScore, averageScore: m.averageScore });
+  };
+  for (const modeId of MODE_ORDER) push(modeId);
+  for (const modeId of Object.keys(mb)) {
+    if (!(MODE_ORDER as readonly string[]).includes(modeId)) push(modeId);
   }
   return rows;
 }

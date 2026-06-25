@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n';
 import {
   type KingStats, type Loadable,
-  winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
+  formatSigned, formatLastPlayed, modeBreakdownRows,
 } from '../../net/statsApi';
 
 interface Props {
@@ -12,15 +12,15 @@ interface Props {
 
 /**
  * Presentational "My King stats" view. Renders only public, score-level data
- * from the Stage 5 API; shows soft empty/auth/unavailable/error states so it
- * never blocks. Guests with a session see their stats normally (no login wall).
+ * from the stats API (win rate, averages, best/worst, trump/negative round
+ * counts, per-mode breakdown); shows soft empty/auth/unavailable/error states so
+ * it never blocks. Guests with a session see their stats normally (no login
+ * wall). Tolerant of missing fields — an older/partial payload still renders.
  */
 export default function StatsPanel({ result, loading }: Props) {
   const { t, lang } = useI18n();
 
-  if (loading && !result) {
-    return <p className="stats-msg">{t('net.connecting')}…</p>;
-  }
+  if (loading && !result) return <p className="stats-msg">{t('net.connecting')}…</p>;
   if (!result) return null;
 
   if (result.state === 'unauthenticated') {
@@ -39,18 +39,18 @@ export default function StatsPanel({ result, loading }: Props) {
     return <p className="stats-msg stats-msg--soft">{t('stats.noGames')}</p>;
   }
 
-  const rate = winRatePct(s.gamesWon, s.gamesPlayed);
-  const avg = averageScore(s.totalScore, s.gamesPlayed);
-  const lastPlayed = formatLastPlayed(s.lastPlayedAt, lang);
+  const lastPlayed = formatLastPlayed(s.lastGameAt, lang);
   const modeRows = modeBreakdownRows(s.modeBreakdown);
 
   const cards: Array<{ label: string; value: string; sub?: string }> = [
     { label: t('stats.gamesPlayed'), value: String(s.gamesPlayed) },
-    { label: t('stats.wins'), value: String(s.gamesWon), sub: `${s.gamesWon}–${s.gamesLost}` },
-    { label: t('stats.winRate'), value: rate == null ? '—' : `${rate}%` },
+    { label: t('stats.winRate'), value: s.winRate == null ? '—' : `${s.winRate}%`, sub: `${s.gamesWon}–${s.gamesLost}` },
     { label: t('stats.roundsPlayed'), value: String(s.roundsPlayed) },
-    { label: t('stats.avgScore'), value: formatSigned(avg) },
-    { label: t('stats.bestScore'), value: formatSigned(s.bestGameScore) },
+    { label: t('stats.avgScore'), value: formatSigned(s.averageScore) },
+    { label: t('stats.bestScore'), value: formatSigned(s.bestScore) },
+    { label: t('stats.worstScore'), value: formatSigned(s.worstScore) },
+    { label: t('stats.trumpRounds'), value: String(s.trumpRoundsPlayed) },
+    { label: t('stats.negativeRounds'), value: String(s.negativeRoundsPlayed) },
   ];
 
   return (
@@ -66,9 +66,7 @@ export default function StatsPanel({ result, loading }: Props) {
       </div>
 
       {lastPlayed && (
-        <p className="stats-lastgame">
-          {t('stats.lastGame')}: <strong>{lastPlayed}</strong>
-        </p>
+        <p className="stats-lastgame">{t('stats.lastGame')}: <strong>{lastPlayed}</strong></p>
       )}
 
       {modeRows.length > 0 && (
@@ -78,8 +76,11 @@ export default function StatsPanel({ result, loading }: Props) {
             {modeRows.map((r) => (
               <li className="stats-mode-row" key={r.modeId}>
                 <span className="stats-mode-row__name">{t(`mode.${r.modeId}`)}</span>
-                <span className={`stats-mode-row__pts ${r.points >= 0 ? 'is-pos' : 'is-neg'}`}>
-                  {formatSigned(r.points)}
+                <span className="stats-mode-row__meta">
+                  <span className="stats-mode-row__rounds">{r.rounds}×</span>
+                  <span className={`stats-mode-row__pts ${r.totalScore >= 0 ? 'is-pos' : 'is-neg'}`}>
+                    {formatSigned(r.totalScore)}
+                  </span>
                 </span>
               </li>
             ))}

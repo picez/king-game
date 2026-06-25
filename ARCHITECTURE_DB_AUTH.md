@@ -850,8 +850,52 @@ regardless.
 
 **Deferred (documented):** per-round `surrenderedBy` is not in `RoundRecord`
 (adding it would touch the engine/rules), so surrenders are not yet in the King
-`stats` JSONB; full `user_stats` *rebuild-from-rounds* job; the cross-game
-`game_catalog`/`rulesets` seed.
+`stats` JSONB; the cross-game `game_catalog`/`rulesets` seed.
+
+### Stage 5.1 — Stats UI — DONE
+Read-only client (`src/net/statsApi.ts`) + a collapsible **Statistics** section in
+`StartMenu` (`KingStatsPanel` → `StatsPanel` / `LeaderboardPanel`). Soft states
+(`ok` / `unauthenticated` / `unavailable` / `error`); guest-with-session sees
+stats (no login wall); no DB → graceful "unavailable". Mobile-first, no
+horizontal overflow at 360/390, RTL-safe. No private data shown.
+
+### Stage 5.2 — Stats completeness — DONE
+Enriches the stats **without any gameplay/rules/scoring change** and with **no
+new migration** — all King-specific fields live in the existing
+`user_stats.stats` JSONB under `game_type='king'`, versioned by an internal
+`v` (**`STATS_VERSION = 2`**, in `server/db/stats.ts`).
+
+- **Aggregator** (`src/net/kingStats.ts`): per-player deltas now include
+  `worstGameScore`, `trumpRoundsPlayed`, `negativeRoundsPlayed`, and a per-mode
+  `modeBreakdown` of `{ rounds, totalScore }` (was sum-only). Pure, unit-tested.
+- **JSONB v2 + compat:** `readStats` tolerates **both** the v1 shape
+  (`modeBreakdown: { modeId: number }`, no best/worst/trump/negative) and v2,
+  defaulting missing fields safely (counters → 0, worst → null, legacy per-mode
+  `rounds` → 0). Non-finite best/worst sentinels are never serialized. A
+  `rebuildUserStats(userId, gameType)` recomputes the cache exactly from
+  `games`/`game_players`/`rounds` (backfills v2 fields onto v1 rows) — the
+  architecture's rebuildable-cache promise, now realized.
+- **API (`GET /api/games/king/stats`)** returns a **flat, fully-derived view**:
+  `winRate`, `averageScore`, `bestScore`/`worstScore`, `trumpRoundsPlayed`,
+  `negativeRoundsPlayed`, `surrenderedCount` (+ `surrenderedSupported: false`),
+  per-mode `{ rounds, totalScore, averageScore }`, `lastGameAt`, `statsVersion`.
+- **API (`GET /api/games/king/leaderboard`)** now returns public, score-level
+  fields only — `displayName`, **`avatar`** (from `user_settings`, joined; no
+  snapshot column needed), `gamesPlayed`, `gamesWon`, `winRate`, `averageScore`,
+  `bestScore`, `totalScore`, `lastGameAt`, and a server-marked **`self`** flag.
+  The **user id is never returned** (privacy): the caller's own row is marked
+  server-side from the optional session cookie.
+- **UI:** `StatsPanel` shows games/win-rate/rounds/avg/best/**worst**/**trump
+  rounds**/**negative rounds** + a per-mode breakdown; `LeaderboardPanel` shows
+  rank, avatar, name, win-rate, and an avg/best meta line, two-line rows that
+  never overflow on 360/390 and highlight `self`.
+- **Acceptance (met):** `npm test` / `build` / `e2e` (no DB) green; old v1 rows
+  don't crash the UI (gated test); a new game records best/worst/avg/trump/
+  negative/modeBreakdown; leaderboard shows avatar + richer public stats; no
+  private card data stored or returned; `game_type` separation preserved.
+
+**Still deferred:** `surrenderedCount` stays `0`/`surrenderedSupported: false`
+until `RoundRecord` carries `surrenderedBy` (a rules-layer change, out of scope).
 
 ### Stage 6 — Mobile auth considerations / Apple Sign-In
 - Add refresh-token (`kind='mobile_refresh'`) issuance + rotation; access JWT

@@ -127,6 +127,8 @@ const EN: Dict = {
   'stats.anonymous': 'Guest',
   'stats.signInPrompt': 'No stats yet — save your progress to start tracking.',
   'stats.signInHint': 'Open Account → Save progress (guest). No Google account needed.',
+  'stats.avgShort': 'Avg',
+  'stats.bestShort': 'Best',
   // ── gameplay ──
   'common.dealer': 'Dealer',
   'common.round': 'Round',
@@ -357,6 +359,8 @@ const UK: Dict = {
   'stats.anonymous': 'Гість',
   'stats.signInPrompt': 'Статистики ще немає — збережіть прогрес, щоб почати відстеження.',
   'stats.signInHint': 'Відкрийте «Профіль» → «Зберегти прогрес» (гість). Google не потрібен.',
+  'stats.avgShort': 'сер.',
+  'stats.bestShort': 'кращ.',
   // ── gameplay ──
   'common.dealer': 'Дилер',
   'common.round': 'Раунд',
@@ -587,6 +591,8 @@ const DE: Dict = {
   'stats.anonymous': 'Gast',
   'stats.signInPrompt': 'Noch keine Statistik — speichere deinen Fortschritt, um zu starten.',
   'stats.signInHint': 'Öffne „Konto“ → „Fortschritt speichern“ (Gast). Kein Google nötig.',
+  'stats.avgShort': 'Ø',
+  'stats.bestShort': 'Best',
   // ── gameplay ──
   'common.dealer': 'Geber',
   'common.round': 'Runde',
@@ -817,6 +823,8 @@ const AR: Dict = {
   'stats.anonymous': 'ضيف',
   'stats.signInPrompt': 'لا إحصائيات بعد — احفظ تقدّمك لبدء التتبّع.',
   'stats.signInHint': 'افتح «الحساب» ← «حفظ التقدّم» (ضيف). لا حاجة لحساب Google.',
+  'stats.avgShort': 'متوسط',
+  'stats.bestShort': 'أفضل',
   // ── gameplay ──
   'common.dealer': 'الموزّع',
   'common.round': 'الجولة',

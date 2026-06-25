@@ -237,10 +237,17 @@ async function handleGetKingStats(req: IncomingMessage, res: ServerResponse, use
   json(res, 200, { gameType: KING, stats: await getUserStats(userId, KING) }, corsHeaders(req));
 }
 
-/** Public per-game leaderboard (no session required — only public counters). */
+/**
+ * Public per-game leaderboard (no session required — only public, score-level
+ * fields). If a session cookie is present we resolve it ONLY to mark the
+ * caller's own row (`self`) for highlighting; the user id itself is never
+ * returned. A session-resolution hiccup never fails the public read.
+ */
 async function handleGetKingLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const { getLeaderboard } = await import('./db/stats');
-  json(res, 200, { gameType: KING, leaderboard: await getLeaderboard(KING, 20) }, corsHeaders(req));
+  let selfUserId: string | null = null;
+  try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
+  json(res, 200, { gameType: KING, leaderboard: await getLeaderboard(KING, 20, selfUserId) }, corsHeaders(req));
 }
 
 /** Google OAuth is staged: routes exist but return 503 until creds/flow land. */

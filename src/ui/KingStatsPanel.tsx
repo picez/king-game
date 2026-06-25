@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
-import { apiBaseFromWsUrl, fetchMe } from '../net/profileApi';
+import { apiBaseFromWsUrl } from '../net/profileApi';
 import {
   fetchKingStats, fetchKingLeaderboard,
   type KingStats, type LeaderboardEntry, type Loadable,
@@ -31,7 +31,6 @@ export default function KingStatsPanel({ serverUrl }: Props) {
   const [board, setBoard] = useState<Loadable<LeaderboardEntry[]> | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState(false);
-  const [meId, setMeId] = useState<string | null>(null);
   const loadedOnce = useRef(false);
 
   const base = apiBaseFromWsUrl(serverUrl);
@@ -46,17 +45,14 @@ export default function KingStatsPanel({ serverUrl }: Props) {
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
   }, [base]);
 
-  // On first open, hydrate identity (for "me" highlight) + both datasets.
+  // On first open, load both datasets. The leaderboard marks the caller's own
+  // row server-side (`self`), so no separate identity fetch is needed here.
   useEffect(() => {
     if (!open || loadedOnce.current) return;
     loadedOnce.current = true;
-    void (async () => {
-      const me = await fetchMe(base);
-      setMeId(me?.user?.id ?? null);
-    })();
     void loadStats();
     void loadBoard();
-  }, [open, base, loadStats, loadBoard]);
+  }, [open, loadStats, loadBoard]);
 
   function refresh() {
     if (tab === 'stats') void loadStats();
@@ -93,7 +89,7 @@ export default function KingStatsPanel({ serverUrl }: Props) {
           <div className="stats-tabpanel" role="tabpanel">
             {tab === 'stats'
               ? <StatsPanel result={stats} loading={loadingStats} />
-              : <LeaderboardPanel result={board} loading={loadingBoard} currentUserId={meId} />}
+              : <LeaderboardPanel result={board} loading={loadingBoard} />}
           </div>
         </div>
       )}

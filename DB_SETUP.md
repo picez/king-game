@@ -84,6 +84,25 @@ ARCHITECTURE_DB_AUTH.md, to be built in later stages:
 - **`ruleset_id`** (e.g. `king-v1`) versions the rules a game was played under so
   old games/stats stay interpretable when `KING_RULES.md` changes.
 
+### Stats tables & JSONB versioning (Stage 5 / 5.2)
+
+Migration `0003_game_stats.sql` adds `games`, `game_players`, `rounds`, and
+`user_stats` (all `game_type`-tagged; `rounds` are **score-only** — no cards).
+King-specific aggregates live **inside `user_stats.stats` (JSONB)**, versioned by
+an internal `v` field (**`STATS_VERSION`**, `server/db/stats.ts`):
+
+- **v1:** `{ totalScore, bestGameScore, modeBreakdown: { modeId: number } }`.
+- **v2 (current):** adds `worstGameScore`, `trumpRoundsPlayed`,
+  `negativeRoundsPlayed`, `surrenderedCount`, and a richer
+  `modeBreakdown: { modeId: { rounds, totalScore } }`.
+
+**No migration is needed to move v1 → v2** — the column already holds JSONB.
+`readStats` upgrades v1 rows on read (missing fields default safely; legacy
+per-mode `rounds` read as `0`). To backfill exact v2 numbers onto old rows,
+call `rebuildUserStats(userId)` which recomputes from `games`/`game_players`/
+`rounds`. The leaderboard reads the player **avatar** by joining the existing
+`user_settings` table (no avatar snapshot column).
+
 ## Stage 2 — Postgres room storage (opt-in)
 
 Stage 2 lets the server persist rooms to Postgres through the existing

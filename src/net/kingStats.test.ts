@@ -98,7 +98,7 @@ describe('summarizeFinishedGame — winner = highest total', () => {
 });
 
 describe('computeStatDeltas', () => {
-  it('sums each player score per mode and flags wins/losses', () => {
+  it('aggregates per-mode rounds/score, win/loss, best/worst, trump/negative counts', () => {
     const s = finishedState({
       playerCount: 3,
       totals: [-9, -25, -16],
@@ -112,11 +112,18 @@ describe('computeStatDeltas', () => {
     const d0 = deltas.find((d) => d.playerId === 'player-0')!;
     expect(d0.won).toBe(true);                  // -9 is the highest total
     expect(d0.roundsPlayed).toBe(3);
-    expect(d0.modeBreakdown).toEqual({ no_hearts: -9, trump: 0 });
     expect(d0.totalScore).toBe(-9);
     expect(d0.bestGameScore).toBe(-9);
+    expect(d0.worstGameScore).toBe(-9);          // single game → best == worst
+    expect(d0.trumpRoundsPlayed).toBe(1);
+    expect(d0.negativeRoundsPlayed).toBe(2);
+    expect(d0.modeBreakdown).toEqual({
+      no_hearts: { rounds: 2, totalScore: -9 },
+      trump: { rounds: 1, totalScore: 0 },
+    });
     const d1 = deltas.find((d) => d.playerId === 'player-1')!;
     expect(d1.won).toBe(false);
-    expect(d1.modeBreakdown.no_hearts).toBe(-25);
+    expect(d1.modeBreakdown.no_hearts).toEqual({ rounds: 2, totalScore: -25 });
+    expect(d1.trumpRoundsPlayed).toBe(1);
   });
 });

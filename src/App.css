@@ -1625,29 +1625,33 @@ body {
   font-size: 0.85rem; color: var(--text);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.stats-mode-row__pts { font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.stats-mode-row__meta { display: flex; align-items: baseline; gap: 0.5rem; flex: 0 0 auto; }
+.stats-mode-row__rounds { font-size: 0.72rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.stats-mode-row__pts { font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stats-mode-row__pts.is-pos { color: var(--success-light); }
 .stats-mode-row__pts.is-neg { color: var(--danger-light); }
 
-/* Leaderboard: a compact vertical row list (NOT a wide table) — overflow-safe
-   on 360/390 and RTL-correct (numeric cells align to the inline end). */
+/* Leaderboard: a compact vertical list of two-line rows (heading + meta). NOT a
+   wide table — so it never overflows on 360/390 and stays RTL-correct. */
 .leaderboard { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
-.leaderboard__head, .leaderboard__row {
-  display: grid;
-  grid-template-columns: 1.7rem minmax(0, 1fr) 2.4rem 2rem 2.8rem;
-  align-items: center; gap: 0.3rem;
-  padding: 0.4rem 0.5rem;
+.lb-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  background: var(--surface-2); border-radius: 10px;
 }
-.leaderboard__head {
-  color: var(--text-dim); font-size: 0.68rem;
-  text-transform: uppercase; letter-spacing: 0.03em;
+.lb-row--me { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--accent-dark); }
+.lb-rank { flex: 0 0 1.4rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lb-av { flex: 0 0 auto; font-size: 1.2rem; line-height: 1; }
+.lb-main { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.lb-line { display: flex; align-items: baseline; gap: 0.5rem; }
+.lb-name {
+  min-width: 0; flex: 1 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text); font-weight: 600; font-size: 0.9rem;
 }
-.leaderboard__row { background: var(--surface-2); border-radius: 8px; font-size: 0.86rem; }
-.leaderboard__row--me { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--accent-dark); }
-.lb-rank { text-align: center; font-weight: 700; }
-.lb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-.lb-you { color: var(--accent); font-size: 0.75rem; }
-.lb-num { text-align: end; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.lb-you { color: var(--accent); font-size: 0.75rem; font-weight: 600; }
+.lb-wr { flex: 0 0 auto; color: var(--accent); font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.lb-meta { font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ===== Language selector / top bar ===== */
 .topbar {

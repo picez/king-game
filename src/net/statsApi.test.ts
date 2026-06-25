@@ -10,48 +10,66 @@ const BASE = 'http://localhost:3001';
 function stubFetch(status: number, body: unknown, opts: { reject?: boolean } = {}) {
   vi.stubGlobal('fetch', vi.fn(async () => {
     if (opts.reject) throw new Error('network down');
-    return {
-      status,
-      ok: status >= 200 && status < 300,
-      json: async () => body,
-    } as Response;
+    return { status, ok: status >= 200 && status < 300, json: async () => body } as Response;
   }));
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('parseKingStats — flattens the nested API payload', () => {
-  it('reads the inner stats object and coerces types', () => {
+describe('parseKingStats — flat v2 payload', () => {
+  it('reads the derived view incl. best/worst/trump/negative + per-mode breakdown', () => {
     const parsed = parseKingStats({
       gameType: 'king',
       stats: {
-        gamesPlayed: 5, gamesWon: 2, gamesLost: 3, roundsPlayed: 54,
-        stats: { totalScore: -120, bestGameScore: -9, modeBreakdown: { trump: 16, no_hearts: -40 } },
-        lastPlayedAt: '2026-06-20T10:00:00.000Z',
+        statsVersion: 2,
+        gamesPlayed: 5, gamesWon: 2, gamesLost: 3, winRate: 40, roundsPlayed: 54,
+        totalScore: -120, averageScore: -24, bestScore: -9, worstScore: -60,
+        trumpRoundsPlayed: 9, negativeRoundsPlayed: 45, surrenderedCount: 0, surrenderedSupported: false,
+        modeBreakdown: { trump: { rounds: 9, totalScore: 16, averageScore: 2 }, no_hearts: { rounds: 9, totalScore: -40, averageScore: -4 } },
+        lastGameAt: '2026-06-20T10:00:00.000Z',
       },
     });
     expect(parsed.gamesPlayed).toBe(5);
-    expect(parsed.bestGameScore).toBe(-9);
-    expect(parsed.totalScore).toBe(-120);
-    expect(parsed.modeBreakdown).toEqual({ trump: 16, no_hearts: -40 });
-    expect(parsed.lastPlayedAt).toBe('2026-06-20T10:00:00.000Z');
+    expect(parsed.winRate).toBe(40);
+    expect(parsed.bestScore).toBe(-9);
+    expect(parsed.worstScore).toBe(-60);
+    expect(parsed.trumpRoundsPlayed).toBe(9);
+    expect(parsed.negativeRoundsPlayed).toBe(45);
+    expect(parsed.modeBreakdown.no_hearts).toEqual({ rounds: 9, totalScore: -40, averageScore: -4 });
+    expect(parsed.lastGameAt).toBe('2026-06-20T10:00:00.000Z');
   });
 
   it('defaults safely for an empty / no-games payload', () => {
-    const parsed = parseKingStats({ stats: { gamesPlayed: 0, stats: {} } });
+    const parsed = parseKingStats({ stats: { gamesPlayed: 0 } });
     expect(parsed.gamesPlayed).toBe(0);
-    expect(parsed.bestGameScore).toBeNull();
+    expect(parsed.bestScore).toBeNull();
+    expect(parsed.worstScore).toBeNull();
+    expect(parsed.winRate).toBeNull();
     expect(parsed.modeBreakdown).toEqual({});
-    expect(parsed.lastPlayedAt).toBeNull();
+    expect(parsed.lastGameAt).toBeNull();
+  });
+
+  it('tolerates a legacy payload (modeBreakdown as numbers, lastPlayedAt, no winRate)', () => {
+    const parsed = parseKingStats({
+      stats: {
+        gamesPlayed: 2, gamesWon: 1, totalScore: -30,
+        modeBreakdown: { no_hearts: -20, trump: 8 },
+        lastPlayedAt: '2026-06-01T00:00:00.000Z',
+      },
+    });
+    expect(parsed.winRate).toBe(50);                 // derived client-side
+    expect(parsed.averageScore).toBe(-15);           // derived client-side
+    expect(parsed.modeBreakdown.no_hearts).toEqual({ rounds: 0, totalScore: -20, averageScore: null });
+    expect(parsed.lastGameAt).toBe('2026-06-01T00:00:00.000Z');
   });
 });
 
 describe('fetchKingStats — graceful state mapping', () => {
   it('200 → ok with parsed data', async () => {
-    stubFetch(200, { stats: { gamesPlayed: 1, gamesWon: 1, stats: { totalScore: -9, bestGameScore: -9 }, lastPlayedAt: null } });
+    stubFetch(200, { stats: { gamesPlayed: 1, gamesWon: 1, winRate: 100, totalScore: -9, bestScore: -9, worstScore: -9 } });
     const r = await fetchKingStats(BASE);
     expect(r.state).toBe('ok');
-    if (r.state === 'ok') { expect(r.data.gamesPlayed).toBe(1); expect(r.data.gamesWon).toBe(1); }
+    if (r.state === 'ok') { expect(r.data.gamesPlayed).toBe(1); expect(r.data.winRate).toBe(100); }
   });
   it('401 → unauthenticated', async () => {
     stubFetch(401, { error: 'unauthenticated' });
@@ -68,18 +86,19 @@ describe('fetchKingStats — graceful state mapping', () => {
 });
 
 describe('fetchKingLeaderboard', () => {
-  it('200 → ok with public rows only', async () => {
+  it('200 → ok with public rows (avatar + self, no userId)', async () => {
     stubFetch(200, { gameType: 'king', leaderboard: [
-      { userId: 'u1', displayName: 'Alice', gamesPlayed: 3, gamesWon: 2 },
-      { userId: 'u2', displayName: null, gamesPlayed: 1, gamesWon: 0 },
+      { displayName: 'Alice', avatar: '🦊', gamesPlayed: 3, gamesWon: 2, winRate: 67, averageScore: -20, bestScore: -9, totalScore: -60, lastGameAt: '2026-06-20T10:00:00.000Z', self: true },
+      { displayName: null, avatar: null, gamesPlayed: 1, gamesWon: 0, winRate: 0, averageScore: -50, bestScore: -50, totalScore: -50, lastGameAt: null, self: false },
     ] });
     const r = await fetchKingLeaderboard(BASE);
     expect(r.state).toBe('ok');
     if (r.state === 'ok') {
       expect(r.data).toHaveLength(2);
-      expect(r.data[0]).toEqual({ userId: 'u1', displayName: 'Alice', gamesPlayed: 3, gamesWon: 2 });
-      // no extra/private keys leak through
-      expect(Object.keys(r.data[0]).sort()).toEqual(['displayName', 'gamesPlayed', 'gamesWon', 'userId']);
+      expect(r.data[0]).toMatchObject({ displayName: 'Alice', avatar: '🦊', winRate: 67, bestScore: -9, self: true });
+      // No private id leaks through.
+      expect('userId' in r.data[0]).toBe(false);
+      expect(r.data[1].self).toBe(false);
     }
   });
   it('503 → unavailable', async () => {
@@ -110,8 +129,12 @@ describe('pure derivations', () => {
     expect(formatLastPlayed('2026-06-20T10:00:00.000Z', 'en')).toBeTruthy();
   });
   it('modeBreakdownRows orders known modes (Trump last) and appends unknowns', () => {
-    const rows = modeBreakdownRows({ trump: 16, no_hearts: -40, future_mode: -1 });
+    const rows = modeBreakdownRows({
+      trump: { rounds: 9, totalScore: 16, averageScore: 2 },
+      no_hearts: { rounds: 9, totalScore: -40, averageScore: -4 },
+      future_mode: { rounds: 1, totalScore: -1, averageScore: -1 },
+    });
     expect(rows.map((r) => r.modeId)).toEqual(['no_hearts', 'trump', 'future_mode']);
-    expect(rows[0].points).toBe(-40);
+    expect(rows[0]).toMatchObject({ rounds: 9, totalScore: -40, averageScore: -4 });
   });
 });

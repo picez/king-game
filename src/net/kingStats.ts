@@ -51,10 +51,29 @@ export interface FinishedGameSummary {
   rounds: RoundResult[];
 }
 
+/** Per-mode aggregate for one player: how many rounds + their summed score. */
+export interface ModeAgg {
+  rounds: number;
+  totalScore: number;
+}
+
+/** The seven King modes; everything except `trump` is a negative mode. */
+export const KING_MODES = [
+  'no_tricks', 'no_hearts', 'no_jacks', 'no_queens', 'king_of_hearts', 'last_two_tricks', 'trump',
+] as const;
+export const TRUMP_MODE = 'trump';
+
+/** True for the six negative modes (anything that is not Trump). */
+export function isNegativeMode(modeId: string): boolean {
+  return modeId !== TRUMP_MODE;
+}
+
 /**
  * Per-player King stat contribution from ONE finished game. The repository adds
  * these into the user's cached `user_stats` row (incremental, idempotent because
- * a game is recorded at most once). `bestGameScore` is a max (higher is better).
+ * a game is recorded at most once). `bestGameScore` is a max, `worstGameScore` a
+ * min (higher total is better in King). All fields are derived from the
+ * score-only roundHistory — never from cards.
  */
 export interface PlayerStatDelta {
   playerId: string;
@@ -66,8 +85,14 @@ export interface PlayerStatDelta {
   totalScore: number;
   /** This game's final total (repo keeps the max across games). */
   bestGameScore: number;
-  /** modeId → sum of this player's round scores played under that mode. */
-  modeBreakdown: Record<string, number>;
+  /** This game's final total (repo keeps the min across games). */
+  worstGameScore: number;
+  /** Count of Trump rounds this game (per-dealer Trump games this player saw). */
+  trumpRoundsPlayed: number;
+  /** Count of negative-mode rounds this game (roundsPlayed − trumpRoundsPlayed). */
+  negativeRoundsPlayed: number;
+  /** modeId → { rounds, totalScore } for this player. */
+  modeBreakdown: Record<string, ModeAgg>;
 }
 
 /** True only for a finished King game with a usable score table. */
@@ -122,12 +147,18 @@ export function summarizeFinishedGame(state: GameState): FinishedGameSummary {
  */
 export function computeStatDeltas(summary: FinishedGameSummary): PlayerStatDelta[] {
   return summary.players.map((p) => {
-    const modeBreakdown: Record<string, number> = {};
+    const modeBreakdown: Record<string, ModeAgg> = {};
+    let trumpRoundsPlayed = 0;
+    let roundsCounted = 0;
     for (const r of summary.rounds) {
       const s = r.scoreByPlayer[p.playerId];
-      if (typeof s === 'number') {
-        modeBreakdown[r.modeId] = (modeBreakdown[r.modeId] ?? 0) + s;
-      }
+      if (typeof s !== 'number') continue;
+      roundsCounted++;
+      const agg = modeBreakdown[r.modeId] ?? { rounds: 0, totalScore: 0 };
+      agg.rounds += 1;
+      agg.totalScore += s;
+      modeBreakdown[r.modeId] = agg;
+      if (r.modeId === TRUMP_MODE) trumpRoundsPlayed += 1;
     }
     return {
       playerId: p.playerId,
@@ -136,6 +167,9 @@ export function computeStatDeltas(summary: FinishedGameSummary): PlayerStatDelta
       finalTotal: p.finalTotal,
       totalScore: p.finalTotal,
       bestGameScore: p.finalTotal,
+      worstGameScore: p.finalTotal,
+      trumpRoundsPlayed,
+      negativeRoundsPlayed: roundsCounted - trumpRoundsPlayed,
       modeBreakdown,
     };
   });
