@@ -103,6 +103,23 @@ call `rebuildUserStats(userId)` which recomputes from `games`/`game_players`/
 `rounds`. The leaderboard reads the player **avatar** by joining the existing
 `user_settings` table (no avatar snapshot column).
 
+### Auth accounts & guest merge (Stage 6)
+
+`auth_accounts` (from `0002`, extended by `0004_auth_accounts_profile.sql` with
+`name_at_provider`/`picture_at_provider`) links a `(provider, provider_account_id)`
+to a shared `users` row. The `users` table stays game-agnostic — a Google login
+just adds a row pointing at a user; we store the stable `sub` + email/name/picture
+basics and **never** Google access/refresh tokens.
+
+On sign-in: a **first-time** Google login for a guest **promotes that user in
+place** (no data movement). A **returning** Google account triggers a
+**transactional merge** (`server/db/merge.ts`) that folds the guest's settings,
+per-game settings, and `user_stats` (combined **per `game_type`**) into the
+account, repoints `game_players`/`winner_user_id`, revokes the guest's sessions,
+and retires the guest row (`status='merged'`, `guest_key` freed). The merge is
+**idempotent** (only folds a live guest) so a replayed callback never duplicates
+stats. No migration is needed for the merge itself.
+
 ## Stage 2 — Postgres room storage (opt-in)
 
 Stage 2 lets the server persist rooms to Postgres through the existing

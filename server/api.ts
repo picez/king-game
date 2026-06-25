@@ -28,12 +28,21 @@ import {
   isMutatingMethod, isOriginAllowed, resolveCookieSecure,
 } from '../src/net/cookies';
 import { sanitizeGameSettings } from '../src/net/userSettings';
+import {
+  googleConfig, buildAuthUrl, exchangeCode, decodeIdToken, validateIdClaims,
+} from './googleOAuth';
+import {
+  makePkce, signState, verifyState, statesMatch, randomToken,
+} from './oauthState';
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 const KING = 'king';
 const MAX_BODY_BYTES = 16 * 1024;
+/** Short-lived signed cookie holding the OAuth state/PKCE/guest during login. */
+const OAUTH_STATE_COOKIE = 'king_oauth';
+const OAUTH_STATE_MAX_AGE = 600; // seconds (matches oauthState STATE_TTL_SEC)
 
 // ── tiny response helpers ───────────────────────────────────────────────────
 
@@ -142,11 +151,22 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
   const { getProfile } = await import('./db/users');
   const profile = await getProfile(userId);
   if (!profile) return json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
-  json(res, 200, { authenticated: true, user: publicUser(profile), settings: profile.settings }, corsHeaders(req));
+  // Linked provider (Google) + login-only basics, if any. Never expose the
+  // provider_account_id, tokens, or session id.
+  const { getAccountForUser } = await import('./db/authAccounts');
+  const account = await getAccountForUser(userId);
+  json(res, 200, {
+    authenticated: true,
+    user: { ...publicUser(profile), avatar: profile.settings.avatar },
+    provider: account?.provider ?? null,
+    email: account?.email ?? null,
+    avatarUrl: account?.picture ?? null,
+    settings: profile.settings,
+  }, corsHeaders(req));
 }
 
 /** Whitelist the user fields exposed to the client (no email/status/timestamps). */
-function publicUser(p: { id: string; displayName: string | null; isGuest: boolean }): unknown {
+function publicUser(p: { id: string; displayName: string | null; isGuest: boolean }): { id: string; displayName: string | null; isGuest: boolean } {
   return { id: p.id, displayName: p.displayName, isGuest: p.isGuest };
 }
 
@@ -250,12 +270,121 @@ async function handleGetKingLeaderboard(req: IncomingMessage, res: ServerRespons
   json(res, 200, { gameType: KING, leaderboard: await getLeaderboard(KING, 20, selfUserId) }, corsHeaders(req));
 }
 
-/** Google OAuth is staged: routes exist but return 503 until creds/flow land. */
-function handleGoogleStub(req: IncomingMessage, res: ServerResponse): void {
-  json(res, 503, {
-    error: 'oauth_disabled',
-    message: 'Google sign-in is not enabled yet (Stage 4 next substage). Set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET and complete the OAuth flow.',
-  }, corsHeaders(req));
+// ── Google OAuth (Stage 6) ──────────────────────────────────────────────────
+
+function nowSec(): number { return Math.floor(Date.now() / 1000); }
+function statePepper(): string { return process.env.SESSION_SECRET ?? ''; }
+
+/** App origin used for post-login redirects (env override, else the request). */
+function appBaseFrom(req: IncomingMessage): string {
+  const env = process.env.APP_ORIGIN?.trim();
+  if (env) return env.replace(/\/$/, '');
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim()
+    || ((req.socket as { encrypted?: boolean })?.encrypted ? 'https' : 'http');
+  const host = req.headers.host ?? 'localhost';
+  return `${proto}://${host}`;
+}
+
+function setStateCookie(res: ServerResponse, value: string): void {
+  res.setHeader('set-cookie', serializeCookie(OAUTH_STATE_COOKIE, value, {
+    httpOnly: true, secure: cookieSecure(), sameSite: 'Lax', path: '/', maxAgeSec: OAUTH_STATE_MAX_AGE,
+  }));
+}
+
+/** Redirects to the app root with a `?login=success|error` flag. */
+function redirectLogin(req: IncomingMessage, res: ServerResponse, status: 'success' | 'error', cookies: string[] = []): void {
+  const headers: Record<string, string | string[]> = { location: `${appBaseFrom(req)}/?login=${status}` };
+  if (cookies.length) headers['set-cookie'] = cookies;
+  res.writeHead(302, headers);
+  res.end();
+}
+
+/**
+ * GET /auth/google/start — begins the Authorization-Code+PKCE flow. Captures the
+ * current guest (if any) into a signed, short-lived state cookie so the callback
+ * can merge it. Returns 503 `oauth_disabled` (no crash) when env is unset.
+ */
+async function handleGoogleStart(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const cfg = googleConfig();
+  if (!cfg) {
+    return json(res, 503, { error: 'oauth_disabled', message: 'Google sign-in is not configured. Set GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI.' }, corsHeaders(req));
+  }
+  if (!isDbEnabled()) {
+    return json(res, 503, { error: 'db_disabled', message: 'Sign-in requires a database.' }, corsHeaders(req));
+  }
+  let guestUserId: string | null = null;
+  try { guestUserId = await resolveUserId(req); } catch { guestUserId = null; }
+
+  const state = randomToken();
+  const { verifier, challenge } = makePkce();
+  const nonce = randomToken(16);
+  const cookie = signState({ state, codeVerifier: verifier, nonce, guestUserId, iat: nowSec() }, statePepper());
+  setStateCookie(res, cookie);
+  res.writeHead(302, { location: buildAuthUrl(cfg, { state, codeChallenge: challenge, nonce }) });
+  res.end();
+}
+
+/**
+ * GET /auth/google/callback — verifies state, exchanges the code, validates the
+ * id_token, then links the Google account: promotes a guest in place (new
+ * account), or merges the guest into the existing account (returning user). Sets
+ * a fresh session cookie and redirects to `/?login=success`. Any failure clears
+ * the state cookie and redirects to `/?login=error` (never crashes).
+ */
+async function handleGoogleCallback(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const cfg = googleConfig();
+  const clearState = serializeCookie(OAUTH_STATE_COOKIE, '', { httpOnly: true, secure: cookieSecure(), sameSite: 'Lax', path: '/', maxAgeSec: 0 });
+  if (!cfg || !isDbEnabled()) return redirectLogin(req, res, 'error', [clearState]);
+
+  const url = new URL(req.url ?? '', 'http://localhost');
+  const code = url.searchParams.get('code');
+  const stateParam = url.searchParams.get('state');
+  if (url.searchParams.get('error') || !code) return redirectLogin(req, res, 'error', [clearState]);
+
+  const payload = verifyState(parseCookies(req.headers.cookie)[OAUTH_STATE_COOKIE], statePepper(), nowSec());
+  if (!payload || !statesMatch(payload.state, stateParam)) return redirectLogin(req, res, 'error', [clearState]);
+
+  const tokens = await exchangeCode(cfg, code, payload.codeVerifier);
+  const identity = validateIdClaims(decodeIdToken(tokens?.id_token), cfg.clientId, nowSec(), payload.nonce);
+  if (!identity) return redirectLogin(req, res, 'error', [clearState]);
+
+  const { findUserByProviderAccount, linkProviderAccount } = await import('./db/authAccounts');
+  const { promoteGuestToAccount, createAccountUser, getProfile } = await import('./db/users');
+  const profile = { email: identity.email, name: identity.name, emailVerified: identity.emailVerified };
+
+  const existing = await findUserByProviderAccount('google', identity.sub);
+  let userId: string;
+  if (existing) {
+    userId = existing;
+    if (payload.guestUserId && payload.guestUserId !== existing) {
+      const { mergeGuestInto } = await import('./db/merge');
+      await mergeGuestInto(payload.guestUserId, existing); // self-guards: only folds a live guest
+    }
+  } else {
+    const guest = payload.guestUserId ? await getProfile(payload.guestUserId) : null;
+    if (guest && guest.isGuest) {
+      userId = payload.guestUserId as string;
+      await promoteGuestToAccount(userId, profile);
+    } else {
+      userId = await createAccountUser(profile);
+    }
+  }
+  await linkProviderAccount(userId, {
+    provider: 'google', providerAccountId: identity.sub,
+    email: identity.email, name: identity.name, picture: identity.picture,
+  });
+
+  // Issue a fresh session for the resolved user.
+  const token = generateSessionToken();
+  const { createSession } = await import('./db/sessions');
+  await createSession({
+    userId, tokenHash: hashSessionToken(token),
+    expiresAt: new Date(Date.now() + sessionTtlSeconds() * 1000),
+    userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'].slice(0, 256) : null,
+    ipHash: hashIp(clientIp(req)),
+  });
+  const sessionCookie = serializeCookie(SESSION_COOKIE, token, sessionCookieOptions({ secure: cookieSecure(), maxAgeSec: sessionTtlSeconds() }));
+  redirectLogin(req, res, 'success', [clearState, sessionCookie]);
 }
 
 function clientIp(req: IncomingMessage): string | null {
@@ -287,9 +416,20 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     return;
   }
 
-  // Google OAuth scaffold — disabled until creds + flow are implemented.
-  if (path === '/auth/google/start' || path === '/auth/google/callback') {
-    return handleGoogleStub(req, res);
+  // Google OAuth (Stage 6). GET-only redirects; never throw to the caller — a
+  // failure 503s (start) or redirects to ?login=error (callback). When env is
+  // unset, handleGoogleStart returns 503 oauth_disabled and the server is fine.
+  if (path === '/auth/google/start' && method === 'GET') {
+    return handleGoogleStart(req, res).catch((e) => {
+      console.error('[King] oauth start failed:', String((e as Error)?.message ?? e).split('\n')[0].slice(0, 200));
+      if (!res.headersSent) json(res, 503, { error: 'oauth_error', message: 'Sign-in is temporarily unavailable.' }, corsHeaders(req));
+    });
+  }
+  if (path === '/auth/google/callback' && method === 'GET') {
+    return handleGoogleCallback(req, res).catch((e) => {
+      console.error('[King] oauth callback failed:', String((e as Error)?.message ?? e).split('\n')[0].slice(0, 200));
+      if (!res.headersSent) redirectLogin(req, res, 'error');
+    });
   }
 
   // No database → the whole API is gracefully disabled (gameplay unaffected).

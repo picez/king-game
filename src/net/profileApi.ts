@@ -19,6 +19,8 @@ export interface ApiUser {
   id: string;
   displayName: string | null;
   isGuest: boolean;
+  /** Whitelisted emoji avatar (from settings), if any. */
+  avatar?: string | null;
 }
 
 export interface GlobalSettingsDto {
@@ -31,6 +33,12 @@ export interface MeResponse {
   authenticated: boolean;
   user: ApiUser | null;
   settings?: GlobalSettingsDto | null;
+  /** Linked external provider, e.g. 'google' (Stage 6); null for guests. */
+  provider?: string | null;
+  /** Provider-reported email, if shared; null otherwise. */
+  email?: string | null;
+  /** Provider picture URL (informational; not the game avatar). */
+  avatarUrl?: string | null;
 }
 
 /**
@@ -72,6 +80,20 @@ async function call<T>(
 export async function fetchMe(base: string): Promise<MeResponse | null> {
   const { ok, data } = await call<MeResponse>(base, '/api/me');
   return ok ? data : null;
+}
+
+/**
+ * The Google sign-in entry point (full-page navigation, NOT fetch — the OAuth
+ * redirect flow must happen at the top level so the session cookie is set).
+ */
+export function googleStartUrl(base: string): string {
+  return `${base}/auth/google/start`;
+}
+
+/** POST /api/logout — revoke the current session. Returns true on success. */
+export async function logout(base: string): Promise<boolean> {
+  const { ok } = await call<{ ok: boolean }>(base, '/api/logout', { method: 'POST' });
+  return ok;
 }
 
 /**

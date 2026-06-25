@@ -47,10 +47,19 @@ linked docs.
   token stored) and a **guest identity bridge** (no login wall). An optional
   account/profile area syncs display name, avatar, language, and the per-game
   King default timer, with **localStorage as the fallback**. With **no
-  `DATABASE_URL` the whole API gracefully 503s and play is unaffected**. Google
-  OAuth is **scaffolded but disabled** (next substage). See
+  `DATABASE_URL` the whole API gracefully 503s and play is unaffected**. See
   [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §3 Stage 4 and
   [`DB_SETUP.md`](DB_SETUP.md).
+- **Google sign-in + guest merge (Stage 6)**: an active **Sign in with Google**
+  button (Authorization-Code + PKCE; signed 10-min state cookie for CSRF). On
+  login a guest's profile/settings/**King stats** are kept — a first-time login
+  **promotes the guest in place**, a returning Google account **merges** the
+  guest in (transactional, idempotent, **per `game_type`** — no stat loss or
+  double-count). We store only the Google `sub` + email/name/picture, **never
+  tokens**. `/api/me` reports `provider`/`email`; **Sign out** ends the session
+  (a new guest can start again). **With no `GOOGLE_*` env the server runs exactly
+  as before** and `/auth/google/start` 503s `oauth_disabled`. Setup:
+  [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) → Google sign-in.
 - **Stats & leaderboard (Stage 5 / 5.1 / 5.2)**: when a `DATABASE_URL` is set,
   finished **online** games record per-`(user, game_type)` stats (bots excluded;
   idempotent; **score-only**, no cards). `GET /api/games/king/stats` returns a

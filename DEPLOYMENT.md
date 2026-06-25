@@ -87,7 +87,8 @@ All optional; defaults keep LAN/dev simple.
 | `SESSION_SECRET`  | _(empty)_     | Stage 4: server-side pepper for hashing session tokens. **Required in production** (e.g. `openssl rand -hex 32`); rotating it invalidates all sessions. |
 | `COOKIE_SECURE`   | _(prod=on)_   | Stage 4: force the `Secure` session-cookie flag (`true`/`false`). Default = secure when `NODE_ENV=production`, off on dev `http://localhost`. |
 | `SESSION_TTL_DAYS`| `30`          | Stage 4: session lifetime in days (clamped 1..365). |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(unset)_ | Stage 4 (staged): Google OAuth. While unset, `/auth/google/*` return 503 `oauth_disabled`; the server never crashes. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(unset)_ | **Stage 6: Google sign-in.** Set all three to enable. While any is unset, `/auth/google/start` returns 503 `oauth_disabled` and the server runs normally (guest/local play unaffected). `GOOGLE_REDIRECT_URI` must EXACTLY match the Authorized redirect URI in Google Cloud Console: `https://<your-domain>/auth/google/callback`. |
+| `APP_ORIGIN`      | _(request)_   | Stage 6: canonical app origin used for the post-login redirect (`https://<domain>`). Defaults to the request's host when unset. |
 | `ROOM_TTL_HOURS`  | `24`          | Idle rooms with **no connected players** are deleted after this many hours. |
 | `ROOM_HARD_TTL_HOURS` | `48`      | Rooms with a connected player survive until this hard cap (so an active table is never yanked). |
 | `ROOM_CLEANUP_INTERVAL_MS` | `600000` | How often (ms) the server sweeps for expired rooms. Cleanup also runs once at startup. |

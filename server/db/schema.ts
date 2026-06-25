@@ -121,6 +121,9 @@ export const authAccounts = pgTable('auth_accounts', {
   /** The provider's stable subject id (`sub`). Unique per provider. */
   providerAccountId: text('provider_account_id').notNull(),
   emailAtProvider: text('email_at_provider'),
+  /** Provider-reported display name / picture URL snapshot (Stage 6). */
+  nameAtProvider: text('name_at_provider'),
+  pictureAtProvider: text('picture_at_provider'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

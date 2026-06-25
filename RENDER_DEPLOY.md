@@ -166,7 +166,8 @@ API** and **guest sessions** on the same port — no extra service. Add:
 | `SESSION_SECRET` | _(strong random, e.g. `openssl rand -hex 32`)_ | **required in prod** — pepper for hashing session tokens; rotating it logs everyone out |
 | `COOKIE_SECURE` | `true` | optional override; defaults to secure when `NODE_ENV=production` |
 | `SESSION_TTL_DAYS` | `30` | optional; session lifetime (1..365) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(optional)_ | Google OAuth is **staged**; routes 503 until these + the flow exist |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(optional)_ | **Stage 6: Google sign-in** (see below). Unset → `/auth/google/start` 503s `oauth_disabled`, server runs normally. |
+| `APP_ORIGIN` | `https://<your-domain>` | optional; canonical origin for the post-login redirect (defaults to the request host) |
 
 - The client is served from the **same origin**, so credentialed `/api` fetches
   and the CSRF origin check work with no extra config. (Only a **split-origin**
@@ -174,6 +175,35 @@ API** and **guest sessions** on the same port — no extra service. Add:
 - **No login wall:** with or without these vars, local play and online guest
   rooms work. Migrations are idempotent — see the room-storage note above for
   running `npm run db:migrate` (a release step or one-off Job).
+
+### Google sign-in (optional, Stage 6)
+
+Lets a player link their guest progress (profile/settings/**King stats**) to a
+Google account so it follows them across devices. Guest data is merged
+server-side on first login — nothing is lost, and a returning Google account
+never double-counts stats.
+
+1. **Google Cloud Console** → *APIs & Services → Credentials* → **Create OAuth
+   client ID** → *Web application*.
+2. **Authorized redirect URI** (exact match, no trailing slash):
+   `https://<your-render-domain>/auth/google/callback`
+3. Copy the client id/secret into the Web Service env vars:
+
+   | Key | Value |
+   |-----|-------|
+   | `GOOGLE_CLIENT_ID` | _(from Console)_ |
+   | `GOOGLE_CLIENT_SECRET` | _(from Console)_ |
+   | `GOOGLE_REDIRECT_URI` | `https://<your-render-domain>/auth/google/callback` |
+   | `APP_ORIGIN` | `https://<your-render-domain>` |
+
+4. `SESSION_SECRET` **must** be set (it also signs the OAuth state cookie).
+5. Run migrations (`0004_auth_accounts_profile.sql` is idempotent). Done — the
+   AccountPanel's **Sign in with Google** button is now live.
+
+- Authorization-Code + **PKCE**; the OAuth `state` is a signed, 10-min cookie
+  (CSRF). We validate the id_token's `iss`/`aud`/`exp`/`sub` and **store no
+  Google access/refresh tokens** — only the stable `sub` + email/name/picture
+  for display. See ARCHITECTURE_DB_AUTH.md §1.4/§3 Stage 6.
 
 ---
 

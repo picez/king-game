@@ -897,13 +897,53 @@ new migration** — all King-specific fields live in the existing
 **Still deferred:** `surrenderedCount` stays `0`/`surrenderedSupported: false`
 until `RoundRecord` carries `surrenderedBy` (a rules-layer change, out of scope).
 
-### Stage 6 — Mobile auth considerations / Apple Sign-In
-- Add refresh-token (`kind='mobile_refresh'`) issuance + rotation; access JWT
-  signed with `SESSION_SECRET`.
-- Add Apple provider to `/auth/*` and `auth_accounts` (signed client secret,
-  first-consent name/email, relay email). No schema change.
-- **Acceptance:** a bearer-token client can auth the WS and REST; Apple login
-  links to the same user model.
+### Stage 6 — Google OAuth + guest merge — DONE
+Adds Google sign-in so a player can attach their guest profile/settings/**stats**
+to a Google account without losing progress. Identity stays **shared** (a Google
+login just links an `auth_accounts` row to a `users` row); stats/settings stay
+**`game_type`-aware**. **No gameplay/rules/scoring change.** With no Google env
+the server runs exactly as before.
+
+- **Flow:** `GET /auth/google/start` → Authorization-Code **+ PKCE (S256)** →
+  `GET /auth/google/callback`. CSRF/replay protection: a **signed, 10-min
+  state cookie** (HMAC-`SESSION_SECRET`) carries the `state`, PKCE verifier,
+  id-token `nonce`, and the current guest id; the callback verifies the
+  signature + TTL and that Google's `state` matches before doing anything.
+- **Identity:** we exchange the code server-side (TLS, client secret) and read
+  the **id_token**, validating `iss`/`aud`/`exp`/`sub` (+ nonce). We **store no
+  Google access/refresh tokens** — only the stable `sub` + email/name/picture on
+  `auth_accounts` (migration `0004` adds `name_at_provider`/`picture_at_provider`).
+- **Guest merge (two paths):**
+  - *First-time Google sign-in while a guest:* the guest user is **promoted in
+    place** (`is_guest=false`, email/name filled) — **zero data movement**, so
+    settings/stats can't be lost or duplicated.
+  - *Returning Google account:* the current guest is **merged into the existing
+    account** (`server/db/merge.ts`, one transaction): global + per-game settings
+    (target's non-defaults win), `user_stats` **combined per `game_type`**
+    (counters summed, best=max/worst=min, per-mode `{rounds,totalScore}` added),
+    `game_players`/`winner_user_id` repointed, guest sessions revoked, guest row
+    retired (`status='merged'`, `guest_key` freed). **Idempotent** — it only
+    folds a *live* guest, so a replayed callback no-ops (never double-counts).
+- **Session:** a fresh DB-backed session cookie (existing system) is issued on
+  success; redirect → `/?login=success` (`?login=error` on any failure).
+- **`/api/me`** now also returns `provider` (`'google'`/null), `email`,
+  `avatarUrl`, and the emoji `avatar` — never `provider_account_id`/tokens/session id.
+- **UI:** AccountPanel shows an active **Sign in with Google** button (full-page
+  nav), the signed-in state + email + **Sign out**, and reacts to `?login=…`.
+- **Security:** OAuth disabled (any env missing) → `start` 503s, server fine;
+  callback rejects missing/forged/expired state before any Google call; no
+  cookie/token/code logged; `Secure` cookies in prod; `APP_ORIGIN` for redirects.
+- **Acceptance (met):** no-env server starts and guest/local/online play work;
+  pure helpers (PKCE, signed-state TTL, id-token validation, auth-URL) +
+  gated DB tests (promote, guest→existing merge with no stat loss/dup, idempotent
+  replay) pass; live: `start`→302 to Google with PKCE, bad-state callback→`error`;
+  `npm test`/`build`/`e2e` green without Google env and without `DATABASE_URL`.
+
+**Deferred:** Apple Sign-In (same `auth_accounts` seam — signed client secret,
+first-consent name/email, relay email; no schema change) and mobile bearer/
+refresh tokens (`kind='mobile_refresh'`) move to a later mobile stage.
+
+### Stage 7 — Optional Redis for live room scaling
 
 ### Stage 7 — Optional Redis for live room scaling
 - Only if we outgrow a single Node process. Introduce Redis for (a) pub/sub fan-

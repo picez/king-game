@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n, LanguageSelector } from '../i18n';
 import { AVATARS } from '../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer, loadGuestKey, saveGuestKey } from '../net/prefs';
 import {
   apiBaseFromWsUrl, fetchMe, ensureGuestSession,
   updateProfile, updateSettings, fetchKingSettings, updateKingSettings,
+  googleStartUrl, logout, type MeResponse,
 } from '../net/profileApi';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
@@ -20,74 +21,101 @@ interface Props {
   onDefaultTimer: (v: number) => void;
 }
 
-type Account = 'local' | 'guest';
-
 /**
- * A small, OPTIONAL account/profile area (Stage 4). It works fully offline on
- * localStorage prefs; when the API + a DB session are available it hydrates from
- * and writes through to the server. Nothing here gates play — local pass-and-play
- * and online guest rooms work whether or not this panel ever talks to a server.
+ * A small, OPTIONAL account/profile area (Stage 4 + 6). It works fully offline
+ * on localStorage prefs; when the API + a DB session are available it hydrates
+ * from and writes through to the server, and offers **Google sign-in** to save
+ * progress across devices (guest data is merged server-side on login — Stage 6).
+ * Nothing here gates play — local pass-and-play and online guest rooms work
+ * whether or not this panel ever talks to a server.
  */
 export default function AccountPanel({
   serverUrl, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer,
 }: Props) {
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
-  const [account, setAccount] = useState<Account>('local');
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [banner, setBanner] = useState<'success' | 'error' | null>(null);
   const hydrated = useRef(false);
 
   const base = apiBaseFromWsUrl(serverUrl);
 
-  // On first open, try to hydrate identity/settings from the server (soft).
+  // Derived auth state from /api/me.
+  const hasSession = !!me?.authenticated && !!me?.user;
+  const isGuest = hasSession && me?.user?.isGuest === true;
+  const signedIn = hasSession && !!me?.provider;
+
+  const hydrate = useCallback(async () => {
+    const m = await fetchMe(base);
+    setMe(m ?? { authenticated: false, user: null });
+    if (m?.authenticated && m.user) {
+      if (m.user.displayName) onName(m.user.displayName);
+      if (m.settings?.avatar) onAvatar(m.settings.avatar);
+    }
+    const king = await fetchKingSettings(base);
+    if (king) onDefaultTimer(king.defaultTimer);
+  }, [base, onName, onAvatar, onDefaultTimer]);
+
+  // On mount: react to the OAuth redirect (?login=success|error), then strip it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const login = params.get('login');
+    if (login !== 'success' && login !== 'error') return;
+    setOpen(true);
+    setBanner(login);
+    params.delete('login');
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    hydrated.current = true;
+    void hydrate();
+  }, [hydrate]);
+
+  // On first open, hydrate identity/settings (soft).
   useEffect(() => {
     if (!open || hydrated.current) return;
     hydrated.current = true;
-    let cancelled = false;
-    (async () => {
-      const me = await fetchMe(base);
-      if (cancelled || !me) return; // API down / db disabled → stay local
-      if (me.authenticated && me.user) {
-        setAccount('guest');
-        if (me.user.displayName) onName(me.user.displayName);
-        if (me.settings?.avatar) onAvatar(me.settings.avatar);
-      }
-      const king = await fetchKingSettings(base);
-      if (!cancelled && king) onDefaultTimer(king.defaultTimer);
-    })();
-    return () => { cancelled = true; };
-  }, [open, base, onName, onAvatar, onDefaultTimer]);
+    void hydrate();
+  }, [open, hydrate]);
 
   /** Create/reuse a guest user + session, then push current prefs. "Save progress". */
   async function saveProgress() {
     setSyncing(true);
     try {
       const res = await ensureGuestSession(base, loadGuestKey());
-      if (!res) { setSyncing(false); return; } // API unavailable — stays local
+      if (!res) return; // API unavailable — stays local
       saveGuestKey(res.guestKey);
-      setAccount('guest');
-      // Push the local prefs so the DB reflects what the user sees.
       await updateProfile(base, name);
       await updateSettings(base, { lang, avatar });
       await updateKingSettings(base, { defaultTimer });
+      await hydrate();
     } finally {
       setSyncing(false);
     }
   }
 
+  async function doLogout() {
+    await logout(base);
+    setBanner(null);
+    setMe({ authenticated: false, user: null });
+  }
+
   // Fire-and-forget sync helpers: always save locally, try the server if signed in.
   function changeName(v: string) {
     onName(v); saveNickname(v);
-    if (account === 'guest') void updateProfile(base, v);
+    if (hasSession) void updateProfile(base, v);
   }
   function changeAvatar(v: string) {
     onAvatar(v); saveAvatar(v);
-    if (account === 'guest') void updateSettings(base, { avatar: v });
+    if (hasSession) void updateSettings(base, { avatar: v });
   }
   function changeTimer(v: number) {
     onDefaultTimer(v); saveDefaultTimer(v);
-    if (account === 'guest') void updateKingSettings(base, { defaultTimer: v });
+    if (hasSession) void updateKingSettings(base, { defaultTimer: v });
   }
+
+  const statusLabel = signedIn ? t('account.signedInGoogle') : isGuest ? t('account.guest') : t('account.local');
 
   return (
     <div className="account-panel">
@@ -98,8 +126,12 @@ export default function AccountPanel({
 
       {open && (
         <div className="account-panel__body">
+          {banner === 'success' && <p className="account-panel__ok">✅ {t('account.loginSuccess')}</p>}
+          {banner === 'error' && <p className="lobby-error">{t('account.loginError')}</p>}
+
           <p className="account-panel__status">
-            {t('account.status')}: <strong>{account === 'guest' ? t('account.guest') : t('account.local')}</strong>
+            {t('account.status')}: <strong>{statusLabel}</strong>
+            {signedIn && me?.email && <span className="account-panel__email"> · {me.email}</span>}
           </p>
 
           <div className="field-group">
@@ -139,14 +171,29 @@ export default function AccountPanel({
           </div>
 
           <div className="account-panel__actions">
-            {account === 'local' && (
-              <button className="btn btn--outline" onClick={saveProgress} disabled={syncing}>
-                {syncing ? `${t('net.connecting')}…` : `💾 ${t('account.saveProgress')}`}
-              </button>
+            {signedIn ? (
+              <button className="btn btn--outline" onClick={doLogout}>🚪 {t('account.logout')}</button>
+            ) : (
+              <>
+                {!isGuest && (
+                  <button className="btn btn--outline" onClick={saveProgress} disabled={syncing}>
+                    {syncing ? `${t('net.connecting')}…` : `💾 ${t('account.saveProgress')}`}
+                  </button>
+                )}
+                {me ? (
+                  <>
+                    <p className="setup-hint">{t('account.signInCta')}</p>
+                    <a className="btn btn--outline account-panel__google" href={googleStartUrl(base)}>
+                      🔵 {t('account.google')}
+                    </a>
+                  </>
+                ) : (
+                  <button className="btn btn--outline" disabled title={t('account.comingSoon')}>
+                    🔵 {t('account.google')} · {t('account.comingSoon')}
+                  </button>
+                )}
+              </>
             )}
-            <button className="btn btn--outline" disabled title={t('account.comingSoon')}>
-              🔵 {t('account.google')} · {t('account.comingSoon')}
-            </button>
           </div>
           <p className="setup-hint">{t('account.hint')}</p>
         </div>

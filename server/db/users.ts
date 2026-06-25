@@ -146,3 +146,47 @@ export async function upsertGameSettings(
     });
   return clean;
 }
+
+// ── Stage 6: account promotion / creation (Google sign-in) ──────────────────
+
+export interface ProviderProfile {
+  email: string | null;
+  name: string | null;
+  emailVerified: boolean;
+}
+
+/**
+ * Promotes a guest user IN PLACE into a real account on first Google sign-in
+ * (the safest path: zero data movement — same user row keeps its settings/stats).
+ * Sets `is_guest=false` + email; fills the display name from Google ONLY when the
+ * guest had none (never clobbers a custom name). The `guest_key` is left intact
+ * so the same device keeps resolving to this (now real) user.
+ */
+export async function promoteGuestToAccount(userId: string, p: ProviderProfile): Promise<void> {
+  const db = await database();
+  const cur = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+  const displayName = cur?.displayName && cur.displayName.trim()
+    ? cur.displayName
+    : sanitizeDisplayName(p.name);
+  await db.update(users).set({
+    isGuest: false,
+    email: p.email,
+    emailVerified: p.emailVerified,
+    displayName,
+    updatedAt: new Date(),
+  }).where(eq(users.id, userId));
+}
+
+/** Creates a fresh (non-guest) account user + default settings row; returns its id. */
+export async function createAccountUser(p: ProviderProfile): Promise<string> {
+  const db = await database();
+  const inserted = await db.insert(users).values({
+    isGuest: false,
+    email: p.email,
+    emailVerified: p.emailVerified,
+    displayName: sanitizeDisplayName(p.name),
+  }).returning({ id: users.id });
+  const id = inserted[0].id;
+  await db.insert(userSettings).values({ userId: id }).onConflictDoNothing();
+  return id;
+}

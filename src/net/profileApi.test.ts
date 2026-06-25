@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { apiBaseFromWsUrl } from './profileApi';
+import { apiBaseFromWsUrl, googleStartUrl } from './profileApi';
+
+describe('googleStartUrl', () => {
+  it('points at the API /auth/google/start on the same origin', () => {
+    expect(googleStartUrl('https://king.example.com')).toBe('https://king.example.com/auth/google/start');
+    expect(googleStartUrl(apiBaseFromWsUrl('wss://king.example.com/ws'))).toBe('https://king.example.com/auth/google/start');
+  });
+});
 
 describe('apiBaseFromWsUrl', () => {
   it('maps a wss WebSocket URL to an https API origin', () => {

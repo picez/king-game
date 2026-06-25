@@ -121,6 +121,62 @@ function serializeStats(s: ExistingStats): Record<string, unknown> {
   return out;
 }
 
+/** Combines two parsed stat blobs (used by the guest→account merge). */
+function combineStats(a: ExistingStats, b: ExistingStats): ExistingStats {
+  const modeBreakdown: Record<string, ModeAggInternal> = { ...a.modeBreakdown };
+  for (const [mode, agg] of Object.entries(b.modeBreakdown)) {
+    const m = modeBreakdown[mode] ?? { rounds: 0, totalScore: 0 };
+    modeBreakdown[mode] = { rounds: m.rounds + agg.rounds, totalScore: m.totalScore + agg.totalScore };
+  }
+  return {
+    totalScore: a.totalScore + b.totalScore,
+    bestGameScore: Math.max(a.bestGameScore, b.bestGameScore),
+    worstGameScore: Math.min(a.worstGameScore, b.worstGameScore),
+    trumpRoundsPlayed: a.trumpRoundsPlayed + b.trumpRoundsPlayed,
+    negativeRoundsPlayed: a.negativeRoundsPlayed + b.negativeRoundsPlayed,
+    surrenderedCount: a.surrenderedCount + b.surrenderedCount,
+    modeBreakdown,
+  };
+}
+
+/**
+ * Merges every `(from)` user_stats row into `(to)` per game_type, inside a
+ * transaction (Stage 6 guest→account merge). Where `to` has no row for a game
+ * type the `from` row is repointed (no data loss); where both exist the counters
+ * and JSONB are combined and the `from` row deleted. Idempotent: after merge the
+ * `from` user owns no stats rows, so a re-run is a no-op. King scoring stays
+ * inside the JSONB per game_type — never mixed across games.
+ */
+export async function mergeUserStatsInto(
+  tx: PostgresJsDatabase, fromUserId: string, toUserId: string,
+): Promise<void> {
+  const fromRows = await tx.select().from(userStats).where(eq(userStats.userId, fromUserId));
+  for (const fr of fromRows) {
+    const gt = fr.gameType;
+    const toRow = (await tx.select().from(userStats)
+      .where(and(eq(userStats.userId, toUserId), eq(userStats.gameType, gt))).limit(1))[0];
+    if (!toRow) {
+      await tx.update(userStats).set({ userId: toUserId })
+        .where(and(eq(userStats.userId, fromUserId), eq(userStats.gameType, gt)));
+      continue;
+    }
+    const combined = combineStats(readStats(toRow.stats), readStats(fr.stats));
+    const lastPlayedAt = (toRow.lastPlayedAt && fr.lastPlayedAt)
+      ? (toRow.lastPlayedAt > fr.lastPlayedAt ? toRow.lastPlayedAt : fr.lastPlayedAt)
+      : (toRow.lastPlayedAt ?? fr.lastPlayedAt);
+    await tx.update(userStats).set({
+      gamesPlayed: toRow.gamesPlayed + fr.gamesPlayed,
+      gamesWon: toRow.gamesWon + fr.gamesWon,
+      gamesLost: toRow.gamesLost + fr.gamesLost,
+      roundsPlayed: toRow.roundsPlayed + fr.roundsPlayed,
+      stats: serializeStats(combined),
+      lastPlayedAt,
+      updatedAt: new Date(),
+    }).where(and(eq(userStats.userId, toUserId), eq(userStats.gameType, gt)));
+    await tx.delete(userStats).where(and(eq(userStats.userId, fromUserId), eq(userStats.gameType, gt)));
+  }
+}
+
 export interface RecordResult {
   recorded: boolean;   // false when the game was already recorded (idempotent no-op)
   gameId?: string;

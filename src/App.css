@@ -1553,6 +1553,12 @@ body {
   flex-direction: column;
   gap: 0.5rem;
 }
+.account-panel__ok {
+  font-size: 0.85rem; color: var(--success-light);
+  background: var(--success-soft); border-radius: 8px; padding: 0.4rem 0.6rem; margin: 0;
+}
+.account-panel__email { color: var(--text-muted); word-break: break-all; }
+.account-panel__google { text-align: center; text-decoration: none; }
 
 /* ===== Stats / leaderboard (Stage 5.1) ===== */
 .stats-section {
