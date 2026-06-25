@@ -400,6 +400,30 @@ async function main() {
   check(sJoin.chats.some((m) => m.text === 'gg during play'), 'chat works DURING the game');
   sHost.ws.close(); sJoin.ws.close();
 
+  // 2j) Explicit "Leave lobby" (LEAVE_ROOM) removes the member (vs a silent
+  // disconnect, which keeps the seat) → the same name can rejoin immediately.
+  console.log('\n[2j] explicit leave lobby + rejoin same name');
+  const lHost = await connect();
+  sendMsg(lHost, { t: 'CREATE_ROOM', name: 'LHost', playerCount: 4, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const lCode = lHost.room.code;
+  const lJoin = await connect();
+  sendMsg(lJoin, { t: 'JOIN_ROOM', code: lCode, name: 'Leaver' });
+  await sleep(200);
+  check(lHost.room.members.length === 2, 'joiner present before leaving the lobby');
+
+  sendMsg(lJoin, { t: 'LEAVE_ROOM' });
+  await sleep(250);
+  check(lHost.room.members.length === 1, 'explicit leave frees the seat (member removed)');
+  check(lHost.room.members[0].isHost, 'host unchanged when a non-host leaves');
+
+  const lRejoin = await connect();
+  sendMsg(lRejoin, { t: 'JOIN_ROOM', code: lCode, name: 'Leaver' });
+  await sleep(200);
+  check(!lRejoin.lastError, 'same name rejoins after an explicit leave (no NAME_TAKEN)');
+  check(lHost.room.members.length === 2, 'rejoined member is back in the lobby');
+  lHost.ws.close(); lJoin.ws.close(); lRejoin.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });

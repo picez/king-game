@@ -36,6 +36,13 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
     if (typeof window === 'undefined' || window.confirm(t('lobby.kickConfirm'))) onKick(clientId);
   }
 
+  function handleLeave() {
+    // A host leaving transfers the host role (or deletes an empty room), so
+    // confirm to avoid a mis-tap. A non-host just frees their seat — leave now.
+    if (isHost && typeof window !== 'undefined' && !window.confirm(t('lobby.leaveConfirm'))) return;
+    onLeave();
+  }
+
   return (
     <div className="screen setup-screen">
       <h1 className="screen__title">{t('lobby.title')}</h1>
@@ -121,7 +128,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
           <p className="setup-hint">{t('lobby.waitingHost')}</p>
         )}
 
-        <button className="btn btn--ghost" onClick={onLeave}>{t('btn.leave')}</button>
+        <button className="btn btn--danger lobby-leave" onClick={handleLeave}>🚪 {t('lobby.leave')}</button>
       </div>
     </div>
   );

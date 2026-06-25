@@ -1516,6 +1516,8 @@ body {
 
 /* Stack the menu/lobby action buttons full width for thumbs */
 .setup-card .btn--large { width: 100%; }
+/* Explicit "Leave lobby" — full-width, clearly secondary/danger (not gold). */
+.setup-card .lobby-leave { width: 100%; margin-top: 0.25rem; }
 
 /* ===== Online: resume panel ===== */
 .resume-panel {
