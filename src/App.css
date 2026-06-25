@@ -1554,19 +1554,140 @@ body {
 .account-panel__email { color: var(--text-muted); word-break: break-all; }
 .account-panel__google { text-align: center; text-decoration: none; }
 
-/* ===== Profile / Statistics segmented menu (Stage 7) ===== */
-.profile-menu {
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--surface-3);
-  padding-top: 0.75rem;
+/* ===== Main menu redesign (Stage 7.1) ===== */
+.menu-screen {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  background:
+    radial-gradient(70% 48% at 50% 16%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(140% 95% at 50% 8%,
+      var(--felt-mid) 0%, var(--felt-edge) 55%, var(--felt-deep) 100%),
+    var(--room-bg-2);
 }
-.profile-menu__toggle { width: 100%; }
-.profile-menu__body { margin-top: 0.6rem; }
-/* Segmented control: pill tabs that share the width + a small refresh button. */
+/* Every top-level menu block shares one comfortable column width. */
+.menu-screen > * { width: 100%; max-width: 460px; }
+
+/* Top account bar */
+.account-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.55rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--top-light), var(--shadow-1);
+}
+.account-bar__id { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.account-bar__avatar {
+  font-size: 1.4rem; width: 40px; height: 40px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-3); border-radius: 50%; box-shadow: var(--top-light);
+}
+.account-bar__meta { display: flex; flex-direction: column; min-width: 0; }
+.account-bar__name { font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-bar__sub { font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.account-bar__chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 4px; font-size: 0.62rem; font-weight: 800;
+  background: #fff; color: #4285f4;
+}
+.account-bar__action { flex: 0 0 auto; }
+.account-bar__signin { text-decoration: none; }
+.account-bar__banner { margin-top: 0.5rem; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.82rem; }
+.account-bar__banner--success { background: var(--success-soft); color: var(--success-light); }
+.account-bar__banner--error { background: var(--danger-soft); color: var(--danger-light); }
+
+/* Header */
+.menu-header { text-align: center; }
+.menu-title {
+  font-size: 1.85rem; margin: 0; font-weight: 800; line-height: 1.1;
+  background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.menu-tagline { color: var(--text-muted); font-size: 0.88rem; margin: 0.2rem 0 0; }
+
+/* Main actions */
+.menu-main { display: flex; flex-direction: column; gap: 0.9rem; }
+.continue-block { display: flex; flex-direction: column; gap: 0.3rem; }
+.continue-card {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  padding: 0.8rem 0.9rem; cursor: pointer; text-align: start;
+  background: var(--gold-grad); color: #2a2407;
+  border: none; border-radius: 16px; box-shadow: var(--shadow-2);
+}
+.continue-card__icon { font-size: 1.35rem; flex: 0 0 auto; }
+.continue-card__text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.continue-card__title { font-weight: 800; }
+.continue-card__detail { font-size: 0.8rem; opacity: 0.82; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.continue-card__go { font-size: 0.95rem; flex: 0 0 auto; }
+.link-btn { align-self: center; background: none; border: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 0.2rem 0.4rem; }
+.link-btn:hover { color: var(--text); }
+
+.action-tiles { display: flex; flex-direction: column; gap: 0.7rem; }
+.tile {
+  display: flex; align-items: center; gap: 0.85rem; width: 100%;
+  padding: 0.9rem 1rem; cursor: pointer; text-align: start;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--top-light), var(--shadow-1);
+  transition: transform 0.12s, border-color 0.15s, background 0.15s;
+}
+.tile:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+.tile:active { transform: translateY(1px); }
+.tile--primary { background: var(--panel-2); border-color: var(--accent-dark); }
+.tile__icon {
+  font-size: 1.55rem; width: 48px; height: 48px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-3); border-radius: 12px; box-shadow: var(--top-light);
+}
+.tile--primary .tile__icon { background: var(--gold-grad); }
+.tile__text { display: flex; flex-direction: column; min-width: 0; }
+.tile__title { font-weight: 700; font-size: 1.05rem; color: var(--text); }
+.tile__sub { font-size: 0.8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Secondary drawer (Profile / Statistics / Leaderboard) */
+.drawer { width: 100%; }
+.drawer__toggle {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 0.65rem 0.9rem; cursor: pointer; min-height: var(--tap-min);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+  color: var(--text-muted); font-weight: 600; font-size: 0.88rem;
+}
+.drawer__toggle:hover { color: var(--text); border-color: var(--border-strong); }
+.drawer__chev { font-size: 0.7rem; }
+.drawer__body {
+  margin-top: 0.6rem; padding: 0.85rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+}
+.drawer__panel { margin-top: 0.1rem; }
+.drawer__refresh {
+  flex: 0 0 auto; align-self: center; min-width: 2.2rem; min-height: var(--tap-min);
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text); cursor: pointer;
+}
+
+/* Dedicated host/join sheet */
+.sheet {
+  width: 100%; max-width: 460px; margin: 0 auto; padding: 1.1rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--top-light), var(--shadow-2);
+  display: flex; flex-direction: column; gap: 0.85rem;
+}
+.sheet__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+.sheet__title { font-size: 1.3rem; margin: 0; }
+.sheet__who { font-size: 0.85rem; color: var(--text-muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Unified form field */
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field__label { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+.field__hint { font-size: 0.74rem; color: var(--text-dim); margin: 0; }
+
+/* Profile settings form */
+.profile-form { display: flex; flex-direction: column; gap: 0.85rem; }
+.profile-form__save { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.1rem; }
+.profile-form__email { word-break: break-all; }
+
+/* Segmented control (tabs + inline option groups) */
 .segmented {
   display: flex; align-items: stretch; gap: 4px;
   background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 999px; padding: 3px; margin-bottom: 0.7rem;
+  border-radius: 999px; padding: 3px;
 }
 .segmented__tab {
   flex: 1 1 0; min-width: 0;
@@ -1578,13 +1699,9 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: background 0.15s, color 0.15s;
 }
-.segmented__tab--active {
-  background: var(--gold-grad); color: #2a2407;
-  box-shadow: var(--shadow-1);
-}
-.profile-menu__refresh { flex: 0 0 auto; align-self: center; min-width: 2.2rem; }
-/* The embedded AccountPanel body drops its own border (the segment frames it). */
-.account-embedded .account-panel__body { margin-top: 0; }
+.segmented__tab--active { background: var(--gold-grad); color: #2a2407; box-shadow: var(--shadow-1); }
+/* The drawer's tablist has a refresh button alongside; give it bottom spacing. */
+.drawer__body > .segmented { margin-bottom: 0.7rem; }
 
 /* ===== Stats / leaderboard (Stage 5.1) ===== */
 .stats-section {

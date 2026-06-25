@@ -69,10 +69,17 @@ linked docs.
   carry no userId/session/token and no card data. A collapsible chat drawer +
   reaction bar overlay never cover the hand/trick and are mobile-clean (360/390,
   RTL). See [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md) → Room social.
-- **UI polish (Stage 7)**: a unified, casino/felt **segmented Profile /
-  Statistics / Leaderboard** menu replaces the two separate toggles; card artwork
-  is clipped to the rounded border with no duplicate suit/rank badge (full-image
-  cards; Ace not cropped; face-down cards unchanged).
+- **UI polish (Stage 7)**: card artwork is clipped to the rounded border with no
+  duplicate suit/rank badge (full-image cards; Ace not cropped; face-down cards
+  unchanged).
+- **Main-menu redesign (Stage 7.1)**: a premium mobile card-game layout — a **top
+  account bar** (avatar + name, **Sign in / Sign out** here, not buried in a tab),
+  three large **action tiles** (Play locally / Host / Join) with a prominent
+  **Resume** continue card, and a secondary **Profile / Statistics / Leaderboard**
+  drawer that keeps the first screen uncluttered. Host/Join are dedicated sheets
+  (segmented controls, unified fields). The **language selector lives only in
+  Profile** now. RTL-safe, no horizontal overflow at 360/390. No gameplay/server
+  change.
 - **Stats & leaderboard (Stage 5 / 5.1 / 5.2)**: when a `DATABASE_URL` is set,
   finished **online** games record per-`(user, game_type)` stats (bots excluded;
   idempotent; **score-only**, no cards). `GET /api/games/king/stats` returns a

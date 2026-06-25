@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { useRoomList } from '../hooks/useRoomList';
 import type { RoomSummary } from '../net/messages';
@@ -6,8 +6,10 @@ import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
 import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } from '../net/prefs';
-import { AVATARS, defaultAvatar } from '../core/avatars';
-import { useI18n, LanguageSelector } from '../i18n';
+import { defaultAvatar } from '../core/avatars';
+import { useI18n } from '../i18n';
+import { useAccount } from '../hooks/useAccount';
+import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
@@ -46,9 +48,23 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
 
+  const account = useAccount(url);
   const roomList = useRoomList();
   const passwordRef = useRef<HTMLInputElement>(null);
   const [needPassword, setNeedPassword] = useState(initialError === 'BAD_PASSWORD');
+
+  // Pull server-side profile/settings into the local fields once they hydrate
+  // (so a signed-in player sees their saved name/avatar/timer across devices).
+  useEffect(() => {
+    const m = account.me;
+    if (m?.authenticated && m.user) {
+      if (m.user.displayName) setName(m.user.displayName);
+      if (m.settings?.avatar) setAvatar(m.settings.avatar);
+    }
+  }, [account.me]);
+  useEffect(() => {
+    if (account.serverTimer != null) setDefaultTimer(account.serverTimer);
+  }, [account.serverTimer]);
 
   function resume() {
     if (!resumable) return;
@@ -97,221 +113,226 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   }
 
   return (
-    <div className="screen setup-screen">
-      <div className="topbar"><LanguageSelector /></div>
-      <h1 className="screen__title">{t('app.title')}</h1>
-      <p className="screen__subtitle">{t('app.subtitle')}</p>
+    <div className="screen menu-screen">
+      <AccountBar account={account} name={name} avatar={avatar} />
 
-      <div className="setup-card">
-        {pane === 'menu' && (
-          <>
-            {resumable && (
-              <div className="resume-panel">
-                <p className="resume-panel__title">{t('menu.resumeTitle')}</p>
-                <p className="resume-panel__detail">
-                  {resumable.roomCode} · {resumable.playerName}
-                  <span className="resume-panel__server"> · {resumable.serverUrl}</span>
-                </p>
-                <div className="button-row">
-                  <button className="btn btn--primary" onClick={resume}>{t('menu.resume')}</button>
-                  <button className="btn btn--ghost" onClick={forgetResumable}>{t('menu.forget')}</button>
-                </div>
-              </div>
-            )}
+      <header className="menu-header">
+        <h1 className="menu-title">{t('app.title')}</h1>
+        <p className="menu-tagline">{t('app.subtitle')}</p>
+      </header>
 
-            <h2>{t('menu.play')}</h2>
-            <button className="btn btn--primary btn--large" onClick={onLocal}>{t('menu.local')}</button>
-            <button className="btn btn--outline btn--large" onClick={() => setPane('host')}>{t('menu.host')}</button>
-            <button className="btn btn--outline btn--large" onClick={openJoin}>{t('menu.join')}</button>
+      {pane === 'menu' && (
+        <div className="menu-main">
+          {resumable && (
+            <div className="continue-block">
+              <button className="continue-card" onClick={resume}>
+                <span className="continue-card__icon" aria-hidden="true">↩</span>
+                <span className="continue-card__text">
+                  <span className="continue-card__title">{t('menu.resumeTitle')}</span>
+                  <span className="continue-card__detail">{resumable.roomCode} · {resumable.playerName}</span>
+                </span>
+                <span className="continue-card__go" aria-hidden="true">▶</span>
+              </button>
+              <button className="link-btn" onClick={forgetResumable}>{t('menu.forget')}</button>
+            </div>
+          )}
 
-            <ProfileMenu
-              serverUrl={url}
-              name={name} onName={setName}
-              avatar={avatar} onAvatar={setAvatar}
-              defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
+          <div className="action-tiles">
+            <button className="tile tile--primary" onClick={onLocal}>
+              <span className="tile__icon" aria-hidden="true">📱</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('menu.localTitle')}</span>
+                <span className="tile__sub">{t('menu.localSub')}</span>
+              </span>
+            </button>
+            <button className="tile" onClick={() => setPane('host')}>
+              <span className="tile__icon" aria-hidden="true">🌐</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('menu.hostTitle')}</span>
+                <span className="tile__sub">{t('menu.hostSub')}</span>
+              </span>
+            </button>
+            <button className="tile" onClick={openJoin}>
+              <span className="tile__icon" aria-hidden="true">🔑</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('menu.joinTitle')}</span>
+                <span className="tile__sub">{t('menu.joinSub')}</span>
+              </span>
+            </button>
+          </div>
+
+          <ProfileMenu account={account}
+            name={name} onName={setName} avatar={avatar} onAvatar={setAvatar}
+            defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer} />
+        </div>
+      )}
+
+      {pane !== 'menu' && (
+        <div className="sheet">
+          <div className="sheet__head">
+            <h2 className="sheet__title">{pane === 'host' ? t('host.title') : t('join.title')}</h2>
+            <span className="sheet__who"><span aria-hidden="true">{avatar}</span> {name}</span>
+          </div>
+
+          {joinError && (
+            <p className="lobby-error">
+              {errText(joinError)} <span className="error-code">({joinError})</span>
+            </p>
+          )}
+          {joinError === 'NAME_TAKEN' && resumable && resumable.roomCode === code.trim().toUpperCase() && (
+            <button className="btn btn--primary" onClick={resume}>{t('menu.resume')}</button>
+          )}
+
+          <div className="field">
+            <label className="field__label">{t('form.name')}</label>
+            <input
+              className={`input ${joinError === 'NAME_TAKEN' ? 'input--error' : ''}`}
+              value={name} maxLength={20}
+              onChange={(e) => { setName(e.target.value); if (joinError === 'NAME_TAKEN') setJoinError(null); }}
+              placeholder={t('form.name')}
             />
-          </>
-        )}
+            <p className="field__hint">{t('menu.avatarHint')}</p>
+          </div>
 
-        {pane !== 'menu' && (
-          <>
-            <h2>{pane === 'host' ? t('host.title') : t('join.title')}</h2>
-
-            {joinError && (
-              <p className="lobby-error">
-                {errText(joinError)} <span className="error-code">({joinError})</span>
-              </p>
+          <div className="field">
+            <label className="field__label">{t('form.server')}</label>
+            <input className="input" value={url}
+              onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
+            {isInsecureWsOnSecurePage(url) && (
+              <p className="lobby-error">⚠️ HTTPS page needs <code>wss://</code> (not <code>ws://</code>).</p>
             )}
-            {/* If the name clash is the player's own offline seat, offer Resume. */}
-            {joinError === 'NAME_TAKEN' && resumable && resumable.roomCode === code.trim().toUpperCase() && (
-              <button className="btn btn--primary" onClick={resume}>{t('menu.resume')}</button>
-            )}
+          </div>
 
-            <div className="field-group">
-              <label>{t('form.name')}</label>
-              <input
-                className={`input ${joinError === 'NAME_TAKEN' ? 'input--error' : ''}`}
-                value={name} maxLength={20}
-                onChange={(e) => { setName(e.target.value); if (joinError === 'NAME_TAKEN') setJoinError(null); }}
-                placeholder={t('form.name')}
-              />
-            </div>
-
-            <div className="field-group">
-              <label>{t('lobby.avatar')} <span className="avatar-current">{avatar}</span></label>
-              <div className="avatar-picker">
-                {AVATARS.map((a) => (
-                  <button key={a} type="button"
-                    className={`avatar-chip ${avatar === a ? 'avatar-chip--active' : ''}`}
-                    aria-label={`avatar ${a}`} aria-pressed={avatar === a}
-                    onClick={() => setAvatar(a)}>
-                    {a}
-                  </button>
-                ))}
+          {pane === 'host' && (
+            <>
+              <div className="field">
+                <label className="field__label">{t('form.players')}</label>
+                <div className="segmented segmented--inline">
+                  {([3, 4] as const).map((n) => (
+                    <button key={n} type="button"
+                      className={`segmented__tab ${playerCount === n ? 'segmented__tab--active' : ''}`}
+                      onClick={() => setPlayerCount(n)}>{n}</button>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div className="field-group">
-              <label>{t('form.server')}</label>
-              <input className="input" value={url}
-                onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
-              <p className="setup-hint">LAN: ws://192.168.1.20:3001/ws · Production: wss://your-domain/ws</p>
-              {isInsecureWsOnSecurePage(url) && (
-                <p className="lobby-error">⚠️ HTTPS page needs <code>wss://</code> (not <code>ws://</code>).</p>
-              )}
-            </div>
-
-            {pane === 'host' && (
-              <>
-                <div className="field-group">
-                  <label>{t('form.players')}</label>
-                  <div className="button-row">
-                    {([3, 4] as const).map((n) => (
-                      <button key={n}
-                        className={`btn btn--outline ${playerCount === n ? 'btn--active' : ''}`}
-                        onClick={() => setPlayerCount(n)}>{n}</button>
-                    ))}
-                  </div>
+              <div className="field">
+                <label className="field__label">{t('form.mode')}</label>
+                <div className="segmented segmented--inline">
+                  {(['dealer_choice', 'fixed'] as const).map((m) => (
+                    <button key={m} type="button"
+                      className={`segmented__tab ${modeSelectionType === m ? 'segmented__tab--active' : ''}`}
+                      onClick={() => setModeSelectionType(m)}>
+                      {m === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')}
+                    </button>
+                  ))}
                 </div>
-                <div className="field-group">
-                  <label>{t('form.mode')}</label>
-                  <div className="button-row">
-                    {(['dealer_choice', 'fixed'] as const).map((m) => (
-                      <button key={m}
-                        className={`btn btn--outline ${modeSelectionType === m ? 'btn--active' : ''}`}
-                        onClick={() => setModeSelectionType(m)}>
-                        {m === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')}
-                      </button>
-                    ))}
-                  </div>
+              </div>
+              <div className="field">
+                <label className="field__label">{t('form.passwordHost')}</label>
+                <input className="input" type="password" value={password} maxLength={40}
+                  onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <button className="btn btn--primary btn--large" onClick={host}>{t('btn.create')}</button>
+            </>
+          )}
+
+          {pane === 'join' && (
+            <>
+              <div className="field">
+                <div className="room-list-head">
+                  <label className="field__label">{t('join.openRooms')}</label>
+                  <button className="btn btn--ghost btn--small" onClick={() => roomList.refresh(url)}
+                    disabled={roomList.loading}>{t('btn.refresh')}</button>
                 </div>
-                <div className="field-group">
-                  <label>{t('form.passwordHost')}</label>
-                  <input className="input" type="password" value={password} maxLength={40}
-                    onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <button className="btn btn--primary btn--large" onClick={host}>{t('btn.create')}</button>
-              </>
-            )}
 
-            {pane === 'join' && (
-              <>
-                <div className="field-group">
-                  <div className="room-list-head">
-                    <label>{t('join.openRooms')}</label>
-                    <button className="btn btn--ghost btn--small" onClick={() => roomList.refresh(url)}
-                      disabled={roomList.loading}>{t('btn.refresh')}</button>
-                  </div>
+                {roomList.error && <p className="lobby-error">{roomList.error}</p>}
+                {roomList.loading && roomList.rooms.length === 0 && (
+                  <p className="setup-hint">{t('net.connecting')}…</p>
+                )}
+                {!roomList.error && !roomList.loading && roomList.rooms.length === 0 && (
+                  <p className="setup-hint">{t('join.noRooms')}</p>
+                )}
 
-                  {roomList.error && <p className="lobby-error">{roomList.error}</p>}
-                  {roomList.loading && roomList.rooms.length === 0 && (
-                    <p className="setup-hint">{t('net.connecting')}…</p>
-                  )}
-                  {!roomList.error && !roomList.loading && roomList.rooms.length === 0 && (
-                    <p className="setup-hint">{t('join.noRooms')}</p>
-                  )}
-
-                  {roomList.rooms.length > 0 && (
-                    <div className="server-browser" role="table" aria-label={t('join.openRooms')}>
-                      <div className="server-browser__head" role="row">
-                        <span role="columnheader">{t('join.col.host')}</span>
-                        <span role="columnheader">{t('join.col.game')}</span>
-                        <span role="columnheader">{t('join.col.players')}</span>
-                        <span role="columnheader">{t('join.col.password')}</span>
-                        <span role="columnheader">{t('join.col.connection')}</span>
-                        <span role="columnheader">{t('join.col.status')}</span>
-                      </div>
-                      <ul className="server-browser__body">
-                        {roomList.rooms.map((r) => {
-                          const joinable = r.status === 'lobby';
-                          const gameType = r.gameType ?? 'king';
-                          const online = r.hostConnected;
-                          const statusLabel = t(`status.${r.status}`);
-                          return (
-                            <li key={r.code}>
-                              <button
-                                type="button" role="row"
-                                className={`server-browser__row ${code === r.code ? 'server-browser__row--selected' : ''}`}
-                                onClick={() => pickRoom(r)} disabled={!joinable}
-                                aria-disabled={!joinable} title={joinable ? r.code : statusLabel}>
-                                <span className="sb-cell sb-host" data-label={t('join.col.host')} role="cell">
-                                  <span className="sb-host__avatar" aria-hidden="true">{r.hostAvatar}</span>
-                                  <span className="sb-host__meta">
-                                    <span className="sb-host__name">{r.hostName}</span>
-                                    <span className="sb-host__code">{r.code}</span>
-                                  </span>
-                                  <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
-                                </span>
-                                <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
-                                  {t(`gameType.${gameType}`)}
-                                </span>
-                                <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
-                                  {r.occupiedSeats}/{r.playerCount}
-                                </span>
-                                <span className="sb-cell sb-pass" data-label={t('join.col.password')} role="cell">
-                                  {r.hasPassword
-                                    ? <span className="sb-lock">🔒 {t('join.locked')}</span>
-                                    : <span className="sb-open">{t('join.open')}</span>}
-                                </span>
-                                <span className="sb-cell sb-conn" data-label={t('join.col.connection')} role="cell">
-                                  <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
-                                  {online ? t('join.good') : t('join.poor')}
-                                </span>
-                                <span className="sb-cell sb-status" data-label={t('join.col.status')} role="cell">
-                                  <span className={`tag room-list__status--${r.status}`}>{statusLabel}</span>
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                {roomList.rooms.length > 0 && (
+                  <div className="server-browser" role="table" aria-label={t('join.openRooms')}>
+                    <div className="server-browser__head" role="row">
+                      <span role="columnheader">{t('join.col.host')}</span>
+                      <span role="columnheader">{t('join.col.game')}</span>
+                      <span role="columnheader">{t('join.col.players')}</span>
+                      <span role="columnheader">{t('join.col.password')}</span>
+                      <span role="columnheader">{t('join.col.connection')}</span>
+                      <span role="columnheader">{t('join.col.status')}</span>
                     </div>
-                  )}
-                </div>
+                    <ul className="server-browser__body">
+                      {roomList.rooms.map((r) => {
+                        const joinable = r.status === 'lobby';
+                        const gameType = r.gameType ?? 'king';
+                        const online = r.hostConnected;
+                        const statusLabel = t(`status.${r.status}`);
+                        return (
+                          <li key={r.code}>
+                            <button
+                              type="button" role="row"
+                              className={`server-browser__row ${code === r.code ? 'server-browser__row--selected' : ''}`}
+                              onClick={() => pickRoom(r)} disabled={!joinable}
+                              aria-disabled={!joinable} title={joinable ? r.code : statusLabel}>
+                              <span className="sb-cell sb-host" data-label={t('join.col.host')} role="cell">
+                                <span className="sb-host__avatar" aria-hidden="true">{r.hostAvatar}</span>
+                                <span className="sb-host__meta">
+                                  <span className="sb-host__name">{r.hostName}</span>
+                                  <span className="sb-host__code">{r.code}</span>
+                                </span>
+                                <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
+                              </span>
+                              <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
+                                {t(`gameType.${gameType}`)}
+                              </span>
+                              <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
+                                {r.occupiedSeats}/{r.playerCount}
+                              </span>
+                              <span className="sb-cell sb-pass" data-label={t('join.col.password')} role="cell">
+                                {r.hasPassword
+                                  ? <span className="sb-lock">🔒 {t('join.locked')}</span>
+                                  : <span className="sb-open">{t('join.open')}</span>}
+                              </span>
+                              <span className="sb-cell sb-conn" data-label={t('join.col.connection')} role="cell">
+                                <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
+                                {online ? t('join.good') : t('join.poor')}
+                              </span>
+                              <span className="sb-cell sb-status" data-label={t('join.col.status')} role="cell">
+                                <span className={`tag room-list__status--${r.status}`}>{statusLabel}</span>
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
 
-                <div className="field-group">
-                  <label>{t('join.roomCode')}</label>
-                  <input className="input room-code-input" value={code} maxLength={4}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD" />
-                  <p className="setup-hint">{t('join.tapHint')}</p>
-                </div>
-                <div className="field-group">
-                  <label>{t('form.passwordJoin')}</label>
-                  <input ref={passwordRef}
-                    className={`input ${joinError === 'BAD_PASSWORD' ? 'input--error' : ''}`}
-                    type="password" value={password} maxLength={40}
-                    onChange={(e) => { setPassword(e.target.value); if (joinError === 'BAD_PASSWORD') setJoinError(null); }}
-                    placeholder={needPassword ? '🔒' : ''} />
-                  {needPassword && <p className="setup-hint">🔒 {t('form.passwordJoin')}</p>}
-                </div>
-                <button className="btn btn--primary btn--large" onClick={join}>{t('btn.join')}</button>
-              </>
-            )}
+              <div className="field">
+                <label className="field__label">{t('join.roomCode')}</label>
+                <input className="input room-code-input" value={code} maxLength={4}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD" />
+                <p className="field__hint">{t('join.tapHint')}</p>
+              </div>
+              <div className="field">
+                <label className="field__label">{t('form.passwordJoin')}</label>
+                <input ref={passwordRef}
+                  className={`input ${joinError === 'BAD_PASSWORD' ? 'input--error' : ''}`}
+                  type="password" value={password} maxLength={40}
+                  onChange={(e) => { setPassword(e.target.value); if (joinError === 'BAD_PASSWORD') setJoinError(null); }}
+                  placeholder={needPassword ? '🔒' : ''} />
+                {needPassword && <p className="field__hint">🔒 {t('form.passwordJoin')}</p>}
+              </div>
+              <button className="btn btn--primary btn--large" onClick={join}>{t('btn.join')}</button>
+            </>
+          )}
 
-            <button className="btn btn--ghost" onClick={() => setPane('menu')}>{t('btn.back')}</button>
-          </>
-        )}
-      </div>
+          <button className="btn btn--ghost" onClick={() => setPane('menu')}>{t('btn.back')}</button>
+        </div>
+      )}
     </div>
   );
 }

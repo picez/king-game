@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
-import { apiBaseFromWsUrl } from '../net/profileApi';
+import type { Account } from '../hooks/useAccount';
 import {
   fetchKingStats, fetchKingLeaderboard,
   type KingStats, type LeaderboardEntry, type Loadable,
 } from '../net/statsApi';
-import AccountPanel from './AccountPanel';
+import ProfilePanel from './menu/ProfilePanel';
 import StatsPanel from './components/StatsPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 
 interface Props {
-  serverUrl: string;
+  account: Account;
   name: string;
   onName: (v: string) => void;
   avatar: string;
@@ -22,14 +22,12 @@ interface Props {
 type Tab = 'profile' | 'stats' | 'leaderboard';
 
 /**
- * Unified, collapsible Profile / Statistics / Leaderboard menu (Stage 7).
- * Replaces the two separate AccountPanel + KingStatsPanel toggles with one
- * casino/felt panel that uses a segmented control. Collapsed by default (the
- * first screen stays uncluttered); each stats dataset is lazy-loaded the first
- * time its tab is shown. All prior functionality is preserved (Google sign-in,
- * avatar/nickname/language, default timer, stats + leaderboard).
+ * Secondary Profile / Statistics / Leaderboard drawer (Stage 7.1). A single
+ * collapsible panel with a segmented control, kept OFF the first screen by
+ * default so the main actions stay front-and-centre. Sign-in/out is NOT here
+ * (that lives in the top AccountBar); the Profile tab holds settings only.
  */
-export default function ProfileMenu(props: Props) {
+export default function ProfileMenu({ account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
@@ -40,7 +38,7 @@ export default function ProfileMenu(props: Props) {
   const statsOnce = useRef(false);
   const boardOnce = useRef(false);
 
-  const base = apiBaseFromWsUrl(props.serverUrl);
+  const base = account.base;
 
   const loadStats = useCallback(async () => {
     setLoadingStats(true);
@@ -51,19 +49,11 @@ export default function ProfileMenu(props: Props) {
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
   }, [base]);
 
-  // Lazy-load each dataset when its tab is first opened.
   useEffect(() => {
     if (!open) return;
     if (tab === 'stats' && !statsOnce.current) { statsOnce.current = true; void loadStats(); }
     if (tab === 'leaderboard' && !boardOnce.current) { boardOnce.current = true; void loadBoard(); }
   }, [open, tab, loadStats, loadBoard]);
-
-  // After an OAuth redirect, auto-open on the Profile tab so the banner shows.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const login = new URLSearchParams(window.location.search).get('login');
-    if (login === 'success' || login === 'error') { setOpen(true); setTab('profile'); }
-  }, []);
 
   function refresh() {
     if (tab === 'stats') void loadStats();
@@ -77,14 +67,14 @@ export default function ProfileMenu(props: Props) {
   ];
 
   return (
-    <div className="profile-menu">
-      <button className="btn btn--ghost btn--small profile-menu__toggle"
-        onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        👤 {t('account.title')} · 📊 {t('stats.title')} {open ? '▲' : '▼'}
+    <div className="drawer">
+      <button className="drawer__toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span>⚙️ {t('account.title')} · {t('stats.title')}</span>
+        <span className="drawer__chev">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
-        <div className="profile-menu__body">
+        <div className="drawer__body">
           <div className="segmented" role="tablist">
             {tabs.map((tb) => (
               <button key={tb.key} role="tab" aria-selected={tab === tb.key}
@@ -94,14 +84,18 @@ export default function ProfileMenu(props: Props) {
               </button>
             ))}
             {(tab === 'stats' || tab === 'leaderboard') && (
-              <button className="btn btn--ghost btn--small profile-menu__refresh"
-                onClick={refresh} disabled={loadingStats || loadingBoard}
+              <button className="drawer__refresh" onClick={refresh}
+                disabled={loadingStats || loadingBoard}
                 aria-label={t('stats.refresh')} title={t('stats.refresh')}>↻</button>
             )}
           </div>
 
-          <div className="profile-menu__panel" role="tabpanel">
-            {tab === 'profile' && <AccountPanel {...props} embedded />}
+          <div className="drawer__panel" role="tabpanel">
+            {tab === 'profile' && (
+              <ProfilePanel account={account}
+                name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
+                defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer} />
+            )}
             {tab === 'stats' && <StatsPanel result={stats} loading={loadingStats} />}
             {tab === 'leaderboard' && <LeaderboardPanel result={board} loading={loadingBoard} />}
           </div>

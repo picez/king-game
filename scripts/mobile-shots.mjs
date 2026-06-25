@@ -96,38 +96,48 @@ async function run() {
 
       await cdp.send('Page.navigate', { url: URL });
       await sleep(900);
-      await shot(cdp, `${tag}-1-startmenu`);
+      await shot(cdp, `${tag}-1-startmenu`);                 // guest main menu
 
-      // Switch to Arabic (RTL) for a menu screenshot, then back to English so the
-      // text-based click driver can continue through the gameplay flow.
-      await cdp.evaluate(`(()=>{const s=document.querySelector('.lang-select');if(s){s.value='ar';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
-      await sleep(400);
-      await shot(cdp, `${tag}-1b-startmenu-ar`);
-      await cdp.evaluate(`(()=>{const s=document.querySelector('.lang-select');if(s){s.value='en';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
-      await sleep(300);
+      // Stage 7.1 menu uses tiles + a drawer; click by selector (label-agnostic,
+      // RTL-safe). Drawer segments: [0]=Profile [1]=My stats [2]=Leaderboard.
+      const CLICKSEL = (sel, i = 0) => `(()=>{const e=document.querySelectorAll(${JSON.stringify(sel)})[${i}];if(e){e.click();return true}return false})()`;
+      const setLang = (v) => `(()=>{const s=document.querySelector('.lang-select');if(s){s.value=${JSON.stringify(v)};s.dispatchEvent(new Event('change',{bubbles:true}));}})()`;
 
-      // Profile/Statistics segmented menu (Stage 7) — open, capture the My stats
-      // + Leaderboard segments (soft empty state without a DB), then collapse.
-      await cdp.evaluate(CLICK('Statistics'));   // toggle includes "Statistics"
-      await sleep(600);
-      await cdp.evaluate(CLICK('My King stats')); // stats segment
+      // Open the Profile/Statistics/Leaderboard drawer; capture each segment.
+      await cdp.evaluate(CLICKSEL('.drawer__toggle'));
+      await sleep(500);
+      await cdp.evaluate(CLICKSEL('.segmented__tab', 1));    // My stats
       await sleep(700);
       await shot(cdp, `${tag}-1c-stats`);
-      await cdp.evaluate(CLICK('Leaderboard'));
+      await cdp.evaluate(CLICKSEL('.segmented__tab', 2));    // Leaderboard
       await sleep(600);
       await shot(cdp, `${tag}-1d-leaderboard`);
-      await cdp.evaluate(CLICK('Statistics'));   // collapse
+      await cdp.evaluate(CLICKSEL('.segmented__tab', 0));    // Profile (language lives here)
+      await sleep(400);
+      await shot(cdp, `${tag}-1e-profile`);
+      // The ONLY language selector now lives in Profile — switch to Arabic (RTL).
+      await cdp.evaluate(setLang('ar'));
+      await sleep(450);
+      await shot(cdp, `${tag}-1b-rtl`);
+      await cdp.evaluate(setLang('en'));
+      await sleep(300);
+      await cdp.evaluate(CLICKSEL('.drawer__toggle'));       // close drawer
       await sleep(200);
 
-      // Join pane (room list + manual code + password)
-      await cdp.evaluate(CLICK('Join online room'));
+      // Host sheet (tile [1]) then Join sheet (tile [2]).
+      await cdp.evaluate(CLICKSEL('.tile', 1));
+      await sleep(500);
+      await shot(cdp, `${tag}-1f-host`);
+      await cdp.evaluate(CLICK('Back'));
+      await sleep(200);
+      await cdp.evaluate(CLICKSEL('.tile', 2));
       await sleep(700);
       await shot(cdp, `${tag}-2-join`);
 
-      // Back → Local game → setup
+      // Back → Play locally (tile [0]) → setup
       await cdp.evaluate(CLICK('Back'));
       await sleep(200);
-      await cdp.evaluate(CLICK('Local game'));
+      await cdp.evaluate(CLICKSEL('.tile', 0));
       await sleep(400);
       await shot(cdp, `${tag}-3-setup`);
 
