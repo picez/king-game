@@ -12,6 +12,9 @@ interface Props {
   onChat: (text: string) => void;
   notice: SocialNotice | null;
   onClearNotice: () => void;
+  /** True while the player's hand is on screen (the `playing` GameScreen): lift
+   *  the corner controls above the hand so they never cover the cards. */
+  handVisible?: boolean;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -24,7 +27,7 @@ const REACTION_TTL_MS = 2600;
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, notice, onClearNotice }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, notice, onClearNotice, handVisible = false }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -85,10 +88,10 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         ))}
       </div>
 
-      {noticeText && <div className="social-toast" role="status">{noticeText}</div>}
+      {noticeText && <div className={`social-toast ${handVisible ? 'social-toast--raised' : ''}`} role="status">{noticeText}</div>}
 
       {/* Bottom-right controls */}
-      <div className="social-controls">
+      <div className={`social-controls ${handVisible ? 'social-controls--raised' : ''}`}>
         {reactOpen && (
           <div className="reaction-bar" role="menu" aria-label={t('social.reactions')}>
             {REACTIONS.map((e) => (

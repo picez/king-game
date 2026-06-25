@@ -382,6 +382,22 @@ async function main() {
   sendMsg(sJoin, { t: 'SEND_CHAT', text: 'second message too soon' });
   await sleep(150);
   check(sJoin.lastError?.code === 'RATE_LIMITED', 'second chat blocked by the 3s rate limit (server-side)');
+
+  // Reactions + chat keep working AFTER the game starts (any state, any turn).
+  sendMsg(sHost, { t: 'ADD_BOT' });
+  await sleep(200);
+  sendMsg(sHost, { t: 'START_GAME' });
+  await sleep(500);
+  check(!!sHost.state, 'social room: game started');
+  const reactsBefore = sJoin.reactions.length;       // sJoin has not reacted yet (no cooldown)
+  sendMsg(sJoin, { t: 'SEND_REACTION', emoji: '👏' });
+  await sleep(200);
+  check(sJoin.reactions.length > reactsBefore && sJoin.reactions.some((r) => r.emoji === '👏'),
+    'reaction works DURING the game, regardless of whose turn it is');
+  sHost.lastError = null;                              // sHost has not chatted yet (no rate limit)
+  sendMsg(sHost, { t: 'SEND_CHAT', text: 'gg during play' });
+  await sleep(200);
+  check(sJoin.chats.some((m) => m.text === 'gg during play'), 'chat works DURING the game');
   sHost.ws.close(); sJoin.ws.close();
 
   // 3) Host starts the game

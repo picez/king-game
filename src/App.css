@@ -1832,11 +1832,15 @@ body {
   padding: 0.45rem 0.7rem; font-size: 0.82rem; box-shadow: var(--shadow-2);
 }
 
-/* Bottom-right controls (above the hand area). */
+/* Bottom-right controls. Default sits in the corner (lobby / public screens);
+   on the playing screen `--raised` lifts them clear of the player's hand so the
+   cards are never covered. */
 .social-controls {
-  position: fixed; right: 12px; bottom: 12px; z-index: 61;
+  position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 61;
   display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
 }
+.social-controls--raised { bottom: calc(9.5rem + env(safe-area-inset-bottom)); }
+.social-toast--raised { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
 .social-controls__row { display: flex; gap: 8px; }
 .social-fab {
   position: relative; width: 46px; height: 46px; border-radius: 50%;

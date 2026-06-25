@@ -35,12 +35,17 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   const { t } = useI18n();
   const errText = (code: ErrorCode | null) => t(code && JOIN_ERR_CODES.has(code) ? `err.${code}` : 'err.generic');
 
-  // Room-social overlay (reactions + chat) — shown whenever we are in a room.
-  const social = (
+  // Room-social overlay (reactions + chat). Rendered ONCE at this online level,
+  // as a sibling of the game/lobby, so it never unmounts when the game status
+  // switches (mode_selection → playing → trick_complete → …) or when the view
+  // flips between the action screen and the waiting screen. `handVisible` lifts
+  // the corner controls above the hand on the playing screen so cards stay clear.
+  const renderSocial = (handVisible: boolean) => (
     <RoomSocial
       reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
       onReact={net.sendReaction} onChat={net.sendChat}
       notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
+      handVisible={handVisible}
     />
   );
 
@@ -107,14 +112,19 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
           onSetTimer={net.setTimer}
           error={net.error}
         />
-        {social}
+        {renderSocial(false)}
       </>
     );
   }
 
   // Game started but the first authoritative state has not arrived yet.
   if (!net.state) {
-    return <CenterNote title={t('net.dealing')} />;
+    return (
+      <>
+        <CenterNote title={t('net.dealing')} />
+        {renderSocial(false)}
+      </>
+    );
   }
 
   const status = net.state.status;
@@ -135,7 +145,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>
-      {social}
+      {renderSocial(status === 'playing')}
     </>
   );
 }
