@@ -106,6 +106,17 @@ async function run() {
       await cdp.evaluate(`(()=>{const s=document.querySelector('.lang-select');if(s){s.value='en';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
       await sleep(300);
 
+      // Statistics panel (Stage 5.1) — open, capture My stats + Leaderboard
+      // tabs (soft empty state without a DB), then collapse again.
+      await cdp.evaluate(CLICK('Statistics'));
+      await sleep(800);
+      await shot(cdp, `${tag}-1c-stats`);
+      await cdp.evaluate(CLICK('Leaderboard'));
+      await sleep(500);
+      await shot(cdp, `${tag}-1d-leaderboard`);
+      await cdp.evaluate(CLICK('Statistics'));
+      await sleep(200);
+
       // Join pane (room list + manual code + password)
       await cdp.evaluate(CLICK('Join online room'));
       await sleep(700);

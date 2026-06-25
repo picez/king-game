@@ -9,6 +9,7 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } 
 import { AVATARS, defaultAvatar } from '../core/avatars';
 import { useI18n, LanguageSelector } from '../i18n';
 import AccountPanel from './AccountPanel';
+import KingStatsPanel from './KingStatsPanel';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -130,6 +131,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               avatar={avatar} onAvatar={setAvatar}
               defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
             />
+
+            <KingStatsPanel serverUrl={url} />
           </>
         )}
 

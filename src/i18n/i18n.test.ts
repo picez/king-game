@@ -47,6 +47,9 @@ describe('translate', () => {
       'track.title', 'track.no_tricks', 'track.no_jacks', 'track.no_queens',
       'track.king_of_hearts', 'track.last_two_tricks', 'track.trump', 'track.subtotal', 'track.total',
       'net.connecting', 'net.dealing',
+      'stats.title', 'stats.myStats', 'stats.leaderboard', 'stats.gamesPlayed',
+      'stats.winRate', 'stats.bestScore', 'stats.noGames', 'stats.unavailable',
+      'stats.refresh', 'stats.byMode', 'stats.player', 'stats.anonymous',
     ];
     for (const { code } of LANGS) {
       for (const key of keys) {
