@@ -31,7 +31,8 @@ import {
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled, checkDbHealth } from './db/client';
-import { handleApiRequest } from './api';
+import { handleApiRequest, resolveSessionUserId } from './api';
+import type { IncomingMessage } from 'node:http';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -107,6 +108,10 @@ const sockets = new Map<string, WebSocket>();              // clientId → socke
 const advanceTimers = new Map<string, ReturnType<typeof setTimeout>>(); // code → timer
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>();     // code → bot-move timer
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();    // code → human turn-timeout
+// Per-room signature of the finished game we already wrote to stats. Prevents a
+// reconnect/rebroadcast from double-counting; a fresh game (different scores)
+// yields a new signature so it records once too. DB has its own idempotency key.
+const recordedFinish = new Map<string, string>();                       // code → finish signature
 
 // Assigned once in bootstrap() (createStorage is async for the pg backend).
 // Declared with `let` so the I/O handlers below can close over it; they only
@@ -168,8 +173,61 @@ function clearRoomTimers(code: string): void {
   }
 }
 
+/**
+ * A cheap content signature of a finished game (round count + per-seat totals).
+ * Two recordings of the SAME finished game share it; a different game differs.
+ */
+function finishSignature(room: ServerRoom): string {
+  const s = room.gameState;
+  if (!s) return '';
+  const totals = s.players.map((p) => `${p.id}=${s.scores[p.id]?.total ?? 0}`).join(',');
+  return `${(s.roundHistory ?? []).length}|${totals}`;
+}
+
+/**
+ * When an online game reaches `game_finished`, persist its score-only history and
+ * update stats for human members with a resolved account (Stage 5). Idempotent:
+ * a per-room signature skips re-recording on reconnect/rebroadcast, and the DB
+ * `game_key` backs it across restarts. DB-gated and best-effort — a failure never
+ * affects gameplay (rules/redaction untouched); bots/unidentified seats are
+ * skipped. Fire-and-forget so the WS path is never blocked on the DB.
+ */
+function maybeRecordFinished(room: ServerRoom): void {
+  const state = room.gameState;
+  if (!state || state.status !== 'game_finished') return;
+  if (!isDbEnabled()) return;
+  const sig = finishSignature(room);
+  if (recordedFinish.get(room.code) === sig) return;
+  recordedFinish.set(room.code, sig);
+
+  // Seat → account for identified humans only (bots and anonymous seats absent).
+  const seatUsers = new Map<number, string | null>();
+  for (const m of room.members.values()) {
+    if (m.role === 'player' && m.type === 'human' && m.seatIndex != null && m.userId) {
+      seatUsers.set(m.seatIndex, m.userId);
+    }
+  }
+  if (seatUsers.size === 0) return; // no one to attribute stats to → nothing to do
+
+  void (async () => {
+    try {
+      const { recordFinishedGame } = await import('./db/stats');
+      const res = await recordFinishedGame(room.code, state, seatUsers);
+      if (res.recorded) {
+        console.log(`[King] room ${room.code} stats recorded (${res.humanPlayers ?? 0} player(s))`);
+      }
+    } catch (err) {
+      // Allow a later retry (e.g. transient DB error) by clearing the marker.
+      recordedFinish.delete(room.code);
+      console.error('[King] stats recording failed for room', room.code, '→',
+        String((err as Error)?.message ?? err).split('\n')[0].slice(0, 200));
+    }
+  })();
+}
+
 function broadcastAndAdvance(room: ServerRoom): void {
   broadcastState(room);
+  maybeRecordFinished(room);
   clearRoomTimers(room.code);
 
   const status = room.gameState?.status;
@@ -343,8 +401,22 @@ const httpServer = createServer((req, res) => {
 // static handler above.
 const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyOrigin });
 
-wss.on('connection', (socket: WebSocket) => {
+wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   let session: { room: ServerRoom; clientId: string } | null = null;
+
+  // Stage 5: resolve the player's account from the session cookie that rides the
+  // WS upgrade (same-origin). This NAMES the player for stats only — seat/
+  // reconnect authority stays on clientId + reconnectToken. Resolution is async;
+  // a userId is needed only at game-finish (far later), so we attach it both when
+  // it resolves and on each CREATE/JOIN/RECONNECT. Null for guests/no-DB/cross-
+  // origin — those simply have no attributed identity. Never trusts client input.
+  let resolvedUserId: string | null = null;
+  const attachIdentity = (): void => {
+    if (!session || !resolvedUserId) return;
+    const m = session.room.members.get(session.clientId);
+    if (m && m.type === 'human' && !m.userId) m.userId = resolvedUserId;
+  };
+  void resolveSessionUserId(request).then((uid) => { resolvedUserId = uid; attachIdentity(); });
 
   socket.on('message', (raw) => {
     let msg: ClientMessage;
@@ -371,6 +443,7 @@ wss.on('connection', (socket: WebSocket) => {
         rooms.set(code, room);
         sockets.set(clientId, socket);
         session = { room, clientId };
+        attachIdentity();
         welcome(socket, room.members.get(clientId)!, room);
         broadcastRoom(room);
         persistRoom(room);
@@ -396,6 +469,7 @@ wss.on('connection', (socket: WebSocket) => {
         }
         sockets.set(clientId, socket);
         session = { room, clientId };
+        attachIdentity();
         welcome(socket, room.members.get(clientId)!, room);
         broadcastRoom(room);
         if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId) });
@@ -418,6 +492,7 @@ wss.on('connection', (socket: WebSocket) => {
         }
         sockets.set(member.clientId, socket);
         session = { room, clientId: member.clientId };
+        attachIdentity();
         welcome(socket, member, room);
         broadcastRoom(room);
         // Reconnecting client immediately gets the current sanitized state.
@@ -532,6 +607,7 @@ function handleLeave(room: ServerRoom, clientId: string): void {
   const hasHuman = [...room.members.values()].some((m) => m.type === 'human');
   if (empty || !hasHuman) {
     clearRoomTimers(room.code);
+    recordedFinish.delete(room.code);
     rooms.delete(room.code);
     storage.deleteRoom(room.code);
     return;
@@ -555,6 +631,7 @@ function cleanupRooms(): number {
   const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS);
   for (const code of expired) {
     clearRoomTimers(code);
+    recordedFinish.delete(code);
     rooms.delete(code);
     storage.deleteRoom(code); // also drop it from the persistence file
     console.log(`[King] auto-cleaned idle room ${code}`);

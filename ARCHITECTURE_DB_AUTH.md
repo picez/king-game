@@ -469,7 +469,7 @@ it to its own row so completed games (for stats/history) survive room cleanup.
 | `result` | jsonb null | game-specific outcome summary (e.g. King totals/winner rationale) | public |
 | `started_at` | timestamptz | | public |
 | `finished_at` | timestamptz null | | public |
-| `winner_user_id` | uuid null FK → users | per-game win rule (King: lowest score) | public |
+| `winner_user_id` | uuid null FK → users | per-game win rule (King: **highest** total — penalties are negative, so least-negative wins; null on a tie) | public |
 
 > `game_type` + `ruleset_id` are **copied onto the game** at creation so stats and
 > history remain correct even after the room is cleaned up and even if the
@@ -610,9 +610,10 @@ leaderboard reads, recomputed on game finish (and rebuildable by replaying
 
 > **Generic vs game-specific.** The *shape* is shared across games:
 > `games_played / games_won / games_lost / rounds_played` are universal counters.
-> Everything that depends on a game's scoring (King points, where **lower is
-> better**; per-mode breakdowns like `no_hearts`; surrenders) lives **inside the
-> `stats` JSONB**, computed by King's own aggregator. **We never mix King scoring
+> Everything that depends on a game's scoring (King points, where **higher is
+> better** — penalties are negative, so the least-negative total wins; per-mode
+> breakdowns like `no_hearts`; surrenders) lives **inside the `stats` JSONB**,
+> computed by King's own aggregator. **We never mix King scoring
 > into another game's totals** — a different game writes its own `stats` shape
 > under its own `game_type` row. If a game ever needs heavy relational stat
 > queries, it can add a dedicated `<game>_stats` table; the JSONB column is the
@@ -811,17 +812,46 @@ regardless.
   work without login; no gameplay/rules/scoring/deck change; no private state in
   the API. Google OAuth staged.
 
-### Stage 5 — Stats from completed games (per game_type)
-- On `game_finished`, write `games` + `game_players` + `rounds` (from
-  `roundHistory`), each tagged with `game_type`/`ruleset_id`, in one transaction;
-  recompute the `(user_id, game_type)` `user_stats` row via King's own
-  aggregator (King scoring stays inside `stats` JSONB — never mixed with other
-  games).
-- Add per-game `/api/games/king/stats` (and `/api/games/king/leaderboard`); the
-  shared profile shows a per-game breakdown.
-- **Acceptance:** finishing a 3p (27-round) and 4p (36-round) game yields correct
-  totals matching `scores[playerId].total`; bots excluded from stats; stats
-  rebuildable by replaying `rounds` filtered by `game_type`.
+### Stage 5 — Stats from completed games (per game_type) — DONE
+- **Pure King aggregator** (`src/net/kingStats.ts`, unit-tested, no DB): turns a
+  finished `GameState`/`roundHistory` into a game-agnostic summary +
+  per-player King stat deltas, all in engine-id (`player-N`) space. **Winner =
+  the HIGHEST `scores[playerId].total`** (penalties are negative, Trump positive,
+  so least-negative wins — matching `GameFinishedScreen`); ties are co-winners.
+  *(The earlier "lowest score" note in §2.7/§2.10 was imprecise; the score-tracker
+  total is authoritative — see the corrected notes there.)*
+- **Schema + migration** (`0003_game_stats.sql`, drizzle tables in
+  `server/db/schema.ts`): `games` / `game_players` / `rounds` / `user_stats`, all
+  tagged with `game_type`. `rounds` is **score-only** (no hands/discard/kitty),
+  exactly as `KING_RULES.md` mandates. `games.room_code` is a **plain column (no
+  FK to `rooms`)** so stats record even when `ROOM_STORAGE=file`; `games.game_key`
+  (room code + final-score fingerprint) makes recording **idempotent**.
+- **Repository** (`server/db/stats.ts`): `recordFinishedGame` writes
+  games + game_players + rounds and increments the `(user_id,'king')`
+  `user_stats` cache in **one transaction**, idempotently (ON CONFLICT on
+  `game_key`). Bots (`user_id=null`) are skipped. `getUserStats` /
+  `getLeaderboard` back the reads. King scoring lives only inside `stats` JSONB.
+- **WS identity** (`ServerMember.userId`): resolved **server-side** from the
+  session cookie riding the WS upgrade (`resolveSessionUserId`) — never a
+  client-sent id. Null for guests/no-DB/cross-origin; seat/reconnect authority
+  still flows through `clientId`+`reconnectToken` (auth only *names* the player).
+- **Finish trigger** (`server/index.ts`): on the `game_finished` transition the
+  server fires `recordFinishedGame` (DB-gated, best-effort, fire-and-forget). A
+  per-room finish **signature** + the DB `game_key` prevent reconnect/rebroadcast/
+  restart from double-counting; restore never re-triggers (finished rooms don't
+  re-broadcast). A DB error never affects gameplay.
+- **API:** `GET /api/games/king/stats` (own stats, session-required) and
+  `GET /api/games/king/leaderboard` (public counters only).
+- **Acceptance (met):** the pure aggregator yields totals matching
+  `scores[playerId].total` for 3p/4p; bots excluded; an optional gated
+  integration test (`src/net/stats.integration.test.ts`, `TEST_DATABASE_URL`)
+  verifies write + idempotency + bot exclusion; stats rebuildable by replaying
+  `rounds` filtered by `game_type`; tests/build green without a DB.
+
+**Deferred (documented):** per-round `surrenderedBy` is not in `RoundRecord`
+(adding it would touch the engine/rules), so surrenders are not yet in the King
+`stats` JSONB; full `user_stats` *rebuild-from-rounds* job; the cross-game
+`game_catalog`/`rulesets` seed.
 
 ### Stage 6 — Mobile auth considerations / Apple Sign-In
 - Add refresh-token (`kind='mobile_refresh'`) issuance + rotation; access JWT

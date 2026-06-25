@@ -56,6 +56,14 @@ export interface ServerMember {
   type: 'human' | 'ai';
   /** Whitelisted emoji avatar id (sanitized on entry; never free text). */
   avatar: string;
+  /**
+   * Resolved account id for a logged-in/guest human (Stage 5), set by the I/O
+   * layer from the session cookie on the WS upgrade — NEVER from a client-sent
+   * value. Null for bots, anonymous players, and any no-DB/cross-origin session.
+   * Used only to attribute finished-game stats; seat/reconnect authority still
+   * flows through clientId + reconnectToken (auth only NAMES the player).
+   */
+  userId?: string | null;
 }
 
 export interface ServerRoom {
@@ -157,6 +165,7 @@ export function createRoom(opts: {
     connected: true,
     type: 'human',
     avatar: sanitizeAvatar(opts.host.avatar, opts.host.name),
+    userId: null,
   });
   assignSeats(room);
   return room;
@@ -217,6 +226,7 @@ export function addMember(
     connected: true,
     type: 'human',
     avatar: sanitizeAvatar(member.avatar, member.name),
+    userId: null,
   });
   assignSeats(room);
   return { ok: true };
@@ -253,6 +263,7 @@ export function addBot(
     connected: true, // bots are always "present"
     type: 'ai',
     avatar: BOT_AVATAR,
+    userId: null, // bots have no account → never written to user_stats
   };
   room.members.set(bot.clientId, bot);
   assignSeats(room);
@@ -667,6 +678,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
       connected: m.type === 'ai',
       type: m.type === 'ai' ? 'ai' : 'human',
       avatar: sanitizeAvatar(m.avatar, typeof m.name === 'string' ? m.name : 'player'),
+      userId: typeof m.userId === 'string' ? m.userId : null,
     });
   }
 

@@ -242,7 +242,7 @@ describe('persistence (serialize / restore)', () => {
     // Member shape is the documented set only.
     const persisted = serializeRoom(room);
     expect(Object.keys(persisted.members[0]).sort()).toEqual(
-      ['avatar', 'clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex', 'type'],
+      ['avatar', 'clientId', 'connected', 'isHost', 'name', 'reconnectToken', 'role', 'seatIndex', 'type', 'userId'],
     );
   });
 

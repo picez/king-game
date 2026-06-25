@@ -129,3 +129,90 @@ export const authAccounts = pgTable('auth_accounts', {
 
 export type SessionsTable = typeof sessions;
 export type AuthAccountsTable = typeof authAccounts;
+
+// ---------------------------------------------------------------------------
+// Stage 5 — stats from completed games (DB-backed; opt-in, per game_type).
+//
+// On `game_finished` the server lifts the score-only history into durable rows:
+// `games` (one finished match) → `game_players` (seat → identity) → `rounds`
+// (RoundRecord, score-only). `user_stats` is a per-(user, game_type) cache,
+// recomputed on finish and rebuildable by replaying `rounds`. All are tagged
+// with `game_type` so a second game never mixes scores. NO private state lives
+// here (no hands/discard/kitty) — only scores, exactly as KING_RULES.md mandates
+// for the score tracker.
+//
+// Decoupled from room storage on purpose: `games.room_code` is a plain column
+// (NO foreign key to `rooms`), so stats record even when ROOM_STORAGE=file while
+// DATABASE_URL is set. `game_key` makes recording idempotent (reconnect/restart
+// can't double-count). See ARCHITECTURE_DB_AUTH.md §2.7–§2.10.
+// ---------------------------------------------------------------------------
+
+export const games = pgTable('games', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /**
+   * Deterministic per-game identity (room code + final score fingerprint). A
+   * unique key so a finished game is recorded at most once — reconnect, restart,
+   * or a duplicate trigger all no-op via ON CONFLICT.
+   */
+  gameKey: text('game_key').notNull().unique(),
+  /** Plain column (no FK to rooms): stats are storage-backend independent. */
+  roomCode: text('room_code'),
+  gameType: text('game_type').notNull().default('king'),
+  rulesetId: text('ruleset_id').notNull().default('king-v1'),
+  playerCount: integer('player_count').notNull(),
+  status: text('status').notNull().default('finished'),
+  /** Sole winner (highest total) or null on a tie / no human winner. */
+  winnerUserId: uuid('winner_user_id').references(() => users.id, { onDelete: 'set null' }),
+  /** Game-specific outcome summary (winners, totals) — public, score-only. */
+  result: jsonb('result').$type<Record<string, unknown>>(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const gamePlayers = pgTable('game_players', {
+  gameId: uuid('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+  seatIndex: integer('seat_index').notNull(),
+  /** Engine id (`player-0`…) used in roundHistory. */
+  playerId: text('player_id').notNull(),
+  /** Null for bots; anonymised (set null) on GDPR user delete. */
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  avatar: text('avatar'),
+  type: text('type').notNull(),
+  finalTotal: integer('final_total').notNull(),
+  isWinner: boolean('is_winner').notNull().default(false),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.gameId, t.seatIndex] }),
+}));
+
+export const rounds = pgTable('rounds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gameId: uuid('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+  gameType: text('game_type').notNull().default('king'),
+  roundIndex: integer('round_index').notNull(),
+  /** Generic round label — King: a GameModeId (e.g. no_hearts/trump). */
+  modeId: text('mode_id'),
+  dealerPlayerId: text('dealer_player_id'),
+  trumpOccurrence: integer('trump_occurrence').notNull().default(0),
+  /** Score-only: { "player-0": -5, … }. Never holds cards. */
+  scores: jsonb('scores').$type<Record<string, number>>().notNull(),
+});
+
+export const userStats = pgTable('user_stats', {
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  gameType: text('game_type').notNull(),
+  gamesPlayed: integer('games_played').notNull().default(0),
+  gamesWon: integer('games_won').notNull().default(0),
+  gamesLost: integer('games_lost').notNull().default(0),
+  roundsPlayed: integer('rounds_played').notNull().default(0),
+  /** King-specific aggregates: { totalScore, bestGameScore, modeBreakdown }. */
+  stats: jsonb('stats').$type<Record<string, unknown>>().notNull().default({}),
+  lastPlayedAt: timestamp('last_played_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.userId, t.gameType] }),
+}));
+
+export type GamesTable = typeof games;
+export type GamePlayersTable = typeof gamePlayers;
+export type RoundsTable = typeof rounds;
+export type UserStatsTable = typeof userStats;

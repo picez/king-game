@@ -118,6 +118,22 @@ async function resolveUserId(req: IncomingMessage): Promise<string | null> {
   return session?.userId ?? null;
 }
 
+/**
+ * DB-gated, never-throwing session resolver for the WebSocket layer (Stage 5).
+ * The server reads the session cookie that rides the WS upgrade to NAME the
+ * player for stats — it never trusts a client-sent userId. Returns null when no
+ * DB is configured, the session is missing/invalid, or a DB hiccup occurs, so a
+ * no-DB/cross-origin/guest connection simply has no attributed identity.
+ */
+export async function resolveSessionUserId(req: IncomingMessage): Promise<string | null> {
+  if (!isDbEnabled()) return null;
+  try {
+    return await resolveUserId(req);
+  } catch {
+    return null;
+  }
+}
+
 // ── route handlers ──────────────────────────────────────────────────────────
 
 async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -216,6 +232,17 @@ async function handlePatchGameSettings(req: IncomingMessage, res: ServerResponse
   json(res, 200, { gameType: KING, settings }, corsHeaders(req));
 }
 
+async function handleGetKingStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getUserStats } = await import('./db/stats');
+  json(res, 200, { gameType: KING, stats: await getUserStats(userId, KING) }, corsHeaders(req));
+}
+
+/** Public per-game leaderboard (no session required — only public counters). */
+async function handleGetKingLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { getLeaderboard } = await import('./db/stats');
+  json(res, 200, { gameType: KING, leaderboard: await getLeaderboard(KING, 20) }, corsHeaders(req));
+}
+
 /** Google OAuth is staged: routes exist but return 503 until creds/flow land. */
 function handleGoogleStub(req: IncomingMessage, res: ServerResponse): void {
   json(res, 503, {
@@ -276,6 +303,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     if (path === '/api/me' && method === 'GET') return await handleMe(req, res);
     if (path === '/api/guest-session' && method === 'POST') return await handleGuestSession(req, res);
     if (path === '/api/logout' && method === 'POST') return await handleLogout(req, res);
+    if (path === '/api/games/king/leaderboard' && method === 'GET') return await handleGetKingLeaderboard(req, res);
 
     // Session-required routes.
     const requireUser = async (): Promise<string | null> => {
@@ -298,6 +326,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/king/settings' && method === 'PATCH') {
       const u = await requireUser(); if (!u) return; return await handlePatchGameSettings(req, res, u);
+    }
+    if (path === '/api/games/king/stats' && method === 'GET') {
+      const u = await requireUser(); if (!u) return; return await handleGetKingStats(req, res, u);
     }
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));
