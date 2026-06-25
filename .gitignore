@@ -15,6 +15,9 @@ dist/
 # Mobile QA screenshots (local only)
 .shots/
 
+# Local Claude Code / agent permissions (machine-specific)
+.claude/
+
 # Large source sprite-sheets for card art (kept locally; sliced into
 # public/cards/faces/ which IS committed). Not needed at runtime.
 card-sources/

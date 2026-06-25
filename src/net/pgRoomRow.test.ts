@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRoom, addBot, serializeRoom, deserializeRoom } from './serverCore';
-import { roomToRow, rowToRoom, DEFAULT_GAME_TYPE } from './pgRoomRow';
+import { DEFAULT_GAME_TYPE } from '../games/catalog';
+import { roomToRow, rowToRoom } from './pgRoomRow';
 
 // These tests cover the pure ServerRoom <-> Postgres row mapping only. They need
 // NO database — the driver-backed PgRoomStorage is exercised separately and is

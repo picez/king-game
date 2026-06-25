@@ -16,20 +16,18 @@ import {
   serializeRoom, deserializeRoom,
   type ServerRoom, type PersistedRoom,
 } from './serverCore';
+import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
 
 /**
- * The only card game today. The `rooms.game_type` column exists so the same
- * table can host other games later without a backfill (ARCHITECTURE_DB_AUTH.md
- * §2.0); until a second game's room type carries its own gameType, King rooms
- * map to this default.
+ * Plain, driver-agnostic shape of one `rooms` table row. The `game_type` column
+ * exists so the same table can host other games later without a backfill
+ * (ARCHITECTURE_DB_AUTH.md §2.0); King rooms use `DEFAULT_GAME_TYPE` from the
+ * game catalog (`src/games/catalog.ts`).
  */
-export const DEFAULT_GAME_TYPE = 'king';
-
-/** Plain, driver-agnostic shape of one `rooms` table row. */
 export interface RoomRow {
   code: string;
   /** Which game this room is (multi-game foundation; 'king' for now). */
-  gameType: string;
+  gameType: GameType;
   playerCount: number;
   started: boolean;
   /** Epoch ms; mirrors ServerRoom.updatedAt (also lives inside `data`). */
@@ -43,7 +41,7 @@ export interface RoomRow {
  * `gameType` is metadata for routing/filtering and is not part of the payload.
  * King rooms use the default; the param is the seam for future games.
  */
-export function roomToRow(room: ServerRoom, gameType: string = DEFAULT_GAME_TYPE): RoomRow {
+export function roomToRow(room: ServerRoom, gameType: GameType = DEFAULT_GAME_TYPE): RoomRow {
   return {
     code: room.code,
     gameType,

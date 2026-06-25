@@ -16,6 +16,7 @@ import { gameReducer, getActingPlayerId, getCurrentPlayer } from '../core/gameEn
 import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards, aiChooseCard } from '../core/ai';
 import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
 import { makeRng, randomSeed, hashString } from '../core/rng';
+import { DEFAULT_GAME_TYPE } from '../games/catalog';
 import { redactStateFor } from './messages';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, buildStartAction, seatToPlayerId } from './online';
@@ -606,7 +607,7 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     hostConnected: host?.connected ?? false,
     // King-only today; emitted from the room so future games extend without a
     // protocol change. Discovery is game-aware (see ONLINE_ARCHITECTURE.md).
-    gameType: 'king',
+    gameType: DEFAULT_GAME_TYPE,
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),

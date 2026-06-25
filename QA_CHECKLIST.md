@@ -111,12 +111,13 @@ All three must be green.
 
 ## Known limitations
 
-- Online expects all seats to be **human** (no AI online).
-- Room password is an **MVP gate**, not authentication; use **WSS** in
-  production so it isn't sent in clear (see DEPLOYMENT.md).
-- No rate limiting yet — add before a public launch.
-- Persistence is a single JSON file, single server instance (MVP). Use Redis/DB
-  for multi-instance / durability at scale.
+- Room password is an **MVP gate**, not full account-level authentication; use
+  **WSS** in production so it isn't sent in clear (see DEPLOYMENT.md).
+- Join/create rate limiting is still the main missing public-launch hardening.
+- Rooms can persist to file or Postgres, but the live room process is still a
+  single Node instance. Use Redis/pub-sub or sticky sessions for multi-instance
+  scale.
 - Public-screen progression is server-timed; clients can't manually skip online.
-- Session resume is per-tab `sessionStorage` and needs the room still in the
-  server's store.
+- Chat/reactions are in-memory only and disappear after a server restart.
+- Disconnected humans are AI-substituted after a delay, but there is no admin
+  moderation console yet.

@@ -944,8 +944,6 @@ first-consent name/email, relay email; no schema change) and mobile bearer/
 refresh tokens (`kind='mobile_refresh'`) move to a later mobile stage.
 
 ### Stage 7 — Optional Redis for live room scaling
-
-### Stage 7 — Optional Redis for live room scaling
 - Only if we outgrow a single Node process. Introduce Redis for (a) pub/sub fan-
   out of `STATE_UPDATE` across instances and (b) a short-TTL cache/lock for the
   active `game_snapshots`. Postgres remains durable truth.

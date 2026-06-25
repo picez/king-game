@@ -14,6 +14,7 @@
 
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
+import type { GameType } from '../games/catalog';
 
 // ---------------------------------------------------------------------------
 // Lobby / room model
@@ -56,14 +57,6 @@ export interface RoomSnapshot {
    */
   hasPassword: boolean;
 }
-
-/**
- * Which card game a room is running. King-only today; the discovery list is
- * game-aware so future card games (e.g. other trick-taking games) can share the
- * same server browser. Always present in a summary; older/unknown rooms fall
- * back to 'king' at the source.
- */
-export type GameType = 'king';
 
 /**
  * Public, privacy-safe summary of a room for the discovery list. Contains ONLY

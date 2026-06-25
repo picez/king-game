@@ -29,7 +29,7 @@ linked docs.
   join; 🔒 protected rooms ask for a password). Manual room code still works.
 - **Server-controlled deal** with per-round seed + deal audit log (server-side
   only; never sent to clients).
-- **Reconnect & resume** after a tab reload / short drop (sessionStorage handle).
+- **Reconnect & resume** after a tab reload / short drop (localStorage handle).
 - **Optional room password** (salted hash; MVP gate, not auth).
 - **Room persistence** to a JSON file → survives a server restart.
 - **Room cleanup**: idle rooms (no connected players) expire after
@@ -153,16 +153,22 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- Online expects all seats to be **human** (no AI online).
-- Room password is an **MVP gate**, not authentication; production needs **WSS**
-  + rate limiting (not implemented yet).
-- Persistence is a single JSON file, single server instance.
+- Room password is an **MVP gate**, not full moderation/auth; production should
+  keep **WSS** enabled and add per-IP join/create rate limiting before a public
+  launch.
+- The production server is still a **single Node instance**. Rooms can persist to
+  Postgres (`ROOM_STORAGE=pg`), but horizontal scaling needs Redis/pub-sub or
+  sticky sessions.
 - Public screens advance on a server timer; no manual skip online.
-- Resume is per-tab `sessionStorage`; needs the room still in the server store.
+- Chat/reactions are ephemeral in-memory room-social state; they disappear on a
+  server restart.
+- Disconnected humans are AI-substituted after a delay, but there is no full
+  spectator/admin moderation console yet.
 
 ## Recommended next steps (after manual LAN/mobile QA)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
-2. Add join **rate limiting** and deploy behind **WSS** before any public launch.
-3. (Scale) move persistence to Redis/DB via the `RoomStorage` interface.
-4. (Optional) AI fill for online seats; public deal-commitment for verifiable fairness.
+2. Add join/create **rate limiting** before any broader public launch.
+3. Prepare the multi-game architecture seam before adding the next card game.
+4. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
+5. (Optional) public deal-commitment for verifiable fairness.

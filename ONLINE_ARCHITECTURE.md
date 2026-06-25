@@ -168,7 +168,7 @@ join password.
 ### Session resume (tab reload / short drop)
 
 Client-side resume is backed by **`src/net/session.ts`** (pure helpers +
-`sessionStorage` wrappers):
+`localStorage` wrappers):
 
 - **What is stored** (`OnlineSession`): `serverUrl`, `roomCode`,
   `reconnectToken`, `playerName`, `role` (`host`/`join`), `seatIndex`,
@@ -363,11 +363,12 @@ What is wired up:
   use Redis/DB for horizontal scaling and long-term audit retention.
 - Deal seeds are recorded server-side for replay, but not yet exposed to
   clients as a verifiable pre-deal commitment (see §4c "Future").
-- Online play expects all seats to be **human** clients (no AI online).
-- Session resume is **client-side** (`sessionStorage`, per-tab, 2 h TTL) and
-  depends on the room still living in the server's memory. For production,
-  persist rooms server-side (Redis/DB) and consider `localStorage` or a signed
-  cookie so resume survives a server restart or a fully closed tab.
+- Online seats can be human clients or server-side AI bots. A disconnected human
+  remains a human seat and can reconnect; the server may temporarily AI-play for
+  them after the configured delay.
+- Session resume is **client-side** (`localStorage`, 2 h TTL) and depends on the
+  room still living in the configured server store. For production, use
+  `ROOM_STORAGE=pg` (or another durable `RoomStorage`) for restart survival.
 - `ws://` only; put the server behind a TLS reverse proxy and use `wss://` in
   production.
 
