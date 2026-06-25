@@ -191,6 +191,34 @@ Client-side resume is backed by **`src/net/session.ts`** (pure helpers +
      `resume` intent, whose `firstConnectMessage` is `RECONNECT`. A failed
      resume lands on the error screen with **Back** / **Forget saved game**.
 
+### Room social: reactions + chat (Stage 7) — EPHEMERAL, not game rules
+
+Emoji reactions and room chat are **room-social UX, NOT game state**. They are
+deliberately kept OUT of the `gameReducer`, the `GameState`, and persistence:
+
+- **No reducer/state coupling.** `SEND_REACTION` / `SEND_CHAT` are handled
+  entirely in the WS I/O layer (`server/index.ts`); they never call the reducer,
+  never touch `GameState`, never `persistRoom`, and never affect stats.
+- **In-memory only.** Per room the server keeps last-action timestamps + a small
+  ring buffer of the last 50 chat messages (`roomSocial`). Nothing is written to
+  the DB or `rooms.json`; **chat is lost on restart** (acceptable for MVP). The
+  buffer is dropped when the room is cleaned up.
+- **Server-authoritative anti-abuse** (`src/net/chatFilter.ts`, pure + shared):
+  - reactions are a fixed **whitelist** (no arbitrary emoji/text);
+  - a **30s reaction cooldown** and **3s chat rate limit** per client, enforced
+    server-side (the client UI only mirrors them) → `RATE_LIMITED`;
+  - chat is normalised + **profanity-censored** (`***`), URLs → `[link]`, capped
+    at 160 chars; an empty result → `MESSAGE_BLOCKED`. The filter is a layered
+    MVP (NFKC + de-leet + collapse-repeats + a small EN/UK/RU/DE/AR blocklist) —
+    honestly **non-exhaustive**; it never logs raw/filtered chat text.
+- **Privacy.** Broadcast `REACTION`/`CHAT` payloads carry only `clientId` +
+  display name + emoji avatar — **never** a userId/session/token, and never any
+  card/hand data. A freshly joined client gets `CHAT_HISTORY` (recent messages).
+- **Client:** `useNetworkGame` exposes `reactions`/`chat` + `sendReaction`/
+  `sendChat`; a fixed-position `RoomSocial` overlay (bottom-right reaction bar +
+  collapsible chat drawer + floating reactions) sits above the table and **never
+  covers the hand/current trick** (collapsed by default on mobile).
+
 ## 4. Server modes
 
 ### (a) Server-authoritative — **default, current**

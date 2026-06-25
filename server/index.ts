@@ -20,7 +20,11 @@ import { existsSync, statSync } from 'node:fs';
 import { join, normalize, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
-import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
+import type { ClientMessage, ServerMessage, ErrorCode, ChatMessage } from '../src/net/messages';
+import {
+  isValidReaction, filterChat, cooldownRemainingMs,
+  REACTION_COOLDOWN_MS, CHAT_RATE_MS,
+} from '../src/net/chatFilter';
 import {
   createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember, addBot,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
@@ -113,6 +117,25 @@ const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();    // code 
 // yields a new signature so it records once too. DB has its own idempotency key.
 const recordedFinish = new Map<string, string>();                       // code → finish signature
 
+// ── Room social (Stage 7): EPHEMERAL, in-memory only ───────────────────────
+// Reactions + chat are room-social UX, NOT game state: they never touch the
+// reducer, the GameState, or persistence (no DB, no rooms.json). Per room we
+// keep last-action timestamps (server-side cooldown/rate limit) and a small ring
+// buffer of recent chat. All of it is dropped when the room is removed and is
+// lost on restart — acceptable for an MVP.
+interface RoomSocial {
+  reactionAt: Map<string, number>; // clientId → last reaction time (ms)
+  chatAt: Map<string, number>;     // clientId → last chat time (ms)
+  history: ChatMessage[];          // recent messages (capped)
+}
+const CHAT_HISTORY_MAX = 50;
+const roomSocial = new Map<string, RoomSocial>();                       // code → social state
+function socialFor(code: string): RoomSocial {
+  let s = roomSocial.get(code);
+  if (!s) { s = { reactionAt: new Map(), chatAt: new Map(), history: [] }; roomSocial.set(code, s); }
+  return s;
+}
+
 // Assigned once in bootstrap() (createStorage is async for the pg backend).
 // Declared with `let` so the I/O handlers below can close over it; they only
 // run after the server is listening, by which point it is set.
@@ -150,6 +173,17 @@ function makeRoomCode(): string {
 function broadcastRoom(room: ServerRoom): void {
   const snap = snapshot(room);
   for (const m of room.members.values()) send(socketOf(m), { t: 'ROOM_UPDATE', room: snap });
+}
+
+/** Sends one server message to every member of a room (Stage 7 social). */
+function broadcastToRoom(room: ServerRoom, msg: ServerMessage): void {
+  for (const m of room.members.values()) send(socketOf(m), msg);
+}
+
+/** Sends a freshly joined/reconnected client the room's recent chat (if any). */
+function sendChatHistory(socket: WebSocket, code: string): void {
+  const social = roomSocial.get(code);
+  if (social && social.history.length) send(socket, { t: 'CHAT_HISTORY', messages: social.history });
 }
 
 function broadcastState(room: ServerRoom): void {
@@ -473,6 +507,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
         welcome(socket, room.members.get(clientId)!, room);
         broadcastRoom(room);
         if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId) });
+        sendChatHistory(socket, room.code);
         persistRoom(room);
         logRoomEvent('JOIN_ROOM', reqCode, room);
         break;
@@ -497,6 +532,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
         broadcastRoom(room);
         // Reconnecting client immediately gets the current sanitized state.
         if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
+        sendChatHistory(socket, room.code);
         persistRoom(room);
         break;
       }
@@ -581,6 +617,53 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
         break;
       }
 
+      // ── Room social (Stage 7): reactions + chat. EPHEMERAL — never touches
+      //    the reducer/GameState/persistence; server is authoritative on the
+      //    whitelist, the 30s reaction cooldown, the 3s chat rate limit, the
+      //    length cap, and the profanity/URL filter. No userId/token is exposed.
+      case 'SEND_REACTION': {
+        if (!session) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+        const { room, clientId } = session;
+        const member = room.members.get(clientId);
+        if (!member) return sendError(socket, 'BAD_MESSAGE', 'Not in this room');
+        if (!isValidReaction(msg.emoji)) return sendError(socket, 'BAD_MESSAGE', 'Unknown reaction');
+        const social = socialFor(room.code);
+        const now = Date.now();
+        const remaining = cooldownRemainingMs(social.reactionAt.get(clientId), now, REACTION_COOLDOWN_MS);
+        if (remaining > 0) return sendError(socket, 'RATE_LIMITED', `Wait ${Math.ceil(remaining / 1000)}s`);
+        social.reactionAt.set(clientId, now);
+        broadcastToRoom(room, {
+          t: 'REACTION', clientId, name: member.name, avatar: member.avatar,
+          emoji: msg.emoji, seatIndex: member.seatIndex, at: now,
+        });
+        break;
+      }
+
+      case 'SEND_CHAT': {
+        if (!session) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+        const { room, clientId } = session;
+        const member = room.members.get(clientId);
+        if (!member) return sendError(socket, 'BAD_MESSAGE', 'Not in this room');
+        const social = socialFor(room.code);
+        const now = Date.now();
+        const remaining = cooldownRemainingMs(social.chatAt.get(clientId), now, CHAT_RATE_MS);
+        if (remaining > 0) return sendError(socket, 'RATE_LIMITED', `Wait ${Math.ceil(remaining / 1000)}s`);
+        const filtered = filterChat(msg.text);
+        if (!filtered.ok) return sendError(socket, 'MESSAGE_BLOCKED', 'Message blocked');
+        social.chatAt.set(clientId, now);
+        const message: ChatMessage = {
+          id: randomUUID(), clientId, name: member.name, avatar: member.avatar,
+          text: filtered.text, seatIndex: member.seatIndex, createdAt: now,
+        };
+        social.history.push(message);
+        if (social.history.length > CHAT_HISTORY_MAX) {
+          social.history.splice(0, social.history.length - CHAT_HISTORY_MAX);
+        }
+        // Never log chat text (privacy; no profanity in logs).
+        broadcastToRoom(room, { t: 'CHAT', message });
+        break;
+      }
+
       case 'PING':
         send(socket, { t: 'PONG' });
         break;
@@ -608,6 +691,7 @@ function handleLeave(room: ServerRoom, clientId: string): void {
   if (empty || !hasHuman) {
     clearRoomTimers(room.code);
     recordedFinish.delete(room.code);
+    roomSocial.delete(room.code);
     rooms.delete(room.code);
     storage.deleteRoom(room.code);
     return;
@@ -632,6 +716,7 @@ function cleanupRooms(): number {
   for (const code of expired) {
     clearRoomTimers(code);
     recordedFinish.delete(code);
+    roomSocial.delete(code);
     rooms.delete(code);
     storage.deleteRoom(code); // also drop it from the persistence file
     console.log(`[King] auto-cleaned idle room ${code}`);

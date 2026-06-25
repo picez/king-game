@@ -8,8 +8,7 @@ import { loadSession, clearSession } from '../net/session';
 import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } from '../net/prefs';
 import { AVATARS, defaultAvatar } from '../core/avatars';
 import { useI18n, LanguageSelector } from '../i18n';
-import AccountPanel from './AccountPanel';
-import KingStatsPanel from './KingStatsPanel';
+import ProfileMenu from './ProfileMenu';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -125,14 +124,12 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <button className="btn btn--outline btn--large" onClick={() => setPane('host')}>{t('menu.host')}</button>
             <button className="btn btn--outline btn--large" onClick={openJoin}>{t('menu.join')}</button>
 
-            <AccountPanel
+            <ProfileMenu
               serverUrl={url}
               name={name} onName={setName}
               avatar={avatar} onAvatar={setAvatar}
               defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
             />
-
-            <KingStatsPanel serverUrl={url} />
           </>
         )}
 

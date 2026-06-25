@@ -88,6 +88,23 @@ export interface RoomSummary {
   updatedAt: number;
 }
 
+/**
+ * One room chat message (Stage 7). EPHEMERAL room-social state — NOT part of the
+ * game reducer/state and NOT persisted long-term (kept only in a small per-room
+ * in-memory ring buffer). `clientId` identifies the sender's connection for the
+ * UI; it is NOT a userId/session/token. `text` is already sanitised + censored
+ * by the server before broadcast.
+ */
+export interface ChatMessage {
+  id: string;
+  clientId: string;
+  name: string;
+  avatar: string;
+  text: string;
+  seatIndex: number | null;
+  createdAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Client → Server messages
 // ---------------------------------------------------------------------------
@@ -117,6 +134,10 @@ export type ClientMessage =
    * reducer and derives state from ACTION_REQUESTs itself.
    */
   | { t: 'HOST_STATE'; state: GameState | null }
+  /** Room-social (Stage 7): send a whitelisted emoji reaction (server cooldown). */
+  | { t: 'SEND_REACTION'; emoji: string }
+  /** Room-social (Stage 7): send a chat message (server filters + rate-limits). */
+  | { t: 'SEND_CHAT'; text: string }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -145,6 +166,12 @@ export type ServerMessage =
   | { t: 'ERROR'; code: ErrorCode; message: string }
   /** The host removed this client from the room (before game start). */
   | { t: 'KICKED'; reason: 'HOST_REMOVED' }
+  /** Room-social broadcast: a member sent a whitelisted reaction (transient UI). */
+  | { t: 'REACTION'; clientId: string; name: string; avatar: string; emoji: string; seatIndex: number | null; at: number }
+  /** Room-social broadcast: a new (sanitised) chat message for everyone in room. */
+  | { t: 'CHAT'; message: ChatMessage }
+  /** Recent chat for a freshly joined/reconnected client (last N, server-capped). */
+  | { t: 'CHAT_HISTORY'; messages: ChatMessage[] }
   | { t: 'PONG' };
 
 export type ErrorCode =
@@ -158,6 +185,10 @@ export type ErrorCode =
   | 'NOT_HOST'
   /** The client was removed from the room by the host (UI message key). */
   | 'KICKED_BY_HOST'
+  /** Reaction cooldown / chat rate limit not elapsed yet (Stage 7). */
+  | 'RATE_LIMITED'
+  /** Chat message had nothing safe to send after filtering (Stage 7). */
+  | 'MESSAGE_BLOCKED'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

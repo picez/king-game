@@ -106,15 +106,17 @@ async function run() {
       await cdp.evaluate(`(()=>{const s=document.querySelector('.lang-select');if(s){s.value='en';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
       await sleep(300);
 
-      // Statistics panel (Stage 5.1) — open, capture My stats + Leaderboard
-      // tabs (soft empty state without a DB), then collapse again.
-      await cdp.evaluate(CLICK('Statistics'));
-      await sleep(800);
+      // Profile/Statistics segmented menu (Stage 7) — open, capture the My stats
+      // + Leaderboard segments (soft empty state without a DB), then collapse.
+      await cdp.evaluate(CLICK('Statistics'));   // toggle includes "Statistics"
+      await sleep(600);
+      await cdp.evaluate(CLICK('My King stats')); // stats segment
+      await sleep(700);
       await shot(cdp, `${tag}-1c-stats`);
       await cdp.evaluate(CLICK('Leaderboard'));
-      await sleep(500);
+      await sleep(600);
       await shot(cdp, `${tag}-1d-leaderboard`);
-      await cdp.evaluate(CLICK('Statistics'));
+      await cdp.evaluate(CLICK('Statistics'));   // collapse
       await sleep(200);
 
       // Join pane (room list + manual code + password)

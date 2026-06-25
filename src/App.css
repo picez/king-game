@@ -476,6 +476,10 @@ body {
   background: linear-gradient(160deg, #ffffff 0%, #eef1f4 100%);
   cursor: pointer;
   padding: 0;
+  /* Clip artwork + any overlay to the rounded border — nothing ever pokes out
+     past the card edge (Stage 7 cleanup). Selection/highlight rings are
+     box-shadows on the card itself, so they are NOT clipped by this. */
+  overflow: hidden;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   flex-shrink: 0;
   /* A soft contact shadow + a thin top light edge gives every card real depth. */
@@ -540,22 +544,12 @@ body {
 .card--art .card__corner,
 .card--art .card__center { display: none; }
 
-/* Table (current-trick) cards are scaled down and object-fit:cover crops the
-   artwork's own corner indices, so the suit can be hard to read at a glance.
-   Re-show ONE compact rank+suit badge (top-left) on top of the artwork — a small
-   white pill keeps it legible over any card colour. Only the trick uses this; the
-   hand/preview/mini text layers stay hidden behind their full-size artwork. */
-.card--table.card--art .card__corner--tl {
-  display: flex;
-  top: 2px;
-  left: 2px;
-  padding: 0 3px 1px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
-}
-.card--table .card__rank { font-size: 0.72rem; font-weight: 800; }
-.card--table .card__suit { font-size: 0.74rem; }
+/* Table (current-trick) cards: show the FULL artwork (with its own indices) via
+   object-fit:contain on the cream backing — the deck's ratio (~0.62) matches the
+   table slot (~0.627) so there is no visible letterbox, and crucially the
+   artwork's own corner index is never cropped. No extra rank/suit badge is drawn
+   on top (Stage 7 cleanup — the duplicate pill is gone). */
+.card--table.card--art .card__art { object-fit: contain; }
 
 /* The Ace artwork in this deck is squarer (ratio ~0.81) than every other rank
    (~0.62). With object-fit:cover it would be scaled to fill the taller card slot
@@ -1560,6 +1554,38 @@ body {
 .account-panel__email { color: var(--text-muted); word-break: break-all; }
 .account-panel__google { text-align: center; text-decoration: none; }
 
+/* ===== Profile / Statistics segmented menu (Stage 7) ===== */
+.profile-menu {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--surface-3);
+  padding-top: 0.75rem;
+}
+.profile-menu__toggle { width: 100%; }
+.profile-menu__body { margin-top: 0.6rem; }
+/* Segmented control: pill tabs that share the width + a small refresh button. */
+.segmented {
+  display: flex; align-items: stretch; gap: 4px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px; margin-bottom: 0.7rem;
+}
+.segmented__tab {
+  flex: 1 1 0; min-width: 0;
+  padding: 0.45rem 0.4rem;
+  background: transparent; color: var(--text-muted);
+  border: none; border-radius: 999px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  min-height: var(--tap-min);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background 0.15s, color 0.15s;
+}
+.segmented__tab--active {
+  background: var(--gold-grad); color: #2a2407;
+  box-shadow: var(--shadow-1);
+}
+.profile-menu__refresh { flex: 0 0 auto; align-self: center; min-width: 2.2rem; }
+/* The embedded AccountPanel body drops its own border (the segment frames it). */
+.account-embedded .account-panel__body { margin-top: 0; }
+
 /* ===== Stats / leaderboard (Stage 5.1) ===== */
 .stats-section {
   margin-top: 0.75rem;
@@ -1658,6 +1684,108 @@ body {
 .lb-you { color: var(--accent); font-size: 0.75rem; font-weight: 600; }
 .lb-wr { flex: 0 0 auto; color: var(--accent); font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .lb-meta { font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== Room social: reactions + chat (Stage 7) ===== */
+/* Floating reactions — top-centre, pointer-through, never over the hand/trick. */
+.reactions-float {
+  position: fixed; top: 60px; left: 0; right: 0;
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+  pointer-events: none; z-index: 60; padding: 0 8px;
+}
+.reaction-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px 3px 6px;
+  box-shadow: var(--shadow-2); font-size: 0.85rem; color: var(--text);
+  animation: reactionPop 2.6s ease forwards;
+}
+.reaction-chip__emoji { font-size: 1.1rem; }
+.reaction-chip__name { color: var(--text-muted); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes reactionPop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+  12% { opacity: 1; transform: none; }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+.social-toast {
+  position: fixed; right: 12px; bottom: 132px; z-index: 62;
+  background: var(--danger-soft); color: var(--danger-light);
+  border: 1px solid var(--danger); border-radius: 10px;
+  padding: 0.45rem 0.7rem; font-size: 0.82rem; box-shadow: var(--shadow-2);
+}
+
+/* Bottom-right controls (above the hand area). */
+.social-controls {
+  position: fixed; right: 12px; bottom: 12px; z-index: 61;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.social-controls__row { display: flex; gap: 8px; }
+.social-fab {
+  position: relative; width: 46px; height: 46px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  box-shadow: var(--top-light), var(--shadow-2); font-size: 1.3rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, background 0.15s;
+}
+.social-fab:hover { background: var(--surface-3); }
+.social-fab:active { transform: translateY(1px); }
+.social-fab__badge {
+  position: absolute; top: -3px; right: -3px;
+  background: var(--danger); color: #fff; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; line-height: 1;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.reaction-bar {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px;
+  max-width: min(320px, 84vw);
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 5px; box-shadow: var(--top-light), var(--shadow-2);
+}
+.reaction-bar__btn {
+  font-size: 1.35rem; background: transparent; border: none;
+  padding: 4px 6px; border-radius: 8px; cursor: pointer; line-height: 1;
+}
+.reaction-bar__btn:hover { background: var(--surface-3); }
+
+/* Chat drawer — right side, collapsed by default; never covers by default. */
+.chat-drawer {
+  position: fixed; top: 0; right: 0; height: 100%;
+  width: min(320px, 86vw); z-index: 70;
+  background: var(--panel-2); border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop); display: flex; flex-direction: column;
+}
+.chat-drawer__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border);
+  font-weight: 700; color: var(--text);
+}
+.chat-drawer__list {
+  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  padding: 0.7rem; display: flex; flex-direction: column; gap: 7px;
+}
+.chat-empty { color: var(--text-muted); text-align: center; margin-top: 1.5rem; font-size: 0.9rem; }
+.chat-msg { display: flex; gap: 6px; align-items: flex-start; }
+.chat-msg--mine { flex-direction: row-reverse; }
+.chat-msg__av { font-size: 1.05rem; line-height: 1.3; flex: 0 0 auto; }
+.chat-msg__body { display: flex; flex-direction: column; min-width: 0; }
+.chat-msg--mine .chat-msg__body { align-items: flex-end; }
+.chat-msg__name { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; }
+.chat-msg__text {
+  font-size: 0.88rem; color: var(--text); word-break: break-word;
+  background: var(--surface-2); padding: 4px 9px; border-radius: 11px; max-width: 100%;
+}
+.chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
+.chat-drawer__compose {
+  display: flex; gap: 6px; padding: 0.6rem; border-top: 1px solid var(--border);
+}
+.chat-input { flex: 1 1 auto; min-width: 0; }
+
+/* RTL: mirror the drawer + the corner controls to the left edge. */
+[dir="rtl"] .chat-drawer { right: auto; left: 0; border-left: none; border-right: 1px solid var(--border-strong); }
+[dir="rtl"] .social-controls { right: auto; left: 12px; align-items: flex-start; }
+[dir="rtl"] .social-toast { right: auto; left: 12px; }
 
 /* ===== Language selector / top bar ===== */
 .topbar {

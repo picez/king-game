@@ -19,6 +19,9 @@ interface Props {
   onAvatar: (v: string) => void;
   defaultTimer: number;
   onDefaultTimer: (v: number) => void;
+  /** When true, render the body directly (no own toggle) — for the segmented
+   *  Profile/Stats menu. The body is always expanded and hydrates on mount. */
+  embedded?: boolean;
 }
 
 /**
@@ -30,10 +33,11 @@ interface Props {
  * whether or not this panel ever talks to a server.
  */
 export default function AccountPanel({
-  serverUrl, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer,
+  serverUrl, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, embedded = false,
 }: Props) {
   const { t, lang } = useI18n();
   const [open, setOpen] = useState(false);
+  const expanded = embedded || open;
   const [me, setMe] = useState<MeResponse | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [banner, setBanner] = useState<'success' | 'error' | null>(null);
@@ -72,12 +76,12 @@ export default function AccountPanel({
     void hydrate();
   }, [hydrate]);
 
-  // On first open, hydrate identity/settings (soft).
+  // On first expand (own toggle) or mount (embedded), hydrate identity/settings.
   useEffect(() => {
-    if (!open || hydrated.current) return;
+    if (!expanded || hydrated.current) return;
     hydrated.current = true;
     void hydrate();
-  }, [open, hydrate]);
+  }, [expanded, hydrate]);
 
   /** Create/reuse a guest user + session, then push current prefs. "Save progress". */
   async function saveProgress() {
@@ -118,13 +122,15 @@ export default function AccountPanel({
   const statusLabel = signedIn ? t('account.signedInGoogle') : isGuest ? t('account.guest') : t('account.local');
 
   return (
-    <div className="account-panel">
-      <button className="btn btn--ghost btn--small account-panel__toggle"
-        onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        👤 {t('account.title')} {open ? '▲' : '▼'}
-      </button>
+    <div className={embedded ? 'account-embedded' : 'account-panel'}>
+      {!embedded && (
+        <button className="btn btn--ghost btn--small account-panel__toggle"
+          onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          👤 {t('account.title')} {open ? '▲' : '▼'}
+        </button>
+      )}
 
-      {open && (
+      {expanded && (
         <div className="account-panel__body">
           {banner === 'success' && <p className="account-panel__ok">✅ {t('account.loginSuccess')}</p>}
           {banner === 'error' && <p className="lobby-error">{t('account.loginError')}</p>}

@@ -60,6 +60,19 @@ linked docs.
   (a new guest can start again). **With no `GOOGLE_*` env the server runs exactly
   as before** and `/auth/google/start` 503s `oauth_disabled`. Setup:
   [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) → Google sign-in.
+- **Room social — reactions + chat (Stage 7)**: in an online room (lobby or
+  game) players can send **whitelisted emoji reactions** (server-enforced **30s
+  cooldown**) and **chat** (server-enforced **3s rate limit**, 160-char cap,
+  layered **profanity filter** + URL stripping). Both are **ephemeral room-social
+  state** — never in the game reducer/`GameState`, never persisted long-term
+  (in-memory last-50 ring buffer; lost on restart), never in stats. Payloads
+  carry no userId/session/token and no card data. A collapsible chat drawer +
+  reaction bar overlay never cover the hand/trick and are mobile-clean (360/390,
+  RTL). See [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md) → Room social.
+- **UI polish (Stage 7)**: a unified, casino/felt **segmented Profile /
+  Statistics / Leaderboard** menu replaces the two separate toggles; card artwork
+  is clipped to the rounded border with no duplicate suit/rank badge (full-image
+  cards; Ace not cropped; face-down cards unchanged).
 - **Stats & leaderboard (Stage 5 / 5.1 / 5.2)**: when a `DATABASE_URL` is set,
   finished **online** games record per-`(user, game_type)` stats (bots excluded;
   idempotent; **score-only**, no cards). `GET /api/games/king/stats` returns a

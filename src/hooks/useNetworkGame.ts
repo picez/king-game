@@ -3,7 +3,7 @@ import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { getActingPlayerId } from '../core/gameEngine';
 import { WebSocketTransport } from '../net/transport';
-import type { ClientMessage, ErrorCode, RoomSnapshot, ServerMessage } from '../net/messages';
+import type { ClientMessage, ErrorCode, RoomSnapshot, ServerMessage, ChatMessage } from '../net/messages';
 import { firstConnectMessage, seatToPlayerId } from '../net/online';
 import type { OnlineIntent } from '../net/online';
 import { saveSession, clearSession } from '../net/session';
@@ -11,6 +11,21 @@ import { saveSession, clearSession } from '../net/session';
 export type { OnlineIntent };
 
 export type OnlineStatus = 'connecting' | 'lobby' | 'in_game' | 'finished' | 'error' | 'disconnected' | 'kicked';
+
+/** A transient reaction event for the floating display (Stage 7). */
+export interface ReactionEvent {
+  /** Unique client-side key (server may send several with the same `at`). */
+  key: string;
+  clientId: string;
+  name: string;
+  avatar: string;
+  emoji: string;
+  seatIndex: number | null;
+  at: number;
+}
+
+/** A non-fatal social notice (rate-limited / message blocked) for a small toast. */
+export interface SocialNotice { code: ErrorCode; message: string; at: number }
 
 export interface NetworkGame {
   status: OnlineStatus;
@@ -34,6 +49,18 @@ export interface NetworkGame {
   /** Host-only: set the per-turn timer (seconds; 0 = off) before start. */
   setTimer: (turnTimerSec: number) => void;
   leave: () => void;
+  // ── Room social (Stage 7) ──
+  /** Recent reaction events (transient; the UI prunes by age). */
+  reactions: ReactionEvent[];
+  /** Recent chat messages (server-sanitised; capped). */
+  chat: ChatMessage[];
+  /** Send a whitelisted emoji reaction (server enforces the 30s cooldown). */
+  sendReaction: (emoji: string) => void;
+  /** Send a chat message (server filters + rate-limits). */
+  sendChat: (text: string) => void;
+  /** A transient rate-limit / blocked notice for a small toast, or null. */
+  socialNotice: SocialNotice | null;
+  clearSocialNotice: () => void;
 }
 
 const RECONNECT_DELAY_MS = 1500;
@@ -51,6 +78,10 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [state, setState] = useState<GameState | null>(null);
   const [mySeat, setMySeat] = useState<number | null>(null);
+  const [reactions, setReactions] = useState<ReactionEvent[]>([]);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
+  const reactionKeyRef = useRef(0);
 
   const transportRef = useRef<WebSocketTransport | null>(null);
   const clientIdRef = useRef<string | null>(null);
@@ -112,7 +143,30 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         transportRef.current?.close();
         break;
       }
+      case 'REACTION': {
+        reactionKeyRef.current += 1;
+        const ev: ReactionEvent = {
+          key: `${msg.at}-${reactionKeyRef.current}`,
+          clientId: msg.clientId, name: msg.name, avatar: msg.avatar,
+          emoji: msg.emoji, seatIndex: msg.seatIndex, at: msg.at,
+        };
+        setReactions((r) => [...r, ev].slice(-12));
+        break;
+      }
+      case 'CHAT': {
+        setChat((c) => [...c, msg.message].slice(-100));
+        break;
+      }
+      case 'CHAT_HISTORY': {
+        setChat(msg.messages.slice(-100));
+        break;
+      }
       case 'ERROR': {
+        // Non-fatal social limits → a small toast, not the game error surface.
+        if (msg.code === 'RATE_LIMITED' || msg.code === 'MESSAGE_BLOCKED') {
+          setSocialNotice({ code: msg.code, message: msg.message, at: Date.now() });
+          break;
+        }
         setError(msg.message);
         setErrorCode(msg.code);
         // Fatal lobby/join errors abort; in-game errors are transient (bad move…).
@@ -213,6 +267,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   }, [send]);
 
   const startGame = useCallback(() => send({ t: 'START_GAME' }), [send]);
+  const sendReaction = useCallback((emoji: string) => send({ t: 'SEND_REACTION', emoji }), [send]);
+  const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
+  const clearSocialNotice = useCallback(() => setSocialNotice(null), []);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
   const setTimer = useCallback((turnTimerSec: number) => send({ t: 'SET_TIMER', turnTimerSec }), [send]);
@@ -230,5 +287,6 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     status, error, errorCode, room, state, myPlayerId,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave,
+    reactions, chat, sendReaction, sendChat, socialNotice, clearSocialNotice,
   };
 }

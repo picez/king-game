@@ -44,6 +44,28 @@ All three must be green.
 - [ ] Opponents' cards never visible (card backs / counts only).
 - [ ] Trick / round screens advance automatically (no dead buttons online).
 
+## Manual — room social (reactions + chat, Stage 7)
+
+- [ ] In a room (lobby or game), tap **😀** → the reaction row opens; tapping an
+      emoji shows a floating reaction (sender name + emoji) for ~2.5s on **all**
+      devices in the room. It **never covers your hand or the current trick**.
+- [ ] Sending a **second reaction immediately** shows a "Too many messages /
+      Wait…" toast (the **30s cooldown is server-side** — try from two devices to
+      confirm it's per-player, not global).
+- [ ] Tap **💬** → the chat drawer opens (collapsed by default on mobile); send a
+      message → it appears for everyone with your name + avatar.
+- [ ] A message with a bad word is **censored to `***`** for everyone (the filter
+      runs server-side; a tampered client cannot bypass it). A URL becomes
+      `[link]`. An over-long message is capped.
+- [ ] Sending two messages within ~3s → the second shows a rate-limit toast.
+- [ ] A new joiner sees the **recent chat history**; reactions/chat survive a
+      reconnect but are **cleared on a server restart** (expected for MVP).
+- [ ] No horizontal overflow on 360/390 with the drawer open; RTL (Arabic) mirrors
+      the drawer/controls to the left.
+- [ ] Cards: artwork cards show the **full picture** (no duplicate suit/rank
+      badge poking past the edge); table/trick cards stay readable; the Ace is not
+      cropped; face-down cards are unchanged.
+
 ## Manual — reconnect & restart
 
 - [ ] Reload a player's tab → start menu shows **Resume online game** → one click

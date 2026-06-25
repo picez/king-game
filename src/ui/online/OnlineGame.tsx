@@ -10,6 +10,7 @@ import { useI18n } from '../../i18n';
 import GameRouter from '../GameRouter';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
+import RoomSocial from './RoomSocial';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
 
@@ -33,6 +34,15 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   const net = useNetworkGame(url, intent);
   const { t } = useI18n();
   const errText = (code: ErrorCode | null) => t(code && JOIN_ERR_CODES.has(code) ? `err.${code}` : 'err.generic');
+
+  // Room-social overlay (reactions + chat) — shown whenever we are in a room.
+  const social = (
+    <RoomSocial
+      reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
+      onReact={net.sendReaction} onChat={net.sendChat}
+      notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
+    />
+  );
 
   if (net.status === 'connecting') {
     return <CenterNote title={t('net.connecting')} sub={url} />;
@@ -84,18 +94,21 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   // Lobby (room exists, game not started yet).
   if (net.room && !net.room.started) {
     return (
-      <Lobby
-        room={net.room}
-        isHost={net.isHost}
-        myPlayerId={net.myPlayerId}
-        myClientId={net.myClientId}
-        onStart={net.startGame}
-        onLeave={() => { net.leave(); onExit(); }}
-        onKick={net.kick}
-        onAddBot={net.addBot}
-        onSetTimer={net.setTimer}
-        error={net.error}
-      />
+      <>
+        <Lobby
+          room={net.room}
+          isHost={net.isHost}
+          myPlayerId={net.myPlayerId}
+          myClientId={net.myClientId}
+          onStart={net.startGame}
+          onLeave={() => { net.leave(); onExit(); }}
+          onKick={net.kick}
+          onAddBot={net.addBot}
+          onSetTimer={net.setTimer}
+          error={net.error}
+        />
+        {social}
+      </>
     );
   }
 
@@ -115,12 +128,15 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     .map((m) => m.seatIndex as number);
 
   return (
-    <GameContext.Provider value={{
-      state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
-      turnTimerSec: net.room?.turnTimerSec ?? 0, disconnectedSeats,
-    }}>
-      {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
-    </GameContext.Provider>
+    <>
+      <GameContext.Provider value={{
+        state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
+        turnTimerSec: net.room?.turnTimerSec ?? 0, disconnectedSeats,
+      }}>
+        {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
+      </GameContext.Provider>
+      {social}
+    </>
   );
 }
 

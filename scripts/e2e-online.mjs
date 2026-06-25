@@ -69,7 +69,7 @@ function waitForHealth(timeoutMs = 8000) {
 // ── Tracked client ──────────────────────────────────────────────────────────
 function connect() {
   const ws = new WebSocket(URL);
-  const c = { ws, clientId: null, token: null, seat: null, room: null, state: null, lastError: null };
+  const c = { ws, clientId: null, token: null, seat: null, room: null, state: null, lastError: null, reactions: [], chats: [] };
   ws.on('message', (m) => {
     const o = JSON.parse(m.toString());
     if (o.t === 'WELCOME') { c.clientId = o.clientId; c.token = o.reconnectToken; c.room = o.room; }
@@ -77,6 +77,9 @@ function connect() {
     if (o.t === 'STATE_UPDATE') c.state = o.state;
     if (o.t === 'ROOMS_LIST') c.roomsList = o.rooms;
     if (o.t === 'KICKED') c.kicked = o;
+    if (o.t === 'REACTION') c.reactions.push(o);
+    if (o.t === 'CHAT') c.chats.push(o.message);
+    if (o.t === 'CHAT_HISTORY') c.chatHistory = o.messages;
     if (o.t === 'ERROR') c.lastError = o;
     if (c.room && c.clientId) {
       const me = c.room.members.find((x) => x.clientId === c.clientId);
@@ -337,6 +340,49 @@ async function main() {
   await sleep(150);
   check(gHost.room.turnTimerSec === 60, 'host set the turn timer to 60s (in snapshot)');
   gHost.ws.close(); gJoin.ws.close();
+
+  // 2h) Room social: reactions (30s cooldown) + chat (filtered + rate-limited)
+  console.log('\n[2h] room social: reactions + chat');
+  const sHost = await connect();
+  sendMsg(sHost, { t: 'CREATE_ROOM', name: 'SHost', playerCount: 3, modeSelectionType: 'fixed' });
+  await sleep(150);
+  const sCode = sHost.room.code;
+  const sJoin = await connect();
+  sendMsg(sJoin, { t: 'JOIN_ROOM', code: sCode, name: 'SJoin' });
+  await sleep(200);
+
+  // a whitelisted reaction broadcasts to everyone in the room
+  sendMsg(sHost, { t: 'SEND_REACTION', emoji: '👍' });
+  await sleep(150);
+  check(sJoin.reactions.some((r) => r.emoji === '👍' && r.name === 'SHost'), 'reaction broadcast to other member');
+  check(sHost.reactions.some((r) => r.emoji === '👍'), 'reaction echoed to sender');
+  check(!sHost.reactions.some((r) => 'userId' in r), 'reaction payload has no userId');
+
+  // a second reaction immediately → 30s cooldown enforced server-side
+  sHost.lastError = null;
+  sendMsg(sHost, { t: 'SEND_REACTION', emoji: '😂' });
+  await sleep(150);
+  check(sHost.lastError?.code === 'RATE_LIMITED', 'second reaction blocked by the 30s cooldown (server-side)');
+
+  // a non-whitelisted emoji is rejected
+  sJoin.lastError = null;
+  sendMsg(sJoin, { t: 'SEND_REACTION', emoji: '🤬' });
+  await sleep(150);
+  check(sJoin.lastError?.code === 'BAD_MESSAGE', 'non-whitelisted reaction rejected');
+
+  // chat: profanity censored to *** before broadcast
+  sendMsg(sJoin, { t: 'SEND_CHAT', text: 'you are shit haha' });
+  await sleep(150);
+  const cmsg = sHost.chats.find((m) => m.name === 'SJoin');
+  check(!!cmsg && cmsg.text.includes('***') && !/shit/i.test(cmsg.text), 'chat profanity censored before broadcast');
+  check(!!cmsg && !('userId' in cmsg) && cmsg.text !== undefined, 'chat payload carries no userId/token');
+
+  // chat rate limit (3s) enforced server-side
+  sJoin.lastError = null;
+  sendMsg(sJoin, { t: 'SEND_CHAT', text: 'second message too soon' });
+  await sleep(150);
+  check(sJoin.lastError?.code === 'RATE_LIMITED', 'second chat blocked by the 3s rate limit (server-side)');
+  sHost.ws.close(); sJoin.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
