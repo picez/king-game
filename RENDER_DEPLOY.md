@@ -48,6 +48,8 @@ balancer, and WebSocket connections are supported on the same service.
    | `ALLOWED_ORIGINS` | `https://<your-service>.onrender.com` | set after step 9 (see below) |
    | `ROOM_TTL_HOURS` | `24` | idle-room cleanup |
    | `ROOM_HARD_TTL_HOURS` | `48` | hard cap for connected rooms |
+   | `ORPHAN_ROOM_TTL_MS` | `900000` | delete orphan rooms (no connected human) after 15 min (Stage 7.2) |
+   | `DISCONNECTED_SUBSTITUTE_DELAY_MS` | `120000` | AI substitute delay for a disconnected human's turn, 2 min (Stage 7.2) |
    | `VITE_WS_URL` | `wss://<your-service>.onrender.com/ws` | **optional** — see note |
 
    - **Do NOT set `PORT`.** Render injects it; the server reads `process.env.PORT`.

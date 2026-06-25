@@ -29,7 +29,7 @@ import {
   createRoom, addMember, reconnectMember, markDisconnected, removeMember, kickMember, addBot,
   startGame, applyActionRequest, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   listRoomSummaries, roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
-  setTimer, actingMember, applyTimeoutAction,
+  setTimer, actingMember, applyTimeoutAction, recomputeOrphan, substituteDelayMs,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage, type AppStorage } from './storage';
@@ -94,6 +94,13 @@ const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 800);
 const HOUR_MS = 60 * 60 * 1000;
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_HOURS ?? 24) * HOUR_MS;
 const ROOM_HARD_TTL_MS = Number(process.env.ROOM_HARD_TTL_HOURS ?? 48) * HOUR_MS;
+// Orphan room (no connected human — only bots/offline humans) → delete after this
+// (Stage 7.2; default 15 min). Applies to both lobby and active game.
+const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 15 * 60 * 1000);
+// When a DISCONNECTED human's turn comes, wait this long before an AI substitute
+// acts for them (Stage 7.2; default 2 min). A room turn timer, if enabled AND
+// shorter, takes precedence (players agreed to it). Reconnecting cancels it.
+const SUBSTITUTE_DELAY_MS = Number(process.env.DISCONNECTED_SUBSTITUTE_DELAY_MS ?? 2 * 60 * 1000);
 // Sweep cadence (ms). Overridable for tests/admin; default every 10 minutes.
 const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 10 * 60 * 1000);
 
@@ -143,7 +150,12 @@ let storage: AppStorage;
 
 /** Persist a changed room (stamps updatedAt). Called on meaningful changes only. */
 function persistRoom(room: ServerRoom): void {
-  touchRoom(room, Date.now());
+  const now = Date.now();
+  // Keep the orphan timer current: set it when the last human disconnects, clear
+  // it when a human (re)connects. orphanSince itself is NOT bumped by activity, so
+  // the 15-min countdown runs from when humans actually left (Stage 7.2).
+  recomputeOrphan(room, now);
+  touchRoom(room, now);
   storage.saveRoom(room);
 }
 
@@ -298,21 +310,29 @@ function broadcastAndAdvance(room: ServerRoom): void {
     return;
   }
 
-  // Human's turn: if a turn timer is set, auto-play a safe AI move on timeout so
-  // a slow/absent player never stalls the table. Reset on every transition.
+  // Human's turn: auto-play a safe AI move after a delay so a slow/absent player
+  // never stalls the table. The delay encodes the precedence rule (serverCore):
+  //   • connected human + room timer → the turn timer;
+  //   • connected human, no timer → wait (no auto-action);
+  //   • DISCONNECTED human → an AI SUBSTITUTE after SUBSTITUTE_DELAY_MS (or the
+  //     room timer if shorter). The member stays human (not converted to a bot);
+  //     reconnecting recomputes this on the next advance and cancels it.
+  // Reset on every transition (clearRoomTimers above).
   const acting = actingMember(room);
-  if (acting && acting.type === 'human' && room.turnTimerSec > 0) {
+  const humanDelay = substituteDelayMs(acting, room, SUBSTITUTE_DELAY_MS);
+  if (acting && acting.type === 'human' && humanDelay != null) {
+    const reason = acting.connected ? 'turn timeout' : 'disconnected substitute';
     turnTimers.set(room.code, setTimeout(() => {
       turnTimers.delete(room.code);
       if (!rooms.has(room.code)) return;
       const before = room.dealLog.length;
       if (applyTimeoutAction(room).acted) {
         if (room.dealLog.length > before) logLatestDeal(room);
-        console.log(`[King] room ${room.code} turn timeout → auto-action for seat ${acting.seatIndex}`);
+        console.log(`[King] room ${room.code} ${reason} → auto-action for seat ${acting.seatIndex}`);
         broadcastAndAdvance(room);
         persistRoom(room);
       }
-    }, room.turnTimerSec * 1000));
+    }, humanDelay));
   }
 }
 
@@ -534,6 +554,10 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
         if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
         sendChatHistory(socket, room.code);
         persistRoom(room);
+        // Re-evaluate timers: the player is connected again, so a pending AI
+        // substitute for their turn is cancelled (clearRoomTimers) and only the
+        // normal turn timer (if any) is rescheduled.
+        if (room.gameState) broadcastAndAdvance(room);
         break;
       }
 
@@ -679,6 +703,10 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     markDisconnected(session.room, session.clientId);
     broadcastRoom(session.room);
     persistRoom(session.room); // keep the store fresh (debounced); connected resets on restore
+    // In an active game, re-evaluate the timers now that someone went offline:
+    // if it is the disconnected player's turn, this schedules the AI substitute
+    // (after SUBSTITUTE_DELAY_MS). Harmless for non-acting/lobby disconnects.
+    if (rooms.has(session.room.code) && session.room.gameState) broadcastAndAdvance(session.room);
   });
 });
 
@@ -703,7 +731,11 @@ function handleLeave(room: ServerRoom, clientId: string): void {
 /** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
 function rescheduleAdvance(room: ServerRoom): void {
   const status = room.gameState?.status;
-  if (status === 'trick_complete' || status === 'round_scoring' || botMemberToAct(room)) {
+  const acting = actingMember(room);
+  // Drive public screens, bot turns, and — after a restart — a disconnected
+  // human's turn (schedules the AI substitute so the table never stalls).
+  if (status === 'trick_complete' || status === 'round_scoring' || botMemberToAct(room)
+    || (acting && acting.type === 'human' && !acting.connected)) {
     broadcastAndAdvance(room);
   }
 }
@@ -712,7 +744,7 @@ function rescheduleAdvance(room: ServerRoom): void {
 // deleted. Called once at startup (so expired rooms go immediately, not only
 // after the first interval) and then periodically.
 function cleanupRooms(): number {
-  const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS);
+  const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS, ORPHAN_ROOM_TTL_MS);
   for (const code of expired) {
     clearRoomTimers(code);
     recordedFinish.delete(code);
@@ -751,6 +783,9 @@ async function bootstrap(): Promise<void> {
   // Restore persisted rooms so a server restart doesn't drop in-progress games.
   let restored = 0;
   for (const room of storage.loadRooms()) {
+    // Restored humans have no live socket → mark the room orphaned now (keeping a
+    // persisted orphanSince if present) so an abandoned table is swept on schedule.
+    recomputeOrphan(room, Date.now());
     rooms.set(room.code, room);
     rescheduleAdvance(room);
     restored++;
@@ -772,7 +807,8 @@ async function bootstrap(): Promise<void> {
       : '[King] database: disabled (no DATABASE_URL)');
     console.log(
       `[King] startup: restored ${restored} room(s) from storage, removed ${expiredOnStartup} expired ` +
-      `(TTL ${ROOM_TTL_MS / HOUR_MS}h, hard TTL ${ROOM_HARD_TTL_MS / HOUR_MS}h)`,
+      `(TTL ${ROOM_TTL_MS / HOUR_MS}h, hard TTL ${ROOM_HARD_TTL_MS / HOUR_MS}h, ` +
+      `orphan ${Math.round(ORPHAN_ROOM_TTL_MS / 60000)}m, substitute ${Math.round(SUBSTITUTE_DELAY_MS / 1000)}s)`,
     );
     if (ALLOWED_ORIGINS.length > 0) {
       console.log(`[King] origin allowlist: ${ALLOWED_ORIGINS.join(', ')}`);

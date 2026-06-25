@@ -91,6 +91,8 @@ All optional; defaults keep LAN/dev simple.
 | `APP_ORIGIN`      | _(request)_   | Stage 6: canonical app origin used for the post-login redirect (`https://<domain>`). Defaults to the request's host when unset. |
 | `ROOM_TTL_HOURS`  | `24`          | Idle rooms with **no connected players** are deleted after this many hours. |
 | `ROOM_HARD_TTL_HOURS` | `48`      | Rooms with a connected player survive until this hard cap (so an active table is never yanked). |
+| `ORPHAN_ROOM_TTL_MS` | `900000`   | **Stage 7.2:** an orphan room (no connected human — only bots/offline humans) is deleted after this many ms (15 min). Applies to lobby AND active game. |
+| `DISCONNECTED_SUBSTITUTE_DELAY_MS` | `120000` | **Stage 7.2:** when a disconnected human's turn comes, wait this long (ms) before an AI plays a legal move for them (2 min). A shorter enabled room turn timer takes precedence; reconnecting cancels it; the seat stays human. |
 | `ROOM_CLEANUP_INTERVAL_MS` | `600000` | How often (ms) the server sweeps for expired rooms. Cleanup also runs once at startup. |
 
 ## 3. Build & run

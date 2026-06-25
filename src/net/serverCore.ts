@@ -89,6 +89,14 @@ export interface ServerRoom {
   /** Epoch ms; set on create, bumped on each persisted change. */
   createdAt: number;
   updatedAt: number;
+  /**
+   * Epoch ms when the room became an "orphan" (no connected human members —
+   * only bots and/or offline humans), or null while at least one human is
+   * connected. An orphan room is auto-deleted after ORPHAN_ROOM_TTL_MS so an
+   * abandoned table (lobby OR active game) never lingers. Reset to null the
+   * moment a human reconnects/joins. Persisted so restarts honour the timer.
+   */
+  orphanSince: number | null;
 }
 
 export interface OpResult {
@@ -154,6 +162,7 @@ export function createRoom(opts: {
     passwordHash: hasPw ? hashSecret(salt, opts.password!) : null,
     createdAt: now,
     updatedAt: now,
+    orphanSince: null, // the host is connected at creation → not an orphan
   };
   room.members.set(opts.host.clientId, {
     clientId: opts.host.clientId,
@@ -281,6 +290,48 @@ export function reconnectMember(room: ServerRoom, reconnectToken: string): Serve
 export function markDisconnected(room: ServerRoom, clientId: string): void {
   const m = room.members.get(clientId);
   if (m) m.connected = false;
+}
+
+/** True when at least one HUMAN member currently has a live connection. */
+export function hasConnectedHuman(room: ServerRoom): boolean {
+  return [...room.members.values()].some((m) => m.type === 'human' && m.connected);
+}
+
+/**
+ * Updates the room's orphan timer after any membership/connection change.
+ * Sets `orphanSince` to `now` the moment the last connected human leaves, keeps
+ * the original timestamp while it stays orphaned, and clears it when a human
+ * (re)connects. Call after join/reconnect/disconnect/remove and on restore.
+ */
+export function recomputeOrphan(room: ServerRoom, now: number): void {
+  if (hasConnectedHuman(room)) {
+    room.orphanSince = null;
+  } else if (room.orphanSince == null) {
+    room.orphanSince = now;
+  }
+}
+
+/**
+ * The auto-action delay (ms) for the CURRENT acting member, or null to wait
+ * indefinitely. Encodes the precedence rule (ONLINE_ARCHITECTURE.md):
+ *   • bot / public screens → handled elsewhere (returns null here);
+ *   • connected human + room timer on → the room timer;
+ *   • connected human, no timer → null (wait for them);
+ *   • DISCONNECTED human → substitute after `substituteMs`, or the room timer if
+ *     it is enabled AND shorter (players agreed to that timer).
+ * Pure: the caller supplies `substituteMs`.
+ */
+export function substituteDelayMs(
+  member: ServerMember | null,
+  room: ServerRoom,
+  substituteMs: number,
+): number | null {
+  if (!member || member.type !== 'human') return null;
+  const timerMs = room.turnTimerSec > 0 ? room.turnTimerSec * 1000 : null;
+  if (!member.connected) {
+    return timerMs != null ? Math.min(timerMs, substituteMs) : substituteMs;
+  }
+  return timerMs; // connected: the room timer, or null (wait)
 }
 
 /**
@@ -579,14 +630,21 @@ export function roomsToExpire(
   now: number,
   ttlMs: number,
   hardTtlMs: number,
+  orphanTtlMs: number = Infinity,
 ): string[] {
   const expired: string[] = [];
   for (const room of rooms) {
     const idle = now - room.updatedAt;
-    // Only connected HUMANS keep a room on the longer hard-TTL; bots are always
-    // "present" and must not keep an abandoned room alive forever.
-    const hasConnected = [...room.members.values()].some((m) => m.connected && m.type !== 'ai');
-    if (hasConnected ? idle > hardTtlMs : idle > ttlMs) expired.push(room.code);
+    if (hasConnectedHuman(room)) {
+      // An active table (a connected human) survives until the long hard-TTL.
+      if (idle > hardTtlMs) expired.push(room.code);
+    } else {
+      // Orphan (only bots / offline humans): delete after the SHORT orphan TTL
+      // from when it became orphaned — or the legacy idle TTL as a backstop.
+      // `orphanSince` defaults to updatedAt for rooms restored without it.
+      const since = room.orphanSince ?? room.updatedAt;
+      if (now - since >= orphanTtlMs || idle > ttlMs) expired.push(room.code);
+    }
   }
   return expired;
 }
@@ -628,6 +686,8 @@ export interface PersistedRoom {
   passwordHash: string | null;
   createdAt: number;
   updatedAt: number;
+  /** Orphan timer (epoch ms) or null. Older saves lack it → treated as null. */
+  orphanSince?: number | null;
 }
 
 export function serializeRoom(room: ServerRoom): PersistedRoom {
@@ -646,6 +706,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     passwordHash: room.passwordHash,
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
+    orphanSince: room.orphanSince,
   };
 }
 
@@ -696,6 +757,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     passwordHash: typeof o.passwordHash === 'string' ? o.passwordHash : null,
     createdAt: typeof o.createdAt === 'number' ? o.createdAt : 0,
     updatedAt: typeof o.updatedAt === 'number' ? o.updatedAt : 0,
+    orphanSince: typeof o.orphanSince === 'number' ? o.orphanSince : null,
   };
 }
 

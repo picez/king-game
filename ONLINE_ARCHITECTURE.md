@@ -219,6 +219,41 @@ deliberately kept OUT of the `gameReducer`, the `GameState`, and persistence:
   collapsible chat drawer + floating reactions) sits above the table and **never
   covers the hand/current trick** (collapsed by default on mobile).
 
+### Orphan rooms + disconnected substitute (Stage 7.2)
+
+Two related lifecycle rules keep abandoned/stalled tables healthy without
+touching the reducer, rules, scoring, or deck. A **connected human** =
+`type==='human' && connected===true`; bots never count.
+
+- **Orphan room cleanup.** A room with **no connected human** (only bots and/or
+  offline-but-reconnectable humans) is an *orphan*. `recomputeOrphan(room, now)`
+  stamps `room.orphanSince` the moment the last human disconnects and clears it
+  when any human (re)connects — the timestamp is **not** bumped by activity, so
+  the countdown runs from when humans actually left. The existing cleanup sweep
+  deletes orphans `>= ORPHAN_ROOM_TTL_MS` old (default **15 min**) from memory
+  **and** storage, cancelling their timers. Applies to **lobby and active game**.
+  `orphanSince` is persisted, so a restart resumes the countdown (restored humans
+  have no socket → the room is immediately re-evaluated as orphaned).
+- **Disconnected-human substitute.** A disconnect during an active game does NOT
+  play instantly. When a **disconnected human's** turn comes, the server waits
+  `substituteDelayMs(...)` then plays a **legal AI move** for them via the SAME
+  authorised reducer path as a bot (`applyTimeoutAction` → `botAction` →
+  `applyActionRequest`) — covering `mode_selection` / `select_trump` /
+  `kitty_exchange` / `playing`. The member **stays human** (never converted to a
+  bot), keeps its seat/`userId` (so finished-game **stats still attribute to the
+  human**), and shows as **offline** ("📴 Waiting for X to reconnect…"). The
+  timer is recomputed on every advance: **reconnecting cancels** the substitute.
+  - **Precedence** (`substituteDelayMs`): connected human + room timer → the
+    timer; connected human, no timer → wait; **disconnected** human → after
+    `DISCONNECTED_SUBSTITUTE_DELAY_MS` (default **2 min**), OR the room turn timer
+    if it is enabled **and shorter** (players agreed to that timer).
+- **Not orphan-affected:** explicit **Leave lobby** still removes the member +
+  frees the seat immediately; **Leave game** still drops the socket (offline,
+  reconnectable) and keeps Resume; bots still run normally.
+- **Privacy:** none of this adds protocol fields — no `userId`/tokens, no private
+  hands. The offline state is already public via the room member `connected` flag.
+- Env: `ORPHAN_ROOM_TTL_MS` (900000), `DISCONNECTED_SUBSTITUTE_DELAY_MS` (120000).
+
 ## 4. Server modes
 
 ### (a) Server-authoritative — **default, current**

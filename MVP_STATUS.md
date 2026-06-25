@@ -38,6 +38,15 @@ linked docs.
   vs. expired counts) and every `ROOM_CLEANUP_INTERVAL_MS`; expired rooms are
   also dropped from `rooms.json`. Manual/admin sweep: `npm run rooms:cleanup`
   (see DEPLOYMENT.md).
+- **Orphan cleanup + disconnected substitute (Stage 7.2)**: a room with **no
+  connected human** (only bots/offline humans) is deleted after
+  `ORPHAN_ROOM_TTL_MS` (default **15 min**) — lobby or active game. A human who
+  **disconnects mid-game is not played for instantly**: when their turn comes the
+  server waits `DISCONNECTED_SUBSTITUTE_DELAY_MS` (default **2 min**, or the room
+  turn timer if shorter) then plays a **legal AI move** for them via the normal
+  reducer path; they **stay a human seat** (stats still theirs) and **reconnect
+  cancels** the substitute. The waiting screen shows "📴 Waiting for X to
+  reconnect…". No rules/scoring change. See ONLINE_ARCHITECTURE.md §3.
 - **PWA**: installable on Android (manifest, icons, app-shell service worker).
 - **Production path**: env config, `/health`, origin allowlist, HTTPS/WSS guide.
 - **Profiles/auth foundation (partial — Stage 4)**: an **opt-in** HTTP API

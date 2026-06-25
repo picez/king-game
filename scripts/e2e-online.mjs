@@ -35,8 +35,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function startServer() {
   const child = spawn('npx tsx server/index.ts', {
     shell: true,
-    // Fast bot delay so the e2e bot scenario resolves quickly.
-    env: { ...process.env, PORT: String(PORT), ROOM_STORAGE_FILE: STORE, BOT_DELAY_MS: '40' },
+    // Fast bot delay + a SHORT disconnected-substitute delay so the substitute
+    // scenario resolves quickly (still longer than the reconnect windows above,
+    // so other tests' brief disconnects never trigger a substitute).
+    env: { ...process.env, PORT: String(PORT), ROOM_STORAGE_FILE: STORE, BOT_DELAY_MS: '40', DISCONNECTED_SUBSTITUTE_DELAY_MS: '800' },
     stdio: 'ignore',
   });
   return child;
@@ -455,6 +457,63 @@ async function main() {
   check(!qBack.lastError && qBack.state != null, 'reconnect after leave game restores the game');
   check(qBack.state?.players[qSeat]?.hand.every((c) => c.rank !== '?'), 'reconnected player sees their own hand');
   qHost.ws.close(); qBack.ws.close();
+
+  // 2m) Disconnected human → AI SUBSTITUTE plays for them after the (test-short)
+  // delay, so the table never stalls; the member stays human (not a bot).
+  console.log('\n[2m] disconnected human gets an AI substitute');
+  const obs = await connect();
+  sendMsg(obs, { t: 'CREATE_ROOM', name: 'Observer', playerCount: 3, modeSelectionType: 'dealer_choice' });
+  await sleep(150);
+  const mCode = obs.room.code;
+  const drop = await connect();
+  sendMsg(drop, { t: 'JOIN_ROOM', code: mCode, name: 'Dropper' });
+  await sleep(200);
+  sendMsg(obs, { t: 'ADD_BOT' });
+  await sleep(200);
+  sendMsg(obs, { t: 'START_GAME' });
+  await sleep(300);
+  const dropSeatId = `player-${drop.seat}`;
+
+  // Dropper disconnects — does NOT leave the room.
+  drop.ws.close();
+  await sleep(250);
+  const dm = obs.room.members.find((m) => m.name === 'Dropper');
+  check(!!dm && dm.connected === false, 'disconnected human stays in the room (offline)');
+
+  // Drive only the observer's own turns; the bot + the AI substitute (for the
+  // disconnected Dropper) handle the rest. Detect a play made for Dropper's seat
+  // → proves the substitute acted (a disconnected seat cannot play for itself).
+  const obsBySeat = {};
+  obsBySeat[obs.seat] = obs;
+  const dropperPlayed = () => [
+    ...(obs.state?.currentRound?.tricks ?? []).flatMap((t) => t.plays),
+    ...(obs.state?.currentTrick?.plays ?? []),
+  ].some((p) => p.playerId === dropSeatId);
+  let subbed = false;
+  for (let step = 0; step < 140 && !subbed; step++) {
+    if (dropperPlayed()) { subbed = true; break; }
+    const ref = obs.state;
+    if (!ref || ref.status === 'game_finished') break;
+    const actingId = getActingPlayerId(ref);
+    if (!actingId) { await sleep(120); continue; }
+    const seat = Number(actingId.split('-')[1]);
+    const human = obsBySeat[seat];
+    if (!human) { await sleep(120); continue; } // bot or disconnected Dropper → server acts
+    const st = human.state;
+    if (st.status === 'mode_selection') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_MODE', modeId: 'no_tricks' } });
+    else if (st.status === 'select_trump') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'SELECT_TRUMP', suit: null } });
+    else if (st.status === 'kitty_exchange') sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'EXCHANGE_KITTY', discards: st.players[seat].hand.slice(0, 2) } });
+    else if (st.status === 'playing') {
+      const led = st.currentTrick?.ledSuit ?? null;
+      const valid = getValidCards(st.players[seat].hand, led, st.currentRound.mode.id, st.trumpSuit);
+      sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'PLAY_CARD', playerId: `player-${seat}`, card: valid[0] } });
+    }
+    await sleep(140);
+  }
+  check(subbed, 'AI substituted a legal move for the disconnected human (a Dropper play occurred)');
+  const dm2 = obs.room.members.find((m) => m.name === 'Dropper');
+  check(dm2 && dm2.type === 'human', 'substituted player remained a HUMAN member (not converted to a bot)');
+  obs.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

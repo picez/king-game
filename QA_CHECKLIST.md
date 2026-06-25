@@ -75,6 +75,31 @@ All three must be green.
       the game continues from the same state (file persistence).
 - [ ] **Leave room / Back to menu** clears the saved session (no stale Resume).
 
+## Manual — orphan rooms + disconnected substitute (Stage 7.2)
+
+> Tip: set short envs to test fast, e.g. `ORPHAN_ROOM_TTL_MS=20000` (20s) and
+> `DISCONNECTED_SUBSTITUTE_DELAY_MS=10000` (10s) before `npm run server`.
+
+- [ ] **Orphan room (lobby):** create a room, add a bot, then close the only
+      human tab. The room is **deleted** after `ORPHAN_ROOM_TTL_MS` (gone from the
+      Join list and from `rooms.json`).
+- [ ] **Orphan room (active game):** start a game (host + bots), close all human
+      tabs → room deleted after the orphan TTL.
+- [ ] **Reconnect preserves the room:** go orphan, then reconnect a human before
+      the TTL → the room survives and play continues.
+- [ ] **Connected human keeps the room:** a room with ≥1 connected human is
+      **not** deleted by the orphan TTL (only the long hard-TTL backstop).
+- [ ] **Disconnected substitute:** during an active game, drop a human on/near
+      their turn. Others see "📴 Waiting for X to reconnect…". After the
+      substitute delay (or a shorter room turn timer) the **AI plays a legal
+      move** for them and play continues — they stay an **offline human seat**
+      (🤖 bot tag does NOT appear on them).
+- [ ] **Reconnect cancels the substitute:** drop a human, then reconnect them
+      **before** the delay → they keep their seat and take their own turn (no AI
+      move was made for them).
+- [ ] **Stats:** finishing a game where a human was substituted still attributes
+      that human's stats to their account (with a DB configured).
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches
