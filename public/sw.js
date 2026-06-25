@@ -11,7 +11,10 @@
 // Registered only in production builds (see src/main.tsx).
 // ---------------------------------------------------------------------------
 
-const CACHE = 'king-shell-v1';
+// Bump this on each release that must invalidate any previously-cached shell.
+// On activate, every cache whose name !== CACHE is deleted, so a new SW version
+// purges the old offline copy (belt-and-suspenders on top of network-first).
+const CACHE = 'king-shell-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
