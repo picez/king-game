@@ -52,6 +52,8 @@ export const AR: Record<string, string> = {
   'join.poor': 'ضعيف',
   'gameType.king': 'كينج',
   'menu.game': 'اللعبة',
+  'menu.localSetupTitle': 'لعبة محلية',
+  'menu.startLocal': 'ابدأ لعبة محلية',
   'menu.chooseGame': 'اختر اللعبة',
   'menu.moreGamesSoon': 'المزيد من الألعاب قريبًا',
   'menu.gameAvailable': 'متاح',

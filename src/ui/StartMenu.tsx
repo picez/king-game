@@ -9,11 +9,9 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } 
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
-import { apiBaseFromWsUrl } from '../net/profileApi';
-import { DEFAULT_GAME_TYPE, getGameCatalogEntry, type GameType } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import AccountBar from './menu/AccountBar';
-import GameSelector from './menu/GameSelector';
 import ProfileMenu from './ProfileMenu';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
@@ -33,7 +31,7 @@ interface Props {
   initialError?: ErrorCode | null;
 }
 
-type Pane = 'menu' | 'host' | 'join';
+type Pane = 'menu' | 'host' | 'join' | 'local';
 
 export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const { t } = useI18n();
@@ -53,13 +51,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
-  // Selected game. King supports online; Durak is local-only for now, so its
-  // Host/Join tiles are disabled with an "online coming later" hint (Stage 9.3).
+  // The game is chosen inside the Host / Local setup sheets (Stage 9.9) — not on
+  // the main menu — so it carries through to host()/onLocal().
   const [gameType, setGameType] = useState<GameType>(DEFAULT_GAME_TYPE);
-  // Online is enabled per the catalog's supportsOnline. Durak is enabled but
-  // EXPERIMENTAL (Stage 9.6) — its Host panel adds a variant picker + 2 players.
-  const onlineDisabled = !(getGameCatalogEntry(gameType)?.supportsOnline ?? false);
-  const onlineExperimental = !onlineDisabled && gameType !== 'king';
 
   const account = useAccount(url);
   const roomList = useRoomList();
@@ -151,36 +145,26 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             </div>
           )}
 
-          <GameSelector selected={gameType} onSelect={setGameType} apiBase={apiBaseFromWsUrl(url)} />
-
           <div className="action-tiles">
-            <button className="tile tile--primary" onClick={() => onLocal(gameType)}>
+            <button className="tile tile--primary" onClick={() => setPane('local')}>
               <span className="tile__icon" aria-hidden="true">📱</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.localTitle')}</span>
                 <span className="tile__sub">{t('menu.localSub')}</span>
               </span>
             </button>
-            <button
-              className={`tile ${onlineDisabled ? 'tile--disabled' : ''}`}
-              disabled={onlineDisabled}
-              onClick={onlineDisabled ? undefined : () => setPane('host')}
-            >
+            <button className="tile" onClick={() => setPane('host')}>
               <span className="tile__icon" aria-hidden="true">🌐</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.hostTitle')}</span>
-                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : onlineExperimental ? t('durak.onlineExperimental') : t('menu.hostSub')}</span>
+                <span className="tile__sub">{t('menu.hostSub')}</span>
               </span>
             </button>
-            <button
-              className={`tile ${onlineDisabled ? 'tile--disabled' : ''}`}
-              disabled={onlineDisabled}
-              onClick={onlineDisabled ? undefined : openJoin}
-            >
+            <button className="tile" onClick={openJoin}>
               <span className="tile__icon" aria-hidden="true">🔑</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.joinTitle')}</span>
-                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : onlineExperimental ? t('durak.onlineExperimental') : t('menu.joinSub')}</span>
+                <span className="tile__sub">{t('menu.joinSub')}</span>
               </span>
             </button>
           </div>
@@ -191,7 +175,21 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
         </div>
       )}
 
-      {pane !== 'menu' && (
+      {pane === 'local' && (
+        <div className="sheet">
+          <div className="sheet__head">
+            <h2 className="sheet__title">{t('menu.localSetupTitle')}</h2>
+            <span className="sheet__who"><span aria-hidden="true">{avatar}</span> {name}</span>
+          </div>
+          <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+          <button type="button" className="btn btn--primary sheet__cta" onClick={() => onLocal(gameType)}>
+            {t('menu.startLocal')}
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={() => setPane('menu')}>{t('btn.backToMenu')}</button>
+        </div>
+      )}
+
+      {(pane === 'host' || pane === 'join') && (
         <div className="sheet">
           <div className="sheet__head">
             <h2 className="sheet__title">{pane === 'host' ? t('host.title') : t('join.title')}</h2>
@@ -229,7 +227,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           {pane === 'host' && (
             <>
-              {onlineExperimental && (
+              <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+              {gameType === 'durak' && (
                 <p className="host-experimental">🧪 {t('durak.onlineExperimentalNote')}</p>
               )}
               {gameType === 'durak' && (
@@ -378,6 +377,34 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           <button className="btn btn--ghost" onClick={() => setPane('menu')}>{t('btn.back')}</button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Compact King / Durak picker (segmented; Durak tagged Experimental). Stage 9.9. */
+function GamePicker({ gameType, onPick, t }: {
+  gameType: GameType;
+  onPick: (g: GameType) => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="field">
+      <label className="field__label">{t('menu.game')}</label>
+      <div className="segmented segmented--inline game-picker">
+        {(['king', 'durak'] as const).map((gt) => (
+          <button
+            key={gt}
+            type="button"
+            className={`segmented__tab ${gameType === gt ? 'segmented__tab--active' : ''}`}
+            aria-pressed={gameType === gt}
+            onClick={() => onPick(gt)}
+          >
+            {gt === 'king'
+              ? t('gameType.king')
+              : <>{t('gameType.durak')} <span className="game-picker__exp">{t('menu.experimental')}</span></>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

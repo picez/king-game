@@ -52,6 +52,8 @@ export const UK: Record<string, string> = {
   'join.poor': 'Погано',
   'gameType.king': 'Кінг',
   'menu.game': 'Гра',
+  'menu.localSetupTitle': 'Локальна гра',
+  'menu.startLocal': 'Почати локальну гру',
   'menu.chooseGame': 'Оберіть гру',
   'menu.moreGamesSoon': 'Більше ігор незабаром',
   'menu.gameAvailable': 'Доступно',

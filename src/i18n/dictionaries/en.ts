@@ -52,6 +52,8 @@ export const EN: Record<string, string> = {
   'join.poor': 'Poor',
   'gameType.king': 'King',
   'menu.game': 'Game',
+  'menu.localSetupTitle': 'Local game',
+  'menu.startLocal': 'Start local game',
   'menu.chooseGame': 'Choose game',
   'menu.moreGamesSoon': 'More games coming soon',
   'menu.gameAvailable': 'Available',

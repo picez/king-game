@@ -131,16 +131,18 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
 
       <div className="durak-table">
         {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
-        {state.table.length === 0 && !noticeText
-          ? <p className="durak-table__empty">{isMyTurn && iAmAttacker ? t('durak.tableEmpty') : ''}</p>
-          : state.table.map((pair, i) => (
-            <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
-              <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
-              {pair.defense && (
-                <span className="durak-pair__def"><CardView card={pair.defense} size="table" disabled /></span>
-              )}
-            </div>
-          ))}
+        <div className="durak-table__cards">
+          {state.table.length === 0
+            ? <p className="durak-table__empty">{isMyTurn && iAmAttacker ? t('durak.tableEmpty') : '·'}</p>
+            : state.table.map((pair, i) => (
+              <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
+                <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
+                {pair.defense && (
+                  <span className="durak-pair__def"><CardView card={pair.defense} size="table" disabled /></span>
+                )}
+              </div>
+            ))}
+        </div>
       </div>
 
       <div className={`durak-prompt ${isMyTurn ? 'durak-prompt--me' : ''}`}>

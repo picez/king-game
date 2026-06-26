@@ -25,25 +25,32 @@ describe('GameSelector — selectable vs disabled games', () => {
   });
 });
 
-describe('StartMenu — game selection + online gating', () => {
+describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () => {
   const src = read('../StartMenu.tsx');
 
   it('initialises the selected game to the default (King)', () => {
     expect(src).toContain('useState<GameType>(DEFAULT_GAME_TYPE)');
   });
-  it('starts a LOCAL game of the selected type', () => {
-    expect(src).toContain('onClick={() => onLocal(gameType)}');
+  it('does NOT render the big GameSelector on the main menu', () => {
+    expect(src).not.toContain('<GameSelector');
+    expect(src).not.toContain("from './menu/GameSelector'");
   });
-  it('gates Host/Join on the catalog supportsOnline flag', () => {
-    expect(src).toContain('getGameCatalogEntry(gameType)?.supportsOnline');
-    expect(src).toContain('disabled={onlineDisabled}');
+  it('main "Play locally" opens the local sheet (game picked there)', () => {
+    expect(src).toContain("onClick={() => setPane('local')}");
+    expect(src).toContain('onClick={() => onLocal(gameType)}'); // local sheet start
+    expect(src).toContain("t('menu.startLocal')");
+  });
+  it('exposes a compact King/Durak GamePicker used by Host + Local', () => {
+    expect(src).toContain('function GamePicker(');
+    expect(src).toContain('<GamePicker gameType={gameType} onPick={setGameType}');
   });
   it('hosts the selected game online, passing gameType + variant for Durak', () => {
     expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
     expect(src).toContain('setDurakVariant');
   });
   it('marks online Durak as experimental', () => {
-    expect(src).toMatch(/durak\.onlineExperimental/);
+    expect(src).toMatch(/menu\.experimental/);
+    expect(src).toMatch(/durak\.onlineExperimentalNote/);
   });
 });
 
