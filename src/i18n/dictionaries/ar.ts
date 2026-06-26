@@ -62,6 +62,8 @@ export const AR: Record<string, string> = {
   'durak.onlineExperimental': 'تجريبي',
   'durak.onlineExperimentalNote': 'دوراك عبر الإنترنت تجريبي — لا إحصاءات بعد.',
   'durak.spectating': 'مشاهدة…',
+  'durak.botThinking': 'البوت يفكر…',
+  'durak.offlineAI': '— غير متصل، قد يلعب الذكاء الاصطناعي',
   'durak.setupTagline': 'صدّ كل هجوم — لا تكن الأحمق',
   'durak.variant': 'النمط',
   'durak.variantSimple': 'دوراك بسيط',

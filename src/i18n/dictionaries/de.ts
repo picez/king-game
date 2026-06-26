@@ -62,6 +62,8 @@ export const DE: Record<string, string> = {
   'durak.onlineExperimental': 'Experimentell',
   'durak.onlineExperimentalNote': 'Online-Durak ist experimentell — noch keine Statistik.',
   'durak.spectating': 'Zuschauen…',
+  'durak.botThinking': 'Bot überlegt…',
+  'durak.offlineAI': '— offline, KI spielt evtl.',
   'durak.setupTagline': 'Wehre jeden Angriff ab — sei nicht der Narr',
   'durak.variant': 'Variante',
   'durak.variantSimple': 'Einfacher Durak',

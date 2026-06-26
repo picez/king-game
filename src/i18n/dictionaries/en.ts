@@ -62,6 +62,8 @@ export const EN: Record<string, string> = {
   'durak.onlineExperimental': 'Experimental',
   'durak.onlineExperimentalNote': 'Online Durak is experimental — no stats yet.',
   'durak.spectating': 'Spectating…',
+  'durak.botThinking': 'Bot is thinking…',
+  'durak.offlineAI': '— offline, AI may play',
   'durak.setupTagline': 'Beat every attack — avoid being the fool',
   'durak.variant': 'Variant',
   'durak.variantSimple': 'Simple Durak',

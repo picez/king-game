@@ -185,3 +185,7 @@
   color: var(--accent-light); font-size: 0.82rem; font-weight: 600;
 }
 .sb-variant { color: var(--text-dim); }
+
+/* Offline opponent (online play) — dimmed with a 📴 badge. */
+.durak-opp--offline { opacity: 0.6; }
+.durak-opp__off { font-size: 0.85rem; }

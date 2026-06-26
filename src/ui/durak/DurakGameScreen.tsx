@@ -17,6 +17,8 @@ interface Props {
   apply: (a: DurakAction) => void;
   onExit: () => void;
   notice?: DurakNotice | null;
+  /** Seats whose human is currently offline (online play) — for offline badges. */
+  disconnectedSeats?: number[];
 }
 
 const SUIT_ORDER: Record<Suit, number> = { spades: 0, clubs: 1, diamonds: 2, hearts: 3 };
@@ -33,7 +35,7 @@ function sortHand(cards: Card[], trump: Suit): Card[] {
 }
 
 /** The local human's table view: opponents, trump/deck, table pairs, hand, actions. */
-export default function DurakGameScreen({ state, humanId, apply, onExit, notice }: Props) {
+export default function DurakGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
 
@@ -76,12 +78,18 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice 
 
   const trumpRed = state.trumpSuit === 'hearts' || state.trumpSuit === 'diamonds';
   const opponents = state.players.filter((p) => p.id !== humanId);
-  const actor = state.players[phase === 'attack' ? state.attackerIndex : state.defenderIndex];
+  const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
+  const actorSeat = phase === 'attack' ? state.attackerIndex : state.defenderIndex;
+  const actor = state.players[actorSeat];
   const myRole = iAmAttacker ? t('durak.attacker') : iAmDefender ? t('durak.defender') : '';
 
-  // One clear instruction for the current moment.
+  // One clear instruction for the current moment: my move, a bot thinking, an
+  // offline human (AI may substitute), or just waiting for another human.
+  const waitMsg = offline(actorSeat) ? `${actor?.name} ${t('durak.offlineAI')}`
+    : actor?.type === 'ai' ? t('durak.botThinking')
+      : `${t('durak.waiting')} ${actor?.name}…`;
   const prompt = transferMode ? t('durak.promptTransfer')
-    : !isMyTurn ? `${t('durak.waiting')} ${actor?.name}…`
+    : !isMyTurn ? waitMsg
       : phase === 'attack'
         ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptAttackMore'))
         : t('durak.promptDefend');
@@ -102,8 +110,10 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice 
       <div className="durak-opponents">
         {opponents.map((p) => {
           const role = p.seatIndex === state.attackerIndex ? 'atk' : p.seatIndex === state.defenderIndex ? 'def' : '';
+          const isOffline = offline(p.seatIndex);
           return (
-            <div key={p.id} className={`durak-opp ${role ? `durak-opp--${role}` : ''}`}>
+            <div key={p.id} className={`durak-opp ${role ? `durak-opp--${role}` : ''} ${isOffline ? 'durak-opp--offline' : ''}`}>
+              {isOffline && <span className="durak-opp__off" aria-label="offline">📴</span>}
               <span className="durak-opp__name">{p.name}</span>
               <span className="durak-opp__count">🂠 {p.hand.length}</span>
               {role === 'atk' && <span className="durak-opp__role">{t('durak.attacker')}</span>}

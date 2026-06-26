@@ -62,6 +62,8 @@ export const UK: Record<string, string> = {
   'durak.onlineExperimental': 'Експериментально',
   'durak.onlineExperimentalNote': 'Онлайн-Дурак експериментальний — статистики поки нема.',
   'durak.spectating': 'Спостереження…',
+  'durak.botThinking': 'Бот думає…',
+  'durak.offlineAI': '— офлайн, може грати ШІ',
   'durak.setupTagline': 'Відбий усі атаки — не лишись дурнем',
   'durak.variant': 'Варіант',
   'durak.variantSimple': 'Простий дурак',

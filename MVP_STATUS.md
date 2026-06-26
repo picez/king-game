@@ -170,9 +170,12 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 2. Add join/create **rate limiting** before any broader public launch.
 3. **Durak finish-up (experimental).** Local Durak (simple + transfer) is playable,
    and **experimental online Durak** rooms can be hosted/joined with bots
-   (Stage 9.6) — King state/action are now a union over the wire, hands are
-   redacted per game, and Durak online is clearly labelled experimental. **Durak
-   stats are not recorded yet**; that + polish are the remaining work. Spec:
-   [`DURAK_RULES.md`](DURAK_RULES.md); design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
+   (Stage 9.6/9.7) — King state/action are a union over the wire, hands are
+   redacted per game, the not-your-turn view is read-only ("bot thinking /
+   waiting / offline — AI may play"), and reconnect/leave/chat all work (QA'd via
+   a full-game + multi-human e2e with no redaction leak). Durak online is clearly
+   labelled experimental. **Durak stats are not recorded yet** — that + a
+   leaderboard are the remaining work. Spec: [`DURAK_RULES.md`](DURAK_RULES.md);
+   design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
 4. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
 5. (Optional) public deal-commitment for verifiable fairness.

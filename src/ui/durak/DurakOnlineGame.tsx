@@ -11,6 +11,8 @@ interface Props {
   /** Sends a DurakAction over the network (ACTION_REQUEST). */
   dispatch: (a: DurakAction) => void;
   onExit: () => void;
+  /** Seats whose human is offline (for offline badges / "AI may play" hints). */
+  disconnectedSeats?: number[];
 }
 
 /**
@@ -18,7 +20,7 @@ interface Props {
  * DurakGameScreen, but actions go through the network and bots/other players are
  * driven by the server. Renders nothing King-specific (no GameRouter).
  */
-export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit }: Props) {
+export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -29,7 +31,9 @@ export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit }:
   if (state.status === 'finished') {
     return <DurakFinished state={state} humanId={me.id} onPlayAgain={onExit} onExit={onExit} />;
   }
-  return <DurakGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} />;
+  return (
+    <DurakGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} />
+  );
 }
 
 function CenterNote({ title, sub }: { title: string; sub?: string; children?: ReactNode }) {

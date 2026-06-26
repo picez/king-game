@@ -100,6 +100,37 @@ All three must be green.
 - [ ] **Stats:** finishing a game where a human was substituted still attributes
       that human's stats to their account (with a DB configured).
 
+## Manual — Durak online (experimental, Stage 9.6/9.7)
+
+> King stays the default. Durak online is **experimental** — no stats yet.
+
+- [ ] **Select Durak** in the menu → the **Host** tile is enabled and marked
+      *Experimental*; the Host sheet shows a **variant** picker (Simple/Transfer)
+      and **2/3/4** players + an experimental note.
+- [ ] **Host a Durak room** (e.g. 2 players, Transfer), **Add bot**, **Start** →
+      the **Durak** table renders (not King), with your hand, trump and deck count.
+- [ ] **Room browser** lists the room as **Durak · Simple/Transfer**; a second
+      device can **Join** it.
+- [ ] **Play it through:** attack / defend / take / pass / (Transfer variant)
+      transfer all work over the network; bots take their turns; the game reaches
+      a **fool / draw** finish.
+- [ ] **Not-your-turn view:** the table is read-only and the prompt clearly says
+      **"Bot is thinking…"**, **"Waiting for <name>…"**, or **"<name> — offline,
+      AI may play"** (with a 📴 badge on the offline seat). Your cards are visible
+      but not clickable.
+- [ ] **Redaction:** you only ever see **your own** hand — opponents show a
+      face-down count, never ranks (check across several bouts).
+- [ ] **Reconnect:** reload mid-game / drop Wi-Fi → **Resume** returns you to the
+      Durak table with your hand intact.
+- [ ] **Disconnected substitute:** when an offline player's turn comes, after the
+      delay the AI plays a legal move for them; reconnecting cancels it.
+- [ ] **Leave game** → back to menu with **Resume** still offered; **Leave lobby**
+      before start frees the seat.
+- [ ] **Chat + reactions** work in a Durak room and never cover the hand/table
+      (360/390, RTL).
+- [ ] **Unknown game:** the server rejects a `CREATE_ROOM` with an unknown
+      `gameType` (no room created).
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches

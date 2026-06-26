@@ -132,7 +132,14 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     );
   }
 
+  // Human seats currently disconnected (for offline badges / dimming at the table).
+  const disconnectedSeats = (net.room?.members ?? [])
+    .filter((m) => m.type === 'human' && !m.connected && m.seatIndex != null)
+    .map((m) => m.seatIndex as number);
+
   // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
+  // The Durak screen itself shows the read-only table + "waiting / bot thinking /
+  // offline — AI may play" when it is not this client's turn.
   if (net.room?.gameType === 'durak') {
     return (
       <>
@@ -141,6 +148,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          disconnectedSeats={disconnectedSeats}
         />
         {renderSocial(true, leaveGameToMenu)}
       </>
@@ -152,10 +160,6 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   const actorId = getActingPlayerId(net.state);
   const showAction = isPublic || actorId === net.myPlayerId;
   const exitToMenu = () => { net.leave(); onExit(); };
-  // Human seats currently disconnected (for offline badges / dimming at the table).
-  const disconnectedSeats = (net.room?.members ?? [])
-    .filter((m) => m.type === 'human' && !m.connected && m.seatIndex != null)
-    .map((m) => m.seatIndex as number);
 
   return (
     <>

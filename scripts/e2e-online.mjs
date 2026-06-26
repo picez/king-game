@@ -580,6 +580,92 @@ async function main() {
   check(dkBack.state.players[dkBack.seat].hand.every((c) => c.rank !== '?'), 'reconnected Durak player sees their own hand');
   dkBack.ws.close();
 
+  // 2o) Full online Durak game (human + bot) driven to FINISHED, with a redaction
+  // check on every observed state (opponents must always be hidden).
+  console.log('\n[2o] online Durak: full game to finished + no redaction leak');
+  const fHost = await connect();
+  sendMsg(fHost, { t: 'CREATE_ROOM', name: 'Finisher', playerCount: 2, modeSelectionType: 'fixed', gameType: 'durak', variant: 'simple' });
+  await sleep(180);
+  sendMsg(fHost, { t: 'ADD_BOT' });
+  await sleep(180);
+  sendMsg(fHost, { t: 'START_GAME' });
+  await sleep(350);
+  const fSeat = fHost.seat;
+  let leakSeen = false;
+  let finished = false;
+  for (let step = 0; step < 500 && !finished; step++) {
+    const s = fHost.state;
+    if (!s) { await sleep(120); continue; }
+    // Redaction invariant: the bot's hand is never revealed to the human.
+    const oppHand = s.players[fSeat === 0 ? 1 : 0].hand;
+    if (oppHand.some((c) => c.rank !== '?')) leakSeen = true;
+    if (s.status === 'finished') { finished = true; break; }
+    const acting = s.status === 'attack' ? s.attackerIndex : s.defenderIndex;
+    if (acting !== fSeat) { await sleep(160); continue; }
+    if (s.status === 'attack') {
+      if (s.table.length === 0) sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: s.players[fSeat].hand[0] } });
+      else sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'END_ATTACK' } });
+    } else {
+      sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
+    }
+    await sleep(180);
+  }
+  check(finished, 'online Durak game reached finished');
+  check(!leakSeen, 'no redaction leak: the opponent hand stayed hidden all game');
+  check(fHost.state?.foolId != null || fHost.state?.isDraw === true, 'finished state has a fool or a draw');
+  fHost.ws.close();
+
+  // 2p) Two humans + bot: join, redaction per human, chat between humans, one human
+  // disconnects (host sees offline), then reconnects with hand intact.
+  console.log('\n[2p] online Durak with two humans (join, chat, offline, reconnect)');
+  const tHost = await connect();
+  sendMsg(tHost, { t: 'CREATE_ROOM', name: 'THost', playerCount: 3, modeSelectionType: 'fixed', gameType: 'durak', variant: 'simple' });
+  await sleep(180);
+  const tCode = tHost.room.code;
+  const tJoin = await connect();
+  sendMsg(tJoin, { t: 'JOIN_ROOM', code: tCode, name: 'TJoin' });
+  await sleep(180);
+  check(!tJoin.lastError && tJoin.room?.gameType === 'durak', 'second human joins the Durak room');
+  sendMsg(tHost, { t: 'ADD_BOT' });
+  await sleep(180);
+  sendMsg(tHost, { t: 'START_GAME' });
+  await sleep(350);
+  check(tHost.state?.gameType === 'durak' && tJoin.state?.gameType === 'durak', 'both humans get the Durak state');
+  check(tJoin.state.players[tJoin.seat].hand.every((c) => c.rank !== '?'), 'joiner sees its own hand');
+  check(tJoin.state.players[tHost.seat].hand.every((c) => c.rank === '?'), "joiner cannot see the host's hand");
+  // Chat between the two humans.
+  sendMsg(tJoin, { t: 'SEND_CHAT', text: 'hi from join' });
+  await sleep(200);
+  check(tHost.chats.some((m) => m.text.includes('hi from join')), 'chat from one human reaches the other');
+  // Joiner disconnects → host sees the member offline (reconnectable, not removed).
+  const tToken = tJoin.token;
+  tJoin.ws.close();
+  await sleep(300);
+  const tm = tHost.room.members.find((m) => m.name === 'TJoin');
+  check(tm && tm.connected === false, 'disconnected human shows offline in the room (not removed)');
+  // Reconnect → hand intact.
+  const tBack = await connect();
+  sendMsg(tBack, { t: 'RECONNECT', code: tCode, reconnectToken: tToken });
+  await sleep(300);
+  check(!tBack.lastError && tBack.state?.gameType === 'durak', 'human reconnects to the Durak game');
+  check(tBack.state.players[tBack.seat].hand.every((c) => c.rank !== '?'), 'reconnected human still sees its own hand');
+  tHost.ws.close(); tBack.ws.close();
+
+  // 2q) Leave lobby before start frees the Durak seat.
+  console.log('\n[2q] online Durak: leave lobby before start frees the seat');
+  const lqHost = await connect();
+  sendMsg(lqHost, { t: 'CREATE_ROOM', name: 'QHost', playerCount: 3, modeSelectionType: 'fixed', gameType: 'durak', variant: 'transfer' });
+  await sleep(180);
+  const lqCode = lqHost.room.code;
+  const lqJoin = await connect();
+  sendMsg(lqJoin, { t: 'JOIN_ROOM', code: lqCode, name: 'QLeaver' });
+  await sleep(200);
+  check(lqHost.room.members.some((m) => m.name === 'QLeaver'), 'joiner is in the Durak lobby');
+  sendMsg(lqJoin, { t: 'LEAVE_ROOM' });
+  await sleep(200);
+  check(!lqHost.room.members.some((m) => m.name === 'QLeaver'), 'leave lobby removed the Durak seat');
+  lqHost.ws.close(); lqJoin.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });
