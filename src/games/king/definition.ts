@@ -8,7 +8,9 @@
 
 import { gameReducer, getActingPlayerId } from '../../core/gameEngine';
 import { buildStartAction } from '../../net/online';
-import { botAction } from '../../net/serverCore';
+// Import botAction from its own module (NOT serverCore) so this definition does
+// not import serverCore — serverCore imports the registry, which imports this.
+import { botAction } from '../../net/botAction';
 import { GAME_CATALOG } from '../catalog';
 import { playerCountRange, type GameDefinition } from '../definition';
 

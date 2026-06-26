@@ -12,14 +12,17 @@
 
 import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
-import { gameReducer, getActingPlayerId, getCurrentPlayer } from '../core/gameEngine';
-import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards, aiChooseCard } from '../core/ai';
+import { gameReducer, getActingPlayerId } from '../core/gameEngine';
 import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
 import { makeRng, randomSeed, hashString } from '../core/rng';
-import { DEFAULT_GAME_TYPE } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, isGameType, type GameType } from '../games/catalog';
+import { getGameDefinition } from '../games/registry';
 import { redactStateFor } from './messages';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
-import { authorizeAction, buildStartAction, seatToPlayerId } from './online';
+import { authorizeAction, seatToPlayerId } from './online';
+// botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
+// cycle). Re-exported here so existing importers keep working unchanged.
+export { botAction } from './botAction';
 
 export type ServerMode = 'server_authoritative';
 
@@ -70,6 +73,12 @@ export interface ServerMember {
 export interface ServerRoom {
   code: string;
   mode: ServerMode;
+  /**
+   * Which game this room runs (Stage 8.5). 'king' today; the server resolves a
+   * GameDefinition from it (registry). Legacy rooms persisted before this field
+   * existed deserialize as 'king' (DEFAULT_GAME_TYPE), so behaviour is unchanged.
+   */
+  gameType: GameType;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -138,6 +147,8 @@ export function createRoom(opts: {
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
   host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
+  /** Which game to host. Defaults to King; today King is the only game. */
+  gameType?: GameType;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -152,6 +163,7 @@ export function createRoom(opts: {
   const room: ServerRoom = {
     code: opts.code,
     mode: 'server_authoritative',
+    gameType: opts.gameType ?? DEFAULT_GAME_TYPE,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -382,10 +394,14 @@ export function startGame(room: ServerRoom, deal: DealContext = {}): OpResult {
   if (activePlayers(room).length !== room.playerCount) {
     return { ok: false, error: 'ILLEGAL_ACTION' };
   }
+  // Resolve the game's definition (Stage 8.5). Unknown game → fail gracefully.
+  // For King this is `gameReducer`/`buildStartAction`, so behaviour is identical.
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  if (!def) return { ok: false, error: 'ILLEGAL_ACTION' };
   // The deal (shuffle + first-dealer pick) happens here, server-side, under a
   // recorded seed so the round is reproducible/auditable.
   const seed = deal.seed ?? randomSeed();
-  room.gameState = gameReducer(null, buildStartAction(snapshot(room)), { rng: makeRng(seed) });
+  room.gameState = def.reducer(null, def.buildStartAction(snapshot(room)), { rng: makeRng(seed) });
   room.started = true;
   recordDeal(room, seed, deal.now ?? 0);
   return { ok: true };
@@ -479,40 +495,11 @@ export function botMemberToAct(room: ServerRoom): ServerMember | null {
 export function applyTimeoutAction(room: ServerRoom): { acted: boolean } {
   const m = actingMember(room);
   if (!m || !room.gameState) return { acted: false };
-  const action = botAction(room.gameState);
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  if (!def) return { acted: false }; // unknown game → fail gracefully (no auto-action)
+  const action = def.botAction(room.gameState);
   if (!action) return { acted: false };
   return { acted: applyActionRequest(room, m.clientId, action).ok };
-}
-
-/**
- * The action a bot should take for the current acting player, using the shared
- * core heuristics. Pure (reads the unredacted server state — the server legally
- * sees every hand). Returns null on screens a bot does not drive.
- */
-export function botAction(state: GameState): GameAction | null {
-  switch (state.status) {
-    case 'mode_selection': {
-      const dealer = state.players[state.dealerIndex];
-      return { type: 'CHOOSE_MODE', modeId: aiChooseMode(state.dealerModes[dealer.id]) };
-    }
-    case 'select_trump': {
-      const dealer = state.players[state.dealerIndex];
-      return { type: 'SELECT_TRUMP', suit: aiChooseTrump(dealer.hand) };
-    }
-    case 'kitty_exchange': {
-      const dealer = state.players[state.dealerIndex];
-      return {
-        type: 'EXCHANGE_KITTY',
-        discards: aiChooseKittyDiscards(dealer.hand, state.config.kittySize, state.currentRound.mode.id),
-      };
-    }
-    case 'playing': {
-      const p = getCurrentPlayer(state);
-      return { type: 'PLAY_CARD', playerId: p.id, card: aiChooseCard(state) };
-    }
-    default:
-      return null;
-  }
 }
 
 /**
@@ -524,7 +511,9 @@ export function botAction(state: GameState): GameAction | null {
 export function applyBotTurn(room: ServerRoom): { acted: boolean } {
   const bot = botMemberToAct(room);
   if (!bot || !room.gameState) return { acted: false };
-  const action = botAction(room.gameState);
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  if (!def) return { acted: false }; // unknown game → fail gracefully (bot can't act)
+  const action = def.botAction(room.gameState);
   if (!action) return { acted: false };
   const res = applyActionRequest(room, bot.clientId, action);
   return { acted: res.ok };
@@ -605,9 +594,9 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     // (never free text) regardless of how the member was stored.
     hostAvatar: sanitizeAvatar(host?.avatar, host?.name ?? room.code),
     hostConnected: host?.connected ?? false,
-    // King-only today; emitted from the room so future games extend without a
-    // protocol change. Discovery is game-aware (see ONLINE_ARCHITECTURE.md).
-    gameType: DEFAULT_GAME_TYPE,
+    // Emitted from the room (Stage 8.5) so future games extend without a protocol
+    // change. King today; legacy rooms without the field default to King.
+    gameType: room.gameType ?? DEFAULT_GAME_TYPE,
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -676,6 +665,8 @@ export interface PersistedRoom {
   v: 1;
   code: string;
   mode: ServerMode;
+  /** Which game (Stage 8.5). Older saves lack it → restored as King. */
+  gameType?: GameType;
   members: ServerMember[];
   playerCount: 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -696,6 +687,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     v: 1,
     code: room.code,
     mode: room.mode,
+    gameType: room.gameType,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -747,6 +739,8 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
   return {
     code: o.code,
     mode: 'server_authoritative',
+    // Legacy rooms persisted before Stage 8.5 have no gameType → restore as King.
+    gameType: isGameType(o.gameType) ? o.gameType : DEFAULT_GAME_TYPE,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

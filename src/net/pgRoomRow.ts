@@ -39,9 +39,9 @@ export interface RoomRow {
 /**
  * ServerRoom → row. The `data` column is exactly `serializeRoom(room)`; the
  * `gameType` is metadata for routing/filtering and is not part of the payload.
- * King rooms use the default; the param is the seam for future games.
+ * Defaults to the room's own gameType (Stage 8.5); the param can still override.
  */
-export function roomToRow(room: ServerRoom, gameType: GameType = DEFAULT_GAME_TYPE): RoomRow {
+export function roomToRow(room: ServerRoom, gameType: GameType = room.gameType ?? DEFAULT_GAME_TYPE): RoomRow {
   return {
     code: room.code,
     gameType,
