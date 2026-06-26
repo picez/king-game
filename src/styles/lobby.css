@@ -288,3 +288,26 @@
 /* The drawer's tablist has a refresh button alongside; give it bottom spacing. */
 .drawer__body > .segmented { margin-bottom: 0.7rem; }
 
+
+/* ===== Game selector (Stage 8.3 skeleton — King only today) ===== */
+.game-selector { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.85rem; }
+.game-selector__label {
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.game-selector__list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.game-chip {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.8rem; min-height: 44px;
+  border-radius: 0.7rem; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font: inherit; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.game-chip--active { border-color: var(--accent); background: rgba(245, 197, 24, 0.12); }
+.game-chip__icon { font-size: 1.1rem; line-height: 1; }
+.game-chip__name { font-weight: 700; }
+.game-chip__badge {
+  font-size: 0.68rem; font-weight: 800; padding: 0.12rem 0.45rem;
+  border-radius: 999px; background: var(--success-soft); color: var(--success-light);
+}
+.game-selector__soon { margin: 0; font-size: 0.72rem; color: var(--text-dim); }

@@ -28,6 +28,7 @@ import {
   isMutatingMethod, isOriginAllowed, resolveCookieSecure,
 } from '../src/net/cookies';
 import { sanitizeGameSettings } from '../src/net/userSettings';
+import { publicGameCatalog } from '../src/games/catalog';
 import {
   googleConfig, buildAuthUrl, exchangeCode, decodeIdToken, validateIdClaims,
 } from './googleOAuth';
@@ -430,6 +431,13 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       console.error('[King] oauth callback failed:', String((e as Error)?.message ?? e).split('\n')[0].slice(0, 200));
       if (!res.headersSent) redirectLogin(req, res, 'error');
     });
+  }
+
+  // Public, STATIC game catalog (Stage 8.3). No DB / session / mutation — must
+  // work even when DATABASE_URL is unset, so it sits BEFORE the db-disabled gate.
+  // Only public fields (catalog mapper omits anything internal like rulesDoc).
+  if (path === '/api/games' && method === 'GET') {
+    return json(res, 200, { games: publicGameCatalog() }, corsHeaders(req));
   }
 
   // No database → the whole API is gracefully disabled (gameplay unaffected).

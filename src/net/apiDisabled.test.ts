@@ -52,4 +52,16 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(out.status).toBe(503);
     expect((out.body as { error: string }).error).toBe('oauth_disabled');
   });
+
+  it('serves the STATIC game catalog (GET /api/games) even with no DB', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games'), res);
+    expect(out.status).toBe(200);
+    const body = out.body as { games: { id: string; supportsOnline: boolean }[] };
+    expect(Array.isArray(body.games)).toBe(true);
+    expect(body.games.map((g) => g.id)).toEqual(['king']);
+    expect(body.games[0].supportsOnline).toBe(true);
+    // Public shape only — no internal fields leak.
+    expect('rulesDoc' in body.games[0]).toBe(false);
+  });
 });

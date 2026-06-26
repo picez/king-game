@@ -9,7 +9,10 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } 
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
+import { apiBaseFromWsUrl } from '../net/profileApi';
+import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
 import AccountBar from './menu/AccountBar';
+import GameSelector from './menu/GameSelector';
 import ProfileMenu from './ProfileMenu';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
@@ -47,6 +50,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [playerCount, setPlayerCount] = useState<3 | 4>(4);
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
+  // Selected game (Stage 8.3 skeleton). King is the only game today, so this does
+  // NOT change the create/join protocol — it is the seam for future games.
+  const [gameType, setGameType] = useState<GameType>(DEFAULT_GAME_TYPE);
 
   const account = useAccount(url);
   const roomList = useRoomList();
@@ -136,6 +142,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               <button className="link-btn" onClick={forgetResumable}>{t('menu.forget')}</button>
             </div>
           )}
+
+          <GameSelector selected={gameType} onSelect={setGameType} apiBase={apiBaseFromWsUrl(url)} />
 
           <div className="action-tiles">
             <button className="tile tile--primary" onClick={onLocal}>

@@ -50,3 +50,39 @@ export function getGameCatalogEntry(value: unknown): GameCatalogEntry | null {
   return isGameType(value) ? GAME_CATALOG[value] : null;
 }
 
+/**
+ * Public, privacy-safe shape of one catalog entry — exactly what `GET /api/games`
+ * returns and what the menu's game selector consumes. `title`/`shortTitle` are
+ * i18n KEYS (the server is language-agnostic; the client resolves them with
+ * `t()`). Intentionally omits any internal field (e.g. `rulesDoc`).
+ */
+export interface PublicGameEntry {
+  id: GameType;
+  title: string;
+  shortTitle: string;
+  minPlayers: number;
+  maxPlayers: number;
+  defaultPlayerCount: 3 | 4;
+  supportsLocal: boolean;
+  supportsOnline: boolean;
+  supportsBots: boolean;
+}
+
+/** The static catalog mapped to the public API shape (no private fields). */
+export function publicGameCatalog(): PublicGameEntry[] {
+  return GAME_TYPES.map((id) => {
+    const e = GAME_CATALOG[id];
+    return {
+      id: e.id,
+      title: e.titleKey,
+      shortTitle: e.shortTitleKey,
+      minPlayers: e.minPlayers,
+      maxPlayers: e.maxPlayers,
+      defaultPlayerCount: e.defaultPlayerCount,
+      supportsLocal: e.supportsLocal,
+      supportsOnline: e.supportsOnline,
+      supportsBots: e.supportsBots,
+    };
+  });
+}
+
