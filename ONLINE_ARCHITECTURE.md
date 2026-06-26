@@ -44,6 +44,12 @@ with a `t` discriminator.
   browser can list future card games without a protocol change. `hostAvatar` is
   re-sanitized to the emoji whitelist at the source (never free text);
   `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
+  > **Planned — second game (Durak).** The multi-game seam (catalog,
+  > `GameDefinition`, registry, `room.gameType`) is in place. Adding Durak will
+  > extend a few of the shapes here: `CREATE_ROOM`/`RoomSummary` gain a `variant`
+  > field, and `STATE_UPDATE.state` / `ACTION_REQUEST.action` become game-state /
+  > game-action **unions** routed by `gameType`. King's message shapes are
+  > unchanged. Full design + staging: [`DURAK_PLAN.md`](DURAK_PLAN.md).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state
 - `HOST_STATE { state }` — retired legacy relay only; ignored by the server (§4b)
