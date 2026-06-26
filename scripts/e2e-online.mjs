@@ -562,11 +562,12 @@ async function main() {
   for (let dkStep = 0; dkStep < 60 && !dkActed; dkStep++) {
     const ds = dkHost.state;
     if (!ds || ds.status === 'finished') break;
-    const dkActing = ds.status === 'attack' ? ds.throwerIndex : ds.defenderIndex;
+    const dkThrow = ds.status === 'attack' || ds.status === 'taking';
+    const dkActing = ds.status === 'defense' ? ds.defenderIndex : ds.throwerIndex;
     if (dkActing !== dkSeat) { await sleep(150); continue; } // bot's turn → server drives it
     const dkBefore = JSON.stringify(ds);
-    if (ds.status === 'attack') {
-      if (ds.table.length === 0) sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: ds.players[dkSeat].hand[0] } });
+    if (dkThrow) {
+      if (ds.status === 'attack' && ds.table.length === 0) sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: ds.players[dkSeat].hand[0] } });
       else sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'PASS_ATTACK' } });
     } else {
       sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
@@ -604,6 +605,7 @@ async function main() {
   await sleep(350);
   const fSeat = fHost.seat;
   let leakSeen = false;
+  let takingSeen = false;
   let finished = false;
   for (let step = 0; step < 500 && !finished; step++) {
     const s = fHost.state;
@@ -612,19 +614,34 @@ async function main() {
     const oppHand = s.players[fSeat === 0 ? 1 : 0].hand;
     if (oppHand.some((c) => c.rank !== '?')) leakSeen = true;
     if (s.status === 'finished') { finished = true; break; }
-    const acting = s.status === 'attack' ? s.throwerIndex : s.defenderIndex;
+    if (s.status === 'taking') takingSeen = true; // exercised the take-phase throw-in flow
+    const isThrow = s.status === 'attack' || s.status === 'taking';
+    const acting = s.status === 'defense' ? s.defenderIndex : s.throwerIndex;
     if (acting !== fSeat) { await sleep(160); continue; }
-    if (s.status === 'attack') {
-      if (s.table.length === 0) sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: s.players[fSeat].hand[0] } });
-      else sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'PASS_ATTACK' } });
+    if (isThrow) {
+      if (s.status === 'attack' && s.table.length === 0) {
+        sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: s.players[fSeat].hand[0] } });
+      } else {
+        // Throw in a card whose rank is on the table (also during the defender's
+        // take — exercises take-phase throw-ins); otherwise pass.
+        const ranks = new Set(s.table.flatMap((p) => [p.attack.rank, p.defense?.rank].filter(Boolean)));
+        const throwIn = s.players[fSeat].hand.find((c) => c.rank !== '?' && ranks.has(c.rank));
+        if (throwIn && s.table.length < s.boutLimit) sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: throwIn } });
+        else sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'PASS_ATTACK' } });
+      }
     } else {
       sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
+      // Catch the take-phase window before the bot's scheduled throw-in resolves it.
+      await sleep(25);
+      if (fHost.state?.status === 'taking') takingSeen = true;
     }
     await sleep(180);
   }
   check(finished, 'online Durak game reached finished');
+  check(takingSeen, 'take-phase reached online: a TAKE opened a throw-in window (status \'taking\')');
   check(!leakSeen, 'no redaction leak: the opponent hand stayed hidden all game');
   check(fHost.state?.foolId != null || fHost.state?.isDraw === true, 'finished state has a fool or a draw');
+  console.log(`  · take-phase (status 'taking') observed during the game: ${takingSeen}`);
   fHost.ws.close();
 
   // 2p) Two humans + bot: join, redaction per human, chat between humans, one human

@@ -96,16 +96,17 @@ function firstThrower(s: DurakState): number | null {
 }
 
 /**
- * Throw-in priority (DURAK_RULES.md): after a card is beaten or an attacker passes,
- * hand the throw to the next eligible attacker who CAN throw, scanning clockwise
- * from the LAST thrower (auto-passing those who cannot — no matching card / limit).
- * When nobody can throw and every attack is beaten, the bout ends (defended).
+ * Throw-in priority (DURAK_RULES.md): after a card is beaten/added or an attacker
+ * passes, hand the throw to the next eligible attacker who CAN throw, scanning
+ * clockwise from the LAST thrower (auto-passing those who cannot — no matching
+ * card / limit). When nobody can throw, the bout ends: a successful defense if the
+ * defender was defending, or the defender finally TAKES if they chose to take.
  */
-function resumeThrowIn(s: DurakState): void {
+function continueThrowIn(s: DurakState, taking: boolean): void {
   for (;;) {
     const seat = firstThrower(s);
-    if (seat === null) { resolveDefended(s); return; }
-    if (hasLegalThrowIn(s, seat)) { s.throwerIndex = seat; s.status = 'attack'; return; }
+    if (seat === null) { taking ? finalizeTake(s) : resolveDefended(s); return; }
+    if (hasLegalThrowIn(s, seat)) { s.throwerIndex = seat; s.status = taking ? 'taking' : 'attack'; return; }
     s.passedAttackers.push(seat); // cannot throw → treated as a pass; move on
   }
 }
@@ -118,6 +119,18 @@ function resolveDefended(s: DurakState): void {
   const oldDefender = s.defenderIndex;
   drawAfterBout(s);
   rotateRoles(s, oldDefender, undefined); // the defender becomes the next primary attacker
+}
+
+/** Defender takes ALL table cards (after the take-phase throw-ins end); the player
+ *  after the defender attacks next. */
+function finalizeTake(s: DurakState): void {
+  const taken: Card[] = [];
+  for (const p of s.table) { taken.push(p.attack); if (p.defense) taken.push(p.defense); }
+  s.players[s.defenderIndex].hand.push(...taken);
+  s.table = [];
+  const oldDefender = s.defenderIndex;
+  drawAfterBout(s);
+  rotateRoles(s, oldDefender + 1, oldDefender); // next attacker is AFTER the defender
 }
 
 function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?: DurakContext): DurakState | null {
@@ -154,7 +167,7 @@ export function durakReducer(
 
   switch (action.type) {
     case 'ATTACK_CARD': {
-      if (state.status !== 'attack') return state;
+      if (state.status !== 'attack' && state.status !== 'taking') return state;
       if (!getValidAttackCards(state).some((c) => sameCard(c, action.card))) return state;
       const s = clone(state);
       removeCard(s.players[s.throwerIndex].hand, action.card); // the current thrower plays
@@ -164,7 +177,13 @@ export function durakReducer(
       // a chance for earlier attackers. DURAK_RULES.md — last-thrower priority.
       s.lastThrowerIndex = s.throwerIndex;
       s.passedAttackers = [];
-      s.status = 'defense';
+      if (state.status === 'taking') {
+        // Defender is taking — they will NOT beat it. Continue the take-phase
+        // throw-ins (same priority), or finalise the take if nobody else can.
+        continueThrowIn(s, true);
+      } else {
+        s.status = 'defense'; // the defender must answer the new card
+      }
       return s;
     }
 
@@ -179,31 +198,28 @@ export function durakReducer(
       removeCard(s.players[s.defenderIndex].hand, action.card);
       s.table[pairIdx].defense = action.card;
       // All beaten → hand the throw to the next eligible attacker (or resolve).
-      if (s.table.every((p) => p.defense !== null)) resumeThrowIn(s);
+      if (s.table.every((p) => p.defense !== null)) continueThrowIn(s, false);
       return s;
     }
 
     case 'TAKE_CARDS': {
+      // Defender decides to take: DON'T collect yet — enter the 'taking' phase so
+      // other attackers may still throw in (priority order). The cards are added to
+      // the defender's hand only once the take-phase throw-ins end (finalizeTake).
       if (state.status !== 'defense') return state;
       const s = clone(state);
-      const taken: Card[] = [];
-      for (const p of s.table) { taken.push(p.attack); if (p.defense) taken.push(p.defense); }
-      s.players[s.defenderIndex].hand.push(...taken);
-      s.table = [];
-      const oldDefender = s.defenderIndex;
-      drawAfterBout(s);
-      // Defender took → next attacker is the player AFTER the defender (skipped).
-      rotateRoles(s, oldDefender + 1, oldDefender);
+      s.passedAttackers = []; // fresh throw-in cycle; keep lastThrowerIndex (priority)
+      continueThrowIn(s, true); // sets status 'taking' + a thrower, or finalises now
       return s;
     }
 
     case 'PASS_ATTACK': {
       // The current thrower gives up; cannot pass the opening (empty table).
-      if (state.status !== 'attack' || state.table.length === 0) return state;
+      if ((state.status !== 'attack' && state.status !== 'taking') || state.table.length === 0) return state;
       const s = clone(state);
       if (!s.passedAttackers.includes(s.throwerIndex)) s.passedAttackers.push(s.throwerIndex);
-      // Throw passes to the next eligible attacker, or the bout ends if all beaten.
-      resumeThrowIn(s);
+      // Hand the throw on, or end the bout (defended, or the defender finally takes).
+      continueThrowIn(s, state.status === 'taking');
       return s;
     }
 
@@ -235,7 +251,9 @@ export function durakReducer(
 /** The id of the player who must act now, or null on a finished game. */
 export function getActingDurakPlayerId(state: DurakState): string | null {
   if (state.status === 'finished') return null;
-  const idx = state.status === 'attack' ? state.throwerIndex : state.defenderIndex;
+  // In attack AND taking phases the actor is the current thrower (an attacker);
+  // only in 'defense' is it the defender.
+  const idx = (state.status === 'attack' || state.status === 'taking') ? state.throwerIndex : state.defenderIndex;
   return state.players[idx]?.id ?? null;
 }
 

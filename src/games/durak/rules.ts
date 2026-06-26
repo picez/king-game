@@ -39,9 +39,10 @@ export function isAttackComplete(state: DurakState): boolean {
   return state.table.length > 0 && state.table.every((p) => p.defense !== null);
 }
 
-/** Cards the current THROWER may legally play right now (open or throw-in). */
+/** Cards the current THROWER may legally play right now (open or throw-in). Also
+ *  covers the 'taking' phase, where attackers pile matching ranks onto the table. */
 export function getValidAttackCards(state: DurakState): Card[] {
-  if (state.status !== 'attack') return [];
+  if (state.status !== 'attack' && state.status !== 'taking') return [];
   const thrower = state.players[state.throwerIndex];
   if (state.table.length === 0) return thrower.hand.slice();   // primary opens: any card
   if (state.table.length >= state.boutLimit) return [];        // attack limit reached

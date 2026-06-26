@@ -28,109 +28,116 @@
 }
 .durak-trump strong { font-size: 1.2rem; }
 .durak-trump--red strong { color: var(--card-red); }
-/* Deck + trump widget (Stage 9.10): a closed stack with the trump card across
-   the bottom + the remaining count. Thins as it is drawn; empty → trump chip. */
-.durak-deck {
-  display: inline-flex;
+/* ===== Circular table (Stage 9.11): opponents around an oval felt, the deck +
+   trump prominent in the centre, my hand below. Same seat scheme as King. ===== */
+.durak-board {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: clamp(12rem, 40vh, 19rem);
+}
+.durak-board__felt {
+  position: absolute;
+  inset: 2.2rem 0.4rem;
+  border-radius: 50% / 44%;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 46%),
+    radial-gradient(ellipse at 50% 44%, var(--felt-lit) 0%, var(--felt-mid) 48%, var(--felt-edge) 84%, var(--felt-deep) 100%);
+  border: 7px solid #1a0f06;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(245, 197, 24, 0.12), 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* Opponent seats — positioned like King's .tseat (NOT mirrored in RTL). */
+.durak-seat {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  font-weight: 800;
+  gap: 0.05rem;
+  max-width: 8rem;
+  padding: 0.28rem 0.6rem;
+  background: linear-gradient(180deg, rgba(28, 50, 36, 0.92), rgba(8, 22, 14, 0.92));
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  text-align: center;
+  box-shadow: var(--top-light), 0 4px 12px rgba(0, 0, 0, 0.45);
+  font-size: 0.8rem;
   color: var(--text);
 }
-.durak-deck__stack {
-  position: relative;
-  width: 2rem;
-  height: 2.7rem;
+.durak-seat--bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+.durak-seat--top    { top: 0;    left: 50%; transform: translateX(-50%); }
+.durak-seat--left   { left: 0;   top: 50%;  transform: translateY(-50%); }
+.durak-seat--right  { right: 0;  top: 50%;  transform: translateY(-50%); }
+/* 3-player: the two opponents sit at the TOP corners. */
+.durak-board--3 .durak-seat--left  { left: 0;  top: 0; transform: none; }
+.durak-board--3 .durak-seat--right { right: 0; top: 0; transform: none; }
+.durak-seat--atk { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
+.durak-seat--def { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
+.durak-seat--acting { box-shadow: 0 0 0 2px var(--accent-light) inset, 0 0 14px rgba(245, 197, 24, 0.4); }
+.durak-seat--offline { opacity: 0.6; }
+.durak-seat__name { font-weight: 700; white-space: nowrap; max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; }
+.durak-seat__count { font-size: 0.76rem; color: var(--text-muted); }
+.durak-seat__role {
+  font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-light);
 }
-/* The face-up trump card lies across the bottom of the pile (peeks out to the side). */
-.durak-deck__trump {
+.durak-seat__role--take { color: var(--danger-light); }
+
+/* The centre play area inside the felt: the deck (left) + the trick pairs. */
+.durak-centre {
   position: absolute;
-  left: 0.55rem;
-  bottom: -0.15rem;
-  transform: rotate(90deg);
-  transform-origin: center;
-  z-index: 0;
-  pointer-events: none;
+  inset: 2.2rem 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.3rem, 2vw, 0.9rem);
+  padding: clamp(0.3rem, 2.5vw, 1rem);
+  z-index: 1;
 }
-.durak-deck__trump .card { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
-/* The closed deck — a card back with stacked-edge shadows that thin when low. */
+/* Keep the centre clear of the side seats (4p mid-edges / 3p top corners). */
+.durak-board--4 .durak-centre { padding-inline: clamp(2.3rem, 13vw, 3.6rem); }
+.durak-board--3 .durak-centre { padding-top: clamp(1.6rem, 7vw, 2.6rem); }
+
+/* Deck + trump — prominent on the felt; scales with clamp for mobile (Stage 9.11).
+   Vertical closed pile on the left; the face-up trump lies across it (rotated) and
+   peeks out to the right, as in a real game. */
+.durak-deck { --dw: clamp(2.9rem, 10.5vw, 4rem); display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+.durak-deck__stack { position: relative; width: calc(var(--dw) * 1.75); height: calc(var(--dw) * 1.45); }
+.durak-deck__trump { position: absolute; left: calc(var(--dw) * 0.5); top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center; z-index: 0; pointer-events: none; }
+.durak-deck__trump .card--table { width: var(--dw); height: calc(var(--dw) * 1.42); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
 .durak-deck__back {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 1.7rem;
-  height: 2.5rem;
-  border-radius: 0.28rem;
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: var(--dw); height: calc(var(--dw) * 1.42);
+  border-radius: 0.3rem;
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 3px, transparent 3px 6px),
     linear-gradient(160deg, #2a5d44, #173c2c);
   border: 1px solid rgba(255, 255, 255, 0.28);
   box-shadow: 2px 2px 0 -0.5px rgba(0, 0, 0, 0.4), 4px 4px 0 -1px rgba(0, 0, 0, 0.3);
-  z-index: 1;
-  transition: box-shadow 0.3s ease;
+  z-index: 1; transition: box-shadow 0.3s ease;
 }
 .durak-deck--low .durak-deck__back { box-shadow: 1px 1px 0 -0.5px rgba(0, 0, 0, 0.4); }
-.durak-deck__count { font-size: 0.95rem; }
-/* Empty pile: only the trump suit remains, as a small chip. */
-.durak-deck--empty {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0.2rem 0.6rem;
+.durak-deck__count {
+  position: absolute; left: calc(var(--dw) * 0.5); bottom: -0.45rem; transform: translateX(-50%); z-index: 2;
+  min-width: 1.3rem; padding: 0 0.3rem; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78); color: var(--text); font-size: 0.74rem; font-weight: 800; text-align: center;
 }
-.durak-deck__suit { font-size: 1.2rem; }
+.durak-deck--empty { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.7rem; }
+.durak-deck__suit { font-size: 1.4rem; }
 .durak-deck--red .durak-deck__suit { color: var(--card-red); }
 
-.durak-opponents {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  justify-content: center;
-}
-.durak-opp {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.6rem;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  font-size: 0.82rem;
-  color: var(--text);
-}
-.durak-opp--atk { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.durak-opp--def { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset; }
-.durak-opp__name { font-weight: 700; }
-.durak-opp__role {
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dim);
-}
-
-/* Outer = a transparent region that centres the felt; inner = the bounded felt
-   (capped so the hand stays the main element). Cards always centre (Stage 9.9). */
-.durak-table {
-  position: relative;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.4rem;
-  min-height: 8rem;
-}
-/* The played cards sit directly on the felt — NO bordered/scroll box (it used to
-   read like a dropdown panel). Just a centred, width-capped play area. */
+/* The played pairs — centred next to the deck. */
 .durak-table__cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem 0.9rem;
+  gap: 0.4rem 0.7rem;
   align-content: center;
   align-items: center;
   justify-content: center;
-  width: min(100%, 27rem);
-  min-height: 7rem;
-  padding: 0.5rem;
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 .durak-table__empty { color: var(--text-dim); font-size: 0.9rem; }
 .durak-pair { position: relative; }
@@ -185,7 +192,7 @@
 .durak-youare--def { background: var(--danger-soft); color: var(--danger-light); border: 1px solid var(--danger); }
 
 /* In transfer mode, tint the table so the special action is obvious. */
-.durak-screen--transfer .durak-table { box-shadow: 0 0 0 2px var(--accent) inset; }
+.durak-screen--transfer .durak-board__felt { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 50px rgba(0, 0, 0, 0.5); }
 
 .durak-controls {
   display: flex;
@@ -241,10 +248,6 @@
   color: var(--accent-light); font-size: 0.82rem; font-weight: 600;
 }
 .sb-variant { color: var(--text-dim); }
-
-/* Offline opponent (online play) — dimmed with a 📴 badge. */
-.durak-opp--offline { opacity: 0.6; }
-.durak-opp__off { font-size: 0.85rem; }
 
 /* ===== Durak production polish (Stage 9.8) ===== */
 
@@ -308,6 +311,3 @@
 
 /* Local/Host sheet CTA. (The King/Durak picker is now a SelectMenu.) */
 .sheet__cta { width: 100%; margin: 0.5rem 0; min-height: 48px; }
-
-/* The opponent who must act right now (thrower or defender). */
-.durak-opp--acting { box-shadow: 0 0 0 2px var(--accent-light) inset; }

@@ -94,10 +94,28 @@ sections add to or override it.
      attacker**; the new defender is the player after them. In a **2-player** game
      this means: after the primary passes, nobody else can throw, so the bout ends
      immediately.
-   - **Defender takes:** at any point the defender may **take** all cards on the
-     table — both the attacking cards and any cards they already used to defend —
-     into their **hand**. The bout ends. The **next attacker is the player after
-     the defender** (the defender is **skipped** as attacker this time).
+   - **Defender takes:** at any point the defender may decide to **take**. They do
+     NOT collect the cards immediately — see *Throwing in after the defender takes*
+     below. Once the take-phase throw-ins end, the defender picks up **all** cards
+     on the table (attack + defence cards) into their **hand**, and the **next
+     attacker is the player after the defender** (the defender is **skipped**).
+
+### Throwing in after the defender takes
+
+When the defender chooses to **take**, the bout does **not** end at once — the
+attackers may still **pile more matching-rank cards** onto the table for the
+defender to pick up. This take-phase throw-in follows the **same priority** as a
+normal throw-in:
+
+- The defender is now **taking**: they no longer beat or transfer — they wait.
+- Priority is anchored at the **last thrower**; if they cannot/​won't add a card,
+  it moves **clockwise** to the next eligible attacker. The **defender never
+  throws**.
+- Throw-ins must match a rank already on the table and respect the same limit
+  `min(6, defenderHandAtBoutStart)`.
+- When **every** eligible attacker has passed or can no longer throw — or the
+  **limit is reached** — the defender finally **takes all** the cards.
+- Termination is guaranteed (finite hands + a capped table), so there is no loop.
 
 ### Drawing back up to six
 

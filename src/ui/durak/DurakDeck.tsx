@@ -29,10 +29,10 @@ export default function DurakDeck({ count, trumpCard, trumpSuit }: Props) {
   return (
     <span className={`durak-deck ${count <= 3 ? 'durak-deck--low' : ''}`} aria-label={`${count} cards left, trump ${trumpSuit}`}>
       <span className="durak-deck__stack">
-        <span className="durak-deck__trump"><CardView card={trumpCard} size="mini" disabled /></span>
+        <span className="durak-deck__trump"><CardView card={trumpCard} size="table" disabled /></span>
         <span className="durak-deck__back" aria-hidden="true" />
+        <span className="durak-deck__count">{count}</span>
       </span>
-      <span className="durak-deck__count">{count}</span>
     </span>
   );
 }

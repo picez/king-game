@@ -25,6 +25,19 @@ interface Props {
 
 const SUIT_ORDER: Record<Suit, number> = { spades: 0, clubs: 1, diamonds: 2, hearts: 3 };
 
+/**
+ * Seat positions around the felt by relative index (0 = me at the bottom), so the
+ * opponents sit clockwise in PLAY ORDER. Mirrors King's tablePositions (Stage 9.11).
+ *  - 2p: me bottom, opponent top
+ *  - 3p: me bottom, opponents at the two top corners (left/right)
+ *  - 4p: me bottom, opponents left / top / right
+ */
+const SEAT_LAYOUT: Record<number, string[]> = {
+  2: ['bottom', 'top'],
+  3: ['bottom', 'left', 'right'],
+  4: ['bottom', 'left', 'top', 'right'],
+};
+
 /** Display sort: group by suit, low→high, trumps last (so they read clearly). */
 function sortHand(cards: Card[], trump: Suit): Card[] {
   return cards.slice().sort((a, b) => {
@@ -49,12 +62,15 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const iAmPrimary = state.attackerIndex === meSeat;  // the bout's primary attacker
   const iAmDefender = state.defenderIndex === meSeat;
   const phase = state.status;
+  // 'attack' and 'taking' both let the current thrower add/pass cards (in 'taking'
+  // the defender no longer beats — attackers just pile on before the take).
+  const isThrowPhase = phase === 'attack' || phase === 'taking';
 
   // Transfer mode is only meaningful on my defending turn.
   useEffect(() => { if (!isMyTurn) setTransferMode(false); }, [isMyTurn]);
 
   const unbeaten = unbeatenAttacks(state);
-  const attackValid = isMyTurn && phase === 'attack' && iAmThrower ? getValidAttackCards(state) : [];
+  const attackValid = isMyTurn && isThrowPhase && iAmThrower ? getValidAttackCards(state) : [];
   const transferValid = transferMode && canTransfer(state) ? getValidTransferCards(state) : [];
   const defenseValid = isMyTurn && phase === 'defense' && iAmDefender && !transferMode
     ? me.hand.filter((c) => unbeaten.some((a) => beats(c, a, state.trumpSuit)))
@@ -63,20 +79,20 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const inSet = (set: Card[], c: Card) => set.some((x) => sameCard(x, c));
   const cardEnabled = (c: Card) =>
     transferMode ? inSet(transferValid, c)
-      : phase === 'attack' ? inSet(attackValid, c)
+      : isThrowPhase ? inSet(attackValid, c)
         : inSet(defenseValid, c);
 
   function clickCard(c: Card) {
     if (!isMyTurn || !cardEnabled(c)) return;
     if (transferMode) { apply({ type: 'TRANSFER_ATTACK', card: c }); setTransferMode(false); return; }
-    if (phase === 'attack' && iAmThrower) { apply({ type: 'ATTACK_CARD', card: c }); return; }
+    if (isThrowPhase && iAmThrower) { apply({ type: 'ATTACK_CARD', card: c }); return; }
     if (phase === 'defense' && iAmDefender) {
       const target = unbeaten.find((a) => beats(c, a, state.trumpSuit));
       if (target) apply({ type: 'DEFEND_CARD', attack: target, card: c });
     }
   }
 
-  const canPass = isMyTurn && phase === 'attack' && iAmThrower && state.table.length > 0;
+  const canPass = isMyTurn && isThrowPhase && iAmThrower && state.table.length > 0;
   const canTake = isMyTurn && phase === 'defense' && iAmDefender;
   const canTransferBtn = isMyTurn && phase === 'defense' && iAmDefender && state.variant === 'transfer' && canTransfer(state);
 
@@ -86,8 +102,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const opponents = Array.from({ length: state.players.length - 1 },
     (_, k) => state.players[(meSeat + 1 + k) % state.players.length]);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
-  // The current actor: in the attack phase it is the THROWER (not always primary).
-  const actorSeat = phase === 'attack' ? state.throwerIndex : state.defenderIndex;
+  // The current actor: the THROWER while attacking/taking, else the defender.
+  const actorSeat = phase === 'defense' ? state.defenderIndex : state.throwerIndex;
   const actor = state.players[actorSeat];
   const iAmActiveAttacker = iAmThrower || iAmPrimary;
   const myRole = iAmDefender ? t('durak.defender') : iAmActiveAttacker ? t('durak.attacker') : '';
@@ -98,10 +114,12 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
     : actor?.type === 'ai' ? t('durak.botThinking')
       : `${t('durak.waiting')} ${actor?.name}…`;
   const prompt = transferMode ? t('durak.promptTransfer')
-    : !isMyTurn ? waitMsg
-      : phase === 'attack'
-        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptThrowOrPass'))
-        : canTransferBtn ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
+    : phase === 'taking' && iAmDefender ? t('durak.youAreTaking')
+      : !isMyTurn ? waitMsg
+        : phase === 'taking' ? t('durak.promptTakeThrowIn')
+          : phase === 'attack'
+            ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptThrowOrPass'))
+            : canTransferBtn ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
 
   const noticeText = notice?.kind === 'took' ? `${notice.name} ${t('durak.took')}`
     : notice?.kind === 'beaten' ? t('durak.beaten') : null;
@@ -114,46 +132,48 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
           {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
         </span>
-        <span className="durak-topbar__right">
-          <DurakDeck count={state.drawPile.length} trumpCard={state.trumpCard} trumpSuit={state.trumpSuit} />
-          <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('durak.howToPlay')}>❓</button>
-        </span>
+        <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('durak.howToPlay')}>❓</button>
       </div>
 
-      <div className="durak-opponents">
-        {opponents.map((p) => {
+      {/* Circular table: opponents seated around the felt in PLAY ORDER (clockwise
+          from me at the bottom); the deck + trick pairs sit in the centre. */}
+      <div className={`durak-board durak-board--${state.players.length}`}>
+        <div className="durak-board__felt" aria-hidden="true" />
+        {opponents.map((p, k) => {
           const role = p.seatIndex === state.attackerIndex ? 'atk' : p.seatIndex === state.defenderIndex ? 'def' : '';
           const isOffline = offline(p.seatIndex);
-          // The opponent who must act right now (the thrower or the defender).
           const isActing = p.seatIndex === actorSeat;
-          // A co-attacker currently throwing (not the primary, attack phase).
-          const isThrowing = phase === 'attack' && p.seatIndex === state.throwerIndex && p.seatIndex !== state.attackerIndex;
+          const isThrowing = isThrowPhase && p.seatIndex === state.throwerIndex && p.seatIndex !== state.attackerIndex;
+          const isTaking = phase === 'taking' && p.seatIndex === state.defenderIndex;
+          const pos = (SEAT_LAYOUT[state.players.length] ?? SEAT_LAYOUT[4])[k + 1];
           return (
-            <div key={p.id} className={`durak-opp ${role ? `durak-opp--${role}` : ''} ${isOffline ? 'durak-opp--offline' : ''} ${isActing ? 'durak-opp--acting' : ''}`}>
-              {isOffline && <span className="durak-opp__off" aria-label="offline">📴</span>}
-              <span className="durak-opp__name">{p.name}</span>
-              <span className="durak-opp__count">🂠 {p.hand.length}</span>
-              {role === 'atk' && <span className="durak-opp__role">{t('durak.attacker')}</span>}
-              {role === 'def' && <span className="durak-opp__role">{t('durak.defender')}</span>}
-              {isThrowing && <span className="durak-opp__role">{t('durak.throwing')}</span>}
+            <div key={p.id} className={`durak-seat durak-seat--${pos} ${role ? `durak-seat--${role}` : ''} ${isOffline ? 'durak-seat--offline' : ''} ${isActing ? 'durak-seat--acting' : ''}`}>
+              <span className="durak-seat__name">
+                {isOffline && <span className="durak-seat__off" aria-label="offline">📴 </span>}{p.name}
+              </span>
+              <span className="durak-seat__count">🂠 {p.hand.length}</span>
+              {role === 'atk' && <span className="durak-seat__role">{t('durak.attacker')}</span>}
+              {role === 'def' && !isTaking && <span className="durak-seat__role">{t('durak.defender')}</span>}
+              {isTaking && <span className="durak-seat__role durak-seat__role--take">{t('durak.taking')}</span>}
+              {isThrowing && <span className="durak-seat__role">{t('durak.throwing')}</span>}
             </div>
           );
         })}
-      </div>
-
-      <div className="durak-table">
-        {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
-        <div className="durak-table__cards">
-          {state.table.length === 0
-            ? <p className="durak-table__empty">{isMyTurn && iAmThrower ? t('durak.tableEmpty') : '·'}</p>
-            : state.table.map((pair, i) => (
-              <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
-                <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
-                {pair.defense && (
-                  <span className="durak-pair__def"><CardView card={pair.defense} size="table" disabled /></span>
-                )}
-              </div>
-            ))}
+        <div className="durak-centre">
+          {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
+          <DurakDeck count={state.drawPile.length} trumpCard={state.trumpCard} trumpSuit={state.trumpSuit} />
+          <div className="durak-table__cards">
+            {state.table.length === 0
+              ? <p className="durak-table__empty">{isMyTurn && iAmThrower ? t('durak.tableEmpty') : '·'}</p>
+              : state.table.map((pair, i) => (
+                <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
+                  <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
+                  {pair.defense && (
+                    <span className="durak-pair__def"><CardView card={pair.defense} size="table" disabled /></span>
+                  )}
+                </div>
+              ))}
+          </div>
         </div>
       </div>
 

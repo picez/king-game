@@ -23,13 +23,14 @@ function pickLowest(cards: Card[], trumpSuit: Suit): Card | null {
 export function durakBotAction(state: DurakState): DurakAction | null {
   if (state.status === 'finished') return null;
 
-  if (state.status === 'attack') {
+  if (state.status === 'attack' || state.status === 'taking') {
     const valid = getValidAttackCards(state); // the current thrower's legal cards
-    if (state.table.length === 0) {
+    if (state.status === 'attack' && state.table.length === 0) {
       const card = pickLowest(valid, state.trumpSuit);
       return card ? { type: 'ATTACK_CARD', card } : { type: 'PASS_ATTACK' };
     }
-    // Throw in a cheap, non-trump matching card; otherwise pass.
+    // Throw in a cheap, non-trump matching card (also when the defender is taking);
+    // otherwise pass.
     const cheap = valid.filter((c) => c.suit !== state.trumpSuit && c.value <= 9);
     const card = pickLowest(cheap, state.trumpSuit);
     return card ? { type: 'ATTACK_CARD', card } : { type: 'PASS_ATTACK' };

@@ -16,9 +16,11 @@ export type DurakVariant = 'simple' | 'transfer';
  *  - 'attack'   → the current thrower (`throwerIndex`) opens / throws in a
  *                 matching rank, or passes (DURAK_RULES.md — priority throw-in);
  *  - 'defense'  → the defender beats an unbeaten card / takes / (transfer) passes;
+ *  - 'taking'   → the defender chose to TAKE; attackers may still throw in matching
+ *                 ranks (priority order) before the defender collects the table;
  *  - 'finished' → game over (see foolId / isDraw).
  */
-export type DurakStatus = 'attack' | 'defense' | 'finished';
+export type DurakStatus = 'attack' | 'defense' | 'taking' | 'finished';
 
 export interface DurakPlayer {
   id: string;            // 'player-<seat>' (matches King's seat ids)

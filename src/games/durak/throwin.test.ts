@@ -186,3 +186,67 @@ describe('take + transfer reset the throw-in state', () => {
     expect(next.status).toBe('defense');
   });
 });
+
+describe('take-phase throw-ins (Stage 9.12)', () => {
+  const ids = (cs: Card[]) => cs.map((c) => `${c.rank}${c.suit[0]}`).sort();
+
+  it('after the defender presses Take, other attackers may still throw in, then it is taken', () => {
+    let s = st(3, {
+      players: [
+        P(0, [C('6', 'clubs'), C('9', 'hearts')]), // A: only the 6 matches
+        P(1, [C('K', 'spades')]),                  // B defender
+        P(2, [C('6', 'diamonds'), C('6', 'hearts')]), // C: two 6s to throw in
+      ],
+      status: 'attack', attackerIndex: 0, defenderIndex: 1, throwerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('6', 'clubs') })!;      // A attacks a 6
+    s = durakReducer(s, { type: 'TAKE_CARDS' })!;                              // B chooses to take
+    expect(s.status).toBe('taking');
+    expect(s.throwerIndex).toBe(2);                 // A has no other 6 → C may throw in
+    expect(getActingDurakPlayerId(s)).toBe('player-2');
+    expect(s.players[1].hand).toHaveLength(1);      // NOT collected yet
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('6', 'diamonds') })!;   // C throws in
+    expect(s.status).toBe('taking');
+    expect(s.table).toHaveLength(2);
+    s = durakReducer(s, { type: 'PASS_ATTACK' })!;  // C passes → nobody else can → take
+    expect(s.status).toBe('attack');
+    expect(ids(s.players[1].hand)).toEqual(['6c', '6d', 'Ks']); // B took both 6s
+    expect(s.attackerIndex).toBe(2);                // next attacker is AFTER the defender
+    expect(s.defenderIndex).toBe(0);
+  });
+
+  it('the defender cannot defend or transfer once they are taking', () => {
+    const s = st(3, {
+      variant: 'transfer', status: 'taking',
+      players: [P(0, []), P(1, [C('9', 'hearts')]), P(2, [C('7', 'clubs')])],
+      table: [{ attack: C('7', 'hearts'), defense: null }],
+      attackerIndex: 0, defenderIndex: 1, throwerIndex: 2, lastThrowerIndex: 2,
+    });
+    expect(s.throwerIndex).not.toBe(s.defenderIndex); // defender is never the thrower
+    expect(durakReducer(s, { type: 'DEFEND_CARD', attack: C('7', 'hearts'), card: C('9', 'hearts') })).toBe(s);
+    expect(durakReducer(s, { type: 'TRANSFER_ATTACK', card: C('7', 'clubs') })).toBe(s);
+  });
+
+  it('takes immediately when nobody can throw in after Take', () => {
+    let s = st(2, {
+      players: [P(0, [C('A', 'spades')]), P(1, [C('K', 'spades')])],
+      table: [{ attack: C('7', 'hearts'), defense: null }], status: 'defense',
+      attackerIndex: 0, defenderIndex: 1, throwerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'TAKE_CARDS' })!;
+    expect(s.status).toBe('attack');                // no 'taking' lingering
+    expect(ids(s.players[1].hand)).toEqual(['7h', 'Ks']);
+    expect(s.attackerIndex).toBe(0);                // 2p: after the defender wraps to seat 0
+  });
+
+  it('takes once the attack limit is reached even if an attacker holds a match', () => {
+    let s = st(2, {
+      players: [P(0, [C('7', 'clubs')]), P(1, [C('K', 'spades')])],
+      table: [{ attack: C('7', 'hearts'), defense: null }], status: 'defense',
+      attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, boutLimit: 1,
+    });
+    s = durakReducer(s, { type: 'TAKE_CARDS' })!;   // limit 1 already met → no throw-in
+    expect(s.table).toEqual([]);
+    expect(ids(s.players[1].hand)).toContain('7h');
+  });
+});
