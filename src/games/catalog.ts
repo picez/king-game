@@ -59,10 +59,10 @@ export const GAME_CATALOG = {
     minPlayers: 2,
     maxPlayers: 4,
     defaultPlayerCount: 2,
-    supportsLocal: true,   // local prototype playable (Stage 9.3)
-    supportsOnline: false, // online wiring still to come (Stage 9.4+)
-    supportsBots: true,    // the pure core has a working bot
-    status: 'experimental',
+    supportsLocal: true,    // local prototype playable (Stage 9.3)
+    supportsOnline: true,   // experimental online rooms (Stage 9.6)
+    supportsBots: true,     // the pure core has a working bot
+    status: 'experimental', // still experimental: no stats, minimal UI
     rulesDoc: 'DURAK_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

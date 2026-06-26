@@ -18,7 +18,7 @@ describe('game catalog', () => {
     });
     expect(GAME_CATALOG.durak).toMatchObject({
       id: 'durak', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 2,
-      supportsLocal: true, supportsOnline: false, supportsBots: true,
+      supportsLocal: true, supportsOnline: true, supportsBots: true,
       status: 'experimental', rulesDoc: 'DURAK_RULES.md',
     });
   });
@@ -41,9 +41,9 @@ describe('game catalog', () => {
       supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
     const durak = pub.find((g) => g.id === 'durak')!;
-    expect(durak.status).toBe('experimental'); // local-only prototype
+    expect(durak.status).toBe('experimental'); // experimental online (Stage 9.6)
     expect(durak.supportsLocal).toBe(true);
-    expect(durak.supportsOnline).toBe(false);
+    expect(durak.supportsOnline).toBe(true);
     // Internal-only fields must never leak into the public shape.
     for (const g of pub) {
       expect('rulesDoc' in g).toBe(false);

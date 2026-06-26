@@ -16,6 +16,7 @@ import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import type { GameType } from '../games/catalog';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
+import type { DurakVariant } from '../games/durak/types';
 
 // ---------------------------------------------------------------------------
 // Lobby / room model
@@ -45,8 +46,12 @@ export interface RoomMember {
 export interface RoomSnapshot {
   code: RoomCode;
   members: RoomMember[];
-  /** Game settings chosen by the host before Start. */
-  playerCount: 3 | 4;
+  /** Which game this room runs (default 'king'). Lets the client pick the UI. */
+  gameType: GameType;
+  /** Durak variant ('simple' | 'transfer'); undefined for King. */
+  variant?: DurakVariant;
+  /** Game settings chosen by the host before Start. (Durak allows 2.) */
+  playerCount: 2 | 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -72,9 +77,11 @@ export interface RoomSummary {
   hostAvatar: string;
   /** Whether the host currently has a live socket (MVP connection-quality cue). */
   hostConnected: boolean;
-  /** Which card game this room runs. 'king' today; future games extend the union. */
+  /** Which card game this room runs (King, or experimental Durak). */
   gameType: GameType;
-  playerCount: 3 | 4;
+  /** Durak variant ('simple' | 'transfer'); undefined for King. */
+  variant?: DurakVariant;
+  playerCount: 2 | 3 | 4;
   occupiedSeats: number;
   hasPassword: boolean;
   /** lobby = joinable; full = lobby with no free seats; in_game = started. */
@@ -104,7 +111,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount: 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number }
+  | { t: 'CREATE_ROOM'; name: string; playerCount: 2 | 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */

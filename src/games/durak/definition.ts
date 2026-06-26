@@ -17,8 +17,7 @@ import type { DurakAction, DurakState } from './types';
 
 const entry = GAME_CATALOG.durak;
 
-/** START_DURAK from a room snapshot. Variant defaults to 'simple' until the
- *  protocol carries it (Stage 9.3); not called until Durak rooms exist. */
+/** START_DURAK from a room snapshot. Uses the room's chosen variant (Stage 9.6). */
 function buildDurakStartAction(room: RoomSnapshot): DurakAction {
   const players = room.members
     .filter((m) => m.role === 'player')
@@ -28,7 +27,7 @@ function buildDurakStartAction(room: RoomSnapshot): DurakAction {
     type: 'START_DURAK',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
-    variant: 'simple',
+    variant: room.variant === 'transfer' ? 'transfer' : 'simple',
   };
 }
 

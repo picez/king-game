@@ -25,7 +25,7 @@ describe('GameSelector — selectable vs disabled games', () => {
   });
 });
 
-describe('StartMenu — Durak is local-only', () => {
+describe('StartMenu — game selection + online gating', () => {
   const src = read('../StartMenu.tsx');
 
   it('initialises the selected game to the default (King)', () => {
@@ -34,10 +34,16 @@ describe('StartMenu — Durak is local-only', () => {
   it('starts a LOCAL game of the selected type', () => {
     expect(src).toContain('onClick={() => onLocal(gameType)}');
   });
-  it('disables Host/Join for non-King games with an "online coming later" hint', () => {
-    expect(src).toContain("const onlineDisabled = gameType !== 'king'");
+  it('gates Host/Join on the catalog supportsOnline flag', () => {
+    expect(src).toContain('getGameCatalogEntry(gameType)?.supportsOnline');
     expect(src).toContain('disabled={onlineDisabled}');
-    expect(src).toMatch(/durak\.onlineSoon/);
+  });
+  it('hosts the selected game online, passing gameType + variant for Durak', () => {
+    expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
+    expect(src).toContain('setDurakVariant');
+  });
+  it('marks online Durak as experimental', () => {
+    expect(src).toMatch(/durak\.onlineExperimental/);
   });
 });
 

@@ -168,8 +168,11 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
 2. Add join/create **rate limiting** before any broader public launch.
-3. **Second game — Durak** (the multi-game seam is ready; Stages 8.3–8.6).
-   Spec: [`DURAK_RULES.md`](DURAK_RULES.md); staged plan: [`DURAK_PLAN.md`](DURAK_PLAN.md)
-   (9.1 core → 9.2 local UI → 9.3 online → 9.4 bots/stats → 9.5 transfer polish).
+3. **Durak finish-up (experimental).** Local Durak (simple + transfer) is playable,
+   and **experimental online Durak** rooms can be hosted/joined with bots
+   (Stage 9.6) — King state/action are now a union over the wire, hands are
+   redacted per game, and Durak online is clearly labelled experimental. **Durak
+   stats are not recorded yet**; that + polish are the remaining work. Spec:
+   [`DURAK_RULES.md`](DURAK_RULES.md); design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
 4. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
 5. (Optional) public deal-commitment for verifiable fairness.

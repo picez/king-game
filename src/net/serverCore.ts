@@ -18,6 +18,7 @@ import { makeRng, randomSeed, hashString } from '../core/rng';
 import { DEFAULT_GAME_TYPE, isGameType, type GameType } from '../games/catalog';
 import { getGameDefinition } from '../games/registry';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
+import type { DurakVariant } from '../games/durak/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -79,8 +80,11 @@ export interface ServerRoom {
    * existed deserialize as 'king' (DEFAULT_GAME_TYPE), so behaviour is unchanged.
    */
   gameType: GameType;
+  /** Durak variant ('simple' | 'transfer'); undefined for King. */
+  variant?: DurakVariant;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
-  playerCount: 3 | 4;
+  /** Seat target. King is 3|4; Durak allows 2. */
+  playerCount: 2 | 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -148,11 +152,13 @@ export function verifyPassword(room: ServerRoom, attempt: string | undefined): b
 
 export function createRoom(opts: {
   code: string;
-  playerCount: 3 | 4;
+  playerCount: 2 | 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
   host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
-  /** Which game to host. Defaults to King; today King is the only game. */
+  /** Which game to host (default King). */
   gameType?: GameType;
+  /** Durak variant; ignored for King. */
+  variant?: DurakVariant;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -168,6 +174,7 @@ export function createRoom(opts: {
     code: opts.code,
     mode: 'server_authoritative',
     gameType: opts.gameType ?? DEFAULT_GAME_TYPE,
+    variant: opts.variant,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -582,6 +589,8 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       type: m.type,
       avatar: m.avatar,
     })),
+    gameType: room.gameType ?? DEFAULT_GAME_TYPE,
+    variant: room.variant,
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -615,6 +624,8 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     // Emitted from the room (Stage 8.5) so future games extend without a protocol
     // change. King today; legacy rooms without the field default to King.
     gameType: room.gameType ?? DEFAULT_GAME_TYPE,
+    // Only present for games with a variant (Durak) → King summaries are unchanged.
+    ...(room.variant ? { variant: room.variant } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -687,8 +698,10 @@ export interface PersistedRoom {
   mode: ServerMode;
   /** Which game (Stage 8.5). Older saves lack it → restored as King. */
   gameType?: GameType;
+  /** Durak variant; undefined for King. */
+  variant?: DurakVariant;
   members: ServerMember[];
-  playerCount: 3 | 4;
+  playerCount: 2 | 3 | 4;
   modeSelectionType: 'fixed' | 'dealer_choice';
   turnTimerSec: number;
   started: boolean;
@@ -708,6 +721,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     code: room.code,
     mode: room.mode,
     gameType: room.gameType,
+    variant: room.variant,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -733,7 +747,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
   const o = data as Record<string, unknown>;
   if (o.v !== 1) return null;
   if (typeof o.code !== 'string' || !Array.isArray(o.members)) return null;
-  if (o.playerCount !== 3 && o.playerCount !== 4) return null;
+  if (o.playerCount !== 2 && o.playerCount !== 3 && o.playerCount !== 4) return null;
   if (o.modeSelectionType !== 'fixed' && o.modeSelectionType !== 'dealer_choice') return null;
 
   const members = new Map<string, ServerMember>();
@@ -761,6 +775,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     mode: 'server_authoritative',
     // Legacy rooms persisted before Stage 8.5 have no gameType → restore as King.
     gameType: isGameType(o.gameType) ? o.gameType : DEFAULT_GAME_TYPE,
+    variant: o.variant === 'simple' || o.variant === 'transfer' ? o.variant : undefined,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

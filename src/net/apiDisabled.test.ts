@@ -64,9 +64,9 @@ describe('HTTP API with no DATABASE_URL', () => {
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');
     expect(king.supportsOnline).toBe(true);
-    expect(durak.status).toBe('experimental'); // local prototype, no online yet
+    expect(durak.status).toBe('experimental'); // experimental online (Stage 9.6)
     expect(durak.supportsLocal).toBe(true);
-    expect(durak.supportsOnline).toBe(false);
+    expect(durak.supportsOnline).toBe(true);
     // Public shape only — no internal fields leak.
     expect('rulesDoc' in king).toBe(false);
   });

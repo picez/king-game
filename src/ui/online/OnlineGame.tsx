@@ -8,6 +8,8 @@ import type { ErrorCode } from '../../net/messages';
 import { clearSession } from '../../net/session';
 import { useI18n } from '../../i18n';
 import GameRouter from '../GameRouter';
+import DurakOnlineGame from '../durak/DurakOnlineGame';
+import type { DurakState } from '../../games/durak/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -126,6 +128,21 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
       <>
         <CenterNote title={t('net.dealing')} />
         {renderSocial(false, leaveGameToMenu)}
+      </>
+    );
+  }
+
+  // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
+  if (net.room?.gameType === 'durak') {
+    return (
+      <>
+        <DurakOnlineGame
+          state={net.state as unknown as DurakState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+        />
+        {renderSocial(true, leaveGameToMenu)}
       </>
     );
   }

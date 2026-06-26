@@ -177,3 +177,11 @@
 /* Disabled online tiles when a local-only game (Durak) is selected. */
 .tile--disabled { opacity: 0.5; cursor: not-allowed; }
 .tile--disabled .tile__sub { color: var(--text-dim); font-style: italic; }
+
+/* Experimental online Durak note in the Host sheet + variant tag in the browser. */
+.host-experimental {
+  margin: 0 0 0.6rem; padding: 0.4rem 0.7rem; border-radius: 0.6rem;
+  background: rgba(245, 197, 24, 0.12); border: 1px solid var(--accent);
+  color: var(--accent-light); font-size: 0.82rem; font-weight: 600;
+}
+.sb-variant { color: var(--text-dim); }

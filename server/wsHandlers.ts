@@ -17,6 +17,7 @@ import {
   startGame, applyActionRequest, listRoomSummaries, sanitizedStateFor,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
+import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { RoomSocialStore, handleReaction, handleChat, type SocialIO } from './roomSocial';
 
 /** One connection's room session (mutable; set on CREATE/JOIN/RECONNECT). */
@@ -57,11 +58,27 @@ export function handleClientMessage(
 
   switch (msg.t) {
     case 'CREATE_ROOM': {
+      // Resolve & validate the game type (default King). Unknown / not-online → reject.
+      if (msg.gameType !== undefined && !isGameType(msg.gameType)) {
+        return sendError(socket, 'BAD_MESSAGE', 'Unknown game type');
+      }
+      const gameType = msg.gameType ?? 'king';
+      const entry = getGameCatalogEntry(gameType)!;
+      if (!entry.supportsOnline) {
+        return sendError(socket, 'BAD_MESSAGE', 'Game is not available online');
+      }
+      // King keeps its EXACT 3|4 behaviour; other games clamp to their catalog range.
+      const playerCount = (gameType === 'king'
+        ? (msg.playerCount === 3 ? 3 : 4)
+        : Math.max(entry.minPlayers, Math.min(entry.maxPlayers, msg.playerCount))) as 2 | 3 | 4;
+      const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       const code = ctx.makeRoomCode();
       const clientId = randomUUID();
       const room = createRoom({
         code,
-        playerCount: msg.playerCount === 3 ? 3 : 4,
+        gameType,
+        variant,
+        playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: randomUUID(), name: msg.name, avatar: msg.avatar },
         // Optional join password — hashed with a fresh salt inside serverCore.

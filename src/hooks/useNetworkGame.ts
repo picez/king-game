@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameState } from '../models/types';
-import type { GameAction } from '../core/gameEngine';
 import { getActingPlayerId } from '../core/gameEngine';
+import type { AnyGameAction } from '../games/anyGame';
 import { WebSocketTransport } from '../net/transport';
 import type { ClientMessage, ErrorCode, RoomSnapshot, ServerMessage, ChatMessage } from '../net/messages';
 import { firstConnectMessage, seatToPlayerId } from '../net/online';
@@ -40,7 +40,8 @@ export interface NetworkGame {
   isHost: boolean;
   /** True when it is this client's turn to act. */
   myTurn: boolean;
-  dispatch: (action: GameAction) => void;
+  /** Send an action for the room's game (King or Durak — Stage 9.6). */
+  dispatch: (action: AnyGameAction) => void;
   startGame: () => void;
   /** Host-only: remove another member (by clientId) from the lobby. */
   kick: (clientId: string) => void;
@@ -273,7 +274,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const dispatch = useCallback((action: GameAction) => {
+  const dispatch = useCallback((action: AnyGameAction) => {
     // Server-authoritative: the server validates and applies the reducer.
     send({ t: 'ACTION_REQUEST', action });
   }, [send]);
@@ -301,7 +302,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     transportRef.current?.close();
   }, []);
 
-  const myTurn = !!state && getActingPlayerId(state) === myPlayerId;
+  // King-only turn flag (the King UI uses it). Durak online derives its own turn
+  // from the Durak state, so skip King's getActingPlayerId for Durak states.
+  const myTurn = !!state && !('gameType' in state) && getActingPlayerId(state) === myPlayerId;
 
   return {
     status, error, errorCode, room, state, myPlayerId,

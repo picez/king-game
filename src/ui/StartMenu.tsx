@@ -10,7 +10,8 @@ import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
 import { apiBaseFromWsUrl } from '../net/profileApi';
-import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, getGameCatalogEntry, type GameType } from '../games/catalog';
+import type { DurakVariant } from '../games/durak/types';
 import AccountBar from './menu/AccountBar';
 import GameSelector from './menu/GameSelector';
 import ProfileMenu from './ProfileMenu';
@@ -48,13 +49,17 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [url, setUrl] = useState(() => defaultServerUrl(undefined, ENV_WS_URL));
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
-  const [playerCount, setPlayerCount] = useState<3 | 4>(4);
+  const [playerCount, setPlayerCount] = useState<2 | 3 | 4>(4);
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
+  const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // Selected game. King supports online; Durak is local-only for now, so its
   // Host/Join tiles are disabled with an "online coming later" hint (Stage 9.3).
   const [gameType, setGameType] = useState<GameType>(DEFAULT_GAME_TYPE);
-  const onlineDisabled = gameType !== 'king';
+  // Online is enabled per the catalog's supportsOnline. Durak is enabled but
+  // EXPERIMENTAL (Stage 9.6) — its Host panel adds a variant picker + 2 players.
+  const onlineDisabled = !(getGameCatalogEntry(gameType)?.supportsOnline ?? false);
+  const onlineExperimental = !onlineDisabled && gameType !== 'king';
 
   const account = useAccount(url);
   const roomList = useRoomList();
@@ -89,6 +94,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     const pw = password.trim();
     onOnline(url.trim(), {
       kind: 'create', name: name.trim(), playerCount, modeSelectionType, avatar,
+      ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
@@ -163,7 +169,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               <span className="tile__icon" aria-hidden="true">🌐</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.hostTitle')}</span>
-                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : t('menu.hostSub')}</span>
+                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : onlineExperimental ? t('durak.onlineExperimental') : t('menu.hostSub')}</span>
               </span>
             </button>
             <button
@@ -174,7 +180,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               <span className="tile__icon" aria-hidden="true">🔑</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.joinTitle')}</span>
-                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : t('menu.joinSub')}</span>
+                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : onlineExperimental ? t('durak.onlineExperimental') : t('menu.joinSub')}</span>
               </span>
             </button>
           </div>
@@ -223,28 +229,47 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           {pane === 'host' && (
             <>
+              {onlineExperimental && (
+                <p className="host-experimental">🧪 {t('durak.onlineExperimentalNote')}</p>
+              )}
+              {gameType === 'durak' && (
+                <div className="field">
+                  <label className="field__label">{t('durak.variant')}</label>
+                  <div className="segmented segmented--inline">
+                    {(['simple', 'transfer'] as const).map((v) => (
+                      <button key={v} type="button"
+                        className={`segmented__tab ${durakVariant === v ? 'segmented__tab--active' : ''}`}
+                        onClick={() => setDurakVariant(v)}>
+                        {v === 'simple' ? t('durak.variantSimple') : t('durak.variantTransfer')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="field">
                 <label className="field__label">{t('form.players')}</label>
                 <div className="segmented segmented--inline">
-                  {([3, 4] as const).map((n) => (
+                  {(gameType === 'durak' ? [2, 3, 4] as const : [3, 4] as const).map((n) => (
                     <button key={n} type="button"
                       className={`segmented__tab ${playerCount === n ? 'segmented__tab--active' : ''}`}
                       onClick={() => setPlayerCount(n)}>{n}</button>
                   ))}
                 </div>
               </div>
-              <div className="field">
-                <label className="field__label">{t('form.mode')}</label>
-                <div className="segmented segmented--inline">
-                  {(['dealer_choice', 'fixed'] as const).map((m) => (
-                    <button key={m} type="button"
-                      className={`segmented__tab ${modeSelectionType === m ? 'segmented__tab--active' : ''}`}
-                      onClick={() => setModeSelectionType(m)}>
-                      {m === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')}
-                    </button>
-                  ))}
+              {gameType === 'king' && (
+                <div className="field">
+                  <label className="field__label">{t('form.mode')}</label>
+                  <div className="segmented segmented--inline">
+                    {(['dealer_choice', 'fixed'] as const).map((m) => (
+                      <button key={m} type="button"
+                        className={`segmented__tab ${modeSelectionType === m ? 'segmented__tab--active' : ''}`}
+                        onClick={() => setModeSelectionType(m)}>
+                        {m === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="field">
                 <label className="field__label">{t('form.passwordHost')}</label>
                 <input className="input" type="password" value={password} maxLength={40}
@@ -304,6 +329,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                               </span>
                               <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
                                 {t(`gameType.${gameType}`)}
+                                {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
                               </span>
                               <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
                                 {r.occupiedSeats}/{r.playerCount}

@@ -515,6 +515,71 @@ async function main() {
   check(dm2 && dm2.type === 'human', 'substituted player remained a HUMAN member (not converted to a bot)');
   obs.ws.close();
 
+  // 2n) Experimental ONLINE Durak (Stage 9.6): host a Durak room, bots fill it,
+  // start, redaction hides opponents, a human acts, chat + reconnect work.
+  console.log('\n[2n] experimental online Durak room');
+  // Unknown gameType is rejected.
+  const badGame = await connect();
+  sendMsg(badGame, { t: 'CREATE_ROOM', name: 'X', playerCount: 2, modeSelectionType: 'fixed', gameType: 'poker' });
+  await sleep(150);
+  check(badGame.lastError?.code === 'BAD_MESSAGE', 'unknown gameType rejected (BAD_MESSAGE)');
+  badGame.ws.close();
+
+  const dkHost = await connect();
+  sendMsg(dkHost, { t: 'CREATE_ROOM', name: 'DurakHost', playerCount: 2, modeSelectionType: 'fixed', gameType: 'durak', variant: 'transfer' });
+  await sleep(200);
+  check(dkHost.room?.gameType === 'durak', 'CREATE_ROOM durak → room.gameType durak');
+  check(dkHost.room?.variant === 'transfer', 'durak room carries the transfer variant');
+  const dkCode = dkHost.room.code;
+  sendMsg(dkHost, { t: 'ADD_BOT' });
+  await sleep(200);
+  sendMsg(dkHost, { t: 'START_GAME' });
+  await sleep(400);
+  check(dkHost.state?.gameType === 'durak', 'online Durak start → DurakState over WS');
+  check(dkHost.state?.players?.length === 2, 'Durak state has 2 players');
+  check(Array.isArray(dkHost.state?.drawPile), 'Durak state has a draw pile');
+  // Redaction: the host sees its OWN hand, the bot's hand is hidden.
+  const dkSeat = dkHost.seat;
+  const dkMyHand = dkHost.state.players[dkSeat].hand;
+  const dkBotHand = dkHost.state.players[dkSeat === 0 ? 1 : 0].hand;
+  check(dkMyHand.every((c) => c.rank !== '?'), 'host sees its own Durak hand');
+  check(dkBotHand.length === 6 && dkBotHand.every((c) => c.rank === '?'), 'opponent Durak hand is redacted (hidden, count kept)');
+
+  // Drive a few turns; when it is the host's turn, make a legal move.
+  let dkActed = false;
+  for (let dkStep = 0; dkStep < 60 && !dkActed; dkStep++) {
+    const ds = dkHost.state;
+    if (!ds || ds.status === 'finished') break;
+    const dkActing = ds.status === 'attack' ? ds.attackerIndex : ds.defenderIndex;
+    if (dkActing !== dkSeat) { await sleep(150); continue; } // bot's turn → server drives it
+    const dkBefore = JSON.stringify(ds);
+    if (ds.status === 'attack') {
+      if (ds.table.length === 0) sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: ds.players[dkSeat].hand[0] } });
+      else sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'END_ATTACK' } });
+    } else {
+      sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
+    }
+    await sleep(250);
+    if (JSON.stringify(dkHost.state) !== dkBefore) dkActed = true;
+  }
+  check(dkActed, 'a human Durak action was accepted + advanced the state online');
+
+  // Chat works in the Durak room (broadcast back to the sender).
+  sendMsg(dkHost, { t: 'SEND_CHAT', text: 'gg durak' });
+  await sleep(200);
+  check(dkHost.chats.some((m) => m.text.includes('gg durak')), 'chat works in an online Durak room');
+
+  // Reconnect restores the Durak game with the own hand.
+  const dkToken = dkHost.token;
+  dkHost.ws.close();
+  await sleep(200);
+  const dkBack = await connect();
+  sendMsg(dkBack, { t: 'RECONNECT', code: dkCode, reconnectToken: dkToken });
+  await sleep(300);
+  check(!dkBack.lastError && dkBack.state?.gameType === 'durak', 'reconnect restores the online Durak game');
+  check(dkBack.state.players[dkBack.seat].hand.every((c) => c.rank !== '?'), 'reconnected Durak player sees their own hand');
+  dkBack.ws.close();
+
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');
   sendMsg(host, { t: 'START_GAME' });
