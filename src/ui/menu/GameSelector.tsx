@@ -5,6 +5,8 @@ import { publicGameCatalog, type GameType, type PublicGameEntry } from '../../ga
 
 /** Per-game emoji (no icon field in the catalog yet). */
 const GAME_ICON: Record<string, string> = { king: '👑', durak: '🃏' };
+/** Optional one-line subtitle i18n key per game (e.g. Durak variants). */
+const GAME_SUB: Record<string, string> = { durak: 'durak.variantsShort' };
 
 interface Props {
   /** Currently selected game (default 'king'). */
@@ -45,8 +47,9 @@ export default function GameSelector({ selected, onSelect, apiBase }: Props) {
           const selectable = g.status === 'available' || g.status === 'experimental';
           const active = selectable && g.id === selected;
           const badgeKey = g.status === 'available' ? 'menu.gameAvailable'
-            : g.status === 'experimental' ? 'menu.localOnly'
+            : g.status === 'experimental' ? 'menu.experimental'
             : 'menu.comingSoon';
+          const subKey = GAME_SUB[g.id];
           return (
             <button
               key={g.id}
@@ -57,7 +60,10 @@ export default function GameSelector({ selected, onSelect, apiBase }: Props) {
               onClick={selectable ? () => onSelect(g.id) : undefined}
             >
               <span className="game-chip__icon" aria-hidden="true">{GAME_ICON[g.id] ?? '🎴'}</span>
-              <span className="game-chip__name">{t(g.title)}</span>
+              <span className="game-chip__text">
+                <span className="game-chip__name">{t(g.title)}</span>
+                {subKey && <span className="game-chip__sub">{t(subKey)}</span>}
+              </span>
               <span className="game-chip__badge">{t(badgeKey)}</span>
             </button>
           );

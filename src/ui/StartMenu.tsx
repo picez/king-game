@@ -244,6 +244,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                       </button>
                     ))}
                   </div>
+                  <p className="durak-variant-desc">{durakVariant === 'simple' ? t('durak.simpleDesc') : t('durak.transferDesc')}</p>
                 </div>
               )}
               <div className="field">

@@ -7,6 +7,7 @@ import { getActingDurakPlayerId } from '../../games/durak/engine';
 import {
   beats, canTransfer, getValidAttackCards, getValidTransferCards, sameCard, unbeatenAttacks,
 } from '../../games/durak/rules';
+import DurakHelp from './DurakHelp';
 
 /** Transient "what just happened" banner (a bout resolved). */
 export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
@@ -38,6 +39,7 @@ function sortHand(cards: Card[], trump: Suit): Card[] {
 export default function DurakGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
@@ -91,20 +93,24 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const prompt = transferMode ? t('durak.promptTransfer')
     : !isMyTurn ? waitMsg
       : phase === 'attack'
-        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptAttackMore'))
-        : t('durak.promptDefend');
+        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptAllBeaten'))
+        : canTransferBtn ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
 
   const noticeText = notice?.kind === 'took' ? `${notice.name} ${t('durak.took')}`
     : notice?.kind === 'beaten' ? t('durak.beaten') : null;
 
   return (
     <div className={`screen durak-screen ${transferMode ? 'durak-screen--transfer' : ''}`}>
+      {showHelp && <DurakHelp variant={state.variant} onClose={() => setShowHelp(false)} />}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label="Back">✕</button>
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
           {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
         </span>
-        <span className="durak-deck" aria-label="Deck">🂠 {state.drawPile.length}</span>
+        <span className="durak-topbar__right">
+          <span className="durak-deck" aria-label="Deck">🂠 {state.drawPile.length}</span>
+          <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('durak.howToPlay')}>❓</button>
+        </span>
       </div>
 
       <div className="durak-opponents">
@@ -128,8 +134,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         {state.table.length === 0 && !noticeText
           ? <p className="durak-table__empty">{isMyTurn && iAmAttacker ? t('durak.tableEmpty') : ''}</p>
           : state.table.map((pair, i) => (
-            <div className="durak-pair" key={i}>
-              <CardView card={pair.attack} size="table" disabled />
+            <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
+              <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
               {pair.defense && (
                 <span className="durak-pair__def"><CardView card={pair.defense} size="table" disabled /></span>
               )}

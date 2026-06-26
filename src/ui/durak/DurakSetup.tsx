@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import type { DurakVariant } from '../../games/durak/types';
+import { DurakRulesList } from './DurakHelp';
 
 interface Props {
   onStart: (variant: DurakVariant, playerCount: number) => void;
@@ -12,6 +13,12 @@ export default function DurakSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
   const [variant, setVariant] = useState<DurakVariant>('simple');
   const [count, setCount] = useState(2);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const variants: { id: DurakVariant; name: string; desc: string }[] = [
+    { id: 'simple', name: t('durak.variantSimple'), desc: t('durak.simpleDesc') },
+    { id: 'transfer', name: t('durak.variantTransfer'), desc: t('durak.transferDesc') },
+  ];
 
   return (
     <div className="screen menu-screen durak-setup">
@@ -22,13 +29,19 @@ export default function DurakSetup({ onStart, onExit }: Props) {
 
       <div className="setup-card">
         <label className="field__label">{t('durak.variant')}</label>
-        <div className="segmented">
-          <button type="button" className={`segmented__tab ${variant === 'simple' ? 'segmented__tab--active' : ''}`} onClick={() => setVariant('simple')}>
-            {t('durak.variantSimple')}
-          </button>
-          <button type="button" className={`segmented__tab ${variant === 'transfer' ? 'segmented__tab--active' : ''}`} onClick={() => setVariant('transfer')}>
-            {t('durak.variantTransfer')}
-          </button>
+        <div className="durak-variant-cards">
+          {variants.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              className={`durak-variant-card ${variant === v.id ? 'durak-variant-card--active' : ''}`}
+              aria-pressed={variant === v.id}
+              onClick={() => setVariant(v.id)}
+            >
+              <span className="durak-variant-card__name">{v.name}</span>
+              <span className="durak-variant-card__desc">{v.desc}</span>
+            </button>
+          ))}
         </div>
 
         <label className="field__label">{t('durak.players')}</label>
@@ -39,8 +52,13 @@ export default function DurakSetup({ onStart, onExit }: Props) {
             </button>
           ))}
         </div>
-
         <p className="durak-setup__hint">{t('durak.botsHint')}</p>
+
+        <button type="button" className="durak-howto" aria-expanded={showHelp} onClick={() => setShowHelp((s) => !s)}>
+          ❓ {t('durak.howToPlay')} <span aria-hidden="true">{showHelp ? '▴' : '▾'}</span>
+        </button>
+        {showHelp && <DurakRulesList variant={variant} />}
+
         <button type="button" className="btn btn--primary durak-setup__start" onClick={() => onStart(variant, count)}>
           {t('durak.start')}
         </button>

@@ -55,7 +55,12 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
           </div>
           <p className="setup-hint">
             {players.length} / {room.playerCount} {t('lobby.playersWord')} ·{' '}
-            {room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')}
+            {room.gameType === 'durak' ? (
+              <>🃏 {t(room.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}
+                {' · '}<span className="lobby-exp">{t('menu.experimental')}</span></>
+            ) : (
+              room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
+            )}
             {room.hasPassword ? ` · 🔒 ${t('lobby.passwordRequired')}` : ''}
           </p>
         </div>

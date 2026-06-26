@@ -20,8 +20,8 @@ describe('GameSelector — selectable vs disabled games', () => {
     expect(src).toContain('onClick={selectable ? () => onSelect(g.id) : undefined}');
     expect(src).toContain('game-chip--disabled');
   });
-  it('labels experimental games as local-only', () => {
-    expect(src).toMatch(/menu\.localOnly/);
+  it('labels experimental games as Experimental', () => {
+    expect(src).toMatch(/menu\.experimental/);
   });
 });
 

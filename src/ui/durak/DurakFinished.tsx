@@ -13,14 +13,19 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit }: P
   const { t } = useI18n();
   const humanIsFool = state.foolId === humanId;
   const title = state.isDraw ? t('durak.draw') : humanIsFool ? t('durak.youLost') : t('durak.youWon');
-  const foolName = state.players.find((p) => p.id === state.foolId)?.name;
+  const fool = state.players.find((p) => p.id === state.foolId);
 
   return (
     <div className="screen durak-screen durak-finished">
       <div className="durak-finished__card">
         <div className="durak-finished__emoji" aria-hidden="true">{state.isDraw ? '🤝' : humanIsFool ? '🤡' : '🏆'}</div>
         <h1 className="durak-finished__title">{title}</h1>
-        {!state.isDraw && foolName && <p className="durak-finished__sub">{t('durak.fool')}: <strong>{foolName}</strong></p>}
+        {!state.isDraw && fool && (
+          <p className="durak-finished__sub">
+            {t('durak.fool')}: <strong>{fool.name}</strong>
+            {fool.hand.length > 0 && <span className="durak-finished__left"> · {fool.hand.length} {t('durak.cardsRemaining')}</span>}
+          </p>
+        )}
         <div className="durak-finished__actions">
           <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('durak.playAgain')}</button>
           <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
