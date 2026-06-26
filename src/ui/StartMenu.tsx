@@ -48,7 +48,6 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [url, setUrl] = useState(() => defaultServerUrl(undefined, ENV_WS_URL));
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
-  const [playerCount, setPlayerCount] = useState<2 | 3 | 4>(4);
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
@@ -88,7 +87,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
     onOnline(url.trim(), {
-      kind: 'create', name: name.trim(), playerCount, modeSelectionType, avatar,
+      kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
@@ -208,13 +207,12 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           <div className="field">
             <label className="field__label">{t('form.name')}</label>
-            <input
-              className={`input ${joinError === 'NAME_TAKEN' ? 'input--error' : ''}`}
-              value={name} maxLength={20}
-              onChange={(e) => { setName(e.target.value); if (joinError === 'NAME_TAKEN') setJoinError(null); }}
-              placeholder={t('form.name')}
-            />
-            <p className="field__hint">{t('menu.avatarHint')}</p>
+            {/* Display name is read-only here — it is changed only in Profile (Stage 9.10). */}
+            <div className={`name-readonly ${joinError === 'NAME_TAKEN' ? 'name-readonly--error' : ''}`}>
+              <span className="member-avatar" aria-hidden="true">{avatar}</span>
+              <span className="name-readonly__name">{name}</span>
+            </div>
+            <p className="field__hint">{t('menu.nameInProfile')}</p>
           </div>
 
           <div className="field">
@@ -247,16 +245,6 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                   <p className="durak-variant-desc">{durakVariant === 'simple' ? t('durak.simpleDesc') : t('durak.transferDesc')}</p>
                 </div>
               )}
-              <div className="field">
-                <label className="field__label">{t('form.players')}</label>
-                <div className="segmented segmented--inline">
-                  {(gameType === 'durak' ? [2, 3, 4] as const : [3, 4] as const).map((n) => (
-                    <button key={n} type="button"
-                      className={`segmented__tab ${playerCount === n ? 'segmented__tab--active' : ''}`}
-                      onClick={() => setPlayerCount(n)}>{n}</button>
-                  ))}
-                </div>
-              </div>
               {gameType === 'king' && (
                 <div className="field">
                   <label className="field__label">{t('form.mode')}</label>

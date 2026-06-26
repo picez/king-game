@@ -53,6 +53,7 @@ export const DE: Record<string, string> = {
   'gameType.king': 'König',
   'menu.game': 'Spiel',
   'menu.localSetupTitle': 'Lokales Spiel',
+  'menu.nameInProfile': 'Name und Avatar im Profil ändern.',
   'menu.startLocal': 'Lokales Spiel starten',
   'menu.chooseGame': 'Spiel wählen',
   'menu.moreGamesSoon': 'Weitere Spiele folgen bald',

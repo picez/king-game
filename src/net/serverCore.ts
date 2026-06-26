@@ -15,7 +15,7 @@ import type { GameAction } from '../core/gameEngine';
 import { gameReducer } from '../core/gameEngine';
 import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
 import { makeRng, randomSeed, hashString } from '../core/rng';
-import { DEFAULT_GAME_TYPE, isGameType, type GameType } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, getGameCatalogEntry, isGameType, type GameType } from '../games/catalog';
 import { getGameDefinition } from '../games/registry';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
@@ -208,6 +208,12 @@ export function activePlayers(room: ServerRoom): ServerMember[] {
   return [...room.members.values()].filter((m) => m.role === 'player');
 }
 
+/** Max player seats for the room — the game's catalog maxPlayers, capped (Stage 9.10). */
+export function roomCapacity(room: ServerRoom): number {
+  const max = getGameCatalogEntry(room.gameType ?? DEFAULT_GAME_TYPE)?.maxPlayers ?? room.playerCount;
+  return Math.min(max, MAX_PLAYERS);
+}
+
 /** Re-numbers player seats by insertion order (spectators get null). */
 export function assignSeats(room: ServerRoom): void {
   let seat = 0;
@@ -242,8 +248,8 @@ export function addMember(
     return { ok: false, error: 'GAME_ALREADY_STARTED' };
   }
   const role: SeatRole = member.role === 'spectator' ? 'spectator' : 'player';
-  // A room is full at its configured size (3 or 4), capped by MAX_PLAYERS.
-  if (role === 'player' && activePlayers(room).length >= Math.min(room.playerCount, MAX_PLAYERS)) {
+  // A room is full at the game's catalog maxPlayers (Stage 9.10), capped by MAX_PLAYERS.
+  if (role === 'player' && activePlayers(room).length >= roomCapacity(room)) {
     return { ok: false, error: 'ROOM_FULL' };
   }
   if ([...room.members.values()].some((m) => m.name === member.name)) {
@@ -279,7 +285,7 @@ export function addBot(
 ): OpResult & { bot?: ServerMember } {
   if (!room.members.get(hostClientId)?.isHost) return { ok: false, error: 'NOT_HOST' };
   if (room.started) return { ok: false, error: 'GAME_ALREADY_STARTED' };
-  if (activePlayers(room).length >= Math.min(room.playerCount, MAX_PLAYERS)) {
+  if (activePlayers(room).length >= roomCapacity(room)) {
     return { ok: false, error: 'ROOM_FULL' };
   }
   // First free "Bot N" name (unique among current members).
@@ -402,7 +408,11 @@ export function removeMember(room: ServerRoom, clientId: string): { empty: boole
  */
 export function startGame(room: ServerRoom, deal: DealContext = {}): OpResult {
   if (room.started) return { ok: false, error: 'ILLEGAL_ACTION' };
-  if (activePlayers(room).length !== room.playerCount) {
+  // Start once the seated players are within the game's catalog range (Stage 9.10).
+  // King: 3–4, Durak: 2–4. The room caps at maxPlayers; the host may start early.
+  const entry = getGameCatalogEntry(room.gameType ?? DEFAULT_GAME_TYPE);
+  const count = activePlayers(room).length;
+  if (!entry || count < entry.minPlayers || count > entry.maxPlayers) {
     return { ok: false, error: 'ILLEGAL_ACTION' };
   }
   // Resolve the game's definition (Stage 8.5). Unknown game → fail gracefully.

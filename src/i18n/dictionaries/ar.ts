@@ -53,6 +53,7 @@ export const AR: Record<string, string> = {
   'gameType.king': 'كينج',
   'menu.game': 'اللعبة',
   'menu.localSetupTitle': 'لعبة محلية',
+  'menu.nameInProfile': 'غيّر اسمك وصورتك في الملف الشخصي.',
   'menu.startLocal': 'ابدأ لعبة محلية',
   'menu.chooseGame': 'اختر اللعبة',
   'menu.moreGamesSoon': 'المزيد من الألعاب قريبًا',

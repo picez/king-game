@@ -111,7 +111,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount: 2 | 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */

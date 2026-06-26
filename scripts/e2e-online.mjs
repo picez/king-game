@@ -138,12 +138,23 @@ async function main() {
   await sleep(250);
   check(host.room.members.filter((m) => m.role === 'player').length === 3, 'lobby shows 3 players');
 
-  // 2b) Full room rejects an extra joiner
+  // 2b) Full room (capacity = catalog max 4) rejects an extra joiner. Uses a
+  // SEPARATE room so the main room above stays at 3 for the King gameplay test.
+  const fullHost = await connect();
+  sendMsg(fullHost, { t: 'CREATE_ROOM', name: 'FullHost', modeSelectionType: 'fixed' });
+  await sleep(150);
+  const fullCode = fullHost.room.code;
+  sendMsg(fullHost, { t: 'ADD_BOT' });
+  sendMsg(fullHost, { t: 'ADD_BOT' });
+  sendMsg(fullHost, { t: 'ADD_BOT' }); // host + 3 bots = 4/4
+  await sleep(250);
+  check(fullHost.room.members.filter((m) => m.role === 'player').length === 4, 'King room fills to the catalog max (4)');
   const extra = await connect();
-  sendMsg(extra, { t: 'JOIN_ROOM', code, name: 'Late', password: 'secret' });
+  sendMsg(extra, { t: 'JOIN_ROOM', code: fullCode, name: 'Late' });
   await sleep(150);
   check(extra.lastError?.code === 'ROOM_FULL', `full room → ROOM_FULL ("${humanError(extra.lastError?.code)}")`);
   extra.ws.close();
+  fullHost.ws.close();
 
   // 2k) Host kick in the lobby (self-contained room, before any start)
   console.log('\n[2k] host kicks a lobby member before start');

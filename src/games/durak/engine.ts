@@ -71,7 +71,8 @@ function rotateRoles(s: DurakState, attackerFrom: number, skip?: number): void {
   const nd = findNextActivePlayer(s, na + 1, na);
   if (nd === null) { checkFinished(s); return; }
   s.defenderIndex = nd;
-  s.throwerIndex = na;          // the primary attacker leads the new bout's throw-in
+  s.throwerIndex = na;          // the primary attacker opens the new bout
+  s.lastThrowerIndex = na;      // …and anchors the first throw-in cycle
   s.passedAttackers = [];
   s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
   s.status = 'attack';
@@ -79,25 +80,26 @@ function rotateRoles(s: DurakState, attackerFrom: number, skip?: number): void {
 
 /**
  * First non-passed eligible attacker (active, not the defender), clockwise from
- * the PRIMARY attacker — i.e. the primary keeps priority. Pure (no side effects).
+ * the LAST thrower (inclusive) — i.e. whoever last added a card keeps priority.
+ * Pure (no side effects).
  */
 function firstThrower(s: DurakState): number | null {
   const n = s.players.length;
   for (let k = 0; k < n; k++) {
-    const i = (s.attackerIndex + k) % n;
+    const i = (s.lastThrowerIndex + k) % n;
     if (i === s.defenderIndex) continue;
     if (s.players[i].hand.length === 0) continue;   // out of cards
-    if (s.passedAttackers.includes(i)) continue;    // already passed this bout
+    if (s.passedAttackers.includes(i)) continue;    // already passed this cycle
     return i;
   }
   return null;
 }
 
 /**
- * Throw-in priority (DURAK_RULES.md): after a card is beaten or an attacker
- * passes, hand the throw to the next eligible attacker who CAN throw (auto-passing
- * those who cannot — no matching card / limit reached). When nobody can throw and
- * every attack is beaten, the bout ends as a successful defense.
+ * Throw-in priority (DURAK_RULES.md): after a card is beaten or an attacker passes,
+ * hand the throw to the next eligible attacker who CAN throw, scanning clockwise
+ * from the LAST thrower (auto-passing those who cannot — no matching card / limit).
+ * When nobody can throw and every attack is beaten, the bout ends (defended).
  */
 function resumeThrowIn(s: DurakState): void {
   for (;;) {
@@ -130,7 +132,8 @@ function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?:
   const defenderIndex = (attackerIndex + 1) % numPlayers;
   return {
     gameType: 'durak', variant: action.variant, players, drawPile, trumpSuit, trumpCard,
-    attackerIndex, defenderIndex, throwerIndex: attackerIndex, passedAttackers: [],
+    attackerIndex, defenderIndex, throwerIndex: attackerIndex, lastThrowerIndex: attackerIndex,
+    passedAttackers: [],
     table: [], discardPile: [], status: 'attack',
     boutLimit: Math.min(MAX_HAND, players[defenderIndex].hand.length),
     foolId: null, winnerIds: [], isDraw: false,
@@ -156,9 +159,10 @@ export function durakReducer(
       const s = clone(state);
       removeCard(s.players[s.throwerIndex].hand, action.card); // the current thrower plays
       s.table.push({ attack: action.card, defense: null });
-      // A newly added card opens a FRESH throw-in cycle: clear the passes so that,
-      // once it is beaten, priority returns to the primary attacker (a new rank may
-      // now give an earlier attacker a legal throw). DURAK_RULES.md — re-priority.
+      // A newly added card opens a FRESH throw-in cycle anchored at THIS thrower:
+      // once it is beaten they keep priority; passes clear so a new rank can re-open
+      // a chance for earlier attackers. DURAK_RULES.md — last-thrower priority.
+      s.lastThrowerIndex = s.throwerIndex;
       s.passedAttackers = [];
       s.status = 'defense';
       return s;
@@ -216,6 +220,7 @@ export function durakReducer(
       s.attackerIndex = transferrer;
       s.defenderIndex = nd;
       s.throwerIndex = transferrer;
+      s.lastThrowerIndex = transferrer;
       s.passedAttackers = [];
       s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
       s.status = 'defense';           // the new defender must respond

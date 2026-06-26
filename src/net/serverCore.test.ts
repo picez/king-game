@@ -634,10 +634,11 @@ describe('server-side bots', () => {
   });
 
   it('cannot add a bot when the room is full (ROOM_FULL)', () => {
-    const room = botRoom(); // 3 seats
+    const room = botRoom(); // King room — capacity is the catalog max (4 seats)
     const host = arr(room)[0];
     addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
-    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }); // 3/3
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
+    addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }); // 4/4
     expect(addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }))
       .toMatchObject({ ok: false, error: 'ROOM_FULL' });
   });

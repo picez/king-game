@@ -5,9 +5,10 @@ import { getValidAttackCards } from './rules';
 import type { Card } from '../../models/types';
 import type { DurakPlayer, DurakState } from './types';
 
-// Priority throw-in (DURAK_RULES.md): the primary attacker keeps the throw until
-// they pass; then it moves clockwise to the next eligible attacker; the defender
-// never throws; when nobody can/will throw and all is beaten the bout ends.
+// Priority throw-in (DURAK_RULES.md): the primary attacker opens; priority then
+// anchors at the LAST thrower (whoever most recently added a card) and moves
+// clockwise to the next eligible attacker; the defender never throws; when nobody
+// can/will throw and all is beaten the bout ends.
 
 const C = (rank: Card['rank'], suit: Card['suit']): Card => ({ rank, suit, value: cardValue(rank) });
 const P = (seat: number, hand: Card[]): DurakPlayer => ({ id: `player-${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human', hand });
@@ -17,11 +18,12 @@ function st(n: number, over: Partial<DurakState>): DurakState {
     gameType: 'durak', variant: 'simple',
     players: Array.from({ length: n }, (_, i) => P(i, [])),
     drawPile: [], trumpSuit: 'spades', trumpCard: C('6', 'spades'),
-    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, passedAttackers: [],
+    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, lastThrowerIndex: 0, passedAttackers: [],
     table: [], discardPile: [], status: 'attack', boutLimit: 6,
     foolId: null, winnerIds: [], isDraw: false, ...over,
   };
   if (over.throwerIndex === undefined) s.throwerIndex = s.attackerIndex;
+  if (over.lastThrowerIndex === undefined) s.lastThrowerIndex = s.throwerIndex;
   return s;
 }
 
@@ -99,6 +101,31 @@ describe('re-priority after a co-attacker throw-in (3 players)', () => {
     s = durakReducer(s, { type: 'ATTACK_CARD', card: C('9', 'hearts') })!;                         // (g) A throws the 9
     expect(s.status).toBe('defense');
     expect(s.table.map((p) => p.attack.rank)).toEqual(['6', '7', '9']);
+  });
+
+  it('keeps priority with the LAST thrower (not the primary) after their card is beaten', () => {
+    // A opens 6; B beats 7; A has no 6/7 → C leads; C throws a 7; B beats with a
+    // trump 9 → rank 9 appears. C still holds another 7, so C (the LAST thrower)
+    // gets priority AGAIN — not A, even though A now holds a 9. Only once C passes
+    // does the throw move on to A.
+    let s = st(3, {
+      players: [
+        P(0, [C('6', 'clubs'), C('9', 'hearts')]),     // A: a 9 for the new rank
+        P(1, [C('7', 'clubs'), C('9', 'spades')]),     // B defender
+        P(2, [C('7', 'hearts'), C('7', 'diamonds')]),  // C: two 7s
+      ],
+      status: 'attack', attackerIndex: 0, defenderIndex: 1, throwerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('6', 'clubs') })!;
+    s = durakReducer(s, { type: 'DEFEND_CARD', attack: C('6', 'clubs'), card: C('7', 'clubs') })!;
+    expect(s.throwerIndex).toBe(2);                  // A had no 6/7 → C leads
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('7', 'hearts') })!;  // C throws a 7
+    s = durakReducer(s, { type: 'DEFEND_CARD', attack: C('7', 'hearts'), card: C('9', 'spades') })!; // rank 9 appears
+    expect(s.lastThrowerIndex).toBe(2);
+    expect(s.throwerIndex).toBe(2);                  // priority AGAIN to C (last thrower), not A
+    s = durakReducer(s, { type: 'PASS_ATTACK' })!;   // now C passes
+    expect(s.throwerIndex).toBe(0);                  // → next eligible: A, who now holds rank 9
+    expect(getValidAttackCards(s).some((c) => c.rank === '9')).toBe(true);
   });
 
   it('a pass stays effective while no new card is added', () => {

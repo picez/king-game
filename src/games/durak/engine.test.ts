@@ -13,11 +13,12 @@ function st(over: Partial<DurakState>): DurakState {
   const s: DurakState = {
     gameType: 'durak', variant: 'simple', players: [P(0, []), P(1, [])],
     drawPile: [], trumpSuit: 'spades', trumpCard: C('6', 'spades'),
-    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, passedAttackers: [],
+    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, lastThrowerIndex: 0, passedAttackers: [],
     table: [], discardPile: [],
     status: 'attack', boutLimit: 6, foolId: null, winnerIds: [], isDraw: false, ...over,
   };
   if (over.throwerIndex === undefined) s.throwerIndex = s.attackerIndex; // thrower defaults to primary
+  if (over.lastThrowerIndex === undefined) s.lastThrowerIndex = s.throwerIndex;
   return s;
 }
 

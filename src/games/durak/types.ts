@@ -43,12 +43,14 @@ export interface DurakState {
   trumpSuit: Suit;
   /** The face-up trump card at the bottom of the draw pile (last to be drawn). */
   trumpCard: Card;
-  /** The PRIMARY attacker (the opener) — has throw-in priority and leads draws. */
+  /** The PRIMARY attacker (the opener) — leads draws; opens each bout. */
   attackerIndex: number;
   defenderIndex: number;
-  /** The attacker whose turn it is to throw or pass right now (priority throw-in). */
+  /** The attacker whose turn it is to throw or pass right now. */
   throwerIndex: number;
-  /** Seats that have passed this bout (cannot throw again until the next bout). */
+  /** The seat that most recently ADDED a card — throw-in priority anchors here. */
+  lastThrowerIndex: number;
+  /** Seats that have passed in the CURRENT throw-in cycle (reset when a card is added). */
   passedAttackers: number[];
   /** Attack/defense pairs currently in play. */
   table: TablePair[];

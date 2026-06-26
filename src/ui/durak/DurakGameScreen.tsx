@@ -8,6 +8,7 @@ import {
   beats, canTransfer, getValidAttackCards, getValidTransferCards, sameCard, unbeatenAttacks,
 } from '../../games/durak/rules';
 import DurakHelp from './DurakHelp';
+import DurakDeck from './DurakDeck';
 
 /** Transient "what just happened" banner (a bout resolved). */
 export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
@@ -80,7 +81,10 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const canTransferBtn = isMyTurn && phase === 'defense' && iAmDefender && state.variant === 'transfer' && canTransfer(state);
 
   const trumpRed = state.trumpSuit === 'hearts' || state.trumpSuit === 'diamonds';
-  const opponents = state.players.filter((p) => p.id !== humanId);
+  // Opponents laid out in PLAY ORDER — clockwise from the seat after me — so it
+  // reads "who comes after whom" (Stage 9.10). Not mirrored for RTL.
+  const opponents = Array.from({ length: state.players.length - 1 },
+    (_, k) => state.players[(meSeat + 1 + k) % state.players.length]);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
   // The current actor: in the attack phase it is the THROWER (not always primary).
   const actorSeat = phase === 'attack' ? state.throwerIndex : state.defenderIndex;
@@ -111,7 +115,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
           {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
         </span>
         <span className="durak-topbar__right">
-          <span className="durak-deck" aria-label="Deck">🂠 {state.drawPile.length}</span>
+          <DurakDeck count={state.drawPile.length} trumpCard={state.trumpCard} trumpSuit={state.trumpSuit} />
           <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('durak.howToPlay')}>❓</button>
         </span>
       </div>

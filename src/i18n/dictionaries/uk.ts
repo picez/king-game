@@ -53,6 +53,7 @@ export const UK: Record<string, string> = {
   'gameType.king': 'Кінг',
   'menu.game': 'Гра',
   'menu.localSetupTitle': 'Локальна гра',
+  'menu.nameInProfile': 'Зміни ім’я та аватар у Профілі.',
   'menu.startLocal': 'Почати локальну гру',
   'menu.chooseGame': 'Оберіть гру',
   'menu.moreGamesSoon': 'Більше ігор незабаром',

@@ -28,14 +28,57 @@
 }
 .durak-trump strong { font-size: 1.2rem; }
 .durak-trump--red strong { color: var(--card-red); }
+/* Deck + trump widget (Stage 9.10): a closed stack with the trump card across
+   the bottom + the remaining count. Thins as it is drawn; empty → trump chip. */
 .durak-deck {
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 800;
   color: var(--text);
+}
+.durak-deck__stack {
+  position: relative;
+  width: 2rem;
+  height: 2.7rem;
+}
+/* The face-up trump card lies across the bottom of the pile (peeks out to the side). */
+.durak-deck__trump {
+  position: absolute;
+  left: 0.55rem;
+  bottom: -0.15rem;
+  transform: rotate(90deg);
+  transform-origin: center;
+  z-index: 0;
+  pointer-events: none;
+}
+.durak-deck__trump .card { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
+/* The closed deck — a card back with stacked-edge shadows that thin when low. */
+.durak-deck__back {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 1.7rem;
+  height: 2.5rem;
+  border-radius: 0.28rem;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 3px, transparent 3px 6px),
+    linear-gradient(160deg, #2a5d44, #173c2c);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 2px 2px 0 -0.5px rgba(0, 0, 0, 0.4), 4px 4px 0 -1px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+  transition: box-shadow 0.3s ease;
+}
+.durak-deck--low .durak-deck__back { box-shadow: 1px 1px 0 -0.5px rgba(0, 0, 0, 0.4); }
+.durak-deck__count { font-size: 0.95rem; }
+/* Empty pile: only the trump suit remains, as a small chip. */
+.durak-deck--empty {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.25rem 0.7rem;
+  padding: 0.2rem 0.6rem;
 }
+.durak-deck__suit { font-size: 1.2rem; }
+.durak-deck--red .durak-deck__suit { color: var(--card-red); }
 
 .durak-opponents {
   display: flex;
@@ -157,6 +200,9 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 0.35rem;
+  /* Centred when the hand fits; falls back to the start (scrollable) when it
+     overflows — `safe` keeps the leftmost cards reachable. (Stage 9.10) */
+  justify-content: safe center;
   overflow-x: auto;
   padding: 0.4rem 0.2rem 0.6rem;
   scroll-snap-type: x proximity;

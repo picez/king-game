@@ -67,10 +67,9 @@ export function handleClientMessage(
       if (!entry.supportsOnline) {
         return sendError(socket, 'BAD_MESSAGE', 'Game is not available online');
       }
-      // King keeps its EXACT 3|4 behaviour; other games clamp to their catalog range.
-      const playerCount = (gameType === 'king'
-        ? (msg.playerCount === 3 ? 3 : 4)
-        : Math.max(entry.minPlayers, Math.min(entry.maxPlayers, msg.playerCount))) as 2 | 3 | 4;
+      // No player-count picker (Stage 9.10): the room caps at the catalog max and
+      // the host starts once >= minPlayers are seated. Capacity is server-enforced.
+      const playerCount = entry.maxPlayers as 2 | 3 | 4;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       const code = ctx.makeRoomCode();
       const clientId = randomUUID();

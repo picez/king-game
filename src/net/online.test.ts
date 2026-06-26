@@ -30,9 +30,9 @@ describe('seatToPlayerId', () => {
 
 describe('firstConnectMessage', () => {
   it('maps a create intent to a single CREATE_ROOM message', () => {
-    const intent: OnlineIntent = { kind: 'create', name: 'Alice', playerCount: 3, modeSelectionType: 'dealer_choice' };
+    const intent: OnlineIntent = { kind: 'create', name: 'Alice', modeSelectionType: 'dealer_choice' };
     expect(firstConnectMessage(intent)).toEqual({
-      t: 'CREATE_ROOM', name: 'Alice', playerCount: 3, modeSelectionType: 'dealer_choice',
+      t: 'CREATE_ROOM', name: 'Alice', modeSelectionType: 'dealer_choice',
     });
   });
 
@@ -47,13 +47,13 @@ describe('firstConnectMessage', () => {
   });
 
   it('is pure — repeated calls produce equal messages, never a second side effect', () => {
-    const intent: OnlineIntent = { kind: 'create', name: 'A', playerCount: 4, modeSelectionType: 'fixed' };
+    const intent: OnlineIntent = { kind: 'create', name: 'A', modeSelectionType: 'fixed' };
     expect(firstConnectMessage(intent)).toEqual(firstConnectMessage(intent));
   });
 
   it('includes the password when creating/joining a protected room', () => {
-    expect(firstConnectMessage({ kind: 'create', name: 'A', playerCount: 4, modeSelectionType: 'fixed', password: 's3cret' }))
-      .toEqual({ t: 'CREATE_ROOM', name: 'A', playerCount: 4, modeSelectionType: 'fixed', password: 's3cret' });
+    expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', password: 's3cret' }))
+      .toEqual({ t: 'CREATE_ROOM', name: 'A', modeSelectionType: 'fixed', password: 's3cret' });
     expect(firstConnectMessage({ kind: 'join', code: 'KQJ7', name: 'B', password: 's3cret' }))
       .toEqual({ t: 'JOIN_ROOM', code: 'KQJ7', name: 'B', password: 's3cret' });
   });

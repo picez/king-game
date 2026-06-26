@@ -1,5 +1,6 @@
 import type { RoomSnapshot } from '../../net/messages';
 import { useI18n } from '../../i18n';
+import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
 
 interface Props {
   room: RoomSnapshot;
@@ -28,8 +29,12 @@ const TIMER_OPTIONS = [0, 30, 60, 90];
 export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, onSetTimer, error }: Props) {
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
-  const enough = players.length === room.playerCount;
-  const hasFreeSeat = players.length < room.playerCount;
+  // Stage 9.10: start once >= minPlayers are seated; the room caps at maxPlayers.
+  const entry = getGameCatalogEntry(room.gameType ?? DEFAULT_GAME_TYPE);
+  const minPlayers = entry?.minPlayers ?? 3;
+  const maxPlayers = entry?.maxPlayers ?? room.playerCount;
+  const enough = players.length >= minPlayers;
+  const hasFreeSeat = players.length < maxPlayers;
 
   function handleKick(clientId: string) {
     // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
@@ -54,7 +59,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {room.code}{room.hasPassword && <span className="room-lock" title="🔒"> 🔒</span>}
           </div>
           <p className="setup-hint">
-            {players.length} / {room.playerCount} {t('lobby.playersWord')} ·{' '}
+            {players.length} / {maxPlayers} {t('lobby.playersWord')} ·{' '}
             {room.gameType === 'durak' ? (
               <>🃏 {t(room.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}
                 {' · '}<span className="lobby-exp">{t('menu.experimental')}</span></>
@@ -127,7 +132,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
 
         {isHost ? (
           <button className="btn btn--primary btn--large" disabled={!enough} onClick={onStart}>
-            {enough ? t('btn.start') : `${t('wait.waitingFor')} ${room.playerCount - players.length} ${t('lobby.waitingMore')}`}
+            {enough ? t('btn.start') : `${t('wait.waitingFor')} ${minPlayers - players.length} ${t('lobby.waitingMore')}`}
           </button>
         ) : (
           <p className="setup-hint">{t('lobby.waitingHost')}</p>
