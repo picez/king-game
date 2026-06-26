@@ -40,9 +40,12 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).toContain('onClick={() => onLocal(gameType)}'); // local sheet start
     expect(src).toContain("t('menu.startLocal')");
   });
-  it('exposes a compact King/Durak GamePicker used by Host + Local', () => {
+  it('exposes a compact King/Durak GamePicker (custom dropdown) used by Host + Local', () => {
     expect(src).toContain('function GamePicker(');
     expect(src).toContain('<GamePicker gameType={gameType} onPick={setGameType}');
+    // The picker is a SelectMenu dropdown, not big segmented buttons.
+    expect(src).toContain('<SelectMenu');
+    expect(src).not.toMatch(/game-picker[^]*segmented__tab/); // no segmented inside the picker
   });
   it('hosts the selected game online, passing gameType + variant for Durak', () => {
     expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");

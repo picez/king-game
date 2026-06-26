@@ -6,40 +6,12 @@
   justify-content: flex-end;
   margin-bottom: 0.25rem;
 }
-.lang-select {
-  background: var(--surface-3);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  padding: 0.4rem 2rem 0.4rem 0.9rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  min-height: var(--tap-min);
-  cursor: pointer;
-  box-shadow: var(--top-light);
-  /* Custom chevron so it doesn't look like a default 2000s HTML select. */
-  appearance: none;
-  -webkit-appearance: none;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
-    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-  background-position: right 1.05rem center, right 0.8rem center;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  transition: border-color 0.15s, background-color 0.15s;
-}
-.lang-select:hover { border-color: rgba(255, 255, 255, 0.34); }
-.lang-select:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.4); }
-.lang-select option { color: #111; }
+/* .lang-select is now a SelectMenu wrapper (Stage 9.11) — styling lives in
+   select-menu.css; this class is only a layout passthrough now. */
 
 /* RTL: keep card corners legible (don't mirror the glyphs) */
 [dir="rtl"] .card, [dir="rtl"] .mini-card { direction: ltr; }
 
-/* RTL: move the custom select chevron to the left side. */
-[dir="rtl"] .lang-select {
-  padding: 0.4rem 0.9rem 0.4rem 2rem;
-  background-position: left 1.05rem center, left 0.8rem center;
-}
 /* RTL: flip the colour rails so they hug the leading edge. */
 [dir="rtl"] .lobby-member { border-left: 1px solid var(--border); border-right: 3px solid var(--success); }
 [dir="rtl"] .lobby-member--offline { border-right-color: var(--text-dim); }

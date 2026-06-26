@@ -1,0 +1,88 @@
+/* ===== SelectMenu — one custom dropdown for game / avatar / language ===== */
+/* Fully namespaced (.select-menu*) so it never touches .card / .table / .menu.  */
+
+.select-menu { position: relative; width: 100%; }
+
+.select-menu__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: var(--tap-min, 44px);
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-strong, var(--border));
+  background: var(--surface-3, var(--surface-2));
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--top-light);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.select-menu__trigger:hover { border-color: rgba(255, 255, 255, 0.34); }
+.select-menu__trigger:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.4); }
+.select-menu--open .select-menu__trigger { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(245, 197, 24, 0.3); }
+
+.select-menu__value { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.select-menu__icon { font-size: 1.15rem; line-height: 1; }
+.select-menu__text { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
+.select-menu__label { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.select-menu__sub {
+  font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--accent-light);
+}
+.select-menu__chevron { color: var(--text-muted); font-size: 0.8rem; transition: transform 0.15s ease; }
+.select-menu--open .select-menu__chevron { transform: rotate(180deg); }
+
+/* Popover listbox — above panels, below the modal overlay (z 80). */
+.select-menu__popover {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 0.35rem);
+  inset-inline: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  max-height: 15rem;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border-strong, var(--border));
+  border-radius: 0.7rem;
+  box-shadow: var(--shadow-3, 0 12px 30px rgba(0, 0, 0, 0.45));
+  -webkit-overflow-scrolling: touch;
+}
+
+.select-menu__option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: var(--tap-min, 44px);
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  color: var(--text);
+}
+.select-menu__option:hover { background: rgba(245, 197, 24, 0.12); }
+.select-menu__option--selected { background: rgba(245, 197, 24, 0.16); }
+.select-menu__option--disabled { opacity: 0.45; cursor: not-allowed; }
+.select-menu__option--disabled:hover { background: transparent; }
+
+.select-menu__check { margin-inline-start: auto; color: var(--accent-light); opacity: 0; font-weight: 800; }
+.select-menu__check--on { opacity: 1; }
+
+/* Grid layout (avatars): compact emoji tiles that wrap. */
+.select-menu__popover--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+  gap: 0.3rem;
+}
+.select-menu__popover--grid .select-menu__option {
+  position: relative;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.2rem;
+}
+.select-menu__emoji { font-size: 1.5rem; line-height: 1; }
+.select-menu__popover--grid .select-menu__check { position: absolute; top: 1px; inset-inline-end: 3px; margin: 0; font-size: 0.7rem; }

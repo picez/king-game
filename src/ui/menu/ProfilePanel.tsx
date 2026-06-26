@@ -3,6 +3,7 @@ import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS } from '../../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
+import SelectMenu from '../components/SelectMenu';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
 
@@ -48,15 +49,16 @@ export default function ProfilePanel({
       </div>
 
       <div className="field">
-        <label className="field__label">{t('lobby.avatar')} <span className="avatar-current">{avatar}</span></label>
-        <div className="avatar-picker">
-          {AVATARS.map((a) => (
-            <button key={a} type="button"
-              className={`avatar-chip ${avatar === a ? 'avatar-chip--active' : ''}`}
-              aria-label={`avatar ${a}`} aria-pressed={avatar === a}
-              onClick={() => changeAvatar(a)}>{a}</button>
-          ))}
-        </div>
+        <label className="field__label">{t('lobby.avatar')}</label>
+        <SelectMenu
+          ariaLabel={t('lobby.avatar')}
+          className="avatar-picker"
+          layout="grid"
+          compactTrigger
+          value={avatar}
+          onChange={changeAvatar}
+          options={AVATARS.map((a) => ({ value: a, label: a }))}
+        />
       </div>
 
       <div className="field">

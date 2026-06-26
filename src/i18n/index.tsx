@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { loadLang, saveLang } from '../net/prefs';
+import SelectMenu from '../ui/components/SelectMenu';
 // Translation dictionaries (Stage 8.2): one file per language under
 // ./dictionaries/. Keys are unchanged; English is the source/fallback used by
 // translate() and I18N_KEYS below.
@@ -74,15 +75,12 @@ export function useI18n(): LangCtx {
 export function LanguageSelector() {
   const { lang, setLang } = useI18n();
   return (
-    <select
+    <SelectMenu
+      ariaLabel="Language"
       className="lang-select"
       value={lang}
-      onChange={(e) => setLang(e.target.value as Lang)}
-      aria-label="Language"
-    >
-      {LANGS.map((l) => (
-        <option key={l.code} value={l.code}>{l.label}</option>
-      ))}
-    </select>
+      onChange={(v) => setLang(v as Lang)}
+      options={LANGS.map((l) => ({ value: l.code, label: l.label, icon: '🌐' }))}
+    />
   );
 }

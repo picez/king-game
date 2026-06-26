@@ -13,6 +13,7 @@ import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
+import SelectMenu from './components/SelectMenu';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -381,7 +382,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   );
 }
 
-/** Compact King / Durak picker (segmented; Durak tagged Experimental). Stage 9.9. */
+/** Compact King / Durak picker — a custom dropdown (Durak tagged Experimental). */
 function GamePicker({ gameType, onPick, t }: {
   gameType: GameType;
   onPick: (g: GameType) => void;
@@ -390,21 +391,16 @@ function GamePicker({ gameType, onPick, t }: {
   return (
     <div className="field">
       <label className="field__label">{t('menu.game')}</label>
-      <div className="segmented segmented--inline game-picker">
-        {(['king', 'durak'] as const).map((gt) => (
-          <button
-            key={gt}
-            type="button"
-            className={`segmented__tab ${gameType === gt ? 'segmented__tab--active' : ''}`}
-            aria-pressed={gameType === gt}
-            onClick={() => onPick(gt)}
-          >
-            {gt === 'king'
-              ? t('gameType.king')
-              : <>{t('gameType.durak')} <span className="game-picker__exp">{t('menu.experimental')}</span></>}
-          </button>
-        ))}
-      </div>
+      <SelectMenu
+        ariaLabel={t('menu.game')}
+        className="game-picker"
+        value={gameType}
+        onChange={(v) => onPick(v as GameType)}
+        options={[
+          { value: 'king', label: t('gameType.king'), icon: '👑' },
+          { value: 'durak', label: t('gameType.durak'), sublabel: t('menu.experimental'), icon: '🃏' },
+        ]}
+      />
     </div>
   );
 }
