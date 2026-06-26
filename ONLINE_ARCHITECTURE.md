@@ -46,14 +46,14 @@ with a `t` discriminator.
   `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state
-- `HOST_STATE { state }` — relay-mode only (see §4)
+- `HOST_STATE { state }` — retired legacy relay only; ignored by the server (§4b)
 - `PING`
 
 **Server → Client** (`ServerMessage`)
 - `WELCOME { clientId, reconnectToken, room }`
 - `ROOM_UPDATE { room }` — lobby changes
 - `STATE_UPDATE { state }` — authoritative game state, **already redacted**
-- `ACTION_FORWARD { action, fromSeat }` — relay-mode only (server → host)
+- `ACTION_FORWARD { action, fromSeat }` — retired legacy relay only (§4b); unused
 - `ERROR { code, message }`
 - `PONG`
 
@@ -316,12 +316,16 @@ The deal is reproducible and auditable without ever exposing hidden cards.
   (reveal the seed at round end) would make fairness verifiable by players too;
   not implemented yet.
 
-### (b) Host-authoritative relay — **legacy / deprecated**
+### (b) Host-authoritative relay — **retired (historical only)**
 
-`server/index.mjs` (`npm run server:relay`) is the old relay where the host
-client was the authority (`HOST_STATE` / `ACTION_FORWARD`). It is kept for
-reference only and is **not compatible** with the current client, which no
-longer plays the host-authority role. Do not use it for new work.
+The old relay (where the *host client* was the authority via `HOST_STATE` /
+`ACTION_FORWARD`) has been **retired** (Stage 8.6). It is **not compatible** with
+the current client and is no longer wired to any npm script. The source is kept
+for history only at **`legacy/server-relay.mjs`** — do not run it for real play
+and do not develop this path. The supported server is the server-authoritative
+one above (`npm run server`). The `HOST_STATE` / `ACTION_FORWARD` message types
+remain in the protocol union but the server-authoritative path ignores
+`HOST_STATE`.
 
 ## 5. Client integration — **implemented**
 
@@ -380,7 +384,6 @@ What is wired up:
 npm install
 npm run server          # server-authoritative (tsx). ws://0.0.0.0:3001 (PORT=8080 to change)
 npm run dev -- --host   # Vite served on your LAN IP
-# npm run server:relay  # legacy host-authoritative relay (deprecated)
 ```
 
 Find the host's LAN IP (`ipconfig` on Windows, `ip addr` / `ifconfig` on

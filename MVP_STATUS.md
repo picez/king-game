@@ -148,7 +148,6 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 | `e2e` | end-to-end online scenario over WebSocket |
 | `server` | server-authoritative WS server (dev/LAN) |
 | `server:prod` | same, `NODE_ENV=production` (VPS) |
-| `server:relay` | legacy host-authoritative relay (deprecated) |
 | `icons` | regenerate PWA icons |
 
 ## Known limitations

@@ -15,7 +15,6 @@
     "start": "NODE_ENV=production tsx server/index.ts",
     "server": "tsx server/index.ts",
     "server:prod": "NODE_ENV=production tsx server/index.ts",
-    "server:relay": "node server/index.mjs",
     "rooms:cleanup": "tsx server/cleanup.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx server/db/migrate.ts",

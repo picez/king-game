@@ -3,7 +3,9 @@
 //
 //   npm run server            # this file (server-authoritative, default)
 //   PORT=8080 npm run server  # override port
-//   npm run server:relay      # legacy host-authoritative relay (server/index.mjs)
+//
+// (The old host-authoritative relay was retired in Stage 8.6 — it now lives,
+// unsupported and not wired to any script, at legacy/server-relay.mjs.)
 //
 // The server OWNS the GameState: it builds the deal, applies `gameReducer` to
 // every ACTION_REQUEST, authorises the sender, and broadcasts a per-client

@@ -1,26 +1,26 @@
 // ---------------------------------------------------------------------------
 // King — LEGACY host-authoritative relay server (Node + ws)
 //
-//   ⚠️ DEPRECATED. The default server is now server-authoritative
-//   (server/index.ts, `npm run server`). This relay is kept for reference /
-//   dev fallback only and is NOT compatible with the current client, which no
-//   longer plays the host-authority role (no HOST_STATE / ACTION_FORWARD).
+//   ⛔ HISTORICAL / UNSUPPORTED — DO NOT DEVELOP THIS PATH.
 //
-// Run the legacy relay explicitly:   npm run server:relay
-// Override the port:                 PORT=8080 npm run server:relay
+//   This file is kept for historical reference ONLY. It is NOT wired to any npm
+//   script and is NOT compatible with the current client (which no longer plays
+//   the host-authority role — no HOST_STATE / ACTION_FORWARD). It was moved here
+//   from server/index.mjs in Stage 8.6 to isolate the dead relay from the
+//   supported codebase.
 //
-// It is a pure relay + room manager:
-//   • lobby with short room codes, host, players and spectators
-//   • reconnect via a per-client token
-//   • broadcasts authoritative game state to every member
+//   The supported server is SERVER-AUTHORITATIVE: server/index.ts via
+//   `npm run server`. Use that. See ONLINE_ARCHITECTURE.md.
 //
-// It is "host-authoritative relay": one member (the host) runs the exact same
-// `gameReducer` the local game uses and pushes the resulting state via
-// HOST_STATE; the server redacts each opponent's hand and fans the state out.
+//   If you ever truly need to inspect the old relay, run it manually with
+//   `node legacy/server-relay.mjs` — but it will not work with the shipped client.
 //
-// The fully server-authoritative upgrade (server owns the reducer, validates
-// every ACTION_REQUEST itself) is described in ONLINE_ARCHITECTURE.md. The
-// wire protocol already supports it — only this file changes.
+// (Original design, for the record.) A pure relay + room manager: lobby with
+// short room codes, host/players/spectators, reconnect via a per-client token,
+// and broadcast of authoritative state. "Host-authoritative" meant one member
+// (the host) ran the same `gameReducer` as the local game and pushed the result
+// via HOST_STATE; the server only redacted opponents' hands and fanned it out.
+// The shipped server replaced this by owning the reducer itself.
 // ---------------------------------------------------------------------------
 
 import { WebSocketServer } from 'ws';
