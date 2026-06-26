@@ -25,7 +25,8 @@ function defaultName(): string {
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
 
 interface Props {
-  onLocal: () => void;
+  /** Start a local game of the selected type (King unchanged; Durak prototype). */
+  onLocal: (gameType: GameType) => void;
   onOnline: (url: string, intent: OnlineIntent) => void;
   /** A join error carried back from a failed attempt (highlights the field). */
   initialError?: ErrorCode | null;
@@ -50,9 +51,10 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [playerCount, setPlayerCount] = useState<3 | 4>(4);
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
-  // Selected game (Stage 8.3 skeleton). King is the only game today, so this does
-  // NOT change the create/join protocol — it is the seam for future games.
+  // Selected game. King supports online; Durak is local-only for now, so its
+  // Host/Join tiles are disabled with an "online coming later" hint (Stage 9.3).
   const [gameType, setGameType] = useState<GameType>(DEFAULT_GAME_TYPE);
+  const onlineDisabled = gameType !== 'king';
 
   const account = useAccount(url);
   const roomList = useRoomList();
@@ -146,25 +148,33 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           <GameSelector selected={gameType} onSelect={setGameType} apiBase={apiBaseFromWsUrl(url)} />
 
           <div className="action-tiles">
-            <button className="tile tile--primary" onClick={onLocal}>
+            <button className="tile tile--primary" onClick={() => onLocal(gameType)}>
               <span className="tile__icon" aria-hidden="true">📱</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.localTitle')}</span>
                 <span className="tile__sub">{t('menu.localSub')}</span>
               </span>
             </button>
-            <button className="tile" onClick={() => setPane('host')}>
+            <button
+              className={`tile ${onlineDisabled ? 'tile--disabled' : ''}`}
+              disabled={onlineDisabled}
+              onClick={onlineDisabled ? undefined : () => setPane('host')}
+            >
               <span className="tile__icon" aria-hidden="true">🌐</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.hostTitle')}</span>
-                <span className="tile__sub">{t('menu.hostSub')}</span>
+                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : t('menu.hostSub')}</span>
               </span>
             </button>
-            <button className="tile" onClick={openJoin}>
+            <button
+              className={`tile ${onlineDisabled ? 'tile--disabled' : ''}`}
+              disabled={onlineDisabled}
+              onClick={onlineDisabled ? undefined : openJoin}
+            >
               <span className="tile__icon" aria-hidden="true">🔑</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.joinTitle')}</span>
-                <span className="tile__sub">{t('menu.joinSub')}</span>
+                <span className="tile__sub">{onlineDisabled ? t('durak.onlineSoon') : t('menu.joinSub')}</span>
               </span>
             </button>
           </div>

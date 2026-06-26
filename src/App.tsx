@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import type { OnlineIntent } from './hooks/useNetworkGame';
 import type { ErrorCode } from './net/messages';
+import type { GameType } from './games/catalog';
 import StartMenu from './ui/StartMenu';
 import LocalGame from './ui/LocalGame';
+import DurakLocalGame from './ui/durak/DurakLocalGame';
 import OnlineGame from './ui/online/OnlineGame';
 
 type Mode =
   | { kind: 'menu' }
-  | { kind: 'local' }
+  // Local play carries the chosen game (King unchanged; Durak = local prototype).
+  | { kind: 'local'; gameType: GameType }
   | { kind: 'online'; url: string; intent: OnlineIntent };
 
 export default function App() {
@@ -16,7 +19,10 @@ export default function App() {
   const [joinError, setJoinError] = useState<ErrorCode | null>(null);
 
   if (mode.kind === 'local') {
-    return <LocalGame />;
+    if (mode.gameType === 'durak') {
+      return <DurakLocalGame onExit={() => setMode({ kind: 'menu' })} />;
+    }
+    return <LocalGame />; // King — unchanged
   }
 
   if (mode.kind === 'online') {
@@ -32,7 +38,7 @@ export default function App() {
   return (
     <StartMenu
       initialError={joinError}
-      onLocal={() => setMode({ kind: 'local' })}
+      onLocal={(gameType) => setMode({ kind: 'local', gameType })}
       onOnline={(url, intent) => { setJoinError(null); setMode({ kind: 'online', url, intent }); }}
     />
   );

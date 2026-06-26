@@ -57,14 +57,15 @@ describe('HTTP API with no DATABASE_URL', () => {
     const { res, out } = mockRes();
     await handleApiRequest(mockReq('GET', '/api/games'), res);
     expect(out.status).toBe(200);
-    const body = out.body as { games: { id: string; status: string; supportsOnline: boolean }[] };
+    const body = out.body as { games: { id: string; status: string; supportsLocal: boolean; supportsOnline: boolean }[] };
     expect(Array.isArray(body.games)).toBe(true);
     expect(body.games.map((g) => g.id)).toEqual(['king', 'durak']);
     const king = body.games.find((g) => g.id === 'king')!;
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');
     expect(king.supportsOnline).toBe(true);
-    expect(durak.status).toBe('coming_soon'); // registered but not playable yet
+    expect(durak.status).toBe('experimental'); // local prototype, no online yet
+    expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(false);
     // Public shape only — no internal fields leak.
     expect('rulesDoc' in king).toBe(false);

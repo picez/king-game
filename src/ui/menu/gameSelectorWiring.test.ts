@@ -3,32 +3,49 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Lightweight wiring guard (no jsdom in this project): assert at the source level
-// that the menu game selector only lets you select a fully-playable game. This
-// catches a regression where Durak (coming_soon) becomes startable before its
-// UI/online integration exists.
+// that the menu only lets you START what is actually playable — King online +
+// Durak local-only — and never starts an online Durak game (Stage 9.3).
 function read(rel: string): string {
   return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 }
 
-describe('GameSelector — only available games are selectable', () => {
+describe('GameSelector — selectable vs disabled games', () => {
   const src = read('./GameSelector.tsx');
 
-  it('gates selection on the "available" status', () => {
-    expect(src).toContain("const playable = g.status === 'available'");
+  it('lets you select available OR experimental (local) games', () => {
+    expect(src).toContain("g.status === 'available' || g.status === 'experimental'");
   });
-  it('disables non-playable chips and never selects them', () => {
-    expect(src).toContain('disabled={!playable}');
-    expect(src).toContain('onClick={playable ? () => onSelect(g.id) : undefined}');
+  it('disables non-selectable (coming_soon) chips and never selects them', () => {
+    expect(src).toContain('disabled={!selectable}');
+    expect(src).toContain('onClick={selectable ? () => onSelect(g.id) : undefined}');
     expect(src).toContain('game-chip--disabled');
   });
-  it('labels non-playable games as coming soon', () => {
-    expect(src).toMatch(/menu\.comingSoon/);
+  it('labels experimental games as local-only', () => {
+    expect(src).toMatch(/menu\.localOnly/);
   });
 });
 
-describe('StartMenu defaults to King and never starts a non-King game (skeleton)', () => {
+describe('StartMenu — Durak is local-only', () => {
   const src = read('../StartMenu.tsx');
+
   it('initialises the selected game to the default (King)', () => {
     expect(src).toContain('useState<GameType>(DEFAULT_GAME_TYPE)');
+  });
+  it('starts a LOCAL game of the selected type', () => {
+    expect(src).toContain('onClick={() => onLocal(gameType)}');
+  });
+  it('disables Host/Join for non-King games with an "online coming later" hint', () => {
+    expect(src).toContain("const onlineDisabled = gameType !== 'king'");
+    expect(src).toContain('disabled={onlineDisabled}');
+    expect(src).toMatch(/durak\.onlineSoon/);
+  });
+});
+
+describe('App routing — local Durak goes to its own screen', () => {
+  const src = read('../../App.tsx');
+  it("routes gameType==='durak' to DurakLocalGame and keeps King on LocalGame", () => {
+    expect(src).toContain("mode.gameType === 'durak'");
+    expect(src).toContain('<DurakLocalGame');
+    expect(src).toContain('<LocalGame />');
   });
 });

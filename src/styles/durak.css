@@ -1,0 +1,136 @@
+/* ===== Durak (local prototype — Stage 9.3) ===== */
+/* Separate from King's screens; reuses CardView + the felt/button primitives. */
+
+.durak-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.6rem max(0.6rem, env(safe-area-inset-left)) calc(0.6rem + env(safe-area-inset-bottom));
+  min-height: 100vh;
+  background: radial-gradient(120% 80% at 50% 0%, var(--felt-lit) 0%, var(--felt-mid) 45%, var(--felt-edge) 100%);
+}
+
+.durak-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.durak-exit { min-height: 2rem; padding: 0.2rem 0.6rem; }
+.durak-trump {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+.durak-trump strong { font-size: 1.2rem; }
+.durak-trump--red strong { color: var(--card-red); }
+.durak-deck {
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+
+.durak-opponents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+}
+.durak-opp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text);
+}
+.durak-opp--atk { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.durak-opp--def { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset; }
+.durak-opp__name { font-weight: 700; }
+.durak-opp__role {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.durak-table {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  align-content: center;
+  justify-content: center;
+  min-height: 8.5rem;
+  padding: 0.5rem;
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--hairline);
+}
+.durak-table__empty { color: var(--text-dim); font-size: 0.9rem; }
+.durak-pair { position: relative; }
+/* The defending card sits slightly offset over the attack card. */
+.durak-pair__def { position: absolute; left: 14px; top: 16px; }
+
+.durak-status {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text);
+  min-height: 1.4rem;
+}
+.durak-status__hint { color: var(--accent-light); font-weight: 600; }
+
+.durak-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 2.6rem;
+}
+.durak-controls .btn { min-height: 2.5rem; padding: 0.4rem 1.1rem; }
+
+.durak-hand {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.4rem 0.2rem 0.6rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.durak-hand .card { scroll-snap-align: center; flex: 0 0 auto; }
+
+/* Setup + finished reuse the menu card styling. */
+.durak-setup__hint { color: var(--text-dim); font-size: 0.82rem; margin: 0.2rem 0 0.6rem; }
+.durak-setup__start { width: 100%; margin-bottom: 0.5rem; }
+
+.durak-finished { align-items: center; justify-content: center; }
+.durak-finished__card {
+  margin: auto;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.6rem 1.4rem;
+  box-shadow: var(--shadow-3);
+  max-width: 22rem;
+}
+.durak-finished__emoji { font-size: 3rem; }
+.durak-finished__title { margin: 0.4rem 0; color: var(--text); }
+.durak-finished__sub { color: var(--text-muted); margin-bottom: 1rem; }
+.durak-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Disabled online tiles when a local-only game (Durak) is selected. */
+.tile--disabled { opacity: 0.5; cursor: not-allowed; }
+.tile--disabled .tile__sub { color: var(--text-dim); font-style: italic; }

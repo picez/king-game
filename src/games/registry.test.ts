@@ -30,7 +30,7 @@ describe('Durak game definition (registered, not yet playable)', () => {
     expect(durakGameDefinition.rulesDoc).toBe('DURAK_RULES.md');
     expect(durakGameDefinition.supportedPlayerCounts).toEqual([2, 3, 4]);
     expect(durakGameDefinition.recordsStats).toBe(false);
-    expect(durakGameDefinition.catalog.status).toBe('coming_soon');
+    expect(durakGameDefinition.catalog.status).toBe('experimental'); // local prototype (9.3)
   });
 
   it('smoke: reducer starts a game and botAction can progress it', () => {

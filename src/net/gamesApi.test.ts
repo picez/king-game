@@ -10,7 +10,7 @@ const KING = {
 const DURAK = {
   id: 'durak', title: 'gameType.durak', shortTitle: 'gameType.durak',
   minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 2,
-  supportsLocal: false, supportsOnline: false, supportsBots: true, status: 'coming_soon',
+  supportsLocal: true, supportsOnline: false, supportsBots: true, status: 'experimental',
 };
 const okResponse = (body: unknown) =>
   ({ ok: true, json: async () => body } as unknown as Response);
