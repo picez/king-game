@@ -8,10 +8,11 @@
 
 import { gameReducer, getActingPlayerId, type GameAction } from '../../core/gameEngine';
 import type { GameState } from '../../models/types';
-import { buildStartAction } from '../../net/online';
+import { buildStartAction, seatToPlayerId } from '../../net/online';
 // Import botAction from its own module (NOT serverCore) so this definition does
 // not import serverCore — serverCore imports the registry, which imports this.
 import { botAction } from '../../net/botAction';
+import { redactStateFor } from '../../net/messages';
 import { GAME_CATALOG } from '../catalog';
 import { playerCountRange, type GameDefinition } from '../definition';
 
@@ -26,5 +27,9 @@ export const kingGameDefinition: GameDefinition<GameState, GameAction> = {
   getActingPlayerId,
   buildStartAction,
   botAction,
+  // King redaction is by player id; bridge the seat the server knows.
+  redactStateFor: (state, viewerSeat) =>
+    redactStateFor(state, viewerSeat != null ? seatToPlayerId(viewerSeat) : null) as GameState,
+  isFinished: (state) => state.status === 'game_finished',
   recordsStats: true,
 };

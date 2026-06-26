@@ -12,12 +12,12 @@
 
 import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
-import { gameReducer, getActingPlayerId } from '../core/gameEngine';
+import { gameReducer } from '../core/gameEngine';
 import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
 import { makeRng, randomSeed, hashString } from '../core/rng';
 import { DEFAULT_GAME_TYPE, isGameType, type GameType } from '../games/catalog';
 import { getGameDefinition } from '../games/registry';
-import { redactStateFor } from './messages';
+import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -85,9 +85,13 @@ export interface ServerRoom {
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
   started: boolean;
-  /** Authoritative, UNREDACTED game state. Never sent to clients as-is. */
-  gameState: GameState | null;
-  /** Private deal audit log (server-only; never broadcast). */
+  /**
+   * Authoritative, UNREDACTED game state for THIS room's game (King or Durak —
+   * Stage 9.5). Never sent to clients as-is; redacted per viewer via the game's
+   * definition. King-specific helpers below narrow it by `gameType`.
+   */
+  gameState: AnyGameState | null;
+  /** Private deal audit log (server-only; never broadcast). King-only today. */
   dealLog: DealRecord[];
   /**
    * Server-only join secret. We never store the plaintext password — only a
@@ -415,23 +419,31 @@ export function startGame(room: ServerRoom, deal: DealContext = {}): OpResult {
 export function applyActionRequest(
   room: ServerRoom,
   clientId: string,
-  action: GameAction,
+  action: AnyGameAction,
 ): OpResult {
-  if (!room.gameState) return { ok: false, error: 'ILLEGAL_ACTION' };
-  const member = room.members.get(clientId);
-  if (!authorizeAction(room.gameState, action, member?.seatIndex ?? null)) {
-    return { ok: false, error: 'NOT_YOUR_TURN' };
-  }
-  const next = gameReducer(room.gameState, action);
-  if (next === room.gameState) return { ok: false, error: 'ILLEGAL_ACTION' };
+  const state = room.gameState;
+  if (!state) return { ok: false, error: 'ILLEGAL_ACTION' };
+  const gameType = room.gameType ?? DEFAULT_GAME_TYPE;
+  const def = getGameDefinition(gameType);
+  if (!def) return { ok: false, error: 'ILLEGAL_ACTION' };
+  const seat = room.members.get(clientId)?.seatIndex ?? null;
+
+  // Authorise the sender. King keeps its EXACT rule (1:1); any other game allows
+  // only the player whose turn it is (the reducer enforces the rest of legality).
+  const authorized = gameType === 'king'
+    ? authorizeAction(state as GameState, action as GameAction, seat)
+    : seat != null && def.getActingPlayerId(state) === seatToPlayerId(seat);
+  if (!authorized) return { ok: false, error: 'NOT_YOUR_TURN' };
+
+  const next = def.reducer(state, action);
+  if (next === state) return { ok: false, error: 'ILLEGAL_ACTION' };
   room.gameState = next;
 
-  // Backfill the chosen mode onto the current round's deal record (DC mode).
-  if (action.type === 'CHOOSE_MODE' && next) {
+  // King-only: backfill the chosen mode onto the current round's deal record (DC).
+  if (gameType === 'king' && (action as GameAction).type === 'CHOOSE_MODE' && next) {
+    const ks = next as GameState;
     const last = room.dealLog[room.dealLog.length - 1];
-    if (last && last.roundIndex === next.currentRoundIdx) {
-      last.modeId = next.currentRound.mode.id;
-    }
+    if (last && last.roundIndex === ks.currentRoundIdx) last.modeId = ks.currentRound.mode.id;
   }
   return { ok: true };
 }
@@ -443,14 +455,17 @@ export function applyActionRequest(
  */
 export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
   if (!room.gameState) return false;
-  if (room.gameState.status === 'trick_complete') {
-    room.gameState = gameReducer(room.gameState, { type: 'NEXT_TRICK' });
+  // Only King has server-advanced public screens; Durak has none (Stage 9.5).
+  if ((room.gameType ?? DEFAULT_GAME_TYPE) !== 'king') return false;
+  const state = room.gameState as GameState;
+  if (state.status === 'trick_complete') {
+    room.gameState = gameReducer(state, { type: 'NEXT_TRICK' });
     return true;
   }
-  if (room.gameState.status === 'round_scoring') {
+  if (state.status === 'round_scoring') {
     // NEXT_ROUND deals a new round → seed it and record the deal metadata.
     const seed = deal.seed ?? randomSeed();
-    const next = gameReducer(room.gameState, { type: 'NEXT_ROUND' }, { rng: makeRng(seed) });
+    const next = gameReducer(state, { type: 'NEXT_ROUND' }, { rng: makeRng(seed) });
     room.gameState = next;
     if (next && next.status !== 'game_finished') recordDeal(room, seed, deal.now ?? 0);
     return true;
@@ -475,7 +490,9 @@ function playerIdToSeat(playerId: string): number {
 export function actingMember(room: ServerRoom): ServerMember | null {
   const s = room.gameState;
   if (!s) return null;
-  const actingId = getActingPlayerId(s);
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  if (!def) return null;
+  const actingId = def.getActingPlayerId(s); // King or Durak; both use 'player-N' ids
   if (!actingId) return null;
   const seat = playerIdToSeat(actingId);
   return [...room.members.values()].find((m) => m.role === 'player' && m.seatIndex === seat) ?? null;
@@ -530,9 +547,10 @@ function dealFingerprint(state: GameState): string {
   return hashString(JSON.stringify({ r: state.currentRoundIdx, d: state.dealerIndex, hands, kitty }));
 }
 
-/** Appends a DealRecord for the room's current round. */
+/** Appends a DealRecord for the room's current round (King-only deal audit). */
 function recordDeal(room: ServerRoom, seed: number, timestamp: number): void {
-  const s = room.gameState;
+  if (room.gameType === 'durak') return; // Durak has no King-style per-round deal log
+  const s = room.gameState as GameState | null;
   if (!s) return;
   room.dealLog.push({
     roundIndex: s.currentRoundIdx,
@@ -639,11 +657,13 @@ export function roomsToExpire(
   return expired;
 }
 
-/** The state a given client is allowed to see (own hand only). */
-export function sanitizedStateFor(room: ServerRoom, clientId: string): GameState | null {
+/** The state a given client is allowed to see (own hand only) — game-aware. */
+export function sanitizedStateFor(room: ServerRoom, clientId: string): AnyGameState | null {
+  if (!room.gameState) return null;
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  if (!def) return null;
   const member = room.members.get(clientId);
-  const viewerPlayerId = member && member.seatIndex != null ? seatToPlayerId(member.seatIndex) : null;
-  return redactStateFor(room.gameState, viewerPlayerId);
+  return def.redactStateFor(room.gameState, member?.seatIndex ?? null);
 }
 
 // ---------------------------------------------------------------------------
@@ -672,7 +692,7 @@ export interface PersistedRoom {
   modeSelectionType: 'fixed' | 'dealer_choice';
   turnTimerSec: number;
   started: boolean;
-  gameState: GameState | null;
+  gameState: AnyGameState | null;
   dealLog: DealRecord[];
   passwordSalt: string | null;
   passwordHash: string | null;
@@ -746,7 +766,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     modeSelectionType: o.modeSelectionType,
     turnTimerSec: normalizeTimer(o.turnTimerSec),
     started: o.started === true,
-    gameState: (o.gameState ?? null) as GameState | null,
+    gameState: (o.gameState ?? null) as AnyGameState | null,
     dealLog: Array.isArray(o.dealLog) ? (o.dealLog as DealRecord[]) : [],
     passwordSalt: typeof o.passwordSalt === 'string' ? o.passwordSalt : null,
     passwordHash: typeof o.passwordHash === 'string' ? o.passwordHash : null,

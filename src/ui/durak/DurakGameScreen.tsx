@@ -1,22 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
-import type { Card } from '../../models/types';
+import type { Card, Suit } from '../../models/types';
 import type { DurakAction, DurakState } from '../../games/durak/types';
 import { getActingDurakPlayerId } from '../../games/durak/engine';
 import {
   beats, canTransfer, getValidAttackCards, getValidTransferCards, sameCard, unbeatenAttacks,
 } from '../../games/durak/rules';
 
+/** Transient "what just happened" banner (a bout resolved). */
+export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
+
 interface Props {
   state: DurakState;
   humanId: string;
   apply: (a: DurakAction) => void;
   onExit: () => void;
+  notice?: DurakNotice | null;
+}
+
+const SUIT_ORDER: Record<Suit, number> = { spades: 0, clubs: 1, diamonds: 2, hearts: 3 };
+
+/** Display sort: group by suit, low→high, trumps last (so they read clearly). */
+function sortHand(cards: Card[], trump: Suit): Card[] {
+  return cards.slice().sort((a, b) => {
+    const at = a.suit === trump ? 1 : 0;
+    const bt = b.suit === trump ? 1 : 0;
+    if (at !== bt) return at - bt;
+    if (a.suit !== b.suit) return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+    return a.value - b.value;
+  });
 }
 
 /** The local human's table view: opponents, trump/deck, table pairs, hand, actions. */
-export default function DurakGameScreen({ state, humanId, apply, onExit }: Props) {
+export default function DurakGameScreen({ state, humanId, apply, onExit, notice }: Props) {
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
 
@@ -62,8 +79,18 @@ export default function DurakGameScreen({ state, humanId, apply, onExit }: Props
   const actor = state.players[phase === 'attack' ? state.attackerIndex : state.defenderIndex];
   const myRole = iAmAttacker ? t('durak.attacker') : iAmDefender ? t('durak.defender') : '';
 
+  // One clear instruction for the current moment.
+  const prompt = transferMode ? t('durak.promptTransfer')
+    : !isMyTurn ? `${t('durak.waiting')} ${actor?.name}…`
+      : phase === 'attack'
+        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptAttackMore'))
+        : t('durak.promptDefend');
+
+  const noticeText = notice?.kind === 'took' ? `${notice.name} ${t('durak.took')}`
+    : notice?.kind === 'beaten' ? t('durak.beaten') : null;
+
   return (
-    <div className="screen durak-screen">
+    <div className={`screen durak-screen ${transferMode ? 'durak-screen--transfer' : ''}`}>
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label="Back">✕</button>
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
@@ -87,7 +114,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit }: Props
       </div>
 
       <div className="durak-table">
-        {state.table.length === 0
+        {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
+        {state.table.length === 0 && !noticeText
           ? <p className="durak-table__empty">{isMyTurn && iAmAttacker ? t('durak.tableEmpty') : ''}</p>
           : state.table.map((pair, i) => (
             <div className="durak-pair" key={i}>
@@ -99,22 +127,20 @@ export default function DurakGameScreen({ state, humanId, apply, onExit }: Props
           ))}
       </div>
 
-      <div className="durak-status">
-        {isMyTurn
-          ? <strong>{phase === 'attack' ? t('durak.yourTurnAttack') : t('durak.yourTurnDefend')}{myRole ? ` (${myRole})` : ''}</strong>
-          : <span>{t('durak.waiting')} {actor?.name}…</span>}
-        {transferMode && <span className="durak-status__hint"> · {t('durak.transferHint')}</span>}
+      <div className={`durak-prompt ${isMyTurn ? 'durak-prompt--me' : ''}`}>
+        {myRole && <span className={`durak-youare durak-youare--${iAmAttacker ? 'atk' : 'def'}`}>{t('durak.youAre')} {myRole}</span>}
+        <span className="durak-prompt__text">{prompt}</span>
       </div>
 
       <div className="durak-controls">
-        {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'END_ATTACK' })}>{t('durak.pass')}</button>}
-        {canTake && <button type="button" className="btn btn--danger" onClick={() => apply({ type: 'TAKE_CARDS' })}>{t('durak.take')}</button>}
-        {canTransferBtn && !transferMode && <button type="button" className="btn btn--outline" onClick={() => setTransferMode(true)}>{t('durak.transfer')}</button>}
-        {transferMode && <button type="button" className="btn btn--ghost" onClick={() => setTransferMode(false)}>{t('durak.cancel')}</button>}
+        {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'END_ATTACK' })}>✓ {t('durak.pass')}</button>}
+        {canTake && <button type="button" className="btn btn--danger" onClick={() => apply({ type: 'TAKE_CARDS' })}>✋ {t('durak.take')}</button>}
+        {canTransferBtn && !transferMode && <button type="button" className="btn btn--outline" onClick={() => setTransferMode(true)}>↪ {t('durak.transfer')}</button>}
+        {transferMode && <button type="button" className="btn btn--ghost" onClick={() => setTransferMode(false)}>✕ {t('durak.cancel')}</button>}
       </div>
 
       <div className="durak-hand">
-        {me.hand.map((c, i) => (
+        {sortHand(me.hand, state.trumpSuit).map((c, i) => (
           <CardView
             key={`${c.rank}${c.suit}${i}`}
             card={c}

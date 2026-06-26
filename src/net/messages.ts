@@ -15,6 +15,7 @@
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import type { GameType } from '../games/catalog';
+import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 
 // ---------------------------------------------------------------------------
 // Lobby / room model
@@ -118,7 +119,7 @@ export type ClientMessage =
   | { t: 'UPDATE_SETTINGS'; playerCount?: 3 | 4; modeSelectionType?: 'fixed' | 'dealer_choice' }
   | { t: 'START_GAME' }
   /** A request to mutate game state; the authority validates and applies it. */
-  | { t: 'ACTION_REQUEST'; action: GameAction }
+  | { t: 'ACTION_REQUEST'; action: AnyGameAction }
   /**
    * Host-authoritative relay mode (the shipped server): the host applies the
    * reducer locally and pushes the new authoritative state for the server to
@@ -148,7 +149,7 @@ export type ServerMessage =
    * Authoritative game state. `state` is already redacted for the recipient
    * (only their own hand is populated) — see `redactStateFor`.
    */
-  | { t: 'STATE_UPDATE'; state: GameState | null }
+  | { t: 'STATE_UPDATE'; state: AnyGameState | null }
   /**
    * Relay mode only: the server forwards another member's ACTION_REQUEST to
    * the host (the authority), tagged with the requesting seat so the host can

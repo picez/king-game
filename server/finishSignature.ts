@@ -7,10 +7,12 @@
 // double-recording stats on reconnect/rebroadcast. No behaviour change.
 // ---------------------------------------------------------------------------
 
+import type { GameState } from '../src/models/types';
 import type { ServerRoom } from '../src/net/serverCore';
 
 export function finishSignature(room: ServerRoom): string {
-  const s = room.gameState;
+  // King-only (called from the King stats path); room.gameState is the union now.
+  const s = room.gameState as GameState | null;
   if (!s) return '';
   const totals = s.players.map((p) => `${p.id}=${s.scores[p.id]?.total ?? 0}`).join(',');
   return `${(s.roundHistory ?? []).length}|${totals}`;

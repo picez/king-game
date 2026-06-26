@@ -48,6 +48,14 @@ export interface GameDefinition<TState = unknown, TAction = unknown> {
   buildStartAction: (room: RoomSnapshot) => TAction;
   /** The AI move for the current actor, or null on screens AI does not drive. */
   botAction: (state: TState) => TAction | null;
+  /**
+   * The state a viewer at `viewerSeat` is allowed to see — own hand only, every
+   * opponent hand (and the face-down draw pile) replaced with hidden cards. Pure;
+   * must never leak a private hand. `viewerSeat` null = a spectator view.
+   */
+  redactStateFor: (state: TState, viewerSeat: number | null) => TState;
+  /** Whether the game is over (used by the server to record/stop). */
+  isFinished: (state: TState) => boolean;
 
   /**
    * Whether finished online games record (score-only) stats for this game. The

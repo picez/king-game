@@ -10,8 +10,9 @@
 import type { RoomSnapshot } from '../../net/messages';
 import { GAME_CATALOG } from '../catalog';
 import { playerCountRange, type GameDefinition } from '../definition';
-import { durakReducer, getActingDurakPlayerId } from './engine';
+import { durakReducer, getActingDurakPlayerId, isDurakFinished } from './engine';
 import { durakBotAction } from './ai';
+import { durakRedactStateFor } from './redact';
 import type { DurakAction, DurakState } from './types';
 
 const entry = GAME_CATALOG.durak;
@@ -40,5 +41,7 @@ export const durakGameDefinition: GameDefinition<DurakState, DurakAction> = {
   getActingPlayerId: getActingDurakPlayerId,
   buildStartAction: buildDurakStartAction,
   botAction: durakBotAction,
-  recordsStats: false, // stats wiring lands in Stage 9.4
+  redactStateFor: durakRedactStateFor,
+  isFinished: isDurakFinished,
+  recordsStats: false, // stats wiring lands later
 };

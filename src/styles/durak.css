@@ -66,6 +66,7 @@
 }
 
 .durak-table {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-wrap: wrap;
@@ -90,6 +91,48 @@
   min-height: 1.4rem;
 }
 .durak-status__hint { color: var(--accent-light); font-weight: 600; }
+
+/* Transient "Bot took the cards" / "Beaten" banner over the table. */
+.durak-notice {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--accent-light);
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+}
+
+/* The single clear instruction + "You are <role>" chip. */
+.durak-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+  min-height: 1.6rem;
+}
+.durak-prompt__text { font-size: 0.92rem; color: var(--text-muted); }
+.durak-prompt--me .durak-prompt__text { color: var(--text); font-weight: 700; }
+.durak-youare {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+}
+.durak-youare--atk { background: rgba(245, 197, 24, 0.16); color: var(--accent-light); border: 1px solid var(--accent); }
+.durak-youare--def { background: var(--danger-soft); color: var(--danger-light); border: 1px solid var(--danger); }
+
+/* In transfer mode, tint the table so the special action is obvious. */
+.durak-screen--transfer .durak-table { box-shadow: 0 0 0 2px var(--accent) inset; }
 
 .durak-controls {
   display: flex;

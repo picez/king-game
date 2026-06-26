@@ -132,8 +132,10 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         break;
       }
       case 'STATE_UPDATE': {
-        // The server is authoritative — just render what it sends.
-        setState(msg.state);
+        // The server is authoritative — just render what it sends. STATE_UPDATE
+        // now carries a game-state union (Stage 9.5); the online client only ever
+        // joins King rooms today (Durak online is hidden), so this is King state.
+        setState(msg.state as GameState | null);
         if (msg.state?.status === 'game_finished') setStatus('finished');
         else if (msg.state) setStatus('in_game');
         break;
