@@ -1,0 +1,308 @@
+/* ===== CSS Variables ===== */
+:root {
+  /* ---- Felt / table greens (layered, never a single flat fill) ---- */
+  --felt-lit:   #1f7a45;  /* the lit centre of the table */
+  --felt-mid:   #155f36;  /* main felt body */
+  --felt-edge:  #0c4324;  /* felt near the rim */
+  --felt-deep:  #082b18;  /* deepest shadow / under the rim */
+  --room-bg:    #0a1812;  /* dark room behind the table */
+  --room-bg-2:  #04100a;  /* darkest corners of the room */
+
+  /* Legacy aliases — kept so existing selectors keep resolving. */
+  --green-dark:   var(--felt-edge);
+  --green-table:  var(--felt-mid);
+  --green-mid:    var(--felt-lit);
+
+  --card-bg:      #ffffff;
+  --card-border:  #c9ccd1;
+  --card-red:     #c8102e;
+  --card-black:   #16181d;
+  /* Card sizing (post-playtest fix #1 — bigger, readable cards). Aspect ratio
+     matches the face artwork (~0.62) so object-fit never crops the corner
+     indices. `--card-w/h` is the default (the player's hand); the variants scale
+     with it so every breakpoint stays consistent. */
+  --card-w:         78px;   /* hand (default, interactive) */
+  --card-h:         124px;
+  --card-w-table:   74px;   /* card laid in the current trick (near hand-size) */
+  --card-h-table:   118px;
+  --card-w-preview: 62px;   /* dealer's read-only hand (mode/trump screens) */
+  --card-h-preview: 99px;
+  --card-w-mini:    42px;   /* dense lists (My-tricks / discard review) */
+  --card-h-mini:    67px;
+
+  /* ---- Accent / gold (tactile, with a gradient + darker rim) ---- */
+  --accent:       #f5c518;
+  --accent-light: #ffe273;
+  --accent-dark:  #b8870a;
+  --gold-grad:    linear-gradient(180deg, #ffe070 0%, #f7cb26 42%, #e3ab0c 100%);
+  --gold-grad-hover: linear-gradient(180deg, #ffe888 0%, #ffd23e 42%, #efb615 100%);
+
+  /* ---- Text ---- */
+  --text:         #eef3ef;
+  --text-muted:   #9fbdac;
+  --text-dim:     #6f8c7c;
+
+  /* ---- Surfaces (panels, chips, inputs) ---- */
+  --overlay:      rgba(4, 14, 9, 0.6);
+  --surface:      rgba(255, 255, 255, 0.07);
+  --surface-2:    rgba(255, 255, 255, 0.035);
+  --surface-3:    rgba(255, 255, 255, 0.11);
+  /* A raised panel: subtle vertical sheen over a dark green base. */
+  --panel:        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 16%, rgba(0,0,0,0.18) 100%), #0f3f24;
+  --panel-2:      linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.16) 100%), #124a2a;
+
+  /* ---- Borders / highlight (top light edge + base hairline) ---- */
+  --border:        rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --hairline:      rgba(0, 0, 0, 0.35);
+  --top-light:     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* ---- Shadow tokens (consistent depth scale) ---- */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 12px 34px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55);
+
+  /* ---- State colours ---- */
+  --danger:        #e5484d;
+  --danger-light:  #ff9ea0;
+  --danger-soft:   rgba(229, 72, 77, 0.16);
+  --success:       #46c95f;
+  --success-light: #8af09a;
+  --success-soft:  rgba(70, 201, 95, 0.16);
+  --info:          #6ec8ec;
+  --info-soft:     rgba(110, 200, 236, 0.12);
+
+  /* ---- Geometry ---- */
+  --radius-lg:    18px;
+  --radius:       12px;
+  --radius-sm:    8px;
+  --space:        1rem;
+  --tap-min:      44px; /* minimum comfortable touch target */
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Dark "room" the table sits in — a soft top glow fading to dark corners. */
+  background:
+    radial-gradient(130% 90% at 50% -10%, var(--room-bg) 0%, var(--room-bg-2) 70%);
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;           /* dynamic viewport: excludes mobile browser bars */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;  /* avoid pull-to-refresh swallowing game gestures */
+}
+
+
+/* ===== Screens ===== */
+.screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* Respect notches / rounded corners / system bars (viewport-fit=cover). */
+  padding:
+    max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+}
+
+.center-screen {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(60% 42% at 50% 26%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(135% 100% at 50% 36%,
+      var(--felt-lit) 0%, var(--felt-mid) 36%, var(--felt-edge) 72%, var(--felt-deep) 100%),
+    var(--room-bg-2);
+}
+
+/* ===== Setup Screen ===== */
+.setup-screen {
+  align-items: center;
+  justify-content: flex-start;
+  background:
+    radial-gradient(70% 48% at 50% 16%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(140% 95% at 50% 8%,
+      var(--felt-mid) 0%, var(--felt-edge) 55%, var(--felt-deep) 100%),
+    var(--room-bg-2);
+}
+
+.screen__title {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  text-align: center;
+  background: linear-gradient(180deg, #ffe88a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.screen__subtitle {
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.75rem;
+}
+
+.setup-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-3), var(--top-light);
+}
+
+.setup-card h2 { font-size: 1.3rem; }
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-group label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.setup-hint { font-size: 0.78rem; color: var(--text-muted); }
+
+.button-row { display: flex; gap: 0.5rem; }
+
+.input {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.65rem 0.8rem;
+  font-size: 1rem;
+  width: 100%;
+  min-height: var(--tap-min);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.input::placeholder { color: var(--text-dim); }
+.input:hover { border-color: rgba(255, 255, 255, 0.32); }
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(245, 197, 24, 0.25);
+}
+.input--error { border-color: var(--danger); }
+.input--error:focus { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--danger-soft); }
+
+/* ===== Buttons ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.15;
+  padding: 0.5rem 1.25rem;
+  min-height: var(--tap-min);   /* comfortable touch target */
+  touch-action: manipulation;   /* remove 300ms tap delay on mobile */
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease,
+              border-color 0.15s ease, filter 0.15s ease;
+}
+
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.45); }
+.btn:disabled { cursor: not-allowed; opacity: 0.45; filter: saturate(0.6); box-shadow: none; }
+
+/* Primary: a raised, glossy gold key with a darker rim and a pressed state. */
+.btn--primary {
+  background: var(--gold-grad);
+  color: #2a2300;
+  border-color: rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.2);
+}
+.btn--primary:hover:not(:disabled) { background: var(--gold-grad-hover); transform: translateY(-1px); }
+.btn--primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Outline / segment buttons: a quiet surface that highlights when active. */
+.btn--outline {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  box-shadow: var(--top-light);
+}
+.btn--outline:hover:not(:disabled) { background: var(--surface-3); border-color: rgba(255, 255, 255, 0.34); transform: translateY(-1px); }
+.btn--outline:active:not(:disabled) { transform: translateY(1px); }
+.btn--outline.btn--active {
+  border-color: var(--accent);
+  color: var(--accent-light);
+  background: rgba(245, 197, 24, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.4);
+}
+
+/* Ghost: text-only, gains a faint surface on hover. */
+.btn--ghost { background: transparent; color: var(--text-muted); }
+.btn--ghost:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.btn--ghost:active:not(:disabled) { transform: translateY(1px); }
+
+/* Danger: readable red, never shouty until hovered. */
+.btn--danger {
+  background: var(--danger-soft);
+  border: 1px solid rgba(229, 72, 77, 0.5);
+  color: var(--danger-light);
+}
+.btn--danger:hover:not(:disabled) { background: rgba(229, 72, 77, 0.28); border-color: var(--danger); transform: translateY(-1px); }
+.btn--danger:active:not(:disabled) { transform: translateY(1px); }
+
+.btn--large    { padding: 0.85rem 2rem; font-size: 1.05rem; border-radius: var(--radius); }
+.btn--small    { padding: 0.35rem 0.8rem; font-size: 0.85rem; min-height: 2.2rem; }
+
+/* ===== Modal Card ===== */
+.modal-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  text-align: center;
+  box-shadow: var(--shadow-pop), var(--top-light);
+}
+
+.modal-card--wide { max-width: 720px; }
+
+.modal-card h2 { font-size: 1.6rem; }
+.modal-card__sub { color: var(--text-muted); font-size: 0.9rem; }
+.modal-card__desc { font-size: 0.95rem; line-height: 1.5; }
+

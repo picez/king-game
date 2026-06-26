@@ -1,0 +1,479 @@
+/* ===== Round Scoring ===== */
+.scoring-screen {
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 2rem;
+  background:
+    radial-gradient(60% 42% at 50% 22%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 60%),
+    radial-gradient(135% 100% at 50% 30%,
+      var(--felt-lit) 0%, var(--felt-mid) 38%, var(--felt-edge) 72%, var(--felt-deep) 100%),
+    var(--room-bg-2);
+}
+
+.scoring-card {
+  background: var(--green-mid);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 560px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.scoring-header { text-align: center; display: flex; flex-direction: column; gap: 0.3rem; }
+.scoring-header h2 { font-size: 1.4rem; }
+.scoring-header p  { color: var(--text-muted); font-size: 0.9rem; }
+
+.kitty-reveal {
+  background: rgba(0,0,0,0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+}
+
+.kitty-reveal h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+
+.kitty-cards { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.kitty-card {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--card-black);
+  background: var(--card-bg);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+}
+
+.kitty-card--red { color: var(--card-red); }
+
+.kitty-note { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+.kitty-counter { font-weight: 600; color: var(--accent); }
+
+/* ===== Select Trump ===== */
+.suit-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.suit-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--top-light), 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.suit-btn:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--top-light), 0 8px 22px rgba(0, 0, 0, 0.4); }
+.suit-btn:active { transform: translateY(0); }
+
+.suit-btn--hearts,
+.suit-btn--diamonds { color: var(--card-red); }
+
+.suit-btn--spades,
+.suit-btn--clubs { color: #ccc; }
+
+.suit-btn__symbol { font-size: 2.5rem; }
+.suit-btn__name   { font-size: 0.85rem; text-transform: capitalize; }
+
+/* ===== Game Finished ===== */
+.finished-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(180deg, #ffe88a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+}
+
+.winner-banner {
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(245, 197, 24, 0.2) 0%, rgba(245, 197, 24, 0.06) 100%),
+    rgba(4, 14, 9, 0.4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  box-shadow: var(--top-light), 0 0 22px rgba(245, 197, 24, 0.15);
+}
+
+.trophy { font-size: 1.8rem; }
+
+.score-row--winner { background: rgba(245,197,24,0.1); }
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  /* Cards stay big and readable on a phone (fix #1). The hand becomes a single
+     horizontal scroller (below) so big cards never overflow the viewport. */
+  :root {
+    --card-w: 64px;   --card-h: 102px;
+    --card-w-table:   62px; --card-h-table:   99px;
+    --card-w-preview: 54px; --card-h-preview: 86px;
+    --card-w-mini:    40px; --card-h-mini:    64px;
+  }
+  .screen { padding: 0.6rem; }
+  .card__rank { font-size: 0.85rem; }
+  .card__suit { font-size: 1rem; }
+  .setup-card { padding: 1.25rem; }
+  .screen__title { font-size: 2.2rem; }
+  .game-header { padding: 0.5rem 0.6rem; gap: 0.4rem; }
+  .game-header__info { gap: 0.5rem; }
+  .round-info, .dealer-info { font-size: 0.78rem; }
+  .modal-card { padding: 1.5rem 1.25rem; }
+  .suit-buttons { grid-template-columns: 1fr 1fr; }
+  .mode-btn { padding: 0.6rem 0.7rem; }
+  .turn-banner { flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0.75rem; }
+  .pass-card-back { font-size: 3.5rem; }
+  .pass-name { font-size: 2rem; }
+
+  /* Hand: readable cards in one horizontal row (no wrapping, no page overflow).
+     Only the player's own interactive hand scrolls — not the kitty/discard
+     selection, which still wraps. */
+  .game-footer .player-hand,
+  .player-hand--scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 0.4rem 0.2rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .game-footer .player-hand > .card,
+  .player-hand--scroll > .card { scroll-snap-align: center; }
+}
+
+/* Smaller phones (≤390): keep cards legible; the scroll hand absorbs the width. */
+@media (max-width: 390px) {
+  :root {
+    --card-w: 58px;   --card-h: 93px;
+    --card-w-table:   54px; --card-h-table:   86px;
+    --card-w-preview: 50px; --card-h-preview: 80px;
+  }
+}
+
+/* ===== Mode Selection (Dealer's Choice) ===== */
+/* Modes fill LEFT-TO-RIGHT: 3 columns on desktop/tablet, 2 on phones. The
+   mobile override is declared AFTER the base rule so it wins on small screens. */
+.mode-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+@media (max-width: 700px) {
+  .mode-selection-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-dim);
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: var(--top-light), 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.15s, background 0.15s, transform 0.08s, box-shadow 0.15s;
+}
+.mode-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--top-light), 0 8px 20px rgba(0, 0, 0, 0.4); }
+.mode-btn:active:not(:disabled) { transform: translateY(0); }
+
+.mode-btn--negative { border-left-color: var(--danger); }
+.mode-btn--positive { border-left-color: var(--accent); }
+.mode-btn--negative:hover:not(:disabled) { border-color: rgba(229, 72, 77, 0.5); }
+.mode-btn--positive:hover:not(:disabled) { border-color: rgba(245, 197, 24, 0.5); }
+
+.mode-btn--used {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-style: dashed;
+  box-shadow: none;
+}
+.mode-btn--used:hover { transform: none; box-shadow: none; }
+
+.mode-btn__name { font-weight: 700; font-size: 1rem; color: var(--text); }
+.mode-btn__desc { font-size: 0.8rem; color: var(--text-muted); }
+
+.mode-btn__type {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 0.15rem;
+}
+.mode-btn__type--negative { color: #e74c3c; }
+.mode-btn__type--positive { color: var(--accent); }
+
+/* ===== No Trump suit button ===== */
+.suit-btn--notrump {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 2px dashed var(--text-muted);
+}
+.suit-btn--notrump:hover { border-color: var(--text); color: var(--text); }
+
+/* ===== Collected Cards ===== */
+.collected-section {
+  margin: 1rem 0;
+}
+
+.btn--small {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.collected-players {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.collected-player__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.collected-count {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.mini-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mini-card {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--card-bg, #fff);
+  font-weight: 600;
+}
+
+.mini-card--red   { color: #c0392b; }
+.mini-card--black { color: #1a1a2e; }
+.mini-card--none  { color: var(--text-muted); font-style: italic; }
+
+/* Strip of small visual cards (My-tricks / discard review). */
+.card-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.card-strip__slot { display: inline-flex; }
+
+/* ===== PassScreen ===== */
+.pass-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(60% 45% at 50% 38%, rgba(245, 197, 24, 0.06) 0%, rgba(245, 197, 24, 0) 60%),
+    radial-gradient(130% 90% at 50% 30%, var(--room-bg) 0%, var(--room-bg-2) 80%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  padding: 2rem;
+}
+
+.pass-card-backs {
+  display: flex;
+  gap: 0.75rem;
+  opacity: 0.25;
+}
+
+.pass-card-back {
+  font-size: 5rem;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.pass-info {
+  text-align: center;
+}
+
+.pass-title {
+  font-size: 1rem;
+  color: #888;
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pass-name {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+}
+
+.pass-seat {
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin: 0.4rem 0 0;
+  letter-spacing: 0.05em;
+}
+
+.pass-btn {
+  background: var(--gold-grad);
+  color: #2a2300;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 1rem 2.5rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.08s, background 0.15s;
+}
+
+.pass-btn:hover { background: var(--gold-grad-hover); transform: translateY(-1px); }
+.pass-btn:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3); }
+
+/* ===== Dealer crown indicator ===== */
+.dealer-crown {
+  margin-right: 0.25rem;
+  font-size: 1rem;
+}
+
+/* ===== Trump suit badge (symbol only, colored) ===== */
+.trump-suit-badge {
+  font-size: 1.6rem;
+  font-weight: 900;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+}
+
+.trump-suit--red   { color: #e74c3c; }
+.trump-suit--black { color: #ecf0f1; }
+
+.trump-info--none {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* ===== Leader banner ===== */
+.leader-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.25rem 1rem;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border);
+}
+
+.leader-arrow {
+  font-size: 0.65rem;
+  color: var(--accent);
+}
+
+/* ===== Active turn banner ===== */
+.turn-banner--active {
+  background:
+    linear-gradient(180deg, rgba(245, 197, 24, 0.16) 0%, rgba(245, 197, 24, 0.04) 100%),
+    rgba(4, 14, 9, 0.5);
+  border: 1px solid rgba(245, 197, 24, 0.4);
+  border-radius: var(--radius);
+  box-shadow: var(--top-light), 0 0 18px rgba(245, 197, 24, 0.12);
+}
+.turn-banner--active .turn-banner__indicator { animation: turn-blink 1.4s ease-in-out infinite; }
+@keyframes turn-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.turn-banner__indicator {
+  color: var(--accent);
+  font-size: 0.75rem;
+  margin-right: 0.25rem;
+}
+
+/* ===== AI player styles ===== */
+.ai-badge {
+  font-size: 0.75rem;
+  margin-left: 0.3rem;
+  opacity: 0.8;
+}
+
+.turn-banner--ai {
+  background: rgba(100, 200, 255, 0.08);
+  border: 1px solid rgba(100, 200, 255, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #7ec8e3;
+}
+
+.ai-thinking-icon {
+  font-size: 1.2rem;
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.ai-hand-placeholder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.5rem 1rem 1rem;
+  justify-content: center;
+  min-height: 4rem;
+}
+
+.ai-card-back {
+  font-size: 2rem;
+  opacity: 0.3;
+  user-select: none;
+}
+
+.ai-thinking-note {
+  font-size: 0.85rem;
+  color: #7ec8e3;
+  text-align: center;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  background: rgba(100, 200, 255, 0.06);
+  border-radius: var(--radius-sm);
+}
+

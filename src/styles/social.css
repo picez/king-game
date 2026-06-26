@@ -1,0 +1,118 @@
+/* ===== Room social: reactions + chat (Stage 7) ===== */
+/* Floating reactions — top-centre, pointer-through, never over the hand/trick. */
+.reactions-float {
+  position: fixed; top: 60px; left: 0; right: 0;
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+  pointer-events: none; z-index: 60; padding: 0 8px;
+}
+.reaction-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px 10px 3px 6px;
+  box-shadow: var(--shadow-2); font-size: 0.85rem; color: var(--text);
+  animation: reactionPop 2.6s ease forwards;
+}
+.reaction-chip__emoji { font-size: 1.1rem; }
+.reaction-chip__name { color: var(--text-muted); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes reactionPop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
+  12% { opacity: 1; transform: none; }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+.social-toast {
+  position: fixed; right: 12px; bottom: 132px; z-index: 62;
+  background: var(--danger-soft); color: var(--danger-light);
+  border: 1px solid var(--danger); border-radius: 10px;
+  padding: 0.45rem 0.7rem; font-size: 0.82rem; box-shadow: var(--shadow-2);
+}
+
+/* Bottom-right controls. Default sits in the corner (lobby / public screens);
+   on the playing screen `--raised` lifts them clear of the player's hand so the
+   cards are never covered. */
+.social-controls {
+  position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 61;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+.social-controls--raised { bottom: calc(9.5rem + env(safe-area-inset-bottom)); }
+.social-toast--raised { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
+.social-controls__row { display: flex; gap: 8px; }
+/* "Leave game" — a clearly-labelled danger pill shown ONLY during an active
+   online game (sits above the reaction/chat FABs, clear of the hand). */
+.social-leave {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0.4rem 0.85rem; min-height: 40px;
+  background: var(--danger-soft); color: var(--danger-light);
+  border: 1px solid var(--danger); border-radius: 999px;
+  font-size: 0.84rem; font-weight: 700; cursor: pointer;
+  box-shadow: var(--shadow-2); white-space: nowrap;
+}
+.social-leave:hover { background: rgba(229, 72, 77, 0.28); }
+.social-leave:active { transform: translateY(1px); }
+.social-fab {
+  position: relative; width: 46px; height: 46px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  box-shadow: var(--top-light), var(--shadow-2); font-size: 1.3rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s, background 0.15s;
+}
+.social-fab:hover { background: var(--surface-3); }
+.social-fab:active { transform: translateY(1px); }
+.social-fab__badge {
+  position: absolute; top: -3px; right: -3px;
+  background: var(--danger); color: #fff; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 700; line-height: 1;
+  min-width: 16px; height: 16px; padding: 0 3px;
+  display: flex; align-items: center; justify-content: center;
+}
+.reaction-bar {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px;
+  max-width: min(320px, 84vw);
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 5px; box-shadow: var(--top-light), var(--shadow-2);
+}
+.reaction-bar__btn {
+  font-size: 1.35rem; background: transparent; border: none;
+  padding: 4px 6px; border-radius: 8px; cursor: pointer; line-height: 1;
+}
+.reaction-bar__btn:hover { background: var(--surface-3); }
+
+/* Chat drawer — right side, collapsed by default; never covers by default. */
+.chat-drawer {
+  position: fixed; top: 0; right: 0; height: 100%;
+  width: min(320px, 86vw); z-index: 70;
+  background: var(--panel-2); border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop); display: flex; flex-direction: column;
+}
+.chat-drawer__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border);
+  font-weight: 700; color: var(--text);
+}
+.chat-drawer__list {
+  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  padding: 0.7rem; display: flex; flex-direction: column; gap: 7px;
+}
+.chat-empty { color: var(--text-muted); text-align: center; margin-top: 1.5rem; font-size: 0.9rem; }
+.chat-msg { display: flex; gap: 6px; align-items: flex-start; }
+.chat-msg--mine { flex-direction: row-reverse; }
+.chat-msg__av { font-size: 1.05rem; line-height: 1.3; flex: 0 0 auto; }
+.chat-msg__body { display: flex; flex-direction: column; min-width: 0; }
+.chat-msg--mine .chat-msg__body { align-items: flex-end; }
+.chat-msg__name { font-size: 0.68rem; color: var(--text-muted); padding: 0 4px; }
+.chat-msg__text {
+  font-size: 0.88rem; color: var(--text); word-break: break-word;
+  background: var(--surface-2); padding: 4px 9px; border-radius: 11px; max-width: 100%;
+}
+.chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
+.chat-drawer__compose {
+  display: flex; gap: 6px; padding: 0.6rem; border-top: 1px solid var(--border);
+}
+.chat-input { flex: 1 1 auto; min-width: 0; }
+
+/* RTL: mirror the drawer + the corner controls to the left edge. */
+[dir="rtl"] .chat-drawer { right: auto; left: 0; border-left: none; border-right: 1px solid var(--border-strong); }
+[dir="rtl"] .social-controls { right: auto; left: 12px; align-items: flex-start; }
+[dir="rtl"] .social-toast { right: auto; left: 12px; }
+
