@@ -80,6 +80,8 @@ export const DE: Record<string, string> = {
   'durak.rule.fool': 'Der letzte Spieler mit Karten ist der Narr.',
   'durak.promptDefendTransfer': 'Schlagen, nehmen oder weitergeben (gleicher Rang)',
   'durak.promptAllBeaten': 'Alles abgewehrt — nachlegen oder passen',
+  'durak.promptThrowOrPass': 'Ranggleiche Karte nachlegen oder passen',
+  'durak.throwing': 'Legt nach',
   'durak.cardsRemaining': 'Karten übrig',
   'durak.setupTagline': 'Wehre jeden Angriff ab — sei nicht der Narr',
   'durak.variant': 'Variante',

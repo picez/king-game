@@ -44,7 +44,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
   const isMyTurn = getActingDurakPlayerId(state) === humanId;
-  const iAmAttacker = state.attackerIndex === meSeat;
+  const iAmThrower = state.throwerIndex === meSeat;   // the current attacker (acts now)
+  const iAmPrimary = state.attackerIndex === meSeat;  // the bout's primary attacker
   const iAmDefender = state.defenderIndex === meSeat;
   const phase = state.status;
 
@@ -52,7 +53,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   useEffect(() => { if (!isMyTurn) setTransferMode(false); }, [isMyTurn]);
 
   const unbeaten = unbeatenAttacks(state);
-  const attackValid = isMyTurn && phase === 'attack' && iAmAttacker ? getValidAttackCards(state) : [];
+  const attackValid = isMyTurn && phase === 'attack' && iAmThrower ? getValidAttackCards(state) : [];
   const transferValid = transferMode && canTransfer(state) ? getValidTransferCards(state) : [];
   const defenseValid = isMyTurn && phase === 'defense' && iAmDefender && !transferMode
     ? me.hand.filter((c) => unbeaten.some((a) => beats(c, a, state.trumpSuit)))
@@ -67,33 +68,35 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   function clickCard(c: Card) {
     if (!isMyTurn || !cardEnabled(c)) return;
     if (transferMode) { apply({ type: 'TRANSFER_ATTACK', card: c }); setTransferMode(false); return; }
-    if (phase === 'attack' && iAmAttacker) { apply({ type: 'ATTACK_CARD', card: c }); return; }
+    if (phase === 'attack' && iAmThrower) { apply({ type: 'ATTACK_CARD', card: c }); return; }
     if (phase === 'defense' && iAmDefender) {
       const target = unbeaten.find((a) => beats(c, a, state.trumpSuit));
       if (target) apply({ type: 'DEFEND_CARD', attack: target, card: c });
     }
   }
 
-  const canPass = isMyTurn && phase === 'attack' && iAmAttacker && state.table.length > 0;
+  const canPass = isMyTurn && phase === 'attack' && iAmThrower && state.table.length > 0;
   const canTake = isMyTurn && phase === 'defense' && iAmDefender;
   const canTransferBtn = isMyTurn && phase === 'defense' && iAmDefender && state.variant === 'transfer' && canTransfer(state);
 
   const trumpRed = state.trumpSuit === 'hearts' || state.trumpSuit === 'diamonds';
   const opponents = state.players.filter((p) => p.id !== humanId);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
-  const actorSeat = phase === 'attack' ? state.attackerIndex : state.defenderIndex;
+  // The current actor: in the attack phase it is the THROWER (not always primary).
+  const actorSeat = phase === 'attack' ? state.throwerIndex : state.defenderIndex;
   const actor = state.players[actorSeat];
-  const myRole = iAmAttacker ? t('durak.attacker') : iAmDefender ? t('durak.defender') : '';
+  const iAmActiveAttacker = iAmThrower || iAmPrimary;
+  const myRole = iAmDefender ? t('durak.defender') : iAmActiveAttacker ? t('durak.attacker') : '';
 
   // One clear instruction for the current moment: my move, a bot thinking, an
-  // offline human (AI may substitute), or just waiting for another human.
+  // offline human (AI may substitute), or just waiting for another player to act.
   const waitMsg = offline(actorSeat) ? `${actor?.name} ${t('durak.offlineAI')}`
     : actor?.type === 'ai' ? t('durak.botThinking')
       : `${t('durak.waiting')} ${actor?.name}…`;
   const prompt = transferMode ? t('durak.promptTransfer')
     : !isMyTurn ? waitMsg
       : phase === 'attack'
-        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptAllBeaten'))
+        ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptThrowOrPass'))
         : canTransferBtn ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
 
   const noticeText = notice?.kind === 'took' ? `${notice.name} ${t('durak.took')}`
@@ -117,13 +120,18 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         {opponents.map((p) => {
           const role = p.seatIndex === state.attackerIndex ? 'atk' : p.seatIndex === state.defenderIndex ? 'def' : '';
           const isOffline = offline(p.seatIndex);
+          // The opponent who must act right now (the thrower or the defender).
+          const isActing = p.seatIndex === actorSeat;
+          // A co-attacker currently throwing (not the primary, attack phase).
+          const isThrowing = phase === 'attack' && p.seatIndex === state.throwerIndex && p.seatIndex !== state.attackerIndex;
           return (
-            <div key={p.id} className={`durak-opp ${role ? `durak-opp--${role}` : ''} ${isOffline ? 'durak-opp--offline' : ''}`}>
+            <div key={p.id} className={`durak-opp ${role ? `durak-opp--${role}` : ''} ${isOffline ? 'durak-opp--offline' : ''} ${isActing ? 'durak-opp--acting' : ''}`}>
               {isOffline && <span className="durak-opp__off" aria-label="offline">📴</span>}
               <span className="durak-opp__name">{p.name}</span>
               <span className="durak-opp__count">🂠 {p.hand.length}</span>
               {role === 'atk' && <span className="durak-opp__role">{t('durak.attacker')}</span>}
               {role === 'def' && <span className="durak-opp__role">{t('durak.defender')}</span>}
+              {isThrowing && <span className="durak-opp__role">{t('durak.throwing')}</span>}
             </div>
           );
         })}
@@ -133,7 +141,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
         <div className="durak-table__cards">
           {state.table.length === 0
-            ? <p className="durak-table__empty">{isMyTurn && iAmAttacker ? t('durak.tableEmpty') : '·'}</p>
+            ? <p className="durak-table__empty">{isMyTurn && iAmThrower ? t('durak.tableEmpty') : '·'}</p>
             : state.table.map((pair, i) => (
               <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
                 <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
@@ -146,12 +154,12 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
       </div>
 
       <div className={`durak-prompt ${isMyTurn ? 'durak-prompt--me' : ''}`}>
-        {myRole && <span className={`durak-youare durak-youare--${iAmAttacker ? 'atk' : 'def'}`}>{t('durak.youAre')} {myRole}</span>}
+        {myRole && <span className={`durak-youare durak-youare--${iAmDefender ? 'def' : 'atk'}`}>{t('durak.youAre')} {myRole}</span>}
         <span className="durak-prompt__text">{prompt}</span>
       </div>
 
       <div className="durak-controls">
-        {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'END_ATTACK' })}>✓ {t('durak.pass')}</button>}
+        {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'PASS_ATTACK' })}>✓ {t('durak.pass')}</button>}
         {canTake && <button type="button" className="btn btn--danger" onClick={() => apply({ type: 'TAKE_CARDS' })}>✋ {t('durak.take')}</button>}
         {canTransferBtn && !transferMode && <button type="button" className="btn btn--outline" onClick={() => setTransferMode(true)}>↪ {t('durak.transfer')}</button>}
         {transferMode && <button type="button" className="btn btn--ghost" onClick={() => setTransferMode(false)}>✕ {t('durak.cancel')}</button>}

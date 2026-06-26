@@ -1,12 +1,14 @@
 # Durak — Architecture & Implementation Plan
 
-> **Status (Stage 9.7):** pure core ✅, catalog/definition/registry ✅, local UI
+> **Status (Stage 9.9+):** pure core ✅, catalog/definition/registry ✅, local UI
 > (simple + transfer) ✅, UX/rules hardening ✅, state/action **union** ✅,
 > **experimental online Durak** ✅ (host/join with bots, per-game redaction,
-> reconnect), and **online QA + UX polish** ✅ — read-only "waiting / bot thinking
-> / offline — AI may play" view, offline-seat badges, full-game + multi-human
-> e2e (no redaction leak), chat/reactions/leave/resume. **Remaining:** Durak stats
-> + a leaderboard. King is unchanged throughout.
+> reconnect), **online QA + UX polish** ✅, **production polish** ✅ (in-game help,
+> centred table, game choice moved into Host/Local sheets), and **priority
+> throw-in** ✅ — the primary attacker leads until they pass, then it moves
+> clockwise to the next eligible attacker (`throwerIndex` / `passedAttackers`); the
+> defender never throws; `PASS_ATTACK` replaces `END_ATTACK`. **Remaining:** Durak
+> stats + a leaderboard. King is unchanged throughout.
 
 Engineering plan for adding **Durak** (see [`DURAK_RULES.md`](DURAK_RULES.md)) as
 the **second game**, on top of the multi-game seam already built (Stages 8.3–8.6:

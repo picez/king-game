@@ -12,12 +12,15 @@ const P = (seat: number, hand: Card[]): DurakPlayer => ({ id: `player-${seat}`, 
 const ids = (cs: Card[]) => cs.map((c) => `${c.rank}${c.suit[0]}`).sort();
 
 function st(over: Partial<DurakState>): DurakState {
-  return {
+  const s: DurakState = {
     gameType: 'durak', variant: 'simple', players: [P(0, []), P(1, [])],
     drawPile: [], trumpSuit: 'spades', trumpCard: C('6', 'spades'),
-    attackerIndex: 0, defenderIndex: 1, table: [], discardPile: [],
+    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, passedAttackers: [],
+    table: [], discardPile: [],
     status: 'attack', boutLimit: 6, foolId: null, winnerIds: [], isDraw: false, ...over,
   };
+  if (over.throwerIndex === undefined) s.throwerIndex = s.attackerIndex;
+  return s;
 }
 
 describe('UI flow — attack → defend → pass (successful defense)', () => {
@@ -30,7 +33,7 @@ describe('UI flow — attack → defend → pass (successful defense)', () => {
     expect(s.status).toBe('defense');
     s = durakReducer(s, { type: 'DEFEND_CARD', attack: C('7', 'hearts'), card: C('9', 'hearts') })!;
     expect(s.status).toBe('attack');          // all beaten → attacker may add or pass
-    s = durakReducer(s, { type: 'END_ATTACK' })!;
+    s = durakReducer(s, { type: 'PASS_ATTACK' })!;
     expect(ids(s.discardPile)).toEqual(['7h', '9h']);
     expect(s.table).toEqual([]);
     expect(s.attackerIndex).toBe(1);          // defender became the attacker

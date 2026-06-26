@@ -543,19 +543,20 @@ async function main() {
   const dkMyHand = dkHost.state.players[dkSeat].hand;
   const dkBotHand = dkHost.state.players[dkSeat === 0 ? 1 : 0].hand;
   check(dkMyHand.every((c) => c.rank !== '?'), 'host sees its own Durak hand');
-  check(dkBotHand.length === 6 && dkBotHand.every((c) => c.rank === '?'), 'opponent Durak hand is redacted (hidden, count kept)');
+  // Count kept (5 or 6 — the bot may already have opened) and every card hidden.
+  check(dkBotHand.length >= 5 && dkBotHand.every((c) => c.rank === '?'), 'opponent Durak hand is redacted (hidden, count kept)');
 
   // Drive a few turns; when it is the host's turn, make a legal move.
   let dkActed = false;
   for (let dkStep = 0; dkStep < 60 && !dkActed; dkStep++) {
     const ds = dkHost.state;
     if (!ds || ds.status === 'finished') break;
-    const dkActing = ds.status === 'attack' ? ds.attackerIndex : ds.defenderIndex;
+    const dkActing = ds.status === 'attack' ? ds.throwerIndex : ds.defenderIndex;
     if (dkActing !== dkSeat) { await sleep(150); continue; } // bot's turn → server drives it
     const dkBefore = JSON.stringify(ds);
     if (ds.status === 'attack') {
       if (ds.table.length === 0) sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: ds.players[dkSeat].hand[0] } });
-      else sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'END_ATTACK' } });
+      else sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'PASS_ATTACK' } });
     } else {
       sendMsg(dkHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
     }
@@ -600,11 +601,11 @@ async function main() {
     const oppHand = s.players[fSeat === 0 ? 1 : 0].hand;
     if (oppHand.some((c) => c.rank !== '?')) leakSeen = true;
     if (s.status === 'finished') { finished = true; break; }
-    const acting = s.status === 'attack' ? s.attackerIndex : s.defenderIndex;
+    const acting = s.status === 'attack' ? s.throwerIndex : s.defenderIndex;
     if (acting !== fSeat) { await sleep(160); continue; }
     if (s.status === 'attack') {
       if (s.table.length === 0) sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'ATTACK_CARD', card: s.players[fSeat].hand[0] } });
-      else sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'END_ATTACK' } });
+      else sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'PASS_ATTACK' } });
     } else {
       sendMsg(fHost, { t: 'ACTION_REQUEST', action: { type: 'TAKE_CARDS' } });
     }

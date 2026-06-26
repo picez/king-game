@@ -59,19 +59,32 @@ sections add to or override it.
    - a **higher card of the same suit**, or
    - **any trump**, if the attacking card is **not** a trump;
    - a **trump** attacking card can only be beaten by a **higher trump**.
-3. **Limits (MVP):**
+3. **Limits:**
    - The number of attacking cards in a single bout may **not exceed the
      defender's hand size** (you cannot ask a player to beat more cards than they
      hold) **and never exceeds 6**. So `maxAttack = min(6, defenderHandSize)`,
      evaluated against the defender's hand **at the start of the bout**.
-   - **MVP throw-in scope:** only the **primary attacker** may add cards.
-     Co-attackers (other players throwing in matching ranks) are **deferred**
-     (Stage 9.5+). Draw order below still says "attackers" to stay forward-safe.
-4. **Ending the bout.**
-   - **Successful defense:** the defender beats **all** attacking cards and the
-     attacker has nothing more to add (or chooses to stop / "бито"). All cards on
-     the table go to the **discard pile** (out of the game). The **defender
-     becomes the next attacker**; the new defender is the player after them.
+4. **Throw-in priority (multi-player).** Who may add cards is decided by priority,
+   not free-for-all:
+   - The **primary attacker** (the opener) has **first priority**. While they have
+     **not passed**, only they may throw in (after the defender beats, the throw
+     returns to them).
+   - When the primary **passes**, the right to throw moves **clockwise to the next
+     eligible attacker** (every active player **except the defender**), in turn.
+     Each such attacker may throw in or **pass**.
+   - **Co-attackers may only throw cards of a rank already on the table** (the
+     opener's first card is unrestricted).
+   - A passed attacker is **out for the rest of the bout**. An attacker who simply
+     **cannot** throw (no matching rank, or the limit is reached) is treated as
+     having passed, so the turn moves on (engine convenience — same outcome).
+   - The **defender never throws.**
+5. **Ending the bout.**
+   - **Successful defense:** every attack is beaten **and** all eligible attackers
+     have passed (or can no longer throw). All cards on the table go to the
+     **discard pile** (out of the game). The **defender becomes the next
+     attacker**; the new defender is the player after them. In a **2-player** game
+     this means: after the primary passes, nobody else can throw, so the bout ends
+     immediately.
    - **Defender takes:** at any point the defender may **take** all cards on the
      table — both the attacking cards and any cards they already used to defend —
      into their **hand**. The bout ends. The **next attacker is the player after
@@ -140,8 +153,9 @@ Adds one option for the defender, taken **before they have beaten any card**:
 - **Trump-show transfer** (showing a trump of the same rank without playing it)
   is a known variant but is **NOT** in MVP — only play-a-same-rank-card transfer.
 
-After a transfer, play proceeds normally from the new defender (who may beat,
-take, or — if still legal — transfer again).
+After a transfer, the **transferrer becomes the new primary attacker** (the
+throw-in priority and `passedAttackers` reset), and play proceeds normally from
+the new defender (who may beat, take, or — if still legal — transfer again).
 
 ---
 
@@ -150,7 +164,11 @@ take, or — if still legal — transfer again).
 These pin down the ambiguous points so the implementation is unambiguous:
 
 - **Players:** 2–4. **No teams.**
-- **Throw-in:** **primary attacker only** in MVP; co-attacker throw-ins deferred.
+- **Throw-in:** **priority** — the primary attacker leads until they pass, then it
+  moves clockwise to the next eligible attacker; co-attackers throw matching ranks
+  only; the **defender never throws**. A player who cannot throw auto-passes.
+- **After a transfer:** the **transferrer becomes the new primary attacker** and
+  the throw-in state resets.
 - **Max attacking cards** in a bout = `min(6, defenderHandSizeAtBoutStart)`.
 - **No throw-in beyond the defender's hand size.**
 - **After a successful defense:** the **defender becomes the next attacker**.
@@ -178,8 +196,9 @@ actions are rejected, never silently applied.
   legal throw-in of a rank already on the table).
 - **DEFEND** — place a beating card on a specific unbeaten attacking card.
 - **TAKE** — the defender picks up all table cards.
-- **PASS / DONE** — the attacker declares they are adding no more cards ("бито");
-  if all attacks are beaten, the bout ends as a successful defense.
+- **PASS_ATTACK** ("бито") — the **current thrower** gives up their throw-in; the
+  throw moves to the next eligible attacker, or — if nobody else can throw and all
+  attacks are beaten — the bout ends as a successful defense.
 - **TRANSFER** — (transfer variant) play a same-rank card to pass the defense to
   the next player.
 

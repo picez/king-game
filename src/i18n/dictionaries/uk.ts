@@ -80,6 +80,8 @@ export const UK: Record<string, string> = {
   'durak.rule.fool': 'Останній гравець із картами — дурень.',
   'durak.promptDefendTransfer': 'Відбий, візьми або переведи (той самий ранг)',
   'durak.promptAllBeaten': 'Усе відбито — підкинь карту або «Бито»',
+  'durak.promptThrowOrPass': 'Підкинь карту того ж рангу або «Бито»',
+  'durak.throwing': 'Підкидає',
   'durak.cardsRemaining': 'карт лишилось',
   'durak.setupTagline': 'Відбий усі атаки — не лишись дурнем',
   'durak.variant': 'Варіант',

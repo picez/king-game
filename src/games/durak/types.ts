@@ -13,7 +13,8 @@ export type DurakVariant = 'simple' | 'transfer';
 
 /**
  * Whose move it is:
- *  - 'attack'   → the attacker opens / throws in a matching rank / ends the bout;
+ *  - 'attack'   → the current thrower (`throwerIndex`) opens / throws in a
+ *                 matching rank, or passes (DURAK_RULES.md — priority throw-in);
  *  - 'defense'  → the defender beats an unbeaten card / takes / (transfer) passes;
  *  - 'finished' → game over (see foolId / isDraw).
  */
@@ -42,8 +43,13 @@ export interface DurakState {
   trumpSuit: Suit;
   /** The face-up trump card at the bottom of the draw pile (last to be drawn). */
   trumpCard: Card;
+  /** The PRIMARY attacker (the opener) — has throw-in priority and leads draws. */
   attackerIndex: number;
   defenderIndex: number;
+  /** The attacker whose turn it is to throw or pass right now (priority throw-in). */
+  throwerIndex: number;
+  /** Seats that have passed this bout (cannot throw again until the next bout). */
+  passedAttackers: number[];
   /** Attack/defense pairs currently in play. */
   table: TablePair[];
   /** Beaten cards, out of the game ("бито"). */
@@ -64,7 +70,8 @@ export type DurakAction =
   | { type: 'ATTACK_CARD'; card: Card }
   | { type: 'DEFEND_CARD'; attack: Card; card: Card }
   | { type: 'TAKE_CARDS' }
-  | { type: 'END_ATTACK' }
+  /** The current thrower passes (gives up their throw-in). Was 'END_ATTACK'. */
+  | { type: 'PASS_ATTACK' }
   | { type: 'TRANSFER_ATTACK'; card: Card };
 
 /** Reducer context — inject an rng for a deterministic, reproducible shuffle. */

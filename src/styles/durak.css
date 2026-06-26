@@ -266,3 +266,6 @@
 /* Compact King/Durak picker in Host/Local sheets (Stage 9.9). */
 .game-picker__exp { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent-light); }
 .sheet__cta { width: 100%; margin: 0.5rem 0; min-height: 48px; }
+
+/* The opponent who must act right now (thrower or defender). */
+.durak-opp--acting { box-shadow: 0 0 0 2px var(--accent-light) inset; }

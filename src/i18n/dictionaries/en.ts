@@ -80,6 +80,8 @@ export const EN: Record<string, string> = {
   'durak.rule.fool': 'The last player left holding cards is the fool.',
   'durak.promptDefendTransfer': 'Beat it, take, or transfer (same rank)',
   'durak.promptAllBeaten': 'All beaten — add a card or pass',
+  'durak.promptThrowOrPass': 'Throw in a matching rank, or pass',
+  'durak.throwing': 'Throwing',
   'durak.cardsRemaining': 'cards left',
   'durak.setupTagline': 'Beat every attack — avoid being the fool',
   'durak.variant': 'Variant',

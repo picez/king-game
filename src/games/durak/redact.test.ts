@@ -12,7 +12,7 @@ const base: DurakState = {
   players: [P(0, [C('7', 'hearts'), C('K', 'spades')]), P(1, [C('9', 'hearts'), C('6', 'clubs')])],
   drawPile: [C('A', 'spades'), C('Q', 'diamonds')],
   trumpSuit: 'spades', trumpCard: C('6', 'spades'),
-  attackerIndex: 0, defenderIndex: 1,
+  attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, passedAttackers: [],
   table: [{ attack: C('8', 'clubs'), defense: C('10', 'clubs') }],
   discardPile: [C('J', 'diamonds')],
   status: 'defense', boutLimit: 6, foolId: null, winnerIds: [], isDraw: false,

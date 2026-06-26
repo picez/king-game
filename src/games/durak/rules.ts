@@ -39,14 +39,21 @@ export function isAttackComplete(state: DurakState): boolean {
   return state.table.length > 0 && state.table.every((p) => p.defense !== null);
 }
 
-/** Cards the current attacker may legally play right now. */
+/** Cards the current THROWER may legally play right now (open or throw-in). */
 export function getValidAttackCards(state: DurakState): Card[] {
   if (state.status !== 'attack') return [];
-  const attacker = state.players[state.attackerIndex];
-  if (state.table.length === 0) return attacker.hand.slice(); // any card opens
-  if (state.table.length >= state.boutLimit) return [];       // attack limit reached
+  const thrower = state.players[state.throwerIndex];
+  if (state.table.length === 0) return thrower.hand.slice();   // primary opens: any card
+  if (state.table.length >= state.boutLimit) return [];        // attack limit reached
   const ranks = tableRanks(state);
-  return attacker.hand.filter((c) => ranks.has(c.rank));       // throw-in: matching rank
+  return thrower.hand.filter((c) => ranks.has(c.rank));        // throw-in: matching rank
+}
+
+/** Whether `seat` has a legal throw-in right now (a matching rank, under the limit). */
+export function hasLegalThrowIn(state: DurakState, seat: number): boolean {
+  if (state.table.length === 0 || state.table.length >= state.boutLimit) return false;
+  const ranks = tableRanks(state);
+  return state.players[seat].hand.some((c) => ranks.has(c.rank));
 }
 
 /** Defender's cards that beat a specific unbeaten attack card. */

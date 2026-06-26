@@ -15,19 +15,24 @@ function pickLowest(cards: Card[], trumpSuit: Suit): Card | null {
 }
 
 /**
- * A legal action for the acting player, or null. Conservative: opens with the
- * cheapest card, defends with the cheapest beating card, never piles on throw-ins
- * (ends the attack), takes when it cannot beat.
+ * A legal action for the acting player, or null. As the current thrower it opens
+ * with the cheapest card and throws in only CHEAP non-trump matches (then passes,
+ * so bouts stay short and games terminate); as defender it beats with the cheapest
+ * card or takes. The priority/eligibility is enforced by the reducer.
  */
 export function durakBotAction(state: DurakState): DurakAction | null {
   if (state.status === 'finished') return null;
 
   if (state.status === 'attack') {
+    const valid = getValidAttackCards(state); // the current thrower's legal cards
     if (state.table.length === 0) {
-      const card = pickLowest(getValidAttackCards(state), state.trumpSuit);
-      return card ? { type: 'ATTACK_CARD', card } : null;
+      const card = pickLowest(valid, state.trumpSuit);
+      return card ? { type: 'ATTACK_CARD', card } : { type: 'PASS_ATTACK' };
     }
-    return { type: 'END_ATTACK' }; // don't pile on (MVP bot)
+    // Throw in a cheap, non-trump matching card; otherwise pass.
+    const cheap = valid.filter((c) => c.suit !== state.trumpSuit && c.value <= 9);
+    const card = pickLowest(cheap, state.trumpSuit);
+    return card ? { type: 'ATTACK_CARD', card } : { type: 'PASS_ATTACK' };
   }
 
   // defense

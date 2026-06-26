@@ -10,7 +10,7 @@ import type { DurakAction, DurakContext, DurakPlayer, DurakState } from './types
 import { dealDurak, findLowestTrumpHolder } from './deck';
 import {
   beats, canTransfer, findNextActivePlayer, getValidAttackCards,
-  getValidTransferCards, sameCard,
+  getValidTransferCards, hasLegalThrowIn, sameCard,
 } from './rules';
 
 const MAX_HAND = 6;
@@ -59,8 +59,9 @@ function checkFinished(s: DurakState): boolean {
 }
 
 /**
- * After a bout resolves (draws already done), pick the next attacker starting at
- * `attackerFrom` (skipping `skip`), then the next defender, or finish the game.
+ * After a bout resolves (draws already done), pick the next PRIMARY attacker
+ * starting at `attackerFrom` (skipping `skip`), then the next defender, reset the
+ * throw-in state, or finish the game.
  */
 function rotateRoles(s: DurakState, attackerFrom: number, skip?: number): void {
   if (checkFinished(s)) return;
@@ -70,8 +71,51 @@ function rotateRoles(s: DurakState, attackerFrom: number, skip?: number): void {
   const nd = findNextActivePlayer(s, na + 1, na);
   if (nd === null) { checkFinished(s); return; }
   s.defenderIndex = nd;
+  s.throwerIndex = na;          // the primary attacker leads the new bout's throw-in
+  s.passedAttackers = [];
   s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
   s.status = 'attack';
+}
+
+/**
+ * First non-passed eligible attacker (active, not the defender), clockwise from
+ * the PRIMARY attacker — i.e. the primary keeps priority. Pure (no side effects).
+ */
+function firstThrower(s: DurakState): number | null {
+  const n = s.players.length;
+  for (let k = 0; k < n; k++) {
+    const i = (s.attackerIndex + k) % n;
+    if (i === s.defenderIndex) continue;
+    if (s.players[i].hand.length === 0) continue;   // out of cards
+    if (s.passedAttackers.includes(i)) continue;    // already passed this bout
+    return i;
+  }
+  return null;
+}
+
+/**
+ * Throw-in priority (DURAK_RULES.md): after a card is beaten or an attacker
+ * passes, hand the throw to the next eligible attacker who CAN throw (auto-passing
+ * those who cannot — no matching card / limit reached). When nobody can throw and
+ * every attack is beaten, the bout ends as a successful defense.
+ */
+function resumeThrowIn(s: DurakState): void {
+  for (;;) {
+    const seat = firstThrower(s);
+    if (seat === null) { resolveDefended(s); return; }
+    if (hasLegalThrowIn(s, seat)) { s.throwerIndex = seat; s.status = 'attack'; return; }
+    s.passedAttackers.push(seat); // cannot throw → treated as a pass; move on
+  }
+}
+
+/** Successful defense: discard the table, draw up, and the defender leads next. */
+function resolveDefended(s: DurakState): void {
+  for (const p of s.table) { s.discardPile.push(p.attack); if (p.defense) s.discardPile.push(p.defense); }
+  s.table = [];
+  s.passedAttackers = [];
+  const oldDefender = s.defenderIndex;
+  drawAfterBout(s);
+  rotateRoles(s, oldDefender, undefined); // the defender becomes the next primary attacker
 }
 
 function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?: DurakContext): DurakState | null {
@@ -86,7 +130,8 @@ function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?:
   const defenderIndex = (attackerIndex + 1) % numPlayers;
   return {
     gameType: 'durak', variant: action.variant, players, drawPile, trumpSuit, trumpCard,
-    attackerIndex, defenderIndex, table: [], discardPile: [], status: 'attack',
+    attackerIndex, defenderIndex, throwerIndex: attackerIndex, passedAttackers: [],
+    table: [], discardPile: [], status: 'attack',
     boutLimit: Math.min(MAX_HAND, players[defenderIndex].hand.length),
     foolId: null, winnerIds: [], isDraw: false,
   };
@@ -109,7 +154,7 @@ export function durakReducer(
       if (state.status !== 'attack') return state;
       if (!getValidAttackCards(state).some((c) => sameCard(c, action.card))) return state;
       const s = clone(state);
-      removeCard(s.players[s.attackerIndex].hand, action.card);
+      removeCard(s.players[s.throwerIndex].hand, action.card); // the current thrower plays
       s.table.push({ attack: action.card, defense: null });
       s.status = 'defense';
       return s;
@@ -125,7 +170,8 @@ export function durakReducer(
       const s = clone(state);
       removeCard(s.players[s.defenderIndex].hand, action.card);
       s.table[pairIdx].defense = action.card;
-      if (s.table.every((p) => p.defense !== null)) s.status = 'attack'; // all beaten → attacker's move
+      // All beaten → hand the throw to the next eligible attacker (or resolve).
+      if (s.table.every((p) => p.defense !== null)) resumeThrowIn(s);
       return s;
     }
 
@@ -143,15 +189,13 @@ export function durakReducer(
       return s;
     }
 
-    case 'END_ATTACK': {
+    case 'PASS_ATTACK': {
+      // The current thrower gives up; cannot pass the opening (empty table).
       if (state.status !== 'attack' || state.table.length === 0) return state;
       const s = clone(state);
-      for (const p of s.table) { s.discardPile.push(p.attack); if (p.defense) s.discardPile.push(p.defense); }
-      s.table = [];
-      const oldDefender = s.defenderIndex;
-      drawAfterBout(s);
-      // Successful defense → the defender becomes the next attacker.
-      rotateRoles(s, oldDefender, undefined);
+      if (!s.passedAttackers.includes(s.throwerIndex)) s.passedAttackers.push(s.throwerIndex);
+      // Throw passes to the next eligible attacker, or the bout ends if all beaten.
+      resumeThrowIn(s);
       return s;
     }
 
@@ -164,8 +208,11 @@ export function durakReducer(
       s.table.push({ attack: action.card, defense: null });
       const nd = findNextActivePlayer(s, transferrer + 1, transferrer);
       if (nd === null) return state; // no one to pass to (guarded by canTransfer)
-      s.attackerIndex = transferrer;  // the transferrer joins the attack
+      // The transferrer becomes the new PRIMARY attacker; the throw-in state resets.
+      s.attackerIndex = transferrer;
       s.defenderIndex = nd;
+      s.throwerIndex = transferrer;
+      s.passedAttackers = [];
       s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
       s.status = 'defense';           // the new defender must respond
       return s;
@@ -179,7 +226,7 @@ export function durakReducer(
 /** The id of the player who must act now, or null on a finished game. */
 export function getActingDurakPlayerId(state: DurakState): string | null {
   if (state.status === 'finished') return null;
-  const idx = state.status === 'attack' ? state.attackerIndex : state.defenderIndex;
+  const idx = state.status === 'attack' ? state.throwerIndex : state.defenderIndex;
   return state.players[idx]?.id ?? null;
 }
 

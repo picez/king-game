@@ -10,12 +10,15 @@ const P = (seat: number, hand: Card[]): DurakPlayer => ({ id: `player-${seat}`, 
 const ids = (cards: Card[]) => cards.map((c) => `${c.rank}${c.suit[0]}`).sort();
 
 function st(over: Partial<DurakState>): DurakState {
-  return {
+  const s: DurakState = {
     gameType: 'durak', variant: 'simple', players: [P(0, []), P(1, [])],
     drawPile: [], trumpSuit: 'spades', trumpCard: C('6', 'spades'),
-    attackerIndex: 0, defenderIndex: 1, table: [], discardPile: [],
+    attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, passedAttackers: [],
+    table: [], discardPile: [],
     status: 'attack', boutLimit: 6, foolId: null, winnerIds: [], isDraw: false, ...over,
   };
+  if (over.throwerIndex === undefined) s.throwerIndex = s.attackerIndex; // thrower defaults to primary
+  return s;
 }
 
 describe('START_DURAK', () => {
@@ -63,14 +66,15 @@ describe('attack', () => {
 });
 
 describe('defense', () => {
-  it('beats a card and (all beaten) returns to the attacker', () => {
+  it('beats a card and (all beaten) hands the throw back to the attacker', () => {
     const s = st({
-      players: [P(0, []), P(1, [C('9', 'hearts')])],
+      players: [P(0, [C('7', 'clubs')]), P(1, [C('9', 'hearts')])], // attacker can still throw a 7
       table: [{ attack: C('7', 'hearts'), defense: null }], status: 'defense',
     });
     const next = durakReducer(s, { type: 'DEFEND_CARD', attack: C('7', 'hearts'), card: C('9', 'hearts') })!;
     expect(next.table[0].defense).toEqual(C('9', 'hearts'));
-    expect(next.status).toBe('attack');
+    expect(next.status).toBe('attack');     // throw-in resumes
+    expect(next.throwerIndex).toBe(0);      // with the primary attacker
   });
 
   it('rejects a defense that does not beat the attack (same reference)', () => {
@@ -98,7 +102,7 @@ describe('take', () => {
   });
 });
 
-describe('successful defense (END_ATTACK) + draw order', () => {
+describe('successful defense (PASS_ATTACK) + draw order', () => {
   it('discards the table, refills attacker-first then defender, and the defender becomes attacker', () => {
     const fill = (suit: Card['suit']) => [C('6', suit), C('7', suit), C('8', suit), C('9', suit), C('10', suit)];
     const s = st({
@@ -107,7 +111,7 @@ describe('successful defense (END_ATTACK) + draw order', () => {
       table: [{ attack: C('Q', 'clubs'), defense: C('A', 'spades') }], // already beaten
       status: 'attack', attackerIndex: 0, defenderIndex: 1,
     });
-    const next = durakReducer(s, { type: 'END_ATTACK' })!;
+    const next = durakReducer(s, { type: 'PASS_ATTACK' })!;
     expect(next.discardPile).toEqual([C('Q', 'clubs'), C('A', 'spades')]);
     expect(next.table).toEqual([]);
     // attacker (seat 0) draws first → gets the A♣; defender (seat 1) → K♣.
@@ -127,7 +131,7 @@ describe('finish', () => {
       table: [{ attack: C('6', 'clubs'), defense: C('7', 'clubs') }], status: 'attack',
       attackerIndex: 0, defenderIndex: 1,
     });
-    const next = durakReducer(s, { type: 'END_ATTACK' })!;
+    const next = durakReducer(s, { type: 'PASS_ATTACK' })!;
     expect(next.status).toBe('finished');
     expect(next.foolId).toBe('player-1');
     expect(next.isDraw).toBe(false);
@@ -139,7 +143,7 @@ describe('finish', () => {
       players: [P(0, []), P(1, [])], drawPile: [],
       table: [{ attack: C('6', 'clubs'), defense: C('7', 'clubs') }], status: 'attack',
     });
-    const next = durakReducer(s, { type: 'END_ATTACK' })!;
+    const next = durakReducer(s, { type: 'PASS_ATTACK' })!;
     expect(next.status).toBe('finished');
     expect(next.foolId).toBeNull();
     expect(next.isDraw).toBe(true);

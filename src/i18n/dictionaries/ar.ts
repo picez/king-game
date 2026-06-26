@@ -80,6 +80,8 @@ export const AR: Record<string, string> = {
   'durak.rule.fool': 'آخر لاعب يحمل بطاقات هو الأحمق.',
   'durak.promptDefendTransfer': 'صدّ أو اسحب أو حوّل (نفس الرتبة)',
   'durak.promptAllBeaten': 'تم صدّ الكل — أضف بطاقة أو مرّر',
+  'durak.promptThrowOrPass': 'أضف بطاقة بنفس الرتبة أو مرّر',
+  'durak.throwing': 'يضيف',
   'durak.cardsRemaining': 'بطاقات متبقية',
   'durak.setupTagline': 'صدّ كل هجوم — لا تكن الأحمق',
   'durak.variant': 'النمط',
