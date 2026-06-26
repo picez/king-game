@@ -74,9 +74,18 @@ sections add to or override it.
      Each such attacker may throw in or **pass**.
    - **Co-attackers may only throw cards of a rank already on the table** (the
      opener's first card is unrestricted).
-   - A passed attacker is **out for the rest of the bout**. An attacker who simply
-     **cannot** throw (no matching rank, or the limit is reached) is treated as
-     having passed, so the turn moves on (engine convenience — same outcome).
+   - A passed attacker is out **for the current throw-in cycle** only. An attacker
+     who simply **cannot** throw (no matching rank, or the limit is reached) is
+     treated as having passed, so the turn moves on (engine convenience — same
+     outcome).
+   - **Re-priority on a new card.** Every time a card is **added** to the table, a
+     **fresh throw-in cycle** begins: `passedAttackers` is cleared. So after a
+     co-attacker throws and the defender beats it, the **primary attacker gets the
+     first chance again** — a rank that just appeared (from the thrown or the
+     beating card) may now give an earlier attacker a legal throw. The cycle then
+     proceeds clockwise as before. Passes therefore apply only to the *current*
+     table-rank state, never permanently — yet the bout still terminates (each
+     added card is finite, and the table is capped at `min(6, …)`).
    - The **defender never throws.**
 5. **Ending the bout.**
    - **Successful defense:** every attack is beaten **and** all eligible attackers

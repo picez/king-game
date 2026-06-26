@@ -69,12 +69,17 @@ export default function SelectMenu({
         onClick={() => setOpen((o) => !o)}
       >
         <span className="select-menu__value">
-          {selected?.icon && <span className="select-menu__icon" aria-hidden="true">{selected.icon}</span>}
-          {!compactTrigger && (
-            <span className="select-menu__text">
-              <span className="select-menu__label">{selected?.label ?? ''}</span>
-              {selected?.sublabel && <span className="select-menu__sub">{selected.sublabel}</span>}
-            </span>
+          {compactTrigger ? (
+            // Icon-only trigger (avatars): fall back to the label glyph if no icon.
+            <span className="select-menu__emoji" aria-hidden="true">{selected?.icon ?? selected?.label ?? ''}</span>
+          ) : (
+            <>
+              {selected?.icon && <span className="select-menu__icon" aria-hidden="true">{selected.icon}</span>}
+              <span className="select-menu__text">
+                <span className="select-menu__label">{selected?.label ?? ''}</span>
+                {selected?.sublabel && <span className="select-menu__sub">{selected.sublabel}</span>}
+              </span>
+            </>
           )}
         </span>
         <span className="select-menu__chevron" aria-hidden="true">▾</span>

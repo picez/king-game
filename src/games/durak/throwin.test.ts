@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { cardValue } from './deck';
 import { durakReducer, getActingDurakPlayerId } from './engine';
+import { getValidAttackCards } from './rules';
 import type { Card } from '../../models/types';
 import type { DurakPlayer, DurakState } from './types';
 
@@ -71,6 +72,47 @@ describe('priority throw-in (3 players)', () => {
     expect(s.table.map((p) => p.attack.rank)).toEqual(['6', '6']);
     expect(s.status).toBe('defense');               // B must beat the new 6
     expect(s.players[2].hand.some((c) => c.rank === '6')).toBe(false);
+  });
+});
+
+describe('re-priority after a co-attacker throw-in (3 players)', () => {
+  it('hands the throw back to the primary once a newly-beaten card adds a rank they hold', () => {
+    // A opens a 6; B beats with a 7; A holds no 6/7 (auto-passes); C throws a 7;
+    // B beats it with a 9 → rank 9 now on the table → A (who holds a 9) leads again.
+    let s = st(3, {
+      players: [
+        P(0, [C('6', 'clubs'), C('9', 'hearts')]),   // primary attacker
+        P(1, [C('7', 'clubs'), C('9', 'spades')]),   // defender (9♠ trump introduces rank 9)
+        P(2, [C('7', 'hearts')]),                    // co-attacker
+      ],
+      status: 'attack', attackerIndex: 0, defenderIndex: 1, throwerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('6', 'clubs') })!;                          // (a)(b)
+    s = durakReducer(s, { type: 'DEFEND_CARD', attack: C('6', 'clubs'), card: C('7', 'clubs') })!; // beat
+    expect(s.throwerIndex).toBe(2);                  // (c)(d) A has no 6/7 → auto-passed → C leads
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('7', 'hearts') })!;                         // C throws rank 7
+    expect(s.passedAttackers).toEqual([]);           // new card → fresh throw-in cycle
+    s = durakReducer(s, { type: 'DEFEND_CARD', attack: C('7', 'hearts'), card: C('9', 'spades') })!; // (e) trump beat → rank 9 appears
+    expect(s.status).toBe('attack');
+    expect(s.throwerIndex).toBe(0);                  // (f) PRIMARY regains the throw
+    expect(getValidAttackCards(s).some((c) => c.rank === '9')).toBe(true);
+    s = durakReducer(s, { type: 'ATTACK_CARD', card: C('9', 'hearts') })!;                         // (g) A throws the 9
+    expect(s.status).toBe('defense');
+    expect(s.table.map((p) => p.attack.rank)).toEqual(['6', '7', '9']);
+  });
+
+  it('a pass stays effective while no new card is added', () => {
+    // No ATTACK_CARD is played, so passedAttackers is NOT reset: A remains passed
+    // and the throw stays with the next eligible co-attacker.
+    let s = st(3, {
+      players: [P(0, [C('A', 'spades')]), P(1, [C('K', 'spades')]), P(2, [C('6', 'diamonds')])],
+      table: [{ attack: C('6', 'hearts'), defense: C('7', 'hearts') }],
+      status: 'attack', attackerIndex: 0, defenderIndex: 1, throwerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'PASS_ATTACK' })!;   // A passes (no card added)
+    expect(s.passedAttackers).toContain(0);          // A stays passed (no reset)
+    expect(s.throwerIndex).toBe(2);                  // throw stays with C
+    expect(s.status).toBe('attack');
   });
 });
 

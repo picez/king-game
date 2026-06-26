@@ -156,6 +156,10 @@ export function durakReducer(
       const s = clone(state);
       removeCard(s.players[s.throwerIndex].hand, action.card); // the current thrower plays
       s.table.push({ attack: action.card, defense: null });
+      // A newly added card opens a FRESH throw-in cycle: clear the passes so that,
+      // once it is beaten, priority returns to the primary attacker (a new rank may
+      // now give an earlier attacker a legal throw). DURAK_RULES.md — re-priority.
+      s.passedAttackers = [];
       s.status = 'defense';
       return s;
     }

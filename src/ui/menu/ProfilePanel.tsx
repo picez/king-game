@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
-import { AVATARS } from '../../core/avatars';
+import { AVATARS, sanitizeAvatar } from '../../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
@@ -55,9 +55,9 @@ export default function ProfilePanel({
           className="avatar-picker"
           layout="grid"
           compactTrigger
-          value={avatar}
+          value={sanitizeAvatar(avatar, name)}
           onChange={changeAvatar}
-          options={AVATARS.map((a) => ({ value: a, label: a }))}
+          options={AVATARS.map((a) => ({ value: a, label: a, icon: a }))}
         />
       </div>
 
