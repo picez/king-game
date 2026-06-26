@@ -55,6 +55,8 @@ export const AR: Record<string, string> = {
   'menu.chooseGame': 'اختر اللعبة',
   'menu.moreGamesSoon': 'المزيد من الألعاب قريبًا',
   'menu.gameAvailable': 'متاح',
+  'menu.comingSoon': 'قريبًا',
+  'gameType.durak': 'دوراك',
   'lobby.title': 'الردهة',
   'lobby.share': 'رمز الغرفة — شاركه مع اللاعبين',
   'lobby.players': 'اللاعبون',

@@ -3,6 +3,9 @@ import { useI18n } from '../../i18n';
 import { fetchGameCatalog } from '../../net/gamesApi';
 import { publicGameCatalog, type GameType, type PublicGameEntry } from '../../games/catalog';
 
+/** Per-game emoji (no icon field in the catalog yet). */
+const GAME_ICON: Record<string, string> = { king: '👑', durak: '🃏' };
+
 interface Props {
   /** Currently selected game (default 'king'). */
   selected: GameType;
@@ -36,18 +39,22 @@ export default function GameSelector({ selected, onSelect, apiBase }: Props) {
       <span className="game-selector__label">{t('menu.game')}</span>
       <div className="game-selector__list">
         {games.map((g) => {
-          const active = g.id === selected;
+          const playable = g.status === 'available';
+          const active = playable && g.id === selected;
           return (
             <button
               key={g.id}
               type="button"
-              className={`game-chip ${active ? 'game-chip--active' : ''}`}
+              className={`game-chip ${active ? 'game-chip--active' : ''} ${playable ? '' : 'game-chip--disabled'}`}
               aria-pressed={active}
-              onClick={() => onSelect(g.id)}
+              disabled={!playable}
+              // Non-playable games (e.g. Durak — coming soon) cannot be selected,
+              // so the chosen gameType stays King and Local/Host/Join are unchanged.
+              onClick={playable ? () => onSelect(g.id) : undefined}
             >
-              <span className="game-chip__icon" aria-hidden="true">👑</span>
+              <span className="game-chip__icon" aria-hidden="true">{GAME_ICON[g.id] ?? '🎴'}</span>
               <span className="game-chip__name">{t(g.title)}</span>
-              <span className="game-chip__badge">{t('menu.gameAvailable')}</span>
+              <span className="game-chip__badge">{t(playable ? 'menu.gameAvailable' : 'menu.comingSoon')}</span>
             </button>
           );
         })}

@@ -5,15 +5,25 @@ import { publicGameCatalog } from '../games/catalog';
 const KING = {
   id: 'king', title: 'gameType.king', shortTitle: 'gameType.king',
   minPlayers: 3, maxPlayers: 4, defaultPlayerCount: 4,
-  supportsLocal: true, supportsOnline: true, supportsBots: true,
+  supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
+};
+const DURAK = {
+  id: 'durak', title: 'gameType.durak', shortTitle: 'gameType.durak',
+  minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 2,
+  supportsLocal: false, supportsOnline: false, supportsBots: true, status: 'coming_soon',
 };
 const okResponse = (body: unknown) =>
   ({ ok: true, json: async () => body } as unknown as Response);
 
 describe('normalizeGameCatalog', () => {
-  it('parses a valid catalog payload', () => {
-    const games = normalizeGameCatalog({ games: [KING] });
-    expect(games).toEqual([KING]);
+  it('parses a valid catalog payload (King + Durak)', () => {
+    const games = normalizeGameCatalog({ games: [KING, DURAK] });
+    expect(games).toEqual([KING, DURAK]);
+  });
+  it('accepts a 2-player default (Durak) and defaults an unknown status to coming_soon', () => {
+    const { status, ...noStatus } = DURAK; void status;
+    const games = normalizeGameCatalog({ games: [noStatus] });
+    expect(games).toEqual([{ ...DURAK, status: 'coming_soon' }]);
   });
   it('returns null for a non-object / missing games', () => {
     expect(normalizeGameCatalog(null)).toBeNull();

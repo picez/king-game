@@ -9,45 +9,45 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King as the default game', () => {
+  it('registers King (available) and Durak (coming_soon)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king');
-    expect(GAME_TYPES).toEqual(['king']);
+    expect(GAME_TYPES).toEqual(['king', 'durak']);
     expect(GAME_CATALOG.king).toMatchObject({
-      id: 'king',
-      minPlayers: 3,
-      maxPlayers: 4,
-      supportsLocal: true,
-      supportsOnline: true,
-      supportsBots: true,
-      rulesDoc: 'KING_RULES.md',
+      id: 'king', minPlayers: 3, maxPlayers: 4, supportsLocal: true,
+      supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
+    });
+    expect(GAME_CATALOG.durak).toMatchObject({
+      id: 'durak', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 2,
+      supportsLocal: false, supportsOnline: false, supportsBots: true,
+      status: 'coming_soon', rulesDoc: 'DURAK_RULES.md',
     });
   });
 
   it('validates game types at runtime', () => {
     expect(isGameType('king')).toBe(true);
+    expect(isGameType('durak')).toBe(true);
     expect(isGameType('poker')).toBe(false);
-    expect(getGameCatalogEntry('king')?.id).toBe('king');
+    expect(getGameCatalogEntry('durak')?.id).toBe('durak');
     expect(getGameCatalogEntry('poker')).toBeNull();
   });
 
-  it('exposes a public catalog with King and NO private fields', () => {
+  it('exposes both games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
-    expect(pub.map((g) => g.id)).toEqual(['king']);
-    const king = pub[0];
+    expect(pub.map((g) => g.id)).toEqual(['king', 'durak']);
+    const king = pub.find((g) => g.id === 'king')!;
     expect(king).toEqual({
-      id: 'king',
-      title: 'gameType.king',
-      shortTitle: 'gameType.king',
-      minPlayers: 3,
-      maxPlayers: 4,
-      defaultPlayerCount: 4,
-      supportsLocal: true,
-      supportsOnline: true,
-      supportsBots: true,
+      id: 'king', title: 'gameType.king', shortTitle: 'gameType.king',
+      minPlayers: 3, maxPlayers: 4, defaultPlayerCount: 4,
+      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
+    const durak = pub.find((g) => g.id === 'durak')!;
+    expect(durak.status).toBe('coming_soon');
+    expect(durak.supportsLocal).toBe(false);
+    expect(durak.supportsOnline).toBe(false);
     // Internal-only fields must never leak into the public shape.
-    expect('rulesDoc' in king).toBe(false);
-    expect('titleKey' in king).toBe(false);
+    for (const g of pub) {
+      expect('rulesDoc' in g).toBe(false);
+      expect('titleKey' in g).toBe(false);
+    }
   });
 });
-

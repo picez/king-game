@@ -311,3 +311,6 @@
   border-radius: 999px; background: var(--success-soft); color: var(--success-light);
 }
 .game-selector__soon { margin: 0; font-size: 0.72rem; color: var(--text-dim); }
+/* Coming-soon games (e.g. Durak) — visible but not selectable. */
+.game-chip--disabled { opacity: 0.55; cursor: not-allowed; filter: grayscale(0.4); }
+.game-chip--disabled .game-chip__badge { background: var(--surface-3); color: var(--text-dim); }

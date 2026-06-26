@@ -1,14 +1,23 @@
 /**
  * Public game catalog.
  *
- * This is intentionally small for now: King remains the only implemented game,
- * but every new card game should enter through this registry instead of adding
- * scattered string literals across room discovery, stats, and settings.
+ * Every card game enters through this registry instead of scattering string
+ * literals across room discovery, stats, and settings. King is the default and
+ * the only fully-playable game; Durak is registered as `coming_soon`
+ * (Stage 9.2) — visible in the catalog/menu but not yet startable (no UI/online).
  */
 
-export const GAME_TYPES = ['king'] as const;
+export const GAME_TYPES = ['king', 'durak'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
+
+/**
+ * Playability status surfaced to the client:
+ *  - 'available'   → fully playable (King today);
+ *  - 'coming_soon' → registered but not yet startable (Durak today);
+ *  - 'experimental'→ playable but rough (reserved; unused for now).
+ */
+export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
 
 export interface GameCatalogEntry {
   id: GameType;
@@ -18,10 +27,12 @@ export interface GameCatalogEntry {
   shortTitleKey: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 3 | 4;
+  defaultPlayerCount: 2 | 3 | 4;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;
+  /** Whether the game can actually be started yet (gates the menu). */
+  status: GameAvailability;
   rulesDoc: string;
 }
 
@@ -38,7 +49,21 @@ export const GAME_CATALOG = {
     supportsLocal: true,
     supportsOnline: true,
     supportsBots: true,
+    status: 'available',
     rulesDoc: 'KING_RULES.md',
+  },
+  durak: {
+    id: 'durak',
+    titleKey: 'gameType.durak',
+    shortTitleKey: 'gameType.durak',
+    minPlayers: 2,
+    maxPlayers: 4,
+    defaultPlayerCount: 2,
+    supportsLocal: false, // no UI yet (Stage 9.2 registers core only)
+    supportsOnline: false, // no online wiring yet (Stage 9.3)
+    supportsBots: true,    // the pure core has a working bot
+    status: 'coming_soon',
+    rulesDoc: 'DURAK_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
 
@@ -62,10 +87,11 @@ export interface PublicGameEntry {
   shortTitle: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 3 | 4;
+  defaultPlayerCount: 2 | 3 | 4;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;
+  status: GameAvailability;
 }
 
 /** The static catalog mapped to the public API shape (no private fields). */
@@ -82,7 +108,7 @@ export function publicGameCatalog(): PublicGameEntry[] {
       supportsLocal: e.supportsLocal,
       supportsOnline: e.supportsOnline,
       supportsBots: e.supportsBots,
+      status: e.status,
     };
   });
 }
-

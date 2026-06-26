@@ -8,7 +8,7 @@
 // and existing Local/Host/Join flows never depend on the network here.
 // ---------------------------------------------------------------------------
 
-import { publicGameCatalog, isGameType, type PublicGameEntry, type GameType } from '../games/catalog';
+import { publicGameCatalog, isGameType, type PublicGameEntry, type GameType, type GameAvailability } from '../games/catalog';
 
 /** Validate one server entry into a PublicGameEntry, or null if malformed. */
 function normalizeEntry(g: unknown): PublicGameEntry | null {
@@ -27,14 +27,19 @@ function normalizeEntry(g: unknown): PublicGameEntry | null {
   const supportsLocal = bool('supportsLocal');
   const supportsOnline = bool('supportsOnline');
   const supportsBots = bool('supportsBots');
+  // Default an unknown/missing status conservatively to 'coming_soon' so a stale
+  // server can never accidentally make a game look playable.
+  const rawStatus = str('status');
+  const status: GameAvailability =
+    rawStatus === 'available' || rawStatus === 'experimental' ? rawStatus : 'coming_soon';
 
   if (title == null || shortTitle == null || minPlayers == null || maxPlayers == null) return null;
-  if (dpc !== 3 && dpc !== 4) return null;
+  if (dpc !== 2 && dpc !== 3 && dpc !== 4) return null;
   if (supportsLocal == null || supportsOnline == null || supportsBots == null) return null;
 
   return {
     id: o.id as GameType, title, shortTitle, minPlayers, maxPlayers,
-    defaultPlayerCount: dpc, supportsLocal, supportsOnline, supportsBots,
+    defaultPlayerCount: dpc, supportsLocal, supportsOnline, supportsBots, status,
   };
 }
 

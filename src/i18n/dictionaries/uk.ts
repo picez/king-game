@@ -55,6 +55,8 @@ export const UK: Record<string, string> = {
   'menu.chooseGame': 'Оберіть гру',
   'menu.moreGamesSoon': 'Більше ігор незабаром',
   'menu.gameAvailable': 'Доступно',
+  'menu.comingSoon': 'Незабаром',
+  'gameType.durak': 'Дурак',
   'lobby.title': 'Лоббі',
   'lobby.share': 'Код кімнати — поділіться з гравцями',
   'lobby.players': 'Гравці',

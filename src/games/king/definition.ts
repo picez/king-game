@@ -6,7 +6,8 @@
 // can mirror the shape in its own definition.
 // ---------------------------------------------------------------------------
 
-import { gameReducer, getActingPlayerId } from '../../core/gameEngine';
+import { gameReducer, getActingPlayerId, type GameAction } from '../../core/gameEngine';
+import type { GameState } from '../../models/types';
 import { buildStartAction } from '../../net/online';
 // Import botAction from its own module (NOT serverCore) so this definition does
 // not import serverCore — serverCore imports the registry, which imports this.
@@ -16,7 +17,7 @@ import { playerCountRange, type GameDefinition } from '../definition';
 
 const entry = GAME_CATALOG.king;
 
-export const kingGameDefinition: GameDefinition = {
+export const kingGameDefinition: GameDefinition<GameState, GameAction> = {
   id: 'king',
   catalog: entry,
   rulesDoc: entry.rulesDoc,

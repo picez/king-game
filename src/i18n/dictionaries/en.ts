@@ -55,6 +55,8 @@ export const EN: Record<string, string> = {
   'menu.chooseGame': 'Choose game',
   'menu.moreGamesSoon': 'More games coming soon',
   'menu.gameAvailable': 'Available',
+  'menu.comingSoon': 'Coming soon',
+  'gameType.durak': 'Durak',
   'lobby.title': 'Lobby',
   'lobby.share': 'Room code — share with players',
   'lobby.players': 'Players',
