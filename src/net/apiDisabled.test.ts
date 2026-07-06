@@ -40,6 +40,13 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect((out.body as { error: string }).error).toBe('db_disabled');
   });
 
+  it('returns 503 db_disabled for the Durak stats route (GET /api/games/durak/stats)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/durak/stats'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
   it('answers CORS preflight (OPTIONS) with 204 even without a DB', async () => {
     const { res, out } = mockRes();
     await handleApiRequest(mockReq('OPTIONS', '/api/settings'), res);
@@ -64,7 +71,7 @@ describe('HTTP API with no DATABASE_URL', () => {
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');
     expect(king.supportsOnline).toBe(true);
-    expect(durak.status).toBe('experimental'); // experimental online (Stage 9.6)
+    expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
     // Public shape only — no internal fields leak.

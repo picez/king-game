@@ -258,6 +258,11 @@ async function handleGetKingStats(req: IncomingMessage, res: ServerResponse, use
   json(res, 200, { gameType: KING, stats: await getUserStats(userId, KING) }, corsHeaders(req));
 }
 
+async function handleGetDurakStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getDurakStats } = await import('./db/durakStats');
+  json(res, 200, { gameType: 'durak', stats: await getDurakStats(userId) }, corsHeaders(req));
+}
+
 /**
  * Public per-game leaderboard (no session required — only public, score-level
  * fields). If a session cookie is present we resolve it ONLY to mark the
@@ -489,6 +494,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/king/stats' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetKingStats(req, res, u);
+    }
+    if (path === '/api/games/durak/stats' && method === 'GET') {
+      const u = await requireUser(); if (!u) return; return await handleGetDurakStats(req, res, u);
     }
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));
