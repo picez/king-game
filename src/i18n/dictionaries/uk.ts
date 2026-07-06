@@ -222,6 +222,7 @@ export const UK: Record<string, string> = {
   'stats.player': 'Гравець',
   'stats.gpShort': 'Ігри',
   'stats.wShort': 'Пер.',
+  'stats.foolShort': 'Дурень',
   'stats.wrShort': '%',
   'stats.anonymous': 'Гість',
   'stats.signInPrompt': 'Статистики ще немає — збережіть прогрес, щоб почати відстеження.',

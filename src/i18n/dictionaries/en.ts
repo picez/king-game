@@ -222,6 +222,7 @@ export const EN: Record<string, string> = {
   'stats.player': 'Player',
   'stats.gpShort': 'GP',
   'stats.wShort': 'W',
+  'stats.foolShort': 'Fool',
   'stats.wrShort': 'Win%',
   'stats.anonymous': 'Guest',
   'stats.signInPrompt': 'No stats yet — save your progress to start tracking.',

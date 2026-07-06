@@ -222,6 +222,7 @@ export const DE: Record<string, string> = {
   'stats.player': 'Spieler',
   'stats.gpShort': 'Sp.',
   'stats.wShort': 'S',
+  'stats.foolShort': 'Depp',
   'stats.wrShort': '%',
   'stats.anonymous': 'Gast',
   'stats.signInPrompt': 'Noch keine Statistik — speichere deinen Fortschritt, um zu starten.',

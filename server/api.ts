@@ -276,6 +276,13 @@ async function handleGetKingLeaderboard(req: IncomingMessage, res: ServerRespons
   json(res, 200, { gameType: KING, leaderboard: await getLeaderboard(KING, 20, selfUserId) }, corsHeaders(req));
 }
 
+async function handleGetDurakLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { getDurakLeaderboard } = await import('./db/durakStats');
+  let selfUserId: string | null = null;
+  try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
+  json(res, 200, { gameType: 'durak', leaderboard: await getDurakLeaderboard(20, selfUserId) }, corsHeaders(req));
+}
+
 // ── Google OAuth (Stage 6) ──────────────────────────────────────────────────
 
 function nowSec(): number { return Math.floor(Date.now() / 1000); }
@@ -469,6 +476,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     if (path === '/api/guest-session' && method === 'POST') return await handleGuestSession(req, res);
     if (path === '/api/logout' && method === 'POST') return await handleLogout(req, res);
     if (path === '/api/games/king/leaderboard' && method === 'GET') return await handleGetKingLeaderboard(req, res);
+    if (path === '/api/games/durak/leaderboard' && method === 'GET') return await handleGetDurakLeaderboard(req, res);
 
     // Session-required routes.
     const requireUser = async (): Promise<string | null> => {

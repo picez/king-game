@@ -11,14 +11,14 @@
 // ---------------------------------------------------------------------------
 
 import { createHash } from 'node:crypto';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { DurakState } from '../../src/games/durak/types';
 import {
   isFinishedDurakGame, summarizeFinishedDurakGame, computeDurakStatDeltas,
   type DurakFinishedSummary,
 } from '../../src/net/durakStats';
-import { games, gamePlayers, userStats } from './schema';
+import { games, gamePlayers, userStats, users, userSettings } from './schema';
 import { getDb } from './client';
 import type { SeatUsers, RecordResult } from './stats';
 import type { DurakStatsView } from '../../src/net/durakStats';
@@ -194,4 +194,52 @@ export async function getDurakStats(userId: string): Promise<DurakStatsView> {
     .where(and(eq(userStats.userId, userId), eq(userStats.gameType, DURAK)))
     .limit(1))[0];
   return toDurakStatsView(row ?? null, readDurakStats(row?.stats));
+}
+
+/** Public Durak leaderboard row — display fields + outcome counters (no userId). */
+export interface DurakLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  foolCount: number;
+  lastGameAt: string | null;
+  /** True for the requesting user's own row (server-marked; no id exposed). */
+  self: boolean;
+}
+
+/**
+ * Per-game Durak leaderboard: top players by wins (then games played). Exposes
+ * ONLY public fields — display name + avatar + counters; the user id marks the
+ * caller's own row (`self`) and is NEVER returned. Mirrors getLeaderboard (King).
+ */
+export async function getDurakLeaderboard(
+  limit = 20, selfUserId: string | null = null,
+): Promise<DurakLeaderboardEntry[]> {
+  const db = await database();
+  const rows = await db.select({
+    userId: userStats.userId,
+    displayName: users.displayName,
+    avatar: userSettings.avatar,
+    gamesPlayed: userStats.gamesPlayed,
+    gamesWon: userStats.gamesWon,
+    stats: userStats.stats,
+    lastPlayedAt: userStats.lastPlayedAt,
+  }).from(userStats)
+    .innerJoin(users, eq(users.id, userStats.userId))
+    .leftJoin(userSettings, eq(userSettings.userId, userStats.userId))
+    .where(eq(userStats.gameType, DURAK))
+    .orderBy(desc(userStats.gamesWon), desc(userStats.gamesPlayed))
+    .limit(Math.min(Math.max(limit, 1), 100));
+  return rows.map((r) => ({
+    displayName: r.displayName,
+    avatar: r.avatar ?? null,
+    gamesPlayed: r.gamesPlayed,
+    gamesWon: r.gamesWon,
+    winRate: pct(r.gamesWon, r.gamesPlayed),
+    foolCount: readDurakStats(r.stats).foolCount,
+    lastGameAt: r.lastPlayedAt ? r.lastPlayedAt.toISOString() : null,
+    self: selfUserId != null && r.userId === selfUserId,
+  }));
 }

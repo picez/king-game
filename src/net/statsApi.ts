@@ -211,6 +211,47 @@ function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   };
 }
 
+/** One public Durak leaderboard row — no user id; `self` marks the caller. */
+export interface DurakLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  foolCount: number;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parseDurakLeaderboardRow(e: Record<string, unknown>): DurakLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    foolCount: num(e.foolCount),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/durak/leaderboard — public top Durak players. */
+export async function fetchDurakLeaderboard(base: string): Promise<Loadable<DurakLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/durak/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parseDurakLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
 /** GET /api/games/king/leaderboard — public top players (counters + avatar). */
 export async function fetchKingLeaderboard(base: string): Promise<Loadable<LeaderboardEntry[]>> {
   const { status, data } = await getJson(base, '/api/games/king/leaderboard');

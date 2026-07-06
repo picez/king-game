@@ -67,4 +67,18 @@ describe.skipIf(!TEST_DATABASE_URL)('durak stats repository (integration, DURAK-
     expect(f1.foolCount - f0.foolCount).toBe(1);
     expect(f1.gameType).toBe('durak');
   });
+
+  it('leaderboard exposes public fields + self marker, never a userId', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const durak = await import('../../server/db/durakStats');
+    const u0 = await users.getOrCreateGuest('it-durak-u0');
+
+    const lb = await durak.getDurakLeaderboard(50, u0.id);
+    const me = lb.find((e) => e.self);
+    expect(me).toBeTruthy();
+    expect(typeof me?.gamesPlayed).toBe('number');
+    expect(typeof me?.foolCount).toBe('number');
+    expect('userId' in (me as object)).toBe(false); // no private id exposed
+  });
 });

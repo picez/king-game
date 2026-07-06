@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   fetchKingStats, fetchKingLeaderboard, parseKingStats,
-  parseDurakStats, fetchDurakStats,
+  parseDurakStats, fetchDurakStats, fetchDurakLeaderboard,
   winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
 } from './statsApi';
 
@@ -91,6 +91,27 @@ describe('fetchDurakStats — graceful state mapping', () => {
     expect((await fetchDurakStats(BASE)).state).toBe('unauthenticated');
     stubFetch(503, {});
     expect((await fetchDurakStats(BASE)).state).toBe('unavailable');
+  });
+});
+
+describe('fetchDurakLeaderboard', () => {
+  it('parses public rows (no userId) and marks self', async () => {
+    stubFetch(200, { leaderboard: [
+      { displayName: 'Alice', avatar: '🦊', gamesPlayed: 9, gamesWon: 6, winRate: 67, foolCount: 3, self: true },
+      { displayName: null, gamesPlayed: 2, gamesWon: 0, foolCount: 2 },
+    ] });
+    const r = await fetchDurakLeaderboard(BASE);
+    expect(r.state).toBe('ok');
+    if (r.state !== 'ok') return;
+    expect(r.data).toHaveLength(2);
+    expect(r.data[0]).toMatchObject({ displayName: 'Alice', foolCount: 3, self: true });
+    expect('userId' in (r.data[0] as object)).toBe(false);
+    expect(r.data[1].winRate).toBe(0); // derived from 0/2
+  });
+
+  it('maps 503 → unavailable', async () => {
+    stubFetch(503, {});
+    expect((await fetchDurakLeaderboard(BASE)).state).toBe('unavailable');
   });
 });
 

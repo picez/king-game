@@ -222,6 +222,7 @@ export const AR: Record<string, string> = {
   'stats.player': 'اللاعب',
   'stats.gpShort': 'لعب',
   'stats.wShort': 'فوز',
+  'stats.foolShort': 'خسارة',
   'stats.wrShort': '%',
   'stats.anonymous': 'ضيف',
   'stats.signInPrompt': 'لا إحصائيات بعد — احفظ تقدّمك لبدء التتبّع.',
