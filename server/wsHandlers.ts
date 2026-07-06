@@ -93,7 +93,7 @@ export function handleClientMessage(
       }
       // No player-count picker (Stage 9.10): the room caps at the catalog max and
       // the host starts once >= minPlayers are seated. Capacity is server-enforced.
-      const playerCount = entry.maxPlayers as 2 | 3 | 4;
+      const playerCount = entry.maxPlayers as 2 | 3 | 4 | 5;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create

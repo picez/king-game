@@ -25,7 +25,7 @@ describe('Durak deck', () => {
     expect(new Set(a.map(key)).size).toBe(36);
   });
 
-  it.each([2, 3, 4])('deals 6 to each of %i players; trump is the bottom card', (n) => {
+  it.each([2, 3, 4, 5])('deals 6 to each of %i players; trump is the bottom card', (n) => {
     const { hands, drawPile, trumpCard, trumpSuit } = dealDurak(n, makeRng(7));
     expect(hands).toHaveLength(n);
     expect(hands.every((h) => h.length === 6)).toBe(true);

@@ -11,11 +11,11 @@ import { DE } from './dictionaries/de';
 import { AR } from './dictionaries/ar';
 
 export type Lang = 'en' | 'uk' | 'de' | 'ar';
-export const LANGS: { code: Lang; label: string }[] = [
-  { code: 'en', label: 'English' },
-  { code: 'uk', label: 'Українська' },
-  { code: 'de', label: 'Deutsch' },
-  { code: 'ar', label: 'العربية' },
+export const LANGS: { code: Lang; label: string; flag: string }[] = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'uk', label: 'Українська', flag: '🇺🇦' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
 ];
 
 export function isRtl(lang: Lang): boolean {
@@ -80,7 +80,7 @@ export function LanguageSelector() {
       className="lang-select"
       value={lang}
       onChange={(v) => setLang(v as Lang)}
-      options={LANGS.map((l) => ({ value: l.code, label: l.label, icon: '🌐' }))}
+      options={LANGS.map((l) => ({ value: l.code, label: l.label, icon: l.flag }))}
     />
   );
 }

@@ -81,8 +81,6 @@ export const EN: Record<string, string> = {
   'menu.localOnly': 'Local only',
   'gameType.durak': 'Durak',
   'durak.onlineSoon': 'Durak online coming later',
-  'durak.onlineExperimental': 'Experimental',
-  'durak.onlineExperimentalNote': 'Online Durak is experimental — no stats yet.',
   'durak.spectating': 'Spectating…',
   'durak.botThinking': 'Bot is thinking…',
   'durak.offlineAI': '— offline, AI may play',

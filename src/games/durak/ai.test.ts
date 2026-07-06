@@ -21,8 +21,8 @@ function playOut(numPlayers: number, variant: DurakVariant, seed: number): Durak
 
 describe('Durak AI drives a full legal game', () => {
   it.each([
-    [2, 'simple'], [3, 'simple'], [4, 'simple'],
-    [2, 'transfer'], [3, 'transfer'], [4, 'transfer'],
+    [2, 'simple'], [3, 'simple'], [4, 'simple'], [5, 'simple'],
+    [2, 'transfer'], [3, 'transfer'], [4, 'transfer'], [5, 'transfer'],
   ] as [number, DurakVariant][])('finishes a %i-player %s game', (n, variant) => {
     const final = playOut(n, variant, 2026);
     expect(final.status).toBe('finished');

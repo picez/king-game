@@ -23,7 +23,7 @@ function st(over: Partial<DurakState>): DurakState {
 }
 
 describe('START_DURAK', () => {
-  it.each([2, 3, 4])('deals %i players 6 cards and picks the lowest-trump first attacker', (n) => {
+  it.each([2, 3, 4, 5])('deals %i players 6 cards and picks the lowest-trump first attacker', (n) => {
     const names = Array.from({ length: n }, (_, i) => `P${i}`);
     const s = durakReducer(null, { type: 'START_DURAK', playerNames: names, variant: 'simple' }, { rng: makeRng(99) })!;
     expect(s.players).toHaveLength(n);

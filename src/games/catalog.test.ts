@@ -9,7 +9,7 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King (available) and Durak (coming_soon)', () => {
+  it('registers King (available) and Durak (available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king');
     expect(GAME_TYPES).toEqual(['king', 'durak']);
     expect(GAME_CATALOG.king).toMatchObject({
@@ -17,9 +17,9 @@ describe('game catalog', () => {
       supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
     });
     expect(GAME_CATALOG.durak).toMatchObject({
-      id: 'durak', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 2,
+      id: 'durak', minPlayers: 2, maxPlayers: 5, defaultPlayerCount: 2,
       supportsLocal: true, supportsOnline: true, supportsBots: true,
-      status: 'experimental', rulesDoc: 'DURAK_RULES.md',
+      status: 'available', rulesDoc: 'DURAK_RULES.md',
     });
   });
 
@@ -41,7 +41,7 @@ describe('game catalog', () => {
       supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
     const durak = pub.find((g) => g.id === 'durak')!;
-    expect(durak.status).toBe('experimental'); // experimental online (Stage 9.6)
+    expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
     // Internal-only fields must never leak into the public shape.

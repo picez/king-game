@@ -90,7 +90,7 @@ export interface ServerRoom {
   variant?: DurakVariant;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
-  playerCount: 2 | 3 | 4;
+  playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -128,7 +128,7 @@ export interface OpResult {
   error?: ErrorCode;
 }
 
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 5;
 
 // ---------------------------------------------------------------------------
 // Join-secret hashing (salted; plaintext is never stored)
@@ -191,7 +191,7 @@ export function verifyPassword(
 
 export function createRoom(opts: {
   code: string;
-  playerCount: 2 | 3 | 4;
+  playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
   host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
   /** Which game to host (default King). */
@@ -696,7 +696,14 @@ export function roomSummary(room: ServerRoom): RoomSummary {
 
 /** Summaries for a set of rooms, newest first. */
 export function listRoomSummaries(rooms: Iterable<ServerRoom>): RoomSummary[] {
-  return [...rooms].map(roomSummary).sort((a, b) => b.updatedAt - a.updatedAt);
+  // Only advertise rooms with at least one CONNECTED human. A room whose humans
+  // all closed their tab is an orphan: it lingers briefly so a reload can
+  // reconnect (deleted by the orphan sweep after ORPHAN_ROOM_TTL_MS), but it must
+  // NOT show in the join list — nobody is there to join (FIX-1).
+  return [...rooms]
+    .filter(hasConnectedHuman)
+    .map(roomSummary)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 /**
@@ -761,7 +768,7 @@ export interface PersistedRoom {
   /** Durak variant; undefined for King. */
   variant?: DurakVariant;
   members: ServerMember[];
-  playerCount: 2 | 3 | 4;
+  playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
   turnTimerSec: number;
   started: boolean;

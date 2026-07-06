@@ -54,7 +54,7 @@ function playOut(numPlayers: number, variant: DurakVariant, seed: number): Durak
 
 describe('Durak invariants hold through full simulated games', () => {
   const seeds = [1, 7, 42, 100, 2026, 31337];
-  for (const n of [2, 3, 4]) {
+  for (const n of [2, 3, 4, 5]) { // FIX-3: 5-player games must also hold every invariant
     for (const variant of ['simple', 'transfer'] as DurakVariant[]) {
       it(`${n}p ${variant}: invariants hold every step and the game finishes`, () => {
         for (const seed of seeds) {

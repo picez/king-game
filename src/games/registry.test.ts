@@ -28,7 +28,7 @@ describe('Durak game definition (registered, not yet playable)', () => {
     expect(durakGameDefinition.id).toBe('durak');
     expect(durakGameDefinition.catalog).toBe(GAME_CATALOG.durak);
     expect(durakGameDefinition.rulesDoc).toBe('DURAK_RULES.md');
-    expect(durakGameDefinition.supportedPlayerCounts).toEqual([2, 3, 4]);
+    expect(durakGameDefinition.supportedPlayerCounts).toEqual([2, 3, 4, 5]);
     expect(durakGameDefinition.recordsStats).toBe(true); // DURAK-1: outcome stats enabled
     expect(durakGameDefinition.catalog.status).toBe('available'); // released (Stage 9.13)
   });

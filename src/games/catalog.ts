@@ -27,7 +27,7 @@ export interface GameCatalogEntry {
   shortTitleKey: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 2 | 3 | 4;
+  defaultPlayerCount: 2 | 3 | 4 | 5;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;
@@ -57,12 +57,12 @@ export const GAME_CATALOG = {
     titleKey: 'gameType.durak',
     shortTitleKey: 'gameType.durak',
     minPlayers: 2,
-    maxPlayers: 4,
+    maxPlayers: 5,          // FIX-3: 36-card deck deals 6 each up to 5 players
     defaultPlayerCount: 2,
-    supportsLocal: true,    // local prototype playable (Stage 9.3)
-    supportsOnline: true,   // experimental online rooms (Stage 9.6)
+    supportsLocal: true,    // local play (Stage 9.3)
+    supportsOnline: true,   // server-authoritative online rooms (Stage 9.6)
     supportsBots: true,     // the pure core has a working bot
-    status: 'experimental', // still experimental: no stats, minimal UI
+    status: 'available',    // released (Stage 9.13 audit); stats recorded (DURAK-1)
     rulesDoc: 'DURAK_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
@@ -87,7 +87,7 @@ export interface PublicGameEntry {
   shortTitle: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 2 | 3 | 4;
+  defaultPlayerCount: 2 | 3 | 4 | 5;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;

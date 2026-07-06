@@ -51,7 +51,7 @@ export interface RoomSnapshot {
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
-  playerCount: 2 | 3 | 4;
+  playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -81,7 +81,7 @@ export interface RoomSummary {
   gameType: GameType;
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;
-  playerCount: 2 | 3 | 4;
+  playerCount: 2 | 3 | 4 | 5;
   occupiedSeats: number;
   hasPassword: boolean;
   /** lobby = joinable; full = lobby with no free seats; in_game = started. */
@@ -111,7 +111,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */

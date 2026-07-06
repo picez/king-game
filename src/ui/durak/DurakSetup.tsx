@@ -46,7 +46,7 @@ export default function DurakSetup({ onStart, onExit }: Props) {
 
         <label className="field__label">{t('durak.players')}</label>
         <div className="segmented">
-          {[2, 3, 4].map((n) => (
+          {[2, 3, 4, 5].map((n) => (
             <button key={n} type="button" className={`segmented__tab ${count === n ? 'segmented__tab--active' : ''}`} onClick={() => setCount(n)}>
               {n}
             </button>

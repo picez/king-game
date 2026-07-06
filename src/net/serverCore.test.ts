@@ -168,6 +168,16 @@ describe('room discovery (public summaries)', () => {
     expect(summaries).toHaveLength(2);
     expect(summaries.every((s) => typeof s.code === 'string')).toBe(true);
   });
+
+  it('listRoomSummaries hides orphan rooms (no connected human) — FIX-1', () => {
+    const live = lobbyRoom();
+    const orphan = lobbyRoom();
+    // Everyone in `orphan` closed their tab → all members disconnected.
+    for (const m of orphan.members.values()) markDisconnected(orphan, m.clientId);
+    const summaries = listRoomSummaries([live, orphan]);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].code).toBe(live.code);
+  });
 });
 
 describe('persistence (serialize / restore)', () => {

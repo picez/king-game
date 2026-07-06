@@ -81,8 +81,6 @@ export const UK: Record<string, string> = {
   'menu.localOnly': 'Лише локально',
   'gameType.durak': 'Дурак',
   'durak.onlineSoon': 'Онлайн-Дурак з’явиться згодом',
-  'durak.onlineExperimental': 'Експериментально',
-  'durak.onlineExperimentalNote': 'Онлайн-Дурак експериментальний — статистики поки нема.',
   'durak.spectating': 'Спостереження…',
   'durak.botThinking': 'Бот думає…',
   'durak.offlineAI': '— офлайн, може грати ШІ',

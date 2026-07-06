@@ -81,8 +81,6 @@ export const AR: Record<string, string> = {
   'menu.localOnly': 'محلي فقط',
   'gameType.durak': 'دوراك',
   'durak.onlineSoon': 'دوراك عبر الإنترنت قريبًا',
-  'durak.onlineExperimental': 'تجريبي',
-  'durak.onlineExperimentalNote': 'دوراك عبر الإنترنت تجريبي — لا إحصاءات بعد.',
   'durak.spectating': 'مشاهدة…',
   'durak.botThinking': 'البوت يفكر…',
   'durak.offlineAI': '— غير متصل، قد يلعب الذكاء الاصطناعي',
