@@ -21,6 +21,7 @@ import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { RoomSocialStore, handleReaction, handleChat, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
+import { hashReconnectToken } from './reconnectToken';
 
 /** One connection's room session (mutable; set on CREATE/JOIN/RECONNECT). */
 export interface Session { room: ServerRoom; clientId: string }
@@ -51,7 +52,7 @@ export interface WsContext {
   broadcastAndAdvance(room: ServerRoom): void;
   sendChatHistory(socket: WebSocket, code: string): void;
   persistRoom(room: ServerRoom): void;
-  welcome(socket: WebSocket, member: ServerMember, room: ServerRoom): void;
+  welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reconnectToken: string): void;
   handleLeave(room: ServerRoom, clientId: string): void;
   makeRoomCode(): string;
   logRoomEvent(event: string, code: string, room: ServerRoom | null, errorCode?: string): void;
@@ -104,13 +105,15 @@ export function handleClientMessage(
       leaveCurrentSession(ctx, sessionRef);
       const code = ctx.makeRoomCode();
       const clientId = randomUUID();
+      // Generate the plaintext token here; the room stores only its hash (БЕЗ-4).
+      const reconnectToken = randomUUID();
       const room = createRoom({
         code,
         gameType,
         variant,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
-        host: { clientId, reconnectToken: randomUUID(), name: msg.name, avatar: msg.avatar },
+        host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },
         // Optional join password — hashed with a fresh salt via the strong
         // server-side scrypt KDF (БЕЗ-3).
         password: msg.password,
@@ -122,7 +125,7 @@ export function handleClientMessage(
       ctx.sockets.set(clientId, socket);
       sessionRef.value = { room, clientId };
       attachIdentity();
-      ctx.welcome(socket, room.members.get(clientId)!, room);
+      ctx.welcome(socket, room.members.get(clientId)!, room, reconnectToken);
       ctx.broadcastRoom(room);
       ctx.persistRoom(room);
       ctx.logRoomEvent('CREATE_ROOM', code, room);
@@ -137,8 +140,10 @@ export function handleClientMessage(
         return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
       }
       const clientId = randomUUID();
+      // Plaintext token minted here; only its hash is stored (БЕЗ-4).
+      const reconnectToken = randomUUID();
       const res = addMember(room, {
-        clientId, reconnectToken: randomUUID(), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
+        clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
       }, scryptPasswordHasher);
       if (!res.ok) {
         ctx.logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
@@ -151,7 +156,7 @@ export function handleClientMessage(
       ctx.sockets.set(clientId, socket);
       sessionRef.value = { room, clientId };
       attachIdentity();
-      ctx.welcome(socket, room.members.get(clientId)!, room);
+      ctx.welcome(socket, room.members.get(clientId)!, room, reconnectToken);
       ctx.broadcastRoom(room);
       if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId) });
       ctx.sendChatHistory(socket, room.code);
@@ -167,7 +172,11 @@ export function handleClientMessage(
         ctx.logRoomEvent('RECONNECT', reqCode, null, 'ROOM_NOT_FOUND');
         return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
       }
-      const member = reconnectMember(room, msg.reconnectToken);
+      // Match against the stored hash (БЕЗ-4). Fall back to a raw match for rooms
+      // persisted before the upgrade (their token is still plaintext at rest);
+      // such rooms are ephemeral and re-hash on the next persisted change.
+      const member = reconnectMember(room, hashReconnectToken(msg.reconnectToken))
+        ?? reconnectMember(room, msg.reconnectToken);
       if (!member) {
         ctx.logRoomEvent('RECONNECT', reqCode, room, 'UNKNOWN_TOKEN');
         return sendError(socket, 'ROOM_NOT_FOUND', 'Unknown reconnect token');
@@ -175,7 +184,8 @@ export function handleClientMessage(
       ctx.sockets.set(member.clientId, socket);
       sessionRef.value = { room, clientId: member.clientId };
       attachIdentity();
-      ctx.welcome(socket, member, room);
+      // Echo back the plaintext the client already holds (never the stored hash).
+      ctx.welcome(socket, member, room, msg.reconnectToken);
       ctx.broadcastRoom(room);
       // Reconnecting client immediately gets the current sanitized state.
       if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
@@ -243,8 +253,9 @@ export function handleClientMessage(
     case 'ADD_BOT': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
-      // addBot itself rejects non-host / started / full.
-      const res = addBot(room, clientId, { clientId: randomUUID(), reconnectToken: randomUUID() });
+      // addBot itself rejects non-host / started / full. A bot never reconnects,
+      // but we still store only a hashed token so no plaintext lives at rest (БЕЗ-4).
+      const res = addBot(room, clientId, { clientId: randomUUID(), reconnectToken: hashReconnectToken(randomUUID()) });
       if (!res.ok) return sendError(socket, res.error!, 'Cannot add bot');
       ctx.broadcastRoom(room);
       ctx.persistRoom(room);

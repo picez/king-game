@@ -328,11 +328,13 @@ function broadcastAndAdvance(room: ServerRoom): void {
   }
 }
 
-function welcome(socket: WebSocket, member: ServerMember, room: ServerRoom): void {
+// `reconnectToken` is the PLAINTEXT the caller (wsHandlers) holds — the member
+// stores only its hash (БЕЗ-4), so we must be handed the plaintext to send.
+function welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reconnectToken: string): void {
   send(socket, {
     t: 'WELCOME',
     clientId: member.clientId,
-    reconnectToken: member.reconnectToken,
+    reconnectToken,
     room: snapshot(room),
   });
 }

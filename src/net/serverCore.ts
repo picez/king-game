@@ -51,6 +51,12 @@ export interface DealContext {
 
 export interface ServerMember {
   clientId: string;
+  /**
+   * Reconnect credential AT REST — a one-way hash of the plaintext token, not the
+   * token itself (БЕЗ-4; the server hashes before storing, see
+   * server/reconnectToken.ts). The plaintext is sent to the client once (WELCOME)
+   * and never kept here. `reconnectMember` compares the hashed presented token.
+   */
   reconnectToken: string;
   name: string;
   role: SeatRole;
@@ -346,8 +352,15 @@ export function addBot(
   return { ok: true, bot };
 }
 
+/**
+ * Resume a seat by its stored reconnect credential. `ServerMember.reconnectToken`
+ * holds the value AT REST — the server persists a one-way hash (БЕЗ-4), so the
+ * caller passes the hashed presented token (see server/reconnectToken.ts); the
+ * plaintext never lives on the member. Compared in constant time to avoid a
+ * timing oracle on the stored hash.
+ */
 export function reconnectMember(room: ServerRoom, reconnectToken: string): ServerMember | null {
-  const member = [...room.members.values()].find((m) => m.reconnectToken === reconnectToken);
+  const member = [...room.members.values()].find((m) => constantTimeEqual(m.reconnectToken, reconnectToken));
   if (!member) return null;
   if (member.type === 'ai') return null; // bots have no client and never reconnect
   member.connected = true;
