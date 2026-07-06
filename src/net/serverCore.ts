@@ -128,22 +128,55 @@ const MAX_PLAYERS = 4;
 // Join-secret hashing (salted; plaintext is never stored)
 // ---------------------------------------------------------------------------
 
-/** Salted, lightly-stretched hash of a join password. MVP strength only. */
-function hashSecret(salt: string, password: string): string {
+/**
+ * Pluggable join-password hasher (БЕЗ-3). serverCore must stay client-bundle-safe
+ * — it is reachable from the browser via the game registry — so it cannot import
+ * `node:crypto`. The strong KDF (scrypt) therefore lives server-side in
+ * server/roomPassword.ts and is injected into createRoom/addMember/verifyPassword.
+ * The default below is the legacy lightweight hash: it keeps pure unit tests (and
+ * any client-side call) working, and the scrypt hasher delegates to it when
+ * verifying rooms created before the upgrade (tagged-hash routing).
+ */
+export interface PasswordHasher {
+  /** Produce the stored hash for a password under a room salt. */
+  hash(salt: string, password: string): string;
+  /** Constant-time check of an attempt against a stored hash. */
+  verify(salt: string, password: string, storedHash: string): boolean;
+}
+
+/** Constant-time string equality — no early-out on first mismatch. Pure JS. */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Legacy salted, lightly-stretched hash. MVP strength; kept for back-compat. */
+function legacyHashSecret(salt: string, password: string): string {
   let h = `${salt}|${password}`;
   for (let i = 0; i < 1000; i++) h = hashString(`${h}|${salt}`);
   return h;
 }
+
+/** Client-safe default hasher (legacy KDF, constant-time compare). */
+export const DEFAULT_PASSWORD_HASHER: PasswordHasher = {
+  hash: legacyHashSecret,
+  verify: (salt, password, storedHash) =>
+    constantTimeEqual(legacyHashSecret(salt, password), storedHash),
+};
 
 export function roomHasPassword(room: ServerRoom): boolean {
   return room.passwordHash !== null;
 }
 
 /** True if the room is open, or the attempt matches the stored hash. */
-export function verifyPassword(room: ServerRoom, attempt: string | undefined): boolean {
+export function verifyPassword(
+  room: ServerRoom, attempt: string | undefined, hasher: PasswordHasher = DEFAULT_PASSWORD_HASHER,
+): boolean {
   if (room.passwordHash === null || room.passwordSalt === null) return true; // open room
   if (!attempt) return false;
-  return hashSecret(room.passwordSalt, attempt) === room.passwordHash;
+  return hasher.verify(room.passwordSalt, attempt, room.passwordHash);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +195,8 @@ export function createRoom(opts: {
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
+  /** Password KDF (default legacy; the server injects scrypt — БЕЗ-3). */
+  hasher?: PasswordHasher;
   /** Per-turn timer in seconds (0 = off). */
   turnTimerSec?: number;
   /** Epoch ms for createdAt/updatedAt (injected by the I/O layer). */
@@ -169,6 +204,7 @@ export function createRoom(opts: {
 }): ServerRoom {
   const hasPw = typeof opts.password === 'string' && opts.password.length > 0;
   const salt = opts.salt ?? '';
+  const hasher = opts.hasher ?? DEFAULT_PASSWORD_HASHER;
   const now = opts.now ?? 0;
   const room: ServerRoom = {
     code: opts.code,
@@ -183,7 +219,7 @@ export function createRoom(opts: {
     gameState: null,
     dealLog: [],
     passwordSalt: hasPw ? salt : null,
-    passwordHash: hasPw ? hashSecret(salt, opts.password!) : null,
+    passwordHash: hasPw ? hasher.hash(salt, opts.password!) : null,
     createdAt: now,
     updatedAt: now,
     orphanSince: null, // the host is connected at creation → not an orphan
@@ -238,9 +274,10 @@ export function setTimer(room: ServerRoom, hostClientId: string, turnTimerSec: n
 export function addMember(
   room: ServerRoom,
   member: { clientId: string; reconnectToken: string; name: string; role?: SeatRole; password?: string; avatar?: string },
+  hasher: PasswordHasher = DEFAULT_PASSWORD_HASHER,
 ): OpResult {
   // Protected rooms require the correct password before anything else.
-  if (!verifyPassword(room, member.password)) {
+  if (!verifyPassword(room, member.password, hasher)) {
     return { ok: false, error: 'BAD_PASSWORD' };
   }
   // New players can't join a game in progress (existing members RECONNECT).

@@ -20,6 +20,7 @@ import {
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { RoomSocialStore, handleReaction, handleChat, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
+import { scryptPasswordHasher } from './roomPassword';
 
 /** One connection's room session (mutable; set on CREATE/JOIN/RECONNECT). */
 export interface Session { room: ServerRoom; clientId: string }
@@ -110,9 +111,11 @@ export function handleClientMessage(
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: randomUUID(), name: msg.name, avatar: msg.avatar },
-        // Optional join password — hashed with a fresh salt inside serverCore.
+        // Optional join password — hashed with a fresh salt via the strong
+        // server-side scrypt KDF (БЕЗ-3).
         password: msg.password,
         salt: randomUUID(),
+        hasher: scryptPasswordHasher,
         turnTimerSec: msg.turnTimerSec,
       });
       ctx.rooms.set(code, room);
@@ -136,7 +139,7 @@ export function handleClientMessage(
       const clientId = randomUUID();
       const res = addMember(room, {
         clientId, reconnectToken: randomUUID(), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
-      });
+      }, scryptPasswordHasher);
       if (!res.ok) {
         ctx.logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
         const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password' : 'Cannot join room';
