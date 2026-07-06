@@ -30,18 +30,30 @@ export interface TokenBucket {
 export interface RateLimitConfig {
   message: BucketConfig;
   createRoom: BucketConfig;
+  /** Drained only by FAILED joins (wrong code / password) — throttles guessing. */
+  joinFailure: BucketConfig;
 }
 
 // Generous defaults: comfortably above any legitimate interactive/e2e flow
 // (human play is a few actions/sec; automated e2e uses one room per socket), yet
 // they bound a hostile socket to `refillPerSec` sustained after the burst.
 export const DEFAULT_RATE_LIMITS: RateLimitConfig = {
-  message: { capacity: 60, refillPerSec: 30 },     // burst 60, then 30 msg/s
-  createRoom: { capacity: 5, refillPerSec: 0.2 },  // burst 5, then 1 room / 5s
+  message: { capacity: 60, refillPerSec: 30 },        // burst 60, then 30 msg/s
+  createRoom: { capacity: 5, refillPerSec: 0.2 },     // burst 5, then 1 room / 5s
+  joinFailure: { capacity: 10, refillPerSec: 0.5 },   // 10 bad joins, then 1 / 2s
 };
 
 export function createBucket(cfg: BucketConfig, now: number): TokenBucket {
   return { tokens: cfg.capacity, updatedAt: now };
+}
+
+/** Refill by elapsed time (capped at capacity) and return the available tokens
+ *  WITHOUT consuming. Mutates the bucket's refill state only. */
+export function peek(bucket: TokenBucket, cfg: BucketConfig, now: number): number {
+  const elapsedSec = Math.max(0, now - bucket.updatedAt) / 1000;
+  bucket.tokens = Math.min(cfg.capacity, bucket.tokens + elapsedSec * cfg.refillPerSec);
+  bucket.updatedAt = now;
+  return bucket.tokens;
 }
 
 /**
@@ -50,10 +62,7 @@ export function createBucket(cfg: BucketConfig, now: number): TokenBucket {
  * bucket is empty (caller should reject with RATE_LIMITED).
  */
 export function consume(bucket: TokenBucket, cfg: BucketConfig, now: number, cost = 1): boolean {
-  const elapsedSec = Math.max(0, now - bucket.updatedAt) / 1000;
-  bucket.tokens = Math.min(cfg.capacity, bucket.tokens + elapsedSec * cfg.refillPerSec);
-  bucket.updatedAt = now;
-  if (bucket.tokens >= cost) {
+  if (peek(bucket, cfg, now) >= cost) {
     bucket.tokens -= cost;
     return true;
   }
@@ -64,10 +73,12 @@ export function consume(bucket: TokenBucket, cfg: BucketConfig, now: number, cos
 export class ConnectionLimiter {
   private readonly message: TokenBucket;
   private readonly createRoom: TokenBucket;
+  private readonly joinFailure: TokenBucket;
 
   constructor(private readonly cfg: RateLimitConfig, now: number) {
     this.message = createBucket(cfg.message, now);
     this.createRoom = createBucket(cfg.createRoom, now);
+    this.joinFailure = createBucket(cfg.joinFailure, now);
   }
 
   /** Charge one message; false → over the general message rate. */
@@ -78,5 +89,16 @@ export class ConnectionLimiter {
   /** Charge one room creation; false → creating rooms too fast. */
   allowCreateRoom(now: number): boolean {
     return consume(this.createRoom, this.cfg.createRoom, now);
+  }
+
+  /** True while the connection still has a budget of failed joins left. Peeks
+   *  (does not consume) — a legitimate first-time join is never blocked. */
+  canAttemptJoin(now: number): boolean {
+    return peek(this.joinFailure, this.cfg.joinFailure, now) >= 1;
+  }
+
+  /** Record one failed join (wrong code/password) — spends a failure token. */
+  recordJoinFailure(now: number): void {
+    consume(this.joinFailure, this.cfg.joinFailure, now);
   }
 }

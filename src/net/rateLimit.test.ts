@@ -65,4 +65,22 @@ describe('ConnectionLimiter', () => {
     }
     expect(lim.allowMessage(0)).toBe(false);
   });
+
+  it('blocks joins only after the failed-join budget is exhausted (БЕЗ-6)', () => {
+    const lim = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
+    const budget = DEFAULT_RATE_LIMITS.joinFailure.capacity; // 10
+    // A user who never fails can always attempt.
+    expect(lim.canAttemptJoin(0)).toBe(true);
+    // Burn the whole budget with failures.
+    for (let i = 0; i < budget; i++) {
+      expect(lim.canAttemptJoin(0)).toBe(true);
+      lim.recordJoinFailure(0);
+    }
+    // Now blocked at the same instant.
+    expect(lim.canAttemptJoin(0)).toBe(false);
+    // A successful attempt is not charged, so peeking never restores it here…
+    expect(lim.canAttemptJoin(0)).toBe(false);
+    // …but refill over time re-opens it (0.5/s → 1 token after 2s).
+    expect(lim.canAttemptJoin(2000)).toBe(true);
+  });
 });

@@ -133,9 +133,17 @@ export function handleClientMessage(
     }
 
     case 'JOIN_ROOM': {
+      // Brute-force gate (БЕЗ-6): checked before the room lookup so a wrong code
+      // and a wrong password are throttled uniformly (no timing oracle on which
+      // codes exist). Only FAILED joins spend the budget, so real users are
+      // unaffected; a guesser is capped once they burn through it.
+      if (!limiter.canAttemptJoin(now)) {
+        return sendError(socket, 'RATE_LIMITED', 'Too many failed join attempts — wait a moment');
+      }
       const reqCode = String(msg.code || '').toUpperCase();
       const room = ctx.rooms.get(reqCode);
       if (!room) {
+        limiter.recordJoinFailure(now);
         ctx.logRoomEvent('JOIN_ROOM', reqCode, null, 'ROOM_NOT_FOUND');
         return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
       }
@@ -146,6 +154,9 @@ export function handleClientMessage(
         clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
       }, scryptPasswordHasher);
       if (!res.ok) {
+        // Only a wrong password counts as a guessing attempt; full/name-taken/
+        // already-started are legitimate outcomes and must not penalise the user.
+        if (res.error === 'BAD_PASSWORD') limiter.recordJoinFailure(now);
         ctx.logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
         const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password' : 'Cannot join room';
         return sendError(socket, res.error!, message);

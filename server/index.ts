@@ -122,6 +122,10 @@ const RATE_LIMITS: RateLimitConfig = {
     capacity: numEnv('WS_CREATE_BURST', DEFAULT_RATE_LIMITS.createRoom.capacity),
     refillPerSec: numEnv('WS_CREATE_PER_SEC', DEFAULT_RATE_LIMITS.createRoom.refillPerSec),
   },
+  joinFailure: {
+    capacity: numEnv('WS_JOIN_FAIL_BURST', DEFAULT_RATE_LIMITS.joinFailure.capacity),
+    refillPerSec: numEnv('WS_JOIN_FAIL_PER_SEC', DEFAULT_RATE_LIMITS.joinFailure.refillPerSec),
+  },
 };
 
 /**

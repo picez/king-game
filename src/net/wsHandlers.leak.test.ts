@@ -7,19 +7,20 @@ import { handleClientMessage, type WsContext, type SessionRef } from '../../serv
 import { removeMember, type ServerRoom } from './serverCore';
 import { RoomSocialStore } from '../../server/roomSocial';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from './rateLimit';
-import type { ClientMessage } from './messages';
+import type { ClientMessage, ErrorCode } from './messages';
 
 const socket = {} as never; // handlers pass it through to ctx.send (a no-op here)
 
-function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; codes: string[] } {
+function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; errors: ErrorCode[] } {
   const rooms = new Map<string, ServerRoom>();
+  const errors: ErrorCode[] = [];
   let n = 0;
   const ctx: WsContext = {
     rooms,
     sockets: new Map(),
     social: new RoomSocialStore(),
     send: () => {},
-    sendError: () => {},
+    sendError: (_s, code) => { errors.push(code); },
     broadcastRoom: () => {},
     broadcastToRoom: () => {},
     broadcastAndAdvance: () => {},
@@ -37,7 +38,7 @@ function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; codes: str
     logRoomEvent: () => {},
     logLatestDeal: () => {},
   };
-  return { ctx, rooms, codes: [] };
+  return { ctx, rooms, errors };
 }
 
 const createMsg = (name: string): ClientMessage =>
@@ -68,7 +69,7 @@ describe('handleClientMessage — CREATE_ROOM throttle (БЕЗ-1)', () => {
     const { ctx, rooms } = makeCtx();
     const sessionRef: SessionRef = { value: null };
     // Tight config: burst of 2 creates, no refill within the test instant.
-    const cfg: RateLimitConfig = { message: { capacity: 100, refillPerSec: 0 }, createRoom: { capacity: 2, refillPerSec: 0 } };
+    const cfg: RateLimitConfig = { message: { capacity: 100, refillPerSec: 0 }, createRoom: { capacity: 2, refillPerSec: 0 }, joinFailure: { capacity: 10, refillPerSec: 0 } };
     const limiter = new ConnectionLimiter(cfg, 0);
 
     handleClientMessage(ctx, socket, sessionRef, () => {}, createMsg('H'), limiter);
@@ -80,5 +81,27 @@ describe('handleClientMessage — CREATE_ROOM throttle (БЕЗ-1)', () => {
     handleClientMessage(ctx, socket, sessionRef, () => {}, createMsg('H'), limiter);
     expect(sessionRef.value!.room.code).toBe(heldCode);
     expect(rooms.size).toBe(1);
+  });
+});
+
+describe('handleClientMessage — join brute-force gate (БЕЗ-6)', () => {
+  it('rejects further joins with RATE_LIMITED once the failure budget is spent', () => {
+    const { ctx, errors } = makeCtx();
+    const sessionRef: SessionRef = { value: null };
+    // Budget of 3 failed joins, no refill within the test instant.
+    const cfg: RateLimitConfig = {
+      message: { capacity: 100, refillPerSec: 0 },
+      createRoom: { capacity: 5, refillPerSec: 0 },
+      joinFailure: { capacity: 3, refillPerSec: 0 },
+    };
+    const limiter = new ConnectionLimiter(cfg, 0);
+    const joinMissing = () =>
+      handleClientMessage(ctx, socket, sessionRef, () => {}, { t: 'JOIN_ROOM', code: 'ZZZZ', name: 'X' } as ClientMessage, limiter);
+
+    joinMissing(); joinMissing(); joinMissing(); // 3 allowed attempts, all miss
+    expect(errors).toEqual(['ROOM_NOT_FOUND', 'ROOM_NOT_FOUND', 'ROOM_NOT_FOUND']);
+
+    joinMissing(); // budget spent → gated before the lookup
+    expect(errors[3]).toBe('RATE_LIMITED');
   });
 });
