@@ -213,6 +213,8 @@ export const UK: Record<string, string> = {
   'stats.trumpRounds': 'Козирні раунди',
   'stats.negativeRounds': 'Негативні раунди',
   'stats.lastGame': 'Остання гра',
+  'stats.foolCount': 'Разів дурнем',
+  'stats.draws': 'Нічиї',
   'stats.byMode': 'Рахунок за режимами',
   'stats.noGames': 'Ще немає завершених онлайн-ігор',
   'stats.unavailable': 'Статистика зараз недоступна.',

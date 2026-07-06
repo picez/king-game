@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { Account } from '../hooks/useAccount';
 import {
-  fetchKingStats, fetchKingLeaderboard,
-  type KingStats, type LeaderboardEntry, type Loadable,
+  fetchKingStats, fetchKingLeaderboard, fetchDurakStats,
+  type KingStats, type DurakStats, type LeaderboardEntry, type Loadable,
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
 import StatsPanel from './components/StatsPanel';
+import DurakStatsPanel from './components/DurakStatsPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 
 interface Props {
@@ -31,11 +32,15 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
+  const [statsGame, setStatsGame] = useState<'king' | 'durak'>('king');
   const [stats, setStats] = useState<Loadable<KingStats> | null>(null);
+  const [durakStats, setDurakStats] = useState<Loadable<DurakStats> | null>(null);
   const [board, setBoard] = useState<Loadable<LeaderboardEntry[]> | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingDurak, setLoadingDurak] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState(false);
   const statsOnce = useRef(false);
+  const durakOnce = useRef(false);
   const boardOnce = useRef(false);
 
   const base = account.base;
@@ -44,6 +49,10 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
     setLoadingStats(true);
     try { setStats(await fetchKingStats(base)); } finally { setLoadingStats(false); }
   }, [base]);
+  const loadDurakStats = useCallback(async () => {
+    setLoadingDurak(true);
+    try { setDurakStats(await fetchDurakStats(base)); } finally { setLoadingDurak(false); }
+  }, [base]);
   const loadBoard = useCallback(async () => {
     setLoadingBoard(true);
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
@@ -51,12 +60,15 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
 
   useEffect(() => {
     if (!open) return;
-    if (tab === 'stats' && !statsOnce.current) { statsOnce.current = true; void loadStats(); }
+    if (tab === 'stats') {
+      if (statsGame === 'king' && !statsOnce.current) { statsOnce.current = true; void loadStats(); }
+      if (statsGame === 'durak' && !durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
+    }
     if (tab === 'leaderboard' && !boardOnce.current) { boardOnce.current = true; void loadBoard(); }
-  }, [open, tab, loadStats, loadBoard]);
+  }, [open, tab, statsGame, loadStats, loadDurakStats, loadBoard]);
 
   function refresh() {
-    if (tab === 'stats') void loadStats();
+    if (tab === 'stats') void (statsGame === 'durak' ? loadDurakStats() : loadStats());
     else if (tab === 'leaderboard') void loadBoard();
   }
 
@@ -85,7 +97,7 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
             ))}
             {(tab === 'stats' || tab === 'leaderboard') && (
               <button className="drawer__refresh" onClick={refresh}
-                disabled={loadingStats || loadingBoard}
+                disabled={loadingStats || loadingDurak || loadingBoard}
                 aria-label={t('stats.refresh')} title={t('stats.refresh')}>↻</button>
             )}
           </div>
@@ -96,7 +108,22 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
                 name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
                 defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer} />
             )}
-            {tab === 'stats' && <StatsPanel result={stats} loading={loadingStats} />}
+            {tab === 'stats' && (
+              <>
+                <div className="segmented segmented--sub" role="tablist" aria-label={t('menu.game')}>
+                  {(['king', 'durak'] as const).map((g) => (
+                    <button key={g} role="tab" aria-selected={statsGame === g}
+                      className={`segmented__tab ${statsGame === g ? 'segmented__tab--active' : ''}`}
+                      onClick={() => setStatsGame(g)}>
+                      {t(`gameType.${g}`)}
+                    </button>
+                  ))}
+                </div>
+                {statsGame === 'king'
+                  ? <StatsPanel result={stats} loading={loadingStats} />
+                  : <DurakStatsPanel result={durakStats} loading={loadingDurak} />}
+              </>
+            )}
             {tab === 'leaderboard' && <LeaderboardPanel result={board} loading={loadingBoard} />}
           </div>
         </div>

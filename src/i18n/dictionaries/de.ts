@@ -213,6 +213,8 @@ export const DE: Record<string, string> = {
   'stats.trumpRounds': 'Trumpf-Runden',
   'stats.negativeRounds': 'Negative Runden',
   'stats.lastGame': 'Letztes Spiel',
+  'stats.foolCount': 'Als Depp',
+  'stats.draws': 'Unentschieden',
   'stats.byMode': 'Punkte nach Modus',
   'stats.noGames': 'Noch keine abgeschlossenen Online-Spiele',
   'stats.unavailable': 'Statistik ist derzeit nicht verfügbar.',

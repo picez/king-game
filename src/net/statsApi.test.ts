@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   fetchKingStats, fetchKingLeaderboard, parseKingStats,
+  parseDurakStats, fetchDurakStats,
   winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
 } from './statsApi';
 
@@ -61,6 +62,35 @@ describe('parseKingStats — flat v2 payload', () => {
     expect(parsed.averageScore).toBe(-15);           // derived client-side
     expect(parsed.modeBreakdown.no_hearts).toEqual({ rounds: 0, totalScore: -20, averageScore: null });
     expect(parsed.lastGameAt).toBe('2026-06-01T00:00:00.000Z');
+  });
+});
+
+describe('parseDurakStats — flat payload', () => {
+  it('flattens outcome fields', () => {
+    const s = parseDurakStats({ stats: { gamesPlayed: 10, gamesWon: 7, gamesLost: 3, winRate: 70, foolCount: 3, drawCount: 1, foolRate: 30, lastGameAt: '2026-07-06T00:00:00Z' } });
+    expect(s).toMatchObject({ gamesPlayed: 10, gamesWon: 7, gamesLost: 3, winRate: 70, foolCount: 3, drawCount: 1, foolRate: 30 });
+  });
+
+  it('derives winRate/foolRate when the server omits them', () => {
+    const s = parseDurakStats({ stats: { gamesPlayed: 4, gamesWon: 3, gamesLost: 1, foolCount: 1, drawCount: 0 } });
+    expect(s.winRate).toBe(75);
+    expect(s.foolRate).toBe(25);
+  });
+
+  it('is all-zero for an empty payload', () => {
+    const s = parseDurakStats({});
+    expect(s).toMatchObject({ gamesPlayed: 0, gamesWon: 0, foolCount: 0, winRate: null, foolRate: null });
+  });
+});
+
+describe('fetchDurakStats — graceful state mapping', () => {
+  it('maps 200 → ok, 401 → unauthenticated, 503 → unavailable', async () => {
+    stubFetch(200, { stats: { gamesPlayed: 1, gamesWon: 1 } });
+    expect((await fetchDurakStats(BASE)).state).toBe('ok');
+    stubFetch(401, {});
+    expect((await fetchDurakStats(BASE)).state).toBe('unauthenticated');
+    stubFetch(503, {});
+    expect((await fetchDurakStats(BASE)).state).toBe('unavailable');
   });
 });
 

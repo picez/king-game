@@ -213,6 +213,8 @@ export const EN: Record<string, string> = {
   'stats.trumpRounds': 'Trump rounds',
   'stats.negativeRounds': 'Negative rounds',
   'stats.lastGame': 'Last game',
+  'stats.foolCount': 'Times fool',
+  'stats.draws': 'Draws',
   'stats.byMode': 'Score by mode',
   'stats.noGames': 'No completed online games yet',
   'stats.unavailable': 'Statistics are unavailable right now.',

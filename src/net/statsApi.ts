@@ -153,6 +153,47 @@ export async function fetchKingStats(base: string): Promise<Loadable<KingStats>>
   return failFor(status);
 }
 
+/** My Durak stats — outcome-only (no score/rounds); the flat server view. */
+export interface DurakStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number | null;
+  /** Times the user was the fool (== gamesLost). */
+  foolCount: number;
+  /** Games that ended in a draw. */
+  drawCount: number;
+  /** 0–100 integer, or null when no games. */
+  foolRate: number | null;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into DurakStats. */
+export function parseDurakStats(raw: unknown): DurakStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  const foolCount = num(s.foolCount);
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    foolCount,
+    drawCount: num(s.drawCount),
+    foolRate: 'foolRate' in s ? numOrNull(s.foolRate) : (gamesPlayed > 0 ? Math.round((foolCount / gamesPlayed) * 100) : null),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/durak/stats — the signed-in/guest user's own Durak stats. */
+export async function fetchDurakStats(base: string): Promise<Loadable<DurakStats>> {
+  const { status, data } = await getJson(base, '/api/games/durak/stats');
+  if (status === 200) return { state: 'ok', data: parseDurakStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
