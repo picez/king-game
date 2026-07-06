@@ -38,6 +38,10 @@ import { serveStatic, handleHealth, SERVE_STATIC, DIST } from './httpStatic';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
+import { getGameDefinition } from '../src/games/registry';
+import { durakFinishSignature } from '../src/net/durakStats';
+import type { GameState } from '../src/models/types';
+import type { DurakState } from '../src/games/durak/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 
 /**
@@ -228,9 +232,15 @@ function clearRoomTimers(code: string): void {
  */
 function maybeRecordFinished(room: ServerRoom): void {
   const state = room.gameState;
-  if (!state || state.status !== 'game_finished') return;
-  if (!isDbEnabled()) return;
-  const sig = finishSignature(room);
+  if (!state || !isDbEnabled()) return;
+  // Game-agnostic gate: only record when the room's game opts in (recordsStats)
+  // and its own definition says the state is finished (King: game_finished;
+  // Durak: finished). Keeps the finish path routing through the definition seam.
+  const def = getGameDefinition(room.gameType);
+  if (!def?.recordsStats || !def.isFinished(state)) return;
+
+  const isDurak = room.gameType === 'durak';
+  const sig = isDurak ? durakFinishSignature(state as DurakState) : finishSignature(room);
   if (recordedFinish.get(room.code) === sig) return;
   recordedFinish.set(room.code, sig);
 
@@ -245,10 +255,11 @@ function maybeRecordFinished(room: ServerRoom): void {
 
   void (async () => {
     try {
-      const { recordFinishedGame } = await import('./db/stats');
-      const res = await recordFinishedGame(room.code, state, seatUsers);
+      const res = isDurak
+        ? await (await import('./db/durakStats')).recordFinishedDurakGame(room.code, state as DurakState, seatUsers)
+        : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
       if (res.recorded) {
-        console.log(`[King] room ${room.code} stats recorded (${res.humanPlayers ?? 0} player(s))`);
+        console.log(`[King] room ${room.code} ${room.gameType} stats recorded (${res.humanPlayers ?? 0} player(s))`);
       }
     } catch (err) {
       // Allow a later retry (e.g. transient DB error) by clearing the marker.

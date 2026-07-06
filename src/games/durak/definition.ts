@@ -42,5 +42,5 @@ export const durakGameDefinition: GameDefinition<DurakState, DurakAction> = {
   botAction: durakBotAction,
   redactStateFor: durakRedactStateFor,
   isFinished: isDurakFinished,
-  recordsStats: false, // stats wiring lands later
+  recordsStats: true, // DURAK-1: outcome-only stats (fool/draw) per game_type='durak'
 };
