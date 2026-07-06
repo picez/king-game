@@ -9,6 +9,7 @@ export function DurakRulesList({ variant }: { variant: DurakVariant }) {
       <li>{t('durak.rule.attack')}</li>
       <li>{t('durak.rule.defend')}</li>
       <li>{t('durak.rule.take')}</li>
+      <li>{t('durak.rule.throwAfterTake')}</li>
       <li>{t('durak.rule.discard')}</li>
       {variant === 'transfer' && <li className="durak-rules__transfer">{t('durak.rule.transfer')}</li>}
       <li>{t('durak.rule.fool')}</li>
@@ -24,7 +25,7 @@ export default function DurakHelp({ variant, onClose }: { variant: DurakVariant;
       <div className="durak-help" onClick={(e) => e.stopPropagation()}>
         <div className="durak-help__head">
           <h2 className="durak-help__title">{t('durak.howToPlay')}</h2>
-          <button type="button" className="btn btn--ghost durak-help__x" onClick={onClose} aria-label="Close">✕</button>
+          <button type="button" className="btn btn--ghost durak-help__x" onClick={onClose} aria-label={t('common.close')}>✕</button>
         </div>
         <p className="durak-help__variant">
           🃏 {variant === 'transfer' ? t('durak.variantTransfer') : t('durak.variantSimple')}

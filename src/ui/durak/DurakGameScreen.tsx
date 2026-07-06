@@ -128,7 +128,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
     <div className={`screen durak-screen ${transferMode ? 'durak-screen--transfer' : ''}`}>
       {showHelp && <DurakHelp variant={state.variant} onClose={() => setShowHelp(false)} />}
       <div className="durak-topbar">
-        <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label="Back">✕</button>
+        <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
           {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
         </span>
@@ -149,7 +149,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
           return (
             <div key={p.id} className={`durak-seat durak-seat--${pos} ${role ? `durak-seat--${role}` : ''} ${isOffline ? 'durak-seat--offline' : ''} ${isActing ? 'durak-seat--acting' : ''}`}>
               <span className="durak-seat__name">
-                {isOffline && <span className="durak-seat__off" aria-label="offline">📴 </span>}{p.name}
+                {isOffline && <span className="durak-seat__off" aria-label={t('common.offline')}>📴 </span>}{p.name}
               </span>
               <span className="durak-seat__count">🂠 {p.hand.length}</span>
               {role === 'atk' && <span className="durak-seat__role">{t('durak.attacker')}</span>}

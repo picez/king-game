@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Card, Suit } from '../../models/types';
 import { cardFaceUrl } from './cardArt';
+import { useI18n } from '../../i18n';
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
   spades: '♠',
@@ -54,6 +55,7 @@ export default function CardView({
   size = 'hand',
   highlight = false,
 }: CardViewProps) {
+  const { t } = useI18n();
   const colorClass = IS_RED[card.suit] ? 'card--red' : 'card--black';
   const stateClass = selected
     ? 'card--selected'
@@ -79,7 +81,7 @@ export default function CardView({
       }
       onClick={disabled ? undefined : onClick}
       disabled={disabled && !onClick}
-      aria-label={`${card.rank} of ${card.suit}`}
+      aria-label={t('card.label').replace('{rank}', card.rank).replace('{suit}', t(`suit.${card.suit}`))}
     >
       {showArt && (
         <img

@@ -35,7 +35,7 @@ export default function ScoreTrackerButton({ className = '' }: Props) {
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-sheet__head">
               <h3>{t('track.title')}</h3>
-              <button className="btn btn--ghost btn--small" onClick={() => setOpen(false)} aria-label="✕">✕</button>
+              <button className="btn btn--ghost btn--small" onClick={() => setOpen(false)} aria-label={t('common.close')}>✕</button>
             </div>
             <ScoreTracker state={state} />
           </div>

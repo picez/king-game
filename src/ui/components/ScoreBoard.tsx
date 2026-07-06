@@ -1,4 +1,5 @@
 import type { Player, Score } from '../../models/types';
+import { useI18n } from '../../i18n';
 
 interface ScoreBoardProps {
   players: Player[];
@@ -11,14 +12,15 @@ export default function ScoreBoard({
   scores,
   highlightRoundIdx,
 }: ScoreBoardProps) {
+  const { t } = useI18n();
   return (
     <div className="scoreboard">
       <table className="scoreboard__table">
         <thead>
           <tr>
-            <th>Player</th>
-            {highlightRoundIdx !== undefined && <th>This Round</th>}
-            <th>Total</th>
+            <th>{t('scoring.player')}</th>
+            {highlightRoundIdx !== undefined && <th>{t('scoring.thisRound')}</th>}
+            <th>{t('scoring.total')}</th>
           </tr>
         </thead>
         <tbody>

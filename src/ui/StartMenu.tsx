@@ -220,16 +220,13 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <input className="input" value={url}
               onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
             {isInsecureWsOnSecurePage(url) && (
-              <p className="lobby-error">⚠️ HTTPS page needs <code>wss://</code> (not <code>ws://</code>).</p>
+              <p className="lobby-error">{t('menu.wssWarning')}</p>
             )}
           </div>
 
           {pane === 'host' && (
             <>
               <GamePicker gameType={gameType} onPick={setGameType} t={t} />
-              {gameType === 'durak' && (
-                <p className="host-experimental">🧪 {t('durak.onlineExperimentalNote')}</p>
-              )}
               {gameType === 'durak' && (
                 <div className="field">
                   <label className="field__label">{t('durak.variant')}</label>
@@ -277,7 +274,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                     disabled={roomList.loading}>{t('btn.refresh')}</button>
                 </div>
 
-                {roomList.error && <p className="lobby-error">{roomList.error}</p>}
+                {roomList.error && <p className="lobby-error">{t(`roomList.${roomList.error}`)}</p>}
                 {roomList.loading && roomList.rooms.length === 0 && (
                   <p className="setup-hint">{t('net.connecting')}…</p>
                 )}
@@ -386,7 +383,7 @@ function GamePicker({ gameType, onPick, t }: {
         onChange={(v) => onPick(v as GameType)}
         options={[
           { value: 'king', label: t('gameType.king'), icon: '👑' },
-          { value: 'durak', label: t('gameType.durak'), sublabel: t('menu.experimental'), icon: '🃏' },
+          { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
         ]}
       />
     </div>

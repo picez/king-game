@@ -2,10 +2,13 @@ import { useCallback, useRef, useState } from 'react';
 import { WebSocketTransport } from '../net/transport';
 import type { RoomSummary } from '../net/messages';
 
+/** Error CODE (translated by the consumer via `roomList.<code>`), not a message. */
+export type RoomListError = 'timeout' | 'unreachable';
+
 export interface RoomListState {
   rooms: RoomSummary[];
   loading: boolean;
-  error: string | null;
+  error: RoomListError | null;
   /** Open a short-lived connection, fetch the public room list, then close. */
   refresh: (url: string) => void;
 }
@@ -21,7 +24,7 @@ const LIST_TIMEOUT_MS = 4000;
 export function useRoomList(): RoomListState {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<RoomListError | null>(null);
   const busyRef = useRef(false);
 
   const refresh = useCallback((url: string) => {
@@ -32,7 +35,7 @@ export function useRoomList(): RoomListState {
 
     const transport = new WebSocketTransport(url.trim());
     let done = false;
-    const finish = (err?: string) => {
+    const finish = (err?: RoomListError) => {
       if (done) return;
       done = true;
       busyRef.current = false;
@@ -41,7 +44,7 @@ export function useRoomList(): RoomListState {
       transport.close();
     };
 
-    const timer = setTimeout(() => finish('Timed out — is the server running?'), LIST_TIMEOUT_MS);
+    const timer = setTimeout(() => finish('timeout'), LIST_TIMEOUT_MS);
 
     transport.onMessage((msg) => {
       if (msg.t === 'ROOMS_LIST') {
@@ -54,7 +57,7 @@ export function useRoomList(): RoomListState {
     transport
       .connect()
       .then(() => transport.send({ t: 'LIST_ROOMS' }))
-      .catch(() => { clearTimeout(timer); finish('Cannot reach the server.'); });
+      .catch(() => { clearTimeout(timer); finish('unreachable'); });
   }, []);
 
   return { rooms, loading, error, refresh };
