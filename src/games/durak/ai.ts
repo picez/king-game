@@ -5,7 +5,10 @@
 
 import type { Card, Suit } from '../../models/types';
 import type { DurakAction, DurakState } from './types';
-import { getValidAttackCards, getValidDefenseCards, unbeatenAttacks } from './rules';
+import {
+  getValidAttackCards, getValidDefenseCards, unbeatenAttacks,
+  canTransfer, getValidTransferCards,
+} from './rules';
 
 /** Lowest-value card, preferring non-trumps (keep trumps for later). */
 function pickLowest(cards: Card[], trumpSuit: Suit): Card | null {
@@ -37,6 +40,17 @@ export function durakBotAction(state: DurakState): DurakAction | null {
   }
 
   // defense
+  // Transfer variant: rather than commit a defending card, pass the whole bout to
+  // the next player with a CHEAP NON-TRUMP same-rank card (keep trumps in reserve).
+  // canTransfer/getValidTransferCards enforce rank/capacity/next-player legality;
+  // the fixed attack rank + capacity cap make any chain terminate.
+  if (canTransfer(state)) {
+    const transfer = pickLowest(getValidTransferCards(state), state.trumpSuit);
+    if (transfer && transfer.suit !== state.trumpSuit) {
+      return { type: 'TRANSFER_ATTACK', card: transfer };
+    }
+  }
+
   const unbeaten = unbeatenAttacks(state)[0];
   if (!unbeaten) return null;
   const card = pickLowest(getValidDefenseCards(state, unbeaten), state.trumpSuit);
