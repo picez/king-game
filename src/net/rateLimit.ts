@@ -1,0 +1,82 @@
+// ---------------------------------------------------------------------------
+// Per-connection WebSocket rate limiting (Stage: hardening / БЕЗ-1).
+//
+// Pure token-bucket logic — deterministic (callers pass `now` in ms), no Node /
+// ws / DOM deps, so it is unit-testable like the rest of src/net. The server
+// (server/index.ts) creates one `ConnectionLimiter` per socket and consults it
+// in server/wsHandlers.ts before doing any work for a client message.
+//
+// Two buckets per connection:
+//   • message   — every inbound client message (throttles general flooding);
+//   • createRoom — CREATE_ROOM only (bounds room churn / code-space exhaustion).
+//
+// NOTE: this is per-connection. It does not bound the number of connections a
+// single host may open — that is an infra/proxy concern (see MVP_STATUS.md
+// "Known limitations"). Its job is to cap amplification through one socket.
+// ---------------------------------------------------------------------------
+
+export interface BucketConfig {
+  /** Maximum burst — tokens available when idle. */
+  capacity: number;
+  /** Sustained refill rate (tokens per second). */
+  refillPerSec: number;
+}
+
+export interface TokenBucket {
+  tokens: number;
+  updatedAt: number;
+}
+
+export interface RateLimitConfig {
+  message: BucketConfig;
+  createRoom: BucketConfig;
+}
+
+// Generous defaults: comfortably above any legitimate interactive/e2e flow
+// (human play is a few actions/sec; automated e2e uses one room per socket), yet
+// they bound a hostile socket to `refillPerSec` sustained after the burst.
+export const DEFAULT_RATE_LIMITS: RateLimitConfig = {
+  message: { capacity: 60, refillPerSec: 30 },     // burst 60, then 30 msg/s
+  createRoom: { capacity: 5, refillPerSec: 0.2 },  // burst 5, then 1 room / 5s
+};
+
+export function createBucket(cfg: BucketConfig, now: number): TokenBucket {
+  return { tokens: cfg.capacity, updatedAt: now };
+}
+
+/**
+ * Refill by elapsed time (capped at capacity), then try to spend `cost` tokens.
+ * Mutates the bucket. Returns true when the request is allowed, false when the
+ * bucket is empty (caller should reject with RATE_LIMITED).
+ */
+export function consume(bucket: TokenBucket, cfg: BucketConfig, now: number, cost = 1): boolean {
+  const elapsedSec = Math.max(0, now - bucket.updatedAt) / 1000;
+  bucket.tokens = Math.min(cfg.capacity, bucket.tokens + elapsedSec * cfg.refillPerSec);
+  bucket.updatedAt = now;
+  if (bucket.tokens >= cost) {
+    bucket.tokens -= cost;
+    return true;
+  }
+  return false;
+}
+
+/** One connection's rate-limit state (message + createRoom buckets). */
+export class ConnectionLimiter {
+  private readonly message: TokenBucket;
+  private readonly createRoom: TokenBucket;
+
+  constructor(private readonly cfg: RateLimitConfig, now: number) {
+    this.message = createBucket(cfg.message, now);
+    this.createRoom = createBucket(cfg.createRoom, now);
+  }
+
+  /** Charge one message; false → over the general message rate. */
+  allowMessage(now: number): boolean {
+    return consume(this.message, this.cfg.message, now);
+  }
+
+  /** Charge one room creation; false → creating rooms too fast. */
+  allowCreateRoom(now: number): boolean {
+    return consume(this.createRoom, this.cfg.createRoom, now);
+  }
+}

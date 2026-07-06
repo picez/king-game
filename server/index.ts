@@ -38,6 +38,7 @@ import { serveStatic, handleHealth, SERVE_STATIC, DIST } from './httpStatic';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
+import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -104,6 +105,24 @@ const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 15 * 60 * 10
 const SUBSTITUTE_DELAY_MS = Number(process.env.DISCONNECTED_SUBSTITUTE_DELAY_MS ?? 2 * 60 * 1000);
 // Sweep cadence (ms). Overridable for tests/admin; default every 10 minutes.
 const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 10 * 60 * 1000);
+
+// Per-connection WS rate limits (БЕЗ-1). Generous defaults (see rateLimit.ts);
+// every knob is env-overridable so ops can tighten for a public launch or loosen
+// for load tests. A non-finite/absent env value falls back to the default.
+const numEnv = (name: string, fallback: number): number => {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) ? v : fallback;
+};
+const RATE_LIMITS: RateLimitConfig = {
+  message: {
+    capacity: numEnv('WS_MSG_BURST', DEFAULT_RATE_LIMITS.message.capacity),
+    refillPerSec: numEnv('WS_MSG_PER_SEC', DEFAULT_RATE_LIMITS.message.refillPerSec),
+  },
+  createRoom: {
+    capacity: numEnv('WS_CREATE_BURST', DEFAULT_RATE_LIMITS.createRoom.capacity),
+    refillPerSec: numEnv('WS_CREATE_PER_SEC', DEFAULT_RATE_LIMITS.createRoom.refillPerSec),
+  },
+};
 
 /**
  * Browser-origin allowlist. Empty list = allow any (LAN/dev). Requests without
@@ -389,6 +408,10 @@ const wsCtx: WsContext = {
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   const sessionRef: SessionRef = { value: null };
+  // One rate limiter per socket (БЕЗ-1). Reset on reconnect (new socket) — that is
+  // acceptable: it caps amplification through a single connection, not the number
+  // of connections (an infra/proxy concern; see MVP_STATUS.md known limitations).
+  const limiter = new ConnectionLimiter(RATE_LIMITS, Date.now());
 
   // Stage 5: resolve the player's account from the session cookie that rides the
   // WS upgrade (same-origin). This NAMES the player for stats only — seat/
@@ -411,7 +434,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     } catch {
       return sendError(socket, 'BAD_MESSAGE', 'Invalid JSON');
     }
-    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg);
+    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter);
   });
 
   socket.on('close', () => {

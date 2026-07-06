@@ -19,10 +19,24 @@ import {
 } from '../src/net/serverCore';
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { RoomSocialStore, handleReaction, handleChat, type SocialIO } from './roomSocial';
+import type { ConnectionLimiter } from '../src/net/rateLimit';
 
 /** One connection's room session (mutable; set on CREATE/JOIN/RECONNECT). */
 export interface Session { room: ServerRoom; clientId: string }
 export interface SessionRef { value: Session | null }
+
+/**
+ * If this connection already holds a room session, leave it before establishing a
+ * new one. Without this, a socket that CREATEs/JOINs a second room silently
+ * abandons the first — its seat stays `connected:true` forever (the close handler
+ * only ever sees the *latest* session), leaking the room until its hard TTL (БЕЗ-2).
+ */
+function leaveCurrentSession(ctx: WsContext, sessionRef: SessionRef): void {
+  if (sessionRef.value) {
+    ctx.handleLeave(sessionRef.value.room, sessionRef.value.clientId);
+    sessionRef.value = null;
+  }
+}
 
 /** Server-state operations that remain in index.ts and the WS dispatch needs. */
 export interface WsContext {
@@ -49,12 +63,20 @@ export interface WsContext {
  * stamps the resolved userId onto the seated member after CREATE/JOIN/RECONNECT.
  */
 export function handleClientMessage(
-  ctx: WsContext, socket: WebSocket, sessionRef: SessionRef, attachIdentity: () => void, msg: ClientMessage,
+  ctx: WsContext, socket: WebSocket, sessionRef: SessionRef, attachIdentity: () => void,
+  msg: ClientMessage, limiter: ConnectionLimiter,
 ): void {
   const { send, sendError } = ctx;
   const socialIO: SocialIO = {
     sendError: ctx.sendError, broadcastToRoom: ctx.broadcastToRoom, newId: randomUUID,
   };
+
+  // Per-connection message throttle (БЕЗ-1): reject before doing any work so a
+  // flood costs the server ~nothing. Generous burst → normal play never trips it.
+  const now = Date.now();
+  if (!limiter.allowMessage(now)) {
+    return sendError(socket, 'RATE_LIMITED', 'Too many requests — slow down');
+  }
 
   switch (msg.t) {
     case 'CREATE_ROOM': {
@@ -71,6 +93,14 @@ export function handleClientMessage(
       // the host starts once >= minPlayers are seated. Capacity is server-enforced.
       const playerCount = entry.maxPlayers as 2 | 3 | 4;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
+      // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
+      // after validation, before we leave the current room, so a throttled create
+      // leaves the connection's existing room intact.
+      if (!limiter.allowCreateRoom(now)) {
+        return sendError(socket, 'RATE_LIMITED', 'Creating rooms too fast — slow down');
+      }
+      // Abandon any room this connection was already in (else it leaks — БЕЗ-2).
+      leaveCurrentSession(ctx, sessionRef);
       const code = ctx.makeRoomCode();
       const clientId = randomUUID();
       const room = createRoom({
@@ -112,6 +142,9 @@ export function handleClientMessage(
         const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password' : 'Cannot join room';
         return sendError(socket, res.error!, message);
       }
+      // Joined successfully — abandon any previous room this connection held so it
+      // doesn't leak with a stuck-connected seat (БЕЗ-2).
+      leaveCurrentSession(ctx, sessionRef);
       ctx.sockets.set(clientId, socket);
       sessionRef.value = { room, clientId };
       attachIdentity();
