@@ -30,7 +30,7 @@ import {
 import { sanitizeGameSettings } from '../src/net/userSettings';
 import { publicGameCatalog } from '../src/games/catalog';
 import {
-  googleConfig, buildAuthUrl, exchangeCode, decodeIdToken, validateIdClaims,
+  googleConfig, buildAuthUrl, exchangeCode, decodeIdToken, validateIdClaims, isLinkableIdentity,
 } from './googleOAuth';
 import {
   makePkce, signState, verifyState, statesMatch, randomToken,
@@ -348,6 +348,11 @@ async function handleGoogleCallback(req: IncomingMessage, res: ServerResponse): 
   const tokens = await exchangeCode(cfg, code, payload.codeVerifier);
   const identity = validateIdClaims(decodeIdToken(tokens?.id_token), cfg.clientId, nowSec(), payload.nonce);
   if (!identity) return redirectLogin(req, res, 'error', [clearState]);
+  // БЕЗ-5: refuse to link a Google account whose email Google has not verified.
+  if (!isLinkableIdentity(identity)) {
+    console.warn('[King] Google sign-in rejected: email not verified');
+    return redirectLogin(req, res, 'error', [clearState]);
+  }
 
   const { findUserByProviderAccount, linkProviderAccount } = await import('./db/authAccounts');
   const { promoteGuestToAccount, createAccountUser, getProfile } = await import('./db/users');

@@ -104,6 +104,15 @@ export function validateIdClaims(
   };
 }
 
+/**
+ * Gate for linking/promoting/merging a Google identity (БЕЗ-5). Only accept an
+ * identity Google has verified owns the email — an unverified email must never
+ * become, or merge into, an account identity (we store and trust that email).
+ */
+export function isLinkableIdentity(identity: GoogleIdentity | null): identity is GoogleIdentity {
+  return identity !== null && identity.emailVerified && typeof identity.email === 'string' && identity.email.length > 0;
+}
+
 type FetchLike = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
 /**

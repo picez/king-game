@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  googleConfig, buildAuthUrl, decodeIdToken, validateIdClaims, exchangeCode,
+  googleConfig, buildAuthUrl, decodeIdToken, validateIdClaims, exchangeCode, isLinkableIdentity,
   type GoogleConfig,
 } from '../../server/googleOAuth';
 
@@ -93,5 +93,25 @@ describe('exchangeCode (injected fetch — no network)', () => {
   it('returns null when fetch throws', async () => {
     const r = await exchangeCode(CFG, 'code', 'verifier', async () => { throw new Error('net'); });
     expect(r).toBeNull();
+  });
+});
+
+describe('isLinkableIdentity (БЕЗ-5: require verified email)', () => {
+  it('accepts a verified, emailed identity', () => {
+    const id = validateIdClaims(decodeIdToken(idToken(goodClaims())) , CFG.clientId, NOW);
+    expect(isLinkableIdentity(id)).toBe(true);
+  });
+
+  it('rejects an unverified email', () => {
+    const id = validateIdClaims(decodeIdToken(idToken(goodClaims({ email_verified: false }))), CFG.clientId, NOW);
+    expect(id).not.toBeNull();          // claims otherwise valid…
+    expect(id!.emailVerified).toBe(false);
+    expect(isLinkableIdentity(id)).toBe(false); // …but not linkable
+  });
+
+  it('rejects a missing email and a null identity', () => {
+    const noEmail = validateIdClaims(decodeIdToken(idToken(goodClaims({ email: undefined }))), CFG.clientId, NOW);
+    expect(isLinkableIdentity(noEmail)).toBe(false);
+    expect(isLinkableIdentity(null)).toBe(false);
   });
 });
