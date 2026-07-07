@@ -46,8 +46,8 @@ describe('Deberc AI drives a full legal match', () => {
     // The match ends by reaching the target or on a деберц jackpot.
     const target = matchSize === 'small' ? 510 : 1020;
     expect(final.jackpot || final.matchScore.some((v) => v >= target)).toBe(true);
-    // Every card is still accounted for.
-    expect(countCards(final)).toBe(36);
+    // Every card is still accounted for (32-card deck for 3p, 36 for 4p — v1.2).
+    expect(countCards(final)).toBe(n === 4 ? 36 : 32);
   });
 
   it('is deterministic for a fixed seed', () => {

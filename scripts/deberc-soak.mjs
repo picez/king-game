@@ -45,8 +45,10 @@ function fail(msg) { console.error(`  ✗ ${msg}`); failures++; }
 /** Throws on the first violated invariant (with context). */
 function assertInvariants(s, ctx) {
   const cards = allCards(s);
-  if (cards.length !== 36) throw new Error(`${ctx}: ${cards.length} cards (expected 36)`);
-  if (new Set(cards.map(key)).size !== 36) throw new Error(`${ctx}: duplicate/missing card`);
+  // v1.2: 3 players use a 32-card deck (no 6s); 4 players use the full 36.
+  const expected = s.players.length === 4 ? 36 : 32;
+  if (cards.length !== expected) throw new Error(`${ctx}: ${cards.length} cards (expected ${expected})`);
+  if (new Set(cards.map(key)).size !== expected) throw new Error(`${ctx}: duplicate/missing card`);
 
   if (s.tricksPlayed < 0 || s.tricksPlayed > 9) throw new Error(`${ctx}: tricksPlayed ${s.tricksPlayed}`);
   if (s.currentTrick && s.currentTrick.plays.length > s.players.length) {

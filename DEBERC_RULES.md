@@ -1,16 +1,18 @@
-# Deberc Rules (Деберц) — v1.1
+# Deberc Rules (Деберц) — v1.2
 
-> **STATUS: Rules confirmed. v1.1 (owner correction 2026-07-07): the 3-card
-> прикуп is taken only AFTER trump is chosen (bidding happens on 6-card hands),
-> and sequence melds (терц/платіна/деберц) must be DECLARED at the start of the
-> hand — see §3 and §4.**
+> **STATUS: Rules confirmed. v1.2 (owner correction 2026-07-07): the deck size
+> depends on the table — 32 cards for 3 players (no 6s), 36 for 4 (§1); and meld
+> declaration is a BLUFF — always-available Терц/Платіна/Деберц/Бела buttons, a
+> false claim costs −50 (§4). v1.1 stands: the прикуп is taken only AFTER trump is
+> chosen (bidding on 6-card hands), melds declared before the first card (§3, §4).**
 > Source of truth for the **Deberc** game (the third game after King and Durak).
 > Code (engine, UI, AI, server) must follow this file. When rules change, update
 > this file first, then the code and tests.
 
 Deberc (деберц / кларабор, a Klaberjass/Belote-family trick game) uses a
-**36-card deck** — ranks **6, 7, 8, 9, 10, J, Q, K, A** in ♠♥♦♣ (9 ranks × 4).
-A **match** accumulates the scores of successive hands (здачі) up to a target:
+**32- or 36-card deck** — ranks **7, 8, 9, 10, J, Q, K, A** (3 players, 32) or
+**6, 7, 8, 9, 10, J, Q, K, A** (4 players, 36) in ♠♥♦♣. A **match** accumulates
+the scores of successive hands (здачі) up to a target:
 
 - **Small match (`small`)** — target **510**.
 - **Big match (`big`)** — target **1020**.
@@ -19,12 +21,14 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ---
 
-## 1. Players and teams  ✅
+## 1. Players, teams, and deck  ✅ (v1.2)
 
-- **3 players** — every player for themselves. 3 × 9 = 27 cards used; the other
-  9 stay undealt.
-- **4 players** — two fixed **teams of 2** (partners opposite; 2×2). 4 × 9 = 36 —
-  the whole deck is dealt. Partners pool trick points and melds.
+- **3 players** — every player for themselves, played with a **32-card deck** (drop
+  the four 6s). 3 × 9 = 27 cards used; **5 stay undealt** (the stock). The 6 is a
+  0-point card, so card totals are unchanged.
+- **4 players** — two fixed **teams of 2** (partners opposite; 2×2), played with the
+  full **36-card deck**. 4 × 9 = 36 — the whole deck is dealt. Partners pool trick
+  points and melds.
 - Turn order clockwise; the deal rotates clockwise each hand.
 
 ---
@@ -50,19 +54,20 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ---
 
-## 3. Deal, trump bidding, and the "об'яз"  ✅ CONFIRMED (v1.1)
+## 3. Deal, trump bidding, and the "об'яз"  ✅ CONFIRMED (v1.2)
 
-- **Deck:** 36 cards. Each player is dealt **6 cards to hand** (open) **plus a
-  separate face-down 3-card прикуп (talon)** packet. **Bidding happens on the
-  6-card hands** — the прикуп is NOT looked at or added to the hand until a trump
-  has been chosen. A **face-up trump card** is shown on the table for round 1.
+- **Deck:** 32 cards (3p) / 36 cards (4p, see §1). Each player is dealt **6 cards
+  to hand** (open) **plus a separate face-down 3-card прикуп (talon)** packet.
+  **Bidding happens on the 6-card hands** — the прикуп is NOT looked at or added to
+  the hand until a trump has been chosen. A **face-up trump card** is shown on the
+  table for round 1.
 - **The face-up trump card and the прикуп:**
-  - **4 players** (whole deck, 4×9 = 36): the face-up trump card belongs to the
-    **dealer's (роздаючий) прикуп** — the dealer picks it up with their 3-card
+  - **4 players** (whole 36-card deck, 4×9 = 36): the face-up trump card belongs to
+    the **dealer's (роздаючий) прикуп** — the dealer picks it up with their 3-card
     прикуп when trumps are taken. There is **no stock**.
-  - **3 players** (3×9 = 27 dealt, **9 undealt**): the dealer has **his own
-    separate 3-card прикуп**; the face-up trump card is the **top of the undealt
-    stock** and is **NOT taken by anyone** — it only shows the table-trump suit.
+  - **3 players** (32-card deck, 3×9 = 27 dealt, **5 undealt**): the dealer has
+    **his own separate 3-card прикуп**; the face-up trump card is the **top of the
+    undealt stock** and is **NOT taken by anyone** — it only shows the trump suit.
 - **Taking the прикуп:** once a trump is committed, **every player picks up their
   own 3-card прикуп** → each hand becomes **9 cards**. Only then are melds
   declared (§4) and the 9 tricks played (nothing is discarded).
@@ -83,22 +88,30 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ---
 
-## 4. Melds (комбінації)  ✅ CONFIRMED (v1.1 — must be declared)
+## 4. Melds (комбінації)  ✅ CONFIRMED (v1.2 — declared as a BLUFF)
 
-**Declaration (v1.1):** sequence melds (**терц / платіна / деберц**) must be
-**announced by the holder** — they do **NOT** score automatically.
-- **Терц / платіна / деберц** are declared **at the start of the hand, after the
-  прикуп is taken and BEFORE the first card is played** (a short window — the UI
-  gives ~15 s). A sequence that is **not declared scores nothing**, and only
-  **declared** melds take part in the hierarchy below (an undeclared higher терц
-  does **not** cancel a declared lower one). A declared **деберц** ends the match
-  immediately (jackpot).
-- **Бела (bella)** — trump **K + Q** — is declared **during play**: it scores
-  **20** when the holder **wins a trick with a bella card** (trump K or Q). It is
-  independent of the sequence hierarchy and of the start-of-hand declaration.
-- **4-player:** declarations (and their points) are pooled per team.
+**Declaration is a bluff (v1.2).** At the start of the hand (after the прикуп is
+taken, before the first card) each player, об'яз first, sees **always-available
+buttons — Терц / Платіна / Деберц / Бела** — and announces a **set of kinds** (or
+passes). A player may claim a meld they **do not hold** (a bluff).
+- A **truthful** claim scores its meld (below). A **false** claim (a kind the seat
+  does not actually hold) costs the seat's team **−50** (`FALSE_MELD_PENALTY`) — the
+  **same rule for every player** (opponents gain nothing from your bluff). A seat
+  may bluff several kinds; each false claim is a separate −50.
+- **Under-claiming is allowed** (declare Терц while holding a Платіна) — it scores
+  the claimed band (20) and competes at that band. **Over-claiming is a bluff** (−50).
+- Only **truthfully declared** sequence melds take part in the hierarchy below (an
+  undeclared higher терц does **not** cancel a declared lower one). A **truthful
+  Деберц** (run ≥ 8) ends the match immediately (jackpot); a **bluffed Деберц** is
+  just a −50 false claim (no win).
+- **Бела (bella)** — trump **K + Q** — is now also a **declared** button: if the
+  seat **holds** trump K+Q and **wins a trick with one**, it scores **20**; held
+  but never won with → 0; **claimed without holding K+Q → −50**. Bella is
+  independent of the sequence hierarchy.
+- **Bots never bluff** — they claim exactly the kinds they hold.
+- **4-player:** claims, scores, and penalties are pooled per team.
 
-Sequences are runs of one suit in rank order (6-7-8-9-10-J-Q-K-A):
+Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 
 | Meld | Length | Points |
 |------|--------|--------|
@@ -166,7 +179,7 @@ Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
 2. **§4 — RESOLVED:** "highest **declared** holder only" extends across платіна;
    equal платіни compare by top card with trump breaking ties (like терці).
 3. **§7** — 4p бейт when a *team* takes zero tricks (rare) vs a single partner.
-4. **§4 (v1.1)** — a seat may declare **multiple** sequences (e.g. two терці in
-   different suits); each declared meld is judged independently in the hierarchy.
-   Declaration is validated against the seat's actual 9-card hand (you cannot
-   declare a meld you do not hold).
+4. **§4 (v1.2) — RESOLVED:** declaration is one **button per kind** (Терц /
+   Платіна / Деберц / Бела), not per-suit. A seat scores at most one sequence meld
+   (its best truthful band of the claimed kind); a claim of a kind it does not hold
+   is a bluff (−50). Claims are de-duplicated per seat.

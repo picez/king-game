@@ -137,7 +137,13 @@ export interface DebercState {
 
   /** Declaring phase: whose turn it is to declare melds (starts at the об'яз). */
   meldTurnSeat: number;
-  /** Sequence melds (terz/platina) declared this hand, in declaration order. */
+  /**
+   * Each seat's RAW meld claims this hand (v1.2 — a bluff: the seat announces
+   * kinds it may or may not hold). Resolved at scoring against `dealtHands`: a
+   * held claim scores; a false claim costs −50 (FALSE_MELD_PENALTY). Empty = pass.
+   */
+  declaredClaims: DebercMeldKind[][];
+  /** The VALID sequence melds that scored (resolved at hand_scoring; for display). */
   declaredMelds: DebercMeld[];
   /** Which seats have finished declaring (or passing) this hand. */
   meldsDone: boolean[];
@@ -173,8 +179,10 @@ export interface DebercHandResult {
   teamPoints: number[];
   /** Card points (incl. last-trick bonus) per team, before ХВ redirection. */
   cardPoints: number[];
-  /** Meld points (sequences + bella) per team. */
+  /** Meld points (valid declared sequences + earned bella) per team. */
   meldPoints: number[];
+  /** False-claim penalties per team this hand (each bluff = −50, v1.2). */
+  penaltyPoints: number[];
   /** Team that received an ХВ this hand, or null. */
   hvTeam: number | null;
   /** Teams that took zero tricks (бейт). */
@@ -193,11 +201,12 @@ export type DebercAction =
   /** A bid during the bidding phase: commit to `suit`, or pass with suit=null. */
   | { type: 'BID'; suit: Suit | null }
   /**
-   * The acting seat's full meld declaration for the hand (batch): each entry is a
-   * sequence run the seat claims to hold. An empty list = pass (declare nothing).
-   * Advances the declaring turn to the next seat; a declared деберц ends the match.
+   * The acting seat's meld claims for the hand (v1.2 bluff): a set of kinds the
+   * seat announces (Терц / Платіна / Деберц / Бела). No cards — a bluffer holds
+   * none. An empty list = pass. Held claims score; false claims cost −50 at
+   * scoring. A truthful `deberc` claim (run ≥ 8) ends the match immediately.
    */
-  | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; cards: Card[] }[] }
+  | { type: 'DECLARE_MELD'; claims: DebercMeldKind[] }
   /** Play a card into the current trick. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */

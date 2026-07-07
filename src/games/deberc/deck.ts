@@ -6,7 +6,7 @@
 import type { Card, Rank, Suit } from '../../models/types';
 import type { Rng } from '../../core/rng';
 
-/** 36-card Deberc ranks: 6 (low) … A (high). Value is the natural sequence order. */
+/** Full 36-card Deberc ranks: 6 (low) … A (high). Value is the natural sequence order. */
 export const DEBERC_RANKS: Rank[] = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 export const DEBERC_SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 
@@ -20,11 +20,21 @@ export function seqValue(rank: Rank): number {
   return SEQ_VALUE[rank];
 }
 
-/** The full 36-card deck (unshuffled). `value` is the sequence order. */
-export function createDebercDeck(): Card[] {
+/**
+ * Ranks in play for a given table size (DEBERC_RULES.md §1, v1.2):
+ *  - **3 players → 32-card deck** (drop the four 6s; ranks 7…A);
+ *  - **4 players → 36-card deck** (full 6…A).
+ * The 6 is a 0-point card, so card totals are unchanged either way.
+ */
+export function debercRanks(numPlayers: number): Rank[] {
+  return numPlayers === 3 ? DEBERC_RANKS.slice(1) : DEBERC_RANKS;
+}
+
+/** The unshuffled deck for `numPlayers` (32 for 3p, 36 for 4p). */
+export function createDebercDeck(numPlayers: number): Card[] {
   const deck: Card[] = [];
   for (const suit of DEBERC_SUITS) {
-    for (const rank of DEBERC_RANKS) deck.push({ suit, rank, value: SEQ_VALUE[rank] });
+    for (const rank of debercRanks(numPlayers)) deck.push({ suit, rank, value: SEQ_VALUE[rank] });
   }
   return deck;
 }
@@ -89,7 +99,7 @@ export interface DebercDealResult {
    * in prykup[dealer] (4p) or stock (3p).
    */
   tableTrumpCard: Card;
-  /** Undealt cards left on the table (9 for 3 players, 0 for 4). */
+  /** Undealt cards left on the table (5 for 3 players [32-deck], 0 for 4). */
   stock: Card[];
 }
 
@@ -101,11 +111,11 @@ export interface DebercDealResult {
  * The face-up trump card:
  *  - **4 players** (24 + 12 = 36, no stock): it is the **dealer's** прикуп top,
  *    so the dealer picks it up with their packet.
- *  - **3 players** (18 + 9 = 27 dealt, 9 stock): the dealer has their own прикуп;
- *    the face-up card is the **top of the stock** and stays there (never taken).
+ *  - **3 players** (32-card deck: 18 + 9 = 27 dealt, **5 stock**): the dealer has
+ *    their own прикуп; the face-up card is the **top of the stock** (never taken).
  */
 export function dealDeberc(numPlayers: number, dealerSeat: number, rng: Rng): DebercDealResult {
-  const deck = shuffle(createDebercDeck(), rng);
+  const deck = shuffle(createDebercDeck(numPlayers), rng);
   const hands: Card[][] = Array.from({ length: numPlayers }, () => []);
   const prykup: Card[][] = Array.from({ length: numPlayers }, () => []);
   let idx = 0;

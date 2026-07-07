@@ -11,7 +11,7 @@ import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
 import { legalPlays, resolveTrick } from './rules';
-import { detectAllSequences } from './melds';
+import { detectHeldKinds } from './melds';
 
 /**
  * Minimum hand score (see suitScore) at which a bot commits to a trump. Bidding
@@ -133,13 +133,13 @@ function pickBy(cards: Card[], trump: Suit | null, cost: (c: Card, t: Suit | nul
 }
 
 /**
- * Declaring phase: the bot declares ALL the sequences it actually holds (fair —
- * bots never "miss" a meld). A declared деберц wins the match outright.
+ * Declaring phase: the bot claims exactly the kinds it TRULY holds (best sequence
+ * band + bella when it has trump K+Q). It never bluffs, so it never eats the −50
+ * penalty; a truthful деберц claim wins the match outright.
  */
 function declareAction(state: DebercState): DebercAction {
-  const seat = state.meldTurnSeat;
-  const seqs = detectAllSequences(state.dealtHands[seat], seat, state.trumpSuit);
-  return { type: 'DECLARE_MELD', melds: seqs.map((m) => ({ kind: m.kind, cards: m.cards })) };
+  const claims = detectHeldKinds(state.dealtHands[state.meldTurnSeat], state.trumpSuit);
+  return { type: 'DECLARE_MELD', claims };
 }
 
 /**

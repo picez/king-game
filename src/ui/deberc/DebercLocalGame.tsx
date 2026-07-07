@@ -65,7 +65,7 @@ export default function DebercLocalGame({ onExit }: { onExit: () => void }) {
     }
     setDeclareLeft(DECLARE_SECONDS);
     const tick = setInterval(() => setDeclareLeft((s) => (s == null ? s : Math.max(0, s - 1))), 1000);
-    const pass = setTimeout(() => apply({ type: 'DECLARE_MELD', melds: [] }), DECLARE_SECONDS * 1000);
+    const pass = setTimeout(() => apply({ type: 'DECLARE_MELD', claims: [] }), DECLARE_SECONDS * 1000);
     return () => { clearInterval(tick); clearTimeout(pass); };
   }, [state, apply]);
 

@@ -15,11 +15,13 @@ import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercContext, DebercMeld, DebercPlayer, DebercState } from './types';
 import { dealDeberc, seqValue } from './deck';
 import { cardEquals, isLegalPlay, legalPlays, resolveTrick } from './rules';
-import { buildDeclaredMeld, hasBella, scoringDeclaredMelds } from './melds';
+import { hasBella, holdsClaim, resolveDeclarations, scoringDeclaredMelds } from './melds';
 import { BELLA_POINTS, scoreHand } from './scoring';
 
 const HAND_TRICKS = 9;
 const PAIR_PENALTY = 100;
+/** A false (bluffed) meld claim costs the team this many points (§4, v1.2). */
+const FALSE_MELD_PENALTY = 50;
 const TARGET: Record<'small' | 'big', number> = { small: 510, big: 1020 };
 
 function clone(state: DebercState): DebercState {
@@ -118,6 +120,7 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
   s.bellaEligible = [];
   s.bellaEarned = [];
   s.meldTurnSeat = dealerSeat;
+  s.declaredClaims = Array.from({ length: n }, () => []);
   s.declaredMelds = [];
   s.meldsDone = Array<boolean>(n).fill(false);
 }
@@ -150,6 +153,7 @@ function commitTrump(s: DebercState, seat: number, trump: Suit): void {
   // об'яз declares first; when everyone has declared/passed, play begins.
   s.phase = 'declaring';
   s.meldTurnSeat = s.objazSeat;
+  s.declaredClaims = Array.from({ length: s.players.length }, () => []);
   s.declaredMelds = [];
   s.meldsDone = Array<boolean>(s.players.length).fill(false);
   s.turnSeat = s.objazSeat; // the об'яз leads the first trick once play opens
@@ -175,7 +179,8 @@ function startDeberc(
     objazSeat: dealerSeat, dealerSeat, bidderSeat: (dealerSeat + 1) % n, bids: [], bidRound: 1,
     currentTrick: null, turnSeat: dealerSeat,
     wonCards: Array.from({ length: n }, () => []), tricksPlayed: 0, seatsWithTricks: [], melds: [],
-    meldTurnSeat: dealerSeat, declaredMelds: [], meldsDone: Array<boolean>(n).fill(false),
+    meldTurnSeat: dealerSeat, declaredClaims: Array.from({ length: n }, () => []),
+    declaredMelds: [], meldsDone: Array<boolean>(n).fill(false),
     dealtHands: [], bellaEligible: [], bellaEarned: [],
     matchScore: Array<number>(teamCount).fill(0),
     hvMarks: Array<number>(teamCount).fill(0),
@@ -206,10 +211,13 @@ function finalizeTrick(s: DebercState): void {
   s.phase = 'trick_complete';
 }
 
-/** The DECLARED sequences that actually score (+ earned bella), for display. */
+/** The valid DECLARED melds that actually score (§4 hierarchy + earned bella), for display. */
 function collectScoringMelds(s: DebercState): DebercMeld[] {
-  const melds: DebercMeld[] = [...scoringDeclaredMelds(s.declaredMelds)];
-  for (const seat of s.bellaEarned) {
+  const { seqMelds, bellaSeats } = resolveDeclarations(s.dealtHands, s.declaredClaims, s.trumpSuit);
+  const melds: DebercMeld[] = [...scoringDeclaredMelds(seqMelds)];
+  // Bella scores only if declared (bellaSeats = declared + held) AND earned in play.
+  for (const seat of bellaSeats) {
+    if (!s.bellaEarned.includes(seat)) continue;
     const k = s.dealtHands[seat].find((c) => c.suit === s.trumpSuit && c.rank === 'K');
     const q = s.dealtHands[seat].find((c) => c.suit === s.trumpSuit && c.rank === 'Q');
     if (k && q) {
@@ -223,10 +231,16 @@ function collectScoringMelds(s: DebercState): DebercMeld[] {
 function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
   const trump = s.trumpSuit!;
   const lastTrickWinnerSeat = s.currentTrick?.winnerSeat ?? s.objazSeat;
+  // Resolve every seat's raw claims against its real hand (v1.2): valid sequences
+  // score by hierarchy, a valid+earned bella scores, and each bluff costs −50.
+  const { seqMelds, bellaSeats, falseBySeat } = resolveDeclarations(s.dealtHands, s.declaredClaims, trump);
+  const bellaScoring = bellaSeats.filter((seat) => s.bellaEarned.includes(seat));
+  const penaltyByTeam = Array<number>(s.teamCount).fill(0);
+  falseBySeat.forEach((count, seat) => { penaltyByTeam[s.teamOf[seat]] += count * FALSE_MELD_PENALTY; });
   const score = scoreHand({
     wonCards: s.wonCards, trumpSuit: trump, lastTrickWinnerSeat,
     teamOf: s.teamOf, teamCount: s.teamCount,
-    declaredSequences: s.declaredMelds, bellaSeats: s.bellaEarned,
+    declaredSequences: seqMelds, bellaSeats: bellaScoring, penaltyByTeam,
   });
   const teamPoints = score.teamPoints.slice();
 
@@ -255,7 +269,7 @@ function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
   for (let t = 0; t < s.teamCount; t++) s.matchScore[t] += teamPoints[t];
   s.lastHand = {
     teamPoints, cardPoints: score.cardPoints, meldPoints: score.meldPoints,
-    hvTeam, beitTeams, topScorerTeam,
+    penaltyPoints: score.penaltyPoints, hvTeam, beitTeams, topScorerTeam,
   };
 
   const target = TARGET[s.matchSize];
@@ -345,6 +359,7 @@ export function debercReducer(
       const s = clone(state);
       if (s.tricksPlayed >= HAND_TRICKS) {
         s.melds = collectScoringMelds(s);
+        s.declaredMelds = s.melds.filter((m) => m.kind !== 'bella'); // scored sequences (display)
         s.phase = 'hand_scoring';
       } else {
         s.currentTrick = null;
@@ -365,19 +380,17 @@ export function debercReducer(
       const n = state.players.length;
       const s = clone(state);
       const seat = s.meldTurnSeat;
-      const hand = s.dealtHands[seat];
-      // Validate every claimed meld against the seat's real 9-card hand; keep only
-      // the valid ones. A valid деберц (8–9 run) ends the whole match immediately.
-      for (const decl of action.melds) {
-        const meld = buildDeclaredMeld(hand, seat, decl.cards, s.trumpSuit);
-        if (!meld) continue;
-        s.declaredMelds.push(meld);
-        if (meld.kind === 'deberc') {
-          s.phase = 'finished';
-          s.winnerTeam = s.teamOf[seat];
-          s.jackpot = true;
-          return s;
-        }
+      // Record the raw claims (a bluff — resolved against the real hand at scoring,
+      // where a false claim costs −50). De-duplicated: one button per kind.
+      const claims = [...new Set(action.claims)];
+      s.declaredClaims[seat] = claims;
+      // A TRUTHFUL деберц (run ≥ 8) ends the match immediately (jackpot). A bluffed
+      // деберц is NOT an instant win — it is just a false claim (−50 at scoring).
+      if (claims.includes('deberc') && holdsClaim(s.dealtHands[seat], 'deberc', s.trumpSuit)) {
+        s.phase = 'finished';
+        s.winnerTeam = s.teamOf[seat];
+        s.jackpot = true;
+        return s;
       }
       s.meldsDone[seat] = true;
       if (s.meldsDone.every(Boolean)) {

@@ -8,11 +8,15 @@ import {
 const card = (suit: Suit, rank: Rank): Card => ({ suit, rank, value: seqValue(rank) });
 
 describe('deberc deck', () => {
-  it('has 36 unique cards (6..A × 4)', () => {
-    const deck = createDebercDeck();
-    expect(deck).toHaveLength(36);
-    const keys = new Set(deck.map((c) => `${c.rank}${c.suit}`));
-    expect(keys.size).toBe(36);
+  it('4 players → 36 unique cards (6..A × 4); 3 players → 32 (no 6s)', () => {
+    const deck4 = createDebercDeck(4);
+    expect(deck4).toHaveLength(36);
+    expect(new Set(deck4.map((c) => `${c.rank}${c.suit}`)).size).toBe(36);
+
+    const deck3 = createDebercDeck(3);
+    expect(deck3).toHaveLength(32);
+    expect(deck3.some((c) => c.rank === '6')).toBe(false); // 6s dropped for 3p
+    expect(new Set(deck3.map((c) => `${c.rank}${c.suit}`)).size).toBe(32);
   });
 
   it('card points differ for trump vs non-trump', () => {
@@ -25,9 +29,11 @@ describe('deberc deck', () => {
     expect(cardPoints(card('spades', '6'), 'hearts')).toBe(0);
   });
 
-  it('total deck card points sum to 152', () => {
-    const total = createDebercDeck().reduce((a, c) => a + cardPoints(c, 'hearts'), 0);
-    expect(total).toBe(152);
+  it('total deck card points sum to 152 (both deck sizes — 6s are 0 pts)', () => {
+    for (const n of [3, 4]) {
+      const total = createDebercDeck(n).reduce((a, c) => a + cardPoints(c, 'hearts'), 0);
+      expect(total).toBe(152);
+    }
   });
 
   it('trick strength orders trump J > 9 > A and plain A > 10 > K', () => {
@@ -52,20 +58,22 @@ describe('dealDeberc (v1.1 — 6 hand + 3 прикуп)', () => {
     expect(tableTrumpCard).toEqual(prykup[0][0]);
   });
 
-  it('3 players: 18 hand + 9 прикуп dealt, 9 left as stock; trump = stock top', () => {
+  it('3 players (32-deck): 18 hand + 9 прикуп dealt, 5 left as stock; trump = stock top', () => {
     const { hands, prykup, stock, tableTrumpCard } = dealDeberc(3, 2, makeRng(7));
     expect(hands.map((h) => h.length)).toEqual([6, 6, 6]);
     expect(prykup.map((p) => p.length)).toEqual([3, 3, 3]);
-    expect(stock).toHaveLength(9);
+    expect(stock).toHaveLength(5); // 32 − 27 dealt
     // 3p: the face-up trump card is the top of the stock (never taken).
     expect(tableTrumpCard).toEqual(stock[0]);
   });
 
-  it('deals a partition of the 36-card deck (no dup, no loss)', () => {
-    const { hands, prykup, stock } = dealDeberc(3, 0, makeRng(42));
-    const all = [...hands.flat(), ...prykup.flat(), ...stock];
-    expect(all).toHaveLength(36);
-    expect(new Set(all.map((c) => `${c.rank}${c.suit}`)).size).toBe(36);
+  it('deals a partition of the deck (no dup, no loss): 32 for 3p, 36 for 4p', () => {
+    for (const [n, total] of [[3, 32], [4, 36]] as const) {
+      const { hands, prykup, stock } = dealDeberc(n, 0, makeRng(42));
+      const all = [...hands.flat(), ...prykup.flat(), ...stock];
+      expect(all).toHaveLength(total);
+      expect(new Set(all.map((c) => `${c.rank}${c.suit}`)).size).toBe(total);
+    }
   });
 
   it('is deterministic for a fixed seed', () => {

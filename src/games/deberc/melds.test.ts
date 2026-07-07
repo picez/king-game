@@ -3,6 +3,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import { seqValue } from './deck';
 import {
   detectBestSequence, compareSequences, scoringSequenceSeats, hasBella,
+  resolveDeclarations, detectHeldKinds,
 } from './melds';
 
 const card = (suit: Suit, rank: Rank): Card => ({ suit, rank, value: seqValue(rank) });
@@ -56,6 +57,35 @@ describe('compareSequences', () => {
   it('equal non-trump runs tie (both score)', () => {
     const other = detectBestSequence(run('diamonds', ['10', 'J', 'Q']), 3, 'hearts')!;
     expect(compareSequences(terzToQ, other)).toBe(0);
+  });
+});
+
+describe('resolveDeclarations (§4, v1.2 bluff + penalty)', () => {
+  const trump: Suit = 'hearts';
+
+  it('a truthful under-claim scores; a bluff is counted as a false claim', () => {
+    const hands = [
+      run('spades', ['7', '8', '9', '10']), // seat0 holds a platina (4-run)…
+      run('clubs', ['J', 'Q']),             // seat1 holds no sequence
+      [],                                    // seat2 passes
+    ];
+    // seat0 under-claims a terz (valid — it holds ≥3), seat1 bluffs a platina.
+    const r = resolveDeclarations(hands, [['terz'], ['platina'], []], trump);
+    expect(r.seqMelds.some((m) => m.seatIndex === 0 && m.kind === 'terz')).toBe(true);
+    expect(r.falseBySeat).toEqual([0, 1, 0]);
+  });
+
+  it('bella: held (trump K+Q) is valid; not held is a false claim', () => {
+    const withBella = [card('hearts', 'K'), card('hearts', 'Q'), card('spades', 'A')];
+    const noBella = [card('spades', '7'), card('clubs', '8')];
+    const r = resolveDeclarations([withBella, noBella], [['bella'], ['bella']], trump);
+    expect(r.bellaSeats).toEqual([0]);
+    expect(r.falseBySeat).toEqual([0, 1]);
+  });
+
+  it('detectHeldKinds reports the best band a hand holds + bella', () => {
+    const hand = [...run('spades', ['9', '10', 'J', 'Q']), card('hearts', 'K'), card('hearts', 'Q')];
+    expect(detectHeldKinds(hand, trump).sort()).toEqual(['bella', 'platina']);
   });
 });
 

@@ -22,19 +22,27 @@ export interface HandScoreInput {
   /** Team index of each seat, and the number of teams. */
   teamOf: number[];
   teamCount: number;
-  /** Sequence melds DECLARED this hand (terz/platina); only these can score (§4). */
+  /**
+   * VALID declared sequence melds (terz/platina) this hand — the §4 hierarchy is
+   * applied here (only the strongest declared holder scores). Bluffed claims are
+   * NOT here; they arrive as `penaltyByTeam` instead (v1.2).
+   */
   declaredSequences: DebercMeld[];
-  /** Seats that earned the bella (declared it AND won a trick with a bella card). */
+  /** Seats that score the bella (declared it, hold trump K+Q, AND won a trick with one). */
   bellaSeats: number[];
+  /** False-claim penalties per team (each bluff = −50; v1.2). */
+  penaltyByTeam: number[];
 }
 
 export interface HandScoreResult {
-  /** Total hand points per team (cards + last trick + melds + bella). */
+  /** Total hand points per team (cards + last trick + melds + bella − penalties). */
   teamPoints: number[];
   /** Card points (incl. last-trick bonus) per team. */
   cardPoints: number[];
-  /** Meld points (sequences + bella) per team. */
+  /** Meld points (valid declared sequences + earned bella) per team. */
   meldPoints: number[];
+  /** False-claim penalties per team (already subtracted from teamPoints). */
+  penaltyPoints: number[];
 }
 
 /** Sum of card points for a set of cards, given the trump suit. */
@@ -48,7 +56,7 @@ export function sumCardPoints(cards: Card[], trumpSuit: Suit): number {
  * hierarchy) and any earned bella are added.
  */
 export function scoreHand(input: HandScoreInput): HandScoreResult {
-  const { wonCards, trumpSuit, lastTrickWinnerSeat, teamOf, teamCount, declaredSequences, bellaSeats } = input;
+  const { wonCards, trumpSuit, lastTrickWinnerSeat, teamOf, teamCount, declaredSequences, bellaSeats, penaltyByTeam } = input;
 
   const cardPts = Array<number>(teamCount).fill(0);
   const meldPts = Array<number>(teamCount).fill(0);
@@ -66,6 +74,8 @@ export function scoreHand(input: HandScoreInput): HandScoreResult {
     meldPts[teamOf[seat]] += BELLA_POINTS;
   }
 
-  const teamPoints = cardPts.map((c, t) => c + meldPts[t]);
-  return { teamPoints, cardPoints: cardPts, meldPoints: meldPts };
+  const penaltyPts = penaltyByTeam.slice();
+  // A bluffed claim (−50) reduces the team's hand total (can go negative, v1.2).
+  const teamPoints = cardPts.map((c, t) => c + meldPts[t] - penaltyPts[t]);
+  return { teamPoints, cardPoints: cardPts, meldPoints: meldPts, penaltyPoints: penaltyPts };
 }

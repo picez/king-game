@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
-import type { DebercAction, DebercMeld, DebercMeldKind, DebercState } from '../../games/deberc/types';
+import type { DebercAction, DebercMeldKind, DebercState } from '../../games/deberc/types';
 import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/engine';
-import { detectAllSequences } from '../../games/deberc/melds';
 import { cardEquals } from '../../games/deberc/rules';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
+
+/** The four declarable meld kinds — buttons are ALWAYS shown (bluffing, §4 v1.2). */
+const ALL_MELD_KINDS: DebercMeldKind[] = ['terz', 'platina', 'deberc', 'bella'];
 
 /** Transient "what just happened" banner (a trick resolved). */
 export type DebercNotice = { kind: 'trick'; winner: string };
@@ -71,25 +73,30 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const myBid = phase === 'bidding' && state.bidderSeat === meSeat;
   const otherSuits = ALL_SUITS.filter((s) => s !== state.tableTrumpCard.suit);
 
-  // --- Declaring phase (v1.1): announce терц/платіна/деберц before the first trick.
+  // --- Declaring phase (v1.2): a BLUFF — buttons are always shown, NOT gated by
+  // what I actually hold. Claiming a meld I do not have costs my team −50 (§4).
   const myDeclare = phase === 'declaring' && state.meldTurnSeat === meSeat;
-  // My declarable sequences, detected from my own (real) dealt hand.
-  const myMelds = useMemo<DebercMeld[]>(() => {
-    if (phase !== 'declaring') return [];
-    const hand = state.dealtHands[meSeat];
-    return hand ? detectAllSequences(hand, meSeat, trump) : [];
-  }, [phase, state.dealtHands, meSeat, trump]);
-  // Which detected melds the human has toggled on; reset when the turn changes.
-  const [selected, setSelected] = useState<number[]>([]);
-  useEffect(() => { setSelected(myMelds.map((_, i) => i)); }, [phase, state.meldTurnSeat, myMelds.length]);
-  const toggleMeld = (i: number) =>
-    setSelected((sel) => (sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i]));
-  const meldKindLabel = (kind: DebercMeldKind) =>
-    kind === 'deberc' ? t('deberc.meldDeberc') : kind === 'platina' ? t('deberc.meldPlatina') : t('deberc.meldTerz');
-  const meldLabel = (m: DebercMeld) =>
-    `${meldKindLabel(m.kind)} ${SUIT_SYMBOL[m.cards[0].suit]} ${m.cards[m.cards.length - 1].rank}`;
-  const declareSelected = () =>
-    apply({ type: 'DECLARE_MELD', melds: selected.map((i) => ({ kind: myMelds[i].kind, cards: myMelds[i].cards })) });
+  const kindLabel = (kind: DebercMeldKind) =>
+    kind === 'deberc' ? t('deberc.meldDeberc')
+      : kind === 'platina' ? t('deberc.meldPlatina')
+        : kind === 'bella' ? t('deberc.meldBella')
+          : t('deberc.meldTerz');
+  // Which kinds the human has toggled on to claim; reset when the turn changes.
+  const [claims, setClaims] = useState<DebercMeldKind[]>([]);
+  useEffect(() => { setClaims([]); }, [phase, state.meldTurnSeat]);
+  const toggleClaim = (k: DebercMeldKind) =>
+    setClaims((cs) => (cs.includes(k) ? cs.filter((x) => x !== k) : [...cs, k]));
+
+  /** A seat's latest bid this hand as a tag (during bidding): passed / took trump. */
+  function seatBidTag(seat: number) {
+    if (phase !== 'bidding') return null;
+    const seatBids = state.bids.filter((b) => b.seatIndex === seat);
+    const last = seatBids[seatBids.length - 1];
+    if (!last) return null;
+    return last.suit == null
+      ? <span className="durak-seat__bid deberc-bid--pass">{t('deberc.passed')}</span>
+      : <span className="durak-seat__bid deberc-bid--took">{t('deberc.tookTrump')} {SUIT_SYMBOL[last.suit]}</span>;
+  }
 
   // Opponents in PLAY ORDER (clockwise from the seat after me).
   const opponents = Array.from({ length: n - 1 }, (_, k) => state.players[(meSeat + 1 + k) % n]);
@@ -143,14 +150,15 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         <span className="tag">{t('deberc.target')} {state.matchSize === 'big' ? 1020 : 510}</span>
       </div>
 
-      {/* Declared melds this hand — visible to everyone (immersive). */}
-      {state.declaredMelds.length > 0 && (
+      {/* What each seat CLAIMED this hand — visible to everyone (immersive). Truth
+          vs bluff is only revealed in the score table at hand end. */}
+      {state.declaredClaims.some((c) => c.length > 0) && (
         <div className="deberc-declared" role="status">
-          {state.declaredMelds.map((m, i) => (
-            <span key={i} className={`tag deberc-declared__item ${m.kind === 'deberc' ? 'deberc-declared__item--jackpot' : ''}`}>
-              {t('deberc.declaredBy')} {state.players[m.seatIndex]?.name} · {meldLabel(m)}
+          {state.declaredClaims.map((seatClaims, seat) => (seatClaims.length === 0 ? null : (
+            <span key={seat} className={`tag deberc-declared__item ${seatClaims.includes('deberc') ? 'deberc-declared__item--jackpot' : ''}`}>
+              {t('deberc.declaredBy')} {state.players[seat]?.name} · {seatClaims.map(kindLabel).join(', ')}
             </span>
-          ))}
+          )))}
         </div>
       )}
 
@@ -160,6 +168,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
           const isOffline = offline(p.seatIndex);
           const isActing = p.seatIndex === actorSeat;
           const isObjaz = p.seatIndex === state.objazSeat;
+          const isDealer = p.seatIndex === state.dealerSeat;
           const pos = (SEAT_LAYOUT[n] ?? SEAT_LAYOUT[4])[k + 1];
           return (
             <div key={p.id} className={`durak-seat durak-seat--${pos} ${isOffline ? 'durak-seat--offline' : ''} ${isActing ? 'durak-seat--acting' : ''}`}>
@@ -167,13 +176,24 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
                 {isOffline && <span className="durak-seat__off" aria-label={t('common.offline')}>📴 </span>}{p.name}
               </span>
               <span className="durak-seat__count">🂠 {p.hand.length}</span>
-              {isObjaz && <span className="durak-seat__role">{t('deberc.objaz')}</span>}
+              <span className="durak-seat__roles">
+                {isDealer && <span className="durak-seat__role deberc-role--dealer">{t('deberc.dealer')}</span>}
+                {isObjaz && <span className="durak-seat__role deberc-role--objaz">{t('deberc.objaz')}</span>}
+              </span>
+              {seatBidTag(p.seatIndex)}
             </div>
           );
         })}
         <div className="durak-centre">
           {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
-          <DebercDeck count={state.stock.length} trumpCard={state.tableTrumpCard} trumpSuit={trump} />
+          {/* The face-up trump card is on the table only during bidding, or (3p)
+              while it sits on the stock. For 4p after the прикуп it is in the
+              dealer's hand — show the suit only, so it never appears twice. */}
+          <DebercDeck
+            count={state.stock.length}
+            trumpCard={phase === 'bidding' || n === 3 ? state.tableTrumpCard : null}
+            trumpSuit={trump}
+          />
           <div className="durak-table__cards">
             {trickPlays.length === 0
               ? <p className="durak-table__empty">·</p>
@@ -190,7 +210,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       </div>
 
       <div className={`durak-prompt ${isMyTurn ? 'durak-prompt--me' : ''}`}>
-        {me.seatIndex === state.objazSeat && <span className="durak-youare durak-youare--atk">{t('deberc.objaz')}</span>}
+        {meSeat === state.dealerSeat && <span className="durak-youare deberc-role--dealer">{t('deberc.dealer')}</span>}
+        {meSeat === state.objazSeat && <span className="durak-youare durak-youare--atk">{t('deberc.objaz')}</span>}
+        {seatBidTag(meSeat)}
         <span className="durak-prompt__text">{prompt}</span>
       </div>
 
@@ -221,33 +243,31 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </div>
       )}
 
-      {/* Declaring controls (only on my declaring turn). */}
+      {/* Declaring controls (only on my declaring turn) — a BLUFF: the four
+          buttons are ALWAYS available, never gated by what I actually hold. */}
       {myDeclare && (
         <div className="durak-controls deberc-declare">
-          {declareSecondsLeft != null && (
-            <span className="deberc-declare__timer" aria-live="polite">⏱ {declareSecondsLeft}s</span>
-          )}
-          {myMelds.length === 0 ? (
-            <span className="durak-prompt__text">{t('deberc.noMelds')}</span>
-          ) : (
-            myMelds.map((m, i) => (
+          <span className="deberc-declare__warn" role="note">
+            {declareSecondsLeft != null && <strong className="deberc-declare__timer" aria-live="polite">⏱ {declareSecondsLeft}s</strong>}
+            {' '}{t('deberc.bluffWarn')}
+          </span>
+          <div className="deberc-declare__buttons">
+            {ALL_MELD_KINDS.map((k) => (
               <button
-                key={i}
+                key={k}
                 type="button"
-                className={`btn deberc-meld-chip ${selected.includes(i) ? 'btn--primary' : 'btn--outline'} ${m.kind === 'deberc' ? 'deberc-meld-chip--jackpot' : ''}`}
-                aria-pressed={selected.includes(i)}
-                onClick={() => toggleMeld(i)}
+                className={`btn deberc-meld-chip ${claims.includes(k) ? 'btn--primary' : 'btn--outline'} ${k === 'deberc' ? 'deberc-meld-chip--jackpot' : ''}`}
+                aria-pressed={claims.includes(k)}
+                onClick={() => toggleClaim(k)}
               >
-                {meldLabel(m)}
+                {kindLabel(k)}
               </button>
-            ))
-          )}
-          {myMelds.length > 0 && (
-            <button type="button" className="btn btn--primary" onClick={declareSelected}>
-              {t('deberc.declareConfirm')}
-            </button>
-          )}
-          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', melds: [] })}>
+            ))}
+          </div>
+          <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'DECLARE_MELD', claims })}>
+            {t('deberc.declareConfirm')}
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', claims: [] })}>
             {t('deberc.declarePass')}
           </button>
         </div>
