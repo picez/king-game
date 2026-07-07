@@ -1,14 +1,19 @@
 # Durak — Architecture & Implementation Plan
 
-> **Status (Stage 9.9+):** pure core ✅, catalog/definition/registry ✅, local UI
-> (simple + transfer) ✅, UX/rules hardening ✅, state/action **union** ✅,
-> **experimental online Durak** ✅ (host/join with bots, per-game redaction,
-> reconnect), **online QA + UX polish** ✅, **production polish** ✅ (in-game help,
-> centred table, game choice moved into Host/Local sheets), and **priority
-> throw-in** ✅ — the primary attacker leads until they pass, then it moves
-> clockwise to the next eligible attacker (`throwerIndex` / `passedAttackers`); the
-> defender never throws; `PASS_ATTACK` replaces `END_ATTACK`. **Remaining:** Durak
-> stats + a leaderboard. King is unchanged throughout.
+> **Status (Stage 9.13 — released `available`):** pure core ✅, catalog/definition/
+> registry ✅, local UI (simple + transfer) ✅, UX/rules hardening ✅, state/action
+> **union** ✅, **online Durak** ✅ (host/join with bots, per-game redaction,
+> reconnect/restart), **online QA + UX polish** ✅, **production polish** ✅ (in-game
+> help incl. throw-in-after-Take, centred table, game choice in Host/Local sheets),
+> **priority throw-in** ✅ — the primary attacker leads until they pass, then it
+> moves clockwise to the next eligible attacker (`throwerIndex` / `passedAttackers`);
+> the defender never throws; `PASS_ATTACK` replaces `END_ATTACK`. **Release audit
+> (9.13):** state-machine + invariants verified; online auth/redaction clean (seat
+> derived server-side, actions carry no spoofable actor); restart/reconnect verified
+> during defense/taking/transfer; deterministic bot soak (2/3/4 × simple/transfer ×
+> 30 seeds = 180 games) green. **Experimental tag removed.** **Remaining (post-
+> release):** Durak stats + a leaderboard (`recordsStats: false` today). King is
+> unchanged throughout.
 
 Engineering plan for adding **Durak** (see [`DURAK_RULES.md`](DURAK_RULES.md)) as
 the **second game**, on top of the multi-game seam already built (Stages 8.3–8.6:

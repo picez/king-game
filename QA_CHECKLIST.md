@@ -7,12 +7,13 @@ WebSocket against a real server, incl. restart restore). This file is the
 ## Automated (run first)
 
 ```bash
-npm test         # unit + pure-logic tests
+npm test         # unit + pure-logic tests (King + Durak)
 npm run build    # type-check + production build
-npm run e2e      # spawns a server, plays a full 3-player online round, restarts
+npm run e2e      # spawns a server, plays a full online round (King + Durak), restarts
+npm run soak     # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
 ```
 
-All three must be green.
+All four must be green.
 
 ## Manual — local pass-and-play
 
@@ -100,13 +101,18 @@ All three must be green.
 - [ ] **Stats:** finishing a game where a human was substituted still attributes
       that human's stats to their account (with a DB configured).
 
-## Manual — Durak online (experimental, Stage 9.6/9.7)
+## Manual — Durak online (released `available`, Stage 9.13)
 
-> King stays the default. Durak online is **experimental** — no stats yet.
+> King stays the default. Durak is **released** (no Experimental tag); Durak
+> **stats are not recorded yet** — that + a leaderboard are the only remaining work.
 
-- [ ] **Select Durak** in the menu → the **Host** tile is enabled and marked
-      *Experimental*; the Host sheet shows a **variant** picker (Simple/Transfer)
-      and **2/3/4** players + an experimental note.
+- [ ] **No Experimental tag** anywhere for Durak — the game picker shows the
+      **Simple · Transfer** subtitle (not "Experimental"), the Host sheet has no
+      experimental note, and the Lobby header shows only the variant.
+- [ ] **Select Durak** in the menu → the **Host** tile is enabled; the Host sheet
+      shows a **variant** picker (Simple/Transfer) and **2/3/4** players.
+- [ ] **Help modal** (❓ in-game and the setup "How to play"): explains Simple,
+      Transfer, and **throwing in after Take**.
 - [ ] **Host a Durak room** (e.g. 2 players, Transfer), **Add bot**, **Start** →
       the **Durak** table renders (not King), with your hand, trump and deck count.
 - [ ] **Room browser** lists the room as **Durak · Simple/Transfer**; a second

@@ -12,6 +12,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "cards": "node scripts/slice-card-sources.mjs",
     "e2e": "tsx scripts/e2e-online.mjs",
+    "soak": "tsx scripts/durak-soak.mjs",
     "start": "NODE_ENV=production tsx server/index.ts",
     "server": "tsx server/index.ts",
     "server:prod": "NODE_ENV=production tsx server/index.ts",

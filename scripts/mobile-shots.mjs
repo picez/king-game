@@ -186,6 +186,35 @@ async function run() {
       await sleep(150);
       await shot(cdp, `${tag}-8-tricktoast`);
 
+      // ── Durak local flow (Stage 9.13 release audit) ────────────────────────
+      // Fresh navigation → local sheet → pick Durak in the GamePicker dropdown →
+      // setup → game screen + help modal. Overflow is checked on each shot.
+      await cdp.send('Page.navigate', { url: URL });
+      await sleep(900);
+      await cdp.evaluate(CLICKSEL('.tile', 0));                 // Play locally
+      await sleep(400);
+      await cdp.evaluate(CLICKSEL('.game-picker .select-menu__trigger')); // open game dropdown
+      await sleep(250);
+      // Click the Durak option (label-based, RTL/lang-agnostic via the 🃏 icon row).
+      await cdp.evaluate(`(()=>{const o=[...document.querySelectorAll('.select-menu__option')].find(x=>x.textContent.includes('Durak')||x.textContent.includes('🃏'));if(o){o.click();return true}return false})()`);
+      await sleep(250);
+      await cdp.evaluate(CLICK('Start local game'));            // → DurakSetup
+      await sleep(450);
+      await shot(cdp, `${tag}-d1-setup`);
+      // Expand the inline rules, then 3 players (so left/right seats render).
+      await cdp.evaluate(`(()=>{const b=document.querySelector('.durak-howto');if(b)b.click()})()`);
+      await sleep(250);
+      await shot(cdp, `${tag}-d2-setup-rules`);
+      await cdp.evaluate(`(()=>{const t=[...document.querySelectorAll('.durak-setup .segmented__tab')].find(x=>x.textContent.trim()==='3');if(t)t.click()})()`);
+      await sleep(150);
+      await cdp.evaluate(CLICK('Start'));                       // → DurakGameScreen
+      await sleep(600);
+      await shot(cdp, `${tag}-d3-game`);
+      // Open the in-game help modal (variant + rules incl. throw-after-take).
+      await cdp.evaluate(`(()=>{const b=document.querySelector('.durak-help-btn');if(b)b.click()})()`);
+      await sleep(350);
+      await shot(cdp, `${tag}-d4-help`);
+
       cdp.ws.close();
     }
   } finally {

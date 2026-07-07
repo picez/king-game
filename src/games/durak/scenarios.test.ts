@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { cardValue } from './deck';
-import { durakReducer } from './engine';
+import { durakReducer, getActingDurakPlayerId } from './engine';
+import { canTransfer } from './rules';
 import type { Card } from '../../models/types';
 import type { DurakPlayer, DurakState } from './types';
 
@@ -72,5 +73,37 @@ describe('UI flow — transfer (transfer variant)', () => {
     expect(s.defenderIndex).toBe(1);          // passed to the next player
     expect(s.status).toBe('defense');
     expect(s.players[0].hand.some((c) => c.rank === '7' && c.suit === 'clubs')).toBe(false);
+  });
+});
+
+describe('multiplayer edge cases — players who are out (Stage 9.13)', () => {
+  it('transfer skips a player who is already out and lands on the next active seat', () => {
+    // 3p transfer: seat 1 is OUT (no cards). Seat 0 (defender) transfers a 7 — it
+    // must NOT pass to the out seat 1 but to the next ACTIVE player (seat 2).
+    let s = st({
+      variant: 'transfer', status: 'defense',
+      players: [P(0, [C('7', 'diamonds'), C('8', 'clubs')]), P(1, []), P(2, [C('K', 'spades'), C('Q', 'spades')])],
+      table: [{ attack: C('7', 'hearts'), defense: null }],
+      attackerIndex: 2, defenderIndex: 0, throwerIndex: 2, lastThrowerIndex: 2,
+    });
+    expect(canTransfer(s)).toBe(true);
+    s = durakReducer(s, { type: 'TRANSFER_ATTACK', card: C('7', 'diamonds') })!;
+    expect(s.defenderIndex).toBe(2);          // seat 1 (out) skipped → seat 2 defends
+    expect(s.attackerIndex).toBe(0);          // the transferrer leads
+    expect(s.status).toBe('defense');
+  });
+
+  it('a thrower with no cards never gets the turn; the bout resolves instead', () => {
+    // 3p: seat 0 primary attacker passes; seat 2 (the only other attacker) is OUT,
+    // so nobody can throw and — all beaten — the defended bout resolves.
+    let s = st({
+      players: [P(0, [C('A', 'spades')]), P(1, [C('K', 'spades')]), P(2, [])],
+      table: [{ attack: C('6', 'hearts'), defense: C('7', 'hearts') }],
+      status: 'attack', attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, lastThrowerIndex: 0,
+    });
+    s = durakReducer(s, { type: 'PASS_ATTACK' })!; // seat 0 passes → seat 2 is out → resolve
+    expect(getActingDurakPlayerId(s)).not.toBe('player-2'); // the out seat never acts
+    expect(s.table).toEqual([]);              // bout resolved, not stuck on the out seat
+    expect(s.discardPile.map((c) => `${c.rank}${c.suit[0]}`).sort()).toEqual(['6h', '7h']);
   });
 });

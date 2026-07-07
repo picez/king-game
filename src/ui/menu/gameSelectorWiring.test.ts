@@ -51,9 +51,10 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
     expect(src).toContain('setDurakVariant');
   });
-  it('marks online Durak as experimental', () => {
-    expect(src).toMatch(/menu\.experimental/);
-    expect(src).toMatch(/durak\.onlineExperimentalNote/);
+  it('shows the Durak variants subtitle and no Experimental note (released, Stage 9.13)', () => {
+    expect(src).toMatch(/durak\.variantsShort/);     // Simple · Transfer subtitle kept
+    expect(src).not.toMatch(/menu\.experimental/);   // Experimental badge removed
+    expect(src).not.toMatch(/durak\.onlineExperimentalNote/); // Experimental note removed
   });
 });
 

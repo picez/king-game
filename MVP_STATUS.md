@@ -153,8 +153,11 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 ## Known limitations
 
 - Room password is an **MVP gate**, not full moderation/auth; production should
-  keep **WSS** enabled and add per-IP join/create rate limiting before a public
-  launch.
+  keep **WSS** enabled before a public launch.
+- **Per-connection** WS rate limiting is in place (message + CREATE_ROOM token
+  buckets, env-tunable via `WS_MSG_BURST`/`WS_MSG_PER_SEC`/`WS_CREATE_BURST`/
+  `WS_CREATE_PER_SEC`). It caps amplification through one socket; **per-IP /
+  connection-count** limiting is still an infra/proxy concern for a public launch.
 - The production server is still a **single Node instance**. Rooms can persist to
   Postgres (`ROOM_STORAGE=pg`), but horizontal scaling needs Redis/pub-sub or
   sticky sessions.
@@ -168,14 +171,19 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
 2. Add join/create **rate limiting** before any broader public launch.
-3. **Durak finish-up (experimental).** Local Durak (simple + transfer) is playable,
-   and **experimental online Durak** rooms can be hosted/joined with bots
-   (Stage 9.6/9.7) — King state/action are a union over the wire, hands are
-   redacted per game, the not-your-turn view is read-only ("bot thinking /
-   waiting / offline — AI may play"), and reconnect/leave/chat all work (QA'd via
-   a full-game + multi-human e2e with no redaction leak). Durak online is clearly
-   labelled experimental. **Durak stats are not recorded yet** — that + a
-   leaderboard are the remaining work. Spec: [`DURAK_RULES.md`](DURAK_RULES.md);
-   design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
+3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)
+   and **online Durak** rooms (host/join with bots) are fully playable — King
+   state/action are a union over the wire, hands are redacted per game, the
+   not-your-turn view is read-only ("bot thinking / waiting / offline — AI may
+   play"), and reconnect/restart/leave/chat all work (QA'd via a full-game +
+   multi-human e2e with no redaction leak). The **release audit** verified the
+   state machine + invariants, online authorization/redaction (acting seat is
+   derived server-side; Durak actions carry no spoofable actor), restart/reconnect
+   during defense/taking/transfer, and a deterministic bot soak (`npm run soak` —
+   2/3/4 players × simple/transfer × 30 seeds = 180 games, all invariants hold).
+   The **Experimental** label has been removed from the menu, Host sheet, and
+   Lobby. **Durak stats are not recorded yet** (`recordsStats: false`) — Durak
+   stats + a leaderboard are the only remaining (post-release) work. Spec:
+   [`DURAK_RULES.md`](DURAK_RULES.md); design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
 4. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
 5. (Optional) public deal-commitment for verifiable fairness.
