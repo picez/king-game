@@ -4,7 +4,7 @@
 // declared melds actually score using the hierarchy helpers here.
 // ---------------------------------------------------------------------------
 
-import type { Card, Suit } from '../../models/types';
+import type { Card, Rank, Suit } from '../../models/types';
 import { seqValue, DEBERC_SUITS } from './deck';
 import type { DebercMeld, DebercMeldKind } from './types';
 
@@ -45,6 +45,7 @@ function toMeld(seatIndex: number, run: Card[], suit: Suit, trumpSuit: Suit | nu
     cards: run,
     topValue: seqValue(run[run.length - 1].rank),
     isTrump: trumpSuit != null && suit === trumpSuit,
+    revealed: false,
   };
 }
 
@@ -111,14 +112,12 @@ export function scoringSequenceSeats(best: (DebercMeld | null)[]): number[] {
     .map(({ seat }) => seat);
 }
 
-// --- Declared melds (v1.2 — bluff: announce a KIND, held or not) -------------
-
-/** The minimum run length for each sequence band. */
-const BAND_MIN_LEN: Record<'terz' | 'platina' | 'deberc', number> = { terz: 3, platina: 4, deberc: 8 };
+// --- Declared melds (v1.3 — truthful: announce kind + nominal) ---------------
 
 /**
- * Every same-suit run (≥3) a hand holds — one per suit (its longest run). Used by
- * the UI to show the human which sequences it can truthfully declare.
+ * Every same-suit run (≥3) a hand holds — one per suit (its longest run). The UI
+ * shows these as the melds the human can TRUTHFULLY announce (each with its
+ * nominal = top card). Bots pick their best from here (`detectBestSequence`).
  */
 export function detectAllSequences(
   hand: Card[],
@@ -133,99 +132,29 @@ export function detectAllSequences(
   return melds;
 }
 
-/** Points a VALID declared claim of `kind` scores (деберц is a jackpot → 0 here). */
-export function kindPoints(kind: DebercMeldKind): number {
-  return kind === 'platina' ? 50 : kind === 'deberc' ? 0 : 20; // terz & bella = 20
-}
-
 /**
- * The best same-suit run of length ≥ `minLen` a hand holds (highest top card,
- * trump breaking ties), or null. Used to validate a band claim and rank it.
+ * Validate and reconstruct a declared SEQUENCE meld from `kind` + `topRank`
+ * against the seat's real hand (v1.3, no bluff). Returns the meld (its real
+ * cards) if the seat holds a same-suit run whose natural band is `kind` and whose
+ * top card rank is `topRank`; otherwise null (an illegal, unheld announcement).
+ * Bella is handled by `hasBella` — this only builds sequences.
  */
-export function bestRunOfBand(
+export function announcedMeld(
   hand: Card[],
-  minLen: number,
+  seatIndex: number,
+  kind: DebercMeldKind,
+  topRank: Rank,
   trumpSuit: Suit | null,
-): { cards: Card[]; top: number; isTrump: boolean } | null {
-  let best: { cards: Card[]; top: number; isTrump: boolean } | null = null;
+): DebercMeld | null {
+  if (kind === 'bella') return null;
   for (const suit of DEBERC_SUITS) {
     const run = longestRunInSuit(hand.filter((c) => c.suit === suit));
-    if (!run || run.length < minLen) continue;
-    const isTrump = trumpSuit != null && suit === trumpSuit;
-    const top = seqValue(run[run.length - 1].rank);
-    if (best == null || top > best.top || (top === best.top && isTrump && !best.isTrump)) {
-      best = { cards: run, top, isTrump };
+    if (!run) continue;
+    if (sequenceKind(run.length) === kind && run[run.length - 1].rank === topRank) {
+      return toMeld(seatIndex, run, suit, trumpSuit);
     }
   }
-  return best;
-}
-
-/** Whether a hand truthfully holds a claim of `kind` (§4). */
-export function holdsClaim(hand: Card[], kind: DebercMeldKind, trumpSuit: Suit | null): boolean {
-  if (kind === 'bella') return hasBella(hand, trumpSuit);
-  return bestRunOfBand(hand, BAND_MIN_LEN[kind], trumpSuit) != null;
-}
-
-/**
- * The claims a hand can TRUTHFULLY make (§4): the single best sequence band it
- * holds (deberc > platina > terz), plus 'bella' when it holds trump K+Q. Bots
- * declare exactly these, so a bot never bluffs (never incurs the −50 penalty).
- */
-export function detectHeldKinds(hand: Card[], trumpSuit: Suit | null): DebercMeldKind[] {
-  const claims: DebercMeldKind[] = [];
-  if (bestRunOfBand(hand, BAND_MIN_LEN.deberc, trumpSuit)) claims.push('deberc');
-  else if (bestRunOfBand(hand, BAND_MIN_LEN.platina, trumpSuit)) claims.push('platina');
-  else if (bestRunOfBand(hand, BAND_MIN_LEN.terz, trumpSuit)) claims.push('terz');
-  if (hasBella(hand, trumpSuit)) claims.push('bella');
-  return claims;
-}
-
-/** A valid declared sequence claim, built at its claimed band (not the run length). */
-function claimMeld(seatIndex: number, kind: DebercMeldKind, run: { cards: Card[]; top: number; isTrump: boolean }): DebercMeld {
-  return { seatIndex, kind, points: kindPoints(kind), cards: run.cards, topValue: run.top, isTrump: run.isTrump };
-}
-
-export interface ResolvedDeclarations {
-  /** Valid declared terz/platina melds (pre-hierarchy), for scoring/display. */
-  seqMelds: DebercMeld[];
-  /** Seats whose 'bella' claim is truthful (hold trump K+Q). */
-  bellaSeats: number[];
-  /** Count of FALSE (bluffed) claims per seat — each costs −50 at scoring. */
-  falseBySeat: number[];
-}
-
-/**
- * Resolve every seat's raw claims against its actual dealt hand (v1.2). Truthful
- * terz/platina claims become scoring melds (at their claimed band); a truthful
- * bella claim marks the seat; every claim the seat does NOT hold is a bluff
- * counted in `falseBySeat` (−50 each at scoring). A truthful `deberc` is handled
- * at declaration (instant win), so here it scores nothing; a bluffed `deberc` is
- * a false claim. Claims are de-duplicated per seat (one button per kind).
- */
-export function resolveDeclarations(
-  dealtHands: Card[][],
-  claims: DebercMeldKind[][],
-  trumpSuit: Suit | null,
-): ResolvedDeclarations {
-  const seqMelds: DebercMeld[] = [];
-  const bellaSeats: number[] = [];
-  const falseBySeat = dealtHands.map(() => 0);
-  dealtHands.forEach((hand, seat) => {
-    const seen = new Set<DebercMeldKind>();
-    for (const kind of claims[seat] ?? []) {
-      if (seen.has(kind)) continue;
-      seen.add(kind);
-      if (kind === 'bella') {
-        if (hasBella(hand, trumpSuit)) bellaSeats.push(seat);
-        else falseBySeat[seat] += 1;
-        continue;
-      }
-      const run = bestRunOfBand(hand, BAND_MIN_LEN[kind], trumpSuit);
-      if (!run) { falseBySeat[seat] += 1; continue; } // bluff
-      if (kind !== 'deberc') seqMelds.push(claimMeld(seat, kind, run)); // valid deberc → instant win, no score
-    }
-  });
-  return { seqMelds, bellaSeats, falseBySeat };
+  return null;
 }
 
 /**

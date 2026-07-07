@@ -31,7 +31,7 @@ function declareAllPass(s: DebercState): DebercState {
   let cur = s;
   let guard = 0;
   while (cur.phase === 'declaring' && guard++ < 10) {
-    cur = debercReducer(cur, { type: 'DECLARE_MELD', claims: [] }, {})!;
+    cur = debercReducer(cur, { type: 'DECLARE_MELD', melds: [] }, {})!;
   }
   return cur;
 }
@@ -47,7 +47,7 @@ function playOutHand(state: DebercState, ctx = { rng: makeRng(1) }): DebercState
   let guard = 0;
   while (s.phase !== 'hand_scoring' && s.phase !== 'finished' && guard++ < 500) {
     if (s.phase === 'declaring') {
-      s = debercReducer(s, { type: 'DECLARE_MELD', claims: [] }, ctx)!; // pass
+      s = debercReducer(s, { type: 'DECLARE_MELD', melds: [] }, ctx)!; // pass
       continue;
     }
     if (s.phase === 'trick_complete') {
@@ -173,37 +173,62 @@ describe('debercReducer — play (§5)', () => {
   });
 });
 
-describe('debercReducer — declaring (§4, v1.2 bluff)', () => {
-  it('records the acting seat\'s claims and advances the declaring turn', () => {
+describe('debercReducer — declaring (§4, v1.3 truthful + reveal)', () => {
+  const ALL_SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
+  /** A 9-card hand holding exactly a terz (`ranks` of `suit`) + non-run fillers. */
+  const craftTerz = (suit: Suit, ranks: Rank[]) => {
+    const run = ranks.map((r) => c(suit, r));
+    const fill = ALL_SUITS.filter((x) => x !== suit).flatMap((su) => [c(su, '6'), c(su, '8')]); // 6/8 never extend a run
+    return [...run, ...fill].slice(0, 9);
+  };
+
+  it('records a TRUTHFUL announcement (held terz) and advances the turn', () => {
     const s1 = acceptTableTrump(start(3, 'small', 5));
     const seat = s1.meldTurnSeat;
-    const next = debercReducer(s1, { type: 'DECLARE_MELD', claims: ['terz'] }, {})!;
-    expect(next.declaredClaims[seat]).toEqual(['terz']);
+    const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? craftTerz(someNonTrump(s1), ['J', 'Q', 'K']) : h)) };
+    const next = debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'terz', topRank: 'K' }] }, {})!;
+    expect(next.declaredMelds.some((m) => m.seatIndex === seat && m.kind === 'terz')).toBe(true);
     expect(next.meldsDone[seat]).toBe(true);
-    expect(next.phase === 'declaring' || next.phase === 'playing').toBe(true);
   });
 
-  it('a TRUTHFUL деберц claim (real 8-run) wins the match instantly (jackpot)', () => {
-    const s1 = acceptTableTrump(start(3, 'small', 5));
-    const seat = s1.meldTurnSeat;
-    const suit = someNonTrump(s1);
-    const run8 = (['7', '8', '9', '10', 'J', 'Q', 'K', 'A'] as Rank[]).map((r) => c(suit, r)); // 32-deck run
-    const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? run8 : h)) };
-    const won = debercReducer(crafted, { type: 'DECLARE_MELD', claims: ['deberc'] }, {})!;
-    expect(won.phase).toBe('finished');
-    expect(won.jackpot).toBe(true);
-    expect(won.winnerTeam).toBe(won.teamOf[seat]);
-  });
-
-  it('a BLUFFED деберц (no 8-run) does NOT win — just a recorded false claim', () => {
+  it('an UNHELD announcement is illegal (no bluff) → same state reference', () => {
     const s1 = acceptTableTrump(start(3, 'small', 5));
     const seat = s1.meldTurnSeat;
     const noRun = [c('spades', '7'), c('hearts', '9'), c('diamonds', 'J'), c('clubs', 'K'),
       c('spades', 'A'), c('hearts', '7'), c('diamonds', '9'), c('clubs', 'J'), c('spades', 'K')];
     const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? noRun : h)) };
-    const bluff = debercReducer(crafted, { type: 'DECLARE_MELD', claims: ['deberc'] }, {})!;
-    expect(bluff.phase).not.toBe('finished');
-    expect(bluff.declaredClaims[seat]).toEqual(['deberc']);
+    expect(debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'deberc', topRank: 'A' }] }, {})).toBe(crafted);
+  });
+
+  it('a TRUTHFUL деберц (real 8-run) wins the match instantly (jackpot)', () => {
+    const s1 = acceptTableTrump(start(3, 'small', 5));
+    const seat = s1.meldTurnSeat;
+    const suit = someNonTrump(s1);
+    const run8 = (['7', '8', '9', '10', 'J', 'Q', 'K', 'A'] as Rank[]).map((r) => c(suit, r)); // 32-deck run
+    const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? run8 : h)) };
+    const won = debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'deberc', topRank: 'A' }] }, {})!;
+    expect(won.phase).toBe('finished');
+    expect(won.jackpot).toBe(true);
+    expect(won.winnerTeam).toBe(won.teamOf[seat]);
+  });
+
+  it('among equal-kind terz, only the higher nominal reveals & scores (§4)', () => {
+    const s0 = acceptTableTrump(start(3, 'small', 5));
+    const plains = ALL_SUITS.filter((x) => x !== s0.trumpSuit);
+    const order = [s0.meldTurnSeat, (s0.meldTurnSeat + 1) % 3, (s0.meldTurnSeat + 2) % 3];
+    const lowSeat = order[0], highSeat = order[1];
+    let s: DebercState = { ...s0, dealtHands: s0.dealtHands.map((h, i) =>
+      i === lowSeat ? craftTerz(plains[0], ['9', '10', 'J'])
+        : i === highSeat ? craftTerz(plains[1], ['J', 'Q', 'K']) : h) };
+    for (const seat of order) {
+      const melds = seat === lowSeat ? [{ kind: 'terz' as const, topRank: 'J' as Rank }]
+        : seat === highSeat ? [{ kind: 'terz' as const, topRank: 'K' as Rank }] : [];
+      s = debercReducer(s, { type: 'DECLARE_MELD', melds }, {})!;
+    }
+    expect(s.phase).toBe('playing');
+    const terz = s.declaredMelds.filter((m) => m.kind === 'terz');
+    expect(terz.find((m) => m.seatIndex === highSeat)!.revealed).toBe(true);
+    expect(terz.find((m) => m.seatIndex === lowSeat)!.revealed).toBe(false);
   });
 
   it('an undeclared sequence scores nothing (all pass) — hand still plays out', () => {

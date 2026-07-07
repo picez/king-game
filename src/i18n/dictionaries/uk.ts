@@ -171,6 +171,8 @@ export const UK: Record<string, string> = {
   'deberc.declarePass': 'Пропустити',
   'deberc.declaredBy': 'Оголосив:',
   'deberc.noMelds': 'Немає що оголошувати',
+  'deberc.meldTo': 'до',
+  'deberc.declareHint': 'Оголоси комбінацію — старший показує й грає',
   'deberc.meldTerz': 'Терц',
   'deberc.meldPlatina': 'Платіна',
   'deberc.meldDeberc': 'Деберц',

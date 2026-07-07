@@ -28,7 +28,7 @@ describe('scoreHand (DEBERC_RULES §6)', () => {
     ];
     const res = scoreHand({
       wonCards, trumpSuit: 'hearts', lastTrickWinnerSeat: 1,
-      teamOf, teamCount, declaredSequences: [], bellaSeats: [], penaltyByTeam: [0, 0],
+      teamOf, teamCount, declaredSequences: [], bellaSeats: [],
     });
     expect(res.cardPoints[0]).toBe(11 + 20);
     expect(res.cardPoints[1]).toBe(10 + LAST_TRICK_BONUS);
@@ -40,7 +40,7 @@ describe('scoreHand (DEBERC_RULES §6)', () => {
     const seat1 = detectBestSequence(run('clubs', ['9', '10', 'J', 'Q']), 1, 'hearts')!;  // platina 50 → cancels terz
     const res = scoreHand({
       wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, declaredSequences: [seat0, seat1], bellaSeats: [], penaltyByTeam: [0, 0],
+      teamOf, teamCount, declaredSequences: [seat0, seat1], bellaSeats: [],
     });
     expect(res.meldPoints[0]).toBe(0);   // terz shut out
     expect(res.meldPoints[1]).toBe(50);  // platina scores
@@ -51,7 +51,7 @@ describe('scoreHand (DEBERC_RULES §6)', () => {
     const seat0 = detectBestSequence(run('spades', ['7', '8', '9']), 0, 'hearts')!;
     const res = scoreHand({
       wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, declaredSequences: [seat0], bellaSeats: [], penaltyByTeam: [0, 0],
+      teamOf, teamCount, declaredSequences: [seat0], bellaSeats: [],
     });
     expect(res.meldPoints[0]).toBe(20); // the declared terz scores — nothing declared beats it
   });
@@ -59,18 +59,9 @@ describe('scoreHand (DEBERC_RULES §6)', () => {
   it('adds bella to the earning seat’s team', () => {
     const res = scoreHand({
       wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, declaredSequences: [], bellaSeats: [2], penaltyByTeam: [0, 0],
+      teamOf, teamCount, declaredSequences: [], bellaSeats: [2],
     });
     expect(res.meldPoints[0]).toBe(BELLA_POINTS);
     expect(res.teamPoints[0]).toBe(LAST_TRICK_BONUS + BELLA_POINTS);
-  });
-
-  it('subtracts a false-claim penalty from the team total (v1.2)', () => {
-    const res = scoreHand({
-      wonCards: [[card('spades', 'A')], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, declaredSequences: [], bellaSeats: [], penaltyByTeam: [50, 0],
-    });
-    expect(res.penaltyPoints).toEqual([50, 0]);
-    expect(res.teamPoints[0]).toBe(11 + LAST_TRICK_BONUS - 50); // card+last − bluff penalty
   });
 });

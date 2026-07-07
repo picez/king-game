@@ -13,11 +13,11 @@
 // `legacyDebercBotAction` purely as the evaluation baseline.
 // ---------------------------------------------------------------------------
 
-import type { Card, Suit } from '../../models/types';
-import type { DebercAction, DebercState } from './types';
+import type { Card, Rank, Suit } from '../../models/types';
+import type { DebercAction, DebercMeldKind, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
 import { legalPlays, resolveTrick } from './rules';
-import { detectHeldKinds } from './melds';
+import { detectBestSequence, hasBella } from './melds';
 
 /**
  * Minimum hand score (see suitScore) at which a bot commits to a trump. Bidding
@@ -185,8 +185,14 @@ function playAction(state: DebercState): DebercAction {
  * truthful деберц claim wins the match outright.
  */
 function declareAction(state: DebercState): DebercAction {
-  const claims = detectHeldKinds(state.dealtHands[state.meldTurnSeat], state.trumpSuit);
-  return { type: 'DECLARE_MELD', claims };
+  const seat = state.meldTurnSeat;
+  const hand = state.dealtHands[seat];
+  const melds: { kind: DebercMeldKind; topRank?: Rank }[] = [];
+  // Announce the single best held sequence (with its real nominal) — no bluff.
+  const best = detectBestSequence(hand, seat, state.trumpSuit);
+  if (best) melds.push({ kind: best.kind, topRank: best.cards[best.cards.length - 1].rank });
+  if (hasBella(hand, state.trumpSuit)) melds.push({ kind: 'bella' });
+  return { type: 'DECLARE_MELD', melds };
 }
 
 /**

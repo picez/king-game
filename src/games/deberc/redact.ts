@@ -35,6 +35,12 @@ export function debercRedactStateFor(state: DebercState, viewerSeat: number | nu
     // Прикуп packets are face-down until taken — hidden for EVERY seat (even the
     // owner has not looked). Empty once merged into hands on trump commit.
     prykup: state.prykup.map(hide),
+    // Declared melds (v1.3): the ANNOUNCEMENT (seat + kind + nominal) is public,
+    // but the actual CARDS are shown only for the viewer's own melds, the §4
+    // winners (revealed), or once the hand is over. Others' cards are stripped —
+    // so opponents see "Bot 2: Терц до K" but not the cards until it's revealed.
+    declaredMelds: state.declaredMelds.map((m) =>
+      m.revealed || m.seatIndex === viewerSeat || handOver ? m : { ...m, cards: [] }),
     // tableTrumpCard / trumpSuit / currentTrick / wonCards / melds / scores: public.
   };
 }

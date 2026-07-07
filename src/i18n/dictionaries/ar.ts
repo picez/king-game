@@ -171,6 +171,8 @@ export const AR: Record<string, string> = {
   'deberc.declarePass': 'تخطٍّ',
   'deberc.declaredBy': 'أعلن:',
   'deberc.noMelds': 'لا توجد تشكيلات للإعلان',
+  'deberc.meldTo': 'حتى',
+  'deberc.declareHint': 'أعلن تشكيلة — صاحب الأعلى يكشف ويسجّل',
   'deberc.meldTerz': 'تيرز',
   'deberc.meldPlatina': 'بلاتينا',
   'deberc.meldDeberc': 'ديبيرك',

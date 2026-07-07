@@ -3,7 +3,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import { seqValue } from './deck';
 import {
   detectBestSequence, compareSequences, scoringSequenceSeats, hasBella,
-  resolveDeclarations, detectHeldKinds,
+  announcedMeld,
 } from './melds';
 
 const card = (suit: Suit, rank: Rank): Card => ({ suit, rank, value: seqValue(rank) });
@@ -60,32 +60,28 @@ describe('compareSequences', () => {
   });
 });
 
-describe('resolveDeclarations (§4, v1.2 bluff + penalty)', () => {
+describe('announcedMeld (§4, v1.3 truthful)', () => {
   const trump: Suit = 'hearts';
 
-  it('a truthful under-claim scores; a bluff is counted as a false claim', () => {
-    const hands = [
-      run('spades', ['7', '8', '9', '10']), // seat0 holds a platina (4-run)…
-      run('clubs', ['J', 'Q']),             // seat1 holds no sequence
-      [],                                    // seat2 passes
-    ];
-    // seat0 under-claims a terz (valid — it holds ≥3), seat1 bluffs a platina.
-    const r = resolveDeclarations(hands, [['terz'], ['platina'], []], trump);
-    expect(r.seqMelds.some((m) => m.seatIndex === 0 && m.kind === 'terz')).toBe(true);
-    expect(r.falseBySeat).toEqual([0, 1, 0]);
+  it('validates and reconstructs a held terz by its nominal', () => {
+    const m = announcedMeld(run('spades', ['9', '10', 'J']), 0, 'terz', 'J', trump);
+    expect(m?.kind).toBe('terz');
+    expect(m?.topValue).toBe(seqValue('J'));
+    expect(m?.cards).toHaveLength(3);
+    expect(m?.revealed).toBe(false);
   });
 
-  it('bella: held (trump K+Q) is valid; not held is a false claim', () => {
-    const withBella = [card('hearts', 'K'), card('hearts', 'Q'), card('spades', 'A')];
-    const noBella = [card('spades', '7'), card('clubs', '8')];
-    const r = resolveDeclarations([withBella, noBella], [['bella'], ['bella']], trump);
-    expect(r.bellaSeats).toEqual([0]);
-    expect(r.falseBySeat).toEqual([0, 1]);
+  it('rejects a meld/nominal the hand does not hold (no bluff)', () => {
+    const hand = run('spades', ['9', '10', 'J']); // only a terz-to-J
+    expect(announcedMeld(hand, 0, 'platina', 'A', trump)).toBeNull(); // no platina
+    expect(announcedMeld(hand, 0, 'terz', 'K', trump)).toBeNull();    // wrong nominal
+    expect(announcedMeld(hand, 0, 'bella', 'K', trump)).toBeNull();   // bella isn't a sequence
   });
 
-  it('detectHeldKinds reports the best band a hand holds + bella', () => {
-    const hand = [...run('spades', ['9', '10', 'J', 'Q']), card('hearts', 'K'), card('hearts', 'Q')];
-    expect(detectHeldKinds(hand, trump).sort()).toEqual(['bella', 'platina']);
+  it('the run’s natural band must match the claimed kind (no under-claim)', () => {
+    const hand = run('spades', ['9', '10', 'J', 'Q']); // a platina (4-run), top Q
+    expect(announcedMeld(hand, 0, 'terz', 'Q', trump)).toBeNull();
+    expect(announcedMeld(hand, 0, 'platina', 'Q', trump)?.kind).toBe('platina');
   });
 });
 

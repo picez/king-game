@@ -3,7 +3,7 @@
 // See DEBERC_RULES.md for the source of truth.
 // ---------------------------------------------------------------------------
 
-import type { Card, Suit, PlayerType } from '../../models/types';
+import type { Card, Rank, Suit, PlayerType } from '../../models/types';
 import type { Rng } from '../../core/rng';
 
 export type { Card } from '../../models/types';
@@ -62,10 +62,17 @@ export interface DebercMeld {
   points: number;
   /** Sequence cards (for terz/platina/deberc); the bella's K+Q for 'bella'. */
   cards: Card[];
-  /** Top card of the sequence — used to rank equal-length melds. */
+  /** Top card (nominal) of the sequence — ranks equal-band melds (§4). */
   topValue: number;
   /** Whether the meld is in the trump suit (breaks ties in favour of trump). */
   isTrump: boolean;
+  /**
+   * v1.3: whether this DECLARED meld is shown to everyone. A player announces
+   * kind + nominal without showing cards; when the declaring phase resolves, only
+   * the winning holder(s) per kind reveal their cards (redaction strips the cards
+   * of unrevealed melds from other viewers). Losers announced but do not reveal.
+   */
+  revealed: boolean;
 }
 
 /** A single bid during the trump-choosing phase. */
@@ -138,12 +145,12 @@ export interface DebercState {
   /** Declaring phase: whose turn it is to declare melds (starts at the об'яз). */
   meldTurnSeat: number;
   /**
-   * Each seat's RAW meld claims this hand (v1.2 — a bluff: the seat announces
-   * kinds it may or may not hold). Resolved at scoring against `dealtHands`: a
-   * held claim scores; a false claim costs −50 (FALSE_MELD_PENALTY). Empty = pass.
+   * Every meld ANNOUNCED this hand (v1.3 — truthful, no bluff). Each is validated
+   * against the seat's real hand at declaration, so it always exists. During the
+   * declaring phase all announcements are public (seat + kind + nominal), but the
+   * cards of an unrevealed meld are stripped for other viewers (redaction). When
+   * declaring resolves, the winning holder(s) per kind get `revealed: true`.
    */
-  declaredClaims: DebercMeldKind[][];
-  /** The VALID sequence melds that scored (resolved at hand_scoring; for display). */
   declaredMelds: DebercMeld[];
   /** Which seats have finished declaring (or passing) this hand. */
   meldsDone: boolean[];
@@ -185,10 +192,8 @@ export interface DebercHandResult {
   teamPoints: number[];
   /** Card points (incl. last-trick bonus) per team, before ХВ redirection. */
   cardPoints: number[];
-  /** Meld points (valid declared sequences + earned bella) per team. */
+  /** Meld points (winning declared sequences + earned bella) per team. */
   meldPoints: number[];
-  /** False-claim penalties per team this hand (each bluff = −50, v1.2). */
-  penaltyPoints: number[];
   /** Team that received an ХВ this hand, or null. */
   hvTeam: number | null;
   /** Teams that took zero tricks (бейт). */
@@ -211,12 +216,15 @@ export type DebercAction =
   /** A bid during the bidding phase: commit to `suit`, or pass with suit=null. */
   | { type: 'BID'; suit: Suit | null }
   /**
-   * The acting seat's meld claims for the hand (v1.2 bluff): a set of kinds the
-   * seat announces (Терц / Платіна / Деберц / Бела). No cards — a bluffer holds
-   * none. An empty list = pass. Held claims score; false claims cost −50 at
-   * scoring. A truthful `deberc` claim (run ≥ 8) ends the match immediately.
+   * The acting seat's meld announcements for the hand (v1.3 — truthful, no bluff).
+   * Each names a `kind` and, for a sequence, its top `topRank` (nominal, e.g. a
+   * "терц до K"); `bella` carries no rank. The engine VALIDATES every announcement
+   * against the seat's real hand — an unheld meld is illegal (rejected). An empty
+   * list = pass. Among equal kinds the highest nominal (trump breaks ties) reveals
+   * and scores; lower holders score 0 and do not reveal. A truthful `deberc`
+   * (run ≥ 8) ends the match immediately.
    */
-  | { type: 'DECLARE_MELD'; claims: DebercMeldKind[] }
+  | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; topRank?: Rank }[] }
   /** Play a card into the current trick. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */

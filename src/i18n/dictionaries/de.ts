@@ -171,6 +171,8 @@ export const DE: Record<string, string> = {
   'deberc.declarePass': 'Überspringen',
   'deberc.declaredBy': 'Gemeldet:',
   'deberc.noMelds': 'Keine Kombinationen zum Melden',
+  'deberc.meldTo': 'bis',
+  'deberc.declareHint': 'Kombination ansagen — der Höchste zeigt & zählt',
   'deberc.meldTerz': 'Terz',
   'deberc.meldPlatina': 'Platina',
   'deberc.meldDeberc': 'Deberc',

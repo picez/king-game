@@ -171,6 +171,8 @@ export const EN: Record<string, string> = {
   'deberc.declarePass': 'Skip',
   'deberc.declaredBy': 'Declared:',
   'deberc.noMelds': 'No melds to declare',
+  'deberc.meldTo': 'to',
+  'deberc.declareHint': 'Announce a meld — the highest holder shows & scores',
   'deberc.meldTerz': 'Terz',
   'deberc.meldPlatina': 'Platina',
   'deberc.meldDeberc': 'Deberc',

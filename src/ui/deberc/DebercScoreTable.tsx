@@ -57,7 +57,6 @@ export function DebercScoreSheet({ state }: { state: DebercState }) {
                   <span className="deberc-sheet__break">
                     {h.cardPoints[team]}
                     {h.meldPoints[team] ? ` +${h.meldPoints[team]}` : ''}
-                    {h.penaltyPoints[team] ? ` −${h.penaltyPoints[team]}` : ''}
                   </span>
                 </td>
               ))}

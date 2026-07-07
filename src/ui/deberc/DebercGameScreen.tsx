@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
-import type { DebercAction, DebercMeldKind, DebercState } from '../../games/deberc/types';
+import type { DebercAction, DebercMeld, DebercMeldKind, DebercState } from '../../games/deberc/types';
 import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/engine';
 import { cardEquals } from '../../games/deberc/rules';
+import { detectAllSequences, hasBella } from '../../games/deberc/melds';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
 import DebercScoreTable from './DebercScoreTable';
 import DebercTricksReview from './DebercTricksReview';
 
-/** The four declarable meld kinds — buttons are ALWAYS shown (bluffing, §4 v1.2). */
-const ALL_MELD_KINDS: DebercMeldKind[] = ['terz', 'platina', 'deberc', 'bella'];
+/** Nominal (top card) label for a declared meld — from its cards, or its topValue. */
+const VALUE_TO_RANK: Record<number, string> = { 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 
 /** Transient "what just happened" banner (a trick resolved). */
 export type DebercNotice = { kind: 'trick'; winner: string };
@@ -79,19 +80,41 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const myBid = phase === 'bidding' && state.bidderSeat === meSeat;
   const otherSuits = ALL_SUITS.filter((s) => s !== state.tableTrumpCard.suit);
 
-  // --- Declaring phase (v1.2): a BLUFF — buttons are always shown, NOT gated by
-  // what I actually hold. Claiming a meld I do not have costs my team −50 (§4).
+  // --- Declaring phase (v1.3): TRUTHFUL — chips list only the melds I actually
+  // hold (each with its nominal). Among equal kinds the highest nominal reveals &
+  // scores; lower holders do not reveal. No bluff.
   const myDeclare = phase === 'declaring' && state.meldTurnSeat === meSeat;
   const kindLabel = (kind: DebercMeldKind) =>
     kind === 'deberc' ? t('deberc.meldDeberc')
       : kind === 'platina' ? t('deberc.meldPlatina')
         : kind === 'bella' ? t('deberc.meldBella')
           : t('deberc.meldTerz');
-  // Which kinds the human has toggled on to claim; reset when the turn changes.
-  const [claims, setClaims] = useState<DebercMeldKind[]>([]);
-  useEffect(() => { setClaims([]); }, [phase, state.meldTurnSeat]);
-  const toggleClaim = (k: DebercMeldKind) =>
-    setClaims((cs) => (cs.includes(k) ? cs.filter((x) => x !== k) : [...cs, k]));
+  const meldNominal = (m: DebercMeld) =>
+    m.cards.length ? m.cards[m.cards.length - 1].rank : (VALUE_TO_RANK[m.topValue] ?? '');
+  const meldLabel = (m: DebercMeld) =>
+    m.kind === 'bella' ? kindLabel(m.kind) : `${kindLabel(m.kind)} ${t('deberc.meldTo')} ${meldNominal(m)}`;
+  // The real melds I can announce this turn (sequences + bella), from my own hand.
+  const myHand = state.dealtHands[meSeat] ?? me.hand;
+  const myMelds: DebercMeld[] = myDeclare
+    ? [
+      ...detectAllSequences(myHand, meSeat, trump),
+      ...(hasBella(myHand, trump)
+        ? [{ seatIndex: meSeat, kind: 'bella' as const, points: 20, cards: [] as Card[], topValue: 0, isTrump: true, revealed: false }]
+        : []),
+    ]
+    : [];
+  // Which of my held melds I've toggled to announce; reset when the turn changes.
+  const [picked, setPicked] = useState<number[]>([]);
+  useEffect(() => { setPicked([]); }, [phase, state.meldTurnSeat]);
+  const togglePick = (i: number) =>
+    setPicked((p) => (p.includes(i) ? p.filter((x) => x !== i) : [...p, i]));
+  const announce = () => apply({
+    type: 'DECLARE_MELD',
+    melds: picked.map((i) => {
+      const m = myMelds[i];
+      return m.kind === 'bella' ? { kind: 'bella' as const } : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank };
+    }),
+  });
 
   /** A seat's latest bid this hand as a tag (during bidding): passed / took trump. */
   function seatBidTag(seat: number) {
@@ -162,15 +185,18 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         <span className="tag">{t('deberc.target')} {state.matchSize === 'big' ? 1020 : 510}</span>
       </div>
 
-      {/* What each seat CLAIMED this hand — visible to everyone (immersive). Truth
-          vs bluff is only revealed in the score table at hand end. */}
-      {state.declaredClaims.some((c) => c.length > 0) && (
+      {/* What each seat ANNOUNCED this hand (kind + nominal) — public to everyone.
+          The cards themselves are shown only for the §4 winner (✓ revealed). */}
+      {state.declaredMelds.length > 0 && (
         <div className="deberc-declared" role="status">
-          {state.declaredClaims.map((seatClaims, seat) => (seatClaims.length === 0 ? null : (
-            <span key={seat} className={`tag deberc-declared__item ${seatClaims.includes('deberc') ? 'deberc-declared__item--jackpot' : ''}`}>
-              {t('deberc.declaredBy')} {state.players[seat]?.name} · {seatClaims.map(kindLabel).join(', ')}
-            </span>
-          )))}
+          {[...new Set(state.declaredMelds.map((m) => m.seatIndex))].map((seat) => {
+            const ms = state.declaredMelds.filter((m) => m.seatIndex === seat);
+            return (
+              <span key={seat} className={`tag deberc-declared__item ${ms.some((m) => m.kind === 'deberc') ? 'deberc-declared__item--jackpot' : ''}`}>
+                {t('deberc.declaredBy')} {state.players[seat]?.name} · {ms.map((m) => `${meldLabel(m)}${m.revealed ? ' ✓' : ''}`).join(', ')}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -258,31 +284,32 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </div>
       )}
 
-      {/* Declaring controls (only on my declaring turn) — a BLUFF: the four
-          buttons are ALWAYS available, never gated by what I actually hold. */}
+      {/* Declaring controls (only on my declaring turn) — TRUTHFUL (v1.3): chips
+          list only the melds I actually hold, each with its nominal. */}
       {myDeclare && (
         <div className="durak-controls deberc-declare">
           <span className="deberc-declare__warn" role="note">
             {declareSecondsLeft != null && <strong className="deberc-declare__timer" aria-live="polite">⏱ {declareSecondsLeft}s</strong>}
-            {' '}{t('deberc.bluffWarn')}
+            {' '}{t('deberc.declareHint')}
           </span>
           <div className="deberc-declare__buttons">
-            {ALL_MELD_KINDS.map((k) => (
+            {myMelds.length === 0 && <span className="deberc-declare__none">{t('deberc.noMelds')}</span>}
+            {myMelds.map((m, i) => (
               <button
-                key={k}
+                key={i}
                 type="button"
-                className={`btn deberc-meld-chip ${claims.includes(k) ? 'btn--primary' : 'btn--outline'} ${k === 'deberc' ? 'deberc-meld-chip--jackpot' : ''}`}
-                aria-pressed={claims.includes(k)}
-                onClick={() => toggleClaim(k)}
+                className={`btn deberc-meld-chip ${picked.includes(i) ? 'btn--primary' : 'btn--outline'} ${m.kind === 'deberc' ? 'deberc-meld-chip--jackpot' : ''}`}
+                aria-pressed={picked.includes(i)}
+                onClick={() => togglePick(i)}
               >
-                {kindLabel(k)}
+                {meldLabel(m)}
               </button>
             ))}
           </div>
-          <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'DECLARE_MELD', claims })}>
+          <button type="button" className="btn btn--primary" disabled={picked.length === 0} onClick={announce}>
             {t('deberc.declareConfirm')}
           </button>
-          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', claims: [] })}>
+          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', melds: [] })}>
             {t('deberc.declarePass')}
           </button>
         </div>

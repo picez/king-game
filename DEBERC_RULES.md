@@ -1,10 +1,12 @@
-# Deberc Rules (Деберц) — v1.2
+# Deberc Rules (Деберц) — v1.3
 
-> **STATUS: Rules confirmed. v1.2 (owner correction 2026-07-07): the deck size
-> depends on the table — 32 cards for 3 players (no 6s), 36 for 4 (§1); and meld
-> declaration is a BLUFF — always-available Терц/Платіна/Деберц/Бела buttons, a
-> false claim costs −50 (§4). v1.1 stands: the прикуп is taken only AFTER trump is
-> chosen (bidding on 6-card hands), melds declared before the first card (§3, §4).**
+> **STATUS: Rules confirmed. v1.3 (owner correction 2026-07-07): meld declaration
+> is TRUTHFUL, not a bluff — you announce a kind + its nominal (e.g. "терц до K");
+> among equal kinds only the highest nominal REVEALS its cards and scores, the
+> lower holders do not reveal and score 0 (§4). No −50 penalty. v1.2 stands: deck
+> is 32 cards for 3 players (no 6s), 36 for 4 (§1). v1.1 stands: the прикуп is
+> taken only AFTER trump is chosen (bidding on 6-card hands), melds declared
+> before the first card (§3, §4).**
 > Source of truth for the **Deberc** game (the third game after King and Durak).
 > Code (engine, UI, AI, server) must follow this file. When rules change, update
 > this file first, then the code and tests.
@@ -88,28 +90,25 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ---
 
-## 4. Melds (комбінації)  ✅ CONFIRMED (v1.2 — declared as a BLUFF)
+## 4. Melds (комбінації)  ✅ CONFIRMED (v1.3 — truthful declaration + reveal)
 
-**Declaration is a bluff (v1.2).** At the start of the hand (after the прикуп is
-taken, before the first card) each player, об'яз first, sees **always-available
-buttons — Терц / Платіна / Деберц / Бела** — and announces a **set of kinds** (or
-passes). A player may claim a meld they **do not hold** (a bluff).
-- A **truthful** claim scores its meld (below). A **false** claim (a kind the seat
-  does not actually hold) costs the seat's team **−50** (`FALSE_MELD_PENALTY`) — the
-  **same rule for every player** (opponents gain nothing from your bluff). A seat
-  may bluff several kinds; each false claim is a separate −50.
-- **Under-claiming is allowed** (declare Терц while holding a Платіна) — it scores
-  the claimed band (20) and competes at that band. **Over-claiming is a bluff** (−50).
-- Only **truthfully declared** sequence melds take part in the hierarchy below (an
-  undeclared higher терц does **not** cancel a declared lower one). A **truthful
-  Деберц** (run ≥ 8) ends the match immediately (jackpot); a **bluffed Деберц** is
-  just a −50 false claim (no win).
-- **Бела (bella)** — trump **K + Q** — is now also a **declared** button: if the
-  seat **holds** trump K+Q and **wins a trick with one**, it scores **20**; held
-  but never won with → 0; **claimed without holding K+Q → −50**. Bella is
-  independent of the sequence hierarchy.
-- **Bots never bluff** — they claim exactly the kinds they hold.
-- **4-player:** claims, scores, and penalties are pooled per team.
+**Declaration is truthful (v1.3), no bluff.** At the start of the hand (after the
+прикуп is taken, before the first card) each player, об'яз first, **announces the
+melds it actually holds** — for a sequence, its **kind + nominal** (the top card,
+e.g. "**терц до K**") — or passes. The engine validates every announcement against
+the real hand; you **cannot** announce a meld you do not hold.
+- **The announcement is public** (everyone hears "seat X: терц до K"), but the
+  **cards stay hidden**. When everyone has declared, the melds are compared: among
+  the same kind, the **highest nominal** (trump breaks ties) wins. **Only the
+  winner(s) REVEAL their cards and score**; the lower holders **do not reveal** and
+  score **0**. This is the classic belote "highest shows" rule.
+- There is **no penalty** (no −50) — bluffing is impossible.
+- A **Деберц** (run ≥ 8) ends the match immediately (jackpot) when announced.
+- **Бела (bella)** — trump **K + Q** — is also announced: if the seat **holds**
+  trump K+Q and **wins a trick with one**, it scores **20**; held but never won
+  with → 0. Bella is independent of the sequence hierarchy (no contest — each
+  bella is its own).
+- **4-player:** announcements and scores are pooled per team.
 
 Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 
@@ -179,7 +178,8 @@ Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
 2. **§4 — RESOLVED:** "highest **declared** holder only" extends across платіна;
    equal платіни compare by top card with trump breaking ties (like терці).
 3. **§7** — 4p бейт when a *team* takes zero tricks (rare) vs a single partner.
-4. **§4 (v1.2) — RESOLVED:** declaration is one **button per kind** (Терц /
-   Платіна / Деберц / Бела), not per-suit. A seat scores at most one sequence meld
-   (its best truthful band of the claimed kind); a claim of a kind it does not hold
-   is a bluff (−50). Claims are de-duplicated per seat.
+4. **§4 (v1.3) — RESOLVED:** declaration is **truthful** — a seat announces a
+   sequence's kind + nominal (top card) it really holds; the engine validates it
+   against the hand (an unheld announcement is illegal). Among equal kinds only the
+   highest nominal reveals its cards and scores; lower holders score 0 and do not
+   reveal. No bluff, no penalty. (One announcement per kind per seat.)
