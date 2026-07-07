@@ -11,6 +11,7 @@ import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
 import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
+import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
@@ -50,6 +51,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [password, setPassword] = useState('');
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
+  const [debercMatchSize, setDebercMatchSize] = useState<DebercMatchSize>('small');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // The game is chosen inside the Host / Local setup sheets (Stage 9.9) — not on
   // the main menu — so it carries through to host()/onLocal().
@@ -89,6 +91,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     onOnline(url.trim(), {
       kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
+      ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
@@ -242,6 +245,21 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                   <p className="durak-variant-desc">{durakVariant === 'simple' ? t('durak.simpleDesc') : t('durak.transferDesc')}</p>
                 </div>
               )}
+              {gameType === 'deberc' && (
+                <div className="field">
+                  <label className="field__label">{t('deberc.matchSize')}</label>
+                  <div className="segmented segmented--inline">
+                    {(['small', 'big'] as const).map((m) => (
+                      <button key={m} type="button"
+                        className={`segmented__tab ${debercMatchSize === m ? 'segmented__tab--active' : ''}`}
+                        onClick={() => setDebercMatchSize(m)}>
+                        {m === 'small' ? t('deberc.small') : t('deberc.big')}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="durak-variant-desc">{debercMatchSize === 'small' ? t('deberc.smallDesc') : t('deberc.bigDesc')}</p>
+                </div>
+              )}
               {gameType === 'king' && (
                 <div className="field">
                   <label className="field__label">{t('form.mode')}</label>
@@ -316,6 +334,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                               <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
                                 {t(`gameType.${gameType}`)}
                                 {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
+                                {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
                               </span>
                               <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
                                 {r.occupiedSeats}/{r.playerCount}
@@ -384,6 +403,7 @@ function GamePicker({ gameType, onPick, t }: {
         options={[
           { value: 'king', label: t('gameType.king'), icon: '👑' },
           { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
+          { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
         ]}
       />
     </div>

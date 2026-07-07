@@ -7,7 +7,7 @@
  * (Stage 9.2) — visible in the catalog/menu but not yet startable (no UI/online).
  */
 
-export const GAME_TYPES = ['king', 'durak'] as const;
+export const GAME_TYPES = ['king', 'durak', 'deberc'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
 
@@ -64,6 +64,19 @@ export const GAME_CATALOG = {
     supportsBots: true,     // the pure core has a working bot
     status: 'available',    // released (Stage 9.13 audit); stats recorded (DURAK-1)
     rulesDoc: 'DURAK_RULES.md',
+  },
+  deberc: {
+    id: 'deberc',
+    titleKey: 'gameType.deberc',
+    shortTitleKey: 'gameType.deberc',
+    minPlayers: 3,          // 3 = each for self; 4 = two teams of 2 (DEBERC_RULES §3)
+    maxPlayers: 4,
+    defaultPlayerCount: 3,
+    supportsLocal: true,    // local play (Stage 4)
+    supportsOnline: true,   // server-authoritative online rooms (Stage 4)
+    supportsBots: true,     // pure core has a working bot (Stage 3 soak)
+    status: 'available',    // integrated Stage 4; match size (small/big) picked per game
+    rulesDoc: 'DEBERC_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
 

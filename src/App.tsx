@@ -5,6 +5,7 @@ import type { GameType } from './games/catalog';
 import StartMenu from './ui/StartMenu';
 import LocalGame from './ui/LocalGame';
 import DurakLocalGame from './ui/durak/DurakLocalGame';
+import DebercLocalGame from './ui/deberc/DebercLocalGame';
 import OnlineGame from './ui/online/OnlineGame';
 
 type Mode =
@@ -21,6 +22,9 @@ export default function App() {
   if (mode.kind === 'local') {
     if (mode.gameType === 'durak') {
       return <DurakLocalGame onExit={() => setMode({ kind: 'menu' })} />;
+    }
+    if (mode.gameType === 'deberc') {
+      return <DebercLocalGame onExit={() => setMode({ kind: 'menu' })} />;
     }
     return <LocalGame />; // King — unchanged
   }

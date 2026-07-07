@@ -27,7 +27,7 @@ import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/message
 import {
   markDisconnected, removeMember, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
-  actingMember, applyTimeoutAction, recomputeOrphan, substituteDelayMs,
+  actingMember, applyTimeoutAction, recomputeOrphan, substituteDelayMs, publicScreenOf,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage, type AppStorage } from './storage';
@@ -283,9 +283,10 @@ function broadcastAndAdvance(room: ServerRoom): void {
   maybeRecordFinished(room);
   clearRoomTimers(room.code);
 
-  const status = room.gameState?.status;
-  const delay = status === 'trick_complete' ? TRICK_ADVANCE_MS
-    : status === 'round_scoring' ? ROUND_ADVANCE_MS
+  // Game-agnostic public-screen kind (King status / Deberc phase → normalised).
+  const screen = publicScreenOf(room);
+  const delay = screen === 'trick_complete' ? TRICK_ADVANCE_MS
+    : screen === 'round_scoring' ? ROUND_ADVANCE_MS
     : null;
 
   if (delay != null) {
@@ -374,11 +375,11 @@ function handleLeave(room: ServerRoom, clientId: string): void {
 
 /** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
 function rescheduleAdvance(room: ServerRoom): void {
-  const status = room.gameState?.status;
+  const screen = publicScreenOf(room);
   const acting = actingMember(room);
   // Drive public screens, bot turns, and — after a restart — a disconnected
   // human's turn (schedules the AI substitute so the table never stalls).
-  if (status === 'trick_complete' || status === 'round_scoring' || botMemberToAct(room)
+  if (screen != null || botMemberToAct(room)
     || (acting && acting.type === 'human' && !acting.connected)) {
     broadcastAndAdvance(room);
   }

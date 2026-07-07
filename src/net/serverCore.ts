@@ -19,6 +19,7 @@ import { DEFAULT_GAME_TYPE, getGameCatalogEntry, isGameType, type GameType } fro
 import { getGameDefinition } from '../games/registry';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
+import type { DebercMatchSize, DebercState } from '../games/deberc/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -88,6 +89,8 @@ export interface ServerRoom {
   gameType: GameType;
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;
+  /** Deberc match target ('small' | 'big'); undefined for King/Durak. */
+  matchSize?: DebercMatchSize;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5;
@@ -198,6 +201,8 @@ export function createRoom(opts: {
   gameType?: GameType;
   /** Durak variant; ignored for King. */
   variant?: DurakVariant;
+  /** Deberc match target ('small' | 'big'); ignored for King/Durak. */
+  matchSize?: DebercMatchSize;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -217,6 +222,7 @@ export function createRoom(opts: {
     mode: 'server_authoritative',
     gameType: opts.gameType ?? DEFAULT_GAME_TYPE,
     variant: opts.variant,
+    matchSize: opts.matchSize,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -522,22 +528,70 @@ export function applyActionRequest(
  */
 export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
   if (!room.gameState) return false;
-  // Only King has server-advanced public screens; Durak has none (Stage 9.5).
-  if ((room.gameType ?? DEFAULT_GAME_TYPE) !== 'king') return false;
-  const state = room.gameState as GameState;
-  if (state.status === 'trick_complete') {
-    room.gameState = gameReducer(state, { type: 'NEXT_TRICK' });
-    return true;
+  const gameType = room.gameType ?? DEFAULT_GAME_TYPE;
+
+  if (gameType === 'king') {
+    const state = room.gameState as GameState;
+    if (state.status === 'trick_complete') {
+      room.gameState = gameReducer(state, { type: 'NEXT_TRICK' });
+      return true;
+    }
+    if (state.status === 'round_scoring') {
+      // NEXT_ROUND deals a new round → seed it and record the deal metadata.
+      const seed = deal.seed ?? randomSeed();
+      const next = gameReducer(state, { type: 'NEXT_ROUND' }, { rng: makeRng(seed) });
+      room.gameState = next;
+      if (next && next.status !== 'game_finished') recordDeal(room, seed, deal.now ?? 0);
+      return true;
+    }
+    return false;
   }
-  if (state.status === 'round_scoring') {
-    // NEXT_ROUND deals a new round → seed it and record the deal metadata.
-    const seed = deal.seed ?? randomSeed();
-    const next = gameReducer(state, { type: 'NEXT_ROUND' }, { rng: makeRng(seed) });
-    room.gameState = next;
-    if (next && next.status !== 'game_finished') recordDeal(room, seed, deal.now ?? 0);
-    return true;
+
+  if (gameType === 'deberc') {
+    // Deberc's public screens are server-advanced (getActingDebercPlayerId → null):
+    // trick_complete → NEXT_TRICK; hand_scoring → NEXT_HAND, which RE-DEALS and so
+    // must be threaded with a server seed — otherwise the engine falls back to
+    // Math.random and the deal is non-reproducible / not server-authoritative.
+    const def = getGameDefinition('deberc');
+    if (!def) return false;
+    const state = room.gameState as DebercState;
+    if (state.phase === 'trick_complete') {
+      room.gameState = def.reducer(state, { type: 'NEXT_TRICK' });
+      return true;
+    }
+    if (state.phase === 'hand_scoring') {
+      const seed = deal.seed ?? randomSeed();
+      room.gameState = def.reducer(state, { type: 'NEXT_HAND' }, { rng: makeRng(seed) });
+      return true;
+    }
+    return false;
   }
+
+  // Durak: no server-advanced public screens (bouts resolve inside the reducer).
   return false;
+}
+
+/**
+ * The public (system-advanced) screen the room is on, normalised across games so
+ * the I/O layer can choose an advance delay without knowing each game's state
+ * shape. King → trick_complete / round_scoring; Deberc → trick_complete and
+ * hand_scoring (mapped to 'round_scoring', the between-hands pause); Durak → none.
+ * Returns null when a player must act (or there is no game yet).
+ */
+export type PublicScreen = 'trick_complete' | 'round_scoring' | null;
+export function publicScreenOf(room: ServerRoom): PublicScreen {
+  const s = room.gameState;
+  if (!s) return null;
+  const gt = room.gameType ?? DEFAULT_GAME_TYPE;
+  if (gt === 'king') {
+    const st = (s as GameState).status;
+    return st === 'trick_complete' ? 'trick_complete' : st === 'round_scoring' ? 'round_scoring' : null;
+  }
+  if (gt === 'deberc') {
+    const ph = (s as DebercState).phase;
+    return ph === 'trick_complete' ? 'trick_complete' : ph === 'hand_scoring' ? 'round_scoring' : null;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -616,7 +670,7 @@ function dealFingerprint(state: GameState): string {
 
 /** Appends a DealRecord for the room's current round (King-only deal audit). */
 function recordDeal(room: ServerRoom, seed: number, timestamp: number): void {
-  if (room.gameType === 'durak') return; // Durak has no King-style per-round deal log
+  if (room.gameType !== 'king') return; // only King keeps a per-round deal audit log
   const s = room.gameState as GameState | null;
   if (!s) return;
   room.dealLog.push({
@@ -651,6 +705,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     })),
     gameType: room.gameType ?? DEFAULT_GAME_TYPE,
     variant: room.variant,
+    matchSize: room.matchSize,
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -686,6 +741,8 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     gameType: room.gameType ?? DEFAULT_GAME_TYPE,
     // Only present for games with a variant (Durak) → King summaries are unchanged.
     ...(room.variant ? { variant: room.variant } : {}),
+    // Only present for Deberc (match size) → King/Durak summaries are unchanged.
+    ...(room.matchSize ? { matchSize: room.matchSize } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -767,6 +824,8 @@ export interface PersistedRoom {
   gameType?: GameType;
   /** Durak variant; undefined for King. */
   variant?: DurakVariant;
+  /** Deberc match target ('small' | 'big'); undefined for King/Durak. */
+  matchSize?: DebercMatchSize;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -789,6 +848,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     mode: room.mode,
     gameType: room.gameType,
     variant: room.variant,
+    matchSize: room.matchSize,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -843,6 +903,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     // Legacy rooms persisted before Stage 8.5 have no gameType → restore as King.
     gameType: isGameType(o.gameType) ? o.gameType : DEFAULT_GAME_TYPE,
     variant: o.variant === 'simple' || o.variant === 'transfer' ? o.variant : undefined,
+    matchSize: o.matchSize === 'small' || o.matchSize === 'big' ? o.matchSize : undefined,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

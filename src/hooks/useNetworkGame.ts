@@ -134,11 +134,16 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
       }
       case 'STATE_UPDATE': {
         // The server is authoritative — just render what it sends. STATE_UPDATE
-        // now carries a game-state union (Stage 9.5); the online client only ever
-        // joins King rooms today (Durak online is hidden), so this is King state.
-        setState(msg.state as GameState | null);
-        if (msg.state?.status === 'game_finished') setStatus('finished');
-        else if (msg.state) setStatus('in_game');
+        // carries a game-state union (King | Durak | Deberc). The `state` field is
+        // typed as King's GameState for legacy callers; game-specific online
+        // components (DurakOnlineGame / DebercOnlineGame) cast it to their own type
+        // and own their finished screen, so only King drives net.status here.
+        const s = msg.state;
+        setState(s as GameState | null);
+        // `'status' in s` narrows the union: King/Durak carry `status`, Deberc
+        // carries `phase`. King's game_finished is the only wrapper-level finish.
+        if (s && 'status' in s && s.status === 'game_finished') setStatus('finished');
+        else if (s) setStatus('in_game');
         break;
       }
       case 'KICKED': {

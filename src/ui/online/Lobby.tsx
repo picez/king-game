@@ -62,6 +62,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {players.length} / {maxPlayers} {t('lobby.playersWord')} ·{' '}
             {room.gameType === 'durak' ? (
               <>🃏 {t(room.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}</>
+            ) : room.gameType === 'deberc' ? (
+              <>🎴 {t(room.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

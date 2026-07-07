@@ -366,14 +366,22 @@ export function debercReducer(
   }
 }
 
-/** The id of the player who must act now, or null on a finished match. */
+/**
+ * The id of the player who must act now, or null when no single player acts.
+ *
+ * `trick_complete` and `hand_scoring` are SYSTEM-advanced public screens (like
+ * King's trick_complete/round_scoring): they return null so the online server
+ * treats them as auto-advance screens rather than a player's turn. This is what
+ * lets the server drive NEXT_TRICK / NEXT_HAND itself — critically, NEXT_HAND
+ * re-deals and must be threaded with a server seed (see serverCore.autoAdvance),
+ * so it must never be a client-driven action. Local play auto-advances these
+ * screens on a timer the same way.
+ */
 export function getActingDebercPlayerId(state: DebercState): string | null {
   switch (state.phase) {
     case 'bidding': return state.players[state.bidderSeat]?.id ?? null;
     case 'playing': return state.players[state.turnSeat]?.id ?? null;
-    case 'trick_complete': return state.players[state.currentTrick?.winnerSeat ?? state.turnSeat]?.id ?? null;
-    case 'hand_scoring': return state.players[state.objazSeat]?.id ?? null;
-    default: return null;
+    default: return null; // trick_complete / hand_scoring / finished → no actor
   }
 }
 

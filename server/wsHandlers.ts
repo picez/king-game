@@ -95,6 +95,7 @@ export function handleClientMessage(
       // the host starts once >= minPlayers are seated. Capacity is server-enforced.
       const playerCount = entry.maxPlayers as 2 | 3 | 4 | 5;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
+      const matchSize = gameType === 'deberc' ? (msg.matchSize === 'big' ? 'big' : 'small') : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create
       // leaves the connection's existing room intact.
@@ -111,6 +112,7 @@ export function handleClientMessage(
         code,
         gameType,
         variant,
+        matchSize,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },

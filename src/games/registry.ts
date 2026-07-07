@@ -11,10 +11,12 @@ import { DEFAULT_GAME_TYPE, isGameType, type GameType } from './catalog';
 import type { AnyGameDefinition } from './definition';
 import { kingGameDefinition } from './king/definition';
 import { durakGameDefinition } from './durak/definition';
+import { debercGameDefinition } from './deberc/definition';
 
 export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   king: kingGameDefinition,
   durak: durakGameDefinition,
+  deberc: debercGameDefinition,
 };
 
 /** The definition for a game type, or null for an unknown/invalid value. */

@@ -17,6 +17,7 @@ import type { GameAction } from '../core/gameEngine';
 import type { GameType } from '../games/catalog';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
+import type { DebercMatchSize } from '../games/deberc/types';
 
 // ---------------------------------------------------------------------------
 // Lobby / room model
@@ -50,6 +51,8 @@ export interface RoomSnapshot {
   gameType: GameType;
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;
+  /** Deberc match target ('small' 510 | 'big' 1020); undefined for King/Durak. */
+  matchSize?: DebercMatchSize;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -81,6 +84,8 @@ export interface RoomSummary {
   gameType: GameType;
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;
+  /** Deberc match target ('small' | 'big'); undefined for King/Durak. */
+  matchSize?: DebercMatchSize;
   playerCount: 2 | 3 | 4 | 5;
   occupiedSeats: number;
   hasPassword: boolean;
@@ -111,7 +116,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */

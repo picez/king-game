@@ -13,6 +13,7 @@ import { gameReducer } from '../core/gameEngine';
 import type { ClientMessage, ErrorCode, RoomSnapshot } from './messages';
 import type { GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
+import type { DebercMatchSize } from '../games/deberc/types';
 
 /** Human-readable text for a server error code (used by the join UI). */
 export function humanError(code: ErrorCode | null | undefined): string {
@@ -34,7 +35,7 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant }
+  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string };
@@ -54,6 +55,7 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
       modeSelectionType: intent.modeSelectionType,
       ...(intent.gameType ? { gameType: intent.gameType } : {}),
       ...(intent.variant ? { variant: intent.variant } : {}),
+      ...(intent.matchSize ? { matchSize: intent.matchSize } : {}),
       ...(intent.password ? { password: intent.password } : {}),
       ...(intent.avatar ? { avatar: intent.avatar } : {}),
       ...(intent.turnTimerSec ? { turnTimerSec: intent.turnTimerSec } : {}),

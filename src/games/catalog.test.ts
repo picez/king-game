@@ -9,9 +9,9 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King (available) and Durak (available)', () => {
+  it('registers King, Durak and Deberc (all available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king');
-    expect(GAME_TYPES).toEqual(['king', 'durak']);
+    expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc']);
     expect(GAME_CATALOG.king).toMatchObject({
       id: 'king', minPlayers: 3, maxPlayers: 4, supportsLocal: true,
       supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
@@ -21,19 +21,26 @@ describe('game catalog', () => {
       supportsLocal: true, supportsOnline: true, supportsBots: true,
       status: 'available', rulesDoc: 'DURAK_RULES.md',
     });
+    expect(GAME_CATALOG.deberc).toMatchObject({
+      id: 'deberc', minPlayers: 3, maxPlayers: 4, defaultPlayerCount: 3,
+      supportsLocal: true, supportsOnline: true, supportsBots: true,
+      status: 'available', rulesDoc: 'DEBERC_RULES.md',
+    });
   });
 
   it('validates game types at runtime', () => {
     expect(isGameType('king')).toBe(true);
     expect(isGameType('durak')).toBe(true);
+    expect(isGameType('deberc')).toBe(true);
     expect(isGameType('poker')).toBe(false);
     expect(getGameCatalogEntry('durak')?.id).toBe('durak');
+    expect(getGameCatalogEntry('deberc')?.id).toBe('deberc');
     expect(getGameCatalogEntry('poker')).toBeNull();
   });
 
-  it('exposes both games publicly with status and NO private fields', () => {
+  it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
-    expect(pub.map((g) => g.id)).toEqual(['king', 'durak']);
+    expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc']);
     const king = pub.find((g) => g.id === 'king')!;
     expect(king).toEqual({
       id: 'king', title: 'gameType.king', shortTitle: 'gameType.king',
@@ -44,6 +51,10 @@ describe('game catalog', () => {
     expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
+    const deberc = pub.find((g) => g.id === 'deberc')!;
+    expect(deberc.status).toBe('available'); // integrated Stage 4
+    expect(deberc.supportsLocal).toBe(true);
+    expect(deberc.supportsOnline).toBe(true);
     // Internal-only fields must never leak into the public shape.
     for (const g of pub) {
       expect('rulesDoc' in g).toBe(false);

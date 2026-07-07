@@ -10,6 +10,8 @@ import { useI18n } from '../../i18n';
 import GameRouter from '../GameRouter';
 import DurakOnlineGame from '../durak/DurakOnlineGame';
 import type { DurakState } from '../../games/durak/types';
+import DebercOnlineGame from '../deberc/DebercOnlineGame';
+import type { DebercState } from '../../games/deberc/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -145,6 +147,23 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
       <>
         <DurakOnlineGame
           state={net.state as unknown as DurakState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+          disconnectedSeats={disconnectedSeats}
+        />
+        {renderSocial(true, leaveGameToMenu)}
+      </>
+    );
+  }
+
+  // Online Deberc: render the Deberc screens (NOT King's GameRouter). The server
+  // drives bots + the public-screen advances (NEXT_TRICK / NEXT_HAND).
+  if (net.room?.gameType === 'deberc') {
+    return (
+      <>
+        <DebercOnlineGame
+          state={net.state as unknown as DebercState}
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}

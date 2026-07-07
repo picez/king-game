@@ -4,9 +4,9 @@ import { fetchGameCatalog } from '../../net/gamesApi';
 import { publicGameCatalog, type GameType, type PublicGameEntry } from '../../games/catalog';
 
 /** Per-game emoji (no icon field in the catalog yet). */
-const GAME_ICON: Record<string, string> = { king: '👑', durak: '🃏' };
+const GAME_ICON: Record<string, string> = { king: '👑', durak: '🃏', deberc: '🎴' };
 /** Optional one-line subtitle i18n key per game (e.g. Durak variants). */
-const GAME_SUB: Record<string, string> = { durak: 'durak.variantsShort' };
+const GAME_SUB: Record<string, string> = { durak: 'durak.variantsShort', deberc: 'deberc.matchShort' };
 
 interface Props {
   /** Currently selected game (default 'king'). */

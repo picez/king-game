@@ -10,6 +10,7 @@
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import type { DurakState, DurakAction } from './durak/types';
+import type { DebercState, DebercAction } from './deberc/types';
 
-export type AnyGameState = GameState | DurakState;
-export type AnyGameAction = GameAction | DurakAction;
+export type AnyGameState = GameState | DurakState | DebercState;
+export type AnyGameAction = GameAction | DurakAction | DebercAction;
