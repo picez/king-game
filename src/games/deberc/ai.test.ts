@@ -48,6 +48,14 @@ describe('Deberc AI drives a full legal match', () => {
     expect(final.jackpot || final.matchScore.some((v) => v >= target)).toBe(true);
     // Every card is still accounted for (32-card deck for 3p, 36 for 4p — v1.2).
     expect(countCards(final)).toBe(n === 4 ? 36 : 32);
+    // The per-hand score sheet accumulates one row per scored hand (item #5). A
+    // non-jackpot match scores at least one hand; each row records its об'яз/dealer.
+    if (!final.jackpot) expect(final.handHistory.length).toBeGreaterThan(0);
+    for (const h of final.handHistory) {
+      expect(h.teamPoints).toHaveLength(n === 4 ? 2 : 3);
+      expect(typeof h.objazSeat).toBe('number');
+      expect(typeof h.dealerSeat).toBe('number');
+    }
   });
 
   it('is deterministic for a fixed seed', () => {

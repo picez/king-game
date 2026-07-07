@@ -1,5 +1,6 @@
 import { useI18n } from '../../i18n';
 import type { DebercState } from '../../games/deberc/types';
+import { DebercScoreSheet } from './DebercScoreTable';
 
 interface Props {
   state: DebercState;
@@ -31,6 +32,7 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit }: 
             </li>
           ))}
         </ul>
+        {state.handHistory.length > 0 && <DebercScoreSheet state={state} />}
         <div className="durak-finished__actions">
           <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('deberc.playAgain')}</button>
           <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>

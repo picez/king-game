@@ -185,7 +185,7 @@ function startDeberc(
     matchScore: Array<number>(teamCount).fill(0),
     hvMarks: Array<number>(teamCount).fill(0),
     beitMarks: Array<number>(teamCount).fill(0),
-    lastHand: null, winnerTeam: null, jackpot: false,
+    lastHand: null, handHistory: [], winnerTeam: null, jackpot: false,
   };
   return s;
 }
@@ -270,7 +270,10 @@ function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
   s.lastHand = {
     teamPoints, cardPoints: score.cardPoints, meldPoints: score.meldPoints,
     penaltyPoints: score.penaltyPoints, hvTeam, beitTeams, topScorerTeam,
+    objazSeat: s.objazSeat, dealerSeat: s.dealerSeat,
   };
+  // Append to the match-long score sheet (before dealNextHand rotates об'яз).
+  s.handHistory.push(s.lastHand);
 
   const target = TARGET[s.matchSize];
   if (s.matchScore.some((v) => v >= target)) {

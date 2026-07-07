@@ -7,6 +7,8 @@ import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/e
 import { cardEquals } from '../../games/deberc/rules';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
+import DebercScoreTable from './DebercScoreTable';
+import DebercTricksReview from './DebercTricksReview';
 
 /** The four declarable meld kinds — buttons are ALWAYS shown (bluffing, §4 v1.2). */
 const ALL_MELD_KINDS: DebercMeldKind[] = ['terz', 'platina', 'deberc', 'bella'];
@@ -50,10 +52,14 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 export default function DebercGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats, declareSecondsLeft }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
+  const [showScore, setShowScore] = useState(false);
+  const [showTricks, setShowTricks] = useState(false);
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
   const n = state.players.length;
+  /** Tricks a seat has taken this hand (n cards per trick). */
+  const tricksOf = (seat: number) => Math.floor(state.wonCards[seat].length / n);
   const myTeam = state.teamOf[meSeat];
   const isMyTurn = getActingDebercPlayerId(state) === humanId;
   const phase = state.phase;
@@ -129,13 +135,19 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   return (
     <div className="screen durak-screen">
       {showHelp && <DebercHelp onClose={() => setShowHelp(false)} />}
+      {showScore && <DebercScoreTable state={state} onClose={() => setShowScore(false)} />}
+      {showTricks && <DebercTricksReview state={state} mySeat={meSeat} onClose={() => setShowTricks(false)} />}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
           {t('deberc.trump')} <strong>{SUIT_SYMBOL[trumpSuit]}</strong>
           {trump == null && <em className="deberc-trump__pending"> ?</em>}
         </span>
-        <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('deberc.howToPlay')}>❓</button>
+        <span className="durak-topbar__btns">
+          <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowScore(true)} aria-label={t('deberc.scoreTable')}>📊</button>
+          <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowTricks(true)} aria-label={t('deberc.myTricks')}>🃏</button>
+          <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('deberc.howToPlay')}>❓</button>
+        </span>
       </div>
 
       {/* Match score strip: one chip per team, ХВ / бейт marks shown. */}
@@ -175,7 +187,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
               <span className="durak-seat__name">
                 {isOffline && <span className="durak-seat__off" aria-label={t('common.offline')}>📴 </span>}{p.name}
               </span>
-              <span className="durak-seat__count">🂠 {p.hand.length}</span>
+              <span className="durak-seat__count">🂠 {p.hand.length} · 🃏 {tricksOf(p.seatIndex)}</span>
               <span className="durak-seat__roles">
                 {isDealer && <span className="durak-seat__role deberc-role--dealer">{t('deberc.dealer')}</span>}
                 {isObjaz && <span className="durak-seat__role deberc-role--objaz">{t('deberc.objaz')}</span>}
@@ -214,6 +226,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         {meSeat === state.objazSeat && <span className="durak-youare durak-youare--atk">{t('deberc.objaz')}</span>}
         {seatBidTag(meSeat)}
         <span className="durak-prompt__text">{prompt}</span>
+        <button type="button" className="btn btn--ghost deberc-mytricks" onClick={() => setShowTricks(true)} aria-label={t('deberc.reviewTricks')}>
+          🃏 {tricksOf(meSeat)}
+        </button>
       </div>
 
       {/* Bidding controls (only on my bid turn). */}

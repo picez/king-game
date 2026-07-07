@@ -166,6 +166,12 @@ export interface DebercState {
 
   /** Summary of the most recently scored hand (for the score table / UI). */
   lastHand: DebercHandResult | null;
+  /**
+   * Every scored hand of the match, in order (for the per-hand score sheet).
+   * Accumulates across the whole match — a new deal does NOT reset it. Holds
+   * copies of scored results (no cards), so it is NOT part of the card count.
+   */
+  handHistory: DebercHandResult[];
 
   /** Once finished: winning team index, or null while playing. */
   winnerTeam: number | null;
@@ -189,6 +195,10 @@ export interface DebercHandResult {
   beitTeams: number[];
   /** Winner of the hand — becomes the next об'яз's team. */
   topScorerTeam: number;
+  /** The об'яз (obligated maker) seat for this hand — for the score sheet. */
+  objazSeat: number;
+  /** The dealer (роздаючий) seat for this hand — for the score sheet. */
+  dealerSeat: number;
 }
 
 export type DebercAction =
