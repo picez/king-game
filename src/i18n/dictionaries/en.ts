@@ -178,6 +178,7 @@ export const EN: Record<string, string> = {
   'deberc.meldDeberc': 'Deberc',
   'deberc.meldBella': 'Bella',
   'deberc.dealer': 'Dealer',
+  'deberc.intercepted': 'took trump',
   'deberc.passed': 'passed',
   'deberc.tookTrump': 'took',
   'deberc.bluffWarn': 'False declaration: −50',

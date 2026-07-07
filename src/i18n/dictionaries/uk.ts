@@ -178,6 +178,7 @@ export const UK: Record<string, string> = {
   'deberc.meldDeberc': 'Деберц',
   'deberc.meldBella': 'Бела',
   'deberc.dealer': 'Роздаючий',
+  'deberc.intercepted': 'перехопив козир',
   'deberc.passed': 'спасував',
   'deberc.tookTrump': 'взяв',
   'deberc.bluffWarn': 'Хибне оголошення: −50',

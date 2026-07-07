@@ -178,6 +178,7 @@ export const AR: Record<string, string> = {
   'deberc.meldDeberc': 'ديبيرك',
   'deberc.meldBella': 'بيلا',
   'deberc.dealer': 'الموزّع',
+  'deberc.intercepted': 'أخذ الحكم',
   'deberc.passed': 'مرّر',
   'deberc.tookTrump': 'أخذ',
   'deberc.bluffWarn': 'إعلان كاذب: −50',

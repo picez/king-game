@@ -186,14 +186,23 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       </div>
 
       {/* What each seat ANNOUNCED this hand (kind + nominal) — public to everyone.
-          The cards themselves are shown only for the §4 winner (✓ revealed). */}
+          The §4 winner (✓ revealed) also DEMONSTRATES the actual cards to all. */}
       {state.declaredMelds.length > 0 && (
         <div className="deberc-declared" role="status">
           {[...new Set(state.declaredMelds.map((m) => m.seatIndex))].map((seat) => {
             const ms = state.declaredMelds.filter((m) => m.seatIndex === seat);
+            // Revealed sequence cards the winner must show everyone (bella has none here).
+            const shown = ms.filter((m) => m.revealed && m.cards.length > 0);
             return (
               <span key={seat} className={`tag deberc-declared__item ${ms.some((m) => m.kind === 'deberc') ? 'deberc-declared__item--jackpot' : ''}`}>
                 {t('deberc.declaredBy')} {state.players[seat]?.name} · {ms.map((m) => `${meldLabel(m)}${m.revealed ? ' ✓' : ''}`).join(', ')}
+                {shown.length > 0 && (
+                  <span className="deberc-declared__cards">
+                    {shown.flatMap((m) => m.cards).map((c, i) => (
+                      <CardView key={`${c.rank}${c.suit}${i}`} card={c} size="mini" disabled />
+                    ))}
+                  </span>
+                )}
               </span>
             );
           })}
@@ -217,6 +226,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
               <span className="durak-seat__roles">
                 {isDealer && <span className="durak-seat__role deberc-role--dealer">{t('deberc.dealer')}</span>}
                 {isObjaz && <span className="durak-seat__role deberc-role--objaz">{t('deberc.objaz')}</span>}
+                {isObjaz && state.objazSeat !== state.dealerSeat && (
+                  <span className="durak-seat__role deberc-role--intercept" title={t('deberc.intercepted')}>{t('deberc.intercepted')}</span>
+                )}
               </span>
               {seatBidTag(p.seatIndex)}
             </div>
@@ -250,6 +262,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       <div className={`durak-prompt ${isMyTurn ? 'durak-prompt--me' : ''}`}>
         {meSeat === state.dealerSeat && <span className="durak-youare deberc-role--dealer">{t('deberc.dealer')}</span>}
         {meSeat === state.objazSeat && <span className="durak-youare durak-youare--atk">{t('deberc.objaz')}</span>}
+        {meSeat === state.objazSeat && state.objazSeat !== state.dealerSeat && (
+          <span className="durak-youare deberc-role--intercept">{t('deberc.intercepted')}</span>
+        )}
         {seatBidTag(meSeat)}
         <span className="durak-prompt__text">{prompt}</span>
         <button type="button" className="btn btn--ghost deberc-mytricks" onClick={() => setShowTricks(true)} aria-label={t('deberc.reviewTricks')}>

@@ -19,12 +19,14 @@
 }
 .deberc-mark { color: var(--text-muted); font-weight: 700; white-space: nowrap; }
 
-.deberc-declared__item { font-size: 0.78rem; }
+.deberc-declared__item { font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.3rem; }
 .deberc-declared__item--jackpot {
   border-color: rgba(245, 197, 24, 0.5);
   color: var(--accent-light);
   background: rgba(245, 197, 24, 0.12);
 }
+/* The §4 winner DEMONSTRATES the actual cards (mini) to everyone. */
+.deberc-declared__cards { display: inline-flex; gap: 2px; margin-left: 0.15rem; }
 
 /* ---- Dealer / об'яз role badges (distinct so they never read as one role) ---- */
 .deberc-role--dealer,
@@ -47,6 +49,19 @@
   background: rgba(245, 197, 24, 0.16);
   color: var(--accent-light);
   border: 1px solid rgba(245, 197, 24, 0.45);
+}
+/* Shown on the об'яз seat when it differs from the dealer (bid interception). */
+.deberc-role--intercept {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.55;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  white-space: nowrap;
 }
 .durak-seat__roles { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; justify-content: center; }
 
@@ -105,11 +120,14 @@
 }
 .deberc-sheet th,
 .deberc-sheet td {
-  padding: 0.42rem 0.55rem;
+  padding: 0.5rem 0.7rem;
   text-align: right;
   white-space: nowrap;
   border-bottom: 1px solid var(--hairline);
 }
+/* Vertical dividers before every team column so the columns read clearly. */
+.deberc-sheet th:nth-child(n+3),
+.deberc-sheet td:nth-child(n+3) { border-left: 1px solid var(--hairline); }
 /* First two columns (# and об'яз) read as labels — left-align them. */
 .deberc-sheet th:first-child,
 .deberc-sheet td:first-child,
@@ -120,29 +138,31 @@
   position: sticky;
   top: 0;
   background: var(--panel-2);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.03em;
+  color: var(--text);
+  border-bottom: 2px solid var(--border-strong);
 }
 .deberc-sheet tbody tr:nth-child(even) { background: var(--surface-2); }
+.deberc-sheet tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
 
-.deberc-sheet__num { width: 2ch; color: var(--text-dim); font-size: 0.8rem; }
-.deberc-sheet td strong { font-weight: 700; }
+.deberc-sheet__num { width: 2ch; color: var(--text-dim); font-size: 0.82rem; }
+.deberc-sheet td strong { font-weight: 700; font-size: 1.02em; }
 
-/* Card/meld/−50 breakdown: quiet secondary line under the bold hand total. */
+/* Card/meld breakdown: secondary line under the bold hand total — legible. */
 .deberc-sheet__break {
   display: block;
-  margin-top: 1px;
-  font-size: 0.72rem;
-  color: var(--text-dim);
+  margin-top: 2px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
 }
 
 /* Per-hand top scorer + winning column highlights. */
-.deberc-sheet__top { background: rgba(245, 197, 24, 0.10); }
-.deberc-sheet__win { color: var(--accent-light); }
+.deberc-sheet__top { background: rgba(245, 197, 24, 0.16); }
+.deberc-sheet__top strong { color: var(--accent-light); }
+.deberc-sheet__win { color: var(--accent-light); background: rgba(245, 197, 24, 0.10); }
 
 .deberc-sheet__empty {
   padding: 1rem;
