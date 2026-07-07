@@ -95,8 +95,14 @@ export interface DebercState {
   /** Chosen trump suit; null until bidding commits one. */
   trumpSuit: Suit | null;
 
-  /** The current об'яз seat (obligated maker; judged for ХВ). */
+  /** The current об'яз seat (obligated maker; judged for ХВ). Updated on bid interception. */
   objazSeat: number;
+  /**
+   * The initial об'яз for the hand = the "dealer" position (rotates to the winner
+   * of the previous hand). Anchors the bidding order (dealer speaks last). The
+   * final об'яз (`objazSeat`) leads the first trick.
+   */
+  dealerSeat: number;
   /** Bidding: whose turn to bid; bids collected so far this hand. */
   bidderSeat: number;
   bids: DebercBid[];
@@ -111,8 +117,18 @@ export interface DebercState {
   tricksPlayed: number;
   /** Seats that have taken at least one trick this hand (for бейт detection). */
   seatsWithTricks: number[];
-  /** Melds declared this hand. */
+  /** Melds that scored this hand (populated at hand_scoring; for display). */
   melds: DebercMeld[];
+
+  /**
+   * Snapshot of each seat's full 9-card hand at the moment play began. Melds are
+   * evaluated from these (the live `players[].hand` empties as cards are played).
+   */
+  dealtHands: Card[][];
+  /** Seats holding the bella (trump K+Q) at play start — eligible to earn it. */
+  bellaEligible: number[];
+  /** Seats that actually earned the bella (won a trick with a trump K or Q). */
+  bellaEarned: number[];
 
   /** Running match score per team. */
   matchScore: number[];
@@ -120,10 +136,29 @@ export interface DebercState {
   hvMarks: number[];
   beitMarks: number[];
 
+  /** Summary of the most recently scored hand (for the score table / UI). */
+  lastHand: DebercHandResult | null;
+
   /** Once finished: winning team index, or null while playing. */
   winnerTeam: number | null;
   /** True when the match ended via a деберц jackpot rather than the target. */
   jackpot: boolean;
+}
+
+/** Per-hand result summary produced when a hand is scored (§6, §7). */
+export interface DebercHandResult {
+  /** Final hand points per team (after any ХВ redirection). */
+  teamPoints: number[];
+  /** Card points (incl. last-trick bonus) per team, before ХВ redirection. */
+  cardPoints: number[];
+  /** Meld points (sequences + bella) per team. */
+  meldPoints: number[];
+  /** Team that received an ХВ this hand, or null. */
+  hvTeam: number | null;
+  /** Teams that took zero tricks (бейт). */
+  beitTeams: number[];
+  /** Winner of the hand — becomes the next об'яз's team. */
+  topScorerTeam: number;
 }
 
 export type DebercAction =
