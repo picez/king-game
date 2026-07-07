@@ -1,0 +1,71 @@
+// ---------------------------------------------------------------------------
+// Deberc — hand scoring: card points (+ last-trick bonus) and meld points,
+// aggregated per team. See DEBERC_RULES.md §2, §4, §6. Pure.
+// ---------------------------------------------------------------------------
+
+import type { Card, Suit } from '../../models/types';
+import { cardPoints } from './deck';
+import { scoringSequenceSeats } from './melds';
+import type { DebercMeld } from './types';
+
+/** Extra points for winning the last trick (останній хабар). */
+export const LAST_TRICK_BONUS = 10;
+/** Bella (trump K+Q) value. */
+export const BELLA_POINTS = 20;
+
+export interface HandScoreInput {
+  /** Cards each seat won in tricks this hand. */
+  wonCards: Card[][];
+  trumpSuit: Suit;
+  /** Seat that won the final (9th) trick. */
+  lastTrickWinnerSeat: number;
+  /** Team index of each seat, and the number of teams. */
+  teamOf: number[];
+  teamCount: number;
+  /** Best sequence meld per seat (null = none). */
+  bestSequences: (DebercMeld | null)[];
+  /** Seats that earned the bella (declared it AND won a trick with a bella card). */
+  bellaSeats: number[];
+}
+
+export interface HandScoreResult {
+  /** Total hand points per team (cards + last trick + melds + bella). */
+  teamPoints: number[];
+  /** Card points (incl. last-trick bonus) per team. */
+  cardPoints: number[];
+  /** Meld points (sequences + bella) per team. */
+  meldPoints: number[];
+}
+
+/** Sum of card points for a set of cards, given the trump suit. */
+export function sumCardPoints(cards: Card[], trumpSuit: Suit): number {
+  return cards.reduce((acc, c) => acc + cardPoints(c, trumpSuit), 0);
+}
+
+/**
+ * Score one hand into per-team totals: each seat's won-card points (plus the
+ * +10 last-trick bonus) go to its team, then scoring sequences (by the §4
+ * hierarchy) and any earned bella are added.
+ */
+export function scoreHand(input: HandScoreInput): HandScoreResult {
+  const { wonCards, trumpSuit, lastTrickWinnerSeat, teamOf, teamCount, bestSequences, bellaSeats } = input;
+
+  const cardPts = Array<number>(teamCount).fill(0);
+  const meldPts = Array<number>(teamCount).fill(0);
+
+  wonCards.forEach((cards, seat) => {
+    cardPts[teamOf[seat]] += sumCardPoints(cards, trumpSuit);
+  });
+  cardPts[teamOf[lastTrickWinnerSeat]] += LAST_TRICK_BONUS;
+
+  for (const seat of scoringSequenceSeats(bestSequences)) {
+    const meld = bestSequences[seat];
+    if (meld) meldPts[teamOf[seat]] += meld.points;
+  }
+  for (const seat of bellaSeats) {
+    meldPts[teamOf[seat]] += BELLA_POINTS;
+  }
+
+  const teamPoints = cardPts.map((c, t) => c + meldPts[t]);
+  return { teamPoints, cardPoints: cardPts, meldPoints: meldPts };
+}
