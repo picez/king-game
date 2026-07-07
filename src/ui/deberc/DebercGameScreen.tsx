@@ -55,6 +55,16 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const [showHelp, setShowHelp] = useState(false);
   const [showScore, setShowScore] = useState(false);
   const [showTricks, setShowTricks] = useState(false);
+  const [introDismissed, setIntroDismissed] = useState(false);
+
+  // First-dealer intro (§3): shown on hand 1 only, auto-hides after a few seconds.
+  const draw = state.firstDealerDraw;
+  const showIntro = !introDismissed && state.handHistory.length === 0 && draw != null;
+  useEffect(() => {
+    if (!showIntro) return;
+    const tmr = setTimeout(() => setIntroDismissed(true), 6500);
+    return () => clearTimeout(tmr);
+  }, [showIntro]);
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
@@ -156,10 +166,34 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const trickPlays = state.currentTrick?.plays ?? [];
 
   return (
-    <div className="screen durak-screen">
+    <div className="screen durak-screen deberc-screen">
       {showHelp && <DebercHelp onClose={() => setShowHelp(false)} />}
       {showScore && <DebercScoreTable state={state} onClose={() => setShowScore(false)} />}
       {showTricks && <DebercTricksReview state={state} mySeat={meSeat} onClose={() => setShowTricks(false)} />}
+      {showIntro && draw && (
+        <div className="deberc-firstdealer" role="dialog" aria-label={t('deberc.firstDealer')} onClick={() => setIntroDismissed(true)}>
+          <div className="deberc-firstdealer__card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="deberc-firstdealer__title">{t('deberc.firstDealer')}</h3>
+            <div className="deberc-firstdealer__seats">
+              {draw.suitOf.map((suit, seat) => {
+                const isDrawn = suit === draw.drawnSuit;
+                const red = suit === 'hearts' || suit === 'diamonds';
+                return (
+                  <div key={seat} className={`deberc-firstdealer__seat ${isDrawn ? 'deberc-firstdealer__seat--drawn' : ''}`}>
+                    <span className={`deberc-firstdealer__suit ${red ? 'deberc-firstdealer__suit--red' : ''}`}>{SUIT_SYMBOL[suit]}</span>
+                    <span className="deberc-firstdealer__seatname">{state.players[seat]?.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="deberc-firstdealer__drawn">
+              {t('deberc.drawnSuit')} <strong className={draw.drawnSuit === 'hearts' || draw.drawnSuit === 'diamonds' ? 'deberc-firstdealer__suit--red' : ''}>{SUIT_SYMBOL[draw.drawnSuit]}</strong>
+              {' → '}<strong>{state.players[state.dealerSeat]?.name}</strong> {t('deberc.dealsFirst')}
+            </p>
+            <button type="button" className="btn btn--primary" onClick={() => setIntroDismissed(true)}>{t('deberc.gotIt')}</button>
+          </div>
+        </div>
+      )}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>

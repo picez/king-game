@@ -13,7 +13,7 @@
 
 import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercContext, DebercMeld, DebercMeldKind, DebercPlayer, DebercState } from './types';
-import { dealDeberc, seqValue } from './deck';
+import { dealDeberc, seqValue, DEBERC_SUITS } from './deck';
 import { cardEquals, isLegalPlay, legalPlays, resolveTrick } from './rules';
 import { announcedMeld, hasBella, scoringDeclaredMelds } from './melds';
 import { BELLA_POINTS, scoreHand } from './scoring';
@@ -163,7 +163,13 @@ function startDeberc(
   const n = action.playerNames.length;
   if (n !== 3 && n !== 4) return null; // 3 = each for self, 4 = two teams of 2
   const rng = ctx?.rng ?? Math.random;
-  const dealerSeat = Math.floor(rng() * n) % n; // §3 first-hand об'яз ≈ random seat
+  // §3 first об'яз: assign each seat a suit (seat i → DEBERC_SUITS[i]) and draw one
+  // — the seat whose suit is drawn deals first. One rng() call over the n assigned
+  // suits, so `dealerSeat` is identical to the old `floor(rng()*n)` (no seed shift).
+  const suitOf = DEBERC_SUITS.slice(0, n);
+  const drawIndex = Math.floor(rng() * n);
+  const drawnSuit = suitOf[drawIndex];
+  const dealerSeat = drawIndex;
   const { hands, prykup, tableTrumpCard, stock } = dealDeberc(n, dealerSeat, rng);
   const teamOf = n === 4 ? [0, 1, 0, 1] : [0, 1, 2];
   const teamCount = n === 4 ? 2 : 3;
@@ -181,7 +187,9 @@ function startDeberc(
     matchScore: Array<number>(teamCount).fill(0),
     hvMarks: Array<number>(teamCount).fill(0),
     beitMarks: Array<number>(teamCount).fill(0),
-    lastHand: null, handHistory: [], winnerTeam: null, jackpot: false,
+    lastHand: null, handHistory: [],
+    firstDealerDraw: { suitOf, drawnSuit },
+    winnerTeam: null, jackpot: false,
   };
   return s;
 }

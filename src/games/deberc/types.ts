@@ -180,6 +180,14 @@ export interface DebercState {
    */
   handHistory: DebercHandResult[];
 
+  /**
+   * How the FIRST об'яз was chosen (§3, hand 1 only, for display/immersion): each
+   * seat was assigned a suit (`suitOf[seat]`) and one was drawn at random
+   * (`drawnSuit`) — the seat holding it deals first. Set once at match start and
+   * left in place (it only describes hand 1). Public (no cards).
+   */
+  firstDealerDraw?: { suitOf: Suit[]; drawnSuit: Suit };
+
   /** Once finished: winning team index, or null while playing. */
   winnerTeam: number | null;
   /** True when the match ended via a деберц jackpot rather than the target. */
