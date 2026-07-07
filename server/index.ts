@@ -100,15 +100,19 @@ const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 800);
 const HOUR_MS = 60 * 60 * 1000;
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_HOURS ?? 24) * HOUR_MS;
 const ROOM_HARD_TTL_MS = Number(process.env.ROOM_HARD_TTL_HOURS ?? 48) * HOUR_MS;
-// Orphan room (no connected human — only bots/offline humans) → delete after this
-// (Stage 7.2; default 15 min). Applies to both lobby and active game.
-const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 15 * 60 * 1000);
+// Orphan room (no connected human — only bots/offline humans) → delete after this.
+// Short by design (default 90 s): an abandoned lobby/table should vanish quickly,
+// while still leaving a window for a tab reload to RECONNECT. Applies to both a
+// lobby and an active game. Overridable via ORPHAN_ROOM_TTL_MS.
+const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 90 * 1000);
 // When a DISCONNECTED human's turn comes, wait this long before an AI substitute
 // acts for them (Stage 7.2; default 2 min). A room turn timer, if enabled AND
 // shorter, takes precedence (players agreed to it). Reconnecting cancels it.
 const SUBSTITUTE_DELAY_MS = Number(process.env.DISCONNECTED_SUBSTITUTE_DELAY_MS ?? 2 * 60 * 1000);
-// Sweep cadence (ms). Overridable for tests/admin; default every 10 minutes.
-const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 10 * 60 * 1000);
+// Sweep cadence (ms). Overridable for tests/admin; default every 45 s so an
+// orphaned room is actually removed within ~orphan-TTL + one sweep (not up to
+// 10 min later). Cheap: the sweep is an in-memory filter over the room map.
+const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 45 * 1000);
 
 // Per-connection WS rate limits (БЕЗ-1). Generous defaults (see rateLimit.ts);
 // every knob is env-overridable so ops can tighten for a public launch or loosen
