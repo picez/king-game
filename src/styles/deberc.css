@@ -1,0 +1,220 @@
+/* ===========================================================================
+   Deberc styling. The deberc UI reuses the durak-* board/modal shells for
+   layout; this file styles the deberc-* classes that had no CSS (score sheet,
+   score strip, role badges, meld declaration, bid tags, tricks review). Uses
+   the shared design tokens from base.css so it matches King/Durak natively.
+   =========================================================================== */
+
+/* ---- Match score strip + meld announcements (top of the table) ---- */
+.deberc-scores,
+.deberc-declared {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  align-items: center;
+  max-width: 48rem;
+  margin: 0.15rem auto;
+  padding: 0.15rem 0.5rem;
+}
+.deberc-mark { color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+
+.deberc-declared__item { font-size: 0.78rem; }
+.deberc-declared__item--jackpot {
+  border-color: rgba(245, 197, 24, 0.5);
+  color: var(--accent-light);
+  background: rgba(245, 197, 24, 0.12);
+}
+
+/* ---- Dealer / об'яз role badges (distinct so they never read as one role) ---- */
+.deberc-role--dealer,
+.deberc-role--objaz {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.55;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.deberc-role--dealer {
+  background: var(--info-soft);
+  color: #9cd8f0;
+  border: 1px solid rgba(110, 200, 236, 0.45);
+}
+.deberc-role--objaz {
+  background: rgba(245, 197, 24, 0.16);
+  color: var(--accent-light);
+  border: 1px solid rgba(245, 197, 24, 0.45);
+}
+.durak-seat__roles { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; justify-content: center; }
+
+/* ---- Per-seat bid feedback (спасував / взяв ♠) ---- */
+.deberc-bid--pass,
+.deberc-bid--took {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.deberc-bid--pass { color: var(--text-dim); background: var(--surface-2); }
+.deberc-bid--took { color: var(--success-light); background: var(--success-soft); }
+
+/* ---- Trump pending "?" during bidding ---- */
+.deberc-trump__pending { color: var(--text-dim); font-style: normal; font-weight: 700; }
+
+/* ---- Prompt: review-my-tricks button + free-suit bid buttons ---- */
+.deberc-mytricks { min-height: 2rem; padding: 0.15rem 0.55rem; font-size: 0.85rem; }
+.deberc-suit { font-size: 1.3rem; min-width: 2.7rem; padding: 0.3rem 0.6rem; }
+.deberc-suit--red { color: var(--card-red); }
+
+/* ---- Declaring controls (v1.3 truthful chips) ---- */
+.durak-controls.deberc-declare {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.deberc-declare__warn { font-size: 0.8rem; color: var(--text-muted); text-align: center; }
+.deberc-declare__timer { color: var(--accent-light); font-weight: 800; }
+.deberc-declare__buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+.deberc-declare__none { color: var(--text-dim); font-style: italic; }
+.deberc-meld-chip { font-size: 0.85rem; padding: 0.4rem 0.85rem; }
+.deberc-meld-chip--jackpot { box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.5); }
+
+/* ===========================================================================
+   Score sheet — the per-hand score pad (📊 modal + embedded on Finished).
+   =========================================================================== */
+.durak-help.deberc-sheet-modal { width: min(34rem, 94vw); }
+
+.deberc-sheet__wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  margin: 0.2rem 0 0.4rem;
+}
+.deberc-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.deberc-sheet th,
+.deberc-sheet td {
+  padding: 0.42rem 0.55rem;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--hairline);
+}
+/* First two columns (# and об'яз) read as labels — left-align them. */
+.deberc-sheet th:first-child,
+.deberc-sheet td:first-child,
+.deberc-sheet th:nth-child(2),
+.deberc-sheet td:nth-child(2) { text-align: left; }
+
+.deberc-sheet thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.deberc-sheet tbody tr:nth-child(even) { background: var(--surface-2); }
+
+.deberc-sheet__num { width: 2ch; color: var(--text-dim); font-size: 0.8rem; }
+.deberc-sheet td strong { font-weight: 700; }
+
+/* Card/meld/−50 breakdown: quiet secondary line under the bold hand total. */
+.deberc-sheet__break {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* Per-hand top scorer + winning column highlights. */
+.deberc-sheet__top { background: rgba(245, 197, 24, 0.10); }
+.deberc-sheet__win { color: var(--accent-light); }
+
+.deberc-sheet__empty {
+  padding: 1rem;
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ХВ / бейт flags as small coloured pills. */
+.deberc-sheet__flag {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.deberc-sheet__flag--hv { background: var(--danger-soft); color: var(--danger-light); border: 1px solid rgba(229, 72, 77, 0.4); }
+.deberc-sheet__flag--beit { background: var(--info-soft); color: #9cd8f0; border: 1px solid rgba(110, 200, 236, 0.4); }
+
+/* Bold running-total row, visually separated. */
+.deberc-sheet__totalrow td {
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+  padding-top: 0.55rem;
+  font-size: 1rem;
+}
+.deberc-sheet__totalrow td strong { font-weight: 800; }
+.deberc-sheet__marksrow td {
+  border-bottom: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+.deberc-sheet__target { margin-top: 0.4rem; text-align: right; color: var(--text-muted); font-size: 0.82rem; }
+
+/* ===========================================================================
+   Tricks review (🃏 modal) + Finished score list.
+   =========================================================================== */
+.durak-help.deberc-tricks-modal { width: min(30rem, 94vw); }
+
+.deberc-tricks { display: flex; flex-direction: column; gap: 0.5rem; }
+.deberc-tricks__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.deberc-tricks__n { min-width: 2.2rem; color: var(--text-dim); font-weight: 700; font-size: 0.8rem; }
+.deberc-tricks__cards { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+.deberc-final-scores {
+  list-style: none;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0.5rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.deberc-final-scores li {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-variant-numeric: tabular-nums;
+}
+.deberc-final--win {
+  background: rgba(245, 197, 24, 0.14);
+  color: var(--accent-light);
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.35);
+}

@@ -32,7 +32,7 @@ export default function DebercTricksReview({ state, mySeat, onClose }: { state: 
               <div className="deberc-tricks__row" key={i}>
                 <span className="deberc-tricks__n">#{i + 1}</span>
                 <div className="deberc-tricks__cards">
-                  {trick.map((c, j) => <CardView key={j} card={c} size="table" disabled />)}
+                  {trick.map((c, j) => <CardView key={j} card={c} size="mini" disabled />)}
                 </div>
               </div>
             ))}
