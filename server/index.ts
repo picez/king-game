@@ -113,6 +113,13 @@ const SUBSTITUTE_DELAY_MS = Number(process.env.DISCONNECTED_SUBSTITUTE_DELAY_MS 
 // orphaned room is actually removed within ~orphan-TTL + one sweep (not up to
 // 10 min later). Cheap: the sweep is an in-memory filter over the room map.
 const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 45 * 1000);
+// WS liveness heartbeat: ping every client this often and terminate any that did
+// not answer the previous ping (a half-open socket — the tab was closed, wifi
+// dropped, mobile backgrounded — where 'close' never fires). WITHOUT this, such a
+// member stays connected=true forever, the room never becomes an orphan, and it
+// lingers until the 48 h hard TTL — the "rooms not destroyed" bug. terminate()
+// fires 'close', which marks the member disconnected → orphan → swept.
+const HEARTBEAT_INTERVAL_MS = Number(process.env.WS_HEARTBEAT_INTERVAL_MS ?? 30 * 1000);
 
 // Per-connection WS rate limits (БЕЗ-1). Generous defaults (see rateLimit.ts);
 // every knob is env-overridable so ops can tighten for a public launch or loosen
@@ -149,6 +156,9 @@ function verifyOrigin(info: { origin?: string }): boolean {
 // ── Server state ───────────────────────────────────────────────────────────
 const rooms = new Map<string, ServerRoom>();
 const sockets = new Map<string, WebSocket>();              // clientId → socket
+// WS-level liveness: true once a socket has answered our latest ping. A socket
+// still false at the next heartbeat tick is dead → terminated (see HEARTBEAT).
+const socketAlive = new WeakMap<WebSocket, boolean>();
 const advanceTimers = new Map<string, ReturnType<typeof setTimeout>>(); // code → timer
 const botTimers = new Map<string, ReturnType<typeof setTimeout>>();     // code → bot-move timer
 const turnTimers = new Map<string, ReturnType<typeof setTimeout>>();    // code → human turn-timeout
@@ -435,6 +445,12 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   // of connections (an infra/proxy concern; see MVP_STATUS.md known limitations).
   const limiter = new ConnectionLimiter(RATE_LIMITS, Date.now());
 
+  // Liveness: mark alive now and on every pong (browsers answer WS pings at the
+  // protocol level, no app cooperation needed). The heartbeat below terminates a
+  // socket that stops answering — so a vanished tab is detected within ~2 ticks.
+  socketAlive.set(socket, true);
+  socket.on('pong', () => socketAlive.set(socket, true));
+
   // Stage 5: resolve the player's account from the session cookie that rides the
   // WS upgrade (same-origin). This NAMES the player for stats only — seat/
   // reconnect authority stays on clientId + reconnectToken. Resolution is async;
@@ -528,6 +544,19 @@ async function bootstrap(): Promise<void> {
   const expiredOnStartup = cleanupRooms();
 
   setInterval(cleanupRooms, CLEANUP_INTERVAL_MS);
+
+  // WS heartbeat: drop dead sockets so their rooms can orphan + be swept. A socket
+  // that has not answered the previous ping (still `false`) is terminated — which
+  // fires its 'close' handler (markDisconnected). Otherwise re-arm: mark it pending
+  // (false) and ping; a live browser answers with a pong, flipping it back to true.
+  const heartbeat = setInterval(() => {
+    for (const socket of wss.clients) {
+      if (socketAlive.get(socket) === false) { socket.terminate(); continue; }
+      socketAlive.set(socket, false);
+      try { socket.ping(); } catch { socket.terminate(); }
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  wss.on('close', () => clearInterval(heartbeat));
 
   httpServer.listen(PORT, HOST, () => {
     console.log(`[King] server-authoritative server listening on ${HOST}:${PORT} (${NODE_ENV})`);
