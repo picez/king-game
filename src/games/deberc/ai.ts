@@ -11,9 +11,15 @@ import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
 import { legalPlays, resolveTrick } from './rules';
+import { detectAllSequences } from './melds';
 
-/** Minimum hand score (see suitScore) at which a bot commits to a trump. */
-const BID_THRESHOLD = 8;
+/**
+ * Minimum hand score (see suitScore) at which a bot commits to a trump. Bidding
+ * is now on the 6-card hand (v1.1 — the прикуп is taken only after trump), so the
+ * threshold is lower than the old 9-card value: a bot takes trump on a decent
+ * six, otherwise passes into round 2 / the forced table trump.
+ */
+const BID_THRESHOLD = 6;
 
 /**
  * How playable a hand is with `suit` as trump: trumps count for their length and
@@ -127,13 +133,25 @@ function pickBy(cards: Card[], trump: Suit | null, cost: (c: Card, t: Suit | nul
 }
 
 /**
+ * Declaring phase: the bot declares ALL the sequences it actually holds (fair —
+ * bots never "miss" a meld). A declared деберц wins the match outright.
+ */
+function declareAction(state: DebercState): DebercAction {
+  const seat = state.meldTurnSeat;
+  const seqs = detectAllSequences(state.dealtHands[seat], seat, state.trumpSuit);
+  return { type: 'DECLARE_MELD', melds: seqs.map((m) => ({ kind: m.kind, cards: m.cards })) };
+}
+
+/**
  * The bot's chosen action for the current state, or null on a finished match.
- * Bidding → BID; playing → PLAY_CARD; the two acknowledgement phases advance
- * automatically (NEXT_TRICK / NEXT_HAND). The reducer enforces legality.
+ * Bidding → BID; declaring → DECLARE_MELD (all held sequences); playing →
+ * PLAY_CARD; the two acknowledgement phases advance automatically (NEXT_TRICK /
+ * NEXT_HAND). The reducer enforces legality.
  */
 export function debercBotAction(state: DebercState): DebercAction | null {
   switch (state.phase) {
     case 'bidding': return bidAction(state);
+    case 'declaring': return declareAction(state);
     case 'playing': return playAction(state);
     case 'trick_complete': return { type: 'NEXT_TRICK' };
     case 'hand_scoring': return { type: 'NEXT_HAND' };

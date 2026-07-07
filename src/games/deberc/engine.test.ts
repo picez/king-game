@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { makeRng } from '../../core/rng';
-import type { Suit } from '../../models/types';
+import type { Rank, Suit } from '../../models/types';
+import { seqValue } from './deck';
 import {
   applyMark, currentLegalPlays, debercReducer, getActingDebercPlayerId, isDebercFinished,
 } from './engine';
 import type { DebercAction, DebercState } from './types';
+
+/** A card in the given suit/rank (for crafting known melds). */
+const c = (suit: Suit, rank: Rank) => ({ suit, rank, value: seqValue(rank) });
+/** The first non-trump suit for the state (for crafting a declarable run). */
+const someNonTrump = (s: DebercState): Suit =>
+  (['spades', 'hearts', 'diamonds', 'clubs'] as Suit[]).find((x) => x !== s.trumpSuit)!;
 
 function start(numPlayers: number, matchSize: 'small' | 'big', seed: number): DebercState {
   const names = Array.from({ length: numPlayers }, (_, i) => `P${i}`);
@@ -14,9 +21,24 @@ function start(numPlayers: number, matchSize: 'small' | 'big', seed: number): De
   return s;
 }
 
-/** Drive bidding: the first bidder accepts the table trump. */
+/** Drive bidding: the first bidder accepts the table trump (→ declaring phase). */
 function acceptTableTrump(s: DebercState): DebercState {
   return debercReducer(s, { type: 'BID', suit: s.tableTrumpCard.suit }, {})!;
+}
+
+/** Pass every seat's meld declaration (declare nothing) until play opens. */
+function declareAllPass(s: DebercState): DebercState {
+  let cur = s;
+  let guard = 0;
+  while (cur.phase === 'declaring' && guard++ < 10) {
+    cur = debercReducer(cur, { type: 'DECLARE_MELD', melds: [] }, {})!;
+  }
+  return cur;
+}
+
+/** Accept the table trump, then pass all declarations → a fresh 'playing' hand. */
+function toPlaying(s: DebercState): DebercState {
+  return declareAllPass(acceptTableTrump(s));
 }
 
 /** Auto-play a whole hand with a fixed policy (lowest legal card) until it ends. */
@@ -24,6 +46,10 @@ function playOutHand(state: DebercState, ctx = { rng: makeRng(1) }): DebercState
   let s = state;
   let guard = 0;
   while (s.phase !== 'hand_scoring' && s.phase !== 'finished' && guard++ < 500) {
+    if (s.phase === 'declaring') {
+      s = debercReducer(s, { type: 'DECLARE_MELD', melds: [] }, ctx)!; // pass
+      continue;
+    }
     if (s.phase === 'trick_complete') {
       s = debercReducer(s, { type: 'NEXT_TRICK' }, ctx)!;
       continue;
@@ -44,22 +70,24 @@ describe('debercReducer — start', () => {
     expect(debercReducer(null, { type: 'START_DEBERC', playerNames: ['a', 'b', 'c', 'd', 'e'], matchSize: 'small' }, {})).toBeNull();
   });
 
-  it('3 players: three solo teams, bidding open, hands of 9', () => {
+  it('3 players: three solo teams, bidding open on 6-card hands + 3 прикуп', () => {
     const s = start(3, 'small', 5);
     expect(s.teamCount).toBe(3);
     expect(s.teamOf).toEqual([0, 1, 2]);
     expect(s.phase).toBe('bidding');
-    expect(s.players.map((p) => p.hand.length)).toEqual([9, 9, 9]);
+    expect(s.players.map((p) => p.hand.length)).toEqual([6, 6, 6]); // v1.1: bid on 6
+    expect(s.prykup.map((p) => p.length)).toEqual([3, 3, 3]);
     expect(s.stock).toHaveLength(9);
     expect(s.bidderSeat).toBe((s.dealerSeat + 1) % 3); // dealer speaks last
   });
 
-  it('4 players: two teams of 2 (0&2 vs 1&3), whole deck dealt', () => {
+  it('4 players: two teams of 2 (0&2 vs 1&3), whole deck dealt (6 + 3 each)', () => {
     const s = start(4, 'big', 3);
     expect(s.teamCount).toBe(2);
     expect(s.teamOf).toEqual([0, 1, 0, 1]);
     expect(s.stock).toHaveLength(0);
-    expect(s.players.map((p) => p.hand.length)).toEqual([9, 9, 9, 9]);
+    expect(s.players.map((p) => p.hand.length)).toEqual([6, 6, 6, 6]);
+    expect(s.prykup.map((p) => p.length)).toEqual([3, 3, 3, 3]);
   });
 
   it('a second START is illegal (returns the same state)', () => {
@@ -70,16 +98,21 @@ describe('debercReducer — start', () => {
 });
 
 describe('debercReducer — bidding (§3)', () => {
-  it('accepting the table trump commits it and the acceptor becomes об\'яз', () => {
+  it('accepting the table trump commits it, takes прикуп (→9), opens declaring', () => {
     const s0 = start(3, 'small', 5);
     const acceptor = s0.bidderSeat;
     const trump = s0.tableTrumpCard.suit;
     const s1 = acceptTableTrump(s0);
-    expect(s1.phase).toBe('playing');
+    expect(s1.phase).toBe('declaring');              // v1.1: melds declared before play
     expect(s1.trumpSuit).toBe(trump);
-    expect(s1.objazSeat).toBe(acceptor); // intercepts the об'яз role
-    expect(s1.turnSeat).toBe(acceptor);  // об'яз leads the first trick
+    expect(s1.objazSeat).toBe(acceptor);             // intercepts the об'яз role
+    expect(s1.meldTurnSeat).toBe(acceptor);          // об'яз declares first
+    expect(s1.players.map((p) => p.hand.length)).toEqual([9, 9, 9]); // прикуп taken
+    expect(s1.prykup.every((p) => p.length === 0)).toBe(true);
     expect(s1.dealtHands).toHaveLength(3);
+    const s2 = declareAllPass(s1);
+    expect(s2.phase).toBe('playing');
+    expect(s2.turnSeat).toBe(acceptor);              // об'яз leads the first trick
   });
 
   it('all pass round 1 → round 2, then a free suit can be declared', () => {
@@ -92,7 +125,7 @@ describe('debercReducer — bidding (§3)', () => {
     const free: Suit = s.tableTrumpCard.suit === 'spades' ? 'hearts' : 'spades';
     const seat = s.bidderSeat;
     s = debercReducer(s, { type: 'BID', suit: free }, {})!;
-    expect(s.phase).toBe('playing');
+    expect(s.phase).toBe('declaring');
     expect(s.trumpSuit).toBe(free);
     expect(s.objazSeat).toBe(seat);
   });
@@ -102,7 +135,7 @@ describe('debercReducer — bidding (§3)', () => {
     const dealer = s.dealerSeat;
     const tableTrump = s.tableTrumpCard.suit;
     for (let i = 0; i < 6; i++) s = debercReducer(s, { type: 'BID', suit: null }, {})!;
-    expect(s.phase).toBe('playing');
+    expect(s.phase).toBe('declaring');
     expect(s.trumpSuit).toBe(tableTrump);
     expect(s.objazSeat).toBe(dealer);
   });
@@ -115,7 +148,7 @@ describe('debercReducer — bidding (§3)', () => {
 
 describe('debercReducer — play (§5)', () => {
   it('rejects an illegal (off-suit) play', () => {
-    const s = acceptTableTrump(start(3, 'small', 5));
+    const s = toPlaying(start(3, 'small', 5));
     const seat = s.turnSeat;
     const legal = currentLegalPlays(s);
     // find a card NOT among the legal leads — leading is always legal, so instead
@@ -137,6 +170,41 @@ describe('debercReducer — play (§5)', () => {
     // every trick's cards are accounted for across seats (27 for 3 players)
     const totalWon = s.wonCards.reduce((a, cards) => a + cards.length, 0);
     expect(totalWon).toBe(27);
+  });
+});
+
+describe('debercReducer — declaring melds (§4, v1.1)', () => {
+  it('records a valid declared terz; ignores a meld the seat does not hold', () => {
+    const s1 = acceptTableTrump(start(3, 'small', 5));
+    const seat = s1.meldTurnSeat;
+    const suit = someNonTrump(s1);
+    const terz = [c(suit, '7'), c(suit, '8'), c(suit, '9')];
+    const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? terz : h)) };
+    const ok = debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'terz', cards: terz }] }, {})!;
+    expect(ok.declaredMelds.some((m) => m.seatIndex === seat && m.kind === 'terz')).toBe(true);
+    // A run the seat does not actually hold is rejected (no meld recorded).
+    const bogus = [c(suit, '6'), c(suit, '7'), c(suit, '8')]; // seat holds 7-8-9, not the 6
+    const no = debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'terz', cards: bogus }] }, {})!;
+    expect(no.declaredMelds).toHaveLength(0);
+  });
+
+  it('a declared деберц (8+ run) wins the match instantly (jackpot)', () => {
+    const s1 = acceptTableTrump(start(3, 'small', 5));
+    const seat = s1.meldTurnSeat;
+    const suit = someNonTrump(s1);
+    const run8 = (['6', '7', '8', '9', '10', 'J', 'Q', 'K'] as Rank[]).map((r) => c(suit, r));
+    const crafted: DebercState = { ...s1, dealtHands: s1.dealtHands.map((h, i) => (i === seat ? run8 : h)) };
+    const won = debercReducer(crafted, { type: 'DECLARE_MELD', melds: [{ kind: 'deberc', cards: run8 }] }, {})!;
+    expect(won.phase).toBe('finished');
+    expect(won.jackpot).toBe(true);
+    expect(won.winnerTeam).toBe(won.teamOf[seat]);
+  });
+
+  it('an undeclared sequence scores nothing (pass) — hand still plays out', () => {
+    const scored = playOutHand(acceptTableTrump(start(3, 'small', 5))); // all pass declarations
+    expect(scored.phase).toBe('hand_scoring');
+    expect(scored.declaredMelds).toHaveLength(0);
+    expect(scored.melds.every((m) => m.kind === 'bella')).toBe(true); // only bella can appear
   });
 });
 
@@ -212,9 +280,11 @@ describe('getActingDebercPlayerId', () => {
   it('follows the active seat through the phases; null when finished', () => {
     const s0 = start(3, 'small', 5);
     expect(getActingDebercPlayerId(s0)).toBe(`player-${s0.bidderSeat}`);
-    const s1 = acceptTableTrump(s0);
-    expect(getActingDebercPlayerId(s1)).toBe(`player-${s1.turnSeat}`);
-    const finished: DebercState = { ...s1, phase: 'finished' };
+    const s1 = acceptTableTrump(s0); // → declaring
+    expect(getActingDebercPlayerId(s1)).toBe(`player-${s1.meldTurnSeat}`);
+    const s2 = declareAllPass(s1);   // → playing
+    expect(getActingDebercPlayerId(s2)).toBe(`player-${s2.turnSeat}`);
+    const finished: DebercState = { ...s2, phase: 'finished' };
     expect(getActingDebercPlayerId(finished)).toBeNull();
   });
 });

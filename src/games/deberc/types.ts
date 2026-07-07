@@ -13,7 +13,9 @@ export type DebercMatchSize = 'small' | 'big';
 
 /**
  * Phase of a hand:
- *  - 'bidding'        → choosing trump (table trump round, then free round);
+ *  - 'bidding'        → choosing trump on the 6-card hands (table round, then free);
+ *  - 'declaring'      → after прикуп is taken (→9 cards), each seat declares its
+ *                       terz/platina/deberc melds (or passes) before the first card;
  *  - 'playing'        → the 9-trick play is under way;
  *  - 'trick_complete' → a trick just resolved, awaiting acknowledgement;
  *  - 'hand_scoring'   → the hand ended; scores/ХВ/бейт applied, awaiting next deal;
@@ -21,6 +23,7 @@ export type DebercMatchSize = 'small' | 'big';
  */
 export type DebercPhase =
   | 'bidding'
+  | 'declaring'
   | 'playing'
   | 'trick_complete'
   | 'hand_scoring'
@@ -88,10 +91,22 @@ export interface DebercState {
 
   phase: DebercPhase;
 
-  /** The face-up trump card on the table (the об'яз's talon top). */
+  /**
+   * The face-up trump card on the table (shows the round-1 table-trump suit).
+   * 4 players: it is a card inside the dealer's `prykup` (picked up with it when
+   * trumps are taken). 3 players: it is the top of the undealt `stock` and is
+   * never taken. Never counted as a separate card (see deberc-card-accounting).
+   */
   tableTrumpCard: Card;
-  /** Cards left on the table after the deal (unused stock). */
+  /** Cards left on the table after the deal (undealt stock; 9 for 3p, 0 for 4p). */
   stock: Card[];
+  /**
+   * Each seat's face-down 3-card прикуп (talon) packet, dealt alongside the 6-card
+   * hand. Bidding happens on the 6-card hands; on trump commit every seat merges
+   * its packet into its hand (→9 cards) and the packet is emptied. Hidden from all
+   * viewers until taken (redaction). Counted toward the 36-card total while unmerged.
+   */
+  prykup: Card[][];
   /** Chosen trump suit; null until bidding commits one. */
   trumpSuit: Suit | null;
 
@@ -119,6 +134,13 @@ export interface DebercState {
   seatsWithTricks: number[];
   /** Melds that scored this hand (populated at hand_scoring; for display). */
   melds: DebercMeld[];
+
+  /** Declaring phase: whose turn it is to declare melds (starts at the об'яз). */
+  meldTurnSeat: number;
+  /** Sequence melds (terz/platina) declared this hand, in declaration order. */
+  declaredMelds: DebercMeld[];
+  /** Which seats have finished declaring (or passing) this hand. */
+  meldsDone: boolean[];
 
   /**
    * Snapshot of each seat's full 9-card hand at the moment play began. Melds are
@@ -170,8 +192,12 @@ export type DebercAction =
     }
   /** A bid during the bidding phase: commit to `suit`, or pass with suit=null. */
   | { type: 'BID'; suit: Suit | null }
-  /** Declare a meld the player holds (before/at first play — see engine). */
-  | { type: 'DECLARE_MELD'; kind: DebercMeldKind; cards: Card[] }
+  /**
+   * The acting seat's full meld declaration for the hand (batch): each entry is a
+   * sequence run the seat claims to hold. An empty list = pass (declare nothing).
+   * Advances the declaring turn to the next seat; a declared деберц ends the match.
+   */
+  | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; cards: Card[] }[] }
   /** Play a card into the current trick. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */

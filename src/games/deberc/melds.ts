@@ -8,6 +8,11 @@ import type { Card, Suit } from '../../models/types';
 import { seqValue, DEBERC_SUITS } from './deck';
 import type { DebercMeld, DebercMeldKind } from './types';
 
+/** Same-card test (suit + rank), local to avoid a rules.ts import cycle. */
+function sameCard(a: Card, b: Card): boolean {
+  return a.suit === b.suit && a.rank === b.rank;
+}
+
 /** Points for a sequence of the given length (деберц is a jackpot → 0 points). */
 function sequencePoints(length: number): number {
   if (length >= 8) return 0;   // деберц — instant match win, no points
@@ -104,4 +109,59 @@ export function scoringSequenceSeats(best: (DebercMeld | null)[]): number[] {
   return present
     .filter(({ m }) => !present.some((o) => compareSequences(o.m, m) > 0))
     .map(({ seat }) => seat);
+}
+
+// --- Declared melds (v1.1 — sequences must be announced) --------------------
+
+/**
+ * Every same-suit run (≥3) a hand holds — one per suit (its longest run). Used by
+ * the bot to declare all of its sequences during the declaring phase.
+ */
+export function detectAllSequences(
+  hand: Card[],
+  seatIndex: number,
+  trumpSuit: Suit | null,
+): DebercMeld[] {
+  const melds: DebercMeld[] = [];
+  for (const suit of DEBERC_SUITS) {
+    const run = longestRunInSuit(hand.filter((c) => c.suit === suit));
+    if (run) melds.push(toMeld(seatIndex, run, suit, trumpSuit));
+  }
+  return melds;
+}
+
+/**
+ * Validate a seat's claimed meld against its actual hand and build the scored
+ * DebercMeld, or return null if the claim is invalid. A valid claim is a
+ * same-suit, contiguous run of length ≥3 whose every card the hand holds.
+ * The kind/points are derived from the actual run length (the claimed `kind` is
+ * advisory — the cards are the source of truth).
+ */
+export function buildDeclaredMeld(
+  hand: Card[],
+  seatIndex: number,
+  cards: Card[],
+  trumpSuit: Suit | null,
+): DebercMeld | null {
+  if (cards.length < 3) return null;
+  const suit = cards[0].suit;
+  if (!cards.every((c) => c.suit === suit)) return null;            // one suit only
+  if (!cards.every((c) => hand.some((h) => sameCard(h, c)))) return null; // actually held
+  const sorted = cards.slice().sort((a, b) => seqValue(a.rank) - seqValue(b.rank));
+  for (let i = 1; i < sorted.length; i++) {
+    if (seqValue(sorted[i].rank) !== seqValue(sorted[i - 1].rank) + 1) return null; // gap
+  }
+  if (new Set(sorted.map((c) => c.rank)).size !== sorted.length) return null; // no dup ranks
+  return toMeld(seatIndex, sorted, suit, trumpSuit);
+}
+
+/**
+ * Which of the DECLARED sequence melds actually score: a meld scores unless
+ * another declared meld is strictly stronger (longer / higher top / trump). Equal
+ * melds do not cancel each other (both score). A stronger declared meld (e.g. a
+ * платіна) shuts out weaker declared ones (терці) — the §4 hierarchy, restricted
+ * to what was announced. (деберц never reaches scoring — it ends the match.)
+ */
+export function scoringDeclaredMelds(melds: DebercMeld[]): DebercMeld[] {
+  return melds.filter((m) => !melds.some((o) => o !== m && compareSequences(o, m) > 0));
 }

@@ -4,21 +4,21 @@
 // Mirrors King/Durak's reducer contract with Deberc's own state/action.
 // See DEBERC_RULES.md for every rule encoded here.
 //
-// Meld handling is AUTO-DETECT in v1 (proposed design, see the deberc-game
-// memory): терц/платіна/деберц are scored automatically from the dealt hands,
-// and the bella is credited when its holder wins a trick with a trump K or Q.
-// DECLARE_MELD is reserved for a later explicit-declaration mode → it is a no-op.
+// Meld handling is DECLARED (v1.1): after the прикуп is taken, a 'declaring' phase
+// lets each seat announce its терц/платіна/деберц via DECLARE_MELD (batch per
+// seat) — undeclared sequences score nothing, and only declared melds compete in
+// the §4 hierarchy. The bella is still credited automatically when its holder wins
+// a trick with a trump K or Q. A declared деберц ends the match (jackpot).
 // ---------------------------------------------------------------------------
 
 import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercContext, DebercMeld, DebercPlayer, DebercState } from './types';
 import { dealDeberc, seqValue } from './deck';
 import { cardEquals, isLegalPlay, legalPlays, resolveTrick } from './rules';
-import { detectBestSequence, hasBella, scoringSequenceSeats } from './melds';
+import { buildDeclaredMeld, hasBella, scoringDeclaredMelds } from './melds';
 import { BELLA_POINTS, scoreHand } from './scoring';
 
 const HAND_TRICKS = 9;
-const DEBERC_LENGTH = 8; // an 8- or 9-card run = деберц jackpot
 const PAIR_PENALTY = 100;
 const TARGET: Record<'small' | 'big', number> = { small: 510, big: 1020 };
 
@@ -91,26 +91,14 @@ function addMark(s: DebercState, kind: 'hv' | 'beit', team: number): void {
 
 // --- Deal + hand setup ------------------------------------------------------
 
-/** True (and finishes `s` as a jackpot) if any seat holds a деберц (8–9 run). */
-function checkDebercJackpot(s: DebercState): boolean {
-  for (let seat = 0; seat < s.players.length; seat++) {
-    const best = detectBestSequence(s.players[seat].hand, seat, null);
-    if (best && best.cards.length >= DEBERC_LENGTH) {
-      s.phase = 'finished';
-      s.winnerTeam = s.teamOf[seat];
-      s.jackpot = true;
-      return true;
-    }
-  }
-  return false;
-}
-
 /** Deal a fresh hand with `dealerSeat` as the initial об'яз, and open bidding. */
 function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): void {
   const n = s.players.length;
   const rng = ctx?.rng ?? Math.random;
-  const { hands, tableTrumpCard, stock } = dealDeberc(n, dealerSeat, rng);
+  // v1.1: 6-card hands + a separate 3-card прикуп per seat; bidding is on the 6.
+  const { hands, prykup, tableTrumpCard, stock } = dealDeberc(n, dealerSeat, rng);
   s.players.forEach((p, i) => { p.hand = hands[i]; });
+  s.prykup = prykup;
   s.dealerSeat = dealerSeat;
   s.objazSeat = dealerSeat;
   s.tableTrumpCard = tableTrumpCard;
@@ -129,13 +117,25 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
   s.dealtHands = [];
   s.bellaEligible = [];
   s.bellaEarned = [];
-  checkDebercJackpot(s);
+  s.meldTurnSeat = dealerSeat;
+  s.declaredMelds = [];
+  s.meldsDone = Array<boolean>(n).fill(false);
 }
 
-/** Commit `trump` chosen by `seat` (it intercepts the об'яз role) and start play. */
+/**
+ * Commit `trump` chosen by `seat` (it intercepts the об'яз role): everyone takes
+ * their прикуп (hands → 9 cards), then the meld-declaring phase opens. The 3p
+ * face-up trump card stays in the stock; the 4p one is already in the dealer's
+ * прикуп, so it enters the dealer's hand on pickup.
+ */
 function commitTrump(s: DebercState, seat: number, trump: Suit): void {
   s.trumpSuit = trump;
   s.objazSeat = seat;
+  // Take прикуп: merge each seat's 3-card packet into its hand, then empty it.
+  s.players.forEach((p, i) => {
+    p.hand = [...p.hand, ...s.prykup[i]];
+    s.prykup[i] = [];
+  });
   s.dealtHands = s.players.map((p) => p.hand.map((c) => ({ ...c })));
   s.bellaEligible = [];
   for (let i = 0; i < s.players.length; i++) {
@@ -146,8 +146,13 @@ function commitTrump(s: DebercState, seat: number, trump: Suit): void {
   s.seatsWithTricks = [];
   s.tricksPlayed = 0;
   s.currentTrick = null;
-  s.turnSeat = s.objazSeat; // the об'яз leads the first trick
-  s.phase = 'playing';
+  // Declaring phase: melds are announced before the first card (§4, v1.1). The
+  // об'яз declares first; when everyone has declared/passed, play begins.
+  s.phase = 'declaring';
+  s.meldTurnSeat = s.objazSeat;
+  s.declaredMelds = [];
+  s.meldsDone = Array<boolean>(s.players.length).fill(false);
+  s.turnSeat = s.objazSeat; // the об'яз leads the first trick once play opens
 }
 
 function startDeberc(
@@ -158,7 +163,7 @@ function startDeberc(
   if (n !== 3 && n !== 4) return null; // 3 = each for self, 4 = two teams of 2
   const rng = ctx?.rng ?? Math.random;
   const dealerSeat = Math.floor(rng() * n) % n; // §3 first-hand об'яз ≈ random seat
-  const { hands, tableTrumpCard, stock } = dealDeberc(n, dealerSeat, rng);
+  const { hands, prykup, tableTrumpCard, stock } = dealDeberc(n, dealerSeat, rng);
   const teamOf = n === 4 ? [0, 1, 0, 1] : [0, 1, 2];
   const teamCount = n === 4 ? 2 : 3;
   const players: DebercPlayer[] = action.playerNames.map((name, i) => ({
@@ -166,17 +171,17 @@ function startDeberc(
   }));
   const s: DebercState = {
     gameType: 'deberc', matchSize: action.matchSize, players, teamOf, teamCount,
-    phase: 'bidding', tableTrumpCard, stock, trumpSuit: null,
+    phase: 'bidding', tableTrumpCard, stock, prykup, trumpSuit: null,
     objazSeat: dealerSeat, dealerSeat, bidderSeat: (dealerSeat + 1) % n, bids: [], bidRound: 1,
     currentTrick: null, turnSeat: dealerSeat,
     wonCards: Array.from({ length: n }, () => []), tricksPlayed: 0, seatsWithTricks: [], melds: [],
+    meldTurnSeat: dealerSeat, declaredMelds: [], meldsDone: Array<boolean>(n).fill(false),
     dealtHands: [], bellaEligible: [], bellaEarned: [],
     matchScore: Array<number>(teamCount).fill(0),
     hvMarks: Array<number>(teamCount).fill(0),
     beitMarks: Array<number>(teamCount).fill(0),
     lastHand: null, winnerTeam: null, jackpot: false,
   };
-  checkDebercJackpot(s);
   return s;
 }
 
@@ -201,14 +206,9 @@ function finalizeTrick(s: DebercState): void {
   s.phase = 'trick_complete';
 }
 
-/** The sequence + bella melds that actually score this hand (for display). */
+/** The DECLARED sequences that actually score (+ earned bella), for display. */
 function collectScoringMelds(s: DebercState): DebercMeld[] {
-  const best = s.dealtHands.map((h, seat) => detectBestSequence(h, seat, s.trumpSuit));
-  const melds: DebercMeld[] = [];
-  for (const seat of scoringSequenceSeats(best)) {
-    const m = best[seat];
-    if (m) melds.push(m);
-  }
+  const melds: DebercMeld[] = [...scoringDeclaredMelds(s.declaredMelds)];
   for (const seat of s.bellaEarned) {
     const k = s.dealtHands[seat].find((c) => c.suit === s.trumpSuit && c.rank === 'K');
     const q = s.dealtHands[seat].find((c) => c.suit === s.trumpSuit && c.rank === 'Q');
@@ -222,11 +222,11 @@ function collectScoringMelds(s: DebercState): DebercMeld[] {
 /** Score the finished hand into per-team match points, ХВ/бейт, and the ledger. */
 function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
   const trump = s.trumpSuit!;
-  const best = s.dealtHands.map((h, seat) => detectBestSequence(h, seat, trump));
   const lastTrickWinnerSeat = s.currentTrick?.winnerSeat ?? s.objazSeat;
   const score = scoreHand({
     wonCards: s.wonCards, trumpSuit: trump, lastTrickWinnerSeat,
-    teamOf: s.teamOf, teamCount: s.teamCount, bestSequences: best, bellaSeats: s.bellaEarned,
+    teamOf: s.teamOf, teamCount: s.teamCount,
+    declaredSequences: s.declaredMelds, bellaSeats: s.bellaEarned,
   });
   const teamPoints = score.teamPoints.slice();
 
@@ -360,7 +360,39 @@ export function debercReducer(
       return s;
     }
 
-    // DECLARE_MELD is a no-op in the v1 auto-detect model (see the file header).
+    case 'DECLARE_MELD': {
+      if (state.phase !== 'declaring') return state;
+      const n = state.players.length;
+      const s = clone(state);
+      const seat = s.meldTurnSeat;
+      const hand = s.dealtHands[seat];
+      // Validate every claimed meld against the seat's real 9-card hand; keep only
+      // the valid ones. A valid деберц (8–9 run) ends the whole match immediately.
+      for (const decl of action.melds) {
+        const meld = buildDeclaredMeld(hand, seat, decl.cards, s.trumpSuit);
+        if (!meld) continue;
+        s.declaredMelds.push(meld);
+        if (meld.kind === 'deberc') {
+          s.phase = 'finished';
+          s.winnerTeam = s.teamOf[seat];
+          s.jackpot = true;
+          return s;
+        }
+      }
+      s.meldsDone[seat] = true;
+      if (s.meldsDone.every(Boolean)) {
+        // Everyone declared/passed → open the play; the об'яз leads the first trick.
+        s.phase = 'playing';
+        s.turnSeat = s.objazSeat;
+        s.currentTrick = null;
+      } else {
+        let next = (seat + 1) % n;
+        while (s.meldsDone[next]) next = (next + 1) % n;
+        s.meldTurnSeat = next;
+      }
+      return s;
+    }
+
     default:
       return state;
   }
@@ -380,6 +412,7 @@ export function debercReducer(
 export function getActingDebercPlayerId(state: DebercState): string | null {
   switch (state.phase) {
     case 'bidding': return state.players[state.bidderSeat]?.id ?? null;
+    case 'declaring': return state.players[state.meldTurnSeat]?.id ?? null;
     case 'playing': return state.players[state.turnSeat]?.id ?? null;
     default: return null; // trick_complete / hand_scoring / finished → no actor
   }

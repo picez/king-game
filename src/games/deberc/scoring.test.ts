@@ -28,28 +28,38 @@ describe('scoreHand (DEBERC_RULES §6)', () => {
     ];
     const res = scoreHand({
       wonCards, trumpSuit: 'hearts', lastTrickWinnerSeat: 1,
-      teamOf, teamCount, bestSequences: [null, null, null, null], bellaSeats: [],
+      teamOf, teamCount, declaredSequences: [], bellaSeats: [],
     });
     expect(res.cardPoints[0]).toBe(11 + 20);
     expect(res.cardPoints[1]).toBe(10 + LAST_TRICK_BONUS);
     expect(res.meldPoints).toEqual([0, 0]);
   });
 
-  it('adds scoring sequence melds by the hierarchy', () => {
-    const seat0 = detectBestSequence(run('spades', ['7', '8', '9']), 0, 'hearts');       // terz 20
-    const seat1 = detectBestSequence(run('clubs', ['9', '10', 'J', 'Q']), 1, 'hearts');  // platina 50 → cancels terz
+  it('adds DECLARED sequence melds by the hierarchy', () => {
+    const seat0 = detectBestSequence(run('spades', ['7', '8', '9']), 0, 'hearts')!;       // terz 20
+    const seat1 = detectBestSequence(run('clubs', ['9', '10', 'J', 'Q']), 1, 'hearts')!;  // platina 50 → cancels terz
     const res = scoreHand({
       wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, bestSequences: [seat0, seat1, null, null], bellaSeats: [],
+      teamOf, teamCount, declaredSequences: [seat0, seat1], bellaSeats: [],
     });
     expect(res.meldPoints[0]).toBe(0);   // terz shut out
     expect(res.meldPoints[1]).toBe(50);  // platina scores
   });
 
+  it('an UNDECLARED higher sequence does not cancel a declared lower one', () => {
+    // Seat0 declares a terz; seat1 holds a platina but did NOT declare it.
+    const seat0 = detectBestSequence(run('spades', ['7', '8', '9']), 0, 'hearts')!;
+    const res = scoreHand({
+      wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
+      teamOf, teamCount, declaredSequences: [seat0], bellaSeats: [],
+    });
+    expect(res.meldPoints[0]).toBe(20); // the declared terz scores — nothing declared beats it
+  });
+
   it('adds bella to the earning seat’s team', () => {
     const res = scoreHand({
       wonCards: [[], [], [], []], trumpSuit: 'hearts', lastTrickWinnerSeat: 0,
-      teamOf, teamCount, bestSequences: [null, null, null, null], bellaSeats: [2],
+      teamOf, teamCount, declaredSequences: [], bellaSeats: [2],
     });
     expect(res.meldPoints[0]).toBe(BELLA_POINTS);
     expect(res.teamPoints[0]).toBe(LAST_TRICK_BONUS + BELLA_POINTS);

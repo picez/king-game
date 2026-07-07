@@ -5,7 +5,7 @@
 
 import type { Card, Suit } from '../../models/types';
 import { cardPoints } from './deck';
-import { scoringSequenceSeats } from './melds';
+import { scoringDeclaredMelds } from './melds';
 import type { DebercMeld } from './types';
 
 /** Extra points for winning the last trick (останній хабар). */
@@ -22,8 +22,8 @@ export interface HandScoreInput {
   /** Team index of each seat, and the number of teams. */
   teamOf: number[];
   teamCount: number;
-  /** Best sequence meld per seat (null = none). */
-  bestSequences: (DebercMeld | null)[];
+  /** Sequence melds DECLARED this hand (terz/platina); only these can score (§4). */
+  declaredSequences: DebercMeld[];
   /** Seats that earned the bella (declared it AND won a trick with a bella card). */
   bellaSeats: number[];
 }
@@ -48,7 +48,7 @@ export function sumCardPoints(cards: Card[], trumpSuit: Suit): number {
  * hierarchy) and any earned bella are added.
  */
 export function scoreHand(input: HandScoreInput): HandScoreResult {
-  const { wonCards, trumpSuit, lastTrickWinnerSeat, teamOf, teamCount, bestSequences, bellaSeats } = input;
+  const { wonCards, trumpSuit, lastTrickWinnerSeat, teamOf, teamCount, declaredSequences, bellaSeats } = input;
 
   const cardPts = Array<number>(teamCount).fill(0);
   const meldPts = Array<number>(teamCount).fill(0);
@@ -58,9 +58,9 @@ export function scoreHand(input: HandScoreInput): HandScoreResult {
   });
   cardPts[teamOf[lastTrickWinnerSeat]] += LAST_TRICK_BONUS;
 
-  for (const seat of scoringSequenceSeats(bestSequences)) {
-    const meld = bestSequences[seat];
-    if (meld) meldPts[teamOf[seat]] += meld.points;
+  // Only DECLARED sequences score, and only the strongest declared holder(s) (§4).
+  for (const meld of scoringDeclaredMelds(declaredSequences)) {
+    meldPts[teamOf[meld.seatIndex]] += meld.points;
   }
   for (const seat of bellaSeats) {
     meldPts[teamOf[seat]] += BELLA_POINTS;

@@ -32,6 +32,9 @@ export function debercRedactStateFor(state: DebercState, viewerSeat: number | nu
       handOver || seat === viewerSeat ? h : hide(h)),
     // Undealt cards (9 for 3p, 0 for 4p) — never revealed to anyone.
     stock: hide(state.stock),
+    // Прикуп packets are face-down until taken — hidden for EVERY seat (even the
+    // owner has not looked). Empty once merged into hands on trump commit.
+    prykup: state.prykup.map(hide),
     // tableTrumpCard / trumpSuit / currentTrick / wonCards / melds / scores: public.
   };
 }

@@ -1,7 +1,9 @@
-# Deberc Rules (Деберц) — v1.0
+# Deberc Rules (Деберц) — v1.1
 
-> **STATUS: Rules confirmed. Implementation in progress. One minor edge (§3
-> all-pass bidding) is deferred to when the bidding module is built.**
+> **STATUS: Rules confirmed. v1.1 (owner correction 2026-07-07): the 3-card
+> прикуп is taken only AFTER trump is chosen (bidding happens on 6-card hands),
+> and sequence melds (терц/платіна/деберц) must be DECLARED at the start of the
+> hand — see §3 and §4.**
 > Source of truth for the **Deberc** game (the third game after King and Durak).
 > Code (engine, UI, AI, server) must follow this file. When rules change, update
 > this file first, then the code and tests.
@@ -48,33 +50,53 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ---
 
-## 3. Deal, trump bidding, and the "об'яз"  ✅ CONFIRMED
+## 3. Deal, trump bidding, and the "об'яз"  ✅ CONFIRMED (v1.1)
 
-- **Deck:** 36 cards. **Deal 3 at a time**; **every** player gets **6 cards to
-  hand + a 3-card прикуп (talon)** = **9 cards**, all taken into hand and played
-  (nothing discarded). The hand is 9 tricks long. A **face-up trump card** plus
-  the **remaining stock** are placed on the table.
+- **Deck:** 36 cards. Each player is dealt **6 cards to hand** (open) **plus a
+  separate face-down 3-card прикуп (talon)** packet. **Bidding happens on the
+  6-card hands** — the прикуп is NOT looked at or added to the hand until a trump
+  has been chosen. A **face-up trump card** is shown on the table for round 1.
+- **The face-up trump card and the прикуп:**
+  - **4 players** (whole deck, 4×9 = 36): the face-up trump card belongs to the
+    **dealer's (роздаючий) прикуп** — the dealer picks it up with their 3-card
+    прикуп when trumps are taken. There is **no stock**.
+  - **3 players** (3×9 = 27 dealt, **9 undealt**): the dealer has **his own
+    separate 3-card прикуп**; the face-up trump card is the **top of the undealt
+    stock** and is **NOT taken by anyone** — it only shows the table-trump suit.
+- **Taking the прикуп:** once a trump is committed, **every player picks up their
+  own 3-card прикуп** → each hand becomes **9 cards**. Only then are melds
+  declared (§4) and the 9 tricks played (nothing is discarded).
 - **Об'яз** (the obligated maker — judged for **ХВ** in §7): the player who **must
   play**.
-  - **First hand:** each player picks a suit; a random card is drawn — whoever
-    picked that suit becomes the initial об'яз.
+  - **First hand:** the initial об'яз is a random seat.
   - **Later hands:** the initial об'яз = **winner of the previous hand**.
-- **Trump bidding** — everyone has their 9 cards (the talon lets each player judge
-  whether to take trump *before* the об'яз). Going **clockwise starting from the
+- **Trump bidding** — on the **6-card hands**. Going **clockwise starting from the
   player after the об'яз, with the об'яз speaking LAST**:
   - **Round 1:** each player says whether to play the **table trump** (the face-up
     suit). The first to accept takes it.
   - **Round 2** (only if all passed round 1): each player may declare **any other
     suit** as trump.
   - **Whoever commits to a trump becomes the об'яз** (they "intercept" the role) —
-    so the **ХВ risk transfers to the player who actually chose trump**, not
-    necessarily the original об'яз.
-  - **[TBD]** What happens if everyone passes both rounds (redeal? original об'яз
-    forced onto the table trump?). To be resolved when the bidding module is built.
+    so the **ХВ risk transfers to the player who actually chose trump**.
+  - **All pass both rounds (§8.1):** the **table trump is forced onto the об'яз**
+    (no redeal). *(resolved in code)*
 
 ---
 
-## 4. Melds (комбінації)  ⚠️ ONE CONFIRM LEFT
+## 4. Melds (комбінації)  ✅ CONFIRMED (v1.1 — must be declared)
+
+**Declaration (v1.1):** sequence melds (**терц / платіна / деберц**) must be
+**announced by the holder** — they do **NOT** score automatically.
+- **Терц / платіна / деберц** are declared **at the start of the hand, after the
+  прикуп is taken and BEFORE the first card is played** (a short window — the UI
+  gives ~15 s). A sequence that is **not declared scores nothing**, and only
+  **declared** melds take part in the hierarchy below (an undeclared higher терц
+  does **not** cancel a declared lower one). A declared **деберц** ends the match
+  immediately (jackpot).
+- **Бела (bella)** — trump **K + Q** — is declared **during play**: it scores
+  **20** when the holder **wins a trick with a bella card** (trump K or Q). It is
+  independent of the sequence hierarchy and of the start-of-hand declaration.
+- **4-player:** declarations (and their points) are pooled per team.
 
 Sequences are runs of one suit in rank order (6-7-8-9-10-J-Q-K-A):
 
@@ -87,16 +109,13 @@ Sequences are runs of one suit in rank order (6-7-8-9-10-J-Q-K-A):
 Ranking: **деберц > платіна > терц**. A **деберц** (8–9 same-suit run) ends the
 whole **match** immediately — the holder wins outright, regardless of score. ✅
 
-- **Терц** does **not** score if anyone holds a платіна or деберц, or if an
-  opponent holds a **higher терц** (compared by top card; run-to-10 loses to
-  run-to-Q). Two **equal non-trump** терці both score; an equal **trump** терц
-  beats an equal non-trump one. ✅
-- **[CONFIRM]** Does the same "highest holder only" rule extend across платіна /
-  деберц too (i.e. only the single best sequence-holding side scores its runs)?
-- **Бела (bella)** — trump **K + Q**. Scores **20** whenever you win at least one
-  trick with a bella card (trump K or Q) **and** you declared it. Independent of
-  the sequence hierarchy. ✅
-- 4-player: melds are pooled per team.
+- Hierarchy is judged **among declared melds only.** A declared **терц** does
+  **not** score if another side **declared** a платіна/деберц, or **declared** a
+  **higher терц** (compared by top card; run-to-10 loses to run-to-Q). Two
+  **equal non-trump** declared терці both score; an equal **trump** терц beats an
+  equal non-trump one. The same "highest declared holder only" rule extends across
+  платіна (equal платіни compare by top card, trump breaking ties, like терці).
+- 4-player: declared melds are pooled per team.
 
 ---
 
@@ -140,9 +159,14 @@ Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
 
 ---
 
-## 8. Deferred edges (resolve during implementation)
+## 8. Deferred edges
 
-1. **§3** — all-players-pass bidding outcome (redeal vs forced об'яз).
-2. **§4** — whether "highest holder only" extends across платіна (and how equal
-   платіни compare, by analogy to терц).
+1. **§3 — RESOLVED:** all pass both rounds → the table trump is forced onto the
+   об'яз (no redeal).
+2. **§4 — RESOLVED:** "highest **declared** holder only" extends across платіна;
+   equal платіни compare by top card with trump breaking ties (like терці).
 3. **§7** — 4p бейт when a *team* takes zero tricks (rare) vs a single partner.
+4. **§4 (v1.1)** — a seat may declare **multiple** sequences (e.g. two терці in
+   different suits); each declared meld is judged independently in the hierarchy.
+   Declaration is validated against the seat's actual 9-card hand (you cannot
+   declare a meld you do not hold).

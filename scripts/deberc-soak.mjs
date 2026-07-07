@@ -21,14 +21,17 @@ const TARGET = { small: 510, big: 1020 };
 const key = (c) => `${c.rank}${c.suit[0]}`;
 
 /**
- * Every physical card the state currently accounts for. The tableTrumpCard is a
- * reference INTO the об'яз's hand, and dealtHands/melds are copies — none are
- * counted. A completed trick's cards live in wonCards, so currentTrick is only
- * counted while it is a partial trick mid-play (phase 'playing').
+ * Every physical card the state accounts for (v1.1). tableTrumpCard is a
+ * reference into the stock (3p) or the dealer's prykup/hand (4p); dealtHands and
+ * declaredMelds are copies — none are counted separately. The прикуп packets hold
+ * cards until they merge into hands on trump commit, so they are counted. A
+ * completed trick's cards live in wonCards, so currentTrick is only counted while
+ * it is a partial trick mid-play (phase 'playing').
  */
 function allCards(s) {
   const cs = [...s.stock];
   for (const p of s.players) cs.push(...p.hand);
+  for (const pk of s.prykup) cs.push(...pk);
   for (const won of s.wonCards) cs.push(...won);
   if (s.phase === 'playing' && s.currentTrick) {
     for (const play of s.currentTrick.plays) cs.push(play.card);
@@ -50,11 +53,12 @@ function assertInvariants(s, ctx) {
     throw new Error(`${ctx}: trick has ${s.currentTrick.plays.length} plays > ${s.players.length} seats`);
   }
 
-  if (s.phase === 'playing' || s.phase === 'trick_complete' || s.phase === 'hand_scoring') {
+  if (s.phase === 'declaring' || s.phase === 'playing' || s.phase === 'trick_complete' || s.phase === 'hand_scoring') {
     if (s.trumpSuit == null) throw new Error(`${ctx}: no trump in phase ${s.phase}`);
   }
   if (s.phase !== 'finished') {
-    const actingSeat = s.phase === 'bidding' ? s.bidderSeat : s.turnSeat;
+    const actingSeat = s.phase === 'bidding' ? s.bidderSeat
+      : s.phase === 'declaring' ? s.meldTurnSeat : s.turnSeat;
     if (!s.players[actingSeat]) throw new Error(`${ctx}: no acting player (phase ${s.phase})`);
   }
   // Match score never runs away past a plausible ceiling (penalty accounting sane).

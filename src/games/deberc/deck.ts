@@ -78,30 +78,47 @@ export function trickStrength(card: Card, trumpSuit: Suit | null): number {
 // --- Deal (DEBERC_RULES.md §3) ---------------------------------------------
 
 export interface DebercDealResult {
-  /** Each seat's 9 cards (6 dealt + 3 talon, all taken into hand). */
+  /** Each seat's 6-card hand (bidding happens on these). */
   hands: Card[][];
-  /** The face-up trump card — the top of the об'яз's talon (also in their hand). */
+  /** Each seat's face-down 3-card прикуп (taken into hand once trumps are chosen). */
+  prykup: Card[][];
+  /**
+   * The face-up trump card (shows the round-1 table-trump suit). 4 players: it is
+   * the dealer's прикуп top (picked up with that packet). 3 players: it is the top
+   * of the undealt stock and is never taken. Never a separate card — always lives
+   * in prykup[dealer] (4p) or stock (3p).
+   */
   tableTrumpCard: Card;
   /** Undealt cards left on the table (9 for 3 players, 0 for 4). */
   stock: Card[];
 }
 
 /**
- * Shuffle and deal 9 cards to each seat (6 + a 3-card talon, all kept in hand).
- * The об'яз's talon top is revealed as the table trump card. Any undealt cards
- * become the stock (3 players leave 9 undealt; 4 players use the whole deck).
+ * Shuffle and deal each seat a **6-card hand** plus a separate face-down
+ * **3-card прикуп** packet (DEBERC_RULES.md §3, v1.1). Bidding is on the 6-card
+ * hands; the прикуп is merged into the hand only after a trump is chosen.
+ *
+ * The face-up trump card:
+ *  - **4 players** (24 + 12 = 36, no stock): it is the **dealer's** прикуп top,
+ *    so the dealer picks it up with their packet.
+ *  - **3 players** (18 + 9 = 27 dealt, 9 stock): the dealer has their own прикуп;
+ *    the face-up card is the **top of the stock** and stays there (never taken).
  */
-export function dealDeberc(numPlayers: number, objazSeat: number, rng: Rng): DebercDealResult {
+export function dealDeberc(numPlayers: number, dealerSeat: number, rng: Rng): DebercDealResult {
   const deck = shuffle(createDebercDeck(), rng);
   const hands: Card[][] = Array.from({ length: numPlayers }, () => []);
+  const prykup: Card[][] = Array.from({ length: numPlayers }, () => []);
   let idx = 0;
-  // 6 to each hand, then 3 talon to each — dealt as one 9-card block per seat
-  // (the deck is already shuffled, so the packet order does not affect fairness).
-  for (let c = 0; c < 9; c++) {
+  // 6 to each hand…
+  for (let c = 0; c < 6; c++) {
     for (let p = 0; p < numPlayers; p++) hands[p].push(deck[idx++]);
   }
-  const stock = deck.slice(idx);
-  // The об'яз's talon top = the last (9th) card dealt to that seat, revealed.
-  const tableTrumpCard = hands[objazSeat][hands[objazSeat].length - 1];
-  return { hands, tableTrumpCard, stock };
+  // …then a 3-card прикуп to each.
+  for (let c = 0; c < 3; c++) {
+    for (let p = 0; p < numPlayers; p++) prykup[p].push(deck[idx++]);
+  }
+  const stock = deck.slice(idx); // 3p → 9 undealt; 4p → 0.
+  // 4p: the face-up trump is the dealer's прикуп top; 3p: the top of the stock.
+  const tableTrumpCard = numPlayers === 4 ? prykup[dealerSeat][0] : stock[0];
+  return { hands, prykup, tableTrumpCard, stock };
 }

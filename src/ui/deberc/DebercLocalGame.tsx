@@ -10,8 +10,11 @@ import DebercFinished from './DebercFinished';
 const BOT_DELAY_MS = 850;
 const ADVANCE_MS = 1400;
 const NOTICE_MS = 1400;
+/** Seconds the human has to declare melds before an automatic pass (§4, ~15 s). */
+const DECLARE_SECONDS = 15;
 /** The local human always occupies seat 0; the rest are bots. */
 const HUMAN_ID = 'player-0';
+const HUMAN_SEAT = 0;
 
 /**
  * Local-only Deberc: one human (seat 0) + bots. Owns the Deberc state via the
@@ -40,16 +43,30 @@ export default function DebercLocalGame({ onExit }: { onExit: () => void }) {
   }, [state]);
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
 
-  // Bot auto-play in bidding / playing when the acting seat is a bot.
+  // Bot auto-play in bidding / declaring / playing when the acting seat is a bot.
   useEffect(() => {
-    if (!state || (state.phase !== 'bidding' && state.phase !== 'playing')) return;
+    if (!state || (state.phase !== 'bidding' && state.phase !== 'declaring' && state.phase !== 'playing')) return;
     const actingId = getActingDebercPlayerId(state);
     const actor = state.players.find((p) => p.id === actingId);
     if (!actor || actor.type !== 'ai') return;
-    const action = debercBotAction(state);
+    const action = debercBotAction(state); // BID / DECLARE_MELD / PLAY_CARD
     if (!action) return;
     const timer = setTimeout(() => apply(action), BOT_DELAY_MS);
     return () => clearTimeout(timer);
+  }, [state, apply]);
+
+  // Human declaring turn: a ~15 s countdown that auto-passes if the player does
+  // not declare, so the table never stalls (the engine ends declaring seat-by-seat).
+  const [declareLeft, setDeclareLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!state || state.phase !== 'declaring' || state.meldTurnSeat !== HUMAN_SEAT) {
+      setDeclareLeft(null);
+      return;
+    }
+    setDeclareLeft(DECLARE_SECONDS);
+    const tick = setInterval(() => setDeclareLeft((s) => (s == null ? s : Math.max(0, s - 1))), 1000);
+    const pass = setTimeout(() => apply({ type: 'DECLARE_MELD', melds: [] }), DECLARE_SECONDS * 1000);
+    return () => { clearInterval(tick); clearTimeout(pass); };
   }, [state, apply]);
 
   // Auto-advance the public screens for everyone (no single actor drives them).
@@ -72,5 +89,5 @@ export default function DebercLocalGame({ onExit }: { onExit: () => void }) {
   if (state.phase === 'finished') {
     return <DebercFinished state={state} humanId={HUMAN_ID} onPlayAgain={() => { setNotice(null); setState(null); }} onExit={onExit} />;
   }
-  return <DebercGameScreen state={state} humanId={HUMAN_ID} apply={apply} onExit={onExit} notice={notice} />;
+  return <DebercGameScreen state={state} humanId={HUMAN_ID} apply={apply} onExit={onExit} notice={notice} declareSecondsLeft={declareLeft} />;
 }

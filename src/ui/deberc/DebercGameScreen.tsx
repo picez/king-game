@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
-import type { DebercAction, DebercState } from '../../games/deberc/types';
+import type { DebercAction, DebercMeld, DebercMeldKind, DebercState } from '../../games/deberc/types';
 import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/engine';
+import { detectAllSequences } from '../../games/deberc/melds';
 import { cardEquals } from '../../games/deberc/rules';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
@@ -19,6 +20,8 @@ interface Props {
   notice?: DebercNotice | null;
   /** Seats whose human is offline (online play) — for offline badges. */
   disconnectedSeats?: number[];
+  /** Seconds left on the human's meld-declaring turn (local play), or null. */
+  declareSecondsLeft?: number | null;
 }
 
 const ALL_SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
@@ -42,7 +45,7 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 }
 
 /** The local human's table view for a Deberc hand (bidding + 9-trick play). */
-export default function DebercGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats }: Props) {
+export default function DebercGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats, declareSecondsLeft }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
 
@@ -68,11 +71,33 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const myBid = phase === 'bidding' && state.bidderSeat === meSeat;
   const otherSuits = ALL_SUITS.filter((s) => s !== state.tableTrumpCard.suit);
 
+  // --- Declaring phase (v1.1): announce терц/платіна/деберц before the first trick.
+  const myDeclare = phase === 'declaring' && state.meldTurnSeat === meSeat;
+  // My declarable sequences, detected from my own (real) dealt hand.
+  const myMelds = useMemo<DebercMeld[]>(() => {
+    if (phase !== 'declaring') return [];
+    const hand = state.dealtHands[meSeat];
+    return hand ? detectAllSequences(hand, meSeat, trump) : [];
+  }, [phase, state.dealtHands, meSeat, trump]);
+  // Which detected melds the human has toggled on; reset when the turn changes.
+  const [selected, setSelected] = useState<number[]>([]);
+  useEffect(() => { setSelected(myMelds.map((_, i) => i)); }, [phase, state.meldTurnSeat, myMelds.length]);
+  const toggleMeld = (i: number) =>
+    setSelected((sel) => (sel.includes(i) ? sel.filter((x) => x !== i) : [...sel, i]));
+  const meldKindLabel = (kind: DebercMeldKind) =>
+    kind === 'deberc' ? t('deberc.meldDeberc') : kind === 'platina' ? t('deberc.meldPlatina') : t('deberc.meldTerz');
+  const meldLabel = (m: DebercMeld) =>
+    `${meldKindLabel(m.kind)} ${SUIT_SYMBOL[m.cards[0].suit]} ${m.cards[m.cards.length - 1].rank}`;
+  const declareSelected = () =>
+    apply({ type: 'DECLARE_MELD', melds: selected.map((i) => ({ kind: myMelds[i].kind, cards: myMelds[i].cards })) });
+
   // Opponents in PLAY ORDER (clockwise from the seat after me).
   const opponents = Array.from({ length: n - 1 }, (_, k) => state.players[(meSeat + 1 + k) % n]);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
 
-  const actorSeat = phase === 'bidding' ? state.bidderSeat : phase === 'playing' ? state.turnSeat : -1;
+  const actorSeat = phase === 'bidding' ? state.bidderSeat
+    : phase === 'declaring' ? state.meldTurnSeat
+      : phase === 'playing' ? state.turnSeat : -1;
   const actor = actorSeat >= 0 ? state.players[actorSeat] : null;
   const teamName = (team: number) =>
     state.players.filter((p) => state.teamOf[p.seatIndex] === team).map((p) => p.name).join(' & ');
@@ -86,9 +111,10 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const prompt = phase === 'trick_complete' ? t('deberc.trickComplete')
     : phase === 'hand_scoring' ? t('deberc.handScoring')
       : !isMyTurn ? waitMsg
-        : phase === 'bidding' ? (state.bidRound === 1 ? t('deberc.bidRound1') : t('deberc.bidRound2'))
-          : (state.currentTrick == null || state.currentTrick.plays.length === 0) ? t('deberc.leadTrick')
-            : t('deberc.playCard');
+        : phase === 'declaring' ? t('deberc.declarePrompt')
+          : phase === 'bidding' ? (state.bidRound === 1 ? t('deberc.bidRound1') : t('deberc.bidRound2'))
+            : (state.currentTrick == null || state.currentTrick.plays.length === 0) ? t('deberc.leadTrick')
+              : t('deberc.playCard');
 
   const noticeText = notice?.kind === 'trick' ? `${notice.winner} ✓` : null;
   const trickPlays = state.currentTrick?.plays ?? [];
@@ -116,6 +142,17 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         ))}
         <span className="tag">{t('deberc.target')} {state.matchSize === 'big' ? 1020 : 510}</span>
       </div>
+
+      {/* Declared melds this hand — visible to everyone (immersive). */}
+      {state.declaredMelds.length > 0 && (
+        <div className="deberc-declared" role="status">
+          {state.declaredMelds.map((m, i) => (
+            <span key={i} className={`tag deberc-declared__item ${m.kind === 'deberc' ? 'deberc-declared__item--jackpot' : ''}`}>
+              {t('deberc.declaredBy')} {state.players[m.seatIndex]?.name} · {meldLabel(m)}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className={`durak-board durak-board--${n}`}>
         <div className="durak-board__felt" aria-hidden="true" />
@@ -181,6 +218,38 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
               <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'BID', suit: null })}>{t('deberc.bidPass')}</button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Declaring controls (only on my declaring turn). */}
+      {myDeclare && (
+        <div className="durak-controls deberc-declare">
+          {declareSecondsLeft != null && (
+            <span className="deberc-declare__timer" aria-live="polite">⏱ {declareSecondsLeft}s</span>
+          )}
+          {myMelds.length === 0 ? (
+            <span className="durak-prompt__text">{t('deberc.noMelds')}</span>
+          ) : (
+            myMelds.map((m, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`btn deberc-meld-chip ${selected.includes(i) ? 'btn--primary' : 'btn--outline'} ${m.kind === 'deberc' ? 'deberc-meld-chip--jackpot' : ''}`}
+                aria-pressed={selected.includes(i)}
+                onClick={() => toggleMeld(i)}
+              >
+                {meldLabel(m)}
+              </button>
+            ))
+          )}
+          {myMelds.length > 0 && (
+            <button type="button" className="btn btn--primary" onClick={declareSelected}>
+              {t('deberc.declareConfirm')}
+            </button>
+          )}
+          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', melds: [] })}>
+            {t('deberc.declarePass')}
+          </button>
         </div>
       )}
 

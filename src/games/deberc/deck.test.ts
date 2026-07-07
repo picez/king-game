@@ -42,24 +42,28 @@ describe('deberc deck', () => {
   });
 });
 
-describe('dealDeberc', () => {
-  it('4 players: every seat gets 9, whole deck used, no stock', () => {
-    const { hands, stock, tableTrumpCard } = dealDeberc(4, 0, makeRng(1));
-    expect(hands.map((h) => h.length)).toEqual([9, 9, 9, 9]);
+describe('dealDeberc (v1.1 — 6 hand + 3 прикуп)', () => {
+  it('4 players: 6-card hands + 3-card прикуп each, whole deck used, no stock', () => {
+    const { hands, prykup, stock, tableTrumpCard } = dealDeberc(4, 0, makeRng(1));
+    expect(hands.map((h) => h.length)).toEqual([6, 6, 6, 6]);
+    expect(prykup.map((p) => p.length)).toEqual([3, 3, 3, 3]);
     expect(stock).toHaveLength(0);
-    // trump card is the об'яз's last dealt card
-    expect(tableTrumpCard).toEqual(hands[0][8]);
+    // 4p: the face-up trump card is the dealer's прикуп top.
+    expect(tableTrumpCard).toEqual(prykup[0][0]);
   });
 
-  it('3 players: 27 dealt, 9 left as stock', () => {
-    const { hands, stock } = dealDeberc(3, 2, makeRng(7));
-    expect(hands.map((h) => h.length)).toEqual([9, 9, 9]);
+  it('3 players: 18 hand + 9 прикуп dealt, 9 left as stock; trump = stock top', () => {
+    const { hands, prykup, stock, tableTrumpCard } = dealDeberc(3, 2, makeRng(7));
+    expect(hands.map((h) => h.length)).toEqual([6, 6, 6]);
+    expect(prykup.map((p) => p.length)).toEqual([3, 3, 3]);
     expect(stock).toHaveLength(9);
+    // 3p: the face-up trump card is the top of the stock (never taken).
+    expect(tableTrumpCard).toEqual(stock[0]);
   });
 
   it('deals a partition of the 36-card deck (no dup, no loss)', () => {
-    const { hands, stock } = dealDeberc(3, 0, makeRng(42));
-    const all = [...hands.flat(), ...stock];
+    const { hands, prykup, stock } = dealDeberc(3, 0, makeRng(42));
+    const all = [...hands.flat(), ...prykup.flat(), ...stock];
     expect(all).toHaveLength(36);
     expect(new Set(all.map((c) => `${c.rank}${c.suit}`)).size).toBe(36);
   });
