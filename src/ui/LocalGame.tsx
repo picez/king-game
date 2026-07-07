@@ -1,4 +1,4 @@
-import { useReducer, useRef, useState, useLayoutEffect, useEffect } from 'react';
+import { useReducer, useRef, useState, useLayoutEffect, useEffect, useMemo } from 'react';
 import { GameContext } from '../hooks/useGame';
 import { gameReducer, getCurrentPlayer, getActingPlayerId } from '../core/gameEngine';
 import { aiChooseCard, aiChooseKittyDiscards, aiChooseTrump, aiChooseMode } from '../core/ai';
@@ -120,8 +120,12 @@ export default function LocalGame() {
     setPassScreen(null);
   }
 
+  // Memoize so a pass-screen re-render doesn't force every game consumer to
+  // re-render; dispatch is stable across renders (useReducer).
+  const gameValue = useMemo(() => ({ state, dispatch }), [state]);
+
   return (
-    <GameContext.Provider value={{ state, dispatch }}>
+    <GameContext.Provider value={gameValue}>
       {!state ? (
         <SetupScreen />
       ) : passScreen ? (

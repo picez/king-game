@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { loadLang, saveLang } from '../net/prefs';
 import SelectMenu from '../ui/components/SelectMenu';
@@ -61,11 +61,14 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => { saveLang(l); setLangState(l); }, []);
   const t = useCallback((key: string) => translate(lang, key), [lang]);
 
-  return (
-    <Ctx.Provider value={{ lang, setLang, t, dir: isRtl(lang) ? 'rtl' : 'ltr' }}>
-      {children}
-    </Ctx.Provider>
+  // Memoize the context value so consumers only re-render when the language
+  // actually changes, not on every LangProvider render.
+  const value = useMemo<LangCtx>(
+    () => ({ lang, setLang, t, dir: isRtl(lang) ? 'rtl' : 'ltr' }),
+    [lang, setLang, t],
   );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useI18n(): LangCtx {

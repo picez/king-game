@@ -7,7 +7,7 @@ import { sanitizeAvatar } from './avatars';
 import { getConfig } from '../config/gameConfigs';
 import { createDeck, dealCards, shuffleDeck, validateDeck } from './deck';
 import { cardEquals, isValidPlay, removeCardFromHand, resolveTrick } from './rules';
-import { calculateRoundScore } from './scoring';
+import { calculateRoundScore, isPerCardPenaltyCard } from './scoring';
 import { canDiscardToKitty } from './kitty';
 import { generateModeQueue } from './modeQueue';
 import type { Rng } from './rng';
@@ -337,20 +337,21 @@ export function allPenaltiesCollected(
   collectedCards: Record<string, Card[]>,
   deckSize: number,
 ): boolean {
-  const all = Object.values(collectedCards).flat();
-  const ranksPerSuit = deckSize / 4; // hearts in the deck (8 for 32, 13 for 52)
-  switch (modeId) {
-    case 'no_hearts':
-      return all.filter((c) => c.suit === 'hearts').length >= ranksPerSuit;
-    case 'no_queens':
-      return all.filter((c) => c.rank === 'Q').length >= 4;
-    case 'no_jacks':
-      return all.filter((c) => c.rank === 'J').length >= 4;
-    case 'king_of_hearts':
-      return all.some((c) => c.suit === 'hearts' && c.rank === 'K');
-    default:
-      return false; // no_tricks, last_two_tricks, trump
-  }
+  // How many penalty cards must be collected before the mode's score is locked.
+  // Undefined ⇒ a positional/per-trick mode that never ends early.
+  const required: Partial<Record<GameModeId, number>> = {
+    no_hearts: deckSize / 4, // hearts in the deck (8 for 32, 13 for 52)
+    no_queens: 4,
+    no_jacks: 4,
+    king_of_hearts: 1,
+  };
+  const threshold = required[modeId];
+  if (threshold === undefined) return false; // no_tricks, last_two_tricks, trump
+
+  const collected = Object.values(collectedCards)
+    .flat()
+    .filter((c) => isPerCardPenaltyCard(c, modeId)).length;
+  return collected >= threshold;
 }
 
 // ---------------------------------------------------------------------------
@@ -371,44 +372,20 @@ function handlePlayCard(
   // Pass the trump suit so Trump mode can enforce the forced-ruff rule.
   if (!isValidPlay(card, currentPlayer.hand, ledSuit, state.currentRound.mode.id, state.trumpSuit)) return state;
 
-  // Remove card from hand
-  const newHand = removeCardFromHand(currentPlayer.hand, card);
   const newPlayers = state.players.map((p) =>
-    p.id === playerId ? { ...p, hand: newHand } : p,
+    p.id === playerId ? { ...p, hand: removeCardFromHand(p.hand, card) } : p,
   );
+  const updatedTrick = appendPlayToTrick(state, playerId, card);
 
-  // Add play to trick
-  const updatedTrick: Trick = state.currentTrick
-    ? {
-        ...state.currentTrick,
-        plays: [
-          ...state.currentTrick.plays,
-          { playerId, card, playOrder: state.currentTrick.plays.length + 1 },
-        ],
-      }
-    : {
-        trickNumber: state.currentRound.tricks.length + 1,
-        leadPlayerId: playerId,
-        ledSuit: card.suit,
-        plays: [{ playerId, card, playOrder: 1 }],
-        winnerId: null,
-      };
-
-  // Trick not yet complete
+  // Trick still in progress — wait for the remaining players.
   if (updatedTrick.plays.length < state.players.length) {
     return { ...state, players: newPlayers, currentTrick: updatedTrick };
   }
 
-  // ---- Trick complete: resolve ----
+  // Trick complete — resolve the winner and hand them the collected cards.
   const winnerId = resolveTrick(updatedTrick, state.trumpSuit);
   const resolvedTrick: Trick = { ...updatedTrick, winnerId };
-
-  const newCollected = { ...state.currentRound.collectedCards };
-  newCollected[winnerId] = [
-    ...newCollected[winnerId],
-    ...resolvedTrick.plays.map((p) => p.card),
-  ];
-
+  const newCollected = collectTrickCards(state.currentRound.collectedCards, winnerId, resolvedTrick);
   const newTricks = [...state.currentRound.tricks, resolvedTrick];
   const winnerIdx = state.players.findIndex((p) => p.id === winnerId);
 
@@ -418,23 +395,75 @@ function handlePlayCard(
     newTricks.length >= state.config.tricksPerRound ||
     allPenaltiesCollected(state.currentRound.mode.id, newCollected, state.config.deckSize);
 
-  if (!roundDone) {
-    // More tricks remain
+  return roundDone
+    ? scoreCompletedRound(state, newPlayers, resolvedTrick, newTricks, newCollected, winnerIdx)
+    : advanceAfterTrick(state, newPlayers, resolvedTrick, newTricks, newCollected, winnerIdx);
+}
+
+/** Appends the played card to the running trick, or opens a fresh trick if none. */
+function appendPlayToTrick(state: GameState, playerId: string, card: Card): Trick {
+  if (state.currentTrick) {
     return {
-      ...state,
-      players: newPlayers,
-      currentRound: {
-        ...state.currentRound,
-        tricks: newTricks,
-        collectedCards: newCollected,
-      },
-      currentTrick: resolvedTrick,
-      currentLeaderIdx: winnerIdx,
-      status: 'trick_complete',
+      ...state.currentTrick,
+      plays: [
+        ...state.currentTrick.plays,
+        { playerId, card, playOrder: state.currentTrick.plays.length + 1 },
+      ],
     };
   }
+  return {
+    trickNumber: state.currentRound.tricks.length + 1,
+    leadPlayerId: playerId,
+    ledSuit: card.suit,
+    plays: [{ playerId, card, playOrder: 1 }],
+    winnerId: null,
+  };
+}
 
-  // ---- Round complete: score ----
+/** Adds a resolved trick's cards to the winner's collected pile (immutably). */
+function collectTrickCards(
+  collectedCards: Record<string, Card[]>,
+  winnerId: string,
+  resolvedTrick: Trick,
+): Record<string, Card[]> {
+  return {
+    ...collectedCards,
+    [winnerId]: [...collectedCards[winnerId], ...resolvedTrick.plays.map((p) => p.card)],
+  };
+}
+
+/** Trick resolved but the round continues — pause on trick_complete with the winner leading. */
+function advanceAfterTrick(
+  state: GameState,
+  newPlayers: GameState['players'],
+  resolvedTrick: Trick,
+  newTricks: Trick[],
+  newCollected: Record<string, Card[]>,
+  winnerIdx: number,
+): GameState {
+  return {
+    ...state,
+    players: newPlayers,
+    currentRound: {
+      ...state.currentRound,
+      tricks: newTricks,
+      collectedCards: newCollected,
+    },
+    currentTrick: resolvedTrick,
+    currentLeaderIdx: winnerIdx,
+    status: 'trick_complete',
+  };
+}
+
+/** Final trick of the round — tally scores, close the round, append history. */
+function scoreCompletedRound(
+  state: GameState,
+  newPlayers: GameState['players'],
+  resolvedTrick: Trick,
+  newTricks: Trick[],
+  newCollected: Record<string, Card[]>,
+  winnerIdx: number,
+): GameState {
   const playerIds = state.players.map((p) => p.id);
   const roundScores = calculateRoundScore(
     state.currentRound.mode.id,
@@ -445,8 +474,6 @@ function handlePlayCard(
   );
 
   // No kitty penalty: discarded cards left the game and are scored to nobody.
-
-  // Update running totals
   const newScores = { ...state.scores };
   for (const pid of playerIds) {
     const roundScore = roundScores[pid] ?? 0;
@@ -508,17 +535,6 @@ function appendRoundHistory(
   ];
 }
 
-/** Penalty-card predicate for a per-card negative mode (surrender accounting). */
-function isModePenaltyCard(card: Card, modeId: GameModeId): boolean {
-  switch (modeId) {
-    case 'no_hearts':      return card.suit === 'hearts';
-    case 'no_queens':      return card.rank === 'Q';
-    case 'no_jacks':       return card.rank === 'J';
-    case 'king_of_hearts': return card.suit === 'hearts' && card.rank === 'K';
-    default:               return false;
-  }
-}
-
 /**
  * Surrender (concede the round). MVP rule (KING_RULES.md → Surrender): only the
  * current actor may concede, and only in a NEGATIVE mode (disabled in Trump).
@@ -560,7 +576,7 @@ function handleSurrender(state: GameState, playerId: string): GameState {
       ...state.players.flatMap((p) => p.hand),
       ...(state.currentTrick?.plays.map((pl) => pl.card) ?? []),
     ];
-    const remainingPenalties = inPlay.filter((c) => isModePenaltyCard(c, modeId));
+    const remainingPenalties = inPlay.filter((c) => isPerCardPenaltyCard(c, modeId));
     collectedFinal[playerId] = [...collectedFinal[playerId], ...remainingPenalties];
   }
 

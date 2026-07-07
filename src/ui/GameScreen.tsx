@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
+import { useEscToClose } from '../hooks/useEscToClose';
 import { getCurrentPlayer } from '../core/gameEngine';
 import { getValidCards } from '../core/rules';
 import type { Card, Suit } from '../models/types';
@@ -24,6 +25,7 @@ export default function GameScreen() {
   const { t } = useI18n();
   const [showScores, setShowScores] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  useEscToClose(() => setShowRules(false), showRules);
 
   if (!state) return null;
 
@@ -104,11 +106,11 @@ export default function GameScreen() {
       </div>
 
       {showRules && (
-        <div className="modal-overlay" onClick={() => setShowRules(false)}>
+        <div className="modal-overlay" onClick={() => setShowRules(false)} role="dialog" aria-modal="true" aria-label={`${modeLabel} — ${t('game.rules')}`}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-sheet__head">
               <h3>{modeLabel} — {t('game.rules')}</h3>
-              <button className="btn btn--ghost btn--small" onClick={() => setShowRules(false)}>✕</button>
+              <button className="btn btn--ghost btn--small" onClick={() => setShowRules(false)} aria-label={t('common.close')} autoFocus>✕</button>
             </div>
             <p className="modal-card__desc">{t(`modeDesc.${currentRound.mode.id}`)}</p>
             <p className="modal-card__desc">{t(`ruleFull.${currentRound.mode.id}`)}</p>

@@ -1,6 +1,23 @@
 import type { Card, GameModeId, ScoringConfig, Trick } from '../models/types';
 
 /**
+ * Canonical penalty-card predicate for the four card-targeting negative modes
+ * (No Hearts / No Queens / No Jacks / King of Hearts). Returns false for the
+ * positional/per-trick modes (No Tricks, Last Two Tricks, Trump) — those never
+ * classify an individual card as a penalty. This is the single source of truth
+ * shared by the reducer (early-end + surrender accounting) and the AI.
+ */
+export function isPerCardPenaltyCard(card: Card, modeId: GameModeId): boolean {
+  switch (modeId) {
+    case 'no_hearts':      return card.suit === 'hearts';
+    case 'no_queens':      return card.rank === 'Q';
+    case 'no_jacks':       return card.rank === 'J';
+    case 'king_of_hearts': return card.suit === 'hearts' && card.rank === 'K';
+    default:               return false;
+  }
+}
+
+/**
  * Calculates each player's score for a completed round.
  * All values come from the config — nothing is hardcoded here.
  */

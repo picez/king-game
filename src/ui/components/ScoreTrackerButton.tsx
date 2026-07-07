@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { useI18n } from '../../i18n';
+import { useEscToClose } from '../../hooks/useEscToClose';
 import ScoreTracker from './ScoreTracker';
 
 interface Props {
@@ -18,6 +19,7 @@ export default function ScoreTrackerButton({ className = '' }: Props) {
   const { state } = useGame();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  useEscToClose(() => setOpen(false), open);
   if (!state) return null;
 
   return (
@@ -35,7 +37,7 @@ export default function ScoreTrackerButton({ className = '' }: Props) {
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="modal-sheet__head">
               <h3>{t('track.title')}</h3>
-              <button className="btn btn--ghost btn--small" onClick={() => setOpen(false)} aria-label={t('common.close')}>✕</button>
+              <button className="btn btn--ghost btn--small" onClick={() => setOpen(false)} aria-label={t('common.close')} autoFocus>✕</button>
             </div>
             <ScoreTracker state={state} />
           </div>

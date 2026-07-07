@@ -2,23 +2,20 @@ import type { Card, GameModeId, GameState, ModeCounts, Suit, TrickPlay } from '.
 import { getValidCards } from './rules';
 import { getValidKittyDiscards } from './kitty';
 import { getCurrentPlayer } from './gameEngine';
+import { isPerCardPenaltyCard } from './scoring';
 
 // ---------------------------------------------------------------------------
 // Card classification helpers
 // ---------------------------------------------------------------------------
 
-/** Cards that carry penalties in negative modes (per-card, not per-trick). */
+/**
+ * Cards the AI should avoid taking in a negative mode. In No Tricks every trick
+ * is a penalty, so every card counts; the four card-targeting modes defer to the
+ * shared predicate; Last Two Tricks / Trump have no per-card penalty.
+ */
 function isPenaltyCard(card: Card, modeId: GameModeId): boolean {
-  switch (modeId) {
-    case 'no_tricks':       return true;  // every trick won is a penalty
-    case 'no_hearts':       return card.suit === 'hearts';
-    case 'no_queens':       return card.rank === 'Q';
-    case 'no_jacks':        return card.rank === 'J';
-    case 'king_of_hearts':  return card.suit === 'hearts' && card.rank === 'K';
-    case 'last_two_tricks': return false; // penalty is positional, not per-card
-    case 'trump':           return false;
-    default:                return false;
-  }
+  if (modeId === 'no_tricks') return true; // every trick won is a penalty
+  return isPerCardPenaltyCard(card, modeId);
 }
 
 function byValueDesc(a: Card, b: Card): number { return b.value - a.value; }
