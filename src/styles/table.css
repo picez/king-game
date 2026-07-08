@@ -276,6 +276,31 @@
   gap: 0.5rem;
 }
 /* Server-browser: a list-browser of open rooms (game-aware, future-proof). */
+/* Filter + sort bar above the room browser (client-only view controls). */
+.room-filter-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.room-filter { display: flex; flex-wrap: wrap; gap: 0.3rem; min-width: 0; }
+.room-filter__chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 32px; padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-2); color: var(--text);
+  font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.room-filter__chip:hover { border-color: rgba(245, 197, 24, 0.5); }
+.room-filter__chip--on {
+  border-color: var(--accent); background: rgba(245, 197, 24, 0.16); color: var(--text);
+}
+.room-filter__count {
+  font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); min-width: 0.9rem; text-align: center;
+}
+.room-filter__chip--on .room-filter__count { color: var(--accent-light); }
+.room-sort { margin-inline-start: auto; width: auto; min-width: 9.5rem; max-width: 12rem; }
+
 .server-browser {
   max-height: 42vh;
   overflow-y: auto;

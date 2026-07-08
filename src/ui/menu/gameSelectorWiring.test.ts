@@ -81,6 +81,26 @@ describe('multi-game menu polish (Stage 11.2)', () => {
   });
 });
 
+describe('room browser filters + sorting (Stage 11.3)', () => {
+  const src = read('../StartMenu.tsx');
+  it('renders a game filter bar and a sort control', () => {
+    expect(src).toContain('room-filter-bar');
+    expect(src).toContain('room-filter__chip');
+    expect(src).toContain("aria-label={t('join.filterGame')}");
+    expect(src).toContain("ariaLabel={t('join.sortBy')}");
+  });
+  it('derives the rendered rooms from filter+sort helpers (client-only view)', () => {
+    expect(src).toContain("from './menu/roomBrowser'");
+    expect(src).toContain('sortRooms(filterRooms(roomList.rooms, gameFilter), roomSort)');
+    // The browser maps the derived list, not the raw hook rooms.
+    expect(src).toContain('visibleRooms.map((r) =>');
+    // Friendly empty state when a filter matches nothing.
+    expect(src).toContain("t('join.noRoomsForGame')");
+    // Still shows the per-game icon in each row (Stage 11.2 preserved).
+    expect(src).toContain('GAME_ICON[gameType]');
+  });
+});
+
 describe('Lobby shows the game + start-disabled reason (Stage 11.2)', () => {
   const src = read('../online/Lobby.tsx');
   it('labels the room game and a Tarneeb partnership hint', () => {

@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { useRoomList } from '../hooks/useRoomList';
 import type { RoomSummary } from '../net/messages';
+import {
+  filterRooms, sortRooms, countRoomsByGame, ROOM_SORTS,
+  type GameFilter, type RoomSort,
+} from './menu/roomBrowser';
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
@@ -9,7 +13,7 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } 
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
-import { DEFAULT_GAME_TYPE, GAME_CATALOG, type GameType } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, GAME_CATALOG, GAME_TYPES, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
@@ -61,6 +65,15 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const roomList = useRoomList();
   const passwordRef = useRef<HTMLInputElement>(null);
   const [needPassword, setNeedPassword] = useState(initialError === 'BAD_PASSWORD');
+  // Client-only room-browser view controls (never touches the server payload).
+  const [gameFilter, setGameFilter] = useState<GameFilter>('all');
+  const [roomSort, setRoomSort] = useState<RoomSort>('open');
+
+  const roomCounts = useMemo(() => countRoomsByGame(roomList.rooms), [roomList.rooms]);
+  const visibleRooms = useMemo(
+    () => sortRooms(filterRooms(roomList.rooms, gameFilter), roomSort),
+    [roomList.rooms, gameFilter, roomSort],
+  );
 
   // Pull server-side profile/settings into the local fields once they hydrate
   // (so a signed-in player sees their saved name/avatar/timer across devices).
@@ -110,7 +123,11 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     });
   }
 
-  function openJoin() { setPane('join'); setNeedPassword(false); roomList.refresh(url); }
+  function openJoin() {
+    setPane('join'); setNeedPassword(false);
+    setGameFilter('all'); setRoomSort('open'); // reset the browser view each open
+    roomList.refresh(url);
+  }
 
   function pickRoom(room: RoomSummary) {
     if (room.status !== 'lobby') return;
@@ -313,6 +330,32 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 )}
 
                 {roomList.rooms.length > 0 && (
+                  <>
+                    <div className="room-filter-bar">
+                      <div className="room-filter" role="group" aria-label={t('join.filterGame')}>
+                        {(['all', ...GAME_TYPES] as GameFilter[]).map((g) => (
+                          <button key={g} type="button"
+                            className={`room-filter__chip ${gameFilter === g ? 'room-filter__chip--on' : ''}`}
+                            aria-pressed={gameFilter === g}
+                            aria-label={`${g === 'all' ? t('join.all') : t(`gameType.${g}`)} (${roomCounts[g] ?? 0})`}
+                            onClick={() => setGameFilter(g)}>
+                            <span aria-hidden="true">{g === 'all' ? t('join.all') : GAME_ICON[g]}</span>
+                            <span className="room-filter__count">{roomCounts[g] ?? 0}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <SelectMenu
+                        ariaLabel={t('join.sortBy')}
+                        className="room-sort"
+                        value={roomSort}
+                        onChange={(v) => setRoomSort(v as RoomSort)}
+                        options={ROOM_SORTS.map((s) => ({ value: s, label: t(`join.sort.${s}`) }))}
+                      />
+                    </div>
+
+                    {visibleRooms.length === 0 ? (
+                      <p className="setup-hint">{t('join.noRoomsForGame')}</p>
+                    ) : (
                   <div className="server-browser" role="table" aria-label={t('join.openRooms')}>
                     <div className="server-browser__head" role="row">
                       <span role="columnheader">{t('join.col.host')}</span>
@@ -323,7 +366,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                       <span role="columnheader">{t('join.col.status')}</span>
                     </div>
                     <ul className="server-browser__body">
-                      {roomList.rooms.map((r) => {
+                      {visibleRooms.map((r) => {
                         const joinable = r.status === 'lobby';
                         const gameType = r.gameType ?? 'king';
                         const online = r.hostConnected;
@@ -373,6 +416,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                       })}
                     </ul>
                   </div>
+                    )}
+                  </>
                 )}
               </div>
 
