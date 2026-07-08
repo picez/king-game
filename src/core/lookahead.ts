@@ -46,12 +46,32 @@ import { aiChooseCard } from './ai';
 const HAND_GATE_4P = 6;
 const HAND_GATE_3P = 7;
 
+// MIDGAME depth-limited search: above the exact gate but at/below this larger
+// gate, search DEPTH_TRICKS full tricks exactly (max-n) and estimate each leaf
+// position with a cheap greedy rollout to the end of the round. This turns the
+// hard exact/greedy cliff into a graded fall-off — the bot still reasons a few
+// tricks ahead through the widest part of the hand instead of dropping straight
+// to the one-ply heuristic. Gate + depth are sized to keep worst-case latency
+// bounded (measured; see .shots/king-lookahead-bench.mjs); a node-budget abort
+// still falls back to greedy for that one move.
+const MIDGAME_GATE_4P = 8;
+const MIDGAME_GATE_3P = 10;
+const DEPTH_TRICKS = 2;
+
 // Hard ceiling on explored nodes. A follow-suit-light position (everyone void of
 // the led suit → free discards) can still explode past the gate, so this backstop
 // aborts the search and the caller falls back to the greedy heuristic for that one
 // decision. With the transposition table a node is only counted when actually
 // searched (cache hits are free), so the budget bounds real work per move.
-const NODE_BUDGET = 600_000;
+//
+// The MIDGAME budget is much tighter than the EXACT one: a midgame position that
+// won't fit must abort FAST (its greedy fallback is cheap and nearly as good),
+// because the server is single-threaded — a long blocking search would stall every
+// other room's event loop. The exact endgame is worth a larger budget: there is no
+// better answer than solving it, and it is rarer. (Measured: this caps midgame
+// worst-case latency to a few tens of ms; see .shots/king-lookahead-bench.mjs.)
+const EXACT_NODE_BUDGET = 600_000;
+const MIDGAME_NODE_BUDGET = 40_000;
 
 /** Thrown to unwind the recursion when the node budget is exhausted. */
 const ABORT = Symbol('lookahead-abort');
@@ -87,10 +107,17 @@ interface Ctx {
   tricksPerRound: number;
   n: number;
   nodes: number; // mutable node counter (budget guard)
+  budget: number; // node ceiling for this search (exact vs midgame)
   /** Bit index per card (`suit:rank`) over every card still in play at the root. */
   bitOf: Map<string, number>;
   /** Transposition table: trick-boundary position (union·4+leader) → delta vector. */
   tt: Map<number, number[]>;
+  /**
+   * At a trick boundary where `tricksResolved >= rolloutAtTricks`, estimate the
+   * position with a greedy rollout instead of expanding further (midgame mode).
+   * `Infinity` = never roll out → the search is exact to the end of the round.
+   */
+  rolloutAtTricks: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,11 +203,13 @@ interface Applied {
 }
 
 /**
- * Returns the FUTURE per-seat score-delta vector under max-n optimal play from
- * `sim` (points still to be scored from here to the end of the round). Every
- * seat plays the card that maximises ITS OWN final component. Deltas are
- * path-independent, which is what makes them safe to memoize in the TT.
- * Cached/returned vectors are shared — callers must copy before mutating.
+ * Returns the FUTURE per-seat score-delta vector under max-n play from `sim`
+ * (points still to be scored from here to the end of the round). Every seat plays
+ * the card that maximises ITS OWN final component. In exact mode this is optimal
+ * to the round end; in midgame mode the deepest DEPTH_TRICKS tricks are exact and
+ * positions past them are estimated by rollout(). Deltas are path-independent,
+ * which is what makes them safe to memoize in the TT. Cached/returned vectors are
+ * shared — callers must copy before mutating.
  */
 function search(sim: Sim, ctx: Ctx): number[] {
   // Terminal: no cards left anywhere and no trick in progress → round done.
@@ -196,9 +225,17 @@ function search(sim: Sim, ctx: Ctx): number[] {
   if (key >= 0) {
     const hit = ctx.tt.get(key);
     if (hit !== undefined) return hit;
+    // Midgame cut-off: at a trick boundary past the exact depth, estimate the
+    // rest with a greedy rollout. The rollout is a pure function of the position
+    // (union determines every hand + tricksResolved), so it is TT-safe to cache.
+    if (sim.tricksResolved >= ctx.rolloutAtTricks) {
+      const est = rollout(sim, ctx);
+      ctx.tt.set(key, est);
+      return est;
+    }
   }
 
-  if (++ctx.nodes > NODE_BUDGET) throw ABORT;
+  if (++ctx.nodes > ctx.budget) throw ABORT;
 
   const seat = (sim.leaderIdx + sim.plays.length) % ctx.n;
   const ledSuit: Suit | null = sim.plays.length > 0 ? sim.plays[0].suit : null;
@@ -309,6 +346,115 @@ function removeFirst(hand: Card[], card: Card): Card[] {
 }
 
 // ---------------------------------------------------------------------------
+// Midgame leaf estimate: a cheap greedy rollout to the end of the round
+// ---------------------------------------------------------------------------
+
+/**
+ * Play `sim` out to the end of the round with a fast greedy policy (perfect
+ * info, deterministic — no rng), returning the per-seat score DELTA it produces.
+ * This is the leaf evaluator for the midgame depth-limited search: the top
+ * DEPTH_TRICKS tricks are solved by exact max-n, and each resulting position is
+ * scored by this rollout rather than expanded further. It is a coarse estimate,
+ * NOT exact play — but a consistent one, so the exact layer above ranks moves by
+ * a stable signal. Mutates only local copies.
+ */
+function rollout(sim: Sim, ctx: Ctx): number[] {
+  // Charge the rollout's cost (≈ one step per remaining card) against the node
+  // budget BEFORE running it. Otherwise a rollout-heavy midgame position — many
+  // boundary leaves, each a full playout — could block for far longer than the
+  // budget implies, since expanded-node counting alone never sees this work. With
+  // it charged, such a position aborts promptly and falls back to greedy.
+  let plies = sim.plays.length;
+  for (const h of sim.hands) plies += h.length;
+  ctx.nodes += plies;
+  if (ctx.nodes > ctx.budget) throw ABORT;
+
+  const delta = new Array(ctx.n).fill(0) as number[];
+  const hands = sim.hands.map((h) => h.slice());
+  let plays = sim.plays.slice();
+  let leader = sim.leaderIdx;
+  let tricks = sim.tricksResolved;
+
+  while (plays.length > 0 || hands.some((h) => h.length > 0)) {
+    const seat = (leader + plays.length) % ctx.n;
+    const ledSuit: Suit | null = plays.length > 0 ? plays[0].suit : null;
+    const valid = getValidCards(hands[seat], ledSuit, ctx.modeId, ctx.trumpSuit);
+    const card = rolloutPick(valid, ledSuit, plays, ctx, tricks);
+    const idx = hands[seat].findIndex((c) => c.suit === card.suit && c.rank === card.rank);
+    hands[seat].splice(idx, 1);
+    plays.push(card);
+    if (plays.length === ctx.n) {
+      const winner = trickWinnerSeat(plays, leader, ctx.trumpSuit, ctx.n);
+      delta[winner] += trickScore(plays, ctx, tricks);
+      tricks += 1;
+      plays = [];
+      leader = winner;
+    }
+  }
+  return delta;
+}
+
+/** The card currently winning the in-progress trick (plays is non-empty). */
+function rolloutWinner(plays: Card[], trump: Suit | null): Card {
+  let best = plays[0];
+  for (let i = 1; i < plays.length; i++) {
+    if (beatsCard(plays[i], best, trump, plays[0].suit)) best = plays[i];
+  }
+  return best;
+}
+
+/**
+ * Fast one-ply policy used inside the rollout. A deliberately lightweight proxy
+ * for aiChooseCard (it need not match it exactly — it only has to be sensible and
+ * deterministic): win cheaply / lead high in point-winning situations; dump the
+ * costliest card and dodge tricks in avoidance situations.
+ */
+function rolloutPick(
+  valid: Card[],
+  ledSuit: Suit | null,
+  plays: Card[],
+  ctx: Ctx,
+  tricksResolved: number,
+): Card {
+  if (valid.length === 1) return valid[0];
+  const trump = ctx.trumpSuit;
+  const pen = (c: Card) => cardPenalty(c, ctx.modeId, ctx.scoring);
+  // Winning tricks is good in Trump, and in Last Two Tricks until the final two.
+  const winMode = ctx.modeId === 'trump'
+    || (ctx.modeId === 'last_two_tricks' && ctx.tricksPerRound - tricksResolved > 2);
+  const lowest = (cs: Card[]) => cs.reduce((a, b) => (b.value < a.value ? b : a));
+  const highest = (cs: Card[]) => cs.reduce((a, b) => (b.value > a.value ? b : a));
+
+  if (ledSuit === null) {
+    if (winMode) return highest(valid);           // contest with strength
+    const safe = valid.filter((c) => pen(c) === 0);
+    return lowest(safe.length ? safe : valid);     // lead low, avoid own penalties
+  }
+
+  const winner = rolloutWinner(plays, trump);
+  const beating = valid.filter((c) => beatsCard(c, winner, trump, plays[0].suit));
+  const losing = valid.filter((c) => !beatsCard(c, winner, trump, plays[0].suit));
+
+  if (winMode) {
+    if (beating.length > 0) {
+      const nonTrump = trump ? beating.filter((c) => c.suit !== trump) : beating;
+      return lowest(nonTrump.length ? nonTrump : beating); // win as cheaply as possible
+    }
+    const nonTrump = trump ? valid.filter((c) => c.suit !== trump) : valid;
+    return lowest(nonTrump.length ? nonTrump : valid);     // can't win → shed low, keep trumps
+  }
+
+  // Avoidance: prefer to lose the trick.
+  if (losing.length > 0) {
+    const losingPenalty = losing.filter((c) => pen(c) > 0);
+    return highest(losingPenalty.length ? losingPenalty : losing); // dump the costliest
+  }
+  // Forced to win: take it with the cheapest non-penalty card.
+  const nonPenalty = valid.filter((c) => pen(c) === 0);
+  return lowest(nonPenalty.length ? nonPenalty : valid);
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 
@@ -331,13 +477,19 @@ export interface LookaheadAnalysis {
 export function analyzeLookahead(state: GameState): LookaheadAnalysis | null {
   const seat = getCurrentPlayerIdx(state);
   const n = state.players.length;
-  const gate = n >= 4 ? HAND_GATE_4P : HAND_GATE_3P;
+  const exactGate = n >= 4 ? HAND_GATE_4P : HAND_GATE_3P;
+  const midgameGate = n >= 4 ? MIDGAME_GATE_4P : MIDGAME_GATE_3P;
 
   // Gate on the largest remaining hand — the search width is driven by the seat
-  // with the most choices left.
+  // with the most choices left. Small hands are solved EXACTLY to the round end;
+  // larger ones (up to the midgame gate) get a DEPTH_TRICKS-deep exact search
+  // with greedy-rollout leaves; anything bigger defers to the greedy heuristic.
   let maxHand = 0;
   for (const p of state.players) if (p.hand.length > maxHand) maxHand = p.hand.length;
-  if (maxHand === 0 || maxHand > gate) return null;
+  if (maxHand === 0 || maxHand > midgameGate) return null;
+  const rootTricks = state.currentRound.tricks.length;
+  const isExact = maxHand <= exactGate;
+  const rolloutAtTricks = isExact ? Infinity : rootTricks + DEPTH_TRICKS;
 
   const ledSuit = state.currentTrick?.ledSuit ?? null;
   const valid = getValidCards(state.players[seat].hand, ledSuit, state.currentRound.mode.id, state.trumpSuit);
@@ -359,8 +511,10 @@ export function analyzeLookahead(state: GameState): LookaheadAnalysis | null {
     tricksPerRound: state.config.tricksPerRound,
     n,
     nodes: 0,
+    budget: isExact ? EXACT_NODE_BUDGET : MIDGAME_NODE_BUDGET,
     bitOf,
     tt: new Map(),
+    rolloutAtTricks,
   };
   const sim: Sim = {
     hands: state.players.map((p) => p.hand),
