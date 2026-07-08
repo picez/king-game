@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { GAME_DEFINITIONS, getGameDefinition, DEFAULT_GAME_DEFINITION } from './registry';
 import { kingGameDefinition } from './king/definition';
 import { durakGameDefinition } from './durak/definition';
+import { tarneebGameDefinition } from './tarneeb/definition';
 import { GAME_CATALOG } from './catalog';
 import { gameReducer, getActingPlayerId } from '../core/gameEngine';
 import { buildStartAction } from '../net/online';
@@ -9,17 +10,92 @@ import { botAction } from '../net/serverCore';
 import { makeRng } from '../core/rng';
 import type { RoomSnapshot } from '../net/messages';
 import type { DurakState } from './durak/types';
+import { tarneebReducer } from './tarneeb/engine';
+import { tarneebBotAction } from './tarneeb/ai';
+import { getActingTarneebPlayerId, isTarneebFinished } from './tarneeb/rules';
+import { tarneebRedactStateFor } from './tarneeb/redact';
+import type { TarneebState } from './tarneeb/types';
 
 describe('game registry', () => {
   it('returns the right definition by gameType and null for unknown input', () => {
     expect(getGameDefinition('king')).toBe(kingGameDefinition);
     expect(getGameDefinition('durak')).toBe(durakGameDefinition);
+    expect(getGameDefinition('tarneeb')).toBe(tarneebGameDefinition);
     expect(getGameDefinition('poker')).toBeNull();
     expect(getGameDefinition(undefined)).toBeNull();
     expect(getGameDefinition(42)).toBeNull();
     expect(GAME_DEFINITIONS.king.id).toBe('king');
     expect(GAME_DEFINITIONS.durak.id).toBe('durak');
+    expect(GAME_DEFINITIONS.tarneeb.id).toBe('tarneeb');
     expect(DEFAULT_GAME_DEFINITION).toBe(kingGameDefinition); // King remains default
+  });
+});
+
+describe('Tarneeb game definition (registered, not yet playable)', () => {
+  const snap = {
+    code: 'ABCD',
+    members: [
+      { clientId: '1', name: 'A', role: 'player', seatIndex: 0, isHost: true, connected: true, type: 'human' },
+      { clientId: '2', name: 'B', role: 'player', seatIndex: 1, isHost: false, connected: true, type: 'ai' },
+      { clientId: '3', name: 'C', role: 'player', seatIndex: 2, isHost: false, connected: true, type: 'ai' },
+      { clientId: '4', name: 'D', role: 'player', seatIndex: 3, isHost: false, connected: true, type: 'ai' },
+    ],
+    playerCount: 4, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
+  } as RoomSnapshot;
+
+  it('references the Tarneeb pure core + catalog and is coming_soon with no stats', () => {
+    expect(tarneebGameDefinition.id).toBe('tarneeb');
+    expect(tarneebGameDefinition.catalog).toBe(GAME_CATALOG.tarneeb);
+    expect(tarneebGameDefinition.rulesDoc).toBe('TARNEEB_RULES.md');
+    expect(tarneebGameDefinition.supportedPlayerCounts).toEqual([4]);
+    expect(tarneebGameDefinition.recordsStats).toBe(false); // no stats until Stage 10.7
+    expect(tarneebGameDefinition.catalog.status).toBe('coming_soon');
+    expect(tarneebGameDefinition.catalog.supportsLocal).toBe(false);
+    expect(tarneebGameDefinition.catalog.supportsOnline).toBe(false);
+    // Wraps the pure-core functions without moving logic.
+    expect(tarneebGameDefinition.reducer).toBe(tarneebReducer);
+    expect(tarneebGameDefinition.getActingPlayerId).toBe(getActingTarneebPlayerId);
+    expect(tarneebGameDefinition.isFinished).toBe(isTarneebFinished);
+    expect(tarneebGameDefinition.redactStateFor).toBe(tarneebRedactStateFor);
+  });
+
+  it('smoke: buildStartAction → reducer creates a bidding TarneebState; botAction is legal', () => {
+    const start = tarneebGameDefinition.buildStartAction(snap);
+    expect(start.type).toBe('START_GAME');
+
+    const state = tarneebGameDefinition.reducer(null, start, { rng: makeRng(3) }) as TarneebState;
+    expect(state).not.toBeNull();
+    expect(state.gameType).toBe('tarneeb');
+    expect(state.phase).toBe('bidding');
+    expect(state.players.map((p) => p.name)).toEqual(['A', 'B', 'C', 'D']);
+    expect(state.handsBySeat.every((h) => h.length === 13)).toBe(true);
+
+    // An actor is acting, and its bot move is a legal action that advances the state.
+    expect(tarneebGameDefinition.getActingPlayerId(state)).toMatch(/^player-/);
+    const move = tarneebGameDefinition.botAction(state);
+    expect(move).not.toBeNull();
+    const next = tarneebGameDefinition.reducer(state, move!, { rng: makeRng(3) });
+    expect(next).not.toBe(state);
+
+    // botAction returns null on a public screen with no actor (finished game).
+    const finished = { ...state, phase: 'game_finished' as const };
+    expect(tarneebGameDefinition.botAction(finished)).toBeNull();
+  });
+
+  it('redaction hides opponent hands while keeping the viewer’s own hand', () => {
+    const start = tarneebGameDefinition.buildStartAction(snap);
+    const state = tarneebGameDefinition.reducer(null, start, { rng: makeRng(5) }) as TarneebState;
+    const view = tarneebGameDefinition.redactStateFor(state, 0);
+    // Seat 0 sees its real 13 cards…
+    expect(view.handsBySeat[0]).toEqual(state.handsBySeat[0]);
+    // …every other hand keeps its count but the cards are face-down placeholders.
+    for (const seat of [1, 2, 3]) {
+      expect(view.handsBySeat[seat]).toHaveLength(13);
+      expect(view.handsBySeat[seat].every((c) => c.rank === '?')).toBe(true);
+    }
+    // A spectator (null) sees no real hand at all.
+    const spectator = tarneebGameDefinition.redactStateFor(state, null);
+    expect(spectator.handsBySeat.every((h) => h.every((c) => c.rank === '?'))).toBe(true);
   });
 });
 

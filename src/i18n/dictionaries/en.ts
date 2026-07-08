@@ -139,6 +139,7 @@ export const EN: Record<string, string> = {
   'durak.promptDefend': 'Tap a card to beat it, or Take',
   'durak.promptTransfer': 'Tap a same-rank card to pass it on',
   'gameType.deberc': 'Deberc',
+  'gameType.tarneeb': 'Tarneeb',
   'deberc.setupTagline': 'Win tricks and melds — reach the match target',
   'deberc.matchSize': 'Match length',
   'deberc.matchShort': '510 · 1020',

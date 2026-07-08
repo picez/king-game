@@ -4,10 +4,10 @@
 // A GameDefinition REFERENCES a game's existing modules (reducer, AI, start
 // action, …) without moving any logic. It is the seam that lets a second game
 // plug in its own implementation later, instead of scattering `gameType` checks
-// across serverCore / the UI / stats. Today only King implements it, and nothing
-// in the runtime hot path depends on it yet — it is scaffolding, exercised by
-// tests, that the next stage (a second game) builds on. No runtime behaviour
-// changes by introducing this type.
+// across serverCore / the UI / stats. King, Durak, and Deberc implement it and
+// run through it online; Tarneeb implements it too but stays `coming_soon`
+// (Stage 10.2) until its UI/online wiring lands. No runtime behaviour changes by
+// introducing this type.
 //
 // This module is pure + client-safe: it only imports TYPES from core/net, so a
 // definition can be referenced from either the server or the client bundle.

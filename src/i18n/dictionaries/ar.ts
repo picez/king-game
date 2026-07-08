@@ -139,6 +139,7 @@ export const AR: Record<string, string> = {
   'durak.promptDefend': 'انقر بطاقة للصد أو اسحب',
   'durak.promptTransfer': 'انقر بطاقة بنفس الرتبة للتحويل',
   'gameType.deberc': 'ديبيرتس',
+  'gameType.tarneeb': 'طرنيب',
   'deberc.setupTagline': 'اربح الأكلات والتشكيلات — بلوغ هدف المباراة',
   'deberc.matchSize': 'طول المباراة',
   'deberc.matchShort': '510 · 1020',

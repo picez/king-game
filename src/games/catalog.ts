@@ -3,17 +3,18 @@
  *
  * Every card game enters through this registry instead of scattering string
  * literals across room discovery, stats, and settings. King is the default;
- * King, Durak, and Deberc are all fully playable (`available`).
+ * King, Durak, and Deberc are all fully playable (`available`). Tarneeb is
+ * registered but `coming_soon` (Stage 10.2 — pure core only, not startable yet).
  */
 
-export const GAME_TYPES = ['king', 'durak', 'deberc'] as const;
+export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
  *  - 'available'   → fully playable (King, Durak, and Deberc today);
- *  - 'coming_soon' → registered but not yet startable (none today);
+ *  - 'coming_soon' → registered but not yet startable (Tarneeb today);
  *  - 'experimental'→ playable but rough (reserved; unused for now).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
@@ -76,6 +77,19 @@ export const GAME_CATALOG = {
     supportsBots: true,     // pure core has a working bot (Stage 3 soak)
     status: 'available',    // integrated Stage 4; match size (small/big) picked per game
     rulesDoc: 'DEBERC_RULES.md',
+  },
+  tarneeb: {
+    id: 'tarneeb',
+    titleKey: 'gameType.tarneeb',
+    shortTitleKey: 'gameType.tarneeb',
+    minPlayers: 4,          // fixed 2×2 partnerships, seats 0/2 vs 1/3 (TARNEEB_RULES §2)
+    maxPlayers: 4,
+    defaultPlayerCount: 4,
+    supportsLocal: false,   // Stage 10.2: pure core only, no UI yet
+    supportsOnline: false,  // no server wiring yet (server never starts Tarneeb rooms)
+    supportsBots: true,     // pure core has a working bot (Stage 10.1 soak)
+    status: 'coming_soon',  // registered but not startable; local UI lands in Stage 10.3
+    rulesDoc: 'TARNEEB_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
 

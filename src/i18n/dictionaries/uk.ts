@@ -139,6 +139,7 @@ export const UK: Record<string, string> = {
   'durak.promptDefend': 'Торкніться карти, щоб відбити, або «Взяти»',
   'durak.promptTransfer': 'Торкніться карти того ж рангу, щоб перевести',
   'gameType.deberc': 'Деберц',
+  'gameType.tarneeb': 'Тарніб',
   'deberc.setupTagline': 'Вигравайте хабарі та комбінації — досягніть цілі матчу',
   'deberc.matchSize': 'Довжина матчу',
   'deberc.matchShort': '510 · 1020',

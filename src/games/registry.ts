@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// Game definition registry (Stage 8.4; Durak added Stage 9.2).
+// Game definition registry (Stage 8.4; Durak Stage 9.2; Tarneeb Stage 10.2).
 //
-// Maps each GameType to its GameDefinition. King is fully playable; Durak is
-// registered but `coming_soon` (no UI/online yet — the menu disables it and the
-// server never starts Durak rooms). `getGameDefinition` mirrors
-// `getGameCatalogEntry` (returns null for unknown input).
+// Maps each GameType to its GameDefinition. King, Durak, and Deberc are fully
+// playable; Tarneeb is registered but `coming_soon` (no UI/online yet — the menu
+// disables it and the server never starts Tarneeb rooms). `getGameDefinition`
+// mirrors `getGameCatalogEntry` (returns null for unknown input).
 // ---------------------------------------------------------------------------
 
 import { DEFAULT_GAME_TYPE, isGameType, type GameType } from './catalog';
@@ -12,11 +12,13 @@ import type { AnyGameDefinition } from './definition';
 import { kingGameDefinition } from './king/definition';
 import { durakGameDefinition } from './durak/definition';
 import { debercGameDefinition } from './deberc/definition';
+import { tarneebGameDefinition } from './tarneeb/definition';
 
 export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   king: kingGameDefinition,
   durak: durakGameDefinition,
   deberc: debercGameDefinition,
+  tarneeb: tarneebGameDefinition,
 };
 
 /** The definition for a game type, or null for an unknown/invalid value. */

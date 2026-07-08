@@ -73,7 +73,7 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(out.status).toBe(200);
     const body = out.body as { games: { id: string; status: string; supportsLocal: boolean; supportsOnline: boolean }[] };
     expect(Array.isArray(body.games)).toBe(true);
-    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc']);
+    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb']);
     const king = body.games.find((g) => g.id === 'king')!;
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');
@@ -81,6 +81,11 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
+    // Tarneeb is registered but not startable yet (Stage 10.2).
+    const tarneeb = body.games.find((g) => g.id === 'tarneeb')!;
+    expect(tarneeb.status).toBe('coming_soon');
+    expect(tarneeb.supportsLocal).toBe(false);
+    expect(tarneeb.supportsOnline).toBe(false);
     // Public shape only — no internal fields leak.
     expect('rulesDoc' in king).toBe(false);
   });
