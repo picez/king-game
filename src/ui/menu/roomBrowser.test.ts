@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterRooms, sortRooms, countRoomsByGame } from './roomBrowser';
+import { filterRooms, sortRooms, countRoomsByGame, roomListAgo } from './roomBrowser';
 import type { RoomSummary } from '../../net/messages';
 import type { GameType } from '../../games/catalog';
 
@@ -95,5 +95,27 @@ describe('countRoomsByGame', () => {
     const c = countRoomsByGame([]);
     expect(c.all).toBe(0);
     expect(c.king).toBe(0);
+  });
+});
+
+describe('roomListAgo', () => {
+  const NOW = 1_000_000;
+  it("is 'never' before the first fetch", () => {
+    expect(roomListAgo(null, NOW)).toEqual({ state: 'never' });
+  });
+  it("is 'now' within 5s", () => {
+    expect(roomListAgo(NOW - 0, NOW).state).toBe('now');
+    expect(roomListAgo(NOW - 4999, NOW).state).toBe('now');
+  });
+  it('reports seconds under a minute', () => {
+    expect(roomListAgo(NOW - 12_000, NOW)).toEqual({ state: 'ago', unit: '12s' });
+    expect(roomListAgo(NOW - 59_000, NOW)).toEqual({ state: 'ago', unit: '59s' });
+  });
+  it('reports minutes at/after a minute', () => {
+    expect(roomListAgo(NOW - 60_000, NOW)).toEqual({ state: 'ago', unit: '1m' });
+    expect(roomListAgo(NOW - 185_000, NOW)).toEqual({ state: 'ago', unit: '3m' });
+  });
+  it('clamps a future timestamp to now (never negative)', () => {
+    expect(roomListAgo(NOW + 10_000, NOW).state).toBe('now');
   });
 });

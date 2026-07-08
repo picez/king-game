@@ -3,9 +3,13 @@ import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { useRoomList } from '../hooks/useRoomList';
 import type { RoomSummary } from '../net/messages';
 import {
-  filterRooms, sortRooms, countRoomsByGame, ROOM_SORTS,
+  filterRooms, sortRooms, countRoomsByGame, roomListAgo, ROOM_SORTS,
   type GameFilter, type RoomSort,
 } from './menu/roomBrowser';
+
+/** Auto-refresh cadence for the open room browser + how often the "ago" label ticks. */
+const ROOM_AUTO_REFRESH_MS = 9000;
+const ROOM_AGO_TICK_MS = 5000;
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
@@ -68,12 +72,17 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   // Client-only room-browser view controls (never touches the server payload).
   const [gameFilter, setGameFilter] = useState<GameFilter>('all');
   const [roomSort, setRoomSort] = useState<RoomSort>('open');
+  const [nowTick, setNowTick] = useState(() => Date.now()); // drives the "updated Ns ago" label
 
   const roomCounts = useMemo(() => countRoomsByGame(roomList.rooms), [roomList.rooms]);
   const visibleRooms = useMemo(
     () => sortRooms(filterRooms(roomList.rooms, gameFilter), roomSort),
     [roomList.rooms, gameFilter, roomSort],
   );
+  const ago = roomListAgo(roomList.lastUpdatedAt, nowTick);
+  const updatedLabel = ago.state === 'never' ? t('join.notUpdated')
+    : ago.state === 'now' ? t('join.updatedJustNow')
+      : t('join.updatedAgo').replace('{n}', ago.unit);
 
   // Pull server-side profile/settings into the local fields once they hydrate
   // (so a signed-in player sees their saved name/avatar/timer across devices).
@@ -87,6 +96,24 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   useEffect(() => {
     if (account.serverTimer != null) setDefaultTimer(account.serverTimer);
   }, [account.serverTimer]);
+
+  // Room browser auto-refresh: while the Join pane is open, poll the room list on
+  // a timer (the hook skips a tick if a fetch is still in flight, so requests never
+  // overlap). Manual Refresh + the immediate fetch on open still work. Stops when
+  // leaving the pane (cleanup). No protocol change — it just re-issues LIST_ROOMS.
+  useEffect(() => {
+    if (pane !== 'join') return;
+    const id = setInterval(() => roomList.refresh(url), ROOM_AUTO_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [pane, url, roomList.refresh]);
+
+  // Tick the local clock so the "updated Ns ago" label stays fresh without hitting
+  // the server. Runs only while the Join pane is open.
+  useEffect(() => {
+    if (pane !== 'join') return;
+    const id = setInterval(() => setNowTick(Date.now()), ROOM_AGO_TICK_MS);
+    return () => clearInterval(id);
+  }, [pane]);
 
   function resume() {
     if (!resumable) return;
@@ -317,11 +344,18 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               <div className="field">
                 <div className="room-list-head">
                   <label className="field__label">{t('join.openRooms')}</label>
+                  <span className="room-updated" aria-live="polite">{updatedLabel}</span>
                   <button className="btn btn--ghost btn--small" onClick={() => roomList.refresh(url)}
-                    disabled={roomList.loading}>{t('btn.refresh')}</button>
+                    disabled={roomList.loading}>{roomList.loading ? `${t('btn.refresh')}…` : t('btn.refresh')}</button>
                 </div>
 
-                {roomList.error && <p className="lobby-error">{t(`roomList.${roomList.error}`)}</p>}
+                {/* A failed refresh keeps the last-known list — soft-warn instead of
+                    wiping it. Only hard-error when there is nothing to show. */}
+                {roomList.error && (
+                  roomList.rooms.length > 0
+                    ? <p className="setup-hint room-stale">⚠️ {t('join.staleWarning')}</p>
+                    : <p className="lobby-error">{t(`roomList.${roomList.error}`)}</p>
+                )}
                 {roomList.loading && roomList.rooms.length === 0 && (
                   <p className="setup-hint">{t('net.connecting')}…</p>
                 )}

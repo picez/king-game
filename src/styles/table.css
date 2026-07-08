@@ -272,9 +272,20 @@
 .room-list-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.4rem 0.5rem;
 }
+/* "Updated Ns ago" — sits between the label and Refresh; pushes Refresh right. */
+.room-updated {
+  margin-inline-start: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Soft stale warning kept when a refresh fails but the last list is still shown. */
+.room-stale { color: var(--accent-light); }
 /* Server-browser: a list-browser of open rooms (game-aware, future-proof). */
 /* Filter + sort bar above the room browser (client-only view controls). */
 .room-filter-bar {

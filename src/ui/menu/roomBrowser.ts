@@ -42,6 +42,23 @@ export function sortRooms(rooms: readonly RoomSummary[], sort: RoomSort): RoomSu
   return rooms.slice().sort(cmp[sort]);
 }
 
+/** Relative "last updated" state for the room list (pure; the UI maps to i18n). */
+export type RoomListAgo = { state: 'never' } | { state: 'now' } | { state: 'ago'; unit: string };
+
+/**
+ * How long ago the room list was last fetched, as a tiny locale-neutral token:
+ *  - null              → 'never';
+ *  - < 5s              → 'now';
+ *  - else              → 'ago' with a "<secs>s" / "<mins>m" unit (clamped ≥ 0).
+ */
+export function roomListAgo(lastUpdatedAt: number | null, now: number): RoomListAgo {
+  if (lastUpdatedAt == null) return { state: 'never' };
+  const delta = Math.max(0, now - lastUpdatedAt);
+  if (delta < 5000) return { state: 'now' };
+  const secs = Math.floor(delta / 1000);
+  return { state: 'ago', unit: secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m` };
+}
+
 /** Room counts per game plus the total, for the filter chips. */
 export function countRoomsByGame(rooms: readonly RoomSummary[]): Record<GameFilter, number> {
   const counts = { all: rooms.length } as Record<GameFilter, number>;

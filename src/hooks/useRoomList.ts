@@ -9,6 +9,8 @@ export interface RoomListState {
   rooms: RoomSummary[];
   loading: boolean;
   error: RoomListError | null;
+  /** Epoch ms of the last SUCCESSFUL fetch, or null if never fetched. */
+  lastUpdatedAt: number | null;
   /** Open a short-lived connection, fetch the public room list, then close. */
   refresh: (url: string) => void;
 }
@@ -25,13 +27,17 @@ export function useRoomList(): RoomListState {
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<RoomListError | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const busyRef = useRef(false);
 
   const refresh = useCallback((url: string) => {
+    // Skip if a fetch is already in flight (auto-refresh ticks never overlap) or
+    // there is no server URL. The previous rooms + error stay untouched meanwhile.
     if (busyRef.current || !url.trim()) return;
     busyRef.current = true;
     setLoading(true);
-    setError(null);
+    // NOTE: the error is cleared on SUCCESS (below), not here — so a failing
+    // auto-refresh keeps its soft warning steady instead of flickering each tick.
 
     const transport = new WebSocketTransport(url.trim());
     let done = false;
@@ -49,6 +55,8 @@ export function useRoomList(): RoomListState {
     transport.onMessage((msg) => {
       if (msg.t === 'ROOMS_LIST') {
         setRooms(msg.rooms);
+        setError(null);              // a good fetch clears any stale-warning
+        setLastUpdatedAt(Date.now());
         clearTimeout(timer);
         finish();
       }
@@ -60,5 +68,5 @@ export function useRoomList(): RoomListState {
       .catch(() => { clearTimeout(timer); finish('unreachable'); });
   }, []);
 
-  return { rooms, loading, error, refresh };
+  return { rooms, loading, error, lastUpdatedAt, refresh };
 }

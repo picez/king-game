@@ -101,6 +101,33 @@ describe('room browser filters + sorting (Stage 11.3)', () => {
   });
 });
 
+describe('room browser auto-refresh + stale UX (Stage 11.4)', () => {
+  const src = read('../StartMenu.tsx');
+  it('auto-refreshes on an interval while the Join pane is open, with cleanup', () => {
+    expect(src).toContain("if (pane !== 'join') return;");
+    expect(src).toContain('setInterval(() => roomList.refresh(url), ROOM_AUTO_REFRESH_MS)');
+    expect(src).toContain('return () => clearInterval(id);');
+  });
+  it('shows a relative "last updated" label driven by a local tick (no server hit)', () => {
+    expect(src).toContain('roomListAgo(roomList.lastUpdatedAt, nowTick)');
+    expect(src).toContain('setNowTick(Date.now())');
+    expect(src).toContain('className="room-updated"');
+  });
+  it('keeps the last list + soft-warns on a failed refresh (no hard clear)', () => {
+    expect(src).toContain('room-stale');
+    expect(src).toContain("t('join.staleWarning')");
+    // Hard error only when there is nothing to show.
+    expect(src).toContain('roomList.rooms.length > 0');
+  });
+  it('does NOT reset the filter/sort on an auto-refresh tick', () => {
+    // The auto-refresh effect only calls refresh — it must not touch the view state.
+    const effect = src.slice(src.indexOf('const id = setInterval(() => roomList.refresh(url)'));
+    const firstReturn = effect.slice(0, effect.indexOf('}, [pane, url, roomList.refresh]'));
+    expect(firstReturn).not.toContain('setGameFilter');
+    expect(firstReturn).not.toContain('setRoomSort');
+  });
+});
+
 describe('Lobby shows the game + start-disabled reason (Stage 11.2)', () => {
   const src = read('../online/Lobby.tsx');
   it('labels the room game and a Tarneeb partnership hint', () => {
