@@ -259,8 +259,9 @@ function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
     hvTeam = objazTeam;
   }
 
-  // Бейт: any team that took zero tricks. ХВ and бейт are independent now, so an
-  // об'яз that earns both in one hand simply takes both marks.
+  // Бейт: any team that took zero tricks (§8.3 resolved: per TEAM in 4p — a lone
+  // partner with zero tricks earns nothing while the teammate took any). ХВ and
+  // бейт are independent now, so an об'яз that earns both in one hand takes both.
   const beitTeams: number[] = [];
   for (let t = 0; t < s.teamCount; t++) {
     const wonAny = s.wonCards.some((cards, seat) => s.teamOf[seat] === t && cards.length > 0);

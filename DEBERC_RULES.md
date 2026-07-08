@@ -193,7 +193,11 @@ Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
    об'яз (no redeal).
 2. **§4 — RESOLVED:** "highest **declared** holder only" extends across платіна;
    equal платіни compare by top card with trump breaking ties (like терці).
-3. **§7** — 4p бейт when a *team* takes zero tricks (rare) vs a single partner.
+3. **§7 — RESOLVED (owner rule 2026-07-08):** in 4p the zero-tricks mark
+   (displayed «ХВ») is **per team** — recorded only when the **whole team** takes
+   zero tricks in a hand. A single partner taking zero tricks while the other
+   partner takes any does **not** earn the mark (the team is the accounting unit,
+   consistent with §7 tallies being per team in 4p).
 4. **§4 (v1.3) — RESOLVED:** declaration is **truthful** — a seat announces a
    sequence's kind + nominal (top card) it really holds; the engine validates it
    against the hand (an unheld announcement is illegal). Among equal kinds only the

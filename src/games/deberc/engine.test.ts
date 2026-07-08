@@ -327,6 +327,62 @@ describe('markPenalty — ХВ/бейт ledger (§7, owner rule 2026-07-08)', ()
   });
 });
 
+describe('4p бейт is per TEAM (§8.3, owner rule 2026-07-08)', () => {
+  /**
+   * Fast-forward a fresh 4p playing hand to its LAST trick with rigged wonCards:
+   * every seat holds one card of the same non-trump suit and seat 0 leads the A,
+   * so seat 0 (team 0) deterministically wins the final trick.
+   */
+  function rigLastTrick(seed: number, wonCards: DebercState['wonCards']): DebercState {
+    const s: DebercState = structuredClone(toPlaying(start(4, 'small', seed)));
+    const led = someNonTrump(s);
+    const lastCards = [c(led, 'A'), c(led, '7'), c(led, '8'), c(led, '9')];
+    s.players.forEach((p, i) => { p.hand = [lastCards[i]]; });
+    s.wonCards = wonCards;
+    s.seatsWithTricks = wonCards.flatMap((cards, seat) => (cards.length ? [seat] : []));
+    s.tricksPlayed = 8; // HAND_TRICKS - 1 → the next trick ends the hand
+    s.currentTrick = null;
+    s.turnSeat = 0;
+    return s;
+  }
+
+  /** Play the rigged final trick and score the hand (NEXT_TRICK → NEXT_HAND). */
+  function scoreRiggedHand(s0: DebercState): DebercState {
+    let s = s0;
+    for (let i = 0; i < 4; i++) {
+      s = debercReducer(s, { type: 'PLAY_CARD', card: s.players[s.turnSeat].hand[0] }, {})!;
+    }
+    expect(s.phase).toBe('trick_complete');
+    s = debercReducer(s, { type: 'NEXT_TRICK' }, {})!;
+    expect(s.phase).toBe('hand_scoring');
+    return debercReducer(s, { type: 'NEXT_HAND' }, { rng: makeRng(99) })!;
+  }
+
+  it('NO mark when one partner took zero tricks but the team took some', () => {
+    const s0 = rigLastTrick(11, [
+      [c('spades', 'K'), c('spades', 'Q')], // seat 0 (team 0) took tricks…
+      [c('hearts', 'J'), c('hearts', '10')], // seat 1 (team 1) took tricks
+      [],                                    // …seat 2 (team 0, partner) took ZERO
+      [c('diamonds', 'K'), c('diamonds', 'J')], // seat 3 (team 1) took tricks
+    ]);
+    const s = scoreRiggedHand(s0);
+    expect(s.handHistory[0].beitTeams).toEqual([]);
+    expect(s.beitMarks).toEqual([0, 0]);
+  });
+
+  it('mark lands when the WHOLE team took zero tricks', () => {
+    const s0 = rigLastTrick(11, [
+      [c('spades', 'K'), c('spades', 'Q')],  // seat 0 (team 0) took tricks
+      [],                                    // seat 1 (team 1) took ZERO…
+      [c('hearts', 'J'), c('hearts', '10')], // seat 2 (team 0) took tricks
+      [],                                    // …seat 3 (team 1) took ZERO too
+    ]);
+    const s = scoreRiggedHand(s0); // seat 0 also wins the last trick → team 1 stays at zero
+    expect(s.handHistory[0].beitTeams).toEqual([1]);
+    expect(s.beitMarks).toEqual([0, 1]);
+  });
+});
+
 describe('getActingDebercPlayerId', () => {
   it('follows the active seat through the phases; null when finished', () => {
     const s0 = start(3, 'small', 5);
