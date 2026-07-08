@@ -16,6 +16,20 @@
 // (aiChooseCard). The endgame is exactly where the greedy bot misplays — dumping
 // the last penalty, dodging the King of Hearts on the final tricks, and the
 // Last-Two-Tricks switch — so solving it exactly is where the points are.
+//
+// Two classic exact-solver optimisations make the deeper gates affordable:
+//
+//  * TRANSPOSITION TABLE — the search returns score DELTAS (future points from a
+//    position on), which are path-independent, so positions reached in different
+//    move orders share one solved value. Every card still in play gets a bit in
+//    one 32-bit mask (the gates keep the total ≤ 32); since each card belongs to
+//    a fixed root hand, the UNION mask + the trick leader is a complete numeric
+//    key for any trick-boundary position, shared across all root candidates.
+//
+//  * EQUIVALENT-CARD PRUNING — two same-suit cards with no live card between
+//    them (in another hand or on the table) and the same per-card penalty are
+//    strategically identical, so interior nodes search only one per such block.
+//    This collapses the free-discard explosion the boundary TT cannot reach.
 // ---------------------------------------------------------------------------
 
 import type { Card, GameModeId, GameState, ScoringConfig, Suit } from '../models/types';
@@ -27,13 +41,16 @@ import { aiChooseCard } from './ai';
 // many cards. Beyond it the tree is too wide to solve in time and we defer to the
 // heuristic. Kept per-player-count: the 52-card 4-player game branches wider (four
 // seats), so it earns a slightly tighter gate than the 32-card 3-player game.
-const HAND_GATE_4P = 4;
-const HAND_GATE_3P = 5;
+// (Raised from 4/5 once the transposition table landed — see the header.)
+// NOTE: the bit-mask encoding requires n*gate + (n-1) ≤ 32 cards in play.
+const HAND_GATE_4P = 6;
+const HAND_GATE_3P = 7;
 
 // Hard ceiling on explored nodes. A follow-suit-light position (everyone void of
 // the led suit → free discards) can still explode past the gate, so this backstop
 // aborts the search and the caller falls back to the greedy heuristic for that one
-// decision. Sized to stay well under a few milliseconds per move.
+// decision. With the transposition table a node is only counted when actually
+// searched (cache hits are free), so the budget bounds real work per move.
 const NODE_BUDGET = 600_000;
 
 /** Thrown to unwind the recursion when the node budget is exhausted. */
@@ -48,12 +65,16 @@ const ABORT = Symbol('lookahead-abort');
 interface Sim {
   /** Remaining hand per seat (seat index === players[] index). */
   hands: Card[][];
+  /**
+   * Union bit mask of ALL cards still in hands (bit index via Ctx.bitOf). Every
+   * card belongs to exactly one seat's root hand, so the union alone identifies
+   * every seat's remaining hand — a single number keys the whole position.
+   */
+  union: number;
   /** Cards played into the current, in-progress trick, in play order. */
   plays: Card[];
   /** Seat that led the current trick (plays[0] is theirs). */
   leaderIdx: number;
-  /** Per-seat score accrued by tricks RESOLVED during the search (offset-free). */
-  scores: number[];
   /** Count of tricks resolved so far in the whole round (incl. before search). */
   tricksResolved: number;
 }
@@ -66,6 +87,10 @@ interface Ctx {
   tricksPerRound: number;
   n: number;
   nodes: number; // mutable node counter (budget guard)
+  /** Bit index per card (`suit:rank`) over every card still in play at the root. */
+  bitOf: Map<string, number>;
+  /** Transposition table: trick-boundary position (union·4+leader) → delta vector. */
+  tt: Map<number, number[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,14 +168,34 @@ function beatsCard(card: Card, best: Card, trumpSuit: Suit | null, ledSuit: Suit
 // Max-n search
 // ---------------------------------------------------------------------------
 
+/** A child position plus the trick resolution (if the play completed a trick). */
+interface Applied {
+  sim: Sim;
+  /** Winner seat + points when this play resolved a trick, else null. */
+  credit: { seat: number; score: number } | null;
+}
+
 /**
- * Returns the final per-seat score vector under max-n optimal play from `sim`.
- * Every seat plays the card that maximises ITS OWN final component.
+ * Returns the FUTURE per-seat score-delta vector under max-n optimal play from
+ * `sim` (points still to be scored from here to the end of the round). Every
+ * seat plays the card that maximises ITS OWN final component. Deltas are
+ * path-independent, which is what makes them safe to memoize in the TT.
+ * Cached/returned vectors are shared — callers must copy before mutating.
  */
 function search(sim: Sim, ctx: Ctx): number[] {
   // Terminal: no cards left anywhere and no trick in progress → round done.
   if (sim.plays.length === 0 && sim.hands.every((h) => h.length === 0)) {
-    return sim.scores;
+    return ZERO_VECS[ctx.n] ?? new Array(ctx.n).fill(0);
+  }
+
+  // Transposition lookup at trick boundaries: identical remaining hands + leader
+  // always yield the same future, no matter the move order that got here.
+  // (tricksResolved is derivable from the union, so it needn't be in the key.
+  // union is ≤ 32 bits and leader < 4, so union·4+leader is an exact number key.)
+  const key = sim.plays.length === 0 ? sim.union * 4 + sim.leaderIdx : -1;
+  if (key >= 0) {
+    const hit = ctx.tt.get(key);
+    if (hit !== undefined) return hit;
   }
 
   if (++ctx.nodes > NODE_BUDGET) throw ABORT;
@@ -160,42 +205,101 @@ function search(sim: Sim, ctx: Ctx): number[] {
   const valid = getValidCards(sim.hands[seat], ledSuit, ctx.modeId, ctx.trumpSuit);
 
   let best: number[] | null = null;
-  for (const card of valid) {
-    const child = applyPlay(sim, seat, card, ctx);
-    const vec = search(child, ctx);
+  for (const card of pruneEquivalent(valid, sim, ctx, seat)) {
+    const vec = valueOfPlay(sim, seat, card, ctx);
     if (best === null || vec[seat] > best[seat]) best = vec;
   }
+  if (key >= 0) ctx.tt.set(key, best!);
   return best!; // valid is never empty while any hand has cards
 }
 
 /**
- * Applies `seat` playing `card` and returns the resulting Sim. When the play
- * completes a trick it is resolved: the winner is credited and leads the next.
+ * Drops strategically identical alternatives: within one suit, cards with no
+ * LIVE card strictly between them (in another hand or in the current trick) and
+ * an equal per-card penalty always produce the same future — searching one per
+ * block is exact. Only interior nodes prune; the root evaluates every card so
+ * the analysis still reports a value for each legal play.
  */
-function applyPlay(sim: Sim, seat: number, card: Card, ctx: Ctx): Sim {
+function pruneEquivalent(valid: Card[], sim: Sim, ctx: Ctx, seat: number): Card[] {
+  if (valid.length <= 1) return valid;
+  const bySuit = new Map<Suit, Card[]>();
+  for (const c of valid) {
+    const g = bySuit.get(c.suit);
+    if (g) g.push(c); else bySuit.set(c.suit, [c]);
+  }
+  const out: Card[] = [];
+  for (const [suit, group] of bySuit) {
+    if (group.length === 1) { out.push(group[0]); continue; }
+    group.sort((a, b) => a.value - b.value);
+    // Values of this suit still live OUTSIDE the acting hand — only these can
+    // ever distinguish two of our cards (we never compete with our own holding).
+    const foreign: number[] = [];
+    for (let s = 0; s < ctx.n; s++) {
+      if (s === seat) continue;
+      for (const c of sim.hands[s]) if (c.suit === suit) foreign.push(c.value);
+    }
+    for (const c of sim.plays) if (c.suit === suit) foreign.push(c.value);
+    out.push(group[0]); // the block representative is its lowest card
+    for (let i = 1; i < group.length; i++) {
+      const lo = group[i - 1];
+      const hi = group[i];
+      const gap = foreign.some((v) => v > lo.value && v < hi.value);
+      if (gap || cardPenalty(lo, ctx.modeId, ctx.scoring) !== cardPenalty(hi, ctx.modeId, ctx.scoring)) {
+        out.push(hi); // not equivalent to the previous → starts a new block
+      }
+    }
+  }
+  return out;
+}
+
+/** Delta vector of `seat` playing `card` from `sim` (search + trick credit). */
+function valueOfPlay(sim: Sim, seat: number, card: Card, ctx: Ctx): number[] {
+  const { sim: child, credit } = applyPlay(sim, seat, card, ctx);
+  let vec = search(child, ctx);
+  if (credit !== null && credit.score !== 0) {
+    vec = vec.slice(); // never mutate a shared/cached vector
+    vec[credit.seat] += credit.score;
+  }
+  return vec;
+}
+
+/**
+ * Applies `seat` playing `card` and returns the resulting Sim. When the play
+ * completes a trick it is resolved: the winner leads the next trick and the
+ * trick's points are reported via `credit` (added by the caller on unwind).
+ */
+function applyPlay(sim: Sim, seat: number, card: Card, ctx: Ctx): Applied {
   // Clone only the acting seat's hand; other seats' arrays are never mutated.
   const hands = sim.hands.slice();
   hands[seat] = removeFirst(hands[seat], card);
+  // (2**bit, not 1<<bit: bit 31 via << would flip the sign and corrupt the key.)
+  const union = sim.union - 2 ** ctx.bitOf.get(cardKey(card))!;
 
   const plays = sim.plays.slice();
   plays.push(card);
 
   if (plays.length < ctx.n) {
-    return { hands, plays, leaderIdx: sim.leaderIdx, scores: sim.scores, tricksResolved: sim.tricksResolved };
+    return {
+      sim: { hands, union, plays, leaderIdx: sim.leaderIdx, tricksResolved: sim.tricksResolved },
+      credit: null,
+    };
   }
 
   // Trick complete — resolve, credit the winner, and lead from the winner.
   const winnerSeat = trickWinnerSeat(plays, sim.leaderIdx, ctx.trumpSuit, ctx.n);
-  const scores = sim.scores.slice();
-  scores[winnerSeat] += trickScore(plays, ctx, sim.tricksResolved);
   return {
-    hands,
-    plays: [],
-    leaderIdx: winnerSeat,
-    scores,
-    tricksResolved: sim.tricksResolved + 1,
+    sim: { hands, union, plays: [], leaderIdx: winnerSeat, tricksResolved: sim.tricksResolved + 1 },
+    credit: { seat: winnerSeat, score: trickScore(plays, ctx, sim.tricksResolved) },
   };
 }
+
+/** Stable identity of a card for the bit-index map. */
+function cardKey(card: Card): string {
+  return `${card.suit}:${card.rank}`;
+}
+
+/** Shared all-zero terminal vectors (per player count) — never mutated. */
+const ZERO_VECS: Record<number, number[]> = { 3: [0, 0, 0], 4: [0, 0, 0, 0] };
 
 /** New array with the first card equal to `card` removed. */
 function removeFirst(hand: Card[], card: Card): Card[] {
@@ -239,6 +343,15 @@ export function analyzeLookahead(state: GameState): LookaheadAnalysis | null {
   const valid = getValidCards(state.players[seat].hand, ledSuit, state.currentRound.mode.id, state.trumpSuit);
   if (valid.length === 0) return null;
 
+  // Assign every card still in play a bit index (hands + the in-progress trick).
+  // The gates keep the total ≤ 32, so one 32-bit mask per seat suffices; if a
+  // custom config ever exceeds that, skip the search rather than mis-key the TT.
+  const plays = (state.currentTrick?.plays ?? []).map((pl) => pl.card);
+  const bitOf = new Map<string, number>();
+  for (const p of state.players) for (const c of p.hand) bitOf.set(cardKey(c), bitOf.size);
+  for (const c of plays) bitOf.set(cardKey(c), bitOf.size);
+  if (bitOf.size > 32) return null;
+
   const ctx: Ctx = {
     modeId: state.currentRound.mode.id,
     trumpSuit: state.trumpSuit,
@@ -246,20 +359,24 @@ export function analyzeLookahead(state: GameState): LookaheadAnalysis | null {
     tricksPerRound: state.config.tricksPerRound,
     n,
     nodes: 0,
+    bitOf,
+    tt: new Map(),
   };
   const sim: Sim = {
     hands: state.players.map((p) => p.hand),
-    plays: (state.currentTrick?.plays ?? []).map((pl) => pl.card),
+    union: state.players.reduce(
+      (m, p) => p.hand.reduce((mm, c) => mm + 2 ** bitOf.get(cardKey(c))!, m), 0),
+    plays,
     leaderIdx: state.currentLeaderIdx,
-    scores: new Array(n).fill(0),
     tricksResolved: state.currentRound.tricks.length,
   };
 
   const greedy = aiChooseCard(state);
   try {
+    // One shared TT across all root candidates — siblings transpose heavily.
     const candidates = valid.map((card) => ({
       card,
-      value: search(applyPlay(sim, seat, card, ctx), ctx)[seat],
+      value: valueOfPlay(sim, seat, card, ctx)[seat],
     }));
     // Best for our seat; on ties prefer the greedy pick so behaviour stays stable
     // and sensible when the search is indifferent (several equally-safe cards).

@@ -135,6 +135,65 @@ describe('lookahead — dominates greedy on its own objective', () => {
   }, 120000);
 });
 
+describe('lookahead — exact vs an independent reference solver', () => {
+  // A reference max-n solver that reuses the PRODUCTION reducer (no Sim, no TT,
+  // no pruning) — the fully independent oracle. It returns each seat's final
+  // round total under optimal self-maximising play; every seat maximises its own
+  // component. Kept for TINY residual positions so the brute force stays cheap.
+  function refSolve(state: GameState, memo = new Map<string, number[]>()): number[] {
+    let s = state;
+    // Fast-forward system screens to the next decision / round end.
+    while (s.status === 'trick_complete') s = gameReducer(s, { type: 'NEXT_TRICK' })!;
+    if (s.status !== 'playing') return s.players.map((p) => s.scores[p.id].total);
+
+    const p = getCurrentPlayer(s);
+    const seat = p.seatIndex;
+    const valid = getValidCards(p.hand, s.currentTrick?.ledSuit ?? null, s.currentRound.mode.id, s.trumpSuit);
+    let best: number[] | null = null;
+    for (const card of valid) {
+      const next = gameReducer(s, { type: 'PLAY_CARD', playerId: p.id, card })!;
+      const vec = refSolve(next, memo);
+      if (best === null || vec[seat] > best[seat]) best = vec;
+    }
+    return best!;
+  }
+
+  it('candidate value differences match the reference solver on small positions', () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 40 && checked < 12; seed++) {
+      for (const names of [['A', 'B', 'C'], ['A', 'B', 'C', 'D']]) {
+        drive(start(names, seed), (s) => {
+          if (checked >= 12) return;
+          const remaining = s.players.reduce((n, p) => n + p.hand.length, 0);
+          if (remaining > 9) return; // keep the brute force cheap
+          const a = analyzeLookahead(s);
+          if (!a) return;
+          const seat = getCurrentPlayer(s).seatIndex;
+
+          // Reference: play each root card, then solve optimally to round end.
+          const ref = a.candidates.map(({ card }) => {
+            const next = gameReducer(s, { type: 'PLAY_CARD', playerId: getCurrentPlayer(s).id, card })!;
+            return refSolve(next)[seat];
+          });
+          // lookahead values are FUTURE deltas; the reference totals differ from
+          // them only by a per-position constant (points from already-played
+          // tricks), which cancels in differences. So (ref − value) is constant.
+          const offsets = a.candidates.map((c, i) => ref[i] - c.value);
+          for (const o of offsets) expect(o).toBeCloseTo(offsets[0], 6);
+          // And the argmax must agree: the reference's best is a lookahead best.
+          const refBest = Math.max(...ref);
+          const laBest = Math.max(...a.candidates.map((c) => c.value));
+          a.candidates.forEach((c, i) => {
+            if (Math.abs(ref[i] - refBest) < 1e-9) expect(c.value).toBeCloseTo(laBest, 6);
+          });
+          checked++;
+        }, seed);
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(8);
+  }, 120000);
+});
+
 describe('lookahead — determinism & fallback', () => {
   it('returns the same card for the same state', () => {
     drive(start(['A', 'B', 'C', 'D'], 99), (s) => {
