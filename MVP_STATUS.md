@@ -143,10 +143,16 @@ needs HTTPS; online play needs a network. See [`DEPLOYMENT.md`](DEPLOYMENT.md) �
 
 ## Verify
 ```bash
-npm test          # unit + pure-logic tests
-npm run build     # type-check + production build
-npm run e2e       # full online flow over WS (spawns + restarts a server)
+npm run verify           # typecheck:server + test + build + e2e, run SEQUENTIALLY
+# …or individually:
+npm run typecheck:server # server/index.ts import graph (tsc -p tsconfig.server.json)
+npm test                 # unit + pure-logic tests
+npm run build            # client type-check + production build
+npm run e2e              # full online flow over WS (spawns + restarts a server)
 ```
+> Run heavy checks **sequentially** on the Windows dev box — parallel `test`+`build`+`tsc`
+> has intermittently OOM'd (VirtualAlloc); `npm run verify` chains them one at a time.
+> Gated DB stats tests need `TEST_DATABASE_URL` (else skipped).
 
 ### Scripts
 | Script | Purpose |
@@ -155,6 +161,8 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
 | `build` | type-check + production build to `dist/` |
 | `preview` | preview the production build |
 | `test` / `test:watch` | unit tests (Vitest) |
+| `verify` | typecheck:server + test + build + e2e, **sequentially** |
+| `typecheck` / `typecheck:server` | client / server type-check (no emit) |
 | `e2e` | end-to-end online scenario over WebSocket |
 | `server` | server-authoritative WS server (dev/LAN) |
 | `server:prod` | same, `NODE_ENV=production` (VPS) |

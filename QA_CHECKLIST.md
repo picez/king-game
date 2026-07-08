@@ -7,13 +7,28 @@ WebSocket against a real server, incl. restart restore). This file is the
 ## Automated (run first)
 
 ```bash
-npm test         # unit + pure-logic tests (King + Durak)
-npm run build    # type-check + production build
-npm run e2e      # spawns a server, plays a full online round (King + Durak), restarts
-npm run soak     # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
+npm run verify   # runs the four checks below, SEQUENTIALLY (recommended)
 ```
 
-All four must be green.
+`verify` = `typecheck:server && test && build && e2e`. Or run each on its own:
+
+```bash
+npm run typecheck:server  # server/index.ts import graph (tsc -p tsconfig.server.json)
+npm test                  # unit + pure-logic tests (all 4 games + net/UI)
+npm run build             # client type-check + production build
+npm run e2e               # spawns a server, plays full online rounds, restart restore
+npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
+```
+
+All must be green.
+
+> **Run heavy checks SEQUENTIALLY on this Windows dev machine.** Running
+> `test` + `build` + a `tsc` at the same time has intermittently exhausted memory
+> (VirtualAlloc / worker-fork OOM). `npm run verify` chains them one-at-a-time; a
+> lone check that OOMs re-runs clean. Do NOT launch them in parallel.
+>
+> **Gated DB tests** (stats integration) stay skipped unless `TEST_DATABASE_URL`
+> points at a migrated Postgres: `TEST_DATABASE_URL=postgres://… npm test`.
 
 ## Manual — local pass-and-play
 

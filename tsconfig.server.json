@@ -1,0 +1,9 @@
+{
+  // Server type-check config. Inherits every compilerOption from the base
+  // tsconfig (target ES2020, DOM libs, bundler resolution, strict, noEmit, …) and
+  // just points tsc at the server entry — its import graph (server/** + the shared
+  // src/** it uses) is checked transitively, matching the old inline command.
+  // NOTE: `include` is NOT inherited via "extends", so it is set here explicitly.
+  "extends": "./tsconfig.json",
+  "include": ["server/index.ts"]
+}
