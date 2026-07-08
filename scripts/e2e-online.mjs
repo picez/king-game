@@ -527,9 +527,9 @@ async function main() {
   check(dm2 && dm2.type === 'human', 'substituted player remained a HUMAN member (not converted to a bot)');
   obs.ws.close();
 
-  // 2n) Experimental ONLINE Durak (Stage 9.6): host a Durak room, bots fill it,
+  // 2n) ONLINE Durak (released, Stage 9.6): host a Durak room, bots fill it,
   // start, redaction hides opponents, a human acts, chat + reconnect work.
-  console.log('\n[2n] experimental online Durak room');
+  console.log('\n[2n] online Durak room');
   // Unknown gameType is rejected.
   const badGame = await connect();
   sendMsg(badGame, { t: 'CREATE_ROOM', name: 'X', playerCount: 2, modeSelectionType: 'fixed', gameType: 'poker' });
@@ -696,10 +696,10 @@ async function main() {
   check(!lqHost.room.members.some((m) => m.name === 'QLeaver'), 'leave lobby removed the Durak seat');
   lqHost.ws.close(); lqJoin.ws.close();
 
-  // 2r) Experimental ONLINE Tarneeb (Stage 10.5): host a 4-seat Tarneeb room,
+  // 2r) ONLINE Tarneeb (released, Stage 10.8): host a 4-seat Tarneeb room,
   // fill with a 2nd human + 2 bots, start, redaction per human, a human acts, a
   // trick completes, chat + reactions + reconnect + leave-lobby all work.
-  console.log('\n[2r] experimental online Tarneeb room');
+  console.log('\n[2r] online Tarneeb room');
   const tnHost = await connect();
   sendMsg(tnHost, { t: 'CREATE_ROOM', name: 'TnHost', modeSelectionType: 'fixed', gameType: 'tarneeb' });
   await sleep(220);

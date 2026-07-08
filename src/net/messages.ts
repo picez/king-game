@@ -80,7 +80,7 @@ export interface RoomSummary {
   hostAvatar: string;
   /** Whether the host currently has a live socket (MVP connection-quality cue). */
   hostConnected: boolean;
-  /** Which card game this room runs (King, or experimental Durak). */
+  /** Which card game this room runs (King, Durak, Deberc, or Tarneeb). */
   gameType: GameType;
   /** Durak variant ('simple' | 'transfer'); undefined for King. */
   variant?: DurakVariant;

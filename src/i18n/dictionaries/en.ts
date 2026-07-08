@@ -267,8 +267,6 @@ export const EN: Record<string, string> = {
   'tarneeb.spectating': 'Spectating…',
   'tarneeb.offlineAI': '— offline, AI may play',
   'tarneeb.nextHandSoon': 'Next hand starting…',
-  'tarneeb.onlineBeta': 'Experimental online — 4 players, first team to 41.',
-  'tarneeb.experimental': 'Experimental',
   'tarneeb.led': 'Led',
   'tarneeb.youPassed': 'You passed — out of this auction',
   'tarneeb.mustFollow': 'Follow the led suit if you can',

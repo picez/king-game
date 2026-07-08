@@ -2,8 +2,8 @@
 // King GameDefinition (Stage 8.4).
 //
 // Wraps King's EXISTING modules — no logic is moved or changed. This is the
-// single place that names King's reducer / start-action / AI, so a future game
-// can mirror the shape in its own definition.
+// single place that names King's reducer / start-action / AI; Durak, Deberc, and
+// Tarneeb mirror the same shape in their own definitions.
 // ---------------------------------------------------------------------------
 
 import { gameReducer, getActingPlayerId, type GameAction } from '../../core/gameEngine';

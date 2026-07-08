@@ -349,5 +349,6 @@ A future implementation is **not accepted** until these pass:
 ## 16. Implementation Plan
 
 See **[`TARNEEB_PLAN.md`](TARNEEB_PLAN.md)** for the staged plan (10.1 pure core →
-10.7 release audit). No code, catalog, or definition changes ship until Stage
-10.1; catalog registration lands as **`coming_soon`** in Stage 10.2.
+10.8 release with stats). **All stages are DONE — Tarneeb is released
+(`available`)**: local + server-authoritative online, per-`game_type` stats, and
+the same redaction/reconnect guarantees as the other three games.

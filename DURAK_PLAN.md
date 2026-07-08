@@ -11,9 +11,9 @@
 > (9.13):** state-machine + invariants verified; online auth/redaction clean (seat
 > derived server-side, actions carry no spoofable actor); restart/reconnect verified
 > during defense/taking/transfer; deterministic bot soak (2/3/4 × simple/transfer ×
-> 30 seeds = 180 games) green. **Experimental tag removed.** **Remaining (post-
-> release):** Durak stats + a leaderboard (`recordsStats: false` today). King is
-> unchanged throughout.
+> 30 seeds = 180 games) green. **Experimental tag removed.** **Stats shipped:**
+> Durak records outcome stats (fool/draw, `recordsStats: true`) with its own
+> leaderboard. King is unchanged throughout.
 
 Engineering plan for adding **Durak** (see [`DURAK_RULES.md`](DURAK_RULES.md)) as
 the **second game**, on top of the multi-game seam already built (Stages 8.3–8.6:

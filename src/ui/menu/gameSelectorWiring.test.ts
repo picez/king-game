@@ -3,27 +3,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Lightweight wiring guard (no jsdom in this project): assert at the source level
-// that the menu only lets you START what is actually playable — King online +
-// Durak local-only — and never starts an online Durak game (Stage 9.3).
+// that the menu only lets you START what is actually playable, via the StartMenu's
+// own GamePicker (the old standalone GameSelector component was removed in the
+// Stage 10.9 cleanup — StartMenu never rendered it).
 function read(rel: string): string {
   return readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 }
-
-describe('GameSelector — selectable vs disabled games', () => {
-  const src = read('./GameSelector.tsx');
-
-  it('lets you select available OR experimental (local) games', () => {
-    expect(src).toContain("g.status === 'available' || g.status === 'experimental'");
-  });
-  it('disables non-selectable (coming_soon) chips and never selects them', () => {
-    expect(src).toContain('disabled={!selectable}');
-    expect(src).toContain('onClick={selectable ? () => onSelect(g.id) : undefined}');
-    expect(src).toContain('game-chip--disabled');
-  });
-  it('labels experimental games as Experimental', () => {
-    expect(src).toMatch(/menu\.experimental/);
-  });
-});
 
 describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () => {
   const src = read('../StartMenu.tsx');

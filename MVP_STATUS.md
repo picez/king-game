@@ -10,6 +10,16 @@ linked docs.
 - QA: [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - `GAP_ANALYSIS.md` is **historical/obsolete** — ignore for current state.
 
+**Games shipped (all `available`, local + server-authoritative online, each
+recording its own per-`game_type` stats + leaderboard):**
+
+| Game | Players | Notes |
+|------|---------|-------|
+| **King** (default) | 3–4 | 7 modes, Dealer's Choice; source of truth [`KING_RULES.md`](KING_RULES.md) |
+| **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
+| **Deberc** | 3–4 | 3 solo / 4 team, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
+| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 7–13, target 41; [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+
 ## What works
 
 - **Game rules** (3p/4p): 32/52 decks, dealing, follow-suit, trick resolution
@@ -182,8 +192,12 @@ npm run e2e       # full online flow over WS (spawns + restarts a server)
    during defense/taking/transfer, and a deterministic bot soak (`npm run soak` —
    2/3/4 players × simple/transfer × 30 seeds = 180 games, all invariants hold).
    The **Experimental** label has been removed from the menu, Host sheet, and
-   Lobby. **Durak stats are not recorded yet** (`recordsStats: false`) — Durak
-   stats + a leaderboard are the only remaining (post-release) work. Spec:
+   Lobby. **Durak now records outcome stats** (`recordsStats: true`, fool/draw)
+   with its own leaderboard, alongside King/Deberc/Tarneeb. Spec:
    [`DURAK_RULES.md`](DURAK_RULES.md); design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
-4. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
-5. (Optional) public deal-commitment for verifiable fairness.
+4. **Deberc + Tarneeb are released** (`available`) — local + online with
+   per-`game_type` stats + leaderboards. Deberc records team outcome + jackpot;
+   Tarneeb records win/loss + contract success + team score (score-only, no cards).
+   Specs: [`DEBERC_RULES.md`](DEBERC_RULES.md) / [`TARNEEB_RULES.md`](TARNEEB_RULES.md).
+5. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
+6. (Optional) public deal-commitment for verifiable fairness.

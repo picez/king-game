@@ -5,8 +5,7 @@
 // protocol (messages.ts), the server (serverCore.ts), and persistence hold King,
 // Durak, Deberc OR Tarneeb state/action without King's shapes changing. Type-only
 // — no runtime (no game engine is pulled into a build by importing these types).
-// Tarneeb is included for compile-time completeness even though it is still
-// `coming_soon` (Stage 10.2) and never actually runs online yet.
+// All four games run online today.
 // ---------------------------------------------------------------------------
 
 import type { GameState } from '../models/types';

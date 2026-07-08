@@ -6,10 +6,8 @@
 //     simple — only `handsBySeat` is private (TARNEEB_RULES.md §13);
 //   • bids/passes, the chosen trump, the current trick on the table,
 //     completed-trick counts, and both teams' scores are PUBLIC.
-// Never leaks a private hand. Mirrors Durak/Deberc's redact helpers.
-//
-// NOTE: Tarneeb is `coming_soon` (Stage 10.2) and is not wired to the server yet,
-// so this runs only in tests today. It exists so the GameDefinition is complete.
+// Never leaks a private hand. Mirrors Durak/Deberc's redact helpers. Runs on the
+// server for every online Tarneeb room (via the GameDefinition's redactStateFor).
 // ---------------------------------------------------------------------------
 
 import type { Card } from '../../models/types';

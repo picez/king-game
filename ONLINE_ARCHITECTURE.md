@@ -40,19 +40,21 @@ with a `t` discriminator.
 - `LIST_ROOMS` — discovery; replies with `ROOMS_LIST` of public `RoomSummary`
   (code, hostName, hostAvatar, hostConnected, gameType, seats, hasPassword,
   status) — never tokens/hash/state/hands. **Room discovery is game-aware:**
-  `gameType` is `'king'` today but is emitted from the room so the same server
-  browser can list future card games without a protocol change. `hostAvatar` is
-  re-sanitized to the emoji whitelist at the source (never free text);
-  `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
-  > **Second game — Durak (experimental online, Stage 9.6).** `CREATE_ROOM` now
-  > takes an optional `gameType: 'king' | 'durak'` (default King; unknown →
-  > `BAD_MESSAGE`) plus, for Durak, a `variant: 'simple' | 'transfer'` and a
-  > `playerCount` that may be **2**. `RoomSnapshot`/`RoomSummary` carry `gameType`
-  > (+ `variant` for Durak). `STATE_UPDATE.state` / `ACTION_REQUEST.action` are
-  > game-state / game-action **unions** routed by `gameType`; the server runs each
-  > game through its `GameDefinition` (reducer / acting-player / **per-game
-  > redaction** / bots). King's message shapes are unchanged. Durak online is
-  > **experimental** — no stats yet. Design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
+  `gameType` is emitted from the room so the same server browser lists every card
+  game. `hostAvatar` is re-sanitized to the emoji whitelist at the source (never
+  free text); `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
+  > **Multi-game online (four games).** `CREATE_ROOM` takes an optional
+  > `gameType: 'king' | 'durak' | 'deberc' | 'tarneeb'` (default King; unknown →
+  > `BAD_MESSAGE`) plus per-game options: Durak `variant: 'simple' | 'transfer'`,
+  > Deberc `matchSize: 'small' | 'big'`, and a `playerCount` that ranges 2–5 by
+  > game (Durak may be **2**, Tarneeb is fixed **4**). `RoomSnapshot`/`RoomSummary`
+  > carry `gameType` (+ variant/matchSize). `STATE_UPDATE.state` /
+  > `ACTION_REQUEST.action` are game-state / game-action **unions** routed by
+  > `gameType`; the server runs each game through its `GameDefinition` (reducer /
+  > acting-player / **per-game redaction** / bots / start action). King's message
+  > shapes are unchanged. All four games are `available` and record their own
+  > **per-`game_type` stats**. Designs: [`DURAK_PLAN.md`](DURAK_PLAN.md),
+  > [`TARNEEB_PLAN.md`](TARNEEB_PLAN.md).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state
 - `HOST_STATE { state }` — retired legacy relay only; ignored by the server (§4b)

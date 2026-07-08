@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * Online Tarneeb adapter (Stage 10.5 — experimental). Reuses the shared
+ * Online Tarneeb adapter (released, Stage 10.8). Reuses the shared
  * TarneebGameScreen, but actions go over the network and bots / other players +
  * the public hand_complete advance (START_NEXT_HAND) are driven by the SERVER —
  * this component never dispatches them. Renders nothing King-specific (no

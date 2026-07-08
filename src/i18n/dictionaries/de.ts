@@ -267,8 +267,6 @@ export const DE: Record<string, string> = {
   'tarneeb.spectating': 'Zuschauen…',
   'tarneeb.offlineAI': '— offline, KI spielt evtl.',
   'tarneeb.nextHandSoon': 'Nächste Runde beginnt…',
-  'tarneeb.onlineBeta': 'Experimentell online — 4 Spieler, erstes Team mit 41.',
-  'tarneeb.experimental': 'Experimentell',
   'tarneeb.led': 'Angespielt',
   'tarneeb.youPassed': 'Du hast gepasst — aus dieser Auktion',
   'tarneeb.mustFollow': 'Bediene die angespielte Farbe, wenn möglich',

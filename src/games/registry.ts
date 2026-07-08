@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
 // Game definition registry (Stage 8.4; Durak Stage 9.2; Tarneeb Stage 10.2).
 //
-// Maps each GameType to its GameDefinition. King, Durak, and Deberc are fully
-// playable; Tarneeb is registered but `coming_soon` (no UI/online yet — the menu
-// disables it and the server never starts Tarneeb rooms). `getGameDefinition`
-// mirrors `getGameCatalogEntry` (returns null for unknown input).
+// Maps each GameType to its GameDefinition. King, Durak, Deberc, and Tarneeb are
+// all fully playable (`available`) — local + server-authoritative online.
+// `getGameDefinition` mirrors `getGameCatalogEntry` (returns null for unknown
+// input).
 // ---------------------------------------------------------------------------
 
 import { DEFAULT_GAME_TYPE, isGameType, type GameType } from './catalog';

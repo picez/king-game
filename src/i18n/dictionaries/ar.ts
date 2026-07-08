@@ -267,8 +267,6 @@ export const AR: Record<string, string> = {
   'tarneeb.spectating': 'مشاهدة…',
   'tarneeb.offlineAI': '— غير متصل، قد يلعب الذكاء الاصطناعي',
   'tarneeb.nextHandSoon': 'تبدأ الجولة التالية…',
-  'tarneeb.onlineBeta': 'أونلاين تجريبي — 4 لاعبين، أول فريق يبلغ 41.',
-  'tarneeb.experimental': 'تجريبي',
   'tarneeb.led': 'الافتتاح',
   'tarneeb.youPassed': 'لقد مررت — خارج هذه المزايدة',
   'tarneeb.mustFollow': 'اتبع لون الافتتاح إن استطعت',

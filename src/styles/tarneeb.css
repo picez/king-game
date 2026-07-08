@@ -70,23 +70,6 @@
 .tarneeb-led strong { font-size: 1.1rem; }
 .tarneeb-led--red strong { color: var(--card-red); }
 
-/* Small "Experimental" tag next to titles. */
-.tarneeb-tag {
-  display: inline-block;
-  margin-inline-start: 0.45rem;
-  padding: 0.05rem 0.45rem;
-  border-radius: 0.6rem;
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
-.tarneeb-tag--exp {
-  color: #2a1a05;
-  background: var(--accent-light);
-}
-
 /* --- Board --- */
 .tarneeb-board {
   position: relative;
@@ -288,15 +271,6 @@
 .tarneeb-setup__target { margin: 0 0 0.4rem; color: var(--text); }
 .tarneeb-setup__hint { margin: 0 0 0.6rem; color: var(--text-dim); font-size: 0.88rem; }
 .tarneeb-setup__hint--partner { margin-top: -0.2rem; }
-.tarneeb-setup__beta {
-  margin-top: 0.2rem;
-  padding: 0.4rem 0.6rem;
-  border-radius: 0.6rem;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--accent-light);
-  font-weight: 600;
-}
 .tarneeb-howto {
   background: none;
   border: none;

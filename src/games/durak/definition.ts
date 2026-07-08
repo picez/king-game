@@ -1,10 +1,9 @@
 // ---------------------------------------------------------------------------
 // Durak GameDefinition (Stage 9.2).
 //
-// Registers Durak's pure core (Stage 9.1) as a GameDefinition. It is wired into
-// the registry/catalog as `coming_soon` — the menu shows it but cannot start it,
-// and the server never creates Durak rooms yet (no protocol/UI). No King code or
-// runtime behaviour changes.
+// Registers Durak's pure core (Stage 9.1) as a GameDefinition. Durak is released
+// (`available`): playable local + server-authoritative online, recording its own
+// per-`game_type` stats. No King code or runtime behaviour changes.
 // ---------------------------------------------------------------------------
 
 import type { RoomSnapshot } from '../../net/messages';

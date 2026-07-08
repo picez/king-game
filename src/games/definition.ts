@@ -2,12 +2,10 @@
 // GameDefinition — the compile-time central wrapper for one game (Stage 8.4).
 //
 // A GameDefinition REFERENCES a game's existing modules (reducer, AI, start
-// action, …) without moving any logic. It is the seam that lets a second game
-// plug in its own implementation later, instead of scattering `gameType` checks
-// across serverCore / the UI / stats. King, Durak, and Deberc implement it and
-// run through it online; Tarneeb implements it too but stays `coming_soon`
-// (Stage 10.2) until its UI/online wiring lands. No runtime behaviour changes by
-// introducing this type.
+// action, …) without moving any logic. It is the active runtime seam that plugs
+// each game into serverCore / the UI / stats instead of scattering `gameType`
+// checks around. King, Durak, Deberc, and Tarneeb all implement it and run
+// through it online. A future game plugs in the same way.
 //
 // This module is pure + client-safe: it only imports TYPES from core/net, so a
 // definition can be referenced from either the server or the client bundle.
@@ -19,8 +17,9 @@ import type { GameType, GameCatalogEntry } from './catalog';
 
 /**
  * Placeholder for future per-game UI registration (screens/routes). Empty today:
- * King renders through the shared GameRouter/screens, so no game registers UI.
- * A second game can populate this without touching the shared UI shell.
+ * each game renders through its own screens (King via GameRouter; Durak/Deberc/
+ * Tarneeb via their own local/online components), so none registers UI here.
+ * A future game can populate this without touching the shared UI shell.
  */
 export type GameUiRoutes = Record<string, never>;
 

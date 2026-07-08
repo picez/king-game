@@ -267,8 +267,6 @@ export const UK: Record<string, string> = {
   'tarneeb.spectating': 'Спостереження…',
   'tarneeb.offlineAI': '— офлайн, може грати ШІ',
   'tarneeb.nextHandSoon': 'Починається наступна роздача…',
-  'tarneeb.onlineBeta': 'Експериментальний онлайн — 4 гравці, перша команда до 41.',
-  'tarneeb.experimental': 'Експериментальна',
   'tarneeb.led': 'Зайшли',
   'tarneeb.youPassed': 'Ви спасували — вибули з цих торгів',
   'tarneeb.mustFollow': 'Ходьте в масть, якщо можете',

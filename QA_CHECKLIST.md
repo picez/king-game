@@ -103,8 +103,8 @@ All four must be green.
 
 ## Manual — Durak online (released `available`, Stage 9.13)
 
-> King stays the default. Durak is **released** (no Experimental tag); Durak
-> **stats are not recorded yet** — that + a leaderboard are the only remaining work.
+> King stays the default. Durak is **released** (no Experimental tag) and now
+> **records outcome stats** (fool/draw) with its own leaderboard.
 
 - [ ] **No Experimental tag** anywhere for Durak — the game picker shows the
       **Simple · Transfer** subtitle (not "Experimental"), the Host sheet has no
@@ -136,6 +136,33 @@ All four must be green.
       (360/390, RTL).
 - [ ] **Unknown game:** the server rejects a `CREATE_ROOM` with an unknown
       `gameType` (no room created).
+
+## Manual — Tarneeb online (released `available`, Stage 10.8)
+
+> Tarneeb is a fixed **2×2 partnership** bid-and-trump game (4 players, target 41).
+> Released with stats; **no Experimental tag** anywhere.
+
+- [ ] **No Experimental tag** for Tarneeb — the game picker shows a plain
+      **♠️ Tarneeb · 2 teams** entry, the Host sheet has no beta note, and the
+      Lobby header reads **"2 teams"** (not "Dealer's Choice").
+- [ ] **Select Tarneeb** → Host tile enabled; a room is exactly **4 seats**
+      (fixed 2×2); starting before 4 seats is rejected.
+- [ ] **Help modal** explains: 4 players / partners opposite, bid 7–13, declarer
+      names trump + leads, follow suit, made vs set scoring, all-13 = +13, target 41.
+- [ ] **Host + Add bots + Start** → the **Tarneeb** table renders (seats around
+      the felt, viewer bottom, partner top), with bidding → trump → trick play.
+- [ ] **Readouts:** scoreboard shows the **highest bid + bidder**, the **trump**,
+      the **led suit** during play, and per-team trick counts; illegal cards dim.
+- [ ] **Redaction:** you only ever see **your own** hand — the other three show a
+      face-down count, never ranks (check across several hands + after reconnect).
+- [ ] **Reconnect** mid-hand → **Resume** returns you with your hand intact and no
+      opponent-hand leak; **Leave lobby** before start frees the seat.
+- [ ] **Chat + reactions** work and never cover the hand/table (360/390, RTL).
+- [ ] **Stats + privacy (DB configured):** finishing a human-vs-human Tarneeb game
+      records it under `game_type='tarneeb'`; the Profile **Tarneeb** stats tab +
+      leaderboard show games/win%/contract success/team score. Verify the stored
+      rows (`games`/`game_players`/`rounds`) hold **no cards** — only scores and a
+      word-free bid+trump label (e.g. `9S`).
 
 ## Manual — PWA / mobile
 

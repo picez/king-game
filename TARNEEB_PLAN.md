@@ -1,10 +1,12 @@
 # Tarneeb — Architecture & Implementation Plan (Stage 10)
 
-> **Status: Planning only.** No Tarneeb code, catalog entry, or `GameDefinition`
-> exists yet. This document is the engineering plan for adding **Tarneeb** (see
-> [`TARNEEB_RULES.md`](TARNEEB_RULES.md)) as the **fourth game**, on top of the
-> multi-game seam already proven by King, Durak, and Deberc. King, Durak, and
-> Deberc must stay **untouched** throughout.
+> **Status: DONE — Tarneeb is RELEASED (`available`, Stage 10.8).** Stages
+> 10.1–10.8 all shipped: pure core, GameDefinition, local + server-authoritative
+> online play, polished AI/UX, a release-readiness audit, and per-`game_type`
+> stats. Stage 10.9 was a post-release docs/comment cleanup. This document is
+> retained as the historical engineering plan for **Tarneeb** (see
+> [`TARNEEB_RULES.md`](TARNEEB_RULES.md)), the **fourth game** on the multi-game
+> seam shared with King, Durak, and Deberc (which stayed untouched throughout).
 
 Guiding rule (same as Durak/Deberc): **do not force Tarneeb into another game's
 `GameState`.** Tarneeb gets its own pure state, actions, reducer, AI, and UI. The
@@ -52,7 +54,11 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
 
 ## 3. Stages
 
-### Stage 10.1 — Pure Tarneeb core only
+> **All stages below are ✅ DONE (2026-07-08).** Tarneeb shipped through 10.8 and
+> is `available`; 10.9 was a docs/comment cleanup. Stage descriptions are kept as
+> the original plan of record.
+
+### Stage 10.1 — Pure Tarneeb core only ✅ DONE
 - `src/core/tarneeb/` (or `src/games/tarneeb/core.ts`, matching the repo's
   existing per-game core layout): types, deck, deal, reducer, legal-move
   generation, scoring (§8), redaction helper, and a simple AI (§14).
@@ -65,7 +71,7 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
   stage. Deterministic **bot-only soak** must terminate.
 - **No** catalog / definition / UI / server changes in this stage.
 
-### Stage 10.2 — GameDefinition + catalog registration as `coming_soon`
+### Stage 10.2 — GameDefinition + catalog registration as `coming_soon` ✅ DONE
 - Add `'tarneeb'` to `GAME_TYPES`; add a `GAME_CATALOG.tarneeb` entry with
   `status: 'coming_soon'`, `minPlayers: 4`, `maxPlayers: 4`,
   `defaultPlayerCount: 4`, `rulesDoc: 'TARNEEB_RULES.md'`, i18n title keys.
@@ -73,36 +79,54 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
 - Wire `getActingPlayerId` / `buildStartAction` / redaction into the definition.
 - Menu shows Tarneeb as **coming soon** (not startable). No UI board yet.
 
-### Stage 10.3 — Local Tarneeb UI
+### Stage 10.3 — Local Tarneeb UI ✅ DONE
 - Board component: 4 seats around the table, viewer at the bottom (**§2 UI**),
   counter-clockwise highlighting.
 - Bidding panel (7–13 / Pass), trump-picker (declarer only), trick area, running
   team scores, hand/target readout.
 - Local hot-seat + bots playable end to end. Flip catalog to allow **local** play.
 
-### Stage 10.4 — Online Tarneeb union / redaction
+### Stage 10.4 — Online Tarneeb union / redaction ✅ DONE
 - Fold `TarneebState` / `TarneebAction` into the shared online union.
 - Server-side **redaction** per **§13** (hide hands → counts; bids/trump/trick/
   scores public) and **validation** (turn, legal bid, declarer-only trump,
   card-ownership, follow-suit).
 - Reconnect / restart parity with Durak/Deberc.
 
-### Stage 10.5 — Experimental online Tarneeb
+### Stage 10.5 — Experimental online Tarneeb ✅ DONE
 - Flip catalog to `status: 'experimental'`; enable online host/join with bots.
 - Online QA pass: multi-client, disconnect/reconnect, bot fill, dead-auction
   redeal, kaboot (if enabled) across the wire.
 
-### Stage 10.6 — Polish + mobile + bots
+### Stage 10.6 — Polish + mobile + bots ✅ DONE
 - UX polish, in-game help/rules, mobile layout, stronger bidding/play AI.
 - Optionally enable the **kaboot** modes (§9) and `[VARIANT]` targets (31/61) as
   setup options — MVP ships with kaboot **off** and target **41**.
 
-### Stage 10.7 — Release-readiness audit
+### Stage 10.7 — Release-readiness audit ✅ DONE
 - State-machine + invariants review; online auth/redaction audit (seat derived
   server-side, actions carry no spoofable actor); reconnect/restart during each
   phase; deterministic bot soak (4 players × seeds).
-- Enable stats (`recordsStats`) and flip catalog to `status: 'available'`.
-- Remove the experimental tag. King, Durak, Deberc unchanged.
+- Audit PASSED; the one bug found (a Lobby label showing a King-only mode term for
+  Tarneeb) was fixed. Stats + release were deferred to Stage 10.8.
+
+### Stage 10.8 — Stats + release to `available` ✅ DONE
+- `definition.recordsStats = true`; catalog `status: 'available'`; the Experimental
+  tag removed from Setup/Help/host picker/Lobby.
+- Score-only stats (no cards): pure aggregator `src/net/tarneebStats.ts`, repo
+  `server/db/tarneebStats.ts` (reuses `games`/`game_players`/`rounds`/`user_stats`
+  JSONB — **no schema migration**), API routes, and Profile stats + leaderboard
+  panels. A score-only `handHistory` was added to `TarneebState`.
+- King, Durak, Deberc stats shape + behaviour unchanged.
+
+### Stage 10.9 — Post-release docs/comment cleanup ✅ DONE
+- Removed stale `coming_soon`/`experimental`/"second game" comments across the
+  game-definition seam; deleted the dead `GameSelector` component and the unused
+  `tarneeb.experimental`/`tarneeb.onlineBeta` i18n keys + dead CSS. No behaviour,
+  rules, DB, or protocol changes.
+
+**Post-MVP options (documented, not scheduled):** §9 kaboot modes, §6 No-Trump,
+§10 target variants 31 / 61 — all still opt-in future work.
 
 ---
 
