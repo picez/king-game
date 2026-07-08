@@ -50,7 +50,7 @@ describe('Tarneeb game definition (registered, not yet playable)', () => {
     expect(tarneebGameDefinition.supportedPlayerCounts).toEqual([4]);
     expect(tarneebGameDefinition.recordsStats).toBe(false); // no stats until Stage 10.7
     expect(tarneebGameDefinition.catalog.status).toBe('coming_soon');
-    expect(tarneebGameDefinition.catalog.supportsLocal).toBe(false);
+    expect(tarneebGameDefinition.catalog.supportsLocal).toBe(true); // Stage 10.3: local UI
     expect(tarneebGameDefinition.catalog.supportsOnline).toBe(false);
     // Wraps the pure-core functions without moving logic.
     expect(tarneebGameDefinition.reducer).toBe(tarneebReducer);

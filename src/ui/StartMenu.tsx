@@ -9,7 +9,7 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } 
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
-import { DEFAULT_GAME_TYPE, type GameType } from '../games/catalog';
+import { DEFAULT_GAME_TYPE, GAME_CATALOG, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
@@ -86,6 +86,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   function host() {
     if (!name.trim() || !url.trim()) return;
+    // Tarneeb (and any future game) with no online support cannot be hosted yet.
+    if (!GAME_CATALOG[gameType].supportsOnline) return;
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
     onOnline(url.trim(), {
@@ -184,7 +186,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <h2 className="sheet__title">{t('menu.localSetupTitle')}</h2>
             <span className="sheet__who"><span aria-hidden="true">{avatar}</span> {name}</span>
           </div>
-          <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+          <GamePicker gameType={gameType} onPick={setGameType} t={t} context="local" />
           <button type="button" className="btn btn--primary sheet__cta" onClick={() => onLocal(gameType)}>
             {t('menu.startLocal')}
           </button>
@@ -229,7 +231,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           {pane === 'host' && (
             <>
-              <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+              <GamePicker gameType={gameType} onPick={setGameType} t={t} context="host" />
               {gameType === 'durak' && (
                 <div className="field">
                   <label className="field__label">{t('durak.variant')}</label>
@@ -279,7 +281,11 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 <input className="input" type="password" value={password} maxLength={40}
                   onChange={(e) => setPassword(e.target.value)} />
               </div>
-              <button className="btn btn--primary btn--large" onClick={host}>{t('btn.create')}</button>
+              {!GAME_CATALOG[gameType].supportsOnline && (
+                <p className="lobby-error">{t('tarneeb.onlineSoon')}</p>
+              )}
+              <button className="btn btn--primary btn--large" onClick={host}
+                disabled={!GAME_CATALOG[gameType].supportsOnline}>{t('btn.create')}</button>
             </>
           )}
 
@@ -386,12 +392,25 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   );
 }
 
-/** Compact King / Durak picker — a custom dropdown (Durak tagged Experimental). */
-function GamePicker({ gameType, onPick, t }: {
+/**
+ * Compact game picker — a custom dropdown. Tarneeb is local-only (Stage 10.3):
+ * selectable in the Local sheet, but shown DISABLED with an "online coming later"
+ * note in the Host sheet so it can never be hosted online (supportsOnline false).
+ */
+function GamePicker({ gameType, onPick, t, context }: {
   gameType: GameType;
   onPick: (g: GameType) => void;
   t: (key: string) => string;
+  context: 'local' | 'host';
 }) {
+  const options = [
+    { value: 'king', label: t('gameType.king'), icon: '👑' },
+    { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
+    { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
+    context === 'local'
+      ? { value: 'tarneeb', label: t('gameType.tarneeb'), icon: '♠️' }
+      : { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.onlineSoon'), icon: '♠️', disabled: true },
+  ];
   return (
     <div className="field">
       <label className="field__label">{t('menu.game')}</label>
@@ -400,11 +419,7 @@ function GamePicker({ gameType, onPick, t }: {
         className="game-picker"
         value={gameType}
         onChange={(v) => onPick(v as GameType)}
-        options={[
-          { value: 'king', label: t('gameType.king'), icon: '👑' },
-          { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
-          { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
-        ]}
+        options={options}
       />
     </div>
   );

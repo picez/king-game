@@ -1,0 +1,296 @@
+import { useState } from 'react';
+import { useI18n } from '../../i18n';
+import CardView, { SUIT_SYMBOL } from '../components/CardView';
+import type { Card, Suit } from '../../models/types';
+import type { TarneebAction, TarneebState, TarneebTrick } from '../../games/tarneeb/types';
+import {
+  cardEquals,
+  getActingTarneebSeat,
+  getValidBids,
+  getValidPlayableCards,
+  teamOfSeat,
+} from '../../games/tarneeb/rules';
+import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
+import TarneebHelp from './TarneebHelp';
+
+interface Props {
+  state: TarneebState;
+  /** The human's seat (always 0 in the local game). */
+  humanSeat: number;
+  apply: (a: TarneebAction) => void;
+  onExit: () => void;
+  /** A just-resolved trick shown briefly in the centre (blocks input while set). */
+  reviewTrick: TarneebTrick | null;
+}
+
+/** Seat positions around the felt by RELATIVE offset from the viewer (bottom).
+ *  Tarneeb plays counter-clockwise (0→3→2→1); with the viewer at the bottom that
+ *  reads bottom → right → top → left, so the seat offset maps directly to a slot
+ *  and the partner (offset 2) always sits at the top (TARNEEB_RULES §2). */
+const POSITIONS = ['bottom', 'left', 'top', 'right'] as const;
+type SeatPos = (typeof POSITIONS)[number];
+function seatPosition(seat: number, viewerSeat: number): SeatPos {
+  return POSITIONS[(seat - viewerSeat + 4) % 4];
+}
+
+const SUIT_ORDER: Record<Suit, number> = { spades: 0, hearts: 1, diamonds: 2, clubs: 3 };
+
+/** Group by suit, low→high; the trump suit (once known) sits last for clarity. */
+function sortHand(cards: Card[], trump: Suit | null): Card[] {
+  return cards.slice().sort((a, b) => {
+    const at = trump && a.suit === trump ? 1 : 0;
+    const bt = trump && b.suit === trump ? 1 : 0;
+    if (at !== bt) return at - bt;
+    if (a.suit !== b.suit) return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+    return a.value - b.value;
+  });
+}
+
+const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
+
+/** The local human's table view for one Tarneeb hand. */
+export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick }: Props) {
+  const { t } = useI18n();
+  const [showHelp, setShowHelp] = useState(false);
+
+  const myTeam = teamOfSeat(humanSeat);
+  const theirTeam = myTeam === 'A' ? 'B' : 'A';
+  const actingSeat = getActingTarneebSeat(state);
+  const blocked = reviewTrick != null || state.phase === 'hand_complete';
+  const isMyTurn = actingSeat === humanSeat && !blocked;
+  const phase = state.phase;
+
+  // Last standing bid per seat (for the seat plates during the auction).
+  const lastBidBySeat: (number | null)[] = [null, null, null, null];
+  for (const b of state.bids) if (b.amount != null) lastBidBySeat[b.seat] = b.amount;
+
+  const legalCards = phase === 'playing' && isMyTurn ? getValidPlayableCards(state, humanSeat) : [];
+  const cardEnabled = (c: Card) => legalCards.some((x) => cardEquals(x, c));
+
+  function clickCard(c: Card) {
+    if (!isMyTurn || phase !== 'playing' || !cardEnabled(c)) return;
+    apply({ type: 'PLAY_CARD', card: c });
+  }
+
+  const trick = reviewTrick ?? state.currentTrick;
+  const trumpRed = state.trumpSuit != null && isRed(state.trumpSuit);
+
+  // One clear instruction for the current moment.
+  const actor = actingSeat != null ? state.players[actingSeat] : null;
+  const waitName = actor ? `${t('tarneeb.waiting')} ${actor.name}…` : '';
+  let prompt = '';
+  if (blocked) prompt = '';
+  else if (phase === 'bidding') prompt = isMyTurn ? t('tarneeb.yourBid') : actor?.type === 'ai' ? t('tarneeb.botBidding') : waitName;
+  else if (phase === 'choosing_trump') prompt = isMyTurn ? t('tarneeb.yourTrump') : actor?.type === 'ai' ? t('tarneeb.botChoosingTrump') : waitName;
+  else if (phase === 'playing') prompt = isMyTurn ? t('tarneeb.yourPlay') : actor?.type === 'ai' ? t('tarneeb.botThinking') : waitName;
+
+  const validBids = phase === 'bidding' && isMyTurn ? getValidBids(state, humanSeat) : [];
+
+  return (
+    <div className="screen tarneeb-screen">
+      {showHelp && <TarneebHelp onClose={() => setShowHelp(false)} />}
+
+      <div className="tarneeb-topbar">
+        <button type="button" className="btn btn--ghost tarneeb-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
+        <span className="tarneeb-phase">{t(`tarneeb.phase.${phaseKey(phase)}`)}</span>
+        <button type="button" className="btn btn--ghost tarneeb-help-btn" onClick={() => setShowHelp(true)} aria-label={t('tarneeb.howToPlay')}>❓</button>
+      </div>
+
+      {/* Scoreboard: team scores + target, trump, bid, tricks. */}
+      <div className="tarneeb-scoreboard">
+        <div className="tarneeb-score tarneeb-score--us">
+          <span className="tarneeb-score__label">{t('tarneeb.teamUs')}</span>
+          <span className="tarneeb-score__value">{state.scoresByTeam[myTeam]}</span>
+        </div>
+        <div className="tarneeb-scoreboard__mid">
+          <span className="tarneeb-target">🎯 {state.targetScore}</span>
+          <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
+            {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
+          </span>
+          <span className="tarneeb-bid">
+            {t('tarneeb.highestBid')}: <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
+          </span>
+          {phase === 'playing' && (
+            <span className="tarneeb-tricks">
+              {t('tarneeb.tricks')}: <strong>{state.tricksByTeam[myTeam]}</strong> – <strong>{state.tricksByTeam[theirTeam]}</strong>
+            </span>
+          )}
+        </div>
+        <div className="tarneeb-score tarneeb-score--them">
+          <span className="tarneeb-score__label">{t('tarneeb.teamThem')}</span>
+          <span className="tarneeb-score__value">{state.scoresByTeam[theirTeam]}</span>
+        </div>
+      </div>
+
+      {/* Round table: seats around the felt in play order, trick in the centre. */}
+      <div className="tarneeb-board">
+        <div className="tarneeb-board__felt" aria-hidden="true" />
+        {state.players.map((p) => {
+          const pos = seatPosition(p.seatIndex, humanSeat);
+          const sameTeam = teamOfSeat(p.seatIndex) === myTeam;
+          const isActing = p.seatIndex === actingSeat && !blocked;
+          const isDealer = p.seatIndex === state.dealerSeat;
+          const isDeclarer = p.seatIndex === state.declarerSeat;
+          const bidLabel = phase === 'bidding'
+            ? (state.passed[p.seatIndex] ? t('tarneeb.passed') : lastBidBySeat[p.seatIndex] != null ? String(lastBidBySeat[p.seatIndex]) : '')
+            : '';
+          return (
+            <div
+              key={p.id}
+              className={`tarneeb-seat tarneeb-seat--${pos} tarneeb-seat--${sameTeam ? 'us' : 'them'} ${isActing ? 'tarneeb-seat--acting' : ''}`}
+            >
+              <span className="tarneeb-seat__badges">
+                {isDealer && <span className="tarneeb-badge tarneeb-badge--dealer" title={t('tarneeb.dealer')}>D</span>}
+                {isDeclarer && <span className="tarneeb-badge tarneeb-badge--declarer" title={t('tarneeb.declarer')}>★</span>}
+              </span>
+              <span className="tarneeb-seat__name">
+                {p.seatIndex === humanSeat ? t('tarneeb.you') : p.name}
+              </span>
+              <span className="tarneeb-seat__meta">
+                {p.seatIndex === humanSeat
+                  ? <span className="tarneeb-seat__team">{t('tarneeb.teamUs')}</span>
+                  : <span className="tarneeb-seat__count">🂠 {state.handsBySeat[p.seatIndex].length}</span>}
+              </span>
+              {bidLabel && <span className="tarneeb-seat__bid">{bidLabel}</span>}
+            </div>
+          );
+        })}
+
+        <div className="tarneeb-centre">
+          {trick && trick.plays.length > 0 ? (
+            trick.plays.map((play) => {
+              const pos = seatPosition(play.seat, humanSeat);
+              const winning = reviewTrick != null && reviewTrick.winnerSeat === play.seat;
+              return (
+                <div key={play.seat} className={`tarneeb-play tarneeb-play--${pos}`}>
+                  <CardView card={play.card} size="table" disabled highlight={winning} />
+                </div>
+              );
+            })
+          ) : (
+            <p className="tarneeb-centre__empty">{phase === 'playing' && isMyTurn ? '·' : ''}</p>
+          )}
+        </div>
+      </div>
+
+      <div className={`tarneeb-prompt ${isMyTurn ? 'tarneeb-prompt--me' : ''}`}>
+        <span className="tarneeb-prompt__text">{prompt}</span>
+      </div>
+
+      {/* Action area: bidding buttons, trump picker, or nothing while playing. */}
+      {phase === 'bidding' && isMyTurn && (
+        <div className="tarneeb-actions tarneeb-bidbar">
+          {validBids.map((b) => (
+            <button key={b} type="button" className="btn btn--outline tarneeb-bidbtn" onClick={() => apply({ type: 'BID', amount: b })}>
+              {b}
+            </button>
+          ))}
+          <button type="button" className="btn btn--ghost tarneeb-passbtn" onClick={() => apply({ type: 'PASS_BID' })}>
+            {t('tarneeb.pass')}
+          </button>
+        </div>
+      )}
+
+      {phase === 'choosing_trump' && isMyTurn && (
+        <div className="tarneeb-actions tarneeb-trumpbar">
+          <span className="tarneeb-trumpbar__label">{t('tarneeb.chooseTrump')}</span>
+          <div className="tarneeb-trumpbar__suits">
+            {TARNEEB_SUITS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className={`btn btn--outline tarneeb-suitbtn ${isRed(s) ? 'tarneeb-suitbtn--red' : ''}`}
+                onClick={() => apply({ type: 'CHOOSE_TRUMP', suit: s })}
+                aria-label={t(`suit.${s}`)}
+              >
+                {SUIT_SYMBOL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* The human's hand. */}
+      <div className="tarneeb-hand">
+        {sortHand(state.handsBySeat[humanSeat], state.trumpSuit).map((c, i) => (
+          <CardView
+            key={`${c.rank}${c.suit}${i}`}
+            card={c}
+            size="hand"
+            onClick={() => clickCard(c)}
+            disabled={phase !== 'playing' || !cardEnabled(c)}
+            dimmed={phase === 'playing' && isMyTurn && !cardEnabled(c)}
+          />
+        ))}
+      </div>
+
+      {/* Hand-complete summary overlay. */}
+      {phase === 'hand_complete' && state.lastHand && (
+        <HandComplete state={state} humanSeat={humanSeat} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
+      )}
+    </div>
+  );
+}
+
+function phaseKey(phase: TarneebState['phase']): string {
+  switch (phase) {
+    case 'bidding': return 'bidding';
+    case 'choosing_trump': return 'choosingTrump';
+    case 'playing': return 'playing';
+    case 'hand_complete': return 'handComplete';
+    default: return 'finished';
+  }
+}
+
+/** The between-hands result panel (bid / trump / tricks / score delta). */
+function HandComplete({ state, humanSeat, onNext }: {
+  state: TarneebState;
+  humanSeat: number;
+  onNext: () => void;
+}) {
+  const { t } = useI18n();
+  const hand = state.lastHand!;
+  const myTeam = teamOfSeat(humanSeat);
+  const theirTeam = myTeam === 'A' ? 'B' : 'A';
+  const usTricks = hand.declarerTeam === myTeam ? hand.declarerTricks : hand.defenderTricks;
+  const themTricks = hand.declarerTeam === myTeam ? hand.defenderTricks : hand.declarerTricks;
+  const declarerName = state.players[hand.declarerSeat].seatIndex === humanSeat
+    ? t('tarneeb.you')
+    : state.players[hand.declarerSeat].name;
+  const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
+
+  return (
+    <div className="tarneeb-handdone-overlay" role="dialog" aria-modal="true">
+      <div className="tarneeb-handdone">
+        <h2 className="tarneeb-handdone__title">
+          {hand.made ? `✅ ${t('tarneeb.contractMade')}` : `❌ ${t('tarneeb.contractFailed')}`}
+        </h2>
+        <p className="tarneeb-handdone__line">
+          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {declarerName} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{SUIT_SYMBOL[hand.trumpSuit]}</strong>
+        </p>
+        <table className="tarneeb-handdone__table">
+          <thead>
+            <tr><th></th><th>{t('tarneeb.tricks')}</th><th>{t('tarneeb.hand')}</th><th>{t('tarneeb.score')}</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{t('tarneeb.teamUs')}</td>
+              <td>{usTricks}</td>
+              <td>{fmt(hand.deltaByTeam[myTeam])}</td>
+              <td><strong>{state.scoresByTeam[myTeam]}</strong></td>
+            </tr>
+            <tr>
+              <td>{t('tarneeb.teamThem')}</td>
+              <td>{themTricks}</td>
+              <td>{fmt(hand.deltaByTeam[theirTeam])}</td>
+              <td><strong>{state.scoresByTeam[theirTeam]}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <button type="button" className="btn btn--primary tarneeb-handdone__next" onClick={onNext} autoFocus>
+          {t('tarneeb.nextHand')}
+        </button>
+      </div>
+    </div>
+  );
+}

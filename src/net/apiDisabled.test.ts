@@ -81,10 +81,10 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
-    // Tarneeb is registered but not startable yet (Stage 10.2).
+    // Tarneeb is locally playable (Stage 10.3) but ONLINE is still coming_soon.
     const tarneeb = body.games.find((g) => g.id === 'tarneeb')!;
     expect(tarneeb.status).toBe('coming_soon');
-    expect(tarneeb.supportsLocal).toBe(false);
+    expect(tarneeb.supportsLocal).toBe(true);
     expect(tarneeb.supportsOnline).toBe(false);
     // Public shape only — no internal fields leak.
     expect('rulesDoc' in king).toBe(false);

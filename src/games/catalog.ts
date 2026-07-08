@@ -85,10 +85,10 @@ export const GAME_CATALOG = {
     minPlayers: 4,          // fixed 2×2 partnerships, seats 0/2 vs 1/3 (TARNEEB_RULES §2)
     maxPlayers: 4,
     defaultPlayerCount: 4,
-    supportsLocal: false,   // Stage 10.2: pure core only, no UI yet
+    supportsLocal: true,    // Stage 10.3: local hot-seat UI (1 human + 3 bots)
     supportsOnline: false,  // no server wiring yet (server never starts Tarneeb rooms)
     supportsBots: true,     // pure core has a working bot (Stage 10.1 soak)
-    status: 'coming_soon',  // registered but not startable; local UI lands in Stage 10.3
+    status: 'coming_soon',  // still coming_soon for ONLINE; local play is enabled via supportsLocal
     rulesDoc: 'TARNEEB_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

@@ -28,7 +28,7 @@ describe('game catalog', () => {
     });
     expect(GAME_CATALOG.tarneeb).toMatchObject({
       id: 'tarneeb', minPlayers: 4, maxPlayers: 4, defaultPlayerCount: 4,
-      supportsLocal: false, supportsOnline: false, supportsBots: true,
+      supportsLocal: true, supportsOnline: false, supportsBots: true,
       status: 'coming_soon', rulesDoc: 'TARNEEB_RULES.md',
     });
   });
@@ -66,7 +66,7 @@ describe('game catalog', () => {
     expect(tarneeb).toEqual({
       id: 'tarneeb', title: 'gameType.tarneeb', shortTitle: 'gameType.tarneeb',
       minPlayers: 4, maxPlayers: 4, defaultPlayerCount: 4,
-      supportsLocal: false, supportsOnline: false, supportsBots: true, status: 'coming_soon',
+      supportsLocal: true, supportsOnline: false, supportsBots: true, status: 'coming_soon',
     });
     // Internal-only fields must never leak into the public shape.
     for (const g of pub) {
