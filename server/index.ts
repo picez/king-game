@@ -45,6 +45,7 @@ import type { GameState } from '../src/models/types';
 import type { DurakState } from '../src/games/durak/types';
 import type { DebercState } from '../src/games/deberc/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
+import { IpConnectionLimiter, DEFAULT_IP_RATE_LIMITS, type IpRateLimitConfig } from '../src/net/ipRateLimit';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -130,6 +131,11 @@ const numEnv = (name: string, fallback: number): number => {
   const v = Number(process.env[name]);
   return Number.isFinite(v) ? v : fallback;
 };
+const boolEnv = (name: string, fallback: boolean): boolean => {
+  const v = process.env[name];
+  if (v == null || v === '') return fallback;
+  return v === '1' || v.toLowerCase() === 'true' || v.toLowerCase() === 'yes';
+};
 const RATE_LIMITS: RateLimitConfig = {
   message: {
     capacity: numEnv('WS_MSG_BURST', DEFAULT_RATE_LIMITS.message.capacity),
@@ -144,6 +150,43 @@ const RATE_LIMITS: RateLimitConfig = {
     refillPerSec: numEnv('WS_JOIN_FAIL_PER_SEC', DEFAULT_RATE_LIMITS.joinFailure.refillPerSec),
   },
 };
+
+// Per-IP connection limits (infra-level: bounds concurrency + connect-flood from a
+// single host, which the per-connection ConnectionLimiter above does not cover).
+// Env-tunable. TRUST_PROXY makes IP extraction read X-Forwarded-For (set it on
+// Render/behind any reverse proxy; OFF by default so a direct client can't spoof
+// its IP). Loopback is exempt by default — tests/LAN open many sockets from ::1.
+const IP_RATE_LIMITS: IpRateLimitConfig = {
+  maxConcurrent: numEnv('IP_MAX_CONCURRENT', DEFAULT_IP_RATE_LIMITS.maxConcurrent),
+  connect: {
+    capacity: numEnv('IP_CONNECT_BURST', DEFAULT_IP_RATE_LIMITS.connect.capacity),
+    refillPerSec: numEnv('IP_CONNECT_PER_SEC', DEFAULT_IP_RATE_LIMITS.connect.refillPerSec),
+  },
+};
+const TRUST_PROXY = boolEnv('TRUST_PROXY', false);
+const IP_LIMIT_EXEMPT_LOOPBACK = boolEnv('IP_LIMIT_EXEMPT_LOOPBACK', true);
+const ipLimiter = new IpConnectionLimiter(IP_RATE_LIMITS);
+
+/**
+ * The remote IP of an upgrade request. Behind a trusted proxy the real client is
+ * the FIRST entry of X-Forwarded-For (the proxy appends hops); direct connections
+ * use the socket peer. Never trusts XFF unless TRUST_PROXY is set (else any client
+ * could forge its IP and dodge the limit).
+ */
+function extractClientIp(req: IncomingMessage): string {
+  if (TRUST_PROXY) {
+    const xff = req.headers['x-forwarded-for'];
+    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return req.socket.remoteAddress ?? 'unknown';
+}
+
+/** True for loopback peers (IPv4, IPv6, and IPv4-mapped-IPv6 forms). */
+function isLoopbackIp(ip: string): boolean {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+    || ip.startsWith('127.') || ip.startsWith('::ffff:127.');
+}
 
 /**
  * Browser-origin allowlist. Empty list = allow any (LAN/dev). Requests without
@@ -456,6 +499,21 @@ const wsCtx: WsContext = {
 };
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
+  // Per-IP gate (infra-level): reject before any per-socket state is set up when a
+  // single host holds too many sockets open or is opening them too fast. Loopback
+  // (tests/LAN) is exempt. tryAccept reserves a slot only on success, so a reject
+  // needs no release; an accepted socket releases its slot on 'close'.
+  const ip = extractClientIp(request);
+  if (!(IP_LIMIT_EXEMPT_LOOPBACK && isLoopbackIp(ip))) {
+    const verdict = ipLimiter.tryAccept(ip, Date.now());
+    if (!verdict.ok) {
+      console.log(`[King] connection rejected: ip=${ip} reason=${verdict.reason} (${ipLimiter.activeCount(ip)} open)`);
+      try { socket.close(1013, 'rate limited'); } catch { socket.terminate(); }
+      return;
+    }
+    socket.on('close', () => ipLimiter.release(ip, Date.now()));
+  }
+
   const sessionRef: SessionRef = { value: null };
   // One rate limiter per socket (БЕЗ-1). Reset on reconnect (new socket) — that is
   // acceptable: it caps amplification through a single connection, not the number
@@ -519,6 +577,8 @@ function cleanupRooms(): number {
     storage.deleteRoom(code); // also drop it from the persistence file
     console.log(`[King] auto-cleaned idle room ${code}`);
   }
+  // Reclaim per-IP tracking for hosts with no open sockets (bounded memory).
+  ipLimiter.sweep(Date.now());
   return expired.length;
 }
 

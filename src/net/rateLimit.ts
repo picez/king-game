@@ -10,9 +10,10 @@
 //   • message   — every inbound client message (throttles general flooding);
 //   • createRoom — CREATE_ROOM only (bounds room churn / code-space exhaustion).
 //
-// NOTE: this is per-connection. It does not bound the number of connections a
-// single host may open — that is an infra/proxy concern (see MVP_STATUS.md
-// "Known limitations"). Its job is to cap amplification through one socket.
+// NOTE: this is per-connection — its job is to cap amplification through ONE
+// socket. Bounding how many sockets a single host may open (concurrency) and how
+// fast it may open them (connect-flood) is handled separately by the per-IP
+// IpConnectionLimiter in ipRateLimit.ts, wired in server/index.ts.
 // ---------------------------------------------------------------------------
 
 export interface BucketConfig {
