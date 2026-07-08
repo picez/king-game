@@ -26,7 +26,19 @@ const HUMAN_SEAT = 0;
 export default function DebercLocalGame({ onExit }: { onExit: () => void }) {
   const [state, setState] = useState<DebercState | null>(null);
   const [notice, setNotice] = useState<DebercNotice | null>(null);
-  const apply = useCallback((action: DebercAction) => setState((s) => debercReducer(s, action)), []);
+  // Apply an action; if the reducer REJECTS it (returns the SAME ref), React does
+  // not re-render and the bot/advance effects — keyed on `state` — never re-run, so
+  // the table silently FREEZES. That is the shape of the unreproduced "froze on the
+  // 2nd move" report. The engine fuzz (freeze-fuzz.test.ts) shows this never happens
+  // for a legal action, so a no-op here means a genuine bug slipped through — surface
+  // it in dev instead of leaving a mystery hang.
+  const apply = useCallback((action: DebercAction) => setState((s) => {
+    const next = debercReducer(s, action);
+    if (import.meta.env.DEV && s !== null && next === s) {
+      console.warn('[Deberc] reducer rejected an action (no-op — would freeze):', action, s.phase);
+    }
+    return next;
+  }), []);
 
   // Flash the trick winner when a trick resolves.
   const prevRef = useRef<DebercState | null>(null);
