@@ -82,4 +82,22 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).not.toContain('dangerouslySetInnerHTML');
     expect(social).toContain('alt={m.media.label}');
   });
+
+  it('the smiley/reaction picker also offers the whitelist stickers (Stage 11.1)', () => {
+    // The 😀 reaction picker gets a sticker grid alongside the emoji reactions.
+    expect(social).toContain('reaction-bar__emojis');
+    expect(social).toContain('reaction-bar__stickers');
+    // Stickers in the reaction picker send via the same whitelist id path.
+    expect(social).toMatch(/reaction-bar__stickers[^]*CHAT_MEDIA\.map/);
+    expect(social).toMatch(/reaction-bar__stickers[^]*onClick=\{\(\) => sendMedia\(item\)\}/);
+    // sendMedia goes through onChatMedia (id), never a raw URL.
+    expect(social).toMatch(/function sendMedia[^]*onChatMedia\(item\.id\)/);
+  });
+
+  it('a media chat message can float transiently on the table (no new protocol)', () => {
+    expect(social).toContain('reaction-chip--sticker');
+    expect(social).toContain('src={f.media.src}');
+    // The float is derived from the existing CHAT payload, not a new send.
+    expect(social).toContain('setFloats');
+  });
 });

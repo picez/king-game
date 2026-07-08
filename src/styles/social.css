@@ -14,6 +14,9 @@
 }
 .reaction-chip__emoji { font-size: 1.1rem; }
 .reaction-chip__name { color: var(--text-muted); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Floating sticker chip: a small preview of a media chat message on the table. */
+.reaction-chip--sticker { padding: 3px 10px 3px 5px; }
+.reaction-chip__sticker { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; }
 @keyframes reactionPop {
   0% { opacity: 0; transform: translateY(10px) scale(0.85); }
   12% { opacity: 1; transform: none; }
@@ -67,16 +70,25 @@
   display: flex; align-items: center; justify-content: center;
 }
 .reaction-bar {
-  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px;
-  max-width: min(320px, 84vw);
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  width: min(300px, 84vw);
   background: var(--panel); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 5px; box-shadow: var(--top-light), var(--shadow-2);
+  border-radius: 14px; padding: 6px; box-shadow: var(--top-light), var(--shadow-2);
+}
+.reaction-bar__emojis {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px;
 }
 .reaction-bar__btn {
   font-size: 1.35rem; background: transparent; border: none;
   padding: 4px 6px; border-radius: 8px; cursor: pointer; line-height: 1;
 }
 .reaction-bar__btn:hover { background: var(--surface-3); }
+/* Sticker grid inside the reaction picker — compact, scrollable, no overflow. */
+.reaction-bar__stickers {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+  max-height: 38vh; overflow-y: auto; padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
 
 /* Chat drawer — right side, collapsed by default; never covers by default. */
 .chat-drawer {

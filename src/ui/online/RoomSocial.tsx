@@ -25,6 +25,15 @@ interface Props {
 
 const REACTION_TTL_MS = 2600;
 
+/** A transient sticker floated on the table when a media chat message arrives. */
+interface FloatSticker {
+  key: string;
+  media: ChatMedia;
+  name: string;
+  avatar: string;
+  at: number;
+}
+
 /**
  * Room-social overlay (Stage 7): a floating reaction display, a compact
  * reaction bar, and a collapsible chat drawer. Fixed-position and NON-blocking —
@@ -42,7 +51,12 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const [text, setText] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [seen, setSeen] = useState(0);
+  const [floats, setFloats] = useState<FloatSticker[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
+  // Chat media ids already accounted for (so joining history never floats, and a
+  // message floats at most once). Seeded on the first chat effect.
+  const seenMediaIds = useRef<Set<string>>(new Set());
+  const floatsInit = useRef(false);
 
   // Tick to prune expired floating reactions.
   useEffect(() => {
@@ -65,28 +79,48 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     }
   }, [chatOpen, chat.length]);
 
-  // Escape closes the lightbox first, then the media picker.
+  // Float a freshly-arrived media message briefly on the table (like a reaction).
+  // First run only SEEDS the seen-set (joining/reconnect history must not float);
+  // then any new media message floats once, and only if it is recent (guards a
+  // late CHAT_HISTORY replay). Pruned by TTL via the `now` tick below. This reuses
+  // the existing CHAT media payload — no new protocol, no duplicate send.
   useEffect(() => {
-    if (!lightbox && !mediaOpen) return;
+    const seenIds = seenMediaIds.current;
+    const fresh = chat.filter((m) => m.media && !seenIds.has(m.id));
+    fresh.forEach((m) => seenIds.add(m.id));
+    if (!floatsInit.current) { floatsInit.current = true; return; } // seed only
+    const nowMs = Date.now();
+    const add = fresh
+      .filter((m) => nowMs - m.createdAt < REACTION_TTL_MS * 2)
+      .map((m) => ({ key: m.id, media: m.media!, name: m.name, avatar: m.avatar, at: nowMs }));
+    if (add.length) setFloats((f) => [...f, ...add].slice(-6));
+  }, [chat]);
+
+  // Escape closes the lightbox first, then whichever picker is open.
+  useEffect(() => {
+    if (!lightbox && !mediaOpen && !reactOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (lightbox) setLightbox(null);
-      else setMediaOpen(false);
+      else { setMediaOpen(false); setReactOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [lightbox, mediaOpen]);
+  }, [lightbox, mediaOpen, reactOpen]);
 
   const unread = chatOpen ? 0 : Math.max(0, chat.length - seen);
   const activeReactions = reactions.filter((r) => now - r.at < REACTION_TTL_MS);
+  const activeFloats = floats.filter((f) => now - f.at < REACTION_TTL_MS);
 
   function react(emoji: string) {
     onReact(emoji);
     setReactOpen(false);
   }
+  // A media send closes any open picker (chat sticker grid OR the reaction picker).
   function sendMedia(item: ChatMediaItem) {
     onChatMedia(item.id);
     setMediaOpen(false);
+    setReactOpen(false);
   }
   function leaveGame() {
     if (typeof window !== 'undefined' && !window.confirm(t('online.leaveGameConfirm'))) return;
@@ -105,13 +139,20 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
   return (
     <>
-      {/* Floating reactions — top-centre, never over the hand/trick. */}
+      {/* Floating reactions + stickers — top-centre, never over the hand/trick. */}
       <div className="reactions-float" aria-live="polite">
         {activeReactions.map((r) => (
           <span className="reaction-chip" key={r.key}>
             <span className="reaction-chip__av" aria-hidden="true">{r.avatar}</span>
             <span className="reaction-chip__emoji">{r.emoji}</span>
             <span className="reaction-chip__name">{r.name}</span>
+          </span>
+        ))}
+        {activeFloats.map((f) => (
+          <span className="reaction-chip reaction-chip--sticker" key={f.key}>
+            <span className="reaction-chip__av" aria-hidden="true">{f.avatar}</span>
+            <img className="reaction-chip__sticker" src={f.media.src} alt={f.media.label} loading="lazy" decoding="async" />
+            <span className="reaction-chip__name">{f.name}</span>
           </span>
         ))}
       </div>
@@ -127,11 +168,24 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         )}
         {reactOpen && (
           <div className="reaction-bar" role="menu" aria-label={t('social.reactions')}>
-            {REACTIONS.map((e) => (
-              <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
-                {e}
-              </button>
-            ))}
+            <div className="reaction-bar__emojis">
+              {REACTIONS.map((e) => (
+                <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
+                  {e}
+                </button>
+              ))}
+            </div>
+            {CHAT_MEDIA.length > 0 && (
+              <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
+                {CHAT_MEDIA.map((item) => (
+                  <button key={item.id} type="button" role="option" aria-selected={false}
+                    className="chat-media-thumb" onClick={() => sendMedia(item)}
+                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
+                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div className="social-controls__row">
