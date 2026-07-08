@@ -57,7 +57,8 @@ describe('StartMenu can host Tarneeb online (released, Stage 10.8)', () => {
   const menu = read('../StartMenu.tsx');
   it("sends gameType 'tarneeb' on create with a plain (non-experimental) picker entry", () => {
     expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");
-    expect(menu).toContain("value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.twoTeams')");
+    // The picker subtitle for Tarneeb comes from the data-driven GAME_META_KEY map.
+    expect(menu).toContain("tarneeb: 'tarneeb.twoTeams'");
     // No Experimental tag or beta note remains for Tarneeb.
     expect(menu).not.toContain("sublabel: t('menu.experimental')");
     expect(menu).not.toContain("t('tarneeb.onlineBeta')");

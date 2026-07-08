@@ -168,6 +168,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         )}
         {reactOpen && (
           <div className="reaction-bar" role="menu" aria-label={t('social.reactions')}>
+            <span className="reaction-bar__heading">{t('social.emoji')}</span>
             <div className="reaction-bar__emojis">
               {REACTIONS.map((e) => (
                 <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
@@ -175,6 +176,9 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
                 </button>
               ))}
             </div>
+            {CHAT_MEDIA.length > 0 && (
+              <span className="reaction-bar__heading">{t('chat.mediaPicker')}</span>
+            )}
             {CHAT_MEDIA.length > 0 && (
               <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
                 {CHAT_MEDIA.map((item) => (

@@ -100,4 +100,12 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     // The float is derived from the existing CHAT payload, not a new send.
     expect(social).toContain('setFloats');
   });
+
+  it('the reaction picker labels its Emoji and Stickers sections (Stage 11.2)', () => {
+    expect(social).toContain('reaction-bar__heading');
+    expect(social).toContain("t('social.emoji')");
+    expect(social).toContain("t('chat.mediaPicker')");  // stickers section heading
+    expect(social).toContain('reaction-bar__emojis');
+    expect(social).toContain('reaction-bar__stickers');
+  });
 });

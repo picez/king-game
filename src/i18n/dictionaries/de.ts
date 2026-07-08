@@ -321,6 +321,8 @@ export const DE: Record<string, string> = {
   'account.loginError': 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
   // ── room social (Stage 7) ──
   'social.reactions': 'Reaktionen',
+  'social.emoji': 'Emoji',
+  'king.modesShort': 'Modi',
   'chat.title': 'Chat',
   'chat.message': 'Nachricht',
   'chat.send': 'Senden',

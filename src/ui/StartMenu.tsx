@@ -344,9 +344,13 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                                 <span className={`sb-dot ${online ? 'sb-dot--on' : 'sb-dot--off'}`} aria-hidden="true" />
                               </span>
                               <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
-                                {t(`gameType.${gameType}`)}
-                                {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
-                                {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
+                                <span className="sb-game__val">
+                                  <span className="sb-game__icon" aria-hidden="true">{GAME_ICON[gameType]}</span>
+                                  <span className="sb-game__name">{t(`gameType.${gameType}`)}</span>
+                                  {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
+                                  {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
+                                  {gameType === 'tarneeb' ? <span className="sb-variant"> · {t('tarneeb.twoTeams')}</span> : null}
+                                </span>
                               </span>
                               <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
                                 {r.occupiedSeats}/{r.playerCount}
@@ -398,23 +402,35 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   );
 }
 
+/** Per-game glyph + a short descriptor key for the picker sublabel. */
+const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
+const GAME_META_KEY: Record<GameType, string> = {
+  king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.twoTeams',
+};
+
+/** "3–4" / "4" player-count range from the catalog (data-driven, all 4 games). */
+export function playersRange(id: GameType): string {
+  const e = GAME_CATALOG[id];
+  return e.minPlayers === e.maxPlayers ? `${e.minPlayers}` : `${e.minPlayers}–${e.maxPlayers}`;
+}
+
 /**
- * Compact game picker — a custom dropdown. Tarneeb is selectable both locally
- * (Stage 10.3) and, since Stage 10.5, online as an EXPERIMENTAL game (the Host
- * sheet tags it "Experimental"; supportsOnline is now true).
+ * Compact game picker — a custom dropdown. Each option shows the game name + a
+ * `👥 <players> · <short meta>` subtitle (player-count from the catalog, so it
+ * scales to all four games without per-game code). All four are `available`
+ * local + online (Stage 10.8).
  */
 function GamePicker({ gameType, onPick, t }: {
   gameType: GameType;
   onPick: (g: GameType) => void;
   t: (key: string) => string;
 }) {
-  const options = [
-    { value: 'king', label: t('gameType.king'), icon: '👑' },
-    { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
-    { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
-    // Tarneeb is released (Stage 10.8) → a plain entry in both Host and Local.
-    { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.twoTeams'), icon: '♠️' },
-  ];
+  const options = (['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({
+    value: id,
+    label: t(`gameType.${id}`),
+    icon: GAME_ICON[id],
+    sublabel: `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`,
+  }));
   return (
     <div className="field">
       <label className="field__label">{t('menu.game')}</label>

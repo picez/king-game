@@ -338,6 +338,9 @@
 .sb-host__code { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
 .sb-host .sb-dot { margin-inline-start: auto; }
 .sb-game, .sb-pass { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-game__val { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-game__icon { font-size: 1.05rem; line-height: 1; flex: none; }
+.sb-game__name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .sb-players { font-weight: 700; font-variant-numeric: tabular-nums; }
 .sb-lock { color: var(--accent); white-space: nowrap; }
 .sb-conn { display: flex; align-items: center; gap: 0.35rem; white-space: nowrap; }

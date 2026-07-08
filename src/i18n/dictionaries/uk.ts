@@ -321,6 +321,8 @@ export const UK: Record<string, string> = {
   'account.loginError': 'Не вдалося увійти. Спробуйте ще раз.',
   // ── room social (Stage 7) ──
   'social.reactions': 'Реакції',
+  'social.emoji': 'Емодзі',
+  'king.modesShort': 'Режими',
   'chat.title': 'Чат',
   'chat.message': 'Повідомлення',
   'chat.send': 'Надіслати',

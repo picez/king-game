@@ -321,6 +321,8 @@ export const EN: Record<string, string> = {
   'account.loginError': 'Sign-in failed. Please try again.',
   // ── room social (Stage 7) ──
   'social.reactions': 'Reactions',
+  'social.emoji': 'Emoji',
+  'king.modesShort': 'Modes',
   'chat.title': 'Chat',
   'chat.message': 'Message',
   'chat.send': 'Send',

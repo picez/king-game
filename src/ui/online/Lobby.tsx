@@ -109,6 +109,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               );
             })}
           </ul>
+          {room.gameType === 'tarneeb' && (
+            <p className="setup-hint lobby-teams-hint">👥 {t('tarneeb.teamsHint')}</p>
+          )}
         </div>
 
         {isHost && !room.started && hasFreeSeat && (

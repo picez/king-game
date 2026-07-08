@@ -321,6 +321,8 @@ export const AR: Record<string, string> = {
   'account.loginError': 'فشل تسجيل الدخول. حاول مرة أخرى.',
   // ── room social (Stage 7) ──
   'social.reactions': 'التفاعلات',
+  'social.emoji': 'إيموجي',
+  'king.modesShort': 'الأنماط',
   'chat.title': 'الدردشة',
   'chat.message': 'رسالة',
   'chat.send': 'إرسال',

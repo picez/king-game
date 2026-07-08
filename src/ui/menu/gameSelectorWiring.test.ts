@@ -39,11 +39,10 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
   it('shows the Durak variants subtitle and no Durak Experimental note (released, Stage 9.13)', () => {
     expect(src).toMatch(/durak\.variantsShort/);     // Simple · Transfer subtitle kept
     expect(src).not.toMatch(/durak\.onlineExperimentalNote/); // Durak Experimental note removed
-    // Durak's own option is subtitled with its variants, never "Experimental".
-    expect(src).toContain("t('gameType.durak'), sublabel: t('durak.variantsShort')");
-    // (Tarneeb is released as of Stage 10.8 — no Experimental tag in the picker;
-    // menu.experimental is now only the generic GameSelector fallback for any
-    // future experimental game.)
+    // Durak's picker subtitle comes from the data-driven GAME_META_KEY map
+    // (Stage 11.2), never an "Experimental" tag.
+    expect(src).toContain("durak: 'durak.variantsShort'");
+    expect(src).not.toMatch(/sublabel: t\('menu\.experimental'\)/);
   });
 });
 
@@ -53,5 +52,44 @@ describe('App routing — local Durak goes to its own screen', () => {
     expect(src).toContain("mode.gameType === 'durak'");
     expect(src).toContain('<DurakLocalGame');
     expect(src).toContain('<LocalGame />');
+  });
+});
+
+describe('multi-game menu polish (Stage 11.2)', () => {
+  const src = read('../StartMenu.tsx');
+
+  it('picker subtitles are data-driven from the catalog player counts (all 4 games)', () => {
+    // A single data-driven map over the four game types, not per-game literals.
+    expect(src).toContain('export function playersRange');
+    expect(src).toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map");
+    expect(src).toContain('sublabel: `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`');
+  });
+
+  it('the room browser shows a per-game icon + name (and a Tarneeb teams hint)', () => {
+    expect(src).toContain('sb-game__icon');
+    expect(src).toContain('GAME_ICON[gameType]');
+    expect(src).toContain("gameType === 'tarneeb' ? <span className=\"sb-variant\"> · {t('tarneeb.twoTeams')}");
+  });
+
+  it('the Host sheet renders ONLY the selected game’s settings (no cross-game leak)', () => {
+    // Each setting block is gated on the exact gameType.
+    expect(src).toContain("gameType === 'durak' && (");
+    expect(src).toContain("gameType === 'deberc' && (");
+    expect(src).toContain("gameType === 'king' && (");
+    // Tarneeb shows just its tagline — no King mode / Durak variant / Deberc match control.
+    expect(src).toMatch(/gameType === 'tarneeb' && \([^]*tarneeb\.setupTagline/);
+  });
+});
+
+describe('Lobby shows the game + start-disabled reason (Stage 11.2)', () => {
+  const src = read('../online/Lobby.tsx');
+  it('labels the room game and a Tarneeb partnership hint', () => {
+    expect(src).toContain("room.gameType === 'tarneeb'");
+    expect(src).toContain('lobby-teams-hint');
+    expect(src).toContain("t('tarneeb.teamsHint')");
+  });
+  it('the Start button reports how many more players are needed', () => {
+    expect(src).toContain('minPlayers - players.length');
+    expect(src).toContain("t('lobby.waitingMore')");
   });
 });

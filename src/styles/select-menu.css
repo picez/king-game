@@ -32,6 +32,7 @@
 .select-menu__sub {
   font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
   color: var(--accent-light);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .select-menu__chevron { color: var(--text-muted); font-size: 0.8rem; transition: transform 0.15s ease; }
 .select-menu--open .select-menu__chevron { transform: rotate(180deg); }
