@@ -20,6 +20,7 @@ import { getGameDefinition } from '../games/registry';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize, DebercState } from '../games/deberc/types';
+import type { TarneebState } from '../games/tarneeb/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -567,6 +568,24 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     return false;
   }
 
+  if (gameType === 'tarneeb') {
+    // Tarneeb's only server-advanced public screen is `hand_complete` (no seat
+    // acts there: getActingTarneebSeat → null). START_NEXT_HAND RE-DEALS, so it
+    // must be threaded with a server seed — otherwise the redeal falls back to
+    // Math.random and stops being reproducible / server-authoritative. There is
+    // NO trick_complete phase (the 4th card resolves the trick inside PLAY_CARD),
+    // and `game_finished` is terminal, so neither auto-advances.
+    const def = getGameDefinition('tarneeb');
+    if (!def) return false;
+    const state = room.gameState as TarneebState;
+    if (state.phase === 'hand_complete') {
+      const seed = deal.seed ?? randomSeed();
+      room.gameState = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
+      return true;
+    }
+    return false;
+  }
+
   // Durak: no server-advanced public screens (bouts resolve inside the reducer).
   return false;
 }
@@ -590,6 +609,11 @@ export function publicScreenOf(room: ServerRoom): PublicScreen {
   if (gt === 'deberc') {
     const ph = (s as DebercState).phase;
     return ph === 'trick_complete' ? 'trick_complete' : ph === 'hand_scoring' ? 'round_scoring' : null;
+  }
+  if (gt === 'tarneeb') {
+    // Tarneeb has one public between-hands screen (`hand_complete`), mapped to the
+    // generic 'round_scoring' pause. No trick_complete screen (see autoAdvance).
+    return (s as TarneebState).phase === 'hand_complete' ? 'round_scoring' : null;
   }
   return null;
 }
