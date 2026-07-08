@@ -181,8 +181,9 @@ function playAction(state: DebercState): DebercAction {
 
 /**
  * Declaring: claim exactly the kinds the seat TRULY holds (best sequence band +
- * bella when holding trump K+Q). Bots never bluff, so they never eat the −50; a
- * truthful деберц claim wins the match outright.
+ * bella when holding trump K+Q). Declarations are truthful by rule (v1.3 — the
+ * engine rejects unheld announcements); a truthful деберц claim wins the match
+ * outright.
  */
 function declareAction(state: DebercState): DebercAction {
   const seat = state.meldTurnSeat;

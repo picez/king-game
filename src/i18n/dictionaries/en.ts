@@ -187,7 +187,6 @@ export const EN: Record<string, string> = {
   'deberc.you': 'you',
   'deberc.passed': 'passed',
   'deberc.tookTrump': 'took',
-  'deberc.bluffWarn': 'False declaration: −50',
   // Labels SWAPPED per owner (2026-07-08): hvMarks (об'яз-underperform) → "Beit";
   // beitMarks (zero-tricks) → "ХВ".
   'deberc.hv': 'Beit',

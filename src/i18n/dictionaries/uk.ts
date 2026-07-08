@@ -187,7 +187,6 @@ export const UK: Record<string, string> = {
   'deberc.you': 'ви',
   'deberc.passed': 'спасував',
   'deberc.tookTrump': 'взяв',
-  'deberc.bluffWarn': 'Хибне оголошення: −50',
   // Labels SWAPPED per owner (2026-07-08): the об'яз-underperform mark (field
   // hvMarks) shows as "Бейт"; the zero-tricks mark (field beitMarks) shows as "ХВ".
   'deberc.hv': 'Бейт',

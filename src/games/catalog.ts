@@ -2,9 +2,8 @@
  * Public game catalog.
  *
  * Every card game enters through this registry instead of scattering string
- * literals across room discovery, stats, and settings. King is the default and
- * the only fully-playable game; Durak is registered as `coming_soon`
- * (Stage 9.2) — visible in the catalog/menu but not yet startable (no UI/online).
+ * literals across room discovery, stats, and settings. King is the default;
+ * King, Durak, and Deberc are all fully playable (`available`).
  */
 
 export const GAME_TYPES = ['king', 'durak', 'deberc'] as const;
@@ -13,8 +12,8 @@ export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
- *  - 'available'   → fully playable (King today);
- *  - 'coming_soon' → registered but not yet startable (Durak today);
+ *  - 'available'   → fully playable (King, Durak, and Deberc today);
+ *  - 'coming_soon' → registered but not yet startable (none today);
  *  - 'experimental'→ playable but rough (reserved; unused for now).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';

@@ -187,7 +187,6 @@ export const AR: Record<string, string> = {
   'deberc.you': 'أنت',
   'deberc.passed': 'مرّر',
   'deberc.tookTrump': 'أخذ',
-  'deberc.bluffWarn': 'إعلان كاذب: −50',
   // Labels SWAPPED per owner (2026-07-08): hvMarks (об'яз-underperform) → "بيت";
   // beitMarks (zero-tricks) → "ХВ".
   'deberc.hv': 'بيت',
