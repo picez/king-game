@@ -182,11 +182,16 @@ export const AR: Record<string, string> = {
   'deberc.firstDealer': 'الموزع الأول',
   'deberc.drawnSuit': 'الرمز المسحوب:',
   'deberc.dealsFirst': 'يوزع أولاً',
+  'deberc.tableTrumpUp': 'حكم الطاولة:',
+  'deberc.firstObjazIs': 'أول об’яз:',
+  'deberc.you': 'أنت',
   'deberc.passed': 'مرّر',
   'deberc.tookTrump': 'أخذ',
   'deberc.bluffWarn': 'إعلان كاذب: −50',
-  'deberc.hv': 'ХВ',
-  'deberc.beit': 'بيت',
+  // Labels SWAPPED per owner (2026-07-08): hvMarks (об'яз-underperform) → "بيت";
+  // beitMarks (zero-tricks) → "ХВ".
+  'deberc.hv': 'بيت',
+  'deberc.beit': 'ХВ',
   'deberc.jackpot': 'ديبيرتس — فوز فوري بالمباراة!',
   'deberc.target': 'الهدف',
   'deberc.scoreTable': 'جدول النقاط',

@@ -96,19 +96,22 @@ export function hasBella(hand: Card[], trumpSuit: Suit | null): boolean {
 
 /**
  * Given every seat's best sequence, return which seats' sequences actually score.
- * Only the strongest sequence-holder(s) score: a seat scores if no other seat has
- * a strictly stronger sequence. Equal, both-non-trump sequences (compare === 0)
- * all score; a strictly stronger sequence (longer/higher/trump) shuts the rest
- * out — which is why a lone платіна/деберц cancels everyone's терці.
+ * The §4 contest is between DIFFERENT SIDES: a seat scores unless an OPPOSING
+ * team holds a strictly stronger sequence. A player's own melds never cancel each
+ * other. Equal, both-non-trump sequences (compare === 0) all score; a strictly
+ * stronger opposing sequence shuts the rest out — a lone платіна/деберц cancels
+ * opponents' терці. `teamOf` maps seat → team; omit it and each seat is its own
+ * team (the 3-player case).
  */
-export function scoringSequenceSeats(best: (DebercMeld | null)[]): number[] {
+export function scoringSequenceSeats(best: (DebercMeld | null)[], teamOf?: number[]): number[] {
   const present = best
     .map((m, seat) => ({ m, seat }))
     .filter((x): x is { m: DebercMeld; seat: number } => x.m != null);
   if (present.length === 0) return [];
+  const team = (seat: number) => (teamOf ? teamOf[seat] : seat);
 
   return present
-    .filter(({ m }) => !present.some((o) => compareSequences(o.m, m) > 0))
+    .filter(({ m, seat }) => !present.some((o) => team(o.seat) !== team(seat) && compareSequences(o.m, m) > 0))
     .map(({ seat }) => seat);
 }
 
@@ -145,13 +148,18 @@ export function announcedMeld(
   kind: DebercMeldKind,
   topRank: Rank,
   trumpSuit: Suit | null,
+  suit?: Suit,
 ): DebercMeld | null {
   if (kind === 'bella') return null;
-  for (const suit of DEBERC_SUITS) {
-    const run = longestRunInSuit(hand.filter((c) => c.suit === suit));
+  // When a suit is given (the UI knows which run it announced), validate only that
+  // suit — this lets a hand announce TWO sequences of the same kind in different
+  // suits (e.g. two терці), which a kind+nominal alone could not disambiguate.
+  const suits = suit ? [suit] : DEBERC_SUITS;
+  for (const s of suits) {
+    const run = longestRunInSuit(hand.filter((c) => c.suit === s));
     if (!run) continue;
     if (sequenceKind(run.length) === kind && run[run.length - 1].rank === topRank) {
-      return toMeld(seatIndex, run, suit, trumpSuit);
+      return toMeld(seatIndex, run, s, trumpSuit);
     }
   }
   return null;
@@ -159,10 +167,14 @@ export function announcedMeld(
 
 /**
  * Which of the valid DECLARED sequence melds actually score: a meld scores unless
- * another declared meld is strictly stronger (higher band / top / trump). Equal
- * melds both score. A stronger declared meld (a платіна) shuts out weaker declared
- * ones (терці) — the §4 hierarchy, restricted to what was truthfully announced.
+ * an OPPOSING team's declared meld is strictly stronger (higher band / top /
+ * trump). A player's own melds never cancel each other — so a single seat holding
+ * two терці, or a платіна and a терц, scores BOTH (owner rule 2026-07-08). Equal
+ * cross-team melds both score. `teamOf` maps seat → team; omit it and each seat is
+ * its own team (the 3-player case), so any strictly stronger meld shuts out a
+ * weaker one — the plain §4 hierarchy.
  */
-export function scoringDeclaredMelds(melds: DebercMeld[]): DebercMeld[] {
-  return melds.filter((m) => !melds.some((o) => o !== m && compareSequences(o, m) > 0));
+export function scoringDeclaredMelds(melds: DebercMeld[], teamOf?: number[]): DebercMeld[] {
+  const team = (m: DebercMeld) => (teamOf ? teamOf[m.seatIndex] : m.seatIndex);
+  return melds.filter((m) => !melds.some((o) => team(o) !== team(m) && compareSequences(o, m) > 0));
 }

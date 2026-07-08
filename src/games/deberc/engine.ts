@@ -19,8 +19,8 @@ import { announcedMeld, hasBella, scoringDeclaredMelds } from './melds';
 import { BELLA_POINTS, scoreHand } from './scoring';
 
 const HAND_TRICKS = 9;
-const PAIR_PENALTY = 100;
-/** A false (bluffed) meld claim costs the team this many points (§4, v1.2). */
+/** Each mark beyond the first of its kind costs the tally holder this much (§7). */
+const MARK_PENALTY = 100;
 const TARGET: Record<'small' | 'big', number> = { small: 510, big: 1020 };
 
 function clone(state: DebercState): DebercState {
@@ -63,31 +63,20 @@ function repSeatOfTeam(s: DebercState, team: number): number {
 // --- Ledger (ХВ / бейт penalty accounting, DEBERC_RULES.md §7) --------------
 
 /**
- * Apply one ХВ/бейт mark to a team's ledger given its current outstanding marks.
- * The first mark of a kind is only recorded; completing a same-kind PAIR costs
- * −100; a mixed ХВ+бейт pair cancels (both clear, no penalty). At most one of
- * `hvMark`/`beitMark` is ever outstanding (>0), because a mix cancels on arrival.
+ * Penalty for adding one more mark of a kind, given how many of THAT kind the
+ * tally holder already has. Owner rule (2026-07-08): the FIRST mark of a kind is
+ * free (recorded only); EVERY subsequent mark of the same kind costs −100. ХВ and
+ * бейт are counted independently — no pairs, no mixed cancellation. `hvMarks` /
+ * `beitMarks` are therefore cumulative counts, not "outstanding" marks.
  */
-export function applyMark(
-  kind: 'hv' | 'beit',
-  hvMark: number,
-  beitMark: number,
-): { hv: number; beit: number; penalty: number } {
-  if (kind === 'hv') {
-    if (beitMark > 0) return { hv: 0, beit: 0, penalty: 0 };        // mixed pair cancels
-    if (hvMark > 0) return { hv: 0, beit: beitMark, penalty: PAIR_PENALTY }; // ХВ pair
-    return { hv: 1, beit: beitMark, penalty: 0 };                   // first ХВ — recorded
-  }
-  if (hvMark > 0) return { hv: 0, beit: 0, penalty: 0 };            // mixed pair cancels
-  if (beitMark > 0) return { hv: hvMark, beit: 0, penalty: PAIR_PENALTY }; // бейт pair
-  return { hv: hvMark, beit: 1, penalty: 0 };                       // first бейт — recorded
+export function markPenalty(priorCount: number): number {
+  return priorCount >= 1 ? MARK_PENALTY : 0;
 }
 
 function addMark(s: DebercState, kind: 'hv' | 'beit', team: number): void {
-  const r = applyMark(kind, s.hvMarks[team], s.beitMarks[team]);
-  s.hvMarks[team] = r.hv;
-  s.beitMarks[team] = r.beit;
-  s.matchScore[team] -= r.penalty;
+  const marks = kind === 'hv' ? s.hvMarks : s.beitMarks;
+  s.matchScore[team] -= markPenalty(marks[team]);
+  marks[team] += 1;
 }
 
 // --- Deal + hand setup ------------------------------------------------------
@@ -236,7 +225,7 @@ function collectScoringMelds(s: DebercState): DebercMeld[] {
  */
 function resolveReveal(s: DebercState): void {
   const seqs = s.declaredMelds.filter((m) => m.kind === 'terz' || m.kind === 'platina');
-  const winners = new Set(scoringDeclaredMelds(seqs));
+  const winners = new Set(scoringDeclaredMelds(seqs, s.teamOf));
   for (const m of seqs) m.revealed = winners.has(m);
 }
 
@@ -270,8 +259,8 @@ function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
     hvTeam = objazTeam;
   }
 
-  // Бейт: any team that took zero tricks. ХВ is applied first so an об'яз that
-  // earns both in one hand cancels them as a mixed pair.
+  // Бейт: any team that took zero tricks. ХВ and бейт are independent now, so an
+  // об'яз that earns both in one hand simply takes both marks.
   const beitTeams: number[] = [];
   for (let t = 0; t < s.teamCount; t++) {
     const wonAny = s.wonCards.some((cards, seat) => s.teamOf[seat] === t && cards.length > 0);
@@ -398,10 +387,13 @@ export function debercReducer(
       // Validate + reconstruct every announcement against the seat's REAL hand
       // (v1.3 — no bluff). An unheld announcement is illegal → return the same ref.
       const built: DebercMeld[] = [];
-      const seen = new Set<DebercMeldKind>();
+      // Dedupe by (kind + suit): bella once; a sequence once per suit — so a hand
+      // can truthfully announce TWO терці (different suits) or a платіна + терц.
+      const seen = new Set<string>();
       for (const decl of action.melds) {
-        if (seen.has(decl.kind)) continue; // one announcement per kind
-        seen.add(decl.kind);
+        const key = `${decl.kind}:${decl.suit ?? ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         if (decl.kind === 'bella') {
           if (!hasBella(hand, trump)) return state;
           const k = hand.find((c) => c.suit === trump && c.rank === 'K')!;
@@ -409,8 +401,11 @@ export function debercReducer(
           built.push({ seatIndex: seat, kind: 'bella', points: BELLA_POINTS, cards: [k, q], topValue: seqValue('K'), isTrump: true, revealed: false });
         } else {
           if (decl.topRank == null) return state;
-          const m = announcedMeld(hand, seat, decl.kind, decl.topRank, trump);
+          const m = announcedMeld(hand, seat, decl.kind, decl.topRank, trump, decl.suit);
           if (!m) return state;
+          // Guard against two entries resolving to the SAME run (e.g. same kind +
+          // nominal, no suit given twice) — never count one physical run twice.
+          if (built.some((b) => b.cards.length > 0 && b.cards[0].suit === m.cards[0].suit && b.kind === m.kind)) continue;
           built.push(m);
         }
       }

@@ -3,7 +3,7 @@ import { makeRng } from '../../core/rng';
 import type { Rank, Suit } from '../../models/types';
 import { seqValue } from './deck';
 import {
-  applyMark, currentLegalPlays, debercReducer, getActingDebercPlayerId, isDebercFinished,
+  markPenalty, currentLegalPlays, debercReducer, getActingDebercPlayerId, isDebercFinished,
 } from './engine';
 import type { DebercAction, DebercState } from './types';
 
@@ -231,6 +231,31 @@ describe('debercReducer — declaring (§4, v1.3 truthful + reveal)', () => {
     expect(terz.find((m) => m.seatIndex === lowSeat)!.revealed).toBe(false);
   });
 
+  it('a seat’s TWO терці in different suits both reveal & score (owner 2026-07-08)', () => {
+    const s0 = acceptTableTrump(start(3, 'small', 5));
+    const plains = ALL_SUITS.filter((x) => x !== s0.trumpSuit);
+    const seat = s0.meldTurnSeat;
+    const order = [seat, (seat + 1) % 3, (seat + 2) % 3];
+    // Two separate 3-runs (терці) plus 3 non-run fillers → a legal 9-card hand.
+    const twoTerz = [
+      ...(['9', '10', 'J'] as Rank[]).map((r) => c(plains[0], r)),
+      ...(['8', '9', '10'] as Rank[]).map((r) => c(plains[1], r)),
+      c(plains[2], '6'), c(plains[2], 'K'), c(s0.trumpSuit as Suit, '6'),
+    ];
+    let s: DebercState = { ...s0, dealtHands: s0.dealtHands.map((h, i) => (i === seat ? twoTerz : h)) };
+    for (const se of order) {
+      const melds = se === seat
+        ? [{ kind: 'terz' as const, topRank: 'J' as Rank, suit: plains[0] },
+           { kind: 'terz' as const, topRank: '10' as Rank, suit: plains[1] }]
+        : [];
+      s = debercReducer(s, { type: 'DECLARE_MELD', melds }, {})!;
+    }
+    expect(s.phase).toBe('playing');
+    const terz = s.declaredMelds.filter((m) => m.kind === 'terz' && m.seatIndex === seat);
+    expect(terz).toHaveLength(2);                 // both announcements kept (per-suit)
+    expect(terz.every((m) => m.revealed)).toBe(true); // own melds don't cancel → both score
+  });
+
   it('an undeclared sequence scores nothing (all pass) — hand still plays out', () => {
     const scored = playOutHand(acceptTableTrump(start(3, 'small', 5))); // all pass declarations
     expect(scored.phase).toBe('hand_scoring');
@@ -290,20 +315,15 @@ describe('debercReducer — hand scoring (§6, §7)', () => {
   });
 });
 
-describe('applyMark — ХВ/бейт ledger (§7)', () => {
-  it('first mark of a kind only records (no penalty)', () => {
-    expect(applyMark('hv', 0, 0)).toEqual({ hv: 1, beit: 0, penalty: 0 });
-    expect(applyMark('beit', 0, 0)).toEqual({ hv: 0, beit: 1, penalty: 0 });
+describe('markPenalty — ХВ/бейт ledger (§7, owner rule 2026-07-08)', () => {
+  it('the first mark of a kind is free', () => {
+    expect(markPenalty(0)).toBe(0);
   });
 
-  it('a same-kind pair costs −100 and clears', () => {
-    expect(applyMark('hv', 1, 0)).toEqual({ hv: 0, beit: 0, penalty: 100 });
-    expect(applyMark('beit', 0, 1)).toEqual({ hv: 0, beit: 0, penalty: 100 });
-  });
-
-  it('a mixed ХВ+бейт pair cancels (no penalty)', () => {
-    expect(applyMark('beit', 1, 0)).toEqual({ hv: 0, beit: 0, penalty: 0 }); // beit onto an outstanding hv
-    expect(applyMark('hv', 0, 1)).toEqual({ hv: 0, beit: 0, penalty: 0 });   // hv onto an outstanding beit
+  it('every subsequent mark of the same kind costs −100', () => {
+    expect(markPenalty(1)).toBe(100);
+    expect(markPenalty(2)).toBe(100);
+    expect(markPenalty(5)).toBe(100);
   });
 });
 

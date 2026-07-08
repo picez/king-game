@@ -3,7 +3,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import { seqValue } from './deck';
 import {
   detectBestSequence, compareSequences, scoringSequenceSeats, hasBella,
-  announcedMeld,
+  announcedMeld, scoringDeclaredMelds,
 } from './melds';
 
 const card = (suit: Suit, rank: Rank): Card => ({ suit, rank, value: seqValue(rank) });
@@ -108,6 +108,35 @@ describe('scoringSequenceSeats (hierarchy)', () => {
     const plain = detectBestSequence(run('spades', ['10', 'J', 'Q']), 0, 'hearts');
     const trump = detectBestSequence(run('hearts', ['10', 'J', 'Q']), 1, 'hearts');
     expect(scoringSequenceSeats([plain, trump])).toEqual([1]);
+  });
+});
+
+describe('scoringDeclaredMelds — own melds all score, cross-team contest (owner 2026-07-08)', () => {
+  const mk = (suit: Suit, ranks: Rank[], seat: number): NonNullable<ReturnType<typeof detectBestSequence>> =>
+    detectBestSequence(run(suit, ranks), seat, 'hearts')!;
+
+  it('a single seat’s two терці BOTH score (no self-cancel)', () => {
+    const a = mk('spades', ['7', '8', '9'], 0);       // terz to 9
+    const b = mk('clubs', ['Q', 'K', 'A'], 0);        // terz to A, same seat
+    const scored = scoringDeclaredMelds([a, b]);        // 3p: each seat its own team
+    expect(scored).toHaveLength(2);
+  });
+
+  it('a seat’s платіна + терц BOTH score for that seat', () => {
+    const platina = mk('spades', ['9', '10', 'J', 'Q'], 0);
+    const terz = mk('clubs', ['7', '8', '9'], 0);
+    expect(scoringDeclaredMelds([platina, terz])).toHaveLength(2);
+  });
+
+  it('4p: partners’ two терці both score; an opponent платіна shuts out both', () => {
+    const teamOf = [0, 1, 0, 1];                        // seats 0&2 vs 1&3
+    const p0 = mk('spades', ['7', '8', '9'], 0);        // team0 terz
+    const p2 = mk('clubs', ['8', '9', '10'], 2);        // team0 terz (partner)
+    expect(scoringDeclaredMelds([p0, p2], teamOf)).toHaveLength(2); // both team0 score
+
+    const oppPlatina = mk('diamonds', ['9', '10', 'J', 'Q'], 1); // team1 platina
+    const scored = scoringDeclaredMelds([p0, p2, oppPlatina], teamOf);
+    expect(scored).toEqual([oppPlatina]);              // stronger opposing meld shuts out both терці
   });
 });
 

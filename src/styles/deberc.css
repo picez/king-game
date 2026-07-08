@@ -331,4 +331,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.deberc-firstdealer__drawn { margin: 0 0 0.9rem; font-size: 0.92rem; color: var(--text); }
+.deberc-firstdealer__drawn { margin: 0 0 0.5rem; font-size: 0.92rem; color: var(--text); }
+.deberc-firstdealer__objaz { margin: 0 0 0.7rem; font-size: 0.92rem; color: var(--text); }
+.deberc-firstdealer__trump {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 0 0.9rem;
+}
+.deberc-firstdealer__trumplabel { font-size: 0.92rem; color: var(--text-muted); }

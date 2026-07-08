@@ -63,7 +63,9 @@ export function scoreHand(input: HandScoreInput): HandScoreResult {
   cardPts[teamOf[lastTrickWinnerSeat]] += LAST_TRICK_BONUS;
 
   // Only the WINNING declared sequences reach here (§4 hierarchy already applied).
-  for (const meld of scoringDeclaredMelds(declaredSequences)) {
+  // Re-apply team-aware so a direct caller (tests) gets the same contest: an
+  // opposing team's stronger meld shuts out a weaker one; own melds all score.
+  for (const meld of scoringDeclaredMelds(declaredSequences, teamOf)) {
     meldPts[teamOf[meld.seatIndex]] += meld.points;
   }
   for (const seat of bellaSeats) {

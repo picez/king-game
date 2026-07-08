@@ -182,11 +182,16 @@ export const UK: Record<string, string> = {
   'deberc.firstDealer': 'Перший роздаючий',
   'deberc.drawnSuit': 'Випала масть:',
   'deberc.dealsFirst': 'роздає першим',
+  'deberc.tableTrumpUp': 'Козир на столі:',
+  'deberc.firstObjazIs': 'Перший об’яз:',
+  'deberc.you': 'ви',
   'deberc.passed': 'спасував',
   'deberc.tookTrump': 'взяв',
   'deberc.bluffWarn': 'Хибне оголошення: −50',
-  'deberc.hv': 'ХВ',
-  'deberc.beit': 'Бейт',
+  // Labels SWAPPED per owner (2026-07-08): the об'яз-underperform mark (field
+  // hvMarks) shows as "Бейт"; the zero-tricks mark (field beitMarks) shows as "ХВ".
+  'deberc.hv': 'Бейт',
+  'deberc.beit': 'ХВ',
   'deberc.jackpot': 'Деберц — миттєва перемога в матчі!',
   'deberc.target': 'Ціль',
   'deberc.scoreTable': 'Таблиця очок',

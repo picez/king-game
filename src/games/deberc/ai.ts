@@ -17,7 +17,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import type { DebercAction, DebercMeldKind, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
 import { legalPlays, resolveTrick } from './rules';
-import { detectBestSequence, hasBella } from './melds';
+import { detectAllSequences, hasBella } from './melds';
 
 /**
  * Minimum hand score (see suitScore) at which a bot commits to a trump. Bidding
@@ -187,10 +187,13 @@ function playAction(state: DebercState): DebercAction {
 function declareAction(state: DebercState): DebercAction {
   const seat = state.meldTurnSeat;
   const hand = state.dealtHands[seat];
-  const melds: { kind: DebercMeldKind; topRank?: Rank }[] = [];
-  // Announce the single best held sequence (with its real nominal) — no bluff.
-  const best = detectBestSequence(hand, seat, state.trumpSuit);
-  if (best) melds.push({ kind: best.kind, topRank: best.cards[best.cards.length - 1].rank });
+  const melds: { kind: DebercMeldKind; topRank?: Rank; suit?: Suit }[] = [];
+  // Announce EVERY held sequence (one per suit, with its real nominal + suit) — a
+  // hand's own melds all score (owner rule 2026-07-08), so declare them all. A
+  // деберц (run ≥ 8) is among these and wins the match outright when announced.
+  for (const seq of detectAllSequences(hand, seat, state.trumpSuit)) {
+    melds.push({ kind: seq.kind, topRank: seq.cards[seq.cards.length - 1].rank, suit: seq.cards[0].suit });
+  }
   if (hasBella(hand, state.trumpSuit)) melds.push({ kind: 'bella' });
   return { type: 'DECLARE_MELD', melds };
 }

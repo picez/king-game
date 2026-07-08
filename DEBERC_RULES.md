@@ -1,6 +1,12 @@
-# Deberc Rules (Деберц) — v1.3
+# Deberc Rules (Деберц) — v1.4
 
-> **STATUS: Rules confirmed. v1.3 (owner correction 2026-07-07): meld declaration
+> **STATUS: Rules confirmed. v1.4 (owner corrections 2026-07-08): (a) a player's
+> OWN melds never cancel each other — two терці, or платіна+терц, both score; the
+> §4 contest is only between opposing sides. (b) ХВ/бейт LABELS swapped (об'яз
+> under-scores → «Бейт»; zero tricks → «ХВ»). (c) ХВ/бейт penalty is now first-free
+> then −100 for EACH subsequent mark of that kind (no pairs / mixed cancel). See §4, §7.**
+>
+> v1.3 (owner correction 2026-07-07): meld declaration
 > is TRUTHFUL, not a bluff — you announce a kind + its nominal (e.g. "терц до K");
 > among equal kinds only the highest nominal REVEALS its cards and scores, the
 > lower holders do not reveal and score 0 (§4). No −50 penalty. v1.2 stands: deck
@@ -121,13 +127,17 @@ Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 Ranking: **деберц > платіна > терц**. A **деберц** (8–9 same-suit run) ends the
 whole **match** immediately — the holder wins outright, regardless of score. ✅
 
-- Hierarchy is judged **among declared melds only.** A declared **терц** does
-  **not** score if another side **declared** a платіна/деберц, or **declared** a
-  **higher терц** (compared by top card; run-to-10 loses to run-to-Q). Two
-  **equal non-trump** declared терці both score; an equal **trump** терц beats an
-  equal non-trump one. The same "highest declared holder only" rule extends across
-  платіна (equal платіни compare by top card, trump breaking ties, like терці).
-- 4-player: declared melds are pooled per team.
+- Hierarchy is judged **among declared melds only**, and **only between DIFFERENT
+  SIDES** (owner clarification 2026-07-08). A declared **терц** does **not** score
+  if **another side declared** a платіна/деберц, or a **higher терц** (compared by
+  top card; run-to-10 loses to run-to-Q). Two **equal non-trump** declared терці
+  (different sides) both score; an equal **trump** терц beats an equal non-trump
+  one. The same "highest declared holder only" rule extends across платіна.
+- **A player's OWN melds never cancel each other** — one seat holding **two терці**,
+  or a **платіна and a терц**, scores **BOTH**. (A seat may truthfully announce a
+  sequence in each suit it holds one in.)
+- 4-player: declared melds are pooled per team (a team's melds don't cancel each
+  other; the contest is against the opposing team).
 
 ---
 
@@ -149,25 +159,31 @@ Each side's hand score = trick card-points (+10 last trick) + scoring melds (§4
 
 ---
 
-## 7. ХВ and бейт  ✅ CONFIRMED
+## 7. ХВ and бейт  ✅ CONFIRMED (v1.4 — owner corrections 2026-07-08)
+
+> **NAMING (v1.4):** the two marks were previously LABELLED the wrong way round.
+> The **displayed** names are now swapped: the mark for the **об'яз under-scoring**
+> is shown as **«Бейт»**, and the mark for **taking zero tricks** is shown as
+> **«ХВ»**. (Internally the code still stores them in `hvMarks` / `beitMarks`
+> respectively; only the labels swap — see the swapped `deberc.hv` / `deberc.beit`
+> i18n values. Mechanics below are attached to the CONDITION, not the label.)
 
 Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
 
-- **ХВ** — recorded when the **об'яз** scores **fewer points than at least one
-  other player/team** in a hand. Consequences:
+- **Об'яз under-scores** (displayed **«Бейт»**) — recorded when the **об'яз** scores
+  **fewer points than at least one other player/team** in a hand. Consequences:
   1. Penalty accounting (below).
   2. **All of the об'яз's points for that hand go to the top scorer.**
   3. The **об'яз role passes to that top scorer** next hand.
-- **Бейт** — recorded for **any player/team that takes zero tricks** in a hand.
+- **Zero tricks** (displayed **«ХВ»**) — recorded for **any player/team that takes
+  zero tricks** in a hand.
 
-**Penalty accounting** (per tally holder):
-- The **first** mark of either kind costs **nothing** (recorded only).
-- Each completed **pair of the same kind** = **−100** (two ХВ = −100; two
-  бейти = −100).
-- A **mixed pair (1 ХВ + 1 бейт) cancels** — nothing deducted.
-
-**[CONFIRM]** Can the об'яз collect **both** an ХВ and a бейт from one hand
-(0 tricks ⇒ necessarily fewer points)? Assuming **yes, both marks land**.
+**Penalty accounting (v1.4)** — per tally holder, per kind, counted independently:
+- The **first** mark of a kind costs **nothing** (recorded only).
+- **Every subsequent** mark of the **same kind** costs **−100** (2nd, 3rd, … each
+  −100). No pairs, no mixed cancellation.
+- The об'яз can collect **both** marks from one hand (0 tricks ⇒ necessarily fewer
+  points) — **both land** independently.
 
 ---
 

@@ -182,11 +182,16 @@ export const EN: Record<string, string> = {
   'deberc.firstDealer': 'First dealer',
   'deberc.drawnSuit': 'Drawn suit:',
   'deberc.dealsFirst': 'deals first',
+  'deberc.tableTrumpUp': 'Table trump:',
+  'deberc.firstObjazIs': 'First об’яз:',
+  'deberc.you': 'you',
   'deberc.passed': 'passed',
   'deberc.tookTrump': 'took',
   'deberc.bluffWarn': 'False declaration: −50',
-  'deberc.hv': 'ХВ',
-  'deberc.beit': 'Beit',
+  // Labels SWAPPED per owner (2026-07-08): hvMarks (об'яз-underperform) → "Beit";
+  // beitMarks (zero-tricks) → "ХВ".
+  'deberc.hv': 'Beit',
+  'deberc.beit': 'ХВ',
   'deberc.jackpot': 'Deberc — instant match win!',
   'deberc.target': 'Target',
   'deberc.scoreTable': 'Score sheet',

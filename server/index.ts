@@ -255,6 +255,17 @@ function maybeRecordFinished(room: ServerRoom): void {
   const def = getGameDefinition(room.gameType);
   if (!def?.recordsStats || !def.isFinished(state)) return;
 
+  // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
+  // table with ANY bot, or with fewer than 2 humans, is never recorded (applies
+  // to every game type). This blocks farming stats against bots, online or not.
+  const playerMembers = [...room.members.values()].filter((m) => m.role === 'player');
+  const humanPlayers = playerMembers.filter((m) => m.type === 'human').length;
+  const botPlayers = playerMembers.filter((m) => m.type === 'ai').length;
+  if (botPlayers > 0 || humanPlayers < 2) {
+    console.log(`[King] room ${room.code} ${room.gameType} finished — stats skipped (${humanPlayers} human, ${botPlayers} bot)`);
+    return;
+  }
+
   const gt = room.gameType;
   const sig = gt === 'durak' ? durakFinishSignature(state as DurakState)
     : gt === 'deberc' ? debercFinishSignature(state as DebercState)

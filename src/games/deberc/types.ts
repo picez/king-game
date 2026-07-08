@@ -167,7 +167,16 @@ export interface DebercState {
 
   /** Running match score per team. */
   matchScore: number[];
-  /** ХВ / бейт tallies per team (uncompleted marks; pairs already deducted). */
+  /**
+   * ХВ / бейт cumulative counts per team (§7). The first mark of a kind is free;
+   * each subsequent mark of the same kind already had its −100 deducted from
+   * `matchScore`. NOTE (owner naming fix 2026-07-08): the label shown to players
+   * is SWAPPED — the об'яз-underperform mark stored in `hvMarks` displays as
+   * "Бейт", and the zero-tricks mark in `beitMarks` displays as "ХВ" (see the
+   * swapped `deberc.hv` / `deberc.beit` i18n values). The internal field names
+   * and mechanics (point redirect + role transfer stay with об'яз-underperform)
+   * are unchanged.
+   */
   hvMarks: number[];
   beitMarks: number[];
 
@@ -226,13 +235,15 @@ export type DebercAction =
   /**
    * The acting seat's meld announcements for the hand (v1.3 — truthful, no bluff).
    * Each names a `kind` and, for a sequence, its top `topRank` (nominal, e.g. a
-   * "терц до K"); `bella` carries no rank. The engine VALIDATES every announcement
-   * against the seat's real hand — an unheld meld is illegal (rejected). An empty
-   * list = pass. Among equal kinds the highest nominal (trump breaks ties) reveals
-   * and scores; lower holders score 0 and do not reveal. A truthful `deberc`
-   * (run ≥ 8) ends the match immediately.
+   * "терц до K") plus optionally the `suit` of the run (so a hand may announce TWO
+   * sequences of the same kind in different suits); `bella` carries no rank. The
+   * engine VALIDATES every announcement against the seat's real hand — an unheld
+   * meld is illegal (rejected). An empty list = pass. The §4 contest is between
+   * SIDES: an OPPOSING team's stronger declared sequence shuts out a weaker one,
+   * but a seat's own multiple sequences all score. A truthful `deberc` (run ≥ 8)
+   * ends the match immediately.
    */
-  | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; topRank?: Rank }[] }
+  | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; topRank?: Rank; suit?: Suit }[] }
   /** Play a card into the current trick. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */

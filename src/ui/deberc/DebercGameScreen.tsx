@@ -122,7 +122,11 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
     type: 'DECLARE_MELD',
     melds: picked.map((i) => {
       const m = myMelds[i];
-      return m.kind === 'bella' ? { kind: 'bella' as const } : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank };
+      // Pass the run's suit so two same-kind sequences (e.g. two терці) are both
+      // declarable and never collapse into one (owner rule 2026-07-08).
+      return m.kind === 'bella'
+        ? { kind: 'bella' as const }
+        : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank, suit: m.cards[0].suit };
     }),
   });
 
@@ -178,10 +182,11 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
               {draw.suitOf.map((suit, seat) => {
                 const isDrawn = suit === draw.drawnSuit;
                 const red = suit === 'hearts' || suit === 'diamonds';
+                const isMe = seat === meSeat;
                 return (
                   <div key={seat} className={`deberc-firstdealer__seat ${isDrawn ? 'deberc-firstdealer__seat--drawn' : ''}`}>
                     <span className={`deberc-firstdealer__suit ${red ? 'deberc-firstdealer__suit--red' : ''}`}>{SUIT_SYMBOL[suit]}</span>
-                    <span className="deberc-firstdealer__seatname">{state.players[seat]?.name}</span>
+                    <span className="deberc-firstdealer__seatname">{state.players[seat]?.name}{isMe ? ` (${t('deberc.you')})` : ''}</span>
                   </div>
                 );
               })}
@@ -190,6 +195,18 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
               {t('deberc.drawnSuit')} <strong className={draw.drawnSuit === 'hearts' || draw.drawnSuit === 'diamonds' ? 'deberc-firstdealer__suit--red' : ''}>{SUIT_SYMBOL[draw.drawnSuit]}</strong>
               {' → '}<strong>{state.players[state.dealerSeat]?.name}</strong> {t('deberc.dealsFirst')}
             </p>
+            {/* Show BOTH facts distinctly (owner request 2026-07-08): the trump card
+                that came up on the table, and who holds the first об'яз (= first
+                dealer this hand) — with a "you" marker so it is never mistaken for
+                another seat. Note the об'яз can still change during bidding. */}
+            <p className="deberc-firstdealer__objaz">
+              {t('deberc.firstObjazIs')} <strong>{state.players[state.objazSeat]?.name}</strong>
+              {state.objazSeat === meSeat ? ` (${t('deberc.you')})` : ''}
+            </p>
+            <div className="deberc-firstdealer__trump">
+              <span className="deberc-firstdealer__trumplabel">{t('deberc.tableTrumpUp')}</span>
+              <CardView card={state.tableTrumpCard} size="mini" disabled />
+            </div>
             <button type="button" className="btn btn--primary" onClick={() => setIntroDismissed(true)}>{t('deberc.gotIt')}</button>
           </div>
         </div>

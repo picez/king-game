@@ -182,11 +182,16 @@ export const DE: Record<string, string> = {
   'deberc.firstDealer': 'Erster Geber',
   'deberc.drawnSuit': 'Gezogene Farbe:',
   'deberc.dealsFirst': 'gibt zuerst',
+  'deberc.tableTrumpUp': 'Tischtrumpf:',
+  'deberc.firstObjazIs': 'Erster об’яз:',
+  'deberc.you': 'du',
   'deberc.passed': 'gepasst',
   'deberc.tookTrump': 'nahm',
   'deberc.bluffWarn': 'Falsche Ansage: −50',
-  'deberc.hv': 'ХВ',
-  'deberc.beit': 'Beit',
+  // Labels SWAPPED per owner (2026-07-08): hvMarks (об'яз-underperform) → "Beit";
+  // beitMarks (zero-tricks) → "ХВ".
+  'deberc.hv': 'Beit',
+  'deberc.beit': 'ХВ',
   'deberc.jackpot': 'Deberz — sofortiger Matchsieg!',
   'deberc.target': 'Ziel',
   'deberc.scoreTable': 'Punktetabelle',
