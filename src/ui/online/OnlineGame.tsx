@@ -52,7 +52,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
     <RoomSocial
       reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
-      onReact={net.sendReaction} onChat={net.sendChat}
+      onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
       notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
       handVisible={handVisible} onLeaveGame={onLeaveGame}
     />

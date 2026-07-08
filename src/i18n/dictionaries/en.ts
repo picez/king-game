@@ -329,6 +329,10 @@ export const EN: Record<string, string> = {
   'chat.tooMany': 'Too many messages — slow down',
   'chat.blocked': 'Message blocked',
   'chat.unavailable': 'Chat unavailable',
+  'chat.openMedia': 'Stickers',
+  'chat.mediaPicker': 'Stickers',
+  'chat.sendMedia': 'Send sticker',
+  'chat.noMedia': 'No stickers available',
   'account.hint': 'Optional. Local and online guest play work without signing in — your settings are saved on this device.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Statistics',

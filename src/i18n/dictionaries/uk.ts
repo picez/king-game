@@ -329,6 +329,10 @@ export const UK: Record<string, string> = {
   'chat.tooMany': 'Забагато повідомлень — зачекайте',
   'chat.blocked': 'Повідомлення заблоковано',
   'chat.unavailable': 'Чат недоступний',
+  'chat.openMedia': 'Стікери',
+  'chat.mediaPicker': 'Стікери',
+  'chat.sendMedia': 'Надіслати стікер',
+  'chat.noMedia': 'Стікерів немає',
   'account.hint': 'Необовʼязково. Локальна та онлайн-гра гостем працюють без входу — налаштування зберігаються на цьому пристрої.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Статистика',

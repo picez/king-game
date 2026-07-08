@@ -63,6 +63,8 @@ export interface NetworkGame {
   sendReaction: (emoji: string) => void;
   /** Send a chat message (server filters + rate-limits). */
   sendChat: (text: string) => void;
+  /** Send a whitelisted chat sticker by catalog id (server validates + rate-limits). */
+  sendChatMedia: (mediaId: string) => void;
   /** A transient rate-limit / blocked notice for a small toast, or null. */
   socialNotice: SocialNotice | null;
   clearSocialNotice: () => void;
@@ -287,6 +289,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const startGame = useCallback(() => send({ t: 'START_GAME' }), [send]);
   const sendReaction = useCallback((emoji: string) => send({ t: 'SEND_REACTION', emoji }), [send]);
   const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
+  const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
   const clearSocialNotice = useCallback(() => setSocialNotice(null), []);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
@@ -315,6 +318,6 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     status, error, errorCode, room, state, myPlayerId,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
-    reactions, chat, sendReaction, sendChat, socialNotice, clearSocialNotice,
+    reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
   };
 }

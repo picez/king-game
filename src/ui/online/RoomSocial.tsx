@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { REACTIONS, MAX_CHAT_LEN } from '../../net/chatFilter';
-import type { ChatMessage } from '../../net/messages';
+import { CHAT_MEDIA, type ChatMediaItem } from '../../net/chatMediaCatalog';
+import type { ChatMessage, ChatMedia } from '../../net/messages';
 import type { ReactionEvent, SocialNotice } from '../../hooks/useNetworkGame';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   myClientId: string | null;
   onReact: (emoji: string) => void;
   onChat: (text: string) => void;
+  /** Send a whitelisted sticker by catalog id (server validates + rate-limits). */
+  onChatMedia: (mediaId: string) => void;
   notice: SocialNotice | null;
   onClearNotice: () => void;
   /** True while the player's hand is on screen (the `playing` GameScreen): lift
@@ -30,10 +33,12 @@ const REACTION_TTL_MS = 2600;
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, notice, onClearNotice, handVisible = false, onLeaveGame }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [seen, setSeen] = useState(0);
@@ -60,12 +65,28 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     }
   }, [chatOpen, chat.length]);
 
+  // Escape closes the lightbox first, then the media picker.
+  useEffect(() => {
+    if (!lightbox && !mediaOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (lightbox) setLightbox(null);
+      else setMediaOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, mediaOpen]);
+
   const unread = chatOpen ? 0 : Math.max(0, chat.length - seen);
   const activeReactions = reactions.filter((r) => now - r.at < REACTION_TTL_MS);
 
   function react(emoji: string) {
     onReact(emoji);
     setReactOpen(false);
+  }
+  function sendMedia(item: ChatMediaItem) {
+    onChatMedia(item.id);
+    setMediaOpen(false);
   }
   function leaveGame() {
     if (typeof window !== 'undefined' && !window.confirm(t('online.leaveGameConfirm'))) return;
@@ -138,26 +159,62 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           <div className="chat-drawer__list" ref={listRef}>
             {chat.length === 0
               ? <p className="chat-empty">{t('chat.empty')}</p>
-              : chat.map((m) => <ChatRow key={m.id} m={m} mine={!!myClientId && m.clientId === myClientId} />)}
+              : chat.map((m) => (
+                <ChatRow key={m.id} m={m} mine={!!myClientId && m.clientId === myClientId} onOpenMedia={setLightbox} />
+              ))}
           </div>
+
+          {/* Sticker picker: a grid of lazy-loaded thumbnails; a click sends by id. */}
+          {mediaOpen && (
+            <div className="chat-media-picker" role="listbox" aria-label={t('chat.mediaPicker')}>
+              {CHAT_MEDIA.length === 0
+                ? <p className="chat-empty">{t('chat.noMedia')}</p>
+                : CHAT_MEDIA.map((item) => (
+                  <button key={item.id} type="button" role="option" aria-selected={false}
+                    className="chat-media-thumb" onClick={() => sendMedia(item)}
+                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
+                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
+                  </button>
+                ))}
+            </div>
+          )}
+
           <form className="chat-drawer__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
+            <button type="button" className="btn btn--ghost btn--small chat-media-btn"
+              aria-expanded={mediaOpen} aria-label={t('chat.openMedia')}
+              onClick={() => setMediaOpen((o) => !o)}>🖼️</button>
             <input className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
               onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
             <button type="submit" className="btn btn--primary btn--small" disabled={!text.trim()}>{t('chat.send')}</button>
           </form>
         </div>
       )}
+
+      {/* Lightbox: larger preview of a tapped sticker (click/Escape closes). */}
+      {lightbox && (
+        <div className="chat-lightbox" role="dialog" aria-modal="true" aria-label={lightbox.label}
+          onClick={() => setLightbox(null)}>
+          <img src={lightbox.src} alt={lightbox.label} className="chat-lightbox__img" />
+        </div>
+      )}
     </>
   );
 }
 
-function ChatRow({ m, mine }: { m: ChatMessage; mine: boolean }) {
+function ChatRow({ m, mine, onOpenMedia }: { m: ChatMessage; mine: boolean; onOpenMedia: (media: ChatMedia) => void }) {
   return (
     <div className={`chat-msg ${mine ? 'chat-msg--mine' : ''}`}>
       <span className="chat-msg__av" aria-hidden="true">{m.avatar}</span>
       <span className="chat-msg__body">
         <span className="chat-msg__name">{m.name}</span>
-        <span className="chat-msg__text">{m.text}</span>
+        {m.media ? (
+          <button type="button" className="chat-msg__media" onClick={() => onOpenMedia(m.media!)}
+            aria-label={m.media.label}>
+            <img src={m.media.src} alt={m.media.label} loading="lazy" decoding="async" />
+          </button>
+        ) : (
+          <span className="chat-msg__text">{m.text}</span>
+        )}
       </span>
     </div>
   );

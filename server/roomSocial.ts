@@ -18,6 +18,7 @@ import {
   isValidReaction, filterChat, cooldownRemainingMs,
   REACTION_COOLDOWN_MS, CHAT_RATE_MS,
 } from '../src/net/chatFilter';
+import { getChatMedia } from '../src/net/chatMediaCatalog';
 
 export const CHAT_HISTORY_MAX = 50;
 
@@ -99,9 +100,43 @@ export function handleChat(
     id: io.newId(), clientId, name: member.name, avatar: member.avatar,
     text: filtered.text, seatIndex: member.seatIndex, createdAt: now,
   };
+  pushHistory(social, message);
+  io.broadcastToRoom(room, { t: 'CHAT', message });
+}
+
+/**
+ * Handle SEND_CHAT_MEDIA: a client may only reference a sticker by its catalog
+ * `id`. The server resolves it against the WHITELIST (`getChatMedia`) — an unknown
+ * id is rejected (never a client-supplied src/url). The SAME 3s chat rate limit
+ * applies. The broadcast carries the server-approved media; `text` is empty. No
+ * profanity filter (labels are generated + safe). Never logs the payload.
+ */
+export function handleChatMedia(
+  store: RoomSocialStore, io: SocialIO, socket: WebSocket, room: ServerRoom, clientId: string, mediaId: unknown,
+): void {
+  const member = room.members.get(clientId);
+  if (!member) return io.sendError(socket, 'BAD_MESSAGE', 'Not in this room');
+  const media = getChatMedia(mediaId);
+  if (!media) return io.sendError(socket, 'MESSAGE_BLOCKED', 'Unknown media');
+  const social = store.for(room.code);
+  const now = Date.now();
+  const remaining = cooldownRemainingMs(social.chatAt.get(clientId), now, CHAT_RATE_MS);
+  if (remaining > 0) return io.sendError(socket, 'RATE_LIMITED', `Wait ${Math.ceil(remaining / 1000)}s`);
+  social.chatAt.set(clientId, now);
+  const message: ChatMessage = {
+    id: io.newId(), clientId, name: member.name, avatar: member.avatar,
+    text: '', seatIndex: member.seatIndex, createdAt: now,
+    // Copy the whitelisted fields explicitly — never spread client input.
+    media: { id: media.id, src: media.src, type: media.type, label: media.label },
+  };
+  pushHistory(social, message);
+  io.broadcastToRoom(room, { t: 'CHAT', message });
+}
+
+/** Append to the capped ring buffer (oldest dropped past CHAT_HISTORY_MAX). */
+function pushHistory(social: RoomSocialState, message: ChatMessage): void {
   social.history.push(message);
   if (social.history.length > CHAT_HISTORY_MAX) {
     social.history.splice(0, social.history.length - CHAT_HISTORY_MAX);
   }
-  io.broadcastToRoom(room, { t: 'CHAT', message });
 }

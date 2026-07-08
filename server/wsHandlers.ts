@@ -18,7 +18,7 @@ import {
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
-import { RoomSocialStore, handleReaction, handleChat, type SocialIO } from './roomSocial';
+import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
 import { hashReconnectToken } from './reconnectToken';
@@ -305,6 +305,12 @@ export function handleClientMessage(
     case 'SEND_CHAT': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       handleChat(ctx.social, socialIO, socket, sessionRef.value.room, sessionRef.value.clientId, msg.text);
+      break;
+    }
+
+    case 'SEND_CHAT_MEDIA': {
+      if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
+      handleChatMedia(ctx.social, socialIO, socket, sessionRef.value.room, sessionRef.value.clientId, msg.mediaId);
       break;
     }
 

@@ -19,6 +19,7 @@ import { getValidCards } from '../src/core/rules';
 import { getActingPlayerId } from '../src/core/gameEngine';
 import { seatToPlayerId, humanError } from '../src/net/online';
 import { getValidBids, getValidPlayableCards } from '../src/games/tarneeb/rules';
+import { CHAT_MEDIA } from '../src/net/chatMediaCatalog';
 
 const PORT = 3990;
 const URL = `ws://127.0.0.1:${PORT}/ws`;   // WS route (same as the client default)
@@ -412,6 +413,31 @@ async function main() {
   sendMsg(sHost, { t: 'SEND_CHAT', text: 'gg during play' });
   await sleep(200);
   check(sJoin.chats.some((m) => m.text === 'gg during play'), 'chat works DURING the game');
+
+  // Chat media stickers (Stage 11.0): a whitelisted sticker sent by id works
+  // DURING the active game; invalid/arbitrary ids are rejected (whitelist only).
+  const stickerId = CHAT_MEDIA[0].id;
+  await sleep(3100);                                   // clear sHost's 3s chat rate limit
+  sHost.lastError = null;
+  sendMsg(sHost, { t: 'SEND_CHAT_MEDIA', mediaId: stickerId });
+  await sleep(200);
+  const mmsg = sJoin.chats.find((m) => m.media && m.media.id === stickerId);
+  check(!!mmsg, 'chat sticker (media) reaches the other human during play');
+  check(!!mmsg && mmsg.media.src.startsWith('/chat-media/') && mmsg.text === '',
+    'media message carries a server-approved /chat-media src and empty text');
+  check(!!mmsg && !/userId|reconnectToken|token|password/i.test(JSON.stringify(mmsg)),
+    'media chat payload carries no userId/token');
+  // Unknown id → MESSAGE_BLOCKED (checked before the rate limit).
+  sHost.lastError = null;
+  sendMsg(sHost, { t: 'SEND_CHAT_MEDIA', mediaId: 'totally-not-a-real-id' });
+  await sleep(150);
+  check(sHost.lastError?.code === 'MESSAGE_BLOCKED', 'unknown mediaId rejected (whitelist only)');
+  // An arbitrary URL as the id is not in the whitelist → rejected too.
+  sHost.lastError = null;
+  sendMsg(sHost, { t: 'SEND_CHAT_MEDIA', mediaId: 'https://evil.example/x.gif' });
+  await sleep(150);
+  check(sHost.lastError?.code === 'MESSAGE_BLOCKED', 'arbitrary URL as mediaId rejected');
+
   sHost.ws.close(); sJoin.ws.close();
 
   // 2j) Explicit "Leave lobby" (LEAVE_ROOM) removes the member (vs a silent

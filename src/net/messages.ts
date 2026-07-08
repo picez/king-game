@@ -101,6 +101,19 @@ export interface RoomSummary {
  * UI; it is NOT a userId/session/token. `text` is already sanitised + censored
  * by the server before broadcast.
  */
+/**
+ * A whitelisted chat sticker attached to a message. The server ALWAYS fills this
+ * from `chatMediaCatalog` (by the client-sent `mediaId`) — the client never
+ * supplies `src`/`type`/`label`. `src` is a same-origin `/chat-media/…` path
+ * (no data:/external URL, no HTML).
+ */
+export interface ChatMedia {
+  id: string;
+  src: string;
+  type: 'gif' | 'image';
+  label: string;
+}
+
 export interface ChatMessage {
   id: string;
   clientId: string;
@@ -109,6 +122,8 @@ export interface ChatMessage {
   text: string;
   seatIndex: number | null;
   createdAt: number;
+  /** Present on a sticker message; `text` is then empty. Server-approved only. */
+  media?: ChatMedia;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +159,9 @@ export type ClientMessage =
   | { t: 'SEND_REACTION'; emoji: string }
   /** Room-social (Stage 7): send a chat message (server filters + rate-limits). */
   | { t: 'SEND_CHAT'; text: string }
+  /** Room-social (Stage 11): send a whitelisted sticker by catalog id (server
+   *  resolves the id → approved media; rejects unknown ids; same chat rate limit). */
+  | { t: 'SEND_CHAT_MEDIA'; mediaId: string }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------

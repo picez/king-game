@@ -108,8 +108,39 @@
 .chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
 .chat-drawer__compose {
   display: flex; gap: 6px; padding: 0.6rem; border-top: 1px solid var(--border);
+  align-items: center;
 }
 .chat-input { flex: 1 1 auto; min-width: 0; }
+.chat-media-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
+
+/* Sticker picker: a scrollable thumbnail grid inside the drawer (never overflows). */
+.chat-media-picker {
+  flex: 0 0 auto; max-height: 42vh; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  padding: 0.6rem; border-top: 1px solid var(--border); background: var(--surface-2);
+}
+.chat-media-thumb {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1 / 1; padding: 3px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+}
+.chat-media-thumb:hover { border-color: var(--accent, #f5c518); }
+.chat-media-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* Media message bubble. */
+.chat-msg__media {
+  display: block; padding: 3px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px;
+}
+.chat-msg--mine .chat-msg__media { background: rgba(245, 197, 24, 0.16); }
+.chat-msg__media img { display: block; max-width: 160px; max-height: 160px; object-fit: contain; border-radius: 8px; }
+
+/* Lightbox: tap-anywhere-to-close larger preview. */
+.chat-lightbox {
+  position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+  padding: 1rem; background: rgba(0, 0, 0, 0.72); cursor: zoom-out;
+}
+.chat-lightbox__img { max-width: min(90vw, 420px); max-height: 80vh; object-fit: contain; border-radius: 12px; }
 
 /* RTL: mirror the drawer + the corner controls to the left edge. */
 [dir="rtl"] .chat-drawer { right: auto; left: 0; border-left: none; border-right: 1px solid var(--border-strong); }

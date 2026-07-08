@@ -55,3 +55,31 @@ describe('active-game "Leave game" wiring', () => {
     expect(social).toMatch(/\{onLeaveGame && \(/);  // gated on the prop (active game only)
   });
 });
+
+describe('chat media stickers wiring (Stage 11.0)', () => {
+  const online = read('./OnlineGame.tsx');
+  const social = read('./RoomSocial.tsx');
+
+  it('OnlineGame passes the sendChatMedia sender into the overlay', () => {
+    expect(online).toContain('onChatMedia={net.sendChatMedia}');
+  });
+
+  it('RoomSocial renders a whitelist picker from the catalog (no raw user URL)', () => {
+    // Sticker sources come ONLY from the generated catalog, never client input.
+    expect(social).toContain("from '../../net/chatMediaCatalog'");
+    expect(social).toContain('CHAT_MEDIA');
+    expect(social).toContain('chat-media-picker');
+    // A click sends by catalog id (mediaId), not a URL.
+    expect(social).toContain('onChatMedia(item.id)');
+    // Sticker <img> src is bound to the catalog item, not a free-text field.
+    expect(social).toContain('src={item.src}');
+    expect(social).toContain('src={m.media.src}');
+    // No arbitrary-URL/data:/http input path in the overlay source.
+    expect(social).not.toMatch(/src=\{[^}]*text[^}]*\}/);
+  });
+
+  it('media message is rendered as an <img>, not injected as HTML', () => {
+    expect(social).not.toContain('dangerouslySetInnerHTML');
+    expect(social).toContain('alt={m.media.label}');
+  });
+});
