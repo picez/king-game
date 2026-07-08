@@ -822,6 +822,8 @@ async function main() {
   await sleep(350);
   check(!tnBack.lastError && tnBack.state?.gameType === 'tarneeb', 'reconnect restores the online Tarneeb game');
   check(tnBack.state.handsBySeat[tnBack.seat].every((c) => c.rank !== '?'), 'reconnected Tarneeb player sees their own hand');
+  // Redaction still holds after reconnect: opponents' hands stay hidden (counts only).
+  check(!tnLeak(tnBack.state, tnBack.seat), 'no opponent Tarneeb hand leaks after reconnect');
   tnBack.ws.close(); tnJoin.ws.close();
 
   // Leave lobby before start frees a Tarneeb seat (separate room).

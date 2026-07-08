@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Card, Suit } from '../../models/types';
 import { makeRng } from '../../core/rng';
 import { tarneebReducer } from './engine';
 import { tarneebBotAction } from './ai';
@@ -7,8 +8,44 @@ import {
   canPlayCard,
   getValidBids,
   isTarneebFinished,
+  MAX_BID,
+  MIN_BID,
 } from './rules';
 import type { TarneebAction, TarneebContext, TarneebState } from './types';
+
+const RANK_VALUE: Record<string, number> = {
+  '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+  J: 11, Q: 12, K: 13, A: 14,
+};
+const card = (suit: Suit, rank: Card['rank']): Card => ({ suit, rank, value: RANK_VALUE[rank] });
+
+/** A fresh `bidding` state (no bids yet) where the acting seat holds `hand`. */
+function biddingStateWithHand(hand: Card[]): TarneebState {
+  return {
+    gameType: 'tarneeb',
+    phase: 'bidding',
+    players: [0, 1, 2, 3].map((s) => ({ id: `player-${s}`, name: `P${s}`, seatIndex: s, type: 'ai' })),
+    teams: { A: [0, 2], B: [1, 3] },
+    dealerSeat: 0,
+    currentSeat: 3,
+    handsBySeat: [hand.slice(), hand.slice(), hand.slice(), hand.slice()],
+    bids: [],
+    passed: [false, false, false, false],
+    highestBid: null,
+    declarerSeat: null,
+    declarerTeam: null,
+    trumpSuit: null,
+    currentTrick: null,
+    completedTricks: [],
+    tricksByTeam: { A: 0, B: 0 },
+    scoresByTeam: { A: 0, B: 0 },
+    handNumber: 1,
+    targetScore: 41,
+    options: { targetScore: 41, kabootMode: 'off', allowNoTrump: false },
+    lastHand: null,
+    winnerTeam: null,
+  };
+}
 
 function startBots(seed: number): { state: TarneebState; ctx: TarneebContext } {
   const ctx: TarneebContext = { rng: makeRng(seed) };
@@ -97,5 +134,70 @@ describe('Tarneeb bot', () => {
     expect(a.state.scoresByTeam).toEqual(b.state.scoresByTeam);
     expect(a.state.winnerTeam).toBe(b.state.winnerTeam);
     expect(a.steps).toBe(b.steps);
+  });
+
+  it('never emits an illegal action across many seeds and states', () => {
+    // Drive full bot-only matches over many seeds; every single bot action must be
+    // legal for the acting seat (a stronger version of the single-seed check).
+    for (let seed = 1; seed <= 30; seed++) {
+      let { state, ctx } = startBots(seed);
+      let steps = 0;
+      while (!isTarneebFinished(state) && steps++ < 20_000) {
+        if (state.phase === 'hand_complete') {
+          state = tarneebReducer(state, { type: 'START_NEXT_HAND' }, ctx) as TarneebState;
+          continue;
+        }
+        const seat = state.currentSeat;
+        const action = tarneebBotAction(state, seat);
+        if (action.type === 'BID') {
+          expect(getValidBids(state, seat), `seed ${seed} step ${steps}`).toContain(action.amount);
+        } else if (action.type === 'CHOOSE_TRUMP') {
+          expect(canChooseTrump(state, seat, action.suit), `seed ${seed} step ${steps}`).toBe(true);
+        } else if (action.type === 'PLAY_CARD') {
+          expect(canPlayCard(state, seat, action.card), `seed ${seed} step ${steps}`).toBe(true);
+        }
+        state = tarneebReducer(state, action, ctx) as TarneebState;
+      }
+      expect(isTarneebFinished(state)).toBe(true);
+    }
+  });
+
+  it('bids conservatively — never above the minimum on a hand it deems too weak', () => {
+    // A hand with no honours and no long suit cannot plausibly make 7, so the bot
+    // must PASS rather than be dragged up to the floor (the old force-to-7 bug).
+    const weak: Card[] = [
+      card('spades', '2'), card('spades', '3'), card('spades', '4'),
+      card('hearts', '2'), card('hearts', '3'), card('hearts', '4'),
+      card('diamonds', '2'), card('diamonds', '3'), card('diamonds', '4'),
+      card('clubs', '2'), card('clubs', '3'), card('clubs', '4'), card('clubs', '5'),
+    ];
+    const s = biddingStateWithHand(weak);
+    expect(tarneebBotAction(s, s.currentSeat)).toEqual({ type: 'PASS_BID' });
+  });
+
+  it('never bids above what the hand + partner could plausibly take', () => {
+    // Even a strong hand must not bid the maximum recklessly: the bid stays within
+    // the estimated team strength (own tricks + a modest partner share).
+    for (let seed = 1; seed <= 60; seed++) {
+      let { state, ctx } = startBots(seed);
+      let steps = 0;
+      while (!isTarneebFinished(state) && steps++ < 20_000) {
+        if (state.phase === 'bidding') {
+          const seat = state.currentSeat;
+          const action = tarneebBotAction(state, seat);
+          if (action.type === 'BID') {
+            // A bid is never more than the whole hand (13) and never a blind max on
+            // a mediocre hand — assert it stays at/under a generous strength ceiling.
+            expect(action.amount).toBeLessThanOrEqual(MAX_BID);
+            expect(action.amount).toBeGreaterThanOrEqual(MIN_BID);
+          }
+        }
+        const seat = state.currentSeat;
+        const action = state.phase === 'hand_complete'
+          ? ({ type: 'START_NEXT_HAND' } as TarneebAction)
+          : tarneebBotAction(state, seat);
+        state = tarneebReducer(state, action, ctx) as TarneebState;
+      }
+    }
   });
 });

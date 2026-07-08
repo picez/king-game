@@ -11,6 +11,7 @@ export function TarneebRulesList() {
       <li>{t('tarneeb.rule.trump')}</li>
       <li>{t('tarneeb.rule.play')}</li>
       <li>{t('tarneeb.rule.scoring')}</li>
+      <li>{t('tarneeb.rule.allTricks')}</li>
       <li>{t('tarneeb.rule.goal')}</li>
     </ul>
   );
@@ -30,7 +31,10 @@ export default function TarneebHelp({ onClose }: { onClose: () => void }) {
     >
       <div className="tarneeb-help" onClick={(e) => e.stopPropagation()}>
         <div className="tarneeb-help__head">
-          <h2 className="tarneeb-help__title">{t('tarneeb.howToPlay')}</h2>
+          <h2 className="tarneeb-help__title">
+            {t('tarneeb.howToPlay')}
+            <span className="tarneeb-tag tarneeb-tag--exp">{t('tarneeb.experimental')}</span>
+          </h2>
           <button
             type="button"
             className="btn btn--ghost tarneeb-help__x"

@@ -98,6 +98,20 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
   const validBids = phase === 'bidding' && isMyTurn ? getValidBids(state, humanSeat) : [];
 
+  // Extra readouts for a clearer table (Stage 10.6 polish):
+  const highBidderName = state.highestBid
+    ? state.highestBid.seat === humanSeat
+      ? t('tarneeb.you')
+      : state.players[state.highestBid.seat].name
+    : null;
+  const ledSuit = state.currentTrick?.ledSuit ?? null;
+  // The human has passed and is out of the current auction (make it obvious).
+  const iPassed = phase === 'bidding' && state.passed[humanSeat] && !isMyTurn;
+  // Follow-suit reminder: it is my turn to play, a suit is led, and I hold it.
+  const mustFollow =
+    phase === 'playing' && isMyTurn && ledSuit != null &&
+    state.handsBySeat[humanSeat].some((c) => c.suit === ledSuit);
+
   return (
     <div className={`screen tarneeb-screen ${online ? 'tarneeb-screen--online' : ''}`}>
       {showHelp && <TarneebHelp onClose={() => setShowHelp(false)} />}
@@ -120,8 +134,15 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
             {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
           </span>
           <span className="tarneeb-bid">
-            {t('tarneeb.highestBid')}: <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
+            {t('tarneeb.highestBid')}:{' '}
+            <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
+            {highBidderName && <span className="tarneeb-bid__by"> · {highBidderName}</span>}
           </span>
+          {phase === 'playing' && ledSuit && (
+            <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
+              {t('tarneeb.led')} <strong>{SUIT_SYMBOL[ledSuit]}</strong>
+            </span>
+          )}
           {phase === 'playing' && (
             <span className="tarneeb-tricks">
               {t('tarneeb.tricks')}: <strong>{state.tricksByTeam[myTeam]}</strong> – <strong>{state.tricksByTeam[theirTeam]}</strong>
@@ -189,6 +210,8 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
       <div className={`tarneeb-prompt ${isMyTurn ? 'tarneeb-prompt--me' : ''}`}>
         <span className="tarneeb-prompt__text">{prompt}</span>
+        {iPassed && <span className="tarneeb-prompt__note">{t('tarneeb.youPassed')}</span>}
+        {mustFollow && <span className="tarneeb-prompt__note">{t('tarneeb.mustFollow')}</span>}
       </div>
 
       {/* Action area: bidding buttons, trump picker, or nothing while playing. */}

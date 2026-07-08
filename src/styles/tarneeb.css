@@ -66,6 +66,26 @@
 .tarneeb-trump--red strong { color: var(--card-red); }
 .tarneeb-bid strong,
 .tarneeb-tricks strong { color: var(--accent-light); }
+.tarneeb-bid__by { color: var(--text-dim); font-weight: 700; }
+.tarneeb-led strong { font-size: 1.1rem; }
+.tarneeb-led--red strong { color: var(--card-red); }
+
+/* Small "Experimental" tag next to titles. */
+.tarneeb-tag {
+  display: inline-block;
+  margin-inline-start: 0.45rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 0.6rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.tarneeb-tag--exp {
+  color: #2a1a05;
+  background: var(--accent-light);
+}
 
 /* --- Board --- */
 .tarneeb-board {
@@ -161,12 +181,22 @@
 
 /* --- Prompt line --- */
 .tarneeb-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
   min-height: 1.4rem;
   text-align: center;
   font-size: 0.9rem;
   color: var(--text-dim);
 }
 .tarneeb-prompt--me { color: var(--accent-light); font-weight: 700; }
+.tarneeb-prompt__note {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  opacity: 0.95;
+}
 
 /* --- Action bars --- */
 .tarneeb-actions {
@@ -257,6 +287,16 @@
 .tarneeb-setup__teams { margin: 0 0 0.4rem; font-weight: 700; color: var(--text); }
 .tarneeb-setup__target { margin: 0 0 0.4rem; color: var(--text); }
 .tarneeb-setup__hint { margin: 0 0 0.6rem; color: var(--text-dim); font-size: 0.88rem; }
+.tarneeb-setup__hint--partner { margin-top: -0.2rem; }
+.tarneeb-setup__beta {
+  margin-top: 0.2rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--accent-light);
+  font-weight: 600;
+}
 .tarneeb-howto {
   background: none;
   border: none;
