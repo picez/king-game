@@ -1,0 +1,62 @@
+# CI: typecheck + full vitest suite (unit + DB integration) + production build.
+#
+# The 12 DB integration tests (src/net/*.integration.test.ts) are skipped unless
+# TEST_DATABASE_URL points at a MIGRATED Postgres — so CI spins up a Postgres 16
+# service, applies server/db/migrations via `npm run db:migrate`, and runs the
+# whole suite against it. Locally the same tests stay skipped (see DB_SETUP.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: king
+          POSTGRES_PASSWORD: king
+          POSTGRES_DB: king_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres actually accepts connections before running steps.
+        options: >-
+          --health-cmd "pg_isready -U king -d king_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PG_URL: postgres://king:king@localhost:5432/king_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Apply DB migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ env.PG_URL }}
+
+      - name: Run tests (unit + DB integration)
+        run: npm test
+        env:
+          TEST_DATABASE_URL: ${{ env.PG_URL }}
+
+      - name: Production build
+        run: npm run build
