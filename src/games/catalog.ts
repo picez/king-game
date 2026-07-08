@@ -4,7 +4,8 @@
  * Every card game enters through this registry instead of scattering string
  * literals across room discovery, stats, and settings. King is the default;
  * King, Durak, and Deberc are all fully playable (`available`). Tarneeb is
- * registered but `coming_soon` (Stage 10.2 — pure core only, not startable yet).
+ * playable local + online but `experimental` (Stage 10.5 — online is rough, no
+ * stats yet).
  */
 
 export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb'] as const;
@@ -86,9 +87,9 @@ export const GAME_CATALOG = {
     maxPlayers: 4,
     defaultPlayerCount: 4,
     supportsLocal: true,    // Stage 10.3: local hot-seat UI (1 human + 3 bots)
-    supportsOnline: false,  // no server wiring yet (server never starts Tarneeb rooms)
+    supportsOnline: true,   // Stage 10.5: server-authoritative online rooms (experimental)
     supportsBots: true,     // pure core has a working bot (Stage 10.1 soak)
-    status: 'coming_soon',  // still coming_soon for ONLINE; local play is enabled via supportsLocal
+    status: 'experimental', // online is playable but rough; no stats until the release audit
     rulesDoc: 'TARNEEB_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

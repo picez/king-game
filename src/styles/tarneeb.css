@@ -110,6 +110,8 @@
   box-shadow: 0 0 0 2px var(--accent-light), 0 0 14px rgba(255, 226, 115, 0.55);
   border-color: var(--accent-light);
 }
+.tarneeb-seat--offline { opacity: 0.6; }
+.tarneeb-seat__off { font-size: 0.72rem; }
 .tarneeb-seat__badges { display: flex; gap: 0.2rem; min-height: 0.9rem; }
 .tarneeb-badge {
   font-size: 0.62rem;
@@ -174,6 +176,10 @@
   justify-content: center;
   gap: 0.4rem;
 }
+/* Online only: keep the rightmost buttons clear of the fixed emoji/chat social
+   corner (right: 12px, ~46px wide) so action bars never sit under it. Local play
+   has no social overlay, so its bars stay perfectly centred. */
+.tarneeb-screen--online .tarneeb-actions { padding-right: 7rem; }
 .tarneeb-bidbtn {
   min-width: 2.6rem;
   min-height: 2.6rem;
@@ -237,6 +243,7 @@
 .tarneeb-handdone__table td { text-align: center; padding: 0.3rem 0.2rem; border-top: 1px solid var(--border); }
 .tarneeb-handdone__table td:first-child { text-align: left; font-weight: 700; }
 .tarneeb-handdone__next { width: 100%; margin-top: 0.8rem; min-height: 44px; }
+.tarneeb-handdone__note { margin: 0.8rem 0 0; text-align: center; color: var(--accent-light); font-weight: 700; }
 
 /* --- Help modal --- */
 .tarneeb-help__head { display: flex; align-items: center; justify-content: space-between; }

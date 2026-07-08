@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
-// wsHandlers guard (Stage 10.4): the WS layer must still REJECT hosting Tarneeb
-// online while GAME_CATALOG.tarneeb.supportsOnline is false — even though the
-// serverCore path is technically ready (tarneebServerCore.test.ts). Also proves an
-// unknown game type is rejected. Drives the real handleClientMessage with a
-// minimal in-memory context (same approach as wsHandlers.leak.test.ts).
+// wsHandlers Tarneeb hosting (Stage 10.5): Tarneeb online is now enabled
+// (GAME_CATALOG.tarneeb.supportsOnline = true, status experimental), so the WS
+// layer must ALLOW hosting a Tarneeb room — while still rejecting unknown game
+// types. Drives the real handleClientMessage with a minimal in-memory context
+// (same approach as wsHandlers.leak.test.ts).
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -47,24 +47,26 @@ function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; errors: Er
 const create = (gameType: string): ClientMessage =>
   ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType } as ClientMessage);
 
-describe('wsHandlers still blocks hosting Tarneeb online (Stage 10.4)', () => {
-  it('the catalog keeps Tarneeb online disabled', () => {
-    expect(GAME_CATALOG.tarneeb.supportsOnline).toBe(false);
+describe('wsHandlers now allows hosting Tarneeb online (Stage 10.5)', () => {
+  it('the catalog enables Tarneeb online (experimental)', () => {
+    expect(GAME_CATALOG.tarneeb.supportsOnline).toBe(true);
+    expect(GAME_CATALOG.tarneeb.status).toBe('experimental');
   });
 
-  it('CREATE_ROOM tarneeb is rejected and creates no room', () => {
-    const { ctx, rooms, errors } = makeCtx();
+  it('CREATE_ROOM tarneeb creates a 4-seat Tarneeb room', () => {
+    const { ctx, rooms } = makeCtx();
     const sessionRef: SessionRef = { value: null };
     const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
 
     handleClientMessage(ctx, socket, sessionRef, () => {}, create('tarneeb'), limiter);
 
-    expect(errors).toContain('BAD_MESSAGE'); // "Game is not available online"
-    expect(rooms.size).toBe(0);
-    expect(sessionRef.value).toBeNull();
+    expect(rooms.size).toBe(1);
+    const room = sessionRef.value!.room;
+    expect(room.gameType).toBe('tarneeb');
+    expect(room.playerCount).toBe(4); // catalog max = 4
   });
 
-  it('CREATE_ROOM with an unknown game type is rejected too', () => {
+  it('CREATE_ROOM with an unknown game type is still rejected', () => {
     const { ctx, rooms, errors } = makeCtx();
     const sessionRef: SessionRef = { value: null };
     const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
@@ -73,16 +75,5 @@ describe('wsHandlers still blocks hosting Tarneeb online (Stage 10.4)', () => {
 
     expect(errors).toContain('BAD_MESSAGE');
     expect(rooms.size).toBe(0);
-  });
-
-  it('positive control: an online-enabled game (King) still creates a room', () => {
-    const { ctx, rooms } = makeCtx();
-    const sessionRef: SessionRef = { value: null };
-    const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
-
-    handleClientMessage(ctx, socket, sessionRef, () => {}, create('king'), limiter);
-
-    expect(rooms.size).toBe(1);
-    expect(sessionRef.value?.room.gameType).toBe('king');
   });
 });

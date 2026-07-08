@@ -31,7 +31,7 @@ describe('game registry', () => {
   });
 });
 
-describe('Tarneeb game definition (registered, not yet playable)', () => {
+describe('Tarneeb game definition (registered, experimental online)', () => {
   const snap = {
     code: 'ABCD',
     members: [
@@ -43,15 +43,15 @@ describe('Tarneeb game definition (registered, not yet playable)', () => {
     playerCount: 4, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
   } as RoomSnapshot;
 
-  it('references the Tarneeb pure core + catalog and is coming_soon with no stats', () => {
+  it('references the Tarneeb pure core + catalog and is experimental with no stats', () => {
     expect(tarneebGameDefinition.id).toBe('tarneeb');
     expect(tarneebGameDefinition.catalog).toBe(GAME_CATALOG.tarneeb);
     expect(tarneebGameDefinition.rulesDoc).toBe('TARNEEB_RULES.md');
     expect(tarneebGameDefinition.supportedPlayerCounts).toEqual([4]);
     expect(tarneebGameDefinition.recordsStats).toBe(false); // no stats until Stage 10.7
-    expect(tarneebGameDefinition.catalog.status).toBe('coming_soon');
+    expect(tarneebGameDefinition.catalog.status).toBe('experimental'); // Stage 10.5: online
     expect(tarneebGameDefinition.catalog.supportsLocal).toBe(true); // Stage 10.3: local UI
-    expect(tarneebGameDefinition.catalog.supportsOnline).toBe(false);
+    expect(tarneebGameDefinition.catalog.supportsOnline).toBe(true); // Stage 10.5: online
     // Wraps the pure-core functions without moving logic.
     expect(tarneebGameDefinition.reducer).toBe(tarneebReducer);
     expect(tarneebGameDefinition.getActingPlayerId).toBe(getActingTarneebPlayerId);

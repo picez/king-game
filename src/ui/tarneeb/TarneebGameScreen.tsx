@@ -15,12 +15,17 @@ import TarneebHelp from './TarneebHelp';
 
 interface Props {
   state: TarneebState;
-  /** The human's seat (always 0 in the local game). */
+  /** The human's seat (0 in the local game; the client's own seat online). */
   humanSeat: number;
   apply: (a: TarneebAction) => void;
   onExit: () => void;
   /** A just-resolved trick shown briefly in the centre (blocks input while set). */
   reviewTrick: TarneebTrick | null;
+  /** Online mode: the SERVER drives bots + the hand_complete advance, so the
+   *  "Next hand" button is hidden (a note shows instead). Default false (local). */
+  online?: boolean;
+  /** Seats whose human is offline (online only) — for offline badges / hints. */
+  disconnectedSeats?: number[];
 }
 
 /** Seat positions around the felt by RELATIVE offset from the viewer (bottom).
@@ -49,7 +54,7 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
 
 /** The local human's table view for one Tarneeb hand. */
-export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick }: Props) {
+export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
 
@@ -59,6 +64,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
   const blocked = reviewTrick != null || state.phase === 'hand_complete';
   const isMyTurn = actingSeat === humanSeat && !blocked;
   const phase = state.phase;
+  const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
 
   // Last standing bid per seat (for the seat plates during the auction).
   const lastBidBySeat: (number | null)[] = [null, null, null, null];
@@ -77,17 +83,23 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
   // One clear instruction for the current moment.
   const actor = actingSeat != null ? state.players[actingSeat] : null;
-  const waitName = actor ? `${t('tarneeb.waiting')} ${actor.name}…` : '';
+  const actorOffline = actingSeat != null && offline(actingSeat);
+  // What an OPPONENT's turn reads as: an offline human (AI may substitute), a bot
+  // thinking (phase-specific), or just waiting for a connected human.
+  const waitFor = (botKey: string) =>
+    actorOffline ? `${actor?.name} ${t('tarneeb.offlineAI')}`
+      : actor?.type === 'ai' ? t(botKey)
+        : actor ? `${t('tarneeb.waiting')} ${actor.name}…` : '';
   let prompt = '';
   if (blocked) prompt = '';
-  else if (phase === 'bidding') prompt = isMyTurn ? t('tarneeb.yourBid') : actor?.type === 'ai' ? t('tarneeb.botBidding') : waitName;
-  else if (phase === 'choosing_trump') prompt = isMyTurn ? t('tarneeb.yourTrump') : actor?.type === 'ai' ? t('tarneeb.botChoosingTrump') : waitName;
-  else if (phase === 'playing') prompt = isMyTurn ? t('tarneeb.yourPlay') : actor?.type === 'ai' ? t('tarneeb.botThinking') : waitName;
+  else if (phase === 'bidding') prompt = isMyTurn ? t('tarneeb.yourBid') : waitFor('tarneeb.botBidding');
+  else if (phase === 'choosing_trump') prompt = isMyTurn ? t('tarneeb.yourTrump') : waitFor('tarneeb.botChoosingTrump');
+  else if (phase === 'playing') prompt = isMyTurn ? t('tarneeb.yourPlay') : waitFor('tarneeb.botThinking');
 
   const validBids = phase === 'bidding' && isMyTurn ? getValidBids(state, humanSeat) : [];
 
   return (
-    <div className="screen tarneeb-screen">
+    <div className={`screen tarneeb-screen ${online ? 'tarneeb-screen--online' : ''}`}>
       {showHelp && <TarneebHelp onClose={() => setShowHelp(false)} />}
 
       <div className="tarneeb-topbar">
@@ -131,19 +143,21 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
           const isActing = p.seatIndex === actingSeat && !blocked;
           const isDealer = p.seatIndex === state.dealerSeat;
           const isDeclarer = p.seatIndex === state.declarerSeat;
+          const isOffline = p.seatIndex !== humanSeat && offline(p.seatIndex);
           const bidLabel = phase === 'bidding'
             ? (state.passed[p.seatIndex] ? t('tarneeb.passed') : lastBidBySeat[p.seatIndex] != null ? String(lastBidBySeat[p.seatIndex]) : '')
             : '';
           return (
             <div
               key={p.id}
-              className={`tarneeb-seat tarneeb-seat--${pos} tarneeb-seat--${sameTeam ? 'us' : 'them'} ${isActing ? 'tarneeb-seat--acting' : ''}`}
+              className={`tarneeb-seat tarneeb-seat--${pos} tarneeb-seat--${sameTeam ? 'us' : 'them'} ${isActing ? 'tarneeb-seat--acting' : ''} ${isOffline ? 'tarneeb-seat--offline' : ''}`}
             >
               <span className="tarneeb-seat__badges">
                 {isDealer && <span className="tarneeb-badge tarneeb-badge--dealer" title={t('tarneeb.dealer')}>D</span>}
                 {isDeclarer && <span className="tarneeb-badge tarneeb-badge--declarer" title={t('tarneeb.declarer')}>★</span>}
               </span>
               <span className="tarneeb-seat__name">
+                {isOffline && <span className="tarneeb-seat__off" aria-label={t('common.offline')}>📴 </span>}
                 {p.seatIndex === humanSeat ? t('tarneeb.you') : p.name}
               </span>
               <span className="tarneeb-seat__meta">
@@ -224,9 +238,11 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
         ))}
       </div>
 
-      {/* Hand-complete summary overlay. */}
+      {/* Hand-complete summary overlay. Online: the SERVER auto-advances, so the
+          button is replaced by a "starting…" note (a client START_NEXT_HAND would
+          be rejected anyway — no seat acts on this screen). */}
       {phase === 'hand_complete' && state.lastHand && (
-        <HandComplete state={state} humanSeat={humanSeat} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
+        <HandComplete state={state} humanSeat={humanSeat} online={online} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
       )}
     </div>
   );
@@ -243,10 +259,11 @@ function phaseKey(phase: TarneebState['phase']): string {
 }
 
 /** The between-hands result panel (bid / trump / tricks / score delta). */
-function HandComplete({ state, humanSeat, onNext }: {
+function HandComplete({ state, humanSeat, onNext, online }: {
   state: TarneebState;
   humanSeat: number;
   onNext: () => void;
+  online: boolean;
 }) {
   const { t } = useI18n();
   const hand = state.lastHand!;
@@ -287,9 +304,13 @@ function HandComplete({ state, humanSeat, onNext }: {
             </tr>
           </tbody>
         </table>
-        <button type="button" className="btn btn--primary tarneeb-handdone__next" onClick={onNext} autoFocus>
-          {t('tarneeb.nextHand')}
-        </button>
+        {online ? (
+          <p className="tarneeb-handdone__note">{t('tarneeb.nextHandSoon')}</p>
+        ) : (
+          <button type="button" className="btn btn--primary tarneeb-handdone__next" onClick={onNext} autoFocus>
+            {t('tarneeb.nextHand')}
+          </button>
+        )}
       </div>
     </div>
   );

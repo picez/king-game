@@ -94,6 +94,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
       kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize } : {}),
+      ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
@@ -262,6 +263,11 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                   <p className="durak-variant-desc">{debercMatchSize === 'small' ? t('deberc.smallDesc') : t('deberc.bigDesc')}</p>
                 </div>
               )}
+              {gameType === 'tarneeb' && (
+                <div className="field">
+                  <p className="durak-variant-desc">{t('tarneeb.onlineBeta')}</p>
+                </div>
+              )}
               {gameType === 'king' && (
                 <div className="field">
                   <label className="field__label">{t('form.mode')}</label>
@@ -393,9 +399,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 }
 
 /**
- * Compact game picker — a custom dropdown. Tarneeb is local-only (Stage 10.3):
- * selectable in the Local sheet, but shown DISABLED with an "online coming later"
- * note in the Host sheet so it can never be hosted online (supportsOnline false).
+ * Compact game picker — a custom dropdown. Tarneeb is selectable both locally
+ * (Stage 10.3) and, since Stage 10.5, online as an EXPERIMENTAL game (the Host
+ * sheet tags it "Experimental"; supportsOnline is now true).
  */
 function GamePicker({ gameType, onPick, t, context }: {
   gameType: GameType;
@@ -407,9 +413,10 @@ function GamePicker({ gameType, onPick, t, context }: {
     { value: 'king', label: t('gameType.king'), icon: '👑' },
     { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
     { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
-    context === 'local'
-      ? { value: 'tarneeb', label: t('gameType.tarneeb'), icon: '♠️' }
-      : { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.onlineSoon'), icon: '♠️', disabled: true },
+    // Online Tarneeb is experimental → tag it in the Host sheet; plain in Local.
+    context === 'host'
+      ? { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('menu.experimental'), icon: '♠️' }
+      : { value: 'tarneeb', label: t('gameType.tarneeb'), icon: '♠️' },
   ];
   return (
     <div className="field">

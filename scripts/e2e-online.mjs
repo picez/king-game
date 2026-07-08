@@ -18,6 +18,7 @@ import WebSocket from 'ws';
 import { getValidCards } from '../src/core/rules';
 import { getActingPlayerId } from '../src/core/gameEngine';
 import { seatToPlayerId, humanError } from '../src/net/online';
+import { getValidBids, getValidPlayableCards } from '../src/games/tarneeb/rules';
 
 const PORT = 3990;
 const URL = `ws://127.0.0.1:${PORT}/ws`;   // WS route (same as the client default)
@@ -694,6 +695,148 @@ async function main() {
   await sleep(200);
   check(!lqHost.room.members.some((m) => m.name === 'QLeaver'), 'leave lobby removed the Durak seat');
   lqHost.ws.close(); lqJoin.ws.close();
+
+  // 2r) Experimental ONLINE Tarneeb (Stage 10.5): host a 4-seat Tarneeb room,
+  // fill with a 2nd human + 2 bots, start, redaction per human, a human acts, a
+  // trick completes, chat + reactions + reconnect + leave-lobby all work.
+  console.log('\n[2r] experimental online Tarneeb room');
+  const tnHost = await connect();
+  sendMsg(tnHost, { t: 'CREATE_ROOM', name: 'TnHost', modeSelectionType: 'fixed', gameType: 'tarneeb' });
+  await sleep(220);
+  check(tnHost.room?.gameType === 'tarneeb', 'CREATE_ROOM tarneeb → room.gameType tarneeb');
+  check(tnHost.room?.playerCount === 4, 'Tarneeb room is 4 seats (catalog max)');
+  const tnCode = tnHost.room.code;
+
+  // Room browser shows the Tarneeb room.
+  const tnList = await connect();
+  sendMsg(tnList, { t: 'LIST_ROOMS' });
+  await sleep(150);
+  check((tnList.roomsList ?? []).some((r) => r.code === tnCode && r.gameType === 'tarneeb'),
+    'Tarneeb room appears in the room browser as tarneeb');
+  tnList.ws.close();
+
+  // Start before 4 seats is rejected (Tarneeb requires exactly 4).
+  tnHost.lastError = null;
+  sendMsg(tnHost, { t: 'START_GAME' });
+  await sleep(200);
+  check(!tnHost.state, 'Tarneeb start rejected before 4 seats (not started)');
+
+  // A 2nd human joins; 2 bots fill to 4.
+  const tnJoin = await connect();
+  sendMsg(tnJoin, { t: 'JOIN_ROOM', code: tnCode, name: 'TnJoin' });
+  await sleep(200);
+  sendMsg(tnHost, { t: 'ADD_BOT' });
+  sendMsg(tnHost, { t: 'ADD_BOT' });
+  await sleep(300);
+  check(tnHost.room.members.filter((m) => m.role === 'player').length === 4, 'Tarneeb room fills to 4 (2 humans + 2 bots)');
+
+  // Full room rejects an extra joiner.
+  const tnLate = await connect();
+  sendMsg(tnLate, { t: 'JOIN_ROOM', code: tnCode, name: 'TnLate' });
+  await sleep(150);
+  check(tnLate.lastError?.code === 'ROOM_FULL', 'full Tarneeb room → ROOM_FULL');
+  tnLate.ws.close();
+
+  // Start → TarneebState over the wire.
+  sendMsg(tnHost, { t: 'START_GAME' });
+  await sleep(450);
+  check(tnHost.state?.gameType === 'tarneeb', 'online Tarneeb start → TarneebState over WS');
+  check(tnHost.state?.phase === 'bidding', 'Tarneeb starts in the bidding phase');
+  check(tnHost.state?.players?.length === 4, 'Tarneeb state has 4 players');
+
+  // Redaction: each human sees only its own hand; opponents are hidden.
+  const tnHostSeat = tnHost.seat, tnJoinSeat = tnJoin.seat;
+  check(tnHost.state.handsBySeat[tnHostSeat].every((c) => c.rank !== '?'), 'host sees its own Tarneeb hand');
+  check(tnHost.state.handsBySeat[tnJoinSeat].every((c) => c.rank === '?'), "host cannot see the joiner's hand");
+  check(tnJoin.state.handsBySeat[tnJoinSeat].every((c) => c.rank !== '?'), 'joiner sees its own Tarneeb hand');
+  check(tnJoin.state.handsBySeat[tnHostSeat].every((c) => c.rank === '?'), "joiner cannot see the host's hand");
+  const tnLeak = (st, mySeat) => st.handsBySeat.some((h, seat) => seat !== mySeat && h.some((c) => c.rank !== '?'));
+  check(!tnLeak(tnHost.state, tnHostSeat) && !tnLeak(tnJoin.state, tnJoinSeat),
+    'no opponent hand leaks in either human payload');
+
+  // Drive: a human bids the top amount (→ becomes declarer), names trump, then
+  // plays legal cards; bots + the server drive the rest. We look for: a human
+  // action accepted, a completed trick, and (best-effort) a human trump choice.
+  const tnHumans = {};
+  tnHumans[tnHostSeat] = tnHost; tnHumans[tnJoinSeat] = tnJoin;
+  let tnHumanActed = false, tnTrickSeen = false, tnHumanTrump = false, tnAdvanceSeen = false;
+  let tnLastHand = tnHost.state.handNumber;
+  for (let step = 0; step < 300 && !(tnTrickSeen && tnHumanActed); step++) {
+    const s = tnHost.state;
+    if (!s || s.phase === 'game_finished') break;
+    if ((s.completedTricks?.length ?? 0) >= 1) tnTrickSeen = true;
+    if (s.handNumber > tnLastHand) { tnAdvanceSeen = true; tnLastHand = s.handNumber; }
+    const actionable = s.phase === 'bidding' || s.phase === 'choosing_trump' || s.phase === 'playing';
+    if (!actionable) { await sleep(80); continue; } // hand_complete → server auto-advances
+    const human = tnHumans[s.currentSeat];
+    if (!human) { await sleep(80); continue; }       // bot's turn → the server acts
+    const hs = human.state, seat = human.seat;
+    const before = JSON.stringify(hs);
+    if (hs.phase === 'bidding') {
+      const vb = getValidBids(hs, seat);
+      if (vb.length) sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'BID', amount: Math.max(...vb) } });
+      else sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'PASS_BID' } });
+    } else if (hs.phase === 'choosing_trump') {
+      sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'CHOOSE_TRUMP', suit: 'spades' } });
+      tnHumanTrump = true;
+    } else if (hs.phase === 'playing') {
+      const legal = getValidPlayableCards(hs, seat);
+      if (legal.length) sendMsg(human, { t: 'ACTION_REQUEST', action: { type: 'PLAY_CARD', card: legal[0] } });
+    }
+    await sleep(90);
+    if (JSON.stringify(human.state) !== before) tnHumanActed = true;
+  }
+  check(tnHumanActed, 'a human Tarneeb action was accepted + advanced the state online');
+  check(tnTrickSeen, 'at least one Tarneeb trick completed online');
+  console.log(`  · human chose trump online: ${tnHumanTrump}; hand auto-advanced: ${tnAdvanceSeen}`);
+
+  // Out-of-turn: a non-acting human's action is refused server-side.
+  {
+    const s = tnHost.state;
+    if (s && s.phase !== 'game_finished') {
+      const offHuman = [tnHost, tnJoin].find((c) => c.seat !== s.currentSeat);
+      if (offHuman) {
+        offHuman.lastError = null;
+        sendMsg(offHuman, { t: 'ACTION_REQUEST', action: { type: 'PASS_BID' } });
+        await sleep(150);
+        check(offHuman.lastError != null, 'out-of-turn Tarneeb action rejected server-side');
+      }
+    }
+  }
+
+  // Social: chat + a reaction both work in the Tarneeb room.
+  sendMsg(tnHost, { t: 'SEND_CHAT', text: 'gg tarneeb' });
+  await sleep(200);
+  check(tnJoin.chats.some((m) => m.text.includes('gg tarneeb')), 'chat works in an online Tarneeb room');
+  const tnReactBefore = tnJoin.reactions.length;
+  sendMsg(tnJoin, { t: 'SEND_REACTION', emoji: '👏' });
+  await sleep(200);
+  check(tnJoin.reactions.length > tnReactBefore, 'reaction works in an online Tarneeb room');
+
+  // Reconnect the host mid-game → own hand intact.
+  const tnToken = tnHost.token;
+  tnHost.ws.close();
+  await sleep(250);
+  const tnBack = await connect();
+  sendMsg(tnBack, { t: 'RECONNECT', code: tnCode, reconnectToken: tnToken });
+  await sleep(350);
+  check(!tnBack.lastError && tnBack.state?.gameType === 'tarneeb', 'reconnect restores the online Tarneeb game');
+  check(tnBack.state.handsBySeat[tnBack.seat].every((c) => c.rank !== '?'), 'reconnected Tarneeb player sees their own hand');
+  tnBack.ws.close(); tnJoin.ws.close();
+
+  // Leave lobby before start frees a Tarneeb seat (separate room).
+  const tnlHost = await connect();
+  sendMsg(tnlHost, { t: 'CREATE_ROOM', name: 'TnLHost', modeSelectionType: 'fixed', gameType: 'tarneeb' });
+  await sleep(160);
+  const tnlCode = tnlHost.room.code;
+  const tnlJoin = await connect();
+  sendMsg(tnlJoin, { t: 'JOIN_ROOM', code: tnlCode, name: 'TnLeaver' });
+  await sleep(200);
+  check(tnlHost.room.members.some((m) => m.name === 'TnLeaver'), 'joiner is in the Tarneeb lobby');
+  sendMsg(tnlJoin, { t: 'LEAVE_ROOM' });
+  await sleep(200);
+  check(!tnlHost.room.members.some((m) => m.name === 'TnLeaver'), 'leave lobby frees the Tarneeb seat');
+  tnlHost.ws.close(); tnlJoin.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

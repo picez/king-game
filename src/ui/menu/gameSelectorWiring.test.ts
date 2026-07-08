@@ -51,10 +51,13 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
     expect(src).toContain('setDurakVariant');
   });
-  it('shows the Durak variants subtitle and no Experimental note (released, Stage 9.13)', () => {
+  it('shows the Durak variants subtitle and no Durak Experimental note (released, Stage 9.13)', () => {
     expect(src).toMatch(/durak\.variantsShort/);     // Simple · Transfer subtitle kept
-    expect(src).not.toMatch(/menu\.experimental/);   // Experimental badge removed
-    expect(src).not.toMatch(/durak\.onlineExperimentalNote/); // Experimental note removed
+    expect(src).not.toMatch(/durak\.onlineExperimentalNote/); // Durak Experimental note removed
+    // Durak's own option is subtitled with its variants, never "Experimental".
+    expect(src).toContain("t('gameType.durak'), sublabel: t('durak.variantsShort')");
+    // (Tarneeb online IS experimental since Stage 10.5, so menu.experimental now
+    // legitimately appears for the Tarneeb host option — no longer forbidden.)
   });
 });
 

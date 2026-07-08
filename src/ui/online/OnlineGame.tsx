@@ -12,6 +12,8 @@ import DurakOnlineGame from '../durak/DurakOnlineGame';
 import type { DurakState } from '../../games/durak/types';
 import DebercOnlineGame from '../deberc/DebercOnlineGame';
 import type { DebercState } from '../../games/deberc/types';
+import TarneebOnlineGame from '../tarneeb/TarneebOnlineGame';
+import type { TarneebState } from '../../games/tarneeb/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -170,6 +172,27 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
           disconnectedSeats={disconnectedSeats}
         />
         {renderSocial(true, leaveGameToMenu)}
+      </>
+    );
+  }
+
+  // Experimental online Tarneeb: render the Tarneeb screens (NOT King's
+  // GameRouter). The server drives bots + the public hand_complete advance
+  // (START_NEXT_HAND); the screen is read-only when it is not this client's turn.
+  if (net.room?.gameType === 'tarneeb') {
+    return (
+      <>
+        <TarneebOnlineGame
+          state={net.state as unknown as TarneebState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+          disconnectedSeats={disconnectedSeats}
+        />
+        {/* No Leave-game pill here: Tarneeb's full-width bid/trump action bars would
+            collide with it. The board's top-left ✕ already leaves the game
+            (reconnectable). Social keeps only the compact emoji/chat corner. */}
+        {renderSocial(true)}
       </>
     );
   }
