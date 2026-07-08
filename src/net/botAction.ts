@@ -11,7 +11,8 @@
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { getCurrentPlayer } from '../core/gameEngine';
-import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards, aiChooseCard } from '../core/ai';
+import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards } from '../core/ai';
+import { aiChooseCardLookahead } from '../core/lookahead';
 
 export function botAction(state: GameState): GameAction | null {
   switch (state.status) {
@@ -32,7 +33,9 @@ export function botAction(state: GameState): GameAction | null {
     }
     case 'playing': {
       const p = getCurrentPlayer(state);
-      return { type: 'PLAY_CARD', playerId: p.id, card: aiChooseCard(state) };
+      // Endgame lookahead when the position is small enough to solve exactly;
+      // otherwise this falls back to the shipped greedy heuristic internally.
+      return { type: 'PLAY_CARD', playerId: p.id, card: aiChooseCardLookahead(state) };
     }
     default:
       return null;
