@@ -194,6 +194,44 @@ export async function fetchDurakStats(base: string): Promise<Loadable<DurakStats
   return failFor(status);
 }
 
+/** My Deberc stats — team-outcome only (no score/rounds); the flat server view. */
+export interface DebercStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number | null;
+  /** Matches won via a деберц jackpot (instant win). */
+  jackpotCount: number;
+  /** 0–100 integer over games played, or null when no games. */
+  jackpotRate: number | null;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into DebercStats. */
+export function parseDebercStats(raw: unknown): DebercStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  const jackpotCount = num(s.jackpotCount);
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    jackpotCount,
+    jackpotRate: 'jackpotRate' in s ? numOrNull(s.jackpotRate) : (gamesPlayed > 0 ? Math.round((jackpotCount / gamesPlayed) * 100) : null),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/deberc/stats — the signed-in/guest user's own Deberc stats. */
+export async function fetchDebercStats(base: string): Promise<Loadable<DebercStats>> {
+  const { status, data } = await getJson(base, '/api/games/deberc/stats');
+  if (status === 200) return { state: 'ok', data: parseDebercStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
@@ -247,6 +285,47 @@ export async function fetchDurakLeaderboard(base: string): Promise<Loadable<Dura
     const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
       .map(parseDurakLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
+/** One public Deberc leaderboard row — no user id; `self` marks the caller. */
+export interface DebercLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  jackpotCount: number;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parseDebercLeaderboardRow(e: Record<string, unknown>): DebercLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    jackpotCount: num(e.jackpotCount),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/deberc/leaderboard — public top Deberc players. */
+export async function fetchDebercLeaderboard(base: string): Promise<Loadable<DebercLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/deberc/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parseDebercLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);

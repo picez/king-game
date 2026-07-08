@@ -280,6 +280,8 @@ export const UK: Record<string, string> = {
   'stats.lastGame': 'Остання гра',
   'stats.foolCount': 'Разів дурнем',
   'stats.draws': 'Нічиї',
+  'stats.jackpots': 'Джекпоти',
+  'stats.jackpotShort': 'ДЖ',
   'stats.byMode': 'Рахунок за режимами',
   'stats.noGames': 'Ще немає завершених онлайн-ігор',
   'stats.unavailable': 'Статистика зараз недоступна.',

@@ -263,6 +263,11 @@ async function handleGetDurakStats(req: IncomingMessage, res: ServerResponse, us
   json(res, 200, { gameType: 'durak', stats: await getDurakStats(userId) }, corsHeaders(req));
 }
 
+async function handleGetDebercStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getDebercStats } = await import('./db/debercStats');
+  json(res, 200, { gameType: 'deberc', stats: await getDebercStats(userId) }, corsHeaders(req));
+}
+
 /**
  * Public per-game leaderboard (no session required — only public, score-level
  * fields). If a session cookie is present we resolve it ONLY to mark the
@@ -281,6 +286,13 @@ async function handleGetDurakLeaderboard(req: IncomingMessage, res: ServerRespon
   let selfUserId: string | null = null;
   try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
   json(res, 200, { gameType: 'durak', leaderboard: await getDurakLeaderboard(20, selfUserId) }, corsHeaders(req));
+}
+
+async function handleGetDebercLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { getDebercLeaderboard } = await import('./db/debercStats');
+  let selfUserId: string | null = null;
+  try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
+  json(res, 200, { gameType: 'deberc', leaderboard: await getDebercLeaderboard(20, selfUserId) }, corsHeaders(req));
 }
 
 // ── Google OAuth (Stage 6) ──────────────────────────────────────────────────
@@ -477,6 +489,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     if (path === '/api/logout' && method === 'POST') return await handleLogout(req, res);
     if (path === '/api/games/king/leaderboard' && method === 'GET') return await handleGetKingLeaderboard(req, res);
     if (path === '/api/games/durak/leaderboard' && method === 'GET') return await handleGetDurakLeaderboard(req, res);
+    if (path === '/api/games/deberc/leaderboard' && method === 'GET') return await handleGetDebercLeaderboard(req, res);
 
     // Session-required routes.
     const requireUser = async (): Promise<string | null> => {
@@ -505,6 +518,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/durak/stats' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetDurakStats(req, res, u);
+    }
+    if (path === '/api/games/deberc/stats' && method === 'GET') {
+      const u = await requireUser(); if (!u) return; return await handleGetDebercStats(req, res, u);
     }
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));

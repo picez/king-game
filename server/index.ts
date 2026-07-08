@@ -40,8 +40,10 @@ import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
 import { durakFinishSignature } from '../src/net/durakStats';
+import { debercFinishSignature } from '../src/net/debercStats';
 import type { GameState } from '../src/models/types';
 import type { DurakState } from '../src/games/durak/types';
+import type { DebercState } from '../src/games/deberc/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 
 /**
@@ -253,8 +255,10 @@ function maybeRecordFinished(room: ServerRoom): void {
   const def = getGameDefinition(room.gameType);
   if (!def?.recordsStats || !def.isFinished(state)) return;
 
-  const isDurak = room.gameType === 'durak';
-  const sig = isDurak ? durakFinishSignature(state as DurakState) : finishSignature(room);
+  const gt = room.gameType;
+  const sig = gt === 'durak' ? durakFinishSignature(state as DurakState)
+    : gt === 'deberc' ? debercFinishSignature(state as DebercState)
+      : finishSignature(room);
   if (recordedFinish.get(room.code) === sig) return;
   recordedFinish.set(room.code, sig);
 
@@ -269,9 +273,11 @@ function maybeRecordFinished(room: ServerRoom): void {
 
   void (async () => {
     try {
-      const res = isDurak
+      const res = gt === 'durak'
         ? await (await import('./db/durakStats')).recordFinishedDurakGame(room.code, state as DurakState, seatUsers)
-        : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
+        : gt === 'deberc'
+          ? await (await import('./db/debercStats')).recordFinishedDebercGame(room.code, state as DebercState, seatUsers)
+          : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
       if (res.recorded) {
         console.log(`[King] room ${room.code} ${room.gameType} stats recorded (${res.humanPlayers ?? 0} player(s))`);
       }

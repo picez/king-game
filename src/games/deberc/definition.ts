@@ -46,7 +46,5 @@ export const debercGameDefinition: GameDefinition<DebercState, DebercAction> = {
   botAction: debercBotAction,
   redactStateFor: debercRedactStateFor,
   isFinished: isDebercFinished,
-  // No stats recorder yet (server/db has King + Durak recorders only); a deberc
-  // recorder is a future item. false → maybeRecordFinished skips deberc safely.
-  recordsStats: false,
+  recordsStats: true, // DEBERC-STATS-1: outcome-only stats (win/jackpot) per game_type='deberc'
 };

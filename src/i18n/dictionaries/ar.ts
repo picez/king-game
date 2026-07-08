@@ -280,6 +280,8 @@ export const AR: Record<string, string> = {
   'stats.lastGame': 'آخر لعبة',
   'stats.foolCount': 'مرّات الخسارة',
   'stats.draws': 'التعادلات',
+  'stats.jackpots': 'جوائز كبرى',
+  'stats.jackpotShort': 'ج.ك',
   'stats.byMode': 'النقاط حسب النمط',
   'stats.noGames': 'لا توجد ألعاب عبر الإنترنت مكتملة بعد',
   'stats.unavailable': 'الإحصائيات غير متاحة حاليًا.',

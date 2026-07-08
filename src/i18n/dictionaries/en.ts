@@ -280,6 +280,8 @@ export const EN: Record<string, string> = {
   'stats.lastGame': 'Last game',
   'stats.foolCount': 'Times fool',
   'stats.draws': 'Draws',
+  'stats.jackpots': 'Jackpots',
+  'stats.jackpotShort': 'JP',
   'stats.byMode': 'Score by mode',
   'stats.noGames': 'No completed online games yet',
   'stats.unavailable': 'Statistics are unavailable right now.',
