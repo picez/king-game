@@ -139,6 +139,13 @@ export interface TarneebState {
 
   /** The most recently scored hand (for the UI), or null. */
   lastHand: TarneebHandResult | null;
+  /**
+   * Score-only history of every scored hand this match, oldest first. Public
+   * (no cards — only bid/declarer/trump/tricks/score deltas per §8), so it stays
+   * in the redacted online state and feeds outcome stats. Grows on each scored
+   * hand; unchanged by a dead-auction redeal.
+   */
+  handHistory: TarneebHandResult[];
   /** Winning team once finished, else null. */
   winnerTeam: Team | null;
 }

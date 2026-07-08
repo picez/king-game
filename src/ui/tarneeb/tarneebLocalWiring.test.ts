@@ -41,15 +41,15 @@ describe('App routes local Tarneeb to its own screen', () => {
   });
 });
 
-describe('StartMenu — Tarneeb is selectable local AND (experimental) online', () => {
+describe('StartMenu — Tarneeb is selectable local AND online (released)', () => {
   const menu = read('../StartMenu.tsx');
   it('both the local and host pickers offer Tarneeb', () => {
-    expect(menu).toContain("context: 'local' | 'host'");
     expect(menu).toContain("value: 'tarneeb'");
-    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} context="local"');
-    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} context="host"');
+    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} />');
     // Tarneeb is no longer disabled in the host picker (Stage 10.5).
     expect(menu).not.toContain("icon: '♠️', disabled: true");
+    // Released (Stage 10.8): no Experimental tag in the picker.
+    expect(menu).not.toContain("sublabel: t('menu.experimental')");
   });
   it("host() sends gameType 'tarneeb' and still guards non-online games", () => {
     expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");

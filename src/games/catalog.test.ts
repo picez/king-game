@@ -9,7 +9,7 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King, Durak and Deberc (all available) plus Tarneeb (experimental)', () => {
+  it('registers King, Durak, Deberc and Tarneeb (all available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king');
     expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb']);
     expect(GAME_CATALOG.king).toMatchObject({
@@ -29,7 +29,7 @@ describe('game catalog', () => {
     expect(GAME_CATALOG.tarneeb).toMatchObject({
       id: 'tarneeb', minPlayers: 4, maxPlayers: 4, defaultPlayerCount: 4,
       supportsLocal: true, supportsOnline: true, supportsBots: true,
-      status: 'experimental', rulesDoc: 'TARNEEB_RULES.md',
+      status: 'available', rulesDoc: 'TARNEEB_RULES.md',
     });
   });
 
@@ -66,7 +66,7 @@ describe('game catalog', () => {
     expect(tarneeb).toEqual({
       id: 'tarneeb', title: 'gameType.tarneeb', shortTitle: 'gameType.tarneeb',
       minPlayers: 4, maxPlayers: 4, defaultPlayerCount: 4,
-      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'experimental',
+      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
     // Internal-only fields must never leak into the public shape.
     for (const g of pub) {

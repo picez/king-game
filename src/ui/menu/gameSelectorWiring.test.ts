@@ -56,8 +56,9 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).not.toMatch(/durak\.onlineExperimentalNote/); // Durak Experimental note removed
     // Durak's own option is subtitled with its variants, never "Experimental".
     expect(src).toContain("t('gameType.durak'), sublabel: t('durak.variantsShort')");
-    // (Tarneeb online IS experimental since Stage 10.5, so menu.experimental now
-    // legitimately appears for the Tarneeb host option — no longer forbidden.)
+    // (Tarneeb is released as of Stage 10.8 — no Experimental tag in the picker;
+    // menu.experimental is now only the generic GameSelector fallback for any
+    // future experimental game.)
   });
 });
 

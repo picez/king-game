@@ -273,6 +273,7 @@ export const UK: Record<string, string> = {
   'tarneeb.youPassed': 'Ви спасували — вибули з цих торгів',
   'tarneeb.mustFollow': 'Ходьте в масть, якщо можете',
   'tarneeb.partnerHint': 'Ваш партнер сидить навпроти (згори).',
+  'tarneeb.twoTeams': '2 команди',
   'lobby.title': 'Лоббі',
   'lobby.share': 'Код кімнати — поділіться з гравцями',
   'lobby.players': 'Гравці',
@@ -364,6 +365,10 @@ export const UK: Record<string, string> = {
   'stats.signInHint': 'Відкрийте «Профіль» → «Зберегти прогрес» (гість). Google не потрібен.',
   'stats.avgShort': 'сер.',
   'stats.bestShort': 'кращ.',
+  'stats.handsPlayed': 'Зіграно роздач',
+  'stats.declarerHands': 'Роздач як розігруючий',
+  'stats.contractRate': 'Виконання контрактів',
+  'stats.contractShort': 'Контракт',
   // ── gameplay ──
   'common.dealer': 'Дилер',
   'common.round': 'Раунд',

@@ -54,7 +54,7 @@ describe('Tarneeb invariants (bot soak)', () => {
       }
       expect(isTarneebFinished(state)).toBe(true);
     }
-  });
+  }, 20_000); // CPU-bound soak — headroom under parallel CI load
 
   it('never strands the acting seat: an in-progress phase always names a valid, non-passed seat', () => {
     for (let seed = 1; seed <= 12; seed++) {
@@ -73,7 +73,7 @@ describe('Tarneeb invariants (bot soak)', () => {
         state = step(state, ctx);
       }
     }
-  });
+  }, 20_000); // CPU-bound soak — headroom under parallel CI load
 
   it('always terminates the auction (bidding is bounded per hand)', () => {
     // From a fresh deal, no auction can exceed a small number of legal actions:

@@ -273,6 +273,7 @@ export const AR: Record<string, string> = {
   'tarneeb.youPassed': 'لقد مررت — خارج هذه المزايدة',
   'tarneeb.mustFollow': 'اتبع لون الافتتاح إن استطعت',
   'tarneeb.partnerHint': 'شريكك يجلس مقابلك (في الأعلى).',
+  'tarneeb.twoTeams': 'فريقان',
   'lobby.title': 'الردهة',
   'lobby.share': 'رمز الغرفة — شاركه مع اللاعبين',
   'lobby.players': 'اللاعبون',
@@ -364,6 +365,10 @@ export const AR: Record<string, string> = {
   'stats.signInHint': 'افتح «الحساب» ← «حفظ التقدّم» (ضيف). لا حاجة لحساب Google.',
   'stats.avgShort': 'متوسط',
   'stats.bestShort': 'أفضل',
+  'stats.handsPlayed': 'الجولات الملعوبة',
+  'stats.declarerHands': 'جولات كصاحب المزايدة',
+  'stats.contractRate': 'نجاح العقد',
+  'stats.contractShort': 'العقد',
   // ── gameplay ──
   'common.dealer': 'الموزّع',
   'common.round': 'الجولة',

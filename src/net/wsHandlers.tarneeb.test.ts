@@ -48,9 +48,9 @@ const create = (gameType: string): ClientMessage =>
   ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType } as ClientMessage);
 
 describe('wsHandlers now allows hosting Tarneeb online (Stage 10.5)', () => {
-  it('the catalog enables Tarneeb online (experimental)', () => {
+  it('the catalog enables Tarneeb online (available)', () => {
     expect(GAME_CATALOG.tarneeb.supportsOnline).toBe(true);
-    expect(GAME_CATALOG.tarneeb.status).toBe('experimental');
+    expect(GAME_CATALOG.tarneeb.status).toBe('available');
   });
 
   it('CREATE_ROOM tarneeb creates a 4-seat Tarneeb room', () => {

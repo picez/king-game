@@ -41,9 +41,11 @@ import { handleClientMessage, type WsContext, type SessionRef } from './wsHandle
 import { getGameDefinition } from '../src/games/registry';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
+import { tarneebFinishSignature } from '../src/net/tarneebStats';
 import type { GameState } from '../src/models/types';
 import type { DurakState } from '../src/games/durak/types';
 import type { DebercState } from '../src/games/deberc/types';
+import type { TarneebState } from '../src/games/tarneeb/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 import { IpConnectionLimiter, DEFAULT_IP_RATE_LIMITS, type IpRateLimitConfig } from '../src/net/ipRateLimit';
 
@@ -312,7 +314,8 @@ function maybeRecordFinished(room: ServerRoom): void {
   const gt = room.gameType;
   const sig = gt === 'durak' ? durakFinishSignature(state as DurakState)
     : gt === 'deberc' ? debercFinishSignature(state as DebercState)
-      : finishSignature(room);
+      : gt === 'tarneeb' ? tarneebFinishSignature(state as TarneebState)
+        : finishSignature(room);
   if (recordedFinish.get(room.code) === sig) return;
   recordedFinish.set(room.code, sig);
 
@@ -331,7 +334,9 @@ function maybeRecordFinished(room: ServerRoom): void {
         ? await (await import('./db/durakStats')).recordFinishedDurakGame(room.code, state as DurakState, seatUsers)
         : gt === 'deberc'
           ? await (await import('./db/debercStats')).recordFinishedDebercGame(room.code, state as DebercState, seatUsers)
-          : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
+          : gt === 'tarneeb'
+            ? await (await import('./db/tarneebStats')).recordFinishedTarneebGame(room.code, state as TarneebState, seatUsers)
+            : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
       if (res.recorded) {
         console.log(`[King] room ${room.code} ${room.gameType} stats recorded (${res.humanPlayers ?? 0} player(s))`);
       }

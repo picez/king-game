@@ -273,6 +273,7 @@ export const DE: Record<string, string> = {
   'tarneeb.youPassed': 'Du hast gepasst — aus dieser Auktion',
   'tarneeb.mustFollow': 'Bediene die angespielte Farbe, wenn möglich',
   'tarneeb.partnerHint': 'Dein Partner sitzt gegenüber (oben).',
+  'tarneeb.twoTeams': '2 Teams',
   'lobby.title': 'Lobby',
   'lobby.share': 'Raumcode — mit Spielern teilen',
   'lobby.players': 'Spieler',
@@ -364,6 +365,10 @@ export const DE: Record<string, string> = {
   'stats.signInHint': 'Öffne „Konto“ → „Fortschritt speichern“ (Gast). Kein Google nötig.',
   'stats.avgShort': 'Ø',
   'stats.bestShort': 'Best',
+  'stats.handsPlayed': 'Runden gespielt',
+  'stats.declarerHands': 'Runden als Alleinspieler',
+  'stats.contractRate': 'Kontrakt-Erfolg',
+  'stats.contractShort': 'Kontrakt',
   // ── gameplay ──
   'common.dealer': 'Geber',
   'common.round': 'Runde',

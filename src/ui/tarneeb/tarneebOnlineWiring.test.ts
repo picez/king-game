@@ -41,24 +41,25 @@ describe('TarneebOnlineGame is a thin, client-only, server-authoritative adapter
   });
 });
 
-describe('Lobby labels a Tarneeb room by its status, not a King mode (Stage 10.7 audit)', () => {
+describe('Lobby labels a Tarneeb room by its partnership, not a King mode (Stage 10.7/10.8)', () => {
   const lobby = read('../online/Lobby.tsx');
-  it("shows the Tarneeb status instead of dealer's-choice/fixed-order", () => {
+  it("shows the Tarneeb team label instead of dealer's-choice/fixed-order", () => {
     // A dedicated Tarneeb branch — Tarneeb has no King-style mode selection, so it
     // must NOT fall through to the dealerChoice/fixedOrder label.
     expect(lobby).toContain("room.gameType === 'tarneeb'");
-    expect(lobby).toContain("t('tarneeb.experimental')");
+    expect(lobby).toContain("t('tarneeb.twoTeams')");
     // The King mode label stays the final fallback (King behaviour unchanged).
     expect(lobby).toContain("room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')");
   });
 });
 
-describe('StartMenu can host Tarneeb online (Stage 10.5)', () => {
+describe('StartMenu can host Tarneeb online (released, Stage 10.8)', () => {
   const menu = read('../StartMenu.tsx');
-  it("sends gameType 'tarneeb' on create and tags it Experimental in the host picker", () => {
+  it("sends gameType 'tarneeb' on create with a plain (non-experimental) picker entry", () => {
     expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");
-    expect(menu).toContain("context === 'host'");
-    expect(menu).toContain("sublabel: t('menu.experimental'), icon: '♠️'"); // host tag
-    expect(menu).toContain("t('tarneeb.onlineBeta')"); // host note (4 players / 41)
+    expect(menu).toContain("value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.twoTeams')");
+    // No Experimental tag or beta note remains for Tarneeb.
+    expect(menu).not.toContain("sublabel: t('menu.experimental')");
+    expect(menu).not.toContain("t('tarneeb.onlineBeta')");
   });
 });

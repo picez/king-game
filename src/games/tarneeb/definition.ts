@@ -56,5 +56,5 @@ export const tarneebGameDefinition: GameDefinition<TarneebState, TarneebAction> 
   botAction: tarneebDefinitionBotAction,
   redactStateFor: tarneebRedactStateFor,
   isFinished: isTarneebFinished,
-  recordsStats: false, // Stage 10.2: no stats yet (enabled in the release stage 10.7)
+  recordsStats: true, // Stage 10.8: online Tarneeb records outcome/score stats
 };

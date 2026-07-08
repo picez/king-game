@@ -232,6 +232,61 @@ export async function fetchDebercStats(base: string): Promise<Loadable<DebercSta
   return failFor(status);
 }
 
+/** My Tarneeb stats — team outcome + contract/score aggregates; the flat view. */
+export interface TarneebStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number | null;
+  handsPlayed: number;
+  handsAsDeclarer: number;
+  contractsMade: number;
+  contractsFailed: number;
+  /** 0–100 over made+failed declarer hands, or null when none. */
+  contractSuccessRate: number | null;
+  /** Cumulative sum of the user's team final scores (can be negative). */
+  totalTeamScore: number;
+  averageTeamScore: number | null;
+  /** Best/worst team final score across games, or null when none. */
+  bestGameScore: number | null;
+  worstGameScore: number | null;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into TarneebStats. */
+export function parseTarneebStats(raw: unknown): TarneebStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  const made = num(s.contractsMade);
+  const failed = num(s.contractsFailed);
+  const decided = made + failed;
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    handsPlayed: num(s.handsPlayed),
+    handsAsDeclarer: num(s.handsAsDeclarer),
+    contractsMade: made,
+    contractsFailed: failed,
+    contractSuccessRate: 'contractSuccessRate' in s ? numOrNull(s.contractSuccessRate) : (decided > 0 ? Math.round((made / decided) * 100) : null),
+    totalTeamScore: num(s.totalTeamScore),
+    averageTeamScore: 'averageTeamScore' in s ? numOrNull(s.averageTeamScore) : (gamesPlayed > 0 ? Math.round(num(s.totalTeamScore) / gamesPlayed) : null),
+    bestGameScore: numOrNull(s.bestGameScore),
+    worstGameScore: numOrNull(s.worstGameScore),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/tarneeb/stats — the signed-in/guest user's own Tarneeb stats. */
+export async function fetchTarneebStats(base: string): Promise<Loadable<TarneebStats>> {
+  const { status, data } = await getJson(base, '/api/games/tarneeb/stats');
+  if (status === 200) return { state: 'ok', data: parseTarneebStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
@@ -326,6 +381,54 @@ export async function fetchDebercLeaderboard(base: string): Promise<Loadable<Deb
     const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
       .map(parseDebercLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
+/** One public Tarneeb leaderboard row — no user id; `self` marks the caller. */
+export interface TarneebLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  contractsMade: number;
+  contractsFailed: number;
+  contractSuccessRate: number | null;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parseTarneebLeaderboardRow(e: Record<string, unknown>): TarneebLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  const made = num(e.contractsMade);
+  const failed = num(e.contractsFailed);
+  const decided = made + failed;
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    contractsMade: made,
+    contractsFailed: failed,
+    contractSuccessRate: 'contractSuccessRate' in e ? numOrNull(e.contractSuccessRate) : (decided > 0 ? Math.round((made / decided) * 100) : null),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/tarneeb/leaderboard — public top Tarneeb players. */
+export async function fetchTarneebLeaderboard(base: string): Promise<Loadable<TarneebLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/tarneeb/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parseTarneebLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);

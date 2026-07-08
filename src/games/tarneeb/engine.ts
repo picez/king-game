@@ -44,9 +44,18 @@ const DEFAULT_OPTIONS: TarneebOptions = {
   allowNoTrump: false,
 };
 
-/** Deep clone of pure JSON state (no functions inside) — safe and simple. */
+/**
+ * Deep clone of the pure JSON state, EXCEPT `handHistory`, whose entries are
+ * append-only and never mutated in place — so we share the array by reference to
+ * keep every reducer action O(1) instead of re-copying a match-long history each
+ * time. `scoreHand` (the only writer) replaces the array with a fresh one, so the
+ * previous state's history is never mutated.
+ */
 function clone(state: TarneebState): TarneebState {
-  return JSON.parse(JSON.stringify(state)) as TarneebState;
+  const { handHistory, ...rest } = state;
+  const copy = JSON.parse(JSON.stringify(rest)) as TarneebState;
+  copy.handHistory = handHistory;
+  return copy;
 }
 
 function removeCard(hand: Card[], card: Card): void {
@@ -101,6 +110,7 @@ function startGame(action: Extract<TarneebAction, { type: 'START_GAME' }>, rng: 
     targetScore: options.targetScore,
     options,
     lastHand: null,
+    handHistory: [],
     winnerTeam: null,
   };
   return dealFreshHand(base, dealerSeat, rng, false);
@@ -189,6 +199,10 @@ function scoreHand(s: TarneebState): TarneebState {
     made,
     deltaByTeam: delta,
   };
+  // Append the score-only record to the match history (public; no cards, §13).
+  // A NEW array (not push) — clone shares the previous history by reference, so we
+  // must not mutate it in place.
+  s.handHistory = [...s.handHistory, s.lastHand];
 
   // Game end (§10): if a team is at/over target, the higher score wins; an exact
   // tie at/over target is NOT a finish — play one more hand.

@@ -87,9 +87,9 @@ export const GAME_CATALOG = {
     maxPlayers: 4,
     defaultPlayerCount: 4,
     supportsLocal: true,    // Stage 10.3: local hot-seat UI (1 human + 3 bots)
-    supportsOnline: true,   // Stage 10.5: server-authoritative online rooms (experimental)
+    supportsOnline: true,   // Stage 10.5: server-authoritative online rooms
     supportsBots: true,     // pure core has a working bot (Stage 10.1 soak)
-    status: 'experimental', // online is playable but rough; no stats until the release audit
+    status: 'available',    // Stage 10.8: release — stats recorded, no experimental tag
     rulesDoc: 'TARNEEB_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

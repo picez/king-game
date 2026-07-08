@@ -187,7 +187,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <h2 className="sheet__title">{t('menu.localSetupTitle')}</h2>
             <span className="sheet__who"><span aria-hidden="true">{avatar}</span> {name}</span>
           </div>
-          <GamePicker gameType={gameType} onPick={setGameType} t={t} context="local" />
+          <GamePicker gameType={gameType} onPick={setGameType} t={t} />
           <button type="button" className="btn btn--primary sheet__cta" onClick={() => onLocal(gameType)}>
             {t('menu.startLocal')}
           </button>
@@ -232,7 +232,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           {pane === 'host' && (
             <>
-              <GamePicker gameType={gameType} onPick={setGameType} t={t} context="host" />
+              <GamePicker gameType={gameType} onPick={setGameType} t={t} />
               {gameType === 'durak' && (
                 <div className="field">
                   <label className="field__label">{t('durak.variant')}</label>
@@ -265,7 +265,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               )}
               {gameType === 'tarneeb' && (
                 <div className="field">
-                  <p className="durak-variant-desc">{t('tarneeb.onlineBeta')}</p>
+                  <p className="durak-variant-desc">{t('tarneeb.setupTagline')}</p>
                 </div>
               )}
               {gameType === 'king' && (
@@ -403,20 +403,17 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
  * (Stage 10.3) and, since Stage 10.5, online as an EXPERIMENTAL game (the Host
  * sheet tags it "Experimental"; supportsOnline is now true).
  */
-function GamePicker({ gameType, onPick, t, context }: {
+function GamePicker({ gameType, onPick, t }: {
   gameType: GameType;
   onPick: (g: GameType) => void;
   t: (key: string) => string;
-  context: 'local' | 'host';
 }) {
   const options = [
     { value: 'king', label: t('gameType.king'), icon: '👑' },
     { value: 'durak', label: t('gameType.durak'), sublabel: t('durak.variantsShort'), icon: '🃏' },
     { value: 'deberc', label: t('gameType.deberc'), sublabel: t('deberc.matchShort'), icon: '🎴' },
-    // Online Tarneeb is experimental → tag it in the Host sheet; plain in Local.
-    context === 'host'
-      ? { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('menu.experimental'), icon: '♠️' }
-      : { value: 'tarneeb', label: t('gameType.tarneeb'), icon: '♠️' },
+    // Tarneeb is released (Stage 10.8) → a plain entry in both Host and Local.
+    { value: 'tarneeb', label: t('gameType.tarneeb'), sublabel: t('tarneeb.twoTeams'), icon: '♠️' },
   ];
   return (
     <div className="field">

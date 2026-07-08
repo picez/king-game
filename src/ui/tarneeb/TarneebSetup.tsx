@@ -19,10 +19,7 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
   return (
     <div className="screen menu-screen tarneeb-setup">
       <header className="menu-header">
-        <h1 className="menu-title">
-          🃏 {t('gameType.tarneeb')}
-          <span className="tarneeb-tag tarneeb-tag--exp">{t('tarneeb.experimental')}</span>
-        </h1>
+        <h1 className="menu-title">🃏 {t('gameType.tarneeb')}</h1>
         <p className="menu-tagline">{t('tarneeb.setupTagline')}</p>
       </header>
 
@@ -33,7 +30,6 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
           🎯 {t('tarneeb.target')}: <strong>41</strong>
         </p>
         <p className="tarneeb-setup__hint">{t('tarneeb.botsHint')}</p>
-        <p className="tarneeb-setup__hint tarneeb-setup__beta">🌐 {t('tarneeb.onlineBeta')}</p>
 
         <button
           type="button"

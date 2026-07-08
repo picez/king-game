@@ -31,10 +31,7 @@ export default function TarneebHelp({ onClose }: { onClose: () => void }) {
     >
       <div className="tarneeb-help" onClick={(e) => e.stopPropagation()}>
         <div className="tarneeb-help__head">
-          <h2 className="tarneeb-help__title">
-            {t('tarneeb.howToPlay')}
-            <span className="tarneeb-tag tarneeb-tag--exp">{t('tarneeb.experimental')}</span>
-          </h2>
+          <h2 className="tarneeb-help__title">{t('tarneeb.howToPlay')}</h2>
           <button
             type="button"
             className="btn btn--ghost tarneeb-help__x"

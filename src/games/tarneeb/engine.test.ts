@@ -135,6 +135,7 @@ function craftFinalTrick(opts: {
     targetScore,
     options: { targetScore, kabootMode: 'off', allowNoTrump: false },
     lastHand: null,
+    handHistory: [],
     winnerTeam: null,
   };
 }

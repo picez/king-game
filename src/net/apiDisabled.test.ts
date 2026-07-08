@@ -54,6 +54,20 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect((out.body as { error: string }).error).toBe('db_disabled');
   });
 
+  it('returns 503 db_disabled for the Tarneeb stats route (GET /api/games/tarneeb/stats)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/tarneeb/stats'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
+  it('returns 503 db_disabled for the Tarneeb leaderboard route (GET /api/games/tarneeb/leaderboard)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/tarneeb/leaderboard'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
   it('answers CORS preflight (OPTIONS) with 204 even without a DB', async () => {
     const { res, out } = mockRes();
     await handleApiRequest(mockReq('OPTIONS', '/api/settings'), res);
@@ -81,9 +95,9 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(durak.status).toBe('available'); // released (Stage 9.13)
     expect(durak.supportsLocal).toBe(true);
     expect(durak.supportsOnline).toBe(true);
-    // Tarneeb is playable local + online (experimental) since Stage 10.5.
+    // Tarneeb is playable local + online (released with stats) since Stage 10.8.
     const tarneeb = body.games.find((g) => g.id === 'tarneeb')!;
-    expect(tarneeb.status).toBe('experimental');
+    expect(tarneeb.status).toBe('available');
     expect(tarneeb.supportsLocal).toBe(true);
     expect(tarneeb.supportsOnline).toBe(true);
     // Public shape only — no internal fields leak.

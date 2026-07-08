@@ -66,8 +66,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               <>🎴 {t(room.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</>
             ) : room.gameType === 'tarneeb' ? (
               // Tarneeb has no dealer's-choice / fixed-order mode (fixed 2×2
-              // partnerships, bid-and-trump); show its status instead of a King term.
-              <>♠️ {t('tarneeb.experimental')}</>
+              // partnerships, bid-and-trump); show the partnership label, not a King term.
+              <>♠️ {t('tarneeb.twoTeams')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

@@ -273,6 +273,7 @@ export const EN: Record<string, string> = {
   'tarneeb.youPassed': 'You passed — out of this auction',
   'tarneeb.mustFollow': 'Follow the led suit if you can',
   'tarneeb.partnerHint': 'Your partner sits opposite (top).',
+  'tarneeb.twoTeams': '2 teams',
   'lobby.title': 'Lobby',
   'lobby.share': 'Room code — share with players',
   'lobby.players': 'Players',
@@ -364,6 +365,10 @@ export const EN: Record<string, string> = {
   'stats.signInHint': 'Open Account → Save progress (guest). No Google account needed.',
   'stats.avgShort': 'Avg',
   'stats.bestShort': 'Best',
+  'stats.handsPlayed': 'Hands played',
+  'stats.declarerHands': 'Declarer hands',
+  'stats.contractRate': 'Contract success',
+  'stats.contractShort': 'Contract',
   // ── gameplay ──
   'common.dealer': 'Dealer',
   'common.round': 'Round',

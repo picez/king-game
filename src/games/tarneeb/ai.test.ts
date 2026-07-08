@@ -43,6 +43,7 @@ function biddingStateWithHand(hand: Card[]): TarneebState {
     targetScore: 41,
     options: { targetScore: 41, kabootMode: 'off', allowNoTrump: false },
     lastHand: null,
+    handHistory: [],
     winnerTeam: null,
   };
 }
@@ -126,7 +127,7 @@ describe('Tarneeb bot', () => {
       expect(A).not.toBe(B);
       expect(state.winnerTeam).toBe(A > B ? 'A' : 'B');
     }
-  });
+  }, 20_000); // CPU-bound soak (40 full matches) — headroom under parallel CI load
 
   it('is deterministic — the same seed yields the same result', () => {
     const a = runBotMatch(7);
@@ -160,7 +161,7 @@ describe('Tarneeb bot', () => {
       }
       expect(isTarneebFinished(state)).toBe(true);
     }
-  });
+  }, 20_000); // CPU-bound soak (30 full matches)
 
   it('bids conservatively — never above the minimum on a hand it deems too weak', () => {
     // A hand with no honours and no long suit cannot plausibly make 7, so the bot
@@ -199,5 +200,5 @@ describe('Tarneeb bot', () => {
         state = tarneebReducer(state, action, ctx) as TarneebState;
       }
     }
-  });
+  }, 20_000); // CPU-bound soak (60 full matches)
 });
