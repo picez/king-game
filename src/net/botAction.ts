@@ -11,8 +11,9 @@
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { getCurrentPlayer } from '../core/gameEngine';
-import { aiChooseMode, aiChooseTrump, aiChooseKittyDiscards } from '../core/ai';
+import { aiChooseMode } from '../core/ai';
 import { aiChooseCardLookahead } from '../core/lookahead';
+import { chooseTrumpLookahead, chooseKittyDiscardsLookahead } from '../core/setupSearch';
 
 export function botAction(state: GameState): GameAction | null {
   switch (state.status) {
@@ -21,15 +22,12 @@ export function botAction(state: GameState): GameAction | null {
       return { type: 'CHOOSE_MODE', modeId: aiChooseMode(state.dealerModes[dealer.id]) };
     }
     case 'select_trump': {
-      const dealer = state.players[state.dealerIndex];
-      return { type: 'SELECT_TRUMP', suit: aiChooseTrump(dealer.hand) };
+      // Perfect-info rollout over the four suits (the server bot sees every hand).
+      return { type: 'SELECT_TRUMP', suit: chooseTrumpLookahead(state) };
     }
     case 'kitty_exchange': {
-      const dealer = state.players[state.dealerIndex];
-      return {
-        type: 'EXCHANGE_KITTY',
-        discards: aiChooseKittyDiscards(dealer.hand, state.config.kittySize, state.currentRound.mode.id),
-      };
+      // Perfect-info rollout over the legal discard combinations.
+      return { type: 'EXCHANGE_KITTY', discards: chooseKittyDiscardsLookahead(state) };
     }
     case 'playing': {
       const p = getCurrentPlayer(state);
