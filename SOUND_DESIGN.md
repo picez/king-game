@@ -119,7 +119,7 @@ a public `lastTrumpShow` banner — sound is fine; a hidden hand change is not).
 
 | result kind | sound id | prio | character | max dur | max vol |
 |---|---|---|---|---|---|
-| `win` / `teamWin` | `finish-win` | P0 | warm chime (2–3 gentle notes) | 900 ms | 0.6 |
+| `win` / `teamWin` | `finish-win` | P0 | warm chime (2–3 gentle notes) | 700 ms | 0.6 |
 | `draw` / `fool` / `loss` | `finish-neutral` | P1 | single soft chime / low note | 500 ms | 0.4 |
 
 Finish sounds are **one-shot** (never looped) and fire ONCE on entering the finished
@@ -181,11 +181,21 @@ screen — mirroring the celebration's "settle, don't loop" rule.
 
 Each stage is small, independently shippable, and keeps gameplay/server/DB unchanged.
 
-- **15.1 — Assets + manifest.** Generate the **P0** SFX (ui-click, card-play,
-  card-collect, finish-win, finish-neutral, ui-error) royalty-free; add `.webm`(+`.mp3`)
-  under `public/sounds/`; add `src/audio/soundManifest.ts`; add manifest guard tests
-  (each declared file exists, is a real audio container, under maxBytes; total < 500 KB).
-  No engine yet.
+- **15.1 — Assets + manifest. ✅ DONE.** Generated a royalty-free MVP SFX set —
+  **12 ids** (broadened past the original P0 six to cover the whole event map):
+  `ui-click, ui-open, ui-error, card-deal, card-play, trick-collect, trump-reveal,
+  bid-tick, chat-pop, reaction-pop, finish-win, finish-neutral`. Each ships as
+  **`.webm` (Opus) + `.mp3`** under `public/sounds/` — **24 files, ~55 KB total**
+  (well under the 500 KB budget; largest single file ~9 KB, under the 30 KB per-file
+  cap). Deterministic dep-free synth in `scripts/gen-sound-assets.mjs` (`npm run
+  sounds`; procedural WebAudio-style render → ffmpeg webm/mp3, no npm dependency).
+  Manifest at `src/audio/soundAssets.ts` (`SOUND_ASSETS`, `getSoundAsset`, `SoundId`);
+  guard tests assert every declared file exists in both formats, is non-empty, under
+  maxBytes, total under budget, plus a runtime-not-wired guard (no browser audio API
+  used, no importer of the manifest yet). **No engine / no playback yet.**
+  > Two ids differ from this section's earlier prose (§3): the shipped `trick-collect`
+  > / `trump-reveal` are the same sounds as `card-collect` / `card-trump` in §3.2 —
+  > the manifest ids are canonical for 15.2+.
 - **15.2 — Preference setting.** Add the `off | subtle | full` **sound preference** in
   Profile (its own row; a segmented control, no native select), local `localStorage`
   key (e.g. `cardMajlis.sound.v1`), default **off**. Optional profile sync ONLY if

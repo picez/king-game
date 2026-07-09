@@ -222,8 +222,21 @@ All must be green.
 
 ## Manual — Sound (PLACEHOLDER — not implemented; see SOUND_DESIGN.md, Stage 15.5)
 
-> There is **no audio in the app yet** (Stage 15.0 is docs-only). Fill this in when
-> sound ships. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+> **Assets exist (Stage 15.1), but there is still no playback** — no engine, no
+> wiring, sound OFF. The manual runtime checks below apply from Stage 15.3+; fill
+> them in when playback ships. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+
+**Asset verification (Stage 15.1 — automated, no device needed):**
+
+- [ ] `npm run sounds` regenerates the set deterministically (same bytes) and prints
+      each id's webm/mp3 size + a total under budget (ffmpeg with libopus + libmp3lame
+      required).
+- [ ] `npm test` — `src/audio/soundAssets.test.ts` passes: all 12 ids present as
+      **webm + mp3**, unique, `/sounds/`-scoped, under the per-file cap, total < 500 KB,
+      and the **runtime-not-wired guard** holds (no browser audio API used yet; nothing
+      imports the manifest).
+- [ ] After `npm run build`, `dist/sounds/` contains the 24 files (Vite copies
+      `public/sounds/`).
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

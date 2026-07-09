@@ -15,6 +15,7 @@
     "icons": "node scripts/generate-icons.mjs",
     "visuals": "node scripts/gen-visual-assets.mjs",
     "visuals:webp": "node scripts/optimize-webp.mjs",
+    "sounds": "node scripts/gen-sound-assets.mjs",
     "cards": "node scripts/slice-card-sources.mjs",
     "e2e": "tsx scripts/e2e-online.mjs",
     "social-shots": "node scripts/social-shots.mjs",

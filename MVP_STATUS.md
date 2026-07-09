@@ -178,11 +178,13 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- **Sound: designed, not implemented.** There is **no audio** in the app yet. The
-  full plan (default **OFF**, opt-in `off/subtle/full`, client-side-only event map,
-  royalty-free procedural SFX, staged rollout 15.1–15.5) is written up in
-  [`SOUND_DESIGN.md`](SOUND_DESIGN.md) (Stage 15.0, docs-only) — **implementation not
-  started**.
+- **Sound: assets present, not wired.** The MVP SFX set now exists — **12 sounds ×
+  webm+mp3 (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`),
+  generated dep-free by `npm run sounds` (Stage 15.1). But there is **still no audio in
+  the app**: no engine, no playback, no wiring, and **sound remains OFF** (there is no
+  preference UI yet — that's Stage 15.2). The full plan (default **OFF**, opt-in
+  `off/subtle/full`, client-side-only event map, staged rollout 15.1–15.5) is in
+  [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 - Room password is an **MVP gate**, not full moderation/auth; production should
   keep **WSS** enabled before a public launch.
 - **Per-connection** WS rate limiting is in place (message + CREATE_ROOM token
