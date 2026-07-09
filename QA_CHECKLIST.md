@@ -220,12 +220,13 @@ All must be green.
 - [ ] Offline after first load: **local** game still opens; online shows
       "Connecting…" (expected — online needs the network).
 
-## Manual — Sound (preference + preview live in 15.2; gameplay wiring is 15.4)
+## Manual — Sound (preference+preview 15.2; minimal P0 gameplay cues 15.3)
 
-> **Assets (15.1) + preference & minimal engine (15.2) exist.** Only the Profile
-> **"Preview sound"** button plays anything today; no card/game/chat/finish events are
-> wired (Stage 15.4), and sound is **OFF by default**. The gameplay runtime checks
-> further below apply from Stage 15.4+. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+> **Assets (15.1) + preference & engine (15.2) + P0 event wiring (15.3) are live.**
+> Sound is **OFF by default**. When enabled, the wired cues are: **card-play** &
+> **trick-collect** (visible table/trick), **trump-reveal** (trump becomes visible),
+> and **finish-win/neutral** (finished screen, once). Noisier cues (deal/bid/chat/
+> click) are deferred to 15.4. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 
 **Asset verification (Stage 15.1 — automated, no device needed):**
 
@@ -235,8 +236,9 @@ All must be green.
 - [ ] `npm test` — `src/audio/soundAssets.test.ts` passes: all 12 ids present as
       **webm + mp3**, unique, `/sounds/`-scoped, under the per-file cap, total < 500 KB,
       and the **wiring-boundary guard** holds (audio API only in the engine; the manifest
-      imported only by the engine; `soundEngine` imported only by `ProfilePanel`;
-      `messages.ts` carries no sound field).
+      imported only by the engine; `playSound` only in the event hook + `ProfilePanel`;
+      the hook only in the 4 game screens + `WinnerCelebration`; no core/server/games/net
+      module imports the audio layer; `messages.ts` carries no sound field).
 - [ ] After `npm run build`, `dist/sounds/` contains the 24 files (Vite copies
       `public/sounds/`).
 
@@ -253,6 +255,20 @@ All must be green.
 - [ ] No other button in the app makes a sound (only the explicit Preview is wired).
 - [ ] **RTL (Arabic):** the Sound row + Preview button lay out correctly at 360/390,
       no overflow, label/hint mirror properly.
+
+**P0 gameplay cues (Stage 15.3 — manual, ~2 min):**
+
+- [ ] Set **Sound = Subtle**, start a local game (any of King/Durak/Deberc/Tarneeb).
+- [ ] **card-play:** playing a card (yours or an opponent's, once visible) makes a soft
+      tap. Rapid deals do **not** stack into a burst (per-id throttle).
+- [ ] **trick-collect:** when the trick/bout is taken away, a collect cue plays.
+- [ ] **trump-reveal:** when the trump becomes visible (King/Deberc/Tarneeb after it's
+      chosen) a reveal cue plays once. Durak (fixed trump) plays no reveal — expected.
+- [ ] **finish:** on the finished screen, one cue — brighter for a win/teamWin, calm for
+      draw/fool/loss — and it does **not** replay on re-render.
+- [ ] **No mount replay:** entering a game already in progress (reconnect) does not
+      replay a burst of historical card sounds.
+- [ ] Switch **Sound = Off** and repeat: the whole game is **silent** (no cues at all).
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

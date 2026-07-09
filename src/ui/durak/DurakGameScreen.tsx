@@ -10,6 +10,7 @@ import {
 } from '../../games/durak/rules';
 import DurakHelp from './DurakHelp';
 import DurakDeck from './DurakDeck';
+import { useSoundEvents } from '../../audio/useSoundEvents';
 
 /** Transient "what just happened" banner (a bout resolved). */
 export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
@@ -55,6 +56,13 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // P0 sound cues (Stage 15.3): cards on the table (attacks + defenses) drive
+  // card-play as they pile on and trick-collect when the bout clears. Durak's trump
+  // is fixed & always visible, so trumpVisible is intentionally omitted (no reveal).
+  useSoundEvents({
+    tableCount: state.table.reduce((n, p) => n + 1 + (p.defense ? 1 : 0), 0),
+  });
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;

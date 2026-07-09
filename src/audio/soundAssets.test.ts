@@ -73,10 +73,22 @@ describe('sound asset manifest', () => {
 });
 
 // ── wiring-boundary guard (Stage 15.2 = engine exists, preview-only) ──────────
-// Stage 15.2 adds a sound preference, an external store, and a MINIMAL engine —
-// but the ONLY caller of playSound is the Profile "Preview sound" button. These
-// guards lock that boundary: the browser audio API stays inside the engine, no
-// game/table/chat UI imports the engine, and nothing leaks onto the WS protocol.
+// Stage 15.2 added a sound preference, an external store, and a MINIMAL engine.
+// Stage 15.3 adds a P0 gameplay-event hook (useSoundEvents). These guards lock the
+// boundary: the browser audio API stays inside the engine; playSound is called ONLY
+// by the hook + the Profile preview; the hook is used ONLY by the game screens + the
+// finish celebration; NO rules/engine/server/core imports the audio layer; and
+// nothing leaks onto the WS protocol.
+//
+// The non-test UI modules allowed to import the sound-event hook (game screens where a
+// visible transition happens, + the shared finish celebration). Update deliberately.
+const SOUND_HOOK_CONSUMERS = [
+  'ui/GameScreen.tsx',                     // King
+  'ui/components/WinnerCelebration.tsx',   // finish sound, all 4 games
+  'ui/deberc/DebercGameScreen.tsx',
+  'ui/durak/DurakGameScreen.tsx',
+  'ui/tarneeb/TarneebGameScreen.tsx',
+].sort();
 const SRC = fileURLToPath(new URL('..', import.meta.url)); // src/
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -91,8 +103,11 @@ const THIS = fileURLToPath(import.meta.url);
 const rel = (p: string) => p.slice(SRC.length).replace(/\\/g, '/');
 const body = (p: string) => readFileSync(p, 'utf8');
 
-describe('sound wiring boundary (Stage 15.2)', () => {
+describe('sound wiring boundary (Stage 15.2 + 15.3)', () => {
   const files = walk(SRC).filter((p) => p !== THIS);
+  const importersOf = (re: RegExp) => files
+    .filter((p) => !isTest(p) && re.test(body(p)))
+    .map(rel).sort();
 
   it('the browser audio API lives ONLY inside the sound engine', () => {
     const AUDIO_API = /\bnew Audio\s*\(|\bAudioContext\b|\bwebkitAudioContext\b|\bHTMLAudioElement\b/;
@@ -113,13 +128,25 @@ describe('sound wiring boundary (Stage 15.2)', () => {
       .toEqual(['audio/soundEngine.ts']);
   });
 
-  it('playSound (the engine) is imported ONLY by the Profile preview — no game/chat UI', () => {
-    const IMPORTS = /from\s+['"][^'"]*soundEngine['"]/;
-    const importers = files
-      .filter((p) => !isTest(p) && IMPORTS.test(body(p)))
-      .map(rel);
+  it('playSound (the engine) is imported ONLY by the event hook + the Profile preview', () => {
+    const importers = importersOf(/from\s+['"][^'"]*soundEngine['"]/);
     expect(importers, `unexpected soundEngine importers: ${importers.join(', ')}`)
-      .toEqual(['ui/menu/ProfilePanel.tsx']);
+      .toEqual(['audio/useSoundEvents.ts', 'ui/menu/ProfilePanel.tsx']);
+  });
+
+  it('the sound-event hook is imported ONLY by the game screens + finish celebration', () => {
+    const importers = importersOf(/from\s+['"][^'"]*useSoundEvents['"]/);
+    expect(importers, `unexpected useSoundEvents importers: ${importers.join(', ')}`)
+      .toEqual(SOUND_HOOK_CONSUMERS);
+  });
+
+  it('no rules/engine/server/core module imports the audio layer (sound is UI-only)', () => {
+    const AUDIO_IMPORT = /from\s+['"][^'"]*(audio\/(soundEngine|soundAssets|soundPreference|soundPreferenceStore|useSoundEvents)|\/audio['"])/;
+    const LOGIC_DIR = /^(core|server|games|net|hooks)\//;
+    const offenders = files
+      .filter((p) => !isTest(p) && LOGIC_DIR.test(rel(p)) && AUDIO_IMPORT.test(body(p)))
+      .map(rel);
+    expect(offenders, `logic modules must not import sound: ${offenders.join(', ')}`).toEqual([]);
   });
 
   it('the WS message protocol carries no sound/soundPreference fields', () => {

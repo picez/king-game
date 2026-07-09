@@ -12,6 +12,7 @@ import {
 } from '../../games/tarneeb/rules';
 import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
 import TarneebHelp from './TarneebHelp';
+import { useSoundEvents } from '../../audio/useSoundEvents';
 
 interface Props {
   state: TarneebState;
@@ -80,6 +81,14 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
   const trick = reviewTrick ?? state.currentTrick;
   const trumpRed = state.trumpSuit != null && isRed(state.trumpSuit);
+
+  // P0 sound cues (Stage 15.3): the VISIBLE trick (the reviewTrick freeze holds the
+  // just-completed trick for ~1.1s, then clears) drives card-play as cards land and
+  // trick-collect when it clears; trumpSuit null→set plays trump-reveal.
+  useSoundEvents({
+    tableCount: trick?.plays.length ?? 0,
+    trumpVisible: state.trumpSuit != null,
+  });
 
   // One clear instruction for the current moment.
   const actor = actingSeat != null ? state.players[actingSeat] : null;

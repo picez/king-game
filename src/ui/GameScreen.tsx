@@ -12,6 +12,7 @@ import CollectedPanel from './components/CollectedPanel';
 import ScoreBoard from './components/ScoreBoard';
 import ScoreTrackerButton from './components/ScoreTrackerButton';
 import TurnTimer from './components/TurnTimer';
+import { useSoundEvents } from '../audio/useSoundEvents';
 
 const SUIT_COLOR_CLASS: Record<Suit, string> = {
   hearts:   'trump-suit--red',
@@ -26,6 +27,13 @@ export default function GameScreen() {
   const [showScores, setShowScores] = useState(false);
   const [showRules, setShowRules] = useState(false);
   useEscToClose(() => setShowRules(false), showRules);
+
+  // P0 sound cues (Stage 15.3): cards in the trick drive card-play/trick-collect;
+  // trumpSuit going null→set plays trump-reveal. Client-side, no-op when sound off.
+  useSoundEvents({
+    tableCount: state?.currentTrick?.plays.length ?? 0,
+    trumpVisible: state?.trumpSuit != null,
+  });
 
   if (!state) return null;
 

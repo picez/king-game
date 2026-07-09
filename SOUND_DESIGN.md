@@ -222,15 +222,41 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
     Stage 15.4. Guard tests in `soundAssets.test.ts` lock: audio API only in the engine,
     manifest imported only by the engine, `soundEngine` imported only by `ProfilePanel`,
     and `messages.ts` carries no sound field.
-- **15.3 — Engine / hook.** A tiny client-side sound engine: lazy-init `AudioContext`
-  after the first gesture; preload **P0 only** (others on demand); `play(soundId)` is a
-  no-op when pref is `off`, tab hidden, or a file failed; per-id throttle/debounce;
-  respects the `subtle`/`full` volume tiers. **No test requires real audio playback** —
-  test the pure decision logic (should-play, throttle, volume tier) with the audio I/O
-  behind an injectable/mockable boundary.
-- **15.4 — Wire events (carefully, incrementally).** Start with the **P0** set only:
-  UI click, card-play, card-collect (trick), finish win/neutral. Verify no sound fires
-  for hidden info and no server change. Add P1/P2 in follow-ups.
+- **15.3 — Wire minimal P0 gameplay events. ✅ DONE.** With the engine already shipped
+  (15.2), this stage wires a small, safe P0 event set as **client-side UI feedback** —
+  no reducers/rules/server/protocol change, and nothing sounds for hidden info (every
+  cue reacts to state THIS client already sees). Still default **off**.
+  - **Hook** (`src/audio/useSoundEvents.ts`): `useSoundEvents({ tableCount?, trumpVisible? })`
+    diffs against the previous render via a ref and plays on the VISIBLE transition —
+    `tableCount` ↑ → **card-play**, `tableCount` ↓ → **trick-collect**, `trumpVisible`
+    false→true → **trump-reveal**. Plus `useFinishSound(celebratory)` — plays once per
+    finished-screen mount. Dedupe: no previous snapshot ⇒ nothing plays, so a fresh mount
+    or a reconnect-into-progress never replays a historical burst; only single-step
+    transitions fire and the engine throttles same-id repeats. Pure decision core
+    (`soundEventsFor` / `finishSoundFor`) is unit-tested in the node env; the hooks are
+    thin wrappers.
+  - **Wired per game** (the shared `*GameScreen`, so local **and** online both get it):
+    - **King** (`GameScreen`): `card-play`/`trick-collect` from `currentTrick.plays.length`;
+      `trump-reveal` from `trumpSuit` null→set. Finish via WinnerCelebration.
+    - **Durak** (`DurakGameScreen`): `card-play`/`trick-collect` from the table card count
+      (`Σ attacks + defenses`). **Trump reveal SKIPPED** — Durak's trump is fixed at deal
+      and always visible (no null→value transition). Finish via WinnerCelebration.
+    - **Deberc** (`DebercGameScreen`): `card-play`/`trick-collect` from `currentTrick.plays.length`;
+      `trump-reveal` from `trumpSuit` null→set (after bidding). Finish via WinnerCelebration.
+    - **Tarneeb** (`TarneebGameScreen`): `card-play`/`trick-collect` from the VISIBLE trick
+      (`(reviewTrick ?? currentTrick).plays.length` — the ~1.1s freeze then clear);
+      `trump-reveal` from `trumpSuit` null→set. Finish via WinnerCelebration.
+  - **Finish** (`src/ui/components/WinnerCelebration.tsx`): single integration point — all
+    4 finished screens mount it with a `kind`, so `useFinishSound(isCelebratoryKind(kind))`
+    plays `finish-win` for win/teamWin and `finish-neutral` for draw/fool/loss, once.
+  - **Deliberately NOT wired** (would be noisy): `ui-click` on buttons, `card-deal` per
+    dealt card, `bid-tick` per bid, `ui-error`, `chat-pop`, `reaction-pop`. Left for later.
+  - **Guards** (`soundAssets.test.ts`): audio API only in the engine; manifest only in the
+    engine; `playSound` only in the hook + Profile preview; the hook only in the 4 game
+    screens + WinnerCelebration; **no core/server/games/net/hooks module imports the audio
+    layer**; `messages.ts` still sound-free.
+- **15.4 — Expand (P1/P2), carefully.** Add P1/P2 cues (deal, bid-tick, chat/reaction pops,
+  error) incrementally, each verified for no hidden-info leak and no server change.
 - **15.5 — QA.** Manual matrix: iOS Safari + Android Chrome + desktop; first-gesture
   unlock; tab-hidden mute/resume; off/subtle/full; rapid-deal throttle; no double-sound
   online; budget check. Update QA_CHECKLIST.
