@@ -48,7 +48,11 @@ async function mergeSettings(tx: PostgresJsDatabase, fromId: string, toId: strin
   const favoriteGame = to.favoriteGame && to.favoriteGame !== 'king'
     ? to.favoriteGame
     : (from.favoriteGame ?? to.favoriteGame);
-  await tx.update(userSettings).set({ lang, avatar, cardStyle, animationPreference, favoriteGame, updatedAt: new Date() })
+  const cardFaceTheme = to.cardFaceTheme && to.cardFaceTheme !== 'classic'
+    ? to.cardFaceTheme
+    : (from.cardFaceTheme ?? to.cardFaceTheme);
+  await tx.update(userSettings)
+    .set({ lang, avatar, cardStyle, animationPreference, favoriteGame, cardFaceTheme, updatedAt: new Date() })
     .where(eq(userSettings.userId, toId));
   await tx.delete(userSettings).where(eq(userSettings.userId, fromId));
 }

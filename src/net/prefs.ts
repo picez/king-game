@@ -8,6 +8,7 @@ import type { StorageLike } from './session';
 import { isValidAvatar } from '../core/avatars';
 import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
 import { normalizeMotionPreference, type AnimationPreference } from '../ui/components/motionPref';
+import { normalizeCardFaceTheme, type CardFaceTheme } from '../ui/components/cardFaceTheme';
 import { normalizeFavoriteGame } from '../games/catalog';
 import type { GameType } from '../games/catalog';
 
@@ -19,6 +20,7 @@ const GUEST_KEY = 'king.guest.v1';
 const CARDBACK_KEY = 'king.cardStyle.v1';
 const MOTION_KEY = 'king.motion.v1';
 const FAVGAME_KEY = 'king.favoriteGame.v1';
+const CARDFACE_KEY = 'king.cardFaceTheme.v1';
 
 /** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 const TIMER_VALUES = [0, 30, 60, 90];
@@ -84,6 +86,19 @@ export function loadCardStyle(storage: StorageLike | null = defaultStorage()): C
 export function saveCardStyle(style: string, storage: StorageLike | null = defaultStorage()): void {
   const s = normalizeCardBack(style); // only ever persist a valid style
   try { storage?.setItem(CARDBACK_KEY, s); } catch { /* non-fatal */ }
+}
+
+/**
+ * Card face theme (Stage 13.5): 'classic' or 'clean'. A purely visual, local UI
+ * preference — never game state, never card identity. Unknown → 'classic'.
+ */
+export function loadCardFaceTheme(storage: StorageLike | null = defaultStorage()): CardFaceTheme {
+  return normalizeCardFaceTheme(storage?.getItem(CARDFACE_KEY));
+}
+
+export function saveCardFaceTheme(theme: string, storage: StorageLike | null = defaultStorage()): void {
+  const t = normalizeCardFaceTheme(theme); // only ever persist a valid theme
+  try { storage?.setItem(CARDFACE_KEY, t); } catch { /* non-fatal */ }
 }
 
 /**

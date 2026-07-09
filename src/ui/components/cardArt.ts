@@ -46,23 +46,29 @@ export const ALL_FACE_FILES: string[] = ART_SUITS.flatMap((s) =>
 );
 
 /**
- * Selectable card-back styles (Stage 13.0). A purely VISUAL profile preference —
- * never gameplay, never in room/WS state, never revealed. `'green'` is the classic
- * default; `'red'` is the burgundy/gold alternate. The DB/settings layer stores
- * the legacy value `'classic'` for green (see src/net/userSettings.ts), so
+ * Selectable card-back styles. A purely VISUAL profile preference — never
+ * gameplay, never in room/WS state, never revealed. `'green'` is the classic
+ * default; `'red'` is the burgundy/gold alternate (Stage 13.0); `'blue'` (sapphire)
+ * and `'dark'` (charcoal/gold) are added in Stage 13.5. The DB/settings layer
+ * stores the legacy value `'classic'` for green (see src/net/userSettings.ts), so
  * `normalizeCardBack` maps `'classic'`/unknown → `'green'` for backward compat.
  */
-export type CardBackStyle = 'green' | 'red';
-export const CARD_BACK_STYLES: readonly CardBackStyle[] = ['green', 'red'];
+export type CardBackStyle = 'green' | 'red' | 'blue' | 'dark';
+export const CARD_BACK_STYLES: readonly CardBackStyle[] = ['green', 'red', 'blue', 'dark'];
 
-/** Any input → a valid CardBackStyle. 'red' stays red; everything else → green. */
+/** Any input → a valid CardBackStyle. Known styles pass through; else → green. */
 export function normalizeCardBack(v: string | null | undefined): CardBackStyle {
-  return v === 'red' ? 'red' : 'green';
+  return (CARD_BACK_STYLES as readonly string[]).includes(v as string)
+    ? (v as CardBackStyle)
+    : 'green';
 }
 
-/** Maps a visual style to the server/DB setting value ('classic' = green). */
-export function cardBackToSetting(style: CardBackStyle): 'classic' | 'red' {
-  return style === 'red' ? 'red' : 'classic';
+/**
+ * Maps a visual style to the server/DB `card_style` value: green → the legacy
+ * `'classic'` (so existing rows are never broken); red/blue/dark are stored as-is.
+ */
+export function cardBackToSetting(style: CardBackStyle): 'classic' | 'red' | 'blue' | 'dark' {
+  return style === 'green' ? 'classic' : style;
 }
 
 /**

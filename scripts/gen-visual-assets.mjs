@@ -32,6 +32,9 @@ const WALNUT = [58, 36, 22], WALNUT_LIT = [96, 62, 36];
 const WARM = [58, 140, 78]; // felt with a warm lamp tint
 // Alternate card-back ground (Stage 13.0): dark red / burgundy enamel, lit centre.
 const BURGUNDY_LIT = [150, 34, 38], BURGUNDY_EDGE = [74, 12, 16];
+// Stage 13.5 card-back grounds: sapphire blue + dark charcoal (gold ornament pops).
+const SAPPHIRE_LIT = [38, 84, 176], SAPPHIRE_EDGE = [14, 34, 82];
+const CHARCOAL_LIT = [46, 42, 34], CHARCOAL_EDGE = [18, 16, 12];
 
 // ── math helpers ────────────────────────────────────────────────────────────
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -299,6 +302,8 @@ emit('visual/menu-hero-portrait.png', png(1242, 2208, 1, (x, y) => hero(x, y, tr
 emit('visual/menu-hero-wide.png', png(2560, 1440, 1, (x, y) => hero(x, y, false)));
 emit('cards/back/back-green.png', png(750, 1050, 3, cardBackWith(FELT_LIT, FELT_EDGE)));
 emit('cards/back/back-red.png', png(750, 1050, 3, cardBackWith(BURGUNDY_LIT, BURGUNDY_EDGE)));
+emit('cards/back/back-blue.png', png(750, 1050, 3, cardBackWith(SAPPHIRE_LIT, SAPPHIRE_EDGE)));
+emit('cards/back/back-dark.png', png(750, 1050, 3, cardBackWith(CHARCOAL_LIT, CHARCOAL_EDGE)));
 emit('visual/icons/game-king.png', png(512, 512, 4, iconKing));
 emit('visual/icons/game-durak.png', png(512, 512, 4, iconDurak));
 emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));

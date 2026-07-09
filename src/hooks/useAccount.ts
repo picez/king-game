@@ -6,11 +6,12 @@ import {
 } from '../net/profileApi';
 import { loadGuestKey, saveGuestKey } from '../net/prefs';
 import type { Lang } from '../i18n';
-import type { CardStyle, AnimationPreference, FavoriteGame } from '../net/userSettings';
+import type { CardStyle, AnimationPreference, FavoriteGame, CardFaceTheme } from '../net/userSettings';
 
 export interface SaveProgressInput {
   name: string; avatar: string; lang: Lang; defaultTimer: number;
   cardStyle: CardStyle; animationPreference: AnimationPreference; favoriteGame: FavoriteGame;
+  cardFaceTheme: CardFaceTheme;
 }
 
 /**
@@ -47,6 +48,7 @@ export interface Account {
   pushCardStyle: (v: CardStyle) => void;
   pushAnimation: (v: AnimationPreference) => void;
   pushFavoriteGame: (v: FavoriteGame) => void;
+  pushCardFaceTheme: (v: CardFaceTheme) => void;
 }
 
 export function useAccount(serverUrl: string): Account {
@@ -101,7 +103,7 @@ export function useAccount(serverUrl: string): Account {
       await updateSettings(base, {
         lang: input.lang, avatar: input.avatar,
         cardStyle: input.cardStyle, animationPreference: input.animationPreference,
-        favoriteGame: input.favoriteGame,
+        favoriteGame: input.favoriteGame, cardFaceTheme: input.cardFaceTheme,
       });
       await updateKingSettings(base, { defaultTimer: input.defaultTimer });
       await hydrate();
@@ -117,11 +119,12 @@ export function useAccount(serverUrl: string): Account {
   const pushCardStyle = useCallback((v: CardStyle) => { if (hasSession) void updateSettings(base, { cardStyle: v }); }, [base, hasSession]);
   const pushAnimation = useCallback((v: AnimationPreference) => { if (hasSession) void updateSettings(base, { animationPreference: v }); }, [base, hasSession]);
   const pushFavoriteGame = useCallback((v: FavoriteGame) => { if (hasSession) void updateSettings(base, { favoriteGame: v }); }, [base, hasSession]);
+  const pushCardFaceTheme = useCallback((v: CardFaceTheme) => { if (hasSession) void updateSettings(base, { cardFaceTheme: v }); }, [base, hasSession]);
 
   return {
     base, me, apiReachable, hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
     banner, clearBanner: () => setBanner(null), syncing, googleUrl: googleStartUrl(base),
-    hydrate, saveProgress, logout, pushName, pushAvatar, pushLang, pushTimer, pushCardStyle, pushAnimation, pushFavoriteGame,
+    hydrate, saveProgress, logout, pushName, pushAvatar, pushLang, pushTimer, pushCardStyle, pushAnimation, pushFavoriteGame, pushCardFaceTheme,
   };
 }

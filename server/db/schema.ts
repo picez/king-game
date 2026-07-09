@@ -73,6 +73,8 @@ export const userSettings = pgTable('user_settings', {
   animationPreference: text('animation_preference').notNull().default('system'),
   /** Favorite game (Stage 13.3): king|durak|deberc|tarneeb. Pre-selects the picker. */
   favoriteGame: text('favorite_game').notNull().default('king'),
+  /** Card face theme (Stage 13.5): classic|clean. Purely visual. */
+  cardFaceTheme: text('card_face_theme').notNull().default('classic'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

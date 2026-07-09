@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
-import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame } from '../../net/prefs';
+import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
   CARD_BACK_STYLES, cardBackUrl, cardBackWebpUrl, cardBackToSetting, type CardBackStyle,
 } from '../components/cardArt';
 import { useCardBackStyle, setCardBackStyle } from '../components/cardBackStore';
+import { CARD_FACE_THEMES, type CardFaceTheme } from '../components/cardFaceTheme';
+import { useCardFaceTheme, setCardFaceTheme } from '../components/cardFaceStore';
 import { ANIMATION_PREFERENCES, type AnimationPreference } from '../components/motionPref';
 import { useMotionPreference, setMotionPreference } from '../components/motionPreferenceStore';
 import { GAME_TYPES, type GameType } from '../../games/catalog';
@@ -16,6 +18,20 @@ import { gameIconSrc } from '../../visual/visualAssets';
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
 /** Emoji fallback for each game's favorite-picker option (matches StartMenu). */
 const GAME_EMOJI: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
+
+/** i18n label key per card-back style. */
+const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {
+  green: 'profile.cardBackClassic',
+  red: 'profile.cardBackRed',
+  blue: 'profile.cardBackBlue',
+  dark: 'profile.cardBackDark',
+};
+
+/** i18n label key per card-face theme. */
+const CARD_FACE_LABEL_KEY: Record<CardFaceTheme, string> = {
+  classic: 'profile.cardFacesClassic',
+  clean: 'profile.cardFacesClean',
+};
 
 /** i18n key for each animation option's label. */
 const ANIMATION_LABEL_KEY: Record<AnimationPreference, string> = {
@@ -50,6 +66,7 @@ export default function ProfilePanel({
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
   const cardBack = useCardBackStyle();
+  const cardFace = useCardFaceTheme();
   const animation = useMotionPreference();
 
   // The LanguageSelector persists the language locally; mirror it to the server.
@@ -66,7 +83,13 @@ export default function ProfilePanel({
   function changeCardBack(v: CardBackStyle) {
     setCardBackStyle(v); saveCardStyle(v); account.pushCardStyle(cardBackToSetting(v));
   }
-  const cardBackLabel = (s: CardBackStyle) => t(s === 'red' ? 'profile.cardBackRed' : 'profile.cardBackClassic');
+  const cardBackLabel = (s: CardBackStyle) => t(CARD_BACK_LABEL_KEY[s]);
+  // Card face theme is a local, CSS-only visual pref (store + <html data-card-faces>),
+  // persisted locally + mirrored to the server profile when signed in.
+  function changeCardFace(v: CardFaceTheme) {
+    setCardFaceTheme(v); saveCardFaceTheme(v); account.pushCardFaceTheme(v);
+  }
+  const cardFaceLabel = (th: CardFaceTheme) => t(CARD_FACE_LABEL_KEY[th]);
   // Animation intensity is a local visual pref applied immediately (store + <html>
   // attrs), persisted locally, and mirrored to the server profile when signed in.
   // The OS reduced-motion setting still overrides 'full'/'system' at apply time.
@@ -118,6 +141,8 @@ export default function ProfilePanel({
         <p className="field__hint">{t('profile.favoriteGameHint')}</p>
       </div>
 
+      <h3 className="profile-section-head">{t('profile.appearance')}</h3>
+
       <div className="field">
         <label className="field__label">{t('profile.cardBack')}</label>
         <div className="cardback-picker" role="radiogroup" aria-label={t('profile.cardBack')}>
@@ -135,6 +160,26 @@ export default function ProfilePanel({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('profile.cardFaces')}</label>
+        <div className="cardface-picker" role="radiogroup" aria-label={t('profile.cardFaces')}>
+          {CARD_FACE_THEMES.map((th) => (
+            <button key={th} type="button" role="radio" aria-checked={cardFace === th}
+              className={`cardface-swatch ${cardFace === th ? 'cardface-swatch--on' : ''}`}
+              onClick={() => changeCardFace(th)} title={cardFaceLabel(th)}>
+              {/* A tiny MOCK sample card (independent of the live global theme) so
+                  each swatch always previews its OWN look. */}
+              <span className={`cardface-sample cardface-sample--${th}`} aria-hidden="true">
+                <span className="cardface-sample__index">A<span className="cardface-sample__suit">♠</span></span>
+                <span className="cardface-sample__center">♠</span>
+              </span>
+              <span className="cardface-swatch__label">{cardFaceLabel(th)}</span>
+            </button>
+          ))}
+        </div>
+        <p className="field__hint">{t('profile.cardFacesHint')}</p>
       </div>
 
       <div className="field">
@@ -176,7 +221,7 @@ export default function ProfilePanel({
       {account.apiReachable && !account.hasSession && (
         <div className="profile-form__sync">
           <button className="btn btn--ghost btn--small" disabled={account.syncing}
-            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation, favoriteGame })}>
+            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation, favoriteGame, cardFaceTheme: cardFace })}>
             {account.syncing ? `${t('net.connecting')}…` : `☁️ ${t('account.syncProfile')}`}
           </button>
           <p className="field__hint">{t('account.signInCta')}</p>

@@ -98,6 +98,13 @@
 :root[data-card-back="red"] {
   --card-back: url('/cards/back/back-red.png');
 }
+/* Stage 13.5: sapphire-blue + charcoal/gold alternates (same graceful fallback). */
+:root[data-card-back="blue"] {
+  --card-back: url('/cards/back/back-blue.png');
+}
+:root[data-card-back="dark"] {
+  --card-back: url('/cards/back/back-dark.png');
+}
 
 /* Stage 12.9: where `image-set()` is supported, prefer the much smaller WebP for
    the big OPAQUE assets; the PNG urls set above stay as the universal fallback
@@ -109,6 +116,12 @@
   }
   :root[data-card-back="red"] {
     --card-back: image-set(url('/cards/back/back-red.webp') type('image/webp'), url('/cards/back/back-red.png') type('image/png'));
+  }
+  :root[data-card-back="blue"] {
+    --card-back: image-set(url('/cards/back/back-blue.webp') type('image/webp'), url('/cards/back/back-blue.png') type('image/png'));
+  }
+  :root[data-card-back="dark"] {
+    --card-back: image-set(url('/cards/back/back-dark.webp') type('image/webp'), url('/cards/back/back-dark.png') type('image/png'));
   }
 }
 

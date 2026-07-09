@@ -114,22 +114,23 @@ describe('card back style selection (Stage 13.0)', () => {
   const BACK_DIR = join(process.cwd(), 'public', 'cards', 'back');
   const RIFF = Buffer.from('RIFF', 'ascii');
 
-  it('exposes exactly the green + red styles', () => {
-    expect([...CARD_BACK_STYLES]).toEqual(['green', 'red']);
+  it('exposes green + red + blue + dark styles (Stage 13.5)', () => {
+    expect([...CARD_BACK_STYLES]).toEqual(['green', 'red', 'blue', 'dark']);
   });
 
-  it("normalizes 'red' to red and everything else (classic/unknown/null) to green", () => {
-    expect(normalizeCardBack('red')).toBe('red');
-    expect(normalizeCardBack('green')).toBe('green');
+  it('normalizes known styles through, and classic/unknown/null → green', () => {
+    for (const s of ['red', 'green', 'blue', 'dark']) expect(normalizeCardBack(s)).toBe(s);
     expect(normalizeCardBack('classic')).toBe('green'); // legacy DB value
     expect(normalizeCardBack('holographic')).toBe('green');
     expect(normalizeCardBack(null)).toBe('green');
     expect(normalizeCardBack(undefined)).toBe('green');
   });
 
-  it('maps a visual style back to the server setting value (classic = green)', () => {
+  it('maps a visual style back to the server setting value (green = classic; rest as-is)', () => {
     expect(cardBackToSetting('green')).toBe('classic');
     expect(cardBackToSetting('red')).toBe('red');
+    expect(cardBackToSetting('blue')).toBe('blue');
+    expect(cardBackToSetting('dark')).toBe('dark');
   });
 
   it('cardBackUrl / cardBackWebpUrl resolve per style; default stays green', () => {
@@ -155,10 +156,25 @@ describe('card back style selection (Stage 13.0)', () => {
     }
   });
 
-  it('the red back is a DISTINCT image from the green back (different bytes)', () => {
-    const green = readFileSync(join(BACK_DIR, 'back-green.png'));
-    const red = readFileSync(join(BACK_DIR, 'back-red.png'));
-    expect(green.equals(red)).toBe(false);
+  it('every back style is a DISTINCT image (different bytes from each other)', () => {
+    const bytes = [...CARD_BACK_STYLES].map((s) => readFileSync(join(BACK_DIR, `back-${s}.png`)));
+    for (let i = 0; i < bytes.length; i++) {
+      for (let j = i + 1; j < bytes.length; j++) {
+        expect(bytes[i].equals(bytes[j]), `${CARD_BACK_STYLES[i]} vs ${CARD_BACK_STYLES[j]}`).toBe(false);
+      }
+    }
+  });
+
+  it('cardBackUrl / cardBackWebpUrl are same-origin, traversal-free .png/.webp', () => {
+    for (const s of CARD_BACK_STYLES) {
+      const png = cardBackUrl(s), webp = cardBackWebpUrl(s);
+      for (const u of [png, webp]) {
+        expect(u.includes('..'), u).toBe(false);
+        expect(/^https?:|^\/\//.test(u), `${u} is not an external URL`).toBe(false);
+      }
+      expect(png.endsWith(`back-${s}.png`)).toBe(true);
+      expect(webp.endsWith(`back-${s}.webp`)).toBe(true);
+    }
   });
 });
 

@@ -38,6 +38,9 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   // Stage 13.0: burgundy/gold alternate card back (a profile visual pref). P1 so
   // the "8 P0 assets" invariant is unchanged; carries a WebP variant like green.
   { id: 'card-back-red',  src: '/cards/back/back-red.png',          format: 'png', maxBytes: 260_000, priority: 'P1', present: true, webp: '/cards/back/back-red.webp' },
+  // Stage 13.5: sapphire-blue + charcoal/gold alternate card backs (profile prefs).
+  { id: 'card-back-blue', src: '/cards/back/back-blue.png',         format: 'png', maxBytes: 260_000, priority: 'P1', present: true, webp: '/cards/back/back-blue.webp' },
+  { id: 'card-back-dark', src: '/cards/back/back-dark.png',         format: 'png', maxBytes: 260_000, priority: 'P1', present: true, webp: '/cards/back/back-dark.webp' },
   { id: 'icon-king',      src: '/visual/icons/game-king.png',       format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-durak',     src: '/visual/icons/game-durak.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-deberc',    src: '/visual/icons/game-deberc.png',     format: 'png', maxBytes: 150_000, priority: 'P0', present: true },

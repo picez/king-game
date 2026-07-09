@@ -3,7 +3,7 @@ import type { StorageLike } from './session';
 import {
   loadDefaultTimer, saveDefaultTimer, loadGuestKey, saveGuestKey,
   loadNickname, saveNickname, loadAvatar, saveAvatar,
-  loadCardStyle, saveCardStyle,
+  loadCardStyle, saveCardStyle, loadCardFaceTheme, saveCardFaceTheme,
 } from './prefs';
 import { AVATARS } from '../core/avatars';
 
@@ -35,13 +35,13 @@ describe('prefs — guest device handle (Stage 4)', () => {
 });
 
 describe('prefs — card back style (Stage 13.0)', () => {
-  it('defaults to green and round-trips green/red', () => {
+  it('defaults to green and round-trips every back style (Stage 13.5)', () => {
     const s = mem();
     expect(loadCardStyle(s)).toBe('green');
-    saveCardStyle('red', s);
-    expect(loadCardStyle(s)).toBe('red');
-    saveCardStyle('green', s);
-    expect(loadCardStyle(s)).toBe('green');
+    for (const style of ['red', 'blue', 'dark', 'green'] as const) {
+      saveCardStyle(style, s);
+      expect(loadCardStyle(s)).toBe(style);
+    }
   });
 
   it('maps the legacy "classic" value and rejects junk → green', () => {
@@ -50,6 +50,23 @@ describe('prefs — card back style (Stage 13.0)', () => {
     expect(loadCardStyle(s)).toBe('green');
     saveCardStyle('holographic', s);    // off the whitelist → green
     expect(loadCardStyle(s)).toBe('green');
+  });
+});
+
+describe('prefs — card face theme (Stage 13.5)', () => {
+  it('defaults to classic and round-trips classic/clean', () => {
+    const s = mem();
+    expect(loadCardFaceTheme(s)).toBe('classic');
+    saveCardFaceTheme('clean', s);
+    expect(loadCardFaceTheme(s)).toBe('clean');
+    saveCardFaceTheme('classic', s);
+    expect(loadCardFaceTheme(s)).toBe('classic');
+  });
+
+  it('rejects junk → classic', () => {
+    const s = mem();
+    saveCardFaceTheme('holographic', s); // off the whitelist → classic
+    expect(loadCardFaceTheme(s)).toBe('classic');
   });
 });
 

@@ -242,6 +242,26 @@
 .card--art .card__corner,
 .card--art .card__center { display: none; }
 
+/* ----- Card FACE theme (Stage 13.5): a purely visual, CSS-only reading aid,
+   toggled by <html data-card-faces="clean"> (default 'classic' = no rule). It does
+   NOT change the artwork files, rank/suit, or any game state — it re-surfaces a
+   bold, high-contrast top-left index chip over the artwork and crisps the frame.
+   Applied to artwork cards only (not the tiny mini/review cards). ----- */
+:root[data-card-faces="clean"] .card {
+  border-color: rgba(15, 15, 15, 0.6);
+}
+:root[data-card-faces="clean"] .card--art:not(.card--mini) .card__corner--tl {
+  display: flex;
+  top: 2px;
+  left: 2px;
+  padding: 1px 4px 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+:root[data-card-faces="clean"] .card--art:not(.card--mini) .card__corner--tl .card__rank { font-size: 0.95rem; font-weight: 900; }
+:root[data-card-faces="clean"] .card--art:not(.card--mini) .card__corner--tl .card__suit { font-size: 0.85rem; }
+
 /* ----- Hidden card back (public/cards/back/back-green.png, Stage 12.2) ----- */
 .card__back {
   position: absolute; inset: 0; width: 100%; height: 100%;

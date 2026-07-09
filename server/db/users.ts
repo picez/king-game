@@ -20,6 +20,7 @@ import { getDb } from './client';
 import {
   sanitizeGlobalSettings, sanitizeDisplayName, sanitizeGameSettings,
   DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF, DEFAULT_FAVORITE_GAME,
+  DEFAULT_CARD_FACE_THEME,
   type GlobalSettings,
 } from '../../src/net/userSettings';
 
@@ -85,6 +86,7 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
       animationPreference:
         (s?.animationPreference as GlobalSettings['animationPreference']) ?? DEFAULT_ANIMATION_PREF,
       favoriteGame: (s?.favoriteGame as GlobalSettings['favoriteGame']) ?? DEFAULT_FAVORITE_GAME,
+      cardFaceTheme: (s?.cardFaceTheme as GlobalSettings['cardFaceTheme']) ?? DEFAULT_CARD_FACE_THEME,
     },
   };
 }
@@ -113,11 +115,13 @@ export async function upsertGlobalSettings(
     cardStyle: patch.cardStyle ?? cur?.cardStyle,
     animationPreference: patch.animationPreference ?? cur?.animationPreference,
     favoriteGame: patch.favoriteGame ?? cur?.favoriteGame,
+    cardFaceTheme: patch.cardFaceTheme ?? cur?.cardFaceTheme,
   };
   const clean = sanitizeGlobalSettings(merged);
   const cols = {
     lang: clean.lang, avatar: clean.avatar, cardStyle: clean.cardStyle,
-    animationPreference: clean.animationPreference, favoriteGame: clean.favoriteGame, updatedAt: new Date(),
+    animationPreference: clean.animationPreference, favoriteGame: clean.favoriteGame,
+    cardFaceTheme: clean.cardFaceTheme, updatedAt: new Date(),
   };
   await db.insert(userSettings).values({ userId, ...cols }).onConflictDoUpdate({
     target: userSettings.userId,

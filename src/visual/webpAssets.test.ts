@@ -14,9 +14,9 @@ const withWebp = VISUAL_ASSETS.filter((a) => a.webp);
 const RIFF = Buffer.from('RIFF', 'ascii');
 
 describe('WebP variants (Stage 12.9)', () => {
-  it('optimizes the big opaque assets (heroes + felt + both card backs)', () => {
+  it('optimizes the big opaque assets (heroes + felt + all four card backs)', () => {
     expect(withWebp.map((a) => a.id).sort()).toEqual(
-      ['card-back-green', 'card-back-red', 'felt-tile', 'menu-hero-portrait', 'menu-hero-wide'],
+      ['card-back-blue', 'card-back-dark', 'card-back-green', 'card-back-red', 'felt-tile', 'menu-hero-portrait', 'menu-hero-wide'],
     );
   });
 

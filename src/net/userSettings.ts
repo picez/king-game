@@ -24,10 +24,19 @@ export type Lang = (typeof SUPPORTED_LANGS)[number];
 export const DEFAULT_LANG: Lang = 'en';
 
 // 'classic' = the green back (kept as the stored default so existing card_style
-// rows are never broken); 'red' = the burgundy/gold alternate (Stage 13.0).
-export const SUPPORTED_CARD_STYLES = ['classic', 'red'] as const;
+// rows are never broken); 'red' = burgundy/gold (Stage 13.0); 'blue' = sapphire,
+// 'dark' = charcoal/gold (Stage 13.5). Whitelist EXTENSION only — no DB schema
+// change (card_style is a free text column; unknown values sanitise to 'classic').
+export const SUPPORTED_CARD_STYLES = ['classic', 'red', 'blue', 'dark'] as const;
 export type CardStyle = (typeof SUPPORTED_CARD_STYLES)[number];
 export const DEFAULT_CARD_STYLE: CardStyle = 'classic';
+
+// Card face theme (Stage 13.5) — a purely visual CSS theme for face-up cards
+// (NOT the artwork files). Same value space on client + server. 'classic' = the
+// current look; 'clean' = a higher-contrast, larger-index reading aid.
+export const SUPPORTED_CARD_FACE_THEMES = ['classic', 'clean'] as const;
+export type CardFaceTheme = (typeof SUPPORTED_CARD_FACE_THEMES)[number];
+export const DEFAULT_CARD_FACE_THEME: CardFaceTheme = 'classic';
 
 // Animation-intensity preference (Stage 13.2). Same value space on client and
 // server (no mapping, unlike cardStyle), mirrored from src/ui/components/motionPref.ts
@@ -80,6 +89,13 @@ export function sanitizeFavoriteGame(v: unknown): FavoriteGame {
   return isSupportedFavoriteGame(v) ? v : DEFAULT_FAVORITE_GAME;
 }
 
+export function isSupportedCardFaceTheme(v: unknown): v is CardFaceTheme {
+  return typeof v === 'string' && (SUPPORTED_CARD_FACE_THEMES as readonly string[]).includes(v);
+}
+export function sanitizeCardFaceTheme(v: unknown): CardFaceTheme {
+  return isSupportedCardFaceTheme(v) ? v : DEFAULT_CARD_FACE_THEME;
+}
+
 /** Whitelisted emoji id or null — never free text (XSS-safe, like prefs.ts). */
 export function sanitizeAvatarOrNull(v: unknown): string | null {
   return isValidAvatar(v) ? v : null;
@@ -108,6 +124,8 @@ export interface GlobalSettings {
   animationPreference: AnimationPreference;
   /** Favorite game (Stage 13.3) — pre-selects the Local/Host picker. */
   favoriteGame: FavoriteGame;
+  /** Card face theme (Stage 13.5) — visual only; 'classic' is the current look. */
+  cardFaceTheme: CardFaceTheme;
 }
 
 /**
@@ -123,6 +141,7 @@ export function sanitizeGlobalSettings(input: unknown): GlobalSettings {
     cardStyle: sanitizeCardStyle(o.cardStyle),
     animationPreference: sanitizeAnimationPref(o.animationPreference),
     favoriteGame: sanitizeFavoriteGame(o.favoriteGame),
+    cardFaceTheme: sanitizeCardFaceTheme(o.cardFaceTheme),
   };
 }
 

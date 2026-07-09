@@ -228,6 +228,7 @@ async function handlePatchSettings(req: IncomingMessage, res: ServerResponse, us
   if ('cardStyle' in body) patch.cardStyle = body.cardStyle;
   if ('animationPreference' in body) patch.animationPreference = body.animationPreference;
   if ('favoriteGame' in body) patch.favoriteGame = body.favoriteGame;
+  if ('cardFaceTheme' in body) patch.cardFaceTheme = body.cardFaceTheme;
   const settings = await upsertGlobalSettings(userId, patch);
   json(res, 200, { settings }, corsHeaders(req));
 }

@@ -3,8 +3,9 @@ import { AVATARS } from '../core/avatars';
 import {
   sanitizeLang, sanitizeCardStyle, sanitizeAvatarOrNull, normalizeTurnTimer,
   sanitizeDisplayName, sanitizeGlobalSettings, sanitizeGameSettings,
-  sanitizeAnimationPref, sanitizeFavoriteGame,
-  DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF, DEFAULT_FAVORITE_GAME, MAX_DISPLAY_NAME,
+  sanitizeAnimationPref, sanitizeFavoriteGame, sanitizeCardFaceTheme,
+  DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF, DEFAULT_FAVORITE_GAME,
+  DEFAULT_CARD_FACE_THEME, MAX_DISPLAY_NAME,
 } from './userSettings';
 
 describe('userSettings field validators', () => {
@@ -15,11 +16,22 @@ describe('userSettings field validators', () => {
     expect(sanitizeLang(undefined)).toBe(DEFAULT_LANG);
   });
 
-  it('validates card style with fallback', () => {
+  it('validates card style with fallback (whitelist extended, Stage 13.5)', () => {
     expect(sanitizeCardStyle('classic')).toBe('classic');
     expect(sanitizeCardStyle('red')).toBe('red'); // Stage 13.0 alternate
+    expect(sanitizeCardStyle('blue')).toBe('blue'); // Stage 13.5
+    expect(sanitizeCardStyle('dark')).toBe('dark'); // Stage 13.5
     expect(sanitizeCardStyle('holographic')).toBe(DEFAULT_CARD_STYLE);
     expect(sanitizeCardStyle('green')).toBe(DEFAULT_CARD_STYLE); // client visual value ≠ stored value
+  });
+
+  it('validates the card face theme with fallback (Stage 13.5)', () => {
+    expect(sanitizeCardFaceTheme('classic')).toBe('classic');
+    expect(sanitizeCardFaceTheme('clean')).toBe('clean');
+    expect(sanitizeCardFaceTheme('holographic')).toBe(DEFAULT_CARD_FACE_THEME);
+    expect(sanitizeCardFaceTheme(undefined)).toBe(DEFAULT_CARD_FACE_THEME);
+    expect(sanitizeCardFaceTheme(7)).toBe(DEFAULT_CARD_FACE_THEME);
+    expect(DEFAULT_CARD_FACE_THEME).toBe('classic');
   });
 
   it('validates the animation preference with fallback (Stage 13.2)', () => {
@@ -68,12 +80,13 @@ describe('sanitizeGlobalSettings', () => {
   const dflt = {
     lang: DEFAULT_LANG, avatar: null, cardStyle: DEFAULT_CARD_STYLE,
     animationPreference: DEFAULT_ANIMATION_PREF, favoriteGame: DEFAULT_FAVORITE_GAME,
+    cardFaceTheme: DEFAULT_CARD_FACE_THEME,
   };
   it('produces a fully valid object from partial/garbage input', () => {
-    expect(sanitizeGlobalSettings({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced', favoriteGame: 'durak' }))
-      .toEqual({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced', favoriteGame: 'durak' });
+    expect(sanitizeGlobalSettings({ lang: 'de', avatar: AVATARS[1], cardStyle: 'blue', animationPreference: 'reduced', favoriteGame: 'durak', cardFaceTheme: 'clean' }))
+      .toEqual({ lang: 'de', avatar: AVATARS[1], cardStyle: 'blue', animationPreference: 'reduced', favoriteGame: 'durak', cardFaceTheme: 'clean' });
     expect(sanitizeGlobalSettings({})).toEqual(dflt);
-    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope', favoriteGame: 'poker' })).toEqual(dflt);
+    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope', favoriteGame: 'poker', cardFaceTheme: 'nope' })).toEqual(dflt);
     expect(sanitizeGlobalSettings(null)).toEqual(dflt);
   });
 });
