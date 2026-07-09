@@ -413,7 +413,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                           <li key={r.code}>
                             <button
                               type="button" role="row"
-                              className={`server-browser__row ${code === r.code ? 'server-browser__row--selected' : ''}`}
+                              className={`server-browser__row server-browser__row--${r.status} ${code === r.code ? 'server-browser__row--selected' : ''}`}
                               onClick={() => pickRoom(r)} disabled={!joinable}
                               aria-disabled={!joinable} title={joinable ? r.code : statusLabel}>
                               <span className="sb-cell sb-host" data-label={t('join.col.host')} role="cell">

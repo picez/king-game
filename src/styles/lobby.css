@@ -37,14 +37,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.14) 100%),
+    var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--success);
+  /* Logical leading-edge rail so it sits on the correct side in LTR *and* RTL. */
+  border-inline-start: 3px solid var(--success);
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.8rem;
-  box-shadow: var(--top-light);
+  box-shadow: var(--top-light), 0 1px 3px rgba(0, 0, 0, 0.22);
 }
-.lobby-member--offline { border-left-color: var(--text-dim); }
+.lobby-member--offline { border-inline-start-color: var(--text-dim); }
+/* Tarneeb 2×2 team link on the seat rail (offline still wins the dim rail). */
+.lobby-member--partner:not(.lobby-member--offline)  { border-inline-start-color: var(--accent); }
+.lobby-member--opponent:not(.lobby-member--offline) { border-inline-start-color: rgba(240, 170, 120, 0.7); }
 
 .lobby-member__name { font-weight: 700; display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .lobby-member__name .member-avatar { font-size: 1.3rem; }

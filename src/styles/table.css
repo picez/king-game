@@ -311,7 +311,8 @@
   color: var(--text-muted); min-width: 0.9rem; text-align: center;
 }
 .room-filter__chip--on .room-filter__count { color: var(--accent-light); }
-.room-sort { margin-inline-start: auto; width: auto; min-width: 9.5rem; max-width: 12rem; }
+.room-sort { margin-inline-start: auto; width: auto; min-width: 8rem; max-width: 10.5rem; }
+.room-sort .select-menu__trigger { min-height: 34px; padding-block: 0.3rem; font-size: 0.85rem; }
 
 .server-browser {
   max-height: 42vh;
@@ -352,21 +353,37 @@
   text-align: start;
   cursor: pointer;
   color: var(--text);
-  background: var(--surface-2);
+  /* A little more depth than a flat fill — a top-light sheen over the surface. */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(0, 0, 0, 0.14) 100%),
+    var(--surface-2);
   border: 1px solid var(--border);
+  /* Status rail on the leading edge (coloured below) for at-a-glance scanning;
+     logical property so it stays on the correct side in RTL. */
+  border-inline-start: 3px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 0.5rem 0.7rem;
   min-height: var(--tap-min);
-  box-shadow: var(--top-light);
-  transition: border-color 0.15s, background 0.15s, transform 0.08s;
+  box-shadow: var(--top-light), 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s, background 0.15s, transform 0.08s, box-shadow 0.15s;
 }
-.server-browser__row:hover:not(:disabled) { border-color: rgba(245, 197, 24, 0.5); background: var(--surface-3); transform: translateY(-1px); }
+.server-browser__row:hover:not(:disabled) {
+  border-color: rgba(245, 197, 24, 0.5);
+  background: linear-gradient(180deg, rgba(245, 197, 24, 0.08) 0%, rgba(0, 0, 0, 0.12) 100%), var(--surface-3);
+  transform: translateY(-1px);
+  box-shadow: var(--top-light), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
 .server-browser__row:disabled { opacity: 0.5; cursor: not-allowed; }
 .server-browser__row--selected {
   border-color: var(--accent);
   background: rgba(245, 197, 24, 0.14);
   box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.4);
 }
+/* Leading status rail: open=green, full=gold, in-game=quiet. The `--selected`
+   ring above still wins the rest of the border. */
+.server-browser__row--lobby   { border-inline-start-color: var(--success); }
+.server-browser__row--full    { border-inline-start-color: var(--accent); }
+.server-browser__row--in_game { border-inline-start-color: var(--text-dim); }
 .sb-cell { min-width: 0; font-size: 0.9rem; }
 .sb-host { display: flex; align-items: center; gap: 0.5rem; }
 .sb-host__avatar { font-size: 1.3rem; line-height: 1; flex: none; }

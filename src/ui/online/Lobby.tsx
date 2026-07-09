@@ -38,6 +38,16 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   const enough = players.length >= minPlayers;
   const hasFreeSeat = players.length < maxPlayers;
 
+  // Tarneeb is fixed 2×2 partnerships (even seats vs odd seats). Tint each seat
+  // card's rail by whether they are on the viewer's team — a visual "0/2 vs 1/3"
+  // link. Purely cosmetic: seat assignment/order is unchanged.
+  const isTeamGame = gameType === 'tarneeb';
+  const myParity = myPlayerId ? Number(myPlayerId.split('-')[1]) % 2 : 0;
+  const teamClass = (seatIndex: number | null) =>
+    isTeamGame && seatIndex != null
+      ? ((seatIndex % 2) === myParity ? ' lobby-member--partner' : ' lobby-member--opponent')
+      : '';
+
   function handleKick(clientId: string) {
     // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
     if (typeof window === 'undefined' || window.confirm(t('lobby.kickConfirm'))) onKick(clientId);
@@ -84,7 +94,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {room.members.map((m) => {
               const isMe = `player-${m.seatIndex}` === myPlayerId;
               return (
-                <li key={m.clientId} className={`lobby-member ${m.type === 'human' && !m.connected ? 'lobby-member--offline' : ''}`}>
+                <li key={m.clientId} className={`lobby-member${m.type === 'human' && !m.connected ? ' lobby-member--offline' : ''}${teamClass(m.seatIndex)}`}>
                   <span className="lobby-member__name">
                     {m.avatar && <span className="member-avatar">{m.avatar}</span>}
                     {m.name}{isMe ? ` ${t('lobby.you')}` : ''}
