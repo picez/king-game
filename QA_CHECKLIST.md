@@ -1,4 +1,4 @@
-# QA Checklist — King
+# QA Checklist — Card Majlis
 
 Automated coverage: `npm test` (unit) and `npm run e2e` (full online flow over
 WebSocket against a real server, incl. restart restore). This file is the

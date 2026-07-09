@@ -2,6 +2,11 @@
  * Lightweight user preferences in localStorage (persists across sessions,
  * unlike the per-tab online session). Stores ONLY non-sensitive UI prefs —
  * never game state, hands, or passwords.
+ *
+ * NOTE (Stage 14.0 rebrand): the `king.*` localStorage key prefix below is a
+ * LEGACY internal namespace, NOT the product brand. The app is now "Card Majlis";
+ * these keys are deliberately kept as-is (no migration) so existing users' saved
+ * prefs survive the rename. Do not treat `king.*` as a user-facing product name.
  */
 
 import type { StorageLike } from './session';

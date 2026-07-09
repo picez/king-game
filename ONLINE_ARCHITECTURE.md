@@ -1,4 +1,4 @@
-# Online Multiplayer Architecture — King
+# Online Multiplayer Architecture — Card Majlis
 
 This document describes how online play is layered on top of the existing
 local (pass-and-play) game, what is already in place, and the concrete next

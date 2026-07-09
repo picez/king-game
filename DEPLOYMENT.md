@@ -1,6 +1,6 @@
-# Deployment — King (VPS, HTTPS/WSS)
+# Deployment — Card Majlis (VPS, HTTPS/WSS)
 
-This is the practical path to run King online on a VPS with TLS, so the client
+This is the practical path to run Card Majlis online on a VPS with TLS, so the client
 loads over **HTTPS** and the WebSocket connects over **WSS**. LAN/dev stays
 trivial (see the last section).
 

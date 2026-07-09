@@ -2,8 +2,8 @@
 // Keys are UNCHANGED. Missing keys fall back to English in translate().
 
 export const DE: Record<string, string> = {
-  'app.title': 'King — Kartenspiel',
-  'app.subtitle': 'Ein klassisches Stichspiel',
+  'app.title': 'Card Majlis',
+  'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz & Tarneeb',
   'menu.play': 'Spielen',
   'menu.localTitle': 'Lokal spielen',
   'menu.localSub': 'Gerät am Tisch weitergeben',

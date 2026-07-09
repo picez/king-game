@@ -2,8 +2,8 @@
 // Keys are UNCHANGED. English is the source / fallback.
 
 export const EN: Record<string, string> = {
-  'app.title': 'King — Card Game',
-  'app.subtitle': 'A classic trick-taking game',
+  'app.title': 'Card Majlis',
+  'app.subtitle': 'A card lounge for King, Durak, Deberc & Tarneeb',
   'menu.play': 'Play',
   'menu.localTitle': 'Play locally',
   'menu.localSub': 'Pass & play on this device',

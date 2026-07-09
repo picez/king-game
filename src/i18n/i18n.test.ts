@@ -78,13 +78,21 @@ describe('i18n encoding integrity (no mojibake; 4 languages only)', () => {
     expect(LANGS.some((l) => /Русск/i.test(l.label))).toBe(false);
   });
 
+  it('keeps "Card Majlis" as the product brand (untranslated, every language)', () => {
+    for (const { code } of LANGS) {
+      expect(translate(code, 'app.title')).toBe('Card Majlis');
+    }
+  });
+
   it('renders real native text per language (not corrupted bytes)', () => {
-    expect(translate('uk', 'app.title')).toContain('Кінг');     // not "Рљ.."/"Р.."
-    expect(translate('de', 'app.title')).toContain('Kartenspiel'); // not "Г.."
-    expect(translate('ar', 'app.title')).toMatch(/[؀-ۿ]/); // Arabic block, not "Щ.."
-    expect(translate('uk', 'app.title')).not.toMatch(/Рљ|Рџ|РЈ/);
-    expect(translate('de', 'app.title')).not.toContain('Г');
-    expect(translate('ar', 'app.title')).not.toContain('Щ');
+    // The localized SUBTITLE now carries the native-script check (the title is the
+    // untranslated brand). It lists the localized game names (Stage 14.0 rebrand).
+    expect(translate('uk', 'app.subtitle')).toContain('Кінг');     // not "Рљ.."/"Р.."
+    expect(translate('de', 'app.subtitle')).toContain('König');    // not "Г.."
+    expect(translate('ar', 'app.subtitle')).toMatch(/[؀-ۿ]/); // Arabic block, not "Щ.."
+    expect(translate('uk', 'app.subtitle')).not.toMatch(/Рљ|Рџ|РЈ/);
+    expect(translate('de', 'app.subtitle')).not.toContain('Г');
+    expect(translate('ar', 'app.subtitle')).not.toContain('Щ');
   });
 
   it('no visible translation string contains classic mojibake markers', () => {

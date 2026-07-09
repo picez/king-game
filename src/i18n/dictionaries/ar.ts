@@ -2,8 +2,8 @@
 // Keys are UNCHANGED. Arabic (RTL). Missing keys fall back to English in translate().
 
 export const AR: Record<string, string> = {
-  'app.title': 'كينغ — لعبة ورق',
-  'app.subtitle': 'لعبة أكلات كلاسيكية',
+  'app.title': 'Card Majlis',
+  'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب',
   'menu.play': 'العب',
   'menu.localTitle': 'لعب محلي',
   'menu.localSub': 'مرّر الجهاز بين اللاعبين',
