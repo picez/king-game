@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { DebercState } from '../../games/deberc/types';
 import { DebercScoreSheet } from './DebercScoreTable';
+import WinnerCelebration from '../components/WinnerCelebration';
 
 interface Props {
   state: DebercState;
@@ -22,6 +23,8 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit }: 
   return (
     <div className="screen durak-screen durak-finished">
       <div className="durak-finished__card finish-frame">
+        {/* Celebrate the winning team; a loss renders the calm state. */}
+        <WinnerCelebration kind={won ? 'teamWin' : 'loss'} />
         <div className="durak-finished__emoji" aria-hidden="true">{won ? '🏆' : '🙃'}</div>
         <h1 className="durak-finished__title">{title}</h1>
         {state.jackpot && <p className="durak-finished__sub">🎴 {t('deberc.jackpot')}</p>}

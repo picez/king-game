@@ -1,6 +1,7 @@
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import ScoreTracker from './components/ScoreTracker';
+import WinnerCelebration from './components/WinnerCelebration';
 
 interface RankedPlayer {
   name: string;
@@ -31,6 +32,8 @@ export default function GameFinishedScreen() {
   return (
     <div className="screen center-screen">
       <div className="modal-card modal-card--wide finish-frame">
+        {/* Decorative gold flourish for the winner; a tie renders the calm state. */}
+        <WinnerCelebration kind={winners.length === 1 ? 'win' : 'draw'} />
         <h1 className="finished-title">{t('finished.title')}</h1>
 
         <div className="winner-banner">

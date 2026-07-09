@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
 import { teamOfSeat } from '../../games/tarneeb/rules';
 import type { TarneebState } from '../../games/tarneeb/types';
+import WinnerCelebration from '../components/WinnerCelebration';
 
 interface Props {
   state: TarneebState;
@@ -20,6 +21,8 @@ export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit 
   return (
     <div className="screen tarneeb-screen tarneeb-finished">
       <div className="tarneeb-finished__card finish-frame">
+        {/* Celebrate the winning team; a loss renders the calm state. */}
+        <WinnerCelebration kind={humanWon ? 'teamWin' : 'loss'} />
         <div className="tarneeb-finished__emoji" aria-hidden="true">{humanWon ? '🏆' : '🙁'}</div>
         <h1 className="tarneeb-finished__title">{title}</h1>
         <p className="tarneeb-finished__sub">
