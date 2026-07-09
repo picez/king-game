@@ -236,6 +236,21 @@
 .card--art .card__corner,
 .card--art .card__center { display: none; }
 
+/* ----- Hidden card back (public/cards/back/back-green.png, Stage 12.2) ----- */
+.card__back {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; border-radius: inherit;
+  pointer-events: none; user-select: none; -webkit-user-drag: none;
+}
+/* A green/gold CSS back is the fallback UNDER the image (shown if it 404s). */
+.card--back {
+  background:
+    repeating-linear-gradient(45deg, rgba(245, 197, 24, 0.10) 0 3px, transparent 3px 6px),
+    linear-gradient(160deg, #2a5d44, #143a2a);
+}
+.card--back .card__corner,
+.card--back .card__center { display: none; }
+
 /* Table (current-trick) cards: show the FULL artwork (with its own indices) via
    object-fit:contain on the cream backing — the deck's ratio (~0.62) matches the
    table slot (~0.627) so there is no visible letterbox, and crucially the

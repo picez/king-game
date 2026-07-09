@@ -41,11 +41,12 @@
   position: absolute;
   inset: 2.6rem 0.5rem;
   border-radius: 50% / 44%;
-  /* Felt: a lit centre, a faint diagonal weave, and a darker rolled edge. */
+  /* Felt: a lit centre, a woven nap texture (Stage 12.2), and a darker rolled edge. */
   background:
     radial-gradient(ellipse at 50% 38%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 45%),
-    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.035) 0 2px, rgba(255, 255, 255, 0.012) 2px 4px),
+    var(--felt-tile) center / 240px 240px repeat,
     radial-gradient(ellipse at 50% 42%, var(--felt-lit) 0%, var(--felt-mid) 46%, var(--felt-edge) 82%, var(--felt-deep) 100%);
+  background-blend-mode: normal, soft-light, normal;
   /* A raised wooden/leather rim: dark ring + a thin gold hairline inside it. */
   border: 8px solid #1a0f06;
   box-shadow:

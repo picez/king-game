@@ -462,8 +462,18 @@
 }
 
 .ai-card-back {
-  font-size: 2rem;
-  opacity: 0.3;
+  /* A small ornamental card back (Stage 12.2) — the 🂠 glyph is hidden and acts as
+     a no-op if the image + CSS fallback both fail. */
+  display: inline-block;
+  width: 1.6rem; height: 2.24rem;
+  border-radius: 0.28rem;
+  color: transparent; font-size: 0; line-height: 0; overflow: hidden;
+  background:
+    var(--card-back) center / cover no-repeat,
+    repeating-linear-gradient(45deg, rgba(245, 197, 24, 0.10) 0 3px, transparent 3px 6px),
+    linear-gradient(160deg, #2a5d44, #143a2a);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   user-select: none;
 }
 

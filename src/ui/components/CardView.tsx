@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Card, Suit } from '../../models/types';
-import { cardFaceUrl } from './cardArt';
+import { cardFaceUrl, CARD_BACK_URL } from './cardArt';
 import { useI18n } from '../../i18n';
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
@@ -64,11 +64,16 @@ export default function CardView({
     : '';
 
   const isFace = card.rank === 'J' || card.rank === 'Q' || card.rank === 'K' || card.rank === 'A';
+  // A redacted/hidden card (the server replaces opponents' cards with rank '?',
+  // cast into the Card shape — so compare as a string, not a Rank literal).
+  const isHidden = (card.rank as string) === '?';
 
   // Real card artwork (already includes its own corner indices + centre motif).
   const artUrl = cardFaceUrl(card.suit, card.rank);
   const [artFailed, setArtFailed] = useState(false);
-  const showArt = artUrl !== null && !artFailed;
+  const [backFailed, setBackFailed] = useState(false);
+  const showArt = !isHidden && artUrl !== null && !artFailed;
+  const showBack = isHidden && !backFailed; // the ornamental back image (else CSS back)
 
   return (
     <button
@@ -77,12 +82,24 @@ export default function CardView({
         ` card--rank-${card.rank.toLowerCase()}` +
         (isFace ? ' card--face' : '') +
         (highlight ? ' card--highlight' : '') +
+        (isHidden ? ' card--back' : '') +
         (showArt ? ' card--art' : '')
       }
       onClick={disabled ? undefined : onClick}
       disabled={disabled && !onClick}
-      aria-label={t('card.label').replace('{rank}', card.rank).replace('{suit}', t(`suit.${card.suit}`))}
+      aria-label={isHidden ? t('card.hidden') : t('card.label').replace('{rank}', card.rank).replace('{suit}', t(`suit.${card.suit}`))}
     >
+      {showBack && (
+        <img
+          className="card__back"
+          src={CARD_BACK_URL}
+          alt=""
+          draggable={false}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBackFailed(true)}
+        />
+      )}
       {showArt && (
         <img
           className="card__art"

@@ -48,6 +48,7 @@ export const EN: Record<string, string> = {
   'common.close': 'Close',
   'common.offline': 'Offline',
   'card.label': '{rank} of {suit}',
+  'card.hidden': 'Hidden card',
   'btn.leave': 'Leave room',
   'join.title': 'Join online room',
   'host.title': 'Host online room',

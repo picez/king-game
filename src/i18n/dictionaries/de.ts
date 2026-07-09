@@ -48,6 +48,7 @@ export const DE: Record<string, string> = {
   'common.close': 'Schließen',
   'common.offline': 'Offline',
   'card.label': '{rank} {suit}',
+  'card.hidden': 'Verdeckte Karte',
   'btn.leave': 'Raum verlassen',
   'join.title': 'Online-Raum beitreten',
   'host.title': 'Online-Raum erstellen',

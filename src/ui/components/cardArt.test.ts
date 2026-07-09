@@ -7,6 +7,8 @@ import {
   ART_SUITS,
   cardFaceFile,
   cardFaceUrl,
+  cardBackUrl,
+  CARD_BACK_URL,
 } from './cardArt';
 import type { Rank, Suit } from '../../models/types';
 
@@ -63,6 +65,19 @@ describe('cardFaceUrl mapping', () => {
     expect(cardFaceUrl(undefined, 'A')).toBeNull();
     expect(cardFaceUrl('spades', undefined)).toBeNull();
     expect(cardFaceUrl('joker' as Suit, 'A')).toBeNull();
+  });
+});
+
+describe('card back asset (Stage 12.2)', () => {
+  const BACK = join(process.cwd(), 'public', 'cards', 'back', 'back-green.png');
+  it('cardBackUrl / CARD_BACK_URL resolve to /cards/back/back-green.png', () => {
+    expect(cardBackUrl()).toContain('cards/back/back-green.png');
+    expect(CARD_BACK_URL).toContain('cards/back/back-green.png');
+  });
+  it('the back PNG exists in public/cards/back and is a real, non-empty PNG', () => {
+    expect(existsSync(BACK), 'back-green.png should exist').toBe(true);
+    expect(statSync(BACK).size).toBeGreaterThan(0);
+    expect(readFileSync(BACK).subarray(0, 8).equals(PNG_SIG)).toBe(true);
   });
 });
 

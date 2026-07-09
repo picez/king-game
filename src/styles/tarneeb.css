@@ -83,7 +83,10 @@
   position: absolute;
   inset: 0;
   border-radius: 1.1rem;
-  background: radial-gradient(70% 60% at 50% 45%, var(--felt-lit) 0%, var(--felt-mid) 55%, var(--felt-edge) 100%);
+  background:
+    var(--felt-tile) center / 240px 240px repeat,
+    radial-gradient(70% 60% at 50% 45%, var(--felt-lit) 0%, var(--felt-mid) 55%, var(--felt-edge) 100%);
+  background-blend-mode: soft-light, normal;
   border: 1px solid var(--border);
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35);
 }

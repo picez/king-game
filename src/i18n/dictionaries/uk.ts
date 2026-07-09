@@ -48,6 +48,7 @@ export const UK: Record<string, string> = {
   'common.close': 'Закрити',
   'common.offline': 'Не в мережі',
   'card.label': '{rank} {suit}',
+  'card.hidden': 'Прихована карта',
   'btn.leave': 'Вийти з кімнати',
   'join.title': 'Приєднатися до кімнати',
   'host.title': 'Створити онлайн-кімнату',

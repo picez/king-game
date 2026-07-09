@@ -44,3 +44,14 @@ export function cardFaceUrl(suit: Suit | undefined, rank: Rank | undefined): str
 export const ALL_FACE_FILES: string[] = ART_SUITS.flatMap((s) =>
   ART_RANKS.map((r) => cardFaceFile(s, r)),
 );
+
+/**
+ * Public URL for the shared card BACK artwork (Stage 12.2) — used for hidden
+ * cards, deck stacks, and opponent fans. Single source; the UI falls back to a
+ * CSS card-back if this file fails to load. See public/cards/back/back-green.png.
+ */
+export function cardBackUrl(): string {
+  const base = import.meta.env.BASE_URL ?? '/';
+  return `${base}cards/back/back-green.png`;
+}
+export const CARD_BACK_URL = cardBackUrl();

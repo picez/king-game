@@ -44,7 +44,9 @@
   border-radius: 50% / 44%;
   background:
     radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 46%),
+    var(--felt-tile) center / 240px 240px repeat,
     radial-gradient(ellipse at 50% 44%, var(--felt-lit) 0%, var(--felt-mid) 48%, var(--felt-edge) 84%, var(--felt-deep) 100%);
+  background-blend-mode: normal, soft-light, normal;
   border: 7px solid #1a0f06;
   box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(245, 197, 24, 0.12), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
@@ -111,7 +113,9 @@
   position: absolute; left: 0; top: 50%; transform: translateY(-50%);
   width: var(--dw); height: calc(var(--dw) * 1.42);
   border-radius: 0.3rem;
+  /* The ornamental card back (Stage 12.2) over a CSS fallback back if it 404s. */
   background:
+    var(--card-back) center / cover no-repeat,
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 3px, transparent 3px 6px),
     linear-gradient(160deg, #2a5d44, #173c2c);
   border: 1px solid rgba(255, 255, 255, 0.28);

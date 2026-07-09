@@ -35,6 +35,9 @@
   --accent-light: #ffe273;
   --accent-dark:  #b8870a;
   --gold-grad:    linear-gradient(180deg, #ffe070 0%, #f7cb26 42%, #e3ab0c 100%);
+  /* Stage 12.2 art (single source; graceful fallback if a file 404s). */
+  --felt-tile:    url('/visual/felt-tile.png');
+  --card-back:    url('/cards/back/back-green.png');
   --gold-grad-hover: linear-gradient(180deg, #ffe888 0%, #ffd23e 42%, #efb615 100%);
 
   /* ---- Text ---- */

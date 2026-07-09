@@ -48,6 +48,7 @@ export const AR: Record<string, string> = {
   'common.close': 'إغلاق',
   'common.offline': 'غير متصل',
   'card.label': '{rank} {suit}',
+  'card.hidden': 'بطاقة مخفية',
   'btn.leave': 'مغادرة الغرفة',
   'join.title': 'الانضمام إلى غرفة',
   'host.title': 'إنشاء غرفة على الإنترنت',
