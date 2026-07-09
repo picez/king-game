@@ -62,7 +62,9 @@ recording its own per-`game_type` stats + leaderboard):**
   reducer path; they **stay a human seat** (stats still theirs) and **reconnect
   cancels** the substitute. The waiting screen shows "📴 Waiting for X to
   reconnect…". No rules/scoring change. See ONLINE_ARCHITECTURE.md §3.
-- **PWA**: installable on Android (manifest, icons, app-shell service worker).
+- **PWA**: installable on Android (manifest, icons, app-shell service worker). App
+  icon = the **Card Majlis medallion** (emerald coin + gold 8-point Levantine star +
+  four suit pips); procedural, `npm run icons`.
 - **Production path**: env config, `/health`, origin allowlist, HTTPS/WSS guide.
 - **Profiles/auth foundation (partial — Stage 4)**: an **opt-in** HTTP API
   (`/api/me` · `/api/profile` · `/api/settings` · `/api/games/king/settings` ·

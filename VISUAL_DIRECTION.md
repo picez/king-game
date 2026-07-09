@@ -260,6 +260,14 @@ Each stage keeps gameplay/server/protocol/DB/stats unchanged and ends green on
 - **12.6 — Mobile / RTL visual QA + cleanup.** Re-run `scripts/*shots*.mjs` at 360/390,
   verify no overflow, AA contrast over backgrounds, reduced-motion, and asset sizes;
   prune any dead CSS.
+- **14.x — Card Majlis app-icon refresh (done).** Replaced the King-era plain gold
+  **diamond** PWA/app icons with a multi-game **Card Majlis medallion**: an emerald
+  circular felt "coin" (gold rim) + a bold gold **8-point Levantine (Rub el Hizb)
+  star** + four subtle gold **suit pips** (♠♥♦♣ = the four games). No text, no crown;
+  reads at 32/64/192/512 px. Procedural, zero-dep — regenerate with `npm run icons`
+  (`scripts/generate-icons.mjs`). Emits `icon-192`, `icon-512`, `maskable-512`
+  (motif in the safe zone), `apple-touch-icon` (180), `favicon-32`, and a matching
+  vector `icon.svg`. Palette = `base.css` felt/brass. No manifest name/theme change.
 
 ---
 
