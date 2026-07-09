@@ -17,7 +17,7 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit }: P
 
   return (
     <div className="screen durak-screen durak-finished">
-      <div className="durak-finished__card">
+      <div className="durak-finished__card finish-frame">
         <div className="durak-finished__emoji" aria-hidden="true">{state.isDraw ? '🤝' : humanIsFool ? '🤡' : '🏆'}</div>
         <h1 className="durak-finished__title">{title}</h1>
         {!state.isDraw && fool && (

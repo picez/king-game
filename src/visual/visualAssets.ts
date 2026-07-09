@@ -33,10 +33,23 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   { id: 'icon-durak',     src: '/visual/icons/game-durak.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-deberc',    src: '/visual/icons/game-deberc.png',     format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-tarneeb',   src: '/visual/icons/game-tarneeb.png',    format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
+  // P1 (Stage 12.8): ornamental finish frame + unified seat-status badge coins.
+  { id: 'finish-frame',   src: '/visual/finish-frame.png',          format: 'png', maxBytes: 260_000, priority: 'P1', present: true },
+  { id: 'badge-host',     src: '/visual/badges/badge-host.png',     format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
+  { id: 'badge-bot',      src: '/visual/badges/badge-bot.png',      format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
+  { id: 'badge-offline',  src: '/visual/badges/badge-offline.png',  format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
+  { id: 'badge-active',   src: '/visual/badges/badge-active.png',   format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
 ] as const;
 
-/** Sum of all P0 `maxBytes` — a documented ceiling for the total P0 art footprint. */
-export const VISUAL_TOTAL_MAX_BYTES = 2_200_000;
+/** Documented ceiling for the TOTAL present art footprint (P0 ≈ 1.9 MB + P1 headroom). */
+export const VISUAL_TOTAL_MAX_BYTES = 2_900_000;
+
+/** Kinds of unified seat-status badge (Stage 12.8). */
+export type SeatBadge = 'host' | 'bot' | 'offline' | 'active';
+/** Single source for a seat-status badge coin URL (mirrors the `badge-*` manifest ids). */
+export function seatBadgeSrc(kind: SeatBadge): string {
+  return `/visual/badges/badge-${kind}.png`;
+}
 
 /** The manifest entry for an id, or null. */
 export function visualAsset(id: string): VisualAsset | null {

@@ -101,7 +101,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
                   </span>
                   <span className="lobby-member__tags">
                     {m.isHost && <span className="tag tag--host">{t('lobby.host')}</span>}
-                    {m.type === 'ai' && <span className="tag tag--bot" title={t('lobby.aiPlayer')}>🤖 {t('lobby.bot')}</span>}
+                    {m.type === 'ai' && <span className="tag tag--bot" title={t('lobby.aiPlayer')}>{t('lobby.bot')}</span>}
                     {m.role === 'spectator' && <span className="tag">{t('lobby.spectator')}</span>}
                     {m.type !== 'ai' && (
                       <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>

@@ -38,6 +38,12 @@
   /* Stage 12.2 art (single source; graceful fallback if a file 404s). */
   --felt-tile:    url('/visual/felt-tile.png');
   --card-back:    url('/cards/back/back-green.png');
+  /* Stage 12.8 P1 art (finish frame + unified seat-status badge coins). */
+  --finish-frame:  url('/visual/finish-frame.png');
+  --badge-host:    url('/visual/badges/badge-host.png');
+  --badge-bot:     url('/visual/badges/badge-bot.png');
+  --badge-offline: url('/visual/badges/badge-offline.png');
+  --badge-active:  url('/visual/badges/badge-active.png');
   --gold-grad-hover: linear-gradient(180deg, #ffe888 0%, #ffd23e 42%, #efb615 100%);
 
   /* ---- Text ---- */

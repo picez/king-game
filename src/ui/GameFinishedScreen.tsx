@@ -30,7 +30,7 @@ export default function GameFinishedScreen() {
 
   return (
     <div className="screen center-screen">
-      <div className="modal-card modal-card--wide">
+      <div className="modal-card modal-card--wide finish-frame">
         <h1 className="finished-title">{t('finished.title')}</h1>
 
         <div className="winner-banner">

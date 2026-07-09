@@ -21,7 +21,7 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit }: 
 
   return (
     <div className="screen durak-screen durak-finished">
-      <div className="durak-finished__card">
+      <div className="durak-finished__card finish-frame">
         <div className="durak-finished__emoji" aria-hidden="true">{won ? '🏆' : '🙃'}</div>
         <h1 className="durak-finished__title">{title}</h1>
         {state.jackpot && <p className="durak-finished__sub">🎴 {t('deberc.jackpot')}</p>}

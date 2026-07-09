@@ -103,7 +103,17 @@
   font-size: 0.7rem;
 }
 .tseat__name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; }
-.tseat__turn { color: var(--accent); }
+/* Stage 12.8 P1: the King active-turn marker shows the shared "active" badge coin
+   (the ▶ glyph is hidden but kept as a graceful fallback; the seat glow still
+   signals the turn if the image is missing). Durak/Deberc/Tarneeb use the unified
+   seat-active-glow ring for the same meaning. */
+.tseat__turn {
+  display: inline-block;
+  width: 0.95rem; height: 0.95rem;
+  vertical-align: -0.16em;
+  color: transparent;
+  background: var(--badge-active) center / contain no-repeat;
+}
 .tseat__tricks { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .tseat__tricks--bump { display: inline-block; animation: trick-bump 0.6s ease; }
 

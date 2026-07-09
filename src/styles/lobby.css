@@ -71,6 +71,22 @@
 .tag--host { background: rgba(245, 197, 24, 0.18); border-color: rgba(245, 197, 24, 0.4); color: var(--accent-light); }
 .tag--bot  { background: var(--info-soft); border-color: rgba(110, 200, 236, 0.4); color: #9cd8f0; }
 
+/* Stage 12.8 P1: a small unified "coin" badge before the host/bot/offline label.
+   The text label stays (accessible + the graceful fallback if the PNG is missing). */
+.tag--host::before,
+.tag--bot::before,
+.tag--off::before {
+  content: '';
+  display: inline-block;
+  width: 0.92rem; height: 0.92rem;
+  margin-inline-end: 0.28rem;
+  vertical-align: -0.16em;
+  background: center / contain no-repeat;
+}
+.tag--host::before { background-image: var(--badge-host); }
+.tag--bot::before  { background-image: var(--badge-bot); }
+.tag--off::before  { background-image: var(--badge-offline); }
+
 /* Offline member emphasis (lobby + table) */
 .lobby-member--offline { opacity: 0.7; }
 .tseat--offline { opacity: 0.5; filter: grayscale(0.5); }

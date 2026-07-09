@@ -19,8 +19,10 @@ import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VIS = join(ROOT, 'public', 'visual');
 const ICONS = join(VIS, 'icons');
+const BADGES = join(VIS, 'badges');
 const BACK = join(ROOT, 'public', 'cards', 'back');
 mkdirSync(ICONS, { recursive: true });
+mkdirSync(BADGES, { recursive: true });
 mkdirSync(BACK, { recursive: true });
 
 // ── palette (from src/styles/base.css) ──────────────────────────────────────
@@ -212,6 +214,71 @@ function iconTarneeb(nx, ny) {
   }, 0.012);
 }
 
+// ── P1: finish frame (ornamental transparent banner behind a winner summary) ──
+// Transparent interior (content shows through) + a brass double-line rounded-rect
+// border, 8-point corner rosettes, and a very faint warm interior glow. No text.
+function finishFrame(nx, ny) {
+  const dx = nx - 0.5, dy = ny - 0.5;
+  const gold = (t) => lerp3(ACCENT_DARK, ACCENT_LIGHT, t);
+  // Rounded-rect ring distance (aspect-correct-ish; the frame is wide).
+  const bx = 0.5 - 0.035, by = 0.5 - 0.06;
+  const qx = Math.abs(dx) - bx, qy = Math.abs(dy) - by;
+  const rr = Math.min(0, Math.max(qx, qy)) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+  const line1 = smooth(0.010, 0.004, Math.abs(rr));            // outer brass line
+  const line2 = smooth(0.004, 0.0, Math.abs(rr + 0.018));       // inner hairline
+  // Corner rosettes: 8-point stars near each corner.
+  let rosette = 0;
+  for (const [cx, cy] of [[-bx, -by], [bx, -by], [-bx, by], [bx, by]]) {
+    const rx = dx - cx, ry = dy - cy, r = Math.hypot(rx, ry), a = Math.atan2(ry, rx);
+    const petal = Math.cos(a * 8) * 0.5 + 0.5;
+    rosette = Math.max(rosette, smooth(0.032 + 0.018 * petal, 0.0, r));
+  }
+  // Faint warm interior glow (top-centre lamp pool), very low alpha.
+  const glow = Math.exp(-((dx * 1.4) ** 2 + ((dy + 0.12) * 1.6) ** 2) * 3.0);
+  const border = clamp(Math.max(line1, line2 * 0.8, rosette));
+  let col = gold(0.55 + 0.4 * clamp(rosette + line1));
+  col = lerp3(WARM, col, border);
+  const alpha = clamp(border * 0.96 + glow * 0.12);
+  return [col[0], col[1], col[2], alpha * 255];
+}
+
+// ── P1: seat status badge "coins" (dark felt disc + gold rim + tinted emblem) ──
+function badgeCoin(nx, ny, inside, edge, tint) {
+  const dx = nx - 0.5, dy = ny - 0.5, r = Math.hypot(dx, dy);
+  const disc = smooth(0.47, 0.43, r);                     // dark felt disc alpha
+  const rim = smooth(0.004, 0.0, Math.abs(r - 0.45));     // thin gold rim ring
+  const em = clamp(smooth(-edge, edge, inside(nx, ny)));  // emblem fill (0..1)
+  let col = lerp3(FELT_DEEP, WALNUT, 0.35);               // warm-dark coin ground
+  col = lerp3(col, ACCENT, clamp(rim) * 0.95);            // gold rim
+  col = lerp3(col, tint, em);                             // tinted emblem on top
+  const alpha = clamp(Math.max(disc, rim, em * disc));    // stay within the coin
+  return [col[0], col[1], col[2], alpha * 255];
+}
+const inHost = (x, y) => {              // crown (three peaks + band)
+  x -= 0.5;
+  const band = (y > 0.60 && y < 0.72 && Math.abs(x) < 0.30) ? 0.05 : -1;
+  const body = (y < 0.60 && y > (0.26 + 0.26 * Math.abs(Math.sin(x * Math.PI * 3))) && Math.abs(x) < 0.30) ? 0.05 : -1;
+  return Math.max(band, body);
+};
+const inBot = (x, y) => {               // robot head: rounded box, 2 eyes cut out, antenna
+  const head = (Math.abs(x - 0.5) < 0.24 && y > 0.34 && y < 0.74) ? 0.05 : -1;
+  const antenna = (Math.abs(x - 0.5) < 0.03 && y > 0.22 && y < 0.34) ? 0.05 : -1;
+  const dot = (Math.hypot(x - 0.5, y - 0.20) < 0.05) ? 0.05 : -1;
+  const eyeL = Math.hypot(x - 0.41, y - 0.52) < 0.055, eyeR = Math.hypot(x - 0.59, y - 0.52) < 0.055;
+  const mouth = (Math.abs(x - 0.5) < 0.12 && Math.abs(y - 0.64) < 0.02);
+  if (eyeL || eyeR || mouth) return -1;   // carve eyes + mouth
+  return Math.max(head, antenna, dot);
+};
+const inOffline = (x, y) => {            // power/off glyph: ring with a top gap + stem
+  const r = Math.hypot(x - 0.5, y - 0.5), a = Math.atan2(y - 0.5, x - 0.5);
+  const gap = a < -Math.PI / 2 - 0.5 || a > -Math.PI / 2 + 0.5; // gap at the top
+  const ring = (Math.abs(r - 0.22) < 0.045 && gap) ? 0.05 : -1;
+  const stem = (Math.abs(x - 0.5) < 0.035 && y > 0.24 && y < 0.52) ? 0.05 : -1;
+  return Math.max(ring, stem);
+};
+const inActive = (x, y) =>              // play triangle ▶ (it's this seat's turn)
+  tri(x, y, 0.40, 0.30, 0.40, 0.70, 0.70, 0.50);
+
 // ── write everything ────────────────────────────────────────────────────────
 function write(path, buf) { writeFileSync(path, buf); return statSync(path).size; }
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
@@ -228,4 +295,11 @@ emit('visual/icons/game-king.png', png(512, 512, 4, iconKing));
 emit('visual/icons/game-durak.png', png(512, 512, 4, iconDurak));
 emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));
 emit('visual/icons/game-tarneeb.png', png(512, 512, 4, iconTarneeb));
+
+console.log('Generating P1 visual assets (finish frame + seat badges)…');
+emit('visual/finish-frame.png', png(1600, 700, 2, finishFrame));
+emit('visual/badges/badge-host.png',    png(256, 256, 4, (x, y) => badgeCoin(x, y, inHost, 0.012, ACCENT_LIGHT)));
+emit('visual/badges/badge-bot.png',     png(256, 256, 4, (x, y) => badgeCoin(x, y, inBot, 0.012, [156, 214, 240])));
+emit('visual/badges/badge-offline.png', png(256, 256, 4, (x, y) => badgeCoin(x, y, inOffline, 0.012, [232, 150, 150])));
+emit('visual/badges/badge-active.png',  png(256, 256, 4, (x, y) => badgeCoin(x, y, inActive, 0.012, ACCENT_LIGHT)));
 console.log(`Total: ${kb(total)} across ${out.length} files.`);

@@ -33,6 +33,19 @@ update `format`/`maxBytes` in `src/visual/visualAssets.ts` (the guard follows it
 | `icons/game-deberc.png` | 512×512 (α) | ~53 KB | Deberc emblem (suit gem) |
 | `icons/game-tarneeb.png` | 512×512 (α) | ~87 KB | Tarneeb emblem (8-point Levantine star) |
 
+## Files (P1 — Stage 12.8)
+
+Same procedural generator + palette. Ornamental finish frame + unified seat-status
+"coin" badges (dark felt disc + gold rim + a tinted emblem, readable at 16–24 px).
+
+| File | Size (px) | ~Bytes | Purpose |
+|------|-----------|--------|---------|
+| `finish-frame.png` | 1600×700 (α) | ~64 KB | brass frame + corner rosettes behind the winner card (all 4 games) |
+| `badges/badge-host.png` | 256×256 (α) | ~15 KB | host badge (gold crown) — lobby `.tag--host` |
+| `badges/badge-bot.png` | 256×256 (α) | ~15 KB | AI badge (robot) — lobby `.tag--bot` |
+| `badges/badge-offline.png` | 256×256 (α) | ~15 KB | offline badge (power/off) — lobby `.tag--off` |
+| `badges/badge-active.png` | 256×256 (α) | ~14 KB | active-turn badge (▶) — King `.tseat__turn` (others use the CSS glow) |
+
 **Total ≈ 1.92 MB** — slightly above the 1.5 MB aspirational target from
 `VISUAL_DIRECTION.md §3`; the two full-res hero PNGs dominate (~1.3 MB). Converting
 the opaque assets (heroes/felt/back) to **WebP** in a later optimization pass would

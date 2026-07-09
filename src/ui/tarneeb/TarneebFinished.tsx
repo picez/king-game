@@ -19,7 +19,7 @@ export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit 
 
   return (
     <div className="screen tarneeb-screen tarneeb-finished">
-      <div className="tarneeb-finished__card">
+      <div className="tarneeb-finished__card finish-frame">
         <div className="tarneeb-finished__emoji" aria-hidden="true">{humanWon ? '🏆' : '🙁'}</div>
         <h1 className="tarneeb-finished__title">{title}</h1>
         <p className="tarneeb-finished__sub">

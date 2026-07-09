@@ -88,6 +88,20 @@
 .suit-btn__name   { font-size: 0.85rem; text-transform: capitalize; }
 
 /* ===== Game Finished ===== */
+/* Stage 12.8 P1: an ornamental brass frame + faint warm glow layered over the
+   winner card (King / Durak / Deberc / Tarneeb). Same graceful pattern as the
+   menu hero — `isolation` keeps the z-index:-1 layer behind our own content, and
+   a missing image simply leaves the card exactly as it was. */
+.finish-frame { position: relative; isolation: isolate; }
+.finish-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--finish-frame) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
 .finished-title {
   font-size: 2.5rem;
   font-weight: 800;
