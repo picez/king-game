@@ -88,6 +88,12 @@ export interface TarneebHandResult {
   defenderTricks: number;
   /** Whether the contract was made (declarerTricks >= bid). */
   made: boolean;
+  /**
+   * Exact-bid double (§8): the contract was made with EXACTLY the bid, so the
+   * hand score is doubled (e.g. bid 8, 8 tricks → +16). Overtricks do NOT double.
+   * Optional/backward-compatible: absent (falsy) on non-exact or failed hands.
+   */
+  exactBidDouble?: boolean;
   /** Score change applied per team this hand. */
   deltaByTeam: Record<Team, number>;
 }

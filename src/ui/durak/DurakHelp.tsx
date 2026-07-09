@@ -13,6 +13,7 @@ export function DurakRulesList({ variant }: { variant: DurakVariant }) {
       <li>{t('durak.rule.throwAfterTake')}</li>
       <li>{t('durak.rule.discard')}</li>
       {variant === 'transfer' && <li className="durak-rules__transfer">{t('durak.rule.transfer')}</li>}
+      {variant === 'transfer' && <li className="durak-rules__transfer">{t('durak.rule.trumpShow')}</li>}
       <li>{t('durak.rule.fool')}</li>
     </ul>
   );

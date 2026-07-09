@@ -1,7 +1,11 @@
-# Tarneeb Rules (Syrian / Levantine) — v1.1 (MVP spec)
+# Tarneeb Rules (Syrian / Levantine) — v1.2 (MVP spec)
 
-> **v1.1 (owner decisions 2026-07-08):** Kaboot **off** in MVP — all 13 tricks
-> score a plain +13, kaboot added later as an option (§9). Declarer **leads the
+> **v1.2 (Stage 13.4):** exact-bid **double** added (§8) — making a contract with
+> **exactly** the bid doubles the hand score (bid 8, 8 → +16; bid 13, 13 → +26);
+> overtricks score the tricks won. The Kaboot **bonus** stays **off** in MVP (§9).
+>
+> **v1.1 (owner decisions 2026-07-08):** Kaboot **off** in MVP — the flat all-13
+> bonus is added later as an option (§9). Declarer **leads the
 > first trick** (§7). Tie at target → higher score wins, equal → play one more
 > hand (§10). **No-Trump** not in MVP (§6). Card assets: reuse King's full 52-card
 > deck (§3 / plan §1). All previously-open `[CONFIRM]` items are now resolved.
@@ -152,39 +156,49 @@ After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
 
 **Contract made** — `declarerTeamTricks >= bid`:
 
-- `declarerTeamScore += declarerTeamTricks`
-- `defenderTeamScore += 0`
+- **Exact bid** (`declarerTeamTricks === bid`): the hand score is **doubled** →
+  `declarerTeamScore += 2 × bid` (Stage 13.4 exact-bid double).
+- **Overtricks** (`declarerTeamTricks > bid`): score the tricks actually won (no
+  double) → `declarerTeamScore += declarerTeamTricks`.
+- `defenderTeamScore += 0`.
 
 **Contract failed** — `declarerTeamTricks < bid`:
 
 - `declarerTeamScore -= bid`
 - `defenderTeamScore += defenderTeamTricks`
 
-> **Note:** on a made contract the bidding team scores the **tricks actually
-> won**, not the bid; the defending team scores **nothing**. On a failed contract
-> the bidding team is **set** by the full amount of the bid (negative), and the
-> defending team banks the tricks they took. In **MVP** the all-13 case is scored
-> **normally** (`kabootMode: 'off'`, §9) — no bonus.
+> **Note:** on a made contract, hitting the bid **exactly** **doubles** the score
+> (`2 × bid`); making it with **overtricks** scores the **tricks actually won**
+> (no double). The defending team scores **nothing** on a made contract. On a
+> failed contract the bidding team is **set** by the full bid (negative), and the
+> defending team banks the tricks they took. The exact-bid double applies **even
+> to an all-13 contract** (bid 13, 13 tricks → **+26**); the separate Kaboot
+> *bonus* stays **off** in MVP (`kabootMode: 'off'`, §9).
 
-**Examples (plain rule, kaboot aside):**
+**Examples (exact-bid double on; kaboot bonus off):**
 
 | Bid | Declarer tricks | Declarer Δ | Defender Δ |
 |-----|-----------------|-----------|-----------|
+| 8   | 8 (exact)       | **+16**   | 0         |
+| 8   | 9 (overtrick)   | **+9**    | 0         |
 | 9   | 10              | **+10**   | 0         |
-| 9   | 9               | **+9**    | 0         |
+| 9   | 9 (exact)       | **+18**   | 0         |
 | 9   | 8               | **−9**    | **+5**    |
-| 7   | 6               | **−7**    | **+7**    |
-| 13  | 13              | **+13** (kaboot off, §9) | 0 |
+| 8   | 6               | **−8**    | **+7**    |
+| 13  | 13 (exact)      | **+26** (exact ×2; kaboot bonus off, §9) | 0 |
 
 ---
 
 ## 9. Kaboot / 13 Tricks
 
-> **`[MVP]` decision (owner-confirmed 2026-07-08): Kaboot is OFF in MVP.**
-> Winning all 13 tricks is scored **normally** — a made all-13 contract is simply
-> **+13** per §8; there is **no** +16/+26 bonus and **no** instant win. Kaboot
-> will be **added later as an option** (`kabootMode`, §12), which defaults to
-> `'off'`. The rules below are documented for that future option only.
+> **`[MVP]` decision (owner-confirmed 2026-07-08; updated Stage 13.4): the Kaboot
+> BONUS is OFF in MVP, but the exact-bid double (§8) IS on.**
+> Winning all 13 tricks earns **no separate flat Kaboot bonus** and **no** instant
+> win. It is scored by §8 like any other contract: an all-13 bid made **exactly**
+> (bid 13, 13 tricks) is the exact-bid **double** → **+26**; an all-13 made as an
+> overtrick of a lower bid scores the tricks won (e.g. bid 7, 13 tricks → **+13**).
+> The Kaboot bonus/instant-win table below will be **added later as an option**
+> (`kabootMode`, §12), which defaults to `'off'`.
 
 **`[VARIANT]` — kaboot scoring, for the future `kabootMode` option (NOT MVP):**
 
@@ -193,8 +207,9 @@ After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
 - *Simpler table:* winning all 13 **instantly wins the game**; or all 13 just
   **counts as 13** (identical to `'off'`).
 
-**MVP behaviour is `kabootMode: 'off'` = pure §8** — the all-13 rows in the §8
-examples resolve to a plain **+13**.
+**MVP behaviour is `kabootMode: 'off'` = pure §8 (incl. the exact-bid double)** —
+there is no separate Kaboot bonus, but an all-13 contract made **exactly** still
+doubles to **+26** via §8. Only the extra flat Kaboot bonus / instant-win is off.
 
 ---
 
@@ -329,7 +344,8 @@ A future implementation is **not accepted** until these pass:
 11. With no trump played, the **highest led-suit** card wins.
 12. The **trick winner leads** the next trick.
 13. **13 tricks** end the hand.
-14. **Success scoring:** made contract → declarer `+tricks`, defenders `+0`.
+14. **Success scoring:** made contract → declarer scores; **exact bid doubles**
+    (`+2×bid`), overtricks score the tricks won (`+tricks`); defenders `+0`.
 15. **Failed contract scoring:** declarer `−bid`, defenders `+theirTricks`.
 16. **Negative** scores are allowed and tracked.
 17. Reaching **target 41** ends the game with the correct winner.
@@ -337,8 +353,9 @@ A future implementation is **not accepted** until these pass:
     trick/scores public.
 19. An **illegal out-of-turn** action is rejected.
 20. A **bot-only** game **terminates** (reaches `game_finished`).
-21. **All-13, kaboot off:** a made all-13 contract scores a plain **+13** (no
-    bonus, no instant win) — MVP default (§9).
+21. **Exact-bid double:** made **exactly** on the bid → `+2×bid` (bid 8, 8 → +16;
+    bid 13, 13 → +26); overtricks score the tricks won (bid 8, 9 → +9). Kaboot
+    **bonus** stays off (no extra flat all-13 bonus / instant win) — §8/§9.
 22. **Tie at target:** both teams ≥ target → higher score wins; equal → the game
     continues one more hand (§10).
 23. *(future, when kaboot enabled)* **Kaboot** scoring matches §9 under each

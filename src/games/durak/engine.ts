@@ -9,8 +9,8 @@ import type { Card } from '../../models/types';
 import type { DurakAction, DurakContext, DurakPlayer, DurakState } from './types';
 import { dealDurak, findLowestTrumpHolder } from './deck';
 import {
-  beats, canTransfer, findNextActivePlayer, getValidAttackCards,
-  getValidTransferCards, hasLegalThrowIn, sameCard,
+  beats, canTransfer, canTrumpShowTransfer, findNextActivePlayer, getValidAttackCards,
+  getValidTransferCards, getValidTrumpShowCards, hasLegalThrowIn, sameCard,
 } from './rules';
 
 const MAX_HAND = 6;
@@ -76,6 +76,10 @@ function rotateRoles(s: DurakState, attackerFrom: number, skip?: number): void {
   s.passedAttackers = [];
   s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
   s.status = 'attack';
+  // A fresh bout re-arms the one-time trump-show transfer (§3a) and clears its
+  // public announcement.
+  s.trumpShowUsed = false;
+  s.lastTrumpShow = null;
 }
 
 /**
@@ -152,6 +156,7 @@ function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?:
     passedAttackers: [],
     table: [], discardPile: [], status: 'attack',
     boutLimit: Math.min(MAX_HAND, players[defenderIndex].hand.length),
+    trumpShowUsed: false, lastTrumpShow: null,
     foolId: null, winnerIds: [], isDraw: false,
   };
 }
@@ -243,6 +248,30 @@ export function durakReducer(
       s.passedAttackers = [];
       s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
       s.status = 'defense';           // the new defender must respond
+      return s;
+    }
+
+    case 'TRUMP_SHOW_TRANSFER': {
+      // §3a one-time trump-show transfer: the card is SHOWN, not placed — it stays
+      // in hand, the table is unchanged, and the option is spent for this bout.
+      if (!canTrumpShowTransfer(state)) return state;
+      if (!getValidTrumpShowCards(state).some((c) => sameCard(c, action.card))) return state;
+      const s = clone(state);
+      const transferrer = s.defenderIndex;
+      // NOTE: no removeCard / no s.table.push — the shown trump remains in hand.
+      const nd = findNextActivePlayer(s, transferrer + 1, transferrer);
+      if (nd === null) return state; // guarded by canTrumpShowTransfer
+      s.attackerIndex = transferrer; // the shower becomes the new PRIMARY attacker
+      s.defenderIndex = nd;
+      s.throwerIndex = transferrer;
+      s.lastThrowerIndex = transferrer;
+      s.passedAttackers = [];
+      s.boutLimit = Math.min(MAX_HAND, s.players[nd].hand.length);
+      s.status = 'defense';           // the new defender must respond
+      s.trumpShowUsed = true;         // one-time per bout (survives further transfers)
+      // Public, honest announcement — the card equals trumpSuit + the public attack
+      // rank, so it discloses only what the rule mandates (no other hand card).
+      s.lastTrumpShow = { seat: transferrer, card: action.card };
       return s;
     }
 

@@ -45,8 +45,9 @@ redaction seam, stats) is already game-agnostic and is **reused, not rebuilt**.
   are clockwise). The core must not assume clockwise.
 - **A true auction** (integer 7–13, pass-is-final) followed by a **separate
   trump-choice** phase by the declarer — a two-step setup the other games lack.
-- **Team trick-count scoring** with **set/made** asymmetry (§8); **kaboot is off
-  in MVP** (all-13 = +13, §9) and lands later behind `kabootMode`.
+- **Team trick-count scoring** with **set/made** asymmetry (§8) + the **exact-bid
+  double** (Stage 13.4: exactly the bid → `+2×bid`, overtricks → `+tricks`); the
+  **kaboot BONUS is off in MVP** (§9) and lands later behind `kabootMode`.
 
 None of these need changes to the shared seam; they live in Tarneeb's own core.
 
@@ -63,8 +64,9 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
   existing per-game core layout): types, deck, deal, reducer, legal-move
   generation, scoring (§8), redaction helper, and a simple AI (§14).
 - Actions & phases per **§11**; state shape per **§12**.
-- **Kaboot** (§9) is **off in MVP** — implement `kabootMode` with the enum in
-  place but only the `'off'` branch wired (all-13 = plain +13); other branches
+- **Kaboot BONUS** (§9) is **off in MVP** — implement `kabootMode` with the enum in
+  place but only the `'off'` branch wired (no flat all-13 bonus; the §8 exact-bid
+  double still applies, so bid 13 made exactly = +26); other branches
   stubbed for a later stage.
 - **Deliver with the full test suite from §15**, incl. the all-13-off (#21) and
   tie-at-target (#22) tests; the kaboot-enabled test (#23) waits for a later
@@ -134,8 +136,11 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
 
 All Stage-10.0 open items are now settled; nothing blocks Stage 10.1:
 
-- **§9 Kaboot** — ✅ **OFF in MVP.** All 13 tricks score a plain **+13**; kaboot
-  (+16/+26/instant-win) becomes a **later option** (`kabootMode`, default `'off'`).
+- **§9 Kaboot BONUS** — ✅ **OFF in MVP.** No separate flat all-13 bonus / instant
+  win; but the §8 **exact-bid double** applies (bid 13 made exactly = **+26**). The
+  kaboot bonus table becomes a **later option** (`kabootMode`, default `'off'`).
+- **§8 Exact-bid double** — ✅ **ON (Stage 13.4).** Exactly the bid → `+2×bid`;
+  overtricks → `+tricks`; failed → `−bid` / defenders `+tricks` (unchanged).
 - **§7 first-lead** — ✅ **declarer leads the first trick.**
 - **§10 tie / simultaneous target crossing** — ✅ both ≥ target → **higher score
   wins**; **equal → play one more hand.**

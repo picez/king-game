@@ -177,12 +177,35 @@ Adds one option for the defender, taken **before they have beaten any card**:
   - **Chaining:** the new defender may **transfer again** to the next player if
     they too hold a same-rank card and capacity allows, and so on around the
     table (never back onto a player who is already out).
-- **Trump-show transfer** (showing a trump of the same rank without playing it)
-  is a known variant but is **NOT** in MVP — only play-a-same-rank-card transfer.
+### 3a. One-time trump-show transfer (Stage 13.4)
 
-After a transfer, the **transferrer becomes the new primary attacker** (the
-throw-in priority and `passedAttackers` reset), and play proceeds normally from
-the new defender (who may beat, take, or — if still legal — transfer again).
+In addition to the play-a-card transfer above, the defender may transfer by
+**merely SHOWING a trump of the current attack rank — without placing it on the
+table**:
+
+- **Trump-show transfer.** If a normal transfer would be legal (single rank on the
+  table, nothing beaten yet) **and** the defender holds the **trump** of that rank,
+  they may pass the bout to the next player by **showing** that trump. The card is
+  **NOT** added to the table and **stays in the defender's hand**; `table.length`
+  is unchanged.
+- **Once per bout.** This option is available **at most once per bout**. After it
+  has been used, any further trump transfer in the same bout must be a **normal**
+  transfer (the card is placed). A new bout re-arms the option.
+- **Capacity:** because no card is added, the **new defender must be able to hold
+  the current count** (`table.length ≤ their hand size`, and `≤ 6`).
+- **Regular transfer still available:** a normal (card-placed) transfer remains
+  legal after a trump-show, subject to its own capacity check.
+- **Simple variant:** not available (transfer variant only).
+- **Redaction / privacy (MVP decision).** Showing the trump makes it **public** —
+  but the shown card is uniquely `(trump suit, attack rank)`, both already public,
+  so it **leaks nothing hidden**. The engine records only a public
+  `lastTrumpShow = { seat, card }` announcement; the card **remains in the hand**
+  and the rest of that hand stays redacted. No other hand card is ever revealed.
+
+After a transfer (normal or trump-show), the **transferrer becomes the new primary
+attacker** (the throw-in priority and `passedAttackers` reset), and play proceeds
+normally from the new defender (who may beat, take, or — if still legal — transfer
+again).
 
 ---
 
@@ -210,6 +233,9 @@ These pin down the ambiguous points so the implementation is unambiguous:
   trump is held.
 - **Transfer (transfer variant only):** allowed before any card is beaten, by
   playing a same-rank card, subject to the next defender's capacity.
+- **Trump-show transfer (transfer variant only, Stage 13.4):** at most **once per
+  bout**, transfer by **showing** the same-rank trump without placing it (the card
+  stays in hand; capacity uses the current count, not count + 1). See §3a.
 
 ---
 
@@ -228,6 +254,8 @@ actions are rejected, never silently applied.
   attacks are beaten — the bout ends as a successful defense.
 - **TRANSFER** — (transfer variant) play a same-rank card to pass the defense to
   the next player.
+- **TRUMP_SHOW_TRANSFER** — (transfer variant, §3a) show a same-rank **trump**
+  without placing it to pass the defense; legal **at most once per bout**.
 
 The reducer also performs the non-player transitions: dealing, revealing trump,
 resolving the bout, discarding/taking, drawing back to six, rotating roles, and
@@ -240,7 +268,8 @@ detecting the end of the game.
 Documented so they are not silently assumed present:
 
 - Co-attacker throw-ins from players other than the primary attacker.
-- 5–6 players, teams, "passport"/перевод by showing a trump, "погоны" (epaulettes).
+- 5–6 players, teams, "passport", "погоны" (epaulettes). (Перевод by showing a
+  trump — the one-time trump-show transfer — is now IN scope; see §3a.)
 - "Перебивной"/"дорожный" and other regional variants.
 - Speed Durak, открытый/closed-hand variants.
 

@@ -15,7 +15,8 @@ const base: DurakState = {
   attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, lastThrowerIndex: 0, passedAttackers: [],
   table: [{ attack: C('8', 'clubs'), defense: C('10', 'clubs') }],
   discardPile: [C('J', 'diamonds')],
-  status: 'defense', boutLimit: 6, foolId: null, winnerIds: [], isDraw: false,
+  status: 'defense', boutLimit: 6, trumpShowUsed: false, lastTrumpShow: null,
+  foolId: null, winnerIds: [], isDraw: false,
 };
 
 describe('durakRedactStateFor', () => {

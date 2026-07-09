@@ -96,6 +96,22 @@ describe('summarizeFinishedTarneebGame', () => {
     const json = JSON.stringify(s);
     expect(json).not.toMatch(/"rank"|"handsBySeat"|"currentTrick"/);
   });
+
+  it('propagates an exact-bid double delta into rounds (score-only, Stage 13.4)', () => {
+    // A single exact-bid hand: bid 8 made with exactly 8 → doubled to +16 for the
+    // declarer team. The aggregator reads deltaByTeam, so the double flows through.
+    const s = summarizeFinishedTarneebGame(finished({
+      handHistory: [hand({ bid: 8, made: true, exactBidDouble: true, deltaByTeam: { A: 16, B: 0 } })],
+      scoresByTeam: { A: 16, B: 0 },
+    }));
+    expect(s.rounds).toHaveLength(1);
+    expect(s.rounds[0].scoreByPlayer).toEqual({
+      'player-0': 16, 'player-1': 0, 'player-2': 16, 'player-3': 0, // both partners get +16
+    });
+    expect(s.rounds[0].modeId).toBe('8S');
+    // The flag itself is NOT persisted in the score-only round record (delta suffices).
+    expect(JSON.stringify(s.rounds)).not.toContain('exactBidDouble');
+  });
 });
 
 describe('computeTarneebStatDeltas', () => {

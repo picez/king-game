@@ -173,12 +173,16 @@ function scoreHand(s: TarneebState): TarneebState {
   const declTricks = s.tricksByTeam[declTeam];
   const defTricks = s.tricksByTeam[defTeam];
   const made = declTricks >= bid;
+  // Exact-bid double (§8): making EXACTLY the bid doubles the hand score. This
+  // applies even to an all-13 contract (bid 13, 13 tricks → +26) — the Kaboot
+  // BONUS stays off (no extra flat bonus), but the exact-bid double is separate
+  // and still applies. Overtricks (declTricks > bid) score the tricks won, no double.
+  const exactBidDouble = made && declTricks === bid;
 
   const delta: Record<Team, number> = { A: 0, B: 0 };
   if (made) {
-    // Made contract: bidding team scores the tricks actually won; defenders +0.
-    // Kaboot is 'off' in MVP, so an all-13 made contract is a plain +13 (§9).
-    delta[declTeam] = declTricks;
+    // Made contract: exact bid doubles (bid×2); overtricks score the tricks won.
+    delta[declTeam] = exactBidDouble ? bid * 2 : declTricks;
     delta[defTeam] = 0;
   } else {
     // Failed contract: bidding team is set by the full bid; defenders bank tricks.
@@ -197,6 +201,7 @@ function scoreHand(s: TarneebState): TarneebState {
     declarerTricks: declTricks,
     defenderTricks: defTricks,
     made,
+    exactBidDouble,
     deltaByTeam: delta,
   };
   // Append the score-only record to the match history (public; no cards, §13).

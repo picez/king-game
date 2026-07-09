@@ -253,6 +253,12 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
 }
 .tarneeb-handdone__title { margin: 0 0 0.5rem; color: var(--text); font-size: 1.2rem; }
+/* Exact-bid double banner (Stage 13.4): a small gold pill above the score table. */
+.tarneeb-handdone__double {
+  margin: 0 0 0.6rem; padding: 0.2rem 0.6rem; display: inline-block;
+  background: var(--gold-grad); color: #2a2407; border-radius: 999px;
+  font-size: 0.82rem; font-weight: 800;
+}
 .tarneeb-handdone__line { margin: 0 0 0.7rem; color: var(--text); font-size: 0.9rem; }
 .tarneeb-handdone__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; color: var(--text); }
 .tarneeb-handdone__table th { color: var(--text-dim); font-weight: 700; text-align: center; padding: 0.2rem; }

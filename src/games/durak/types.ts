@@ -61,6 +61,20 @@ export interface DurakState {
   status: DurakStatus;
   /** Max attacking cards this bout = min(6, defender hand size at bout start). */
   boutLimit: number;
+  /**
+   * Transfer variant only (DURAK_RULES.md §3a): whether the one-time "trump-show"
+   * transfer has already been used in the CURRENT bout. A defender may transfer by
+   * merely SHOWING a matching-rank trump (not placing it) at most once per bout;
+   * any later trump transfer must place the card. Reset to false at each new bout.
+   */
+  trumpShowUsed: boolean;
+  /**
+   * Public announcement of the most recent trump-show transfer this bout (the seat
+   * that showed + the shown card), or null. The shown card is fully PUBLIC by rule
+   * (it equals trumpSuit + the public attack rank, so it leaks nothing hidden), yet
+   * stays in the shower's hand. Cleared at each new bout. Redaction keeps it as-is.
+   */
+  lastTrumpShow: { seat: number; card: Card } | null;
   /** The loser ('player-N') once finished; null while playing or on a draw. */
   foolId: string | null;
   /** Players who finished safely (everyone but the fool); all players on a draw. */
@@ -76,7 +90,13 @@ export type DurakAction =
   | { type: 'TAKE_CARDS' }
   /** The current thrower passes (gives up their throw-in). Was 'END_ATTACK'. */
   | { type: 'PASS_ATTACK' }
-  | { type: 'TRANSFER_ATTACK'; card: Card };
+  | { type: 'TRANSFER_ATTACK'; card: Card }
+  /**
+   * Transfer variant §3a: transfer the bout by SHOWING a matching-rank trump —
+   * the card is NOT placed on the table and stays in hand. Legal at most once per
+   * bout. `card` must be the defender's trump of the current attack rank.
+   */
+  | { type: 'TRUMP_SHOW_TRANSFER'; card: Card };
 
 /** Reducer context — inject an rng for a deterministic, reproducible shuffle. */
 export interface DurakContext {

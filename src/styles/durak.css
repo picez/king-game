@@ -171,6 +171,18 @@
   white-space: nowrap;
   box-shadow: var(--shadow-2);
 }
+/* Trump-show transfer announcement (§3a): a gold banner just below the bout
+   notice so the two never overlap; the shown suit is public by rule. */
+.durak-notice--show {
+  top: auto;
+  bottom: 0.5rem;
+  background: var(--gold-grad);
+  color: #2a2407;
+}
+.durak-notice--show strong { font-size: 1.05rem; }
+.durak-notice--show-red strong { color: var(--card-red); }
+/* The one-time show-trump action button, tinted to stand apart from Transfer. */
+.durak-trumpshow { border-color: var(--accent-dark); }
 
 /* The single clear instruction + "You are <role>" chip. */
 .durak-prompt {

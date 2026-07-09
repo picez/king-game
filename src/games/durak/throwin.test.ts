@@ -20,6 +20,7 @@ function st(n: number, over: Partial<DurakState>): DurakState {
     drawPile: [], trumpSuit: 'spades', trumpCard: C('6', 'spades'),
     attackerIndex: 0, defenderIndex: 1, throwerIndex: 0, lastThrowerIndex: 0, passedAttackers: [],
     table: [], discardPile: [], status: 'attack', boutLimit: 6,
+    trumpShowUsed: false, lastTrumpShow: null,
     foolId: null, winnerIds: [], isDraw: false, ...over,
   };
   if (over.throwerIndex === undefined) s.throwerIndex = s.attackerIndex;

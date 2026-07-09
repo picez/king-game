@@ -104,3 +104,36 @@ export function getValidTransferCards(state: DurakState): Card[] {
   const rank = state.table[0].attack.rank;
   return state.players[state.defenderIndex].hand.filter((c) => c.rank === rank);
 }
+
+/**
+ * Transfer Durak §3a — one-time "trump-show" transfer: may the defender pass the
+ * bout by merely SHOWING a matching-rank TRUMP (not placing it)? Same base
+ * conditions as canTransfer, but:
+ *  - available at most ONCE per bout (`trumpShowUsed` guards it);
+ *  - the shown card is NOT added, so the next defender must be able to hold the
+ *    CURRENT count (table.length ≤ their hand size and ≤ 6);
+ *  - the defender must hold a TRUMP of the attack rank.
+ * A regular transfer (placing a card) is always still available afterwards.
+ */
+export function canTrumpShowTransfer(state: DurakState): boolean {
+  if (state.variant !== 'transfer' || state.status !== 'defense') return false;
+  if (state.trumpShowUsed) return false;                 // already used this bout
+  if (state.table.length === 0) return false;
+  if (state.table.some((p) => p.defense !== null)) return false; // a card was beaten
+  const rank = state.table[0].attack.rank;
+  if (state.table.some((p) => p.attack.rank !== rank)) return false; // mixed ranks
+  const defender = state.players[state.defenderIndex];
+  // Must hold the TRUMP of that rank (the card that would be shown).
+  if (!defender.hand.some((c) => c.rank === rank && c.suit === state.trumpSuit)) return false;
+  const next = findNextActivePlayer(state, state.defenderIndex + 1, state.defenderIndex);
+  if (next === null) return false;
+  // No card is placed → the new defender faces the CURRENT count, not count + 1.
+  return state.table.length <= state.players[next].hand.length && state.table.length <= 6;
+}
+
+/** The single trump card the defender may SHOW to transfer (empty if illegal). */
+export function getValidTrumpShowCards(state: DurakState): Card[] {
+  if (!canTrumpShowTransfer(state)) return [];
+  const rank = state.table[0].attack.rank;
+  return state.players[state.defenderIndex].hand.filter((c) => c.rank === rank && c.suit === state.trumpSuit);
+}

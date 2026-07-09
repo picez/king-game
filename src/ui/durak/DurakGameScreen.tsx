@@ -5,7 +5,8 @@ import type { Card, Suit } from '../../models/types';
 import type { DurakAction, DurakState } from '../../games/durak/types';
 import { getActingDurakPlayerId } from '../../games/durak/engine';
 import {
-  beats, canTransfer, getValidAttackCards, getValidTransferCards, sameCard, unbeatenAttacks,
+  beats, canTransfer, canTrumpShowTransfer, getValidAttackCards, getValidTransferCards,
+  getValidTrumpShowCards, sameCard, unbeatenAttacks,
 } from '../../games/durak/rules';
 import DurakHelp from './DurakHelp';
 import DurakDeck from './DurakDeck';
@@ -95,6 +96,9 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const canPass = isMyTurn && isThrowPhase && iAmThrower && state.table.length > 0;
   const canTake = isMyTurn && phase === 'defense' && iAmDefender;
   const canTransferBtn = isMyTurn && phase === 'defense' && iAmDefender && state.variant === 'transfer' && canTransfer(state);
+  // One-time trump-show transfer (§3a): show a matching-rank trump WITHOUT placing
+  // it. Available at most once per bout; the rules enforce legality.
+  const canTrumpShowBtn = isMyTurn && phase === 'defense' && iAmDefender && state.variant === 'transfer' && canTrumpShowTransfer(state);
 
   const trumpRed = state.trumpSuit === 'hearts' || state.trumpSuit === 'diamonds';
   // Opponents laid out in PLAY ORDER — clockwise from the seat after me — so it
@@ -119,7 +123,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         : phase === 'taking' ? t('durak.promptTakeThrowIn')
           : phase === 'attack'
             ? (state.table.length === 0 ? t('durak.promptAttackLead') : t('durak.promptThrowOrPass'))
-            : canTransferBtn ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
+            : (canTransferBtn || canTrumpShowBtn) ? t('durak.promptDefendTransfer') : t('durak.promptDefend');
 
   const noticeText = notice?.kind === 'took' ? `${notice.name} ${t('durak.took')}`
     : notice?.kind === 'beaten' ? t('durak.beaten') : null;
@@ -161,6 +165,11 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         })}
         <div className="durak-centre">
           {noticeText && <div className="durak-notice" role="status">{noticeText}</div>}
+          {state.lastTrumpShow && (
+            <div className={`durak-notice durak-notice--show ${trumpRed ? 'durak-notice--show-red' : ''}`} role="status">
+              {state.players[state.lastTrumpShow.seat]?.name} · {t('durak.trumpShown')} <strong>{SUIT_SYMBOL[state.lastTrumpShow.card.suit]}</strong>
+            </div>
+          )}
           <DurakDeck count={state.drawPile.length} trumpCard={state.trumpCard} trumpSuit={state.trumpSuit} />
           <div className="durak-table__cards">
             {state.table.length === 0
@@ -186,6 +195,12 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'PASS_ATTACK' })}>✓ {t('durak.pass')}</button>}
         {canTake && <button type="button" className="btn btn--danger" onClick={() => apply({ type: 'TAKE_CARDS' })}>✋ {t('durak.take')}</button>}
         {canTransferBtn && !transferMode && <button type="button" className="btn btn--outline" onClick={() => setTransferMode(true)}>↪ {t('durak.transfer')}</button>}
+        {canTrumpShowBtn && !transferMode && (
+          <button type="button" className="btn btn--outline durak-trumpshow"
+            onClick={() => { const c = getValidTrumpShowCards(state)[0]; if (c) apply({ type: 'TRUMP_SHOW_TRANSFER', card: c }); }}>
+            ⚡ {t('durak.trumpShow')}
+          </button>
+        )}
         {transferMode && <button type="button" className="btn btn--ghost" onClick={() => setTransferMode(false)}>✕ {t('durak.cancel')}</button>}
       </div>
 

@@ -345,7 +345,56 @@ describe('Tarneeb scoring', () => {
     expect(end.scoresByTeam).toEqual({ A: -9, B: 5 });
   });
 
-  it('scores an all-13 made contract as a plain +13 with kaboot off (no bonus)', () => {
+  it('doubles an EXACT bid: bid 8, exactly 8 tricks → +16 (Stage 13.4 §8)', () => {
+    // teamA12 = 8, seat 1 (team B) overtrumps the 13th → A stays at exactly 8.
+    const s = craftFinalTrick({
+      declarerSeat: 0, // team A
+      trumpSuit: 'spades',
+      bid: 8,
+      teamA12: 8,
+      lastCards: [card('spades', '2'), card('spades', 'A'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.tricksByTeam).toEqual({ A: 8, B: 5 });
+    expect(end.lastHand?.made).toBe(true);
+    expect(end.lastHand?.exactBidDouble).toBe(true);
+    expect(end.lastHand?.deltaByTeam).toEqual({ A: 16, B: 0 }); // 8 × 2, defenders +0
+    expect(end.scoresByTeam).toEqual({ A: 16, B: 0 });
+  });
+
+  it('does NOT double an overtrick: bid 8, 9 tricks → +9 (Stage 13.4 §8)', () => {
+    const s = craftFinalTrick({
+      declarerSeat: 0, // team A
+      trumpSuit: 'spades',
+      bid: 8,
+      teamA12: 8,
+      // seat 0 wins the 13th with the top trump → A = 9 (overtrick, no double).
+      lastCards: [card('spades', 'A'), card('hearts', '2'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.tricksByTeam).toEqual({ A: 9, B: 4 });
+    expect(end.lastHand?.made).toBe(true);
+    expect(end.lastHand?.exactBidDouble).toBeFalsy();
+    expect(end.scoresByTeam).toEqual({ A: 9, B: 0 }); // tricks won, not doubled
+  });
+
+  it('failed contract is unchanged by the double rule: bid 8, 6 tricks → −8 / defenders +7', () => {
+    const s = craftFinalTrick({
+      declarerSeat: 0, // team A
+      trumpSuit: 'spades',
+      bid: 8,
+      teamA12: 6, // A wins 6 of the first 12…
+      // …and seat 1 (team B) overtrumps the 13th → A = 6, B = 7.
+      lastCards: [card('spades', '2'), card('spades', 'A'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.tricksByTeam).toEqual({ A: 6, B: 7 });
+    expect(end.lastHand?.made).toBe(false);
+    expect(end.lastHand?.exactBidDouble).toBeFalsy();
+    expect(end.scoresByTeam).toEqual({ A: -8, B: 7 });
+  });
+
+  it('doubles an EXACT all-13: bid 13, 13 tricks → +26 (kaboot BONUS off, double on §8/§9)', () => {
     const s = craftFinalTrick({
       declarerSeat: 0,
       trumpSuit: 'spades',
@@ -355,8 +404,25 @@ describe('Tarneeb scoring', () => {
     });
     const end = playOutHand(s, ctx);
     expect(end.tricksByTeam).toEqual({ A: 13, B: 0 });
-    expect(end.scoresByTeam).toEqual({ A: 13, B: 0 });
+    expect(end.lastHand?.exactBidDouble).toBe(true);
+    // 13 × 2 = 26 (the exact-bid double); NO extra flat kaboot bonus on top.
+    expect(end.scoresByTeam).toEqual({ A: 26, B: 0 });
     expect(end.phase).toBe('hand_complete');
+  });
+
+  it('reflects the exact-bid double in handHistory (score-only, no cards)', () => {
+    const s = craftFinalTrick({
+      declarerSeat: 0, trumpSuit: 'spades', bid: 8, teamA12: 8,
+      lastCards: [card('spades', '2'), card('spades', 'A'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.handHistory).toHaveLength(1);
+    const h = end.handHistory[0];
+    expect(h.exactBidDouble).toBe(true);
+    expect(h.deltaByTeam).toEqual({ A: 16, B: 0 });
+    // No card/hand fields ever land in the public history record.
+    expect(Object.keys(h)).not.toContain('handsBySeat');
+    expect(JSON.stringify(h)).not.toContain('"rank"');
   });
 });
 
