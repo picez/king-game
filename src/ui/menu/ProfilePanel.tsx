@@ -8,6 +8,7 @@ import { defaultServerUrl, isInsecureWsOnSecurePage } from '../../net/online';
 import { processAvatarImage } from '../components/customAvatarImage';
 import { useCustomAvatar, setCustomAvatar } from '../components/customAvatarStore';
 import MyAvatar from '../components/MyAvatar';
+import GameIcon from '../components/GameIcon';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
@@ -186,8 +187,51 @@ export default function ProfilePanel({
     iconSrc: gameIconSrc(id),   // Stage 12.3 image emblem
   }));
 
+  // Summary header (Stage 14.2): who you are + how your profile is stored. The
+  // display name mirrors AccountBar's precedence (server name → local → Guest).
+  const displayName = account.displayName ?? name ?? t('account.guestShort');
+  // Sync state, three plain tiers — signed-in (cross-device) → guest session on
+  // the server → local-only (no session / API down). Drives the status chip text.
+  const status: { kind: 'synced' | 'guest' | 'local'; label: string } =
+    account.signedIn ? { kind: 'synced', label: t('profile.statusSynced') }
+      : account.hasSession ? { kind: 'guest', label: t('profile.statusGuest') }
+        : { kind: 'local', label: t('profile.statusLocal') };
+
   return (
     <div className="profile-form">
+      {/* Profile summary card: avatar + name + account line + favorite game +
+          storage status. Read-only overview; the controls to change any of it
+          live in the grouped sections below. Sign-in/out stays in AccountBar. */}
+      <div className="profile-summary">
+        <span className="profile-summary__avatar">
+          <MyAvatar emoji={sanitizeAvatar(avatar, name)} className="profile-summary__avatar-inner" />
+        </span>
+        <div className="profile-summary__meta">
+          <span className="profile-summary__name">{displayName}</span>
+          {account.signedIn && account.email ? (
+            <span className="profile-summary__email">
+              <span className="account-bar__chip" aria-hidden="true">G</span> {account.email}
+            </span>
+          ) : (
+            <span className="profile-summary__sub">{t('account.guestShort')}</span>
+          )}
+          <div className="profile-summary__tags">
+            <span className="profile-summary__fav" title={t('profile.favoriteGame')}>
+              <GameIcon game={favoriteGame} size="sm" className="profile-summary__fav-icon" />
+              <span className="profile-summary__fav-label">{t(`gameType.${favoriteGame}`)}</span>
+            </span>
+            <span className={`profile-summary__status profile-summary__status--${status.kind}`}>
+              {status.label}
+            </span>
+          </div>
+        </div>
+      </div>
+      {!account.signedIn && (
+        <p className="profile-summary__note field__hint">{t('profile.localPrefsNote')}</p>
+      )}
+
+      <h3 className="profile-section-head">{t('account.title')}</h3>
+
       <div className="field">
         <label className="field__label">{t('account.displayName')}</label>
         <input className="input" value={name} maxLength={20}
@@ -237,6 +281,8 @@ export default function ProfilePanel({
         <p className="field__hint">{t('avatar.localHint')}</p>
       </div>
 
+      <h3 className="profile-section-head">{t('profile.preferences')}</h3>
+
       <div className="field">
         <label className="field__label">{t('profile.favoriteGame')}</label>
         <SelectMenu
@@ -247,6 +293,45 @@ export default function ProfilePanel({
           options={favoriteOptions}
         />
         <p className="field__hint">{t('profile.favoriteGameHint')}</p>
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('lang.label')}</label>
+        <LanguageSelector />
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('account.defaultTimer')}</label>
+        <div className="segmented segmented--inline">
+          {TIMER_OPTIONS.map((s) => (
+            <button key={s} type="button"
+              className={`segmented__tab ${defaultTimer === s ? 'segmented__tab--active' : ''}`}
+              onClick={() => changeTimer(s)}>
+              {s === 0 ? t('lobby.timerOff') : `${s}s`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('profile.sound')}</label>
+        <div className="segmented segmented--inline" role="radiogroup" aria-label={t('profile.sound')}>
+          {SOUND_PREFERENCES.map((s) => (
+            <button key={s} type="button" role="radio" aria-checked={sound === s}
+              className={`segmented__tab ${sound === s ? 'segmented__tab--active' : ''}`}
+              onClick={() => changeSound(s)}>
+              {soundLabel(s)}
+            </button>
+          ))}
+        </div>
+        <p className="field__hint">{t('profile.soundHint')}</p>
+        <div className="sound-preview">
+          <button type="button" className="btn btn--outline btn--small"
+            disabled={sound === 'off'} onClick={previewSound}>
+            🔈 {t('profile.soundPreview')}
+          </button>
+          {sound === 'off' && <span className="field__hint">{t('profile.soundPreviewOff')}</span>}
+        </div>
       </div>
 
       <h3 className="profile-section-head">{t('profile.appearance')}</h3>
@@ -304,44 +389,7 @@ export default function ProfilePanel({
         <p className="field__hint">{t('profile.animationHint')}</p>
       </div>
 
-      <div className="field">
-        <label className="field__label">{t('profile.sound')}</label>
-        <div className="segmented segmented--inline" role="radiogroup" aria-label={t('profile.sound')}>
-          {SOUND_PREFERENCES.map((s) => (
-            <button key={s} type="button" role="radio" aria-checked={sound === s}
-              className={`segmented__tab ${sound === s ? 'segmented__tab--active' : ''}`}
-              onClick={() => changeSound(s)}>
-              {soundLabel(s)}
-            </button>
-          ))}
-        </div>
-        <p className="field__hint">{t('profile.soundHint')}</p>
-        <div className="sound-preview">
-          <button type="button" className="btn btn--outline btn--small"
-            disabled={sound === 'off'} onClick={previewSound}>
-            🔈 {t('profile.soundPreview')}
-          </button>
-          {sound === 'off' && <span className="field__hint">{t('profile.soundPreviewOff')}</span>}
-        </div>
-      </div>
-
-      <div className="field">
-        <label className="field__label">{t('lang.label')}</label>
-        <LanguageSelector />
-      </div>
-
-      <div className="field">
-        <label className="field__label">{t('account.defaultTimer')}</label>
-        <div className="segmented segmented--inline">
-          {TIMER_OPTIONS.map((s) => (
-            <button key={s} type="button"
-              className={`segmented__tab ${defaultTimer === s ? 'segmented__tab--active' : ''}`}
-              onClick={() => changeTimer(s)}>
-              {s === 0 ? t('lobby.timerOff') : `${s}s`}
-            </button>
-          ))}
-        </div>
-      </div>
+      <h3 className="profile-section-head">{t('profile.connection')}</h3>
 
       {/* Advanced connection (Stage 14.2): a normal player never sees a server
           address — the app auto-uses the default. Custom is an opt-in for LAN/dev/
@@ -399,9 +447,6 @@ export default function ProfilePanel({
           </button>
           <p className="field__hint">{t('account.signInCta')}</p>
         </div>
-      )}
-      {account.signedIn && account.email && (
-        <p className="setup-hint profile-form__email">{account.email}</p>
       )}
     </div>
   );

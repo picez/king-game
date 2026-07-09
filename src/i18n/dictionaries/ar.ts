@@ -361,6 +361,12 @@ export const AR: Record<string, string> = {
   'profile.soundPreviewOff': 'فعّل الصوت للتجربة.',
   'profile.favoriteGame': 'اللعبة المفضّلة',
   'profile.favoriteGameHint': 'تُختار مسبقًا عند بدء لعبة محلية أو عبر الإنترنت.',
+  'profile.preferences': 'التفضيلات',
+  'profile.connection': 'الاتصال',
+  'profile.statusSynced': 'متزامن',
+  'profile.statusGuest': 'ملف ضيف',
+  'profile.statusLocal': 'على هذا الجهاز فقط',
+  'profile.localPrefsNote': 'بعض التفضيلات تُحفظ على هذا الجهاز فقط.',
   // ── account / profile (Stage 4) ──
   'account.title': 'الحساب',
   'account.guestShort': 'ضيف',

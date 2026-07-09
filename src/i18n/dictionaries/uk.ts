@@ -361,6 +361,12 @@ export const UK: Record<string, string> = {
   'profile.soundPreviewOff': 'Увімкніть звук, щоб прослухати.',
   'profile.favoriteGame': 'Улюблена гра',
   'profile.favoriteGameHint': 'Обирається за замовчуванням для локальної чи онлайн-гри.',
+  'profile.preferences': 'Налаштування',
+  'profile.connection': "З'єднання",
+  'profile.statusSynced': 'Синхронізовано',
+  'profile.statusGuest': 'Гостьовий профіль',
+  'profile.statusLocal': 'Лише на пристрої',
+  'profile.localPrefsNote': 'Частина налаштувань зберігається лише на цьому пристрої.',
   // ── account / profile (Stage 4) ──
   'account.title': 'Профіль',
   'account.guestShort': 'Гість',

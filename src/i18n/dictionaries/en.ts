@@ -361,6 +361,12 @@ export const EN: Record<string, string> = {
   'profile.soundPreviewOff': 'Turn sound on to preview.',
   'profile.favoriteGame': 'Favorite game',
   'profile.favoriteGameHint': 'Pre-selected when you start a local or online game.',
+  'profile.preferences': 'Preferences',
+  'profile.connection': 'Connection',
+  'profile.statusSynced': 'Synced',
+  'profile.statusGuest': 'Guest profile',
+  'profile.statusLocal': 'Local only',
+  'profile.localPrefsNote': 'Some preferences are saved on this device only.',
   // ── account / profile (Stage 4) ──
   'account.title': 'Account',
   'account.guestShort': 'Guest',

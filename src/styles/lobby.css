@@ -357,7 +357,6 @@
   display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start;
   margin-top: 0.2rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
 }
-.profile-form__email { word-break: break-all; }
 
 /* Profile SCREEN (Stage 13.3) — the Profile/Stats/Leaderboard sections now live
    on their own menu-screen sheet, not a growing drawer. Compact tabs at 360/390. */
@@ -397,6 +396,51 @@
   font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-dim);
 }
+
+/* Profile summary header (Stage 14.2): avatar + identity + favorite game + storage
+   status. A read-only overview card at the top of the Profile settings form. */
+.profile-summary {
+  display: flex; align-items: center; gap: 0.75rem; min-width: 0;
+  padding: 0.85rem; margin-bottom: 0.2rem;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--top-light), var(--shadow-1);
+}
+.profile-summary__avatar {
+  flex: 0 0 auto; width: 56px; height: 56px; font-size: 2rem;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: 50%;
+  box-shadow: var(--top-light);
+}
+.profile-summary__avatar-inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.profile-summary__meta { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 auto; }
+.profile-summary__name {
+  font-weight: 800; font-size: 1.05rem; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.profile-summary__sub { font-size: 0.78rem; color: var(--text-muted); }
+.profile-summary__email {
+  font-size: 0.78rem; color: var(--text-muted);
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+}
+.profile-summary__email > :last-child {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.profile-summary__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
+.profile-summary__fav {
+  display: inline-flex; align-items: center; gap: 0.3rem; max-width: 100%;
+  padding: 0.15rem 0.5rem 0.15rem 0.25rem; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 0.76rem; font-weight: 600; color: var(--text);
+}
+.profile-summary__fav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-summary__status {
+  display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+}
+.profile-summary__status--synced { background: var(--success-soft); color: var(--success-light); border-color: transparent; }
+.profile-summary__status--guest { background: var(--surface-3); color: var(--text); }
+.profile-summary__note { margin: -0.05rem 0 0.1rem; }
 
 /* Card-back style picker (Stage 13.0; 4 styles in a 2×2 grid at 360/390 — Stage
    13.5): compact swatches with a mini live preview of each back. */
