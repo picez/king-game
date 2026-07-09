@@ -98,14 +98,28 @@ async function run() {
       await sleep(900);
       await shot(cdp, `${tag}-1-startmenu`);                 // guest main menu
 
-      // Stage 7.1 menu uses tiles + a drawer; click by selector (label-agnostic,
-      // RTL-safe). Drawer segments: [0]=Profile [1]=My stats [2]=Leaderboard.
+      // Stage 13.3 menu: tiles [0]=Local [1]=Host [2]=Join [3]=Profile. Profile is
+      // now its OWN screen (no drawer). Click by selector (label-agnostic, RTL-safe).
       const CLICKSEL = (sel, i = 0) => `(()=>{const e=document.querySelectorAll(${JSON.stringify(sel)})[${i}];if(e){e.click();return true}return false})()`;
-      const setLang = (v) => `(()=>{const s=document.querySelector('.lang-select');if(s){s.value=${JSON.stringify(v)};s.dispatchEvent(new Event('change',{bubbles:true}));}})()`;
+      // The language selector is a SelectMenu (custom dropdown, not a native select):
+      // open its trigger, then click the option by its native label.
+      const openLang = `(()=>{const t=document.querySelector('.lang-select .select-menu__trigger');if(t){t.click();return true}return false})()`;
+      const pickLangOpt = (label) => `(()=>{const o=[...document.querySelectorAll('.select-menu__option')].find(x=>x.textContent.includes(${JSON.stringify(label)}));if(o){o.click();return true}return false})()`;
+      const ESC = `document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`;
 
-      // Open the Profile/Statistics/Leaderboard drawer; capture each segment.
-      await cdp.evaluate(CLICKSEL('.drawer__toggle'));
+      // Open the dedicated Profile screen (tile [3]) → Profile tab (settings).
+      await cdp.evaluate(CLICKSEL('.tile', 3));
       await sleep(500);
+      await shot(cdp, `${tag}-1e-profile`);
+
+      // Favorite game dropdown (Stage 13.3) — open the SelectMenu, capture, close.
+      await cdp.evaluate(CLICKSEL('.game-picker .select-menu__trigger'));
+      await sleep(300);
+      await shot(cdp, `${tag}-1g-favgame`);
+      await cdp.evaluate(ESC);
+      await sleep(150);
+
+      // Profile screen sections: tabs [0]=Profile [1]=My stats [2]=Leaderboard.
       await cdp.evaluate(CLICKSEL('.segmented__tab', 1));    // My stats
       await sleep(700);
       await shot(cdp, `${tag}-1c-stats`);
@@ -114,22 +128,30 @@ async function run() {
       await shot(cdp, `${tag}-1d-leaderboard`);
       await cdp.evaluate(CLICKSEL('.segmented__tab', 0));    // Profile (language lives here)
       await sleep(400);
-      await shot(cdp, `${tag}-1e-profile`);
       // The ONLY language selector now lives in Profile — switch to Arabic (RTL).
-      await cdp.evaluate(setLang('ar'));
-      await sleep(450);
-      await shot(cdp, `${tag}-1b-rtl`);
-      await cdp.evaluate(setLang('en'));
-      await sleep(300);
-      await cdp.evaluate(CLICKSEL('.drawer__toggle'));       // close drawer
+      await cdp.evaluate(openLang);
       await sleep(200);
+      await cdp.evaluate(pickLangOpt('العربية'));
+      await sleep(500);
+      await shot(cdp, `${tag}-1b-rtl`);
+      await cdp.evaluate(openLang);
+      await sleep(200);
+      await cdp.evaluate(pickLangOpt('English'));
+      await sleep(300);
+      await cdp.evaluate(CLICK('Back'));                     // back to main menu
+      await sleep(250);
 
-      // Host sheet (tile [1]) then Join sheet (tile [2]).
+      // Host sheet (tile [1]) → expand Advanced connection (server address).
       await cdp.evaluate(CLICKSEL('.tile', 1));
       await sleep(500);
       await shot(cdp, `${tag}-1f-host`);
+      await cdp.evaluate(CLICKSEL('.advanced__summary'));
+      await sleep(300);
+      await shot(cdp, `${tag}-1h-advanced`);
       await cdp.evaluate(CLICK('Back'));
       await sleep(200);
+
+      // Join sheet (tile [2]).
       await cdp.evaluate(CLICKSEL('.tile', 2));
       await sleep(700);
       await shot(cdp, `${tag}-2-join`);

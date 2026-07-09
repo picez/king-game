@@ -13,15 +13,16 @@ function read(rel: string): string {
 describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () => {
   const src = read('../StartMenu.tsx');
 
-  it('initialises the selected game to the default (King)', () => {
-    expect(src).toContain('useState<GameType>(DEFAULT_GAME_TYPE)');
+  it('initialises the selected game to the favorite (King fallback, Stage 13.3)', () => {
+    expect(src).toContain('useState<GameType>(() => loadFavoriteGame())');
   });
   it('does NOT render the big GameSelector on the main menu', () => {
     expect(src).not.toContain('<GameSelector');
     expect(src).not.toContain("from './menu/GameSelector'");
   });
-  it('main "Play locally" opens the local sheet (game picked there)', () => {
-    expect(src).toContain("onClick={() => setPane('local')}");
+  it('main "Play locally" opens the local sheet, seeding the picker from the favorite', () => {
+    expect(src).toContain('onClick={openLocal}');
+    expect(src).toContain("function openLocal() { setGameType(favoriteGame); setPane('local'); }");
     expect(src).toContain('onClick={() => onLocal(gameType)}'); // local sheet start
     expect(src).toContain("t('menu.startLocal')");
   });

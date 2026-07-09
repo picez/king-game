@@ -13,11 +13,11 @@ const ROOM_AGO_TICK_MS = 5000;
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
-import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer } from '../net/prefs';
+import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer, loadFavoriteGame } from '../net/prefs';
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
-import { DEFAULT_GAME_TYPE, GAME_CATALOG, GAME_TYPES, type GameType } from '../games/catalog';
+import { GAME_CATALOG, GAME_TYPES, normalizeFavoriteGame, type GameType } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
@@ -45,7 +45,7 @@ interface Props {
   initialError?: ErrorCode | null;
 }
 
-type Pane = 'menu' | 'host' | 'join' | 'local';
+type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile';
 
 export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const { t } = useI18n();
@@ -65,9 +65,18 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
   const [debercMatchSize, setDebercMatchSize] = useState<DebercMatchSize>('small');
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
+  // Favorite game (Stage 13.3): the persisted default that pre-selects the picker.
+  const [favoriteGame, setFavoriteGame] = useState<GameType>(() => loadFavoriteGame());
   // The game is chosen inside the Host / Local setup sheets (Stage 9.9) — not on
-  // the main menu — so it carries through to host()/onLocal().
-  const [gameType, setGameType] = useState<GameType>(DEFAULT_GAME_TYPE);
+  // the main menu — so it carries through to host()/onLocal(). Seeded from the
+  // favorite; opening a setup sheet re-seeds it (see openLocal/openHost).
+  const [gameType, setGameType] = useState<GameType>(() => loadFavoriteGame());
+
+  /** Favorite change from Profile: persist happens in ProfilePanel; here we keep
+   *  the live picker default in sync so the next Local/Host reflects the choice. */
+  function pickFavorite(g: GameType) { setFavoriteGame(g); setGameType(g); }
+  function openLocal() { setGameType(favoriteGame); setPane('local'); }
+  function openHost() { setGameType(favoriteGame); setPane('host'); }
 
   const account = useAccount(url);
   const roomList = useRoomList();
@@ -99,6 +108,11 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
       if (m.settings?.cardStyle) setCardBackStyle(m.settings.cardStyle);
       // Apply the signed-in player's animation-intensity preference (Stage 13.2).
       if (m.settings?.animationPreference) setMotionPreference(m.settings.animationPreference);
+      // Apply the signed-in player's favorite game as the picker default (Stage 13.3).
+      if (m.settings?.favoriteGame) {
+        const fav = normalizeFavoriteGame(m.settings.favoriteGame);
+        setFavoriteGame(fav); setGameType(fav);
+      }
     }
   }, [account.me]);
   useEffect(() => {
@@ -204,14 +218,14 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           )}
 
           <div className="action-tiles">
-            <button className="tile tile--primary" onClick={() => setPane('local')}>
+            <button className="tile tile--primary" onClick={openLocal}>
               <span className="tile__icon" aria-hidden="true">📱</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.localTitle')}</span>
                 <span className="tile__sub">{t('menu.localSub')}</span>
               </span>
             </button>
-            <button className="tile" onClick={() => setPane('host')}>
+            <button className="tile" onClick={openHost}>
               <span className="tile__icon" aria-hidden="true">🌐</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.hostTitle')}</span>
@@ -225,11 +239,27 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 <span className="tile__sub">{t('menu.joinSub')}</span>
               </span>
             </button>
+            <button className="tile" onClick={() => setPane('profile')}>
+              <span className="tile__icon" aria-hidden="true">⚙️</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('menu.profileTitle')}</span>
+                <span className="tile__sub">{t('menu.profileSub')}</span>
+              </span>
+            </button>
           </div>
+        </div>
+      )}
 
+      {pane === 'profile' && (
+        <div className="sheet">
+          <div className="sheet__head">
+            <h2 className="sheet__title">{t('menu.profileTitle')}</h2>
+            <button className="btn btn--ghost btn--small" onClick={() => setPane('menu')}>{t('btn.backToMenu')}</button>
+          </div>
           <ProfileMenu account={account}
             name={name} onName={setName} avatar={avatar} onAvatar={setAvatar}
-            defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer} />
+            defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
+            favoriteGame={favoriteGame} onFavoriteGame={pickFavorite} />
         </div>
       )}
 
@@ -273,14 +303,21 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <p className="field__hint">{t('menu.nameInProfile')}</p>
           </div>
 
-          <div className="field">
-            <label className="field__label">{t('form.server')}</label>
-            <input className="input" value={url}
-              onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
-            {isInsecureWsOnSecurePage(url) && (
-              <p className="lobby-error">{t('menu.wssWarning')}</p>
-            )}
-          </div>
+          {/* Server address is an ADVANCED, optional override — the app connects to
+              its default server with no input. Collapsed by default so it never
+              reads as a required step. A mixed-content warning still surfaces. */}
+          <details className="advanced">
+            <summary className="advanced__summary">🔌 {t('menu.advancedConnection')}</summary>
+            <div className="field advanced__body">
+              <label className="field__label">{t('form.server')}</label>
+              <input className="input" value={url}
+                onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
+              {isInsecureWsOnSecurePage(url) && (
+                <p className="lobby-error">{t('menu.wssWarning')}</p>
+              )}
+              <p className="field__hint">{t('menu.serverHint')}</p>
+            </div>
+          </details>
 
           {pane === 'host' && (
             <>

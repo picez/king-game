@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Lang } from '../i18n';
-import type { CardStyle, AnimationPreference } from './userSettings';
+import type { CardStyle, AnimationPreference, FavoriteGame } from './userSettings';
 
 export interface ApiUser {
   id: string;
@@ -28,6 +28,7 @@ export interface GlobalSettingsDto {
   avatar: string | null;
   cardStyle: CardStyle;
   animationPreference: AnimationPreference;
+  favoriteGame: FavoriteGame;
 }
 
 export interface MeResponse {

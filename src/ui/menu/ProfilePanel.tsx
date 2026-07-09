@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
-import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference } from '../../net/prefs';
+import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
@@ -10,8 +10,12 @@ import {
 import { useCardBackStyle, setCardBackStyle } from '../components/cardBackStore';
 import { ANIMATION_PREFERENCES, type AnimationPreference } from '../components/motionPref';
 import { useMotionPreference, setMotionPreference } from '../components/motionPreferenceStore';
+import { GAME_TYPES, type GameType } from '../../games/catalog';
+import { gameIconSrc } from '../../visual/visualAssets';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
+/** Emoji fallback for each game's favorite-picker option (matches StartMenu). */
+const GAME_EMOJI: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
 
 /** i18n key for each animation option's label. */
 const ANIMATION_LABEL_KEY: Record<AnimationPreference, string> = {
@@ -29,6 +33,8 @@ interface Props {
   onAvatar: (v: string) => void;
   defaultTimer: number;
   onDefaultTimer: (v: number) => void;
+  favoriteGame: GameType;
+  onFavoriteGame: (v: GameType) => void;
 }
 
 /**
@@ -39,7 +45,7 @@ interface Props {
  * NOT here — that lives in the top AccountBar.
  */
 export default function ProfilePanel({
-  account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer,
+  account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, favoriteGame, onFavoriteGame,
 }: Props) {
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
@@ -67,6 +73,17 @@ export default function ProfilePanel({
   function changeAnimation(v: AnimationPreference) {
     setMotionPreference(v); saveMotionPreference(v); account.pushAnimation(v);
   }
+  // Favorite game pre-selects the Local/Host picker. Local pref + server profile
+  // sync (signed in). onFavoriteGame lets the menu update its live picker default.
+  function changeFavorite(v: GameType) {
+    onFavoriteGame(v); saveFavoriteGame(v); account.pushFavoriteGame(v);
+  }
+  const favoriteOptions = GAME_TYPES.map((id) => ({
+    value: id,
+    label: t(`gameType.${id}`),
+    icon: GAME_EMOJI[id],       // emoji fallback if the emblem PNG 404s
+    iconSrc: gameIconSrc(id),   // Stage 12.3 image emblem
+  }));
 
   return (
     <div className="profile-form">
@@ -87,6 +104,18 @@ export default function ProfilePanel({
           onChange={changeAvatar}
           options={AVATARS.map((a) => ({ value: a, label: a, icon: a }))}
         />
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('profile.favoriteGame')}</label>
+        <SelectMenu
+          ariaLabel={t('profile.favoriteGame')}
+          className="game-picker"
+          value={favoriteGame}
+          onChange={(v) => changeFavorite(v as GameType)}
+          options={favoriteOptions}
+        />
+        <p className="field__hint">{t('profile.favoriteGameHint')}</p>
       </div>
 
       <div className="field">
@@ -140,13 +169,17 @@ export default function ProfilePanel({
         </div>
       </div>
 
-      {!account.hasSession && (
-        <div className="profile-form__save">
-          <button className="btn btn--primary" disabled={account.syncing}
-            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation })}>
-            {account.syncing ? `${t('net.connecting')}…` : `💾 ${t('account.saveProgress')}`}
+      {/* Profile/settings auto-save locally, and auto-sync to the server on every
+          change once there is a session (guest-session or signed-in). Before the
+          first sync a guest can OPT IN to server sync — a secondary action, never
+          a primary "save" button. Hidden when the API is unreachable (no-op). */}
+      {account.apiReachable && !account.hasSession && (
+        <div className="profile-form__sync">
+          <button className="btn btn--ghost btn--small" disabled={account.syncing}
+            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation, favoriteGame })}>
+            {account.syncing ? `${t('net.connecting')}…` : `☁️ ${t('account.syncProfile')}`}
           </button>
-          <p className="setup-hint">{t('account.signInCta')}</p>
+          <p className="field__hint">{t('account.signInCta')}</p>
         </div>
       )}
       {account.signedIn && account.email && (

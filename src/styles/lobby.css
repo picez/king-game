@@ -327,7 +327,40 @@
 /* Profile settings form */
 .profile-form { display: flex; flex-direction: column; gap: 0.85rem; }
 .profile-form__save { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.1rem; }
+/* Server sync is a SECONDARY opt-in (Stage 13.3) — settings already auto-save. */
+.profile-form__sync {
+  display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start;
+  margin-top: 0.2rem; padding-top: 0.75rem; border-top: 1px solid var(--border);
+}
 .profile-form__email { word-break: break-all; }
+
+/* Profile SCREEN (Stage 13.3) — the Profile/Stats/Leaderboard sections now live
+   on their own menu-screen sheet, not a growing drawer. Compact tabs at 360/390. */
+.profile-screen { display: flex; flex-direction: column; gap: 0.2rem; }
+.profile-screen__tabs { margin-bottom: 0.7rem; }
+.profile-screen__tabs .segmented__tab { font-size: 0.78rem; padding-inline: 0.3rem; }
+@media (max-width: 380px) {
+  .profile-screen__tabs .segmented__tab { font-size: 0.72rem; letter-spacing: -0.01em; }
+}
+
+/* Advanced connection (Stage 13.3): custom server address folded away so it never
+   reads as a required step. Native <details>, styled to the premium menu look. */
+.advanced {
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface-2); overflow: hidden;
+}
+.advanced__summary {
+  list-style: none; cursor: pointer; padding: 0.6rem 0.8rem;
+  font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
+  min-height: var(--tap-min); display: flex; align-items: center; gap: 0.4rem;
+}
+.advanced__summary::-webkit-details-marker { display: none; }
+.advanced__summary::after {
+  content: '▾'; margin-inline-start: auto; font-size: 0.7rem; transition: transform 0.15s;
+}
+.advanced[open] .advanced__summary::after { transform: rotate(180deg); }
+.advanced__summary:hover { color: var(--text); }
+.advanced__body { padding: 0 0.8rem 0.8rem; }
 
 /* Card-back style picker (Stage 13.0): compact swatches with a mini live preview
    of each back. Two equal columns — never overflows at 360/390. */

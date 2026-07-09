@@ -36,6 +36,13 @@ export const SUPPORTED_ANIMATION_PREFS = ['system', 'full', 'reduced', 'off'] as
 export type AnimationPreference = (typeof SUPPORTED_ANIMATION_PREFS)[number];
 export const DEFAULT_ANIMATION_PREF: AnimationPreference = 'system';
 
+// Favorite game (Stage 13.3) — pre-selects the Local/Host picker. Mirrors
+// src/games/catalog GAME_TYPES as a plain constant so server validation stays
+// engine-free. Unknown/unavailable → King (the default).
+export const SUPPORTED_FAVORITE_GAMES = ['king', 'durak', 'deberc', 'tarneeb'] as const;
+export type FavoriteGame = (typeof SUPPORTED_FAVORITE_GAMES)[number];
+export const DEFAULT_FAVORITE_GAME: FavoriteGame = 'king';
+
 /** Allowed per-turn timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 export const TURN_TIMER_VALUES = [0, 30, 60, 90] as const;
 export const DEFAULT_TURN_TIMER = 0;
@@ -66,6 +73,13 @@ export function sanitizeAnimationPref(v: unknown): AnimationPreference {
   return isSupportedAnimationPref(v) ? v : DEFAULT_ANIMATION_PREF;
 }
 
+export function isSupportedFavoriteGame(v: unknown): v is FavoriteGame {
+  return typeof v === 'string' && (SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(v);
+}
+export function sanitizeFavoriteGame(v: unknown): FavoriteGame {
+  return isSupportedFavoriteGame(v) ? v : DEFAULT_FAVORITE_GAME;
+}
+
 /** Whitelisted emoji id or null — never free text (XSS-safe, like prefs.ts). */
 export function sanitizeAvatarOrNull(v: unknown): string | null {
   return isValidAvatar(v) ? v : null;
@@ -92,6 +106,8 @@ export interface GlobalSettings {
   cardStyle: CardStyle;
   /** Animation-intensity preference (Stage 13.2); 'system' follows the device. */
   animationPreference: AnimationPreference;
+  /** Favorite game (Stage 13.3) — pre-selects the Local/Host picker. */
+  favoriteGame: FavoriteGame;
 }
 
 /**
@@ -106,6 +122,7 @@ export function sanitizeGlobalSettings(input: unknown): GlobalSettings {
     avatar: sanitizeAvatarOrNull(o.avatar),
     cardStyle: sanitizeCardStyle(o.cardStyle),
     animationPreference: sanitizeAnimationPref(o.animationPreference),
+    favoriteGame: sanitizeFavoriteGame(o.favoriteGame),
   };
 }
 

@@ -3,8 +3,8 @@ import { AVATARS } from '../core/avatars';
 import {
   sanitizeLang, sanitizeCardStyle, sanitizeAvatarOrNull, normalizeTurnTimer,
   sanitizeDisplayName, sanitizeGlobalSettings, sanitizeGameSettings,
-  sanitizeAnimationPref,
-  DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF, MAX_DISPLAY_NAME,
+  sanitizeAnimationPref, sanitizeFavoriteGame,
+  DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF, DEFAULT_FAVORITE_GAME, MAX_DISPLAY_NAME,
 } from './userSettings';
 
 describe('userSettings field validators', () => {
@@ -32,6 +32,16 @@ describe('userSettings field validators', () => {
     expect(DEFAULT_ANIMATION_PREF).toBe('system');
   });
 
+  it('validates the favorite game with fallback to King (Stage 13.3)', () => {
+    for (const g of ['king', 'durak', 'deberc', 'tarneeb']) {
+      expect(sanitizeFavoriteGame(g)).toBe(g);
+    }
+    expect(sanitizeFavoriteGame('poker')).toBe(DEFAULT_FAVORITE_GAME);
+    expect(sanitizeFavoriteGame(undefined)).toBe(DEFAULT_FAVORITE_GAME);
+    expect(sanitizeFavoriteGame(7)).toBe(DEFAULT_FAVORITE_GAME);
+    expect(DEFAULT_FAVORITE_GAME).toBe('king');
+  });
+
   it('keeps only whitelisted avatars, else null', () => {
     expect(sanitizeAvatarOrNull(AVATARS[0])).toBe(AVATARS[0]);
     expect(sanitizeAvatarOrNull('<script>')).toBeNull();
@@ -55,12 +65,15 @@ describe('userSettings field validators', () => {
 });
 
 describe('sanitizeGlobalSettings', () => {
-  const dflt = { lang: DEFAULT_LANG, avatar: null, cardStyle: DEFAULT_CARD_STYLE, animationPreference: DEFAULT_ANIMATION_PREF };
+  const dflt = {
+    lang: DEFAULT_LANG, avatar: null, cardStyle: DEFAULT_CARD_STYLE,
+    animationPreference: DEFAULT_ANIMATION_PREF, favoriteGame: DEFAULT_FAVORITE_GAME,
+  };
   it('produces a fully valid object from partial/garbage input', () => {
-    expect(sanitizeGlobalSettings({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced' }))
-      .toEqual({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced' });
+    expect(sanitizeGlobalSettings({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced', favoriteGame: 'durak' }))
+      .toEqual({ lang: 'de', avatar: AVATARS[1], cardStyle: 'classic', animationPreference: 'reduced', favoriteGame: 'durak' });
     expect(sanitizeGlobalSettings({})).toEqual(dflt);
-    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope' })).toEqual(dflt);
+    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope', favoriteGame: 'poker' })).toEqual(dflt);
     expect(sanitizeGlobalSettings(null)).toEqual(dflt);
   });
 });

@@ -5,6 +5,7 @@ import {
   GAME_TYPES,
   getGameCatalogEntry,
   isGameType,
+  normalizeFavoriteGame,
   publicGameCatalog,
 } from './catalog';
 
@@ -43,6 +44,14 @@ describe('game catalog', () => {
     expect(getGameCatalogEntry('deberc')?.id).toBe('deberc');
     expect(getGameCatalogEntry('tarneeb')?.id).toBe('tarneeb');
     expect(getGameCatalogEntry('poker')).toBeNull();
+  });
+
+  it('normalizes the favorite game, falling back to King (Stage 13.3)', () => {
+    for (const g of GAME_TYPES) expect(normalizeFavoriteGame(g)).toBe(g);
+    expect(normalizeFavoriteGame('poker')).toBe(DEFAULT_GAME_TYPE);
+    expect(normalizeFavoriteGame(null)).toBe('king');
+    expect(normalizeFavoriteGame(undefined)).toBe('king');
+    expect(normalizeFavoriteGame(42)).toBe('king');
   });
 
   it('exposes all games publicly with status and NO private fields', () => {

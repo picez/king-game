@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { Account } from '../hooks/useAccount';
+import type { GameType } from '../games/catalog';
 import {
   fetchKingStats, fetchKingLeaderboard, fetchDurakStats, fetchDurakLeaderboard,
   fetchDebercStats, fetchDebercLeaderboard, fetchTarneebStats, fetchTarneebLeaderboard,
@@ -26,6 +27,8 @@ interface Props {
   onAvatar: (v: string) => void;
   defaultTimer: number;
   onDefaultTimer: (v: number) => void;
+  favoriteGame: GameType;
+  onFavoriteGame: (v: GameType) => void;
 }
 
 type Tab = 'profile' | 'stats' | 'leaderboard';
@@ -34,17 +37,19 @@ type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb';
 const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb'] as const;
 
 /**
- * Secondary Profile / Statistics / Leaderboard drawer (Stage 7.1). A single
- * collapsible panel with a segmented control, kept OFF the first screen by
- * default so the main actions stay front-and-centre. Sign-in/out is NOT here
- * (that lives in the top AccountBar); the Profile tab holds settings only.
+ * Profile / Statistics / Leaderboard sections (Stage 13.3). Rendered inside the
+ * dedicated Profile SCREEN (StartMenu `pane === 'profile'`) — no longer a
+ * collapsible drawer on the main menu. A segmented control switches sections.
+ * Sign-in/out is NOT here (that lives in the top AccountBar); the Profile tab
+ * holds settings only.
  *
- * Stats + leaderboard have a per-game sub-toggle (King / Durak / Deberc). Each
- * game's data loads lazily on first view (a `once` ref) and re-fetches on ↻.
+ * Stats + leaderboard have a per-game sub-toggle (King / Durak / Deberc / Tarneeb).
+ * Each game's data loads lazily on first view (a `once` ref) and re-fetches on ↻.
  */
-export default function ProfileMenu({ account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer }: Props) {
+export default function ProfileMenu({
+  account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, favoriteGame, onFavoriteGame,
+}: Props) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('profile');
   const [statsGame, setStatsGame] = useState<GameKey>('king');
   const [boardGame, setBoardGame] = useState<GameKey>('king');
@@ -112,7 +117,6 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
   }, [base]);
 
   useEffect(() => {
-    if (!open) return;
     if (tab === 'stats') {
       if (statsGame === 'king' && !statsOnce.current) { statsOnce.current = true; void loadStats(); }
       if (statsGame === 'durak' && !durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
@@ -125,7 +129,7 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
       if (boardGame === 'deberc' && !debercBoardOnce.current) { debercBoardOnce.current = true; void loadDebercBoard(); }
       if (boardGame === 'tarneeb' && !tarneebBoardOnce.current) { tarneebBoardOnce.current = true; void loadTarneebBoard(); }
     }
-  }, [open, tab, statsGame, boardGame,
+  }, [tab, statsGame, boardGame,
     loadStats, loadDurakStats, loadDebercStats, loadTarneebStats,
     loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard]);
 
@@ -149,36 +153,30 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
   ];
 
   return (
-    <div className="drawer">
-      <button className="drawer__toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span>⚙️ {t('account.title')} · {t('stats.title')}</span>
-        <span className="drawer__chev">{open ? '▲' : '▼'}</span>
-      </button>
+    <div className="profile-screen">
+      <div className="segmented profile-screen__tabs" role="tablist">
+        {tabs.map((tb) => (
+          <button key={tb.key} role="tab" aria-selected={tab === tb.key}
+            className={`segmented__tab ${tab === tb.key ? 'segmented__tab--active' : ''}`}
+            onClick={() => setTab(tb.key)}>
+            {tb.label}
+          </button>
+        ))}
+        {(tab === 'stats' || tab === 'leaderboard') && (
+          <button className="drawer__refresh" onClick={refresh}
+            disabled={anyLoading}
+            aria-label={t('stats.refresh')} title={t('stats.refresh')}>↻</button>
+        )}
+      </div>
 
-      {open && (
-        <div className="drawer__body">
-          <div className="segmented" role="tablist">
-            {tabs.map((tb) => (
-              <button key={tb.key} role="tab" aria-selected={tab === tb.key}
-                className={`segmented__tab ${tab === tb.key ? 'segmented__tab--active' : ''}`}
-                onClick={() => setTab(tb.key)}>
-                {tb.label}
-              </button>
-            ))}
-            {(tab === 'stats' || tab === 'leaderboard') && (
-              <button className="drawer__refresh" onClick={refresh}
-                disabled={anyLoading}
-                aria-label={t('stats.refresh')} title={t('stats.refresh')}>↻</button>
-            )}
-          </div>
-
-          <div className="drawer__panel" role="tabpanel">
-            {tab === 'profile' && (
-              <ProfilePanel account={account}
-                name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
-                defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer} />
-            )}
-            {tab === 'stats' && (
+      <div className="drawer__panel" role="tabpanel">
+        {tab === 'profile' && (
+          <ProfilePanel account={account}
+            name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
+            defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer}
+            favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame} />
+        )}
+        {tab === 'stats' && (
               <>
                 <div className="segmented segmented--sub" role="tablist" aria-label={t('menu.game')}>
                   {GAMES.map((g) => (
@@ -212,9 +210,7 @@ export default function ProfileMenu({ account, name, onName, avatar, onAvatar, d
                 {boardGame === 'tarneeb' && <TarneebLeaderboardPanel result={tarneebBoard} loading={loadingTarneebBoard} />}
               </>
             )}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

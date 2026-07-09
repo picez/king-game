@@ -8,6 +8,8 @@ import type { StorageLike } from './session';
 import { isValidAvatar } from '../core/avatars';
 import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
 import { normalizeMotionPreference, type AnimationPreference } from '../ui/components/motionPref';
+import { normalizeFavoriteGame } from '../games/catalog';
+import type { GameType } from '../games/catalog';
 
 const NICK_KEY = 'king.nickname.v1';
 const LANG_KEY = 'king.lang.v1';
@@ -16,6 +18,7 @@ const TIMER_KEY = 'king.defaultTimer.v1';
 const GUEST_KEY = 'king.guest.v1';
 const CARDBACK_KEY = 'king.cardStyle.v1';
 const MOTION_KEY = 'king.motion.v1';
+const FAVGAME_KEY = 'king.favoriteGame.v1';
 
 /** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 const TIMER_VALUES = [0, 30, 60, 90];
@@ -96,6 +99,20 @@ export function loadMotionPreference(storage: StorageLike | null = defaultStorag
 export function saveMotionPreference(pref: string, storage: StorageLike | null = defaultStorage()): void {
   const p = normalizeMotionPreference(pref); // only ever persist a valid value
   try { storage?.setItem(MOTION_KEY, p); } catch { /* non-fatal */ }
+}
+
+/**
+ * Preferred "favorite" game (Stage 13.3): pre-selects the Local/Host game picker.
+ * A local UI preference — never game state. Unknown/unavailable values normalise
+ * to King (the default) so a stale value never breaks the picker.
+ */
+export function loadFavoriteGame(storage: StorageLike | null = defaultStorage()): GameType {
+  return normalizeFavoriteGame(storage?.getItem(FAVGAME_KEY));
+}
+
+export function saveFavoriteGame(game: string, storage: StorageLike | null = defaultStorage()): void {
+  const g = normalizeFavoriteGame(game); // only ever persist a valid game id
+  try { storage?.setItem(FAVGAME_KEY, g); } catch { /* non-fatal */ }
 }
 
 /**

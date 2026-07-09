@@ -98,6 +98,15 @@ export function isGameType(value: unknown): value is GameType {
   return typeof value === 'string' && (GAME_TYPES as readonly string[]).includes(value);
 }
 
+/**
+ * Any input → a valid game id, falling back to King (the default) when the value
+ * is unknown/unavailable. Used for the "favorite game" profile preference so a
+ * stale or bad stored value never breaks the Local/Host picker (Stage 13.3).
+ */
+export function normalizeFavoriteGame(value: unknown): GameType {
+  return isGameType(value) ? value : DEFAULT_GAME_TYPE;
+}
+
 export function getGameCatalogEntry(value: unknown): GameCatalogEntry | null {
   return isGameType(value) ? GAME_CATALOG[value] : null;
 }

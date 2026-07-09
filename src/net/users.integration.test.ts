@@ -28,7 +28,7 @@ describe.skipIf(!TEST_DATABASE_URL)('users repository (integration)', () => {
 
     // Global settings round-trip with validation (bad values dropped).
     const saved = await repo.upsertGlobalSettings(a.id, { lang: 'uk', avatar: '🦊', cardStyle: 'classic' });
-    expect(saved).toEqual({ lang: 'uk', avatar: '🦊', cardStyle: 'classic', animationPreference: 'system' });
+    expect(saved).toEqual({ lang: 'uk', avatar: '🦊', cardStyle: 'classic', animationPreference: 'system', favoriteGame: 'king' });
     await repo.upsertGlobalSettings(a.id, { lang: 'zz' as never }); // invalid → default
     const profile = await repo.getProfile(a.id);
     expect(profile?.settings.lang).toBe('en');
