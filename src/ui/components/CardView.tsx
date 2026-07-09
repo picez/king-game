@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Card, Suit } from '../../models/types';
-import { cardFaceUrl, CARD_BACK_URL } from './cardArt';
+import { cardFaceUrl, CARD_BACK_URL, CARD_BACK_WEBP_URL } from './cardArt';
 import { useI18n } from '../../i18n';
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
@@ -90,15 +90,20 @@ export default function CardView({
       aria-label={isHidden ? t('card.hidden') : t('card.label').replace('{rank}', card.rank).replace('{suit}', t(`suit.${card.suit}`))}
     >
       {showBack && (
-        <img
-          className="card__back"
-          src={CARD_BACK_URL}
-          alt=""
-          draggable={false}
-          loading="lazy"
-          decoding="async"
-          onError={() => setBackFailed(true)}
-        />
+        // Prefer the smaller WebP back (Stage 12.9.1); the PNG <img> stays as the
+        // universal fallback, and if BOTH fail onError drops to the CSS card back.
+        <picture>
+          <source srcSet={CARD_BACK_WEBP_URL} type="image/webp" />
+          <img
+            className="card__back"
+            src={CARD_BACK_URL}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            decoding="async"
+            onError={() => setBackFailed(true)}
+          />
+        </picture>
       )}
       {showArt && (
         <img

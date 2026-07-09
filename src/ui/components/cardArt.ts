@@ -55,3 +55,15 @@ export function cardBackUrl(): string {
   return `${base}cards/back/back-green.png`;
 }
 export const CARD_BACK_URL = cardBackUrl();
+
+/**
+ * WebP variant of the card back (Stage 12.9.1) — a much smaller, same-image
+ * source preferred via a `<picture><source type="image/webp">` in CardView, with
+ * `CARD_BACK_URL` (PNG) kept as the universal `<img>` fallback. Mirrors the
+ * `card-back-green` manifest `webp` entry. See public/cards/back/back-green.webp.
+ */
+export function cardBackWebpUrl(): string {
+  const base = import.meta.env.BASE_URL ?? '/';
+  return `${base}cards/back/back-green.webp`;
+}
+export const CARD_BACK_WEBP_URL = cardBackWebpUrl();

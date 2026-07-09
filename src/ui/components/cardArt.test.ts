@@ -9,6 +9,8 @@ import {
   cardFaceUrl,
   cardBackUrl,
   CARD_BACK_URL,
+  cardBackWebpUrl,
+  CARD_BACK_WEBP_URL,
 } from './cardArt';
 import type { Rank, Suit } from '../../models/types';
 
@@ -78,6 +80,30 @@ describe('card back asset (Stage 12.2)', () => {
     expect(existsSync(BACK), 'back-green.png should exist').toBe(true);
     expect(statSync(BACK).size).toBeGreaterThan(0);
     expect(readFileSync(BACK).subarray(0, 8).equals(PNG_SIG)).toBe(true);
+  });
+});
+
+describe('card back WebP variant (Stage 12.9.1)', () => {
+  const BACK_PNG = join(process.cwd(), 'public', 'cards', 'back', 'back-green.png');
+  const BACK_WEBP = join(process.cwd(), 'public', 'cards', 'back', 'back-green.webp');
+  const RIFF = Buffer.from('RIFF', 'ascii');
+
+  it('cardBackWebpUrl / CARD_BACK_WEBP_URL resolve to the .webp back', () => {
+    expect(cardBackWebpUrl()).toContain('cards/back/back-green.webp');
+    expect(CARD_BACK_WEBP_URL).toContain('cards/back/back-green.webp');
+  });
+
+  it('is a real, non-empty RIFF/WEBP and smaller than the PNG fallback', () => {
+    expect(existsSync(BACK_WEBP), 'back-green.webp should exist').toBe(true);
+    const buf = readFileSync(BACK_WEBP);
+    expect(buf.subarray(0, 4).equals(RIFF) && buf.subarray(8, 12).toString('ascii') === 'WEBP').toBe(true);
+    expect(statSync(BACK_WEBP).size).toBeGreaterThan(0);
+    expect(statSync(BACK_WEBP).size).toBeLessThanOrEqual(statSync(BACK_PNG).size);
+  });
+
+  it('keeps the PNG fallback URL alongside the WebP (both exported)', () => {
+    expect(CARD_BACK_URL).toContain('cards/back/back-green.png');
+    expect(CARD_BACK_WEBP_URL).toContain('cards/back/back-green.webp');
   });
 });
 
