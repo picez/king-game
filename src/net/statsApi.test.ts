@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   fetchKingStats, fetchKingLeaderboard, parseKingStats,
   parseDurakStats, fetchDurakStats, fetchDurakLeaderboard,
+  parseDebercStats,
   parseTarneebStats, fetchTarneebStats, fetchTarneebLeaderboard,
   winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
 } from './statsApi';
@@ -81,6 +82,34 @@ describe('parseDurakStats — flat payload', () => {
   it('is all-zero for an empty payload', () => {
     const s = parseDurakStats({});
     expect(s).toMatchObject({ gamesPlayed: 0, gamesWon: 0, foolCount: 0, winRate: null, foolRate: null });
+  });
+});
+
+describe('parseDebercStats — combination stats (Stage 13.8)', () => {
+  it('flattens outcome + combination counters', () => {
+    const s = parseDebercStats({ stats: {
+      gamesPlayed: 6, gamesWon: 4, gamesLost: 2, winRate: 67, jackpotCount: 1, jackpotRate: 17,
+      combinations: { terz: 5, platina: 2, bella: 3, total: 10, handsPlayed: 40, handsWithMeld: 8, meldRate: 20 },
+      lastGameAt: '2026-07-06T00:00:00Z',
+    } });
+    expect(s).toMatchObject({ gamesPlayed: 6, jackpotCount: 1 });
+    expect(s.combinations).toEqual({ terz: 5, platina: 2, bella: 3, total: 10, handsPlayed: 40, handsWithMeld: 8, meldRate: 20 });
+  });
+
+  it('defaults every combination counter to 0 when the payload omits them (graceful)', () => {
+    const s = parseDebercStats({ stats: { gamesPlayed: 3, gamesWon: 1, gamesLost: 2, jackpotCount: 0 } });
+    expect(s.combinations).toEqual({ terz: 0, platina: 0, bella: 0, total: 0, handsPlayed: 0, handsWithMeld: 0, meldRate: null });
+  });
+
+  it('derives meldRate when the server omits it', () => {
+    const s = parseDebercStats({ stats: { gamesPlayed: 2, combinations: { handsPlayed: 20, handsWithMeld: 5 } } });
+    expect(s.combinations.meldRate).toBe(25);
+  });
+
+  it('is all-zero for an empty payload', () => {
+    const s = parseDebercStats({});
+    expect(s).toMatchObject({ gamesPlayed: 0, jackpotCount: 0 });
+    expect(s.combinations.total).toBe(0);
   });
 });
 

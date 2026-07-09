@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   isFinishedDebercGame, summarizeFinishedDebercGame, computeDebercStatDeltas, debercFinishSignature,
 } from './debercStats';
-import type { DebercPlayer, DebercState } from '../games/deberc/types';
+import type { DebercHandResult, DebercMeldKind, DebercPlayer, DebercState } from '../games/deberc/types';
+
+/** A minimal score-only hand result carrying an aggregate meld tally (no cards). */
+const hand = (meldTally: { seat: number; kind: DebercMeldKind }[]): DebercHandResult => ({
+  teamPoints: [0, 0], cardPoints: [0, 0], meldPoints: [0, 0],
+  hvTeam: null, beitTeams: [], topScorerTeam: 0, objazSeat: 0, dealerSeat: 0, meldTally,
+});
 
 const P = (seat: number): DebercPlayer => ({
   id: `player-${seat}`, name: `P${seat}`, seatIndex: seat,
@@ -101,5 +107,58 @@ describe('debercFinishSignature', () => {
     const jp = debercFinishSignature(finished4p({ jackpot: true }));
     expect(jp).toContain('jackpot');
     expect(jp).not.toBe(debercFinishSignature(finished4p()));
+  });
+});
+
+describe('combination stats (Stage 13.8)', () => {
+  it('counts each scoring meld kind per seat from the score-only handHistory', () => {
+    const s = summarizeFinishedDebercGame(finished4p({
+      handHistory: [
+        hand([{ seat: 0, kind: 'terz' }, { seat: 1, kind: 'platina' }]),
+        hand([{ seat: 0, kind: 'terz' }, { seat: 0, kind: 'bella' }]),
+        hand([]), // a hand with no melds
+      ],
+    }));
+    expect(s.handsPlayed).toBe(3);
+    const byId = Object.fromEntries(s.players.map((p) => [p.playerId, p.melds]));
+    expect(byId['player-0']).toEqual({ terz: 2, platina: 0, bella: 1, total: 3, handsWithMeld: 2 });
+    expect(byId['player-1']).toEqual({ terz: 0, platina: 1, bella: 0, total: 1, handsWithMeld: 1 });
+    expect(byId['player-3']).toEqual({ terz: 0, platina: 0, bella: 0, total: 0, handsWithMeld: 0 });
+  });
+
+  it('a деберц (jackpot) meld is NOT counted as a per-hand meld (tracked as jackpot)', () => {
+    const s = summarizeFinishedDebercGame(finished4p({
+      handHistory: [hand([{ seat: 0, kind: 'deberc' }, { seat: 0, kind: 'terz' }])],
+    }));
+    const p0 = s.players.find((p) => p.seatIndex === 0)!;
+    expect(p0.melds).toEqual({ terz: 1, platina: 0, bella: 0, total: 1, handsWithMeld: 1 });
+  });
+
+  it('legacy hands with no meldTally contribute zeros (graceful)', () => {
+    const legacyHand = { ...hand([]) } as DebercHandResult;
+    delete (legacyHand as { meldTally?: unknown }).meldTally;
+    const s = summarizeFinishedDebercGame(finished4p({ handHistory: [legacyHand, legacyHand] }));
+    expect(s.handsPlayed).toBe(2);
+    for (const p of s.players) expect(p.melds.total).toBe(0);
+  });
+
+  it('deltas carry the per-seat meld counts + hands played denominator', () => {
+    const summary = summarizeFinishedDebercGame(finished4p({
+      handHistory: [hand([{ seat: 0, kind: 'terz' }]), hand([{ seat: 0, kind: 'bella' }])],
+    }));
+    const deltas = computeDebercStatDeltas(summary);
+    const d0 = deltas.find((d) => d.playerId === 'player-0')!;
+    expect(d0.handsPlayed).toBe(2);
+    expect(d0.melds).toEqual({ terz: 1, platina: 0, bella: 1, total: 2, handsWithMeld: 2 });
+  });
+
+  it('PRIVACY: neither the summary nor the deltas carry any card/rank/suit', () => {
+    const summary = summarizeFinishedDebercGame(finished4p({
+      handHistory: [hand([{ seat: 0, kind: 'terz' }, { seat: 1, kind: 'bella' }])],
+    }));
+    const deltas = computeDebercStatDeltas(summary);
+    const json = JSON.stringify({ summary, deltas });
+    expect(json).not.toMatch(/"rank"|"suit"|"cards"|"hand"\s*:/);
+    expect(/spades|hearts|diamonds|clubs/.test(json)).toBe(false);
   });
 });

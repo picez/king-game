@@ -194,7 +194,18 @@ export async function fetchDurakStats(base: string): Promise<Loadable<DurakStats
   return failFor(status);
 }
 
-/** My Deberc stats — team-outcome only (no score/rounds); the flat server view. */
+/** Aggregate meld/combination counters for Deberc (Stage 13.8); all default to 0. */
+export interface DebercCombinationStats {
+  terz: number;
+  platina: number;
+  bella: number;
+  total: number;
+  handsPlayed: number;
+  handsWithMeld: number;
+  meldRate: number | null;
+}
+
+/** My Deberc stats — team outcome + aggregate combination counts (no cards). */
 export interface DebercStats {
   gamesPlayed: number;
   gamesWon: number;
@@ -204,7 +215,26 @@ export interface DebercStats {
   jackpotCount: number;
   /** 0–100 integer over games played, or null when no games. */
   jackpotRate: number | null;
+  /** Meld/combination breakdown (aggregate-only). */
+  combinations: DebercCombinationStats;
   lastGameAt: string | null;
+}
+
+/** Parses the combinations sub-object, defaulting every counter to 0 (graceful). */
+function parseDebercCombinations(raw: unknown): DebercCombinationStats {
+  const c = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const total = num(c.total);
+  const handsPlayed = num(c.handsPlayed);
+  const handsWithMeld = num(c.handsWithMeld);
+  return {
+    terz: num(c.terz),
+    platina: num(c.platina),
+    bella: num(c.bella),
+    total,
+    handsPlayed,
+    handsWithMeld,
+    meldRate: 'meldRate' in c ? numOrNull(c.meldRate) : (handsPlayed > 0 ? Math.round((handsWithMeld / handsPlayed) * 100) : null),
+  };
 }
 
 /** Flattens the API payload (`{ stats: <view> }`) into DebercStats. */
@@ -221,6 +251,7 @@ export function parseDebercStats(raw: unknown): DebercStats {
     winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
     jackpotCount,
     jackpotRate: 'jackpotRate' in s ? numOrNull(s.jackpotRate) : (gamesPlayed > 0 ? Math.round((jackpotCount / gamesPlayed) * 100) : null),
+    combinations: parseDebercCombinations(s.combinations),
     lastGameAt: str(s.lastGameAt),
   };
 }

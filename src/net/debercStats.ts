@@ -15,6 +15,53 @@
 
 import type { DebercState } from '../games/deberc/types';
 
+/**
+ * Aggregate-only combination counts for ONE seat/user (Stage 13.8). Only the melds
+ * that actually SCORED are counted, by their existing Deberc kind — NEVER any card.
+ * `deberc` (the jackpot run) ends the match instantly, so it is tracked separately
+ * as `jackpotCount`, not here.
+ */
+export interface DebercMeldCounts {
+  terz: number;      // терц — a 3-card sequence (20)
+  platina: number;   // платіна — a longer sequence (50)
+  bella: number;     // белла — trump K+Q earned in play (20)
+  total: number;     // terz + platina + bella
+  /** Hands in which this seat scored at least one meld. */
+  handsWithMeld: number;
+}
+
+export function emptyDebercMeldCounts(): DebercMeldCounts {
+  return { terz: 0, platina: 0, bella: 0, total: 0, handsWithMeld: 0 };
+}
+
+/**
+ * Tallies the scoring melds per seat across all scored hands of a match, reading
+ * ONLY the score-only `handHistory[].meldTally` (seat + kind). Legacy results with
+ * no `meldTally` simply contribute nothing (graceful).
+ */
+function tallyMeldsBySeat(state: DebercState): Map<number, DebercMeldCounts> {
+  const bySeat = new Map<number, DebercMeldCounts>();
+  const at = (seat: number): DebercMeldCounts => {
+    let c = bySeat.get(seat);
+    if (!c) { c = emptyDebercMeldCounts(); bySeat.set(seat, c); }
+    return c;
+  };
+  for (const hand of state.handHistory) {
+    const seatsThisHand = new Set<number>();
+    for (const m of hand.meldTally ?? []) {
+      const c = at(m.seat);
+      if (m.kind === 'terz') c.terz++;
+      else if (m.kind === 'platina') c.platina++;
+      else if (m.kind === 'bella') c.bella++;
+      else continue; // 'deberc' jackpot → counted as jackpotCount, not a meld here
+      c.total++;
+      seatsThisHand.add(m.seat);
+    }
+    for (const seat of seatsThisHand) at(seat).handsWithMeld++;
+  }
+  return bySeat;
+}
+
 /** One seat's outcome in a finished Deberc game (engine-id space; no user id). */
 export interface DebercPlayerResult {
   seatIndex: number;
@@ -25,6 +72,8 @@ export interface DebercPlayerResult {
   /** Team index (`teamOf[seatIndex]`): 3p → own team, 4p → the seat's pair. */
   team: number;
   isWinner: boolean;
+  /** This seat's scoring-meld counts this match (aggregate-only, no cards). */
+  melds: DebercMeldCounts;
 }
 
 /** Everything the stats layer needs about one finished Deberc game. */
@@ -36,6 +85,8 @@ export interface DebercFinishedSummary {
   winnerTeam: number | null;
   /** True when the match ended via a деберц jackpot rather than the target. */
   isJackpot: boolean;
+  /** Scored hands this match (same denominator for every seat). */
+  handsPlayed: number;
 }
 
 /** Per-player Deberc stat contribution from ONE finished game. */
@@ -44,6 +95,10 @@ export interface DebercStatDelta {
   won: boolean;
   /** Won specifically via a деберц jackpot (credited to winners only). */
   isJackpot: boolean;
+  /** This seat's scoring-meld counts this game (added to the user's cache). */
+  melds: DebercMeldCounts;
+  /** Scored hands this game (added to the user's handsPlayed denominator). */
+  handsPlayed: number;
 }
 
 /** True only for a finished Deberc match. */
@@ -54,6 +109,7 @@ export function isFinishedDebercGame(state: DebercState | null): state is Deberc
 /** Summarises a finished Deberc game in engine-id space. */
 export function summarizeFinishedDebercGame(state: DebercState): DebercFinishedSummary {
   const winnerTeam = state.winnerTeam;
+  const meldsBySeat = tallyMeldsBySeat(state);
   const players: DebercPlayerResult[] = state.players.map((p) => {
     const team = state.teamOf[p.seatIndex] ?? p.seatIndex;
     return {
@@ -64,6 +120,7 @@ export function summarizeFinishedDebercGame(state: DebercState): DebercFinishedS
       avatar: (p as { avatar?: string }).avatar,
       team,
       isWinner: winnerTeam != null && team === winnerTeam,
+      melds: meldsBySeat.get(p.seatIndex) ?? emptyDebercMeldCounts(),
     };
   });
   return {
@@ -72,6 +129,7 @@ export function summarizeFinishedDebercGame(state: DebercState): DebercFinishedS
     winners: players.filter((p) => p.isWinner).map((p) => p.playerId),
     winnerTeam,
     isJackpot: state.jackpot === true,
+    handsPlayed: state.handHistory.length,
   };
 }
 
@@ -81,6 +139,8 @@ export function computeDebercStatDeltas(summary: DebercFinishedSummary): DebercS
     playerId: p.playerId,
     won: p.isWinner,
     isJackpot: summary.isJackpot && p.isWinner,
+    melds: p.melds,
+    handsPlayed: summary.handsPlayed,
   }));
 }
 
@@ -95,7 +155,22 @@ export function debercFinishSignature(state: DebercState): string {
   return `deberc|${state.players.length}|${state.winnerTeam ?? 'none'}|${state.jackpot ? 'jackpot' : 'target'}|${winners}`;
 }
 
-/** Full, public, derived Deberc stats for one user (all outcome-level). */
+/**
+ * Aggregate combination stats surfaced to the user (Stage 13.8). Counts + a meld
+ * frequency; per-type percentages are derived on the client from count/handsPlayed.
+ */
+export interface DebercCombinationStats {
+  terz: number;
+  platina: number;
+  bella: number;
+  total: number;             // terz + platina + bella across all games
+  handsPlayed: number;       // scored hands across all games (the denominator)
+  handsWithMeld: number;     // hands where the user scored ≥1 meld
+  /** handsWithMeld / handsPlayed as a 0..100 integer, or null when no hands. */
+  meldRate: number | null;
+}
+
+/** Full, public, derived Deberc stats for one user (all outcome/aggregate-level). */
 export interface DebercStatsView {
   gameType: 'deberc';
   gamesPlayed: number;
@@ -104,5 +179,7 @@ export interface DebercStatsView {
   winRate: number | null;      // 0..100 integer; null when no games
   jackpotCount: number;        // matches won via a деберц jackpot
   jackpotRate: number | null;  // 0..100 integer over games played; null when none
+  /** Meld/combination breakdown (aggregate-only; no cards). */
+  combinations: DebercCombinationStats;
   lastGameAt: string | null;
 }

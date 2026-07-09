@@ -273,6 +273,8 @@ function scoreAndAdvance(s: DebercState, ctx?: DebercContext): void {
     teamPoints, cardPoints: score.cardPoints, meldPoints: score.meldPoints,
     hvTeam, beitTeams, topScorerTeam,
     objazSeat: s.objazSeat, dealerSeat: s.dealerSeat,
+    // Aggregate-only meld tally (seat + kind, NO cards) for combination stats.
+    meldTally: scoringMelds.map((m) => ({ seat: m.seatIndex, kind: m.kind })),
   };
   // Append to the match-long score sheet (before dealNextHand rotates об'яз).
   s.handHistory.push(s.lastHand);

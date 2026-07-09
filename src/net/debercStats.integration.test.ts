@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type { DebercPlayer, DebercState } from '../games/deberc/types';
+import type { DebercHandResult, DebercMeldKind, DebercPlayer, DebercState } from '../games/deberc/types';
+
+/** A score-only hand result carrying an aggregate meld tally (seat + kind, no cards). */
+const hand = (meldTally: { seat: number; kind: DebercMeldKind }[]): DebercHandResult => ({
+  teamPoints: [0, 0], cardPoints: [0, 0], meldPoints: [0, 0],
+  hvTeam: null, beitTeams: [], topScorerTeam: 0, objazSeat: 0, dealerSeat: 0, meldTally,
+});
 
 // Optional integration test for the Deberc stats repository (DEBERC-STATS-2).
 // SKIPPED unless TEST_DATABASE_URL points at a migrated Postgres:
@@ -72,6 +78,35 @@ describe.skipIf(!TEST_DATABASE_URL)('deberc stats repository (integration, DEBER
     expect(l1.gamesLost - l0.gamesLost).toBe(1);
     expect(l1.jackpotCount - l0.jackpotCount).toBe(0);
     expect(l1.gameType).toBe('deberc');
+  });
+
+  it('persists aggregate combination counts, storing NO cards (Stage 13.8)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const deberc = await import('../../server/db/debercStats');
+    const u = await users.getOrCreateGuest('it-deberc-combos'); // seat 0
+
+    const state = finishedDeberc(0, false);
+    state.handHistory = [
+      hand([{ seat: 0, kind: 'terz' }, { seat: 0, kind: 'bella' }]),
+      hand([{ seat: 0, kind: 'terz' }]),
+      hand([]),
+    ];
+    const seatUsers = new Map<number, string | null>([[0, u.id]]);
+    const before = await deberc.getDebercStats(u.id);
+    const rec = await deberc.recordFinishedDebercGame(`DBC${Math.floor(Math.random() * 1e6)}`, state, seatUsers);
+    expect(rec.recorded).toBe(true);
+    const after = await deberc.getDebercStats(u.id);
+
+    expect(after.combinations.terz - before.combinations.terz).toBe(2);
+    expect(after.combinations.bella - before.combinations.bella).toBe(1);
+    expect(after.combinations.total - before.combinations.total).toBe(3);
+    expect(after.combinations.handsPlayed - before.combinations.handsPlayed).toBe(3);
+    expect(after.combinations.handsWithMeld - before.combinations.handsWithMeld).toBe(2);
+    // Privacy: the derived view (and thus the stored JSONB it reads) carries no card data.
+    const json = JSON.stringify(after);
+    expect(json).not.toMatch(/"rank"|"suit"|"cards"/);
+    expect(/spades|hearts|diamonds|clubs/.test(json)).toBe(false);
   });
 
   it('leaderboard exposes public fields + self marker, never a userId', async () => {

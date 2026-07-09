@@ -221,6 +221,12 @@ export interface DebercHandResult {
   objazSeat: number;
   /** The dealer (роздаючий) seat for this hand — for the score sheet. */
   dealerSeat: number;
+  /**
+   * Aggregate-only tally of the melds that SCORED this hand (seat + kind, NO cards)
+   * — feeds combination statistics (Stage 13.8). Optional/back-compat: absent on
+   * legacy results, treated as an empty list. Never any card/rank/suit data.
+   */
+  meldTally?: { seat: number; kind: DebercMeldKind }[];
 }
 
 export type DebercAction =

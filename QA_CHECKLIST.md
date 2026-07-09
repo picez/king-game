@@ -179,6 +179,21 @@ All must be green.
       rows (`games`/`game_players`/`rounds`) hold **no cards** — only scores and a
       word-free bid+trump label (e.g. `9S`).
 
+## Manual — Deberc combination stats (Stage 13.8)
+
+> Deberc records the team outcome + jackpot **and** an aggregate combination
+> breakdown — counts of the melds that scored (terz / platina / bella) + a meld
+> frequency. Aggregate-only: **never any card, rank, suit, or hand order.**
+
+- [ ] **Profile → My stats → Deberc → Combinations:** after a few Deberc games the
+      section shows **Terz / Platina / Bella** counts, each with a **"% of hands"**
+      frequency, plus **Hands with a meld** — at **360/390** with no overflow, RTL ok.
+- [ ] **Empty state:** a brand-new Deberc player (no melds yet) sees
+      **"No combinations recorded yet"** instead of an empty list.
+- [ ] **Privacy (DB configured):** the `user_stats.stats` JSONB for a Deberc user
+      holds only counters (`terz`/`platina`/`bella`/`totalMelds`/`handsPlayed`/
+      `handsWithMeld`/`jackpotCount`) — **no card/rank/suit** anywhere.
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches

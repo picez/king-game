@@ -204,7 +204,9 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
    with its own leaderboard, alongside King/Deberc/Tarneeb. Spec:
    [`DURAK_RULES.md`](DURAK_RULES.md); design: [`DURAK_PLAN.md`](DURAK_PLAN.md).
 4. **Deberc + Tarneeb are released** (`available`) — local + online with
-   per-`game_type` stats + leaderboards. Deberc records team outcome + jackpot;
+   per-`game_type` stats + leaderboards. Deberc records team outcome + jackpot +
+   an aggregate **combination breakdown** (terz/platina/bella counts + meld
+   frequency, Stage 13.8 — counts only, never cards);
    Tarneeb records win/loss + contract success + team score (score-only, no cards).
    Specs: [`DEBERC_RULES.md`](DEBERC_RULES.md) / [`TARNEEB_RULES.md`](TARNEEB_RULES.md).
 5. (Scale) add Redis/pub-sub only if one Node process is no longer enough.

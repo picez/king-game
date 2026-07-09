@@ -24,7 +24,7 @@ import type { SeatUsers, RecordResult } from './stats';
 
 const DEBERC = 'deberc';
 const DEBERC_RULESET = 'deberc-v1';
-const DEBERC_STATS_VERSION = 1;
+const DEBERC_STATS_VERSION = 2; // v2: +combination counters (Stage 13.8)
 
 async function database(): Promise<PostgresJsDatabase> {
   const conn = await getDb();
@@ -39,16 +39,44 @@ function gameKey(roomCode: string, summary: DebercFinishedSummary): string {
   return createHash('sha256').update(`${DEBERC}|${roomCode}|${outcome}|${winners}`).digest('hex');
 }
 
-interface DebercStatsBlob { jackpotCount: number; }
+interface DebercStatsBlob {
+  jackpotCount: number;
+  // Combination counters (Stage 13.8) — aggregate-only, never any card.
+  terz: number;
+  platina: number;
+  bella: number;
+  totalMelds: number;
+  handsPlayed: number;   // scored hands across all games (the denominator)
+  handsWithMeld: number; // hands where the user scored ≥1 meld
+}
 
-/** Reads the Deberc stats JSONB, defaulting missing counters to 0. Pure. */
+const numOr0 = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+/**
+ * Reads the Deberc stats JSONB, defaulting EVERY missing counter to 0. Pure. This
+ * is the graceful migration path: a v1 blob (jackpotCount only) reads as zeros for
+ * the new combination fields, so old users simply start counting from 0.
+ */
 export function readDebercStats(raw: unknown): DebercStatsBlob {
   const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
-  return { jackpotCount: typeof o.jackpotCount === 'number' ? o.jackpotCount : 0 };
+  return {
+    jackpotCount: numOr0(o.jackpotCount),
+    terz: numOr0(o.terz),
+    platina: numOr0(o.platina),
+    bella: numOr0(o.bella),
+    totalMelds: numOr0(o.totalMelds),
+    handsPlayed: numOr0(o.handsPlayed),
+    handsWithMeld: numOr0(o.handsWithMeld),
+  };
 }
 
 function serializeDebercStats(s: DebercStatsBlob): Record<string, unknown> {
-  return { v: DEBERC_STATS_VERSION, jackpotCount: s.jackpotCount };
+  return {
+    v: DEBERC_STATS_VERSION,
+    jackpotCount: s.jackpotCount,
+    terz: s.terz, platina: s.platina, bella: s.bella,
+    totalMelds: s.totalMelds, handsPlayed: s.handsPlayed, handsWithMeld: s.handsWithMeld,
+  };
 }
 
 /**
@@ -130,8 +158,15 @@ async function upsertDebercUserStats(
     .limit(1))[0];
   const prev = readDebercStats(cur?.stats);
 
+  const m = delta.melds;
   const nextStats = serializeDebercStats({
     jackpotCount: prev.jackpotCount + (delta.isJackpot ? 1 : 0),
+    terz: prev.terz + m.terz,
+    platina: prev.platina + m.platina,
+    bella: prev.bella + m.bella,
+    totalMelds: prev.totalMelds + m.total,
+    handsPlayed: prev.handsPlayed + delta.handsPlayed,
+    handsWithMeld: prev.handsWithMeld + m.handsWithMeld,
   });
 
   const now = new Date();
@@ -177,6 +212,15 @@ function toDebercStatsView(
     winRate: pct(row?.gamesWon ?? 0, gamesPlayed),
     jackpotCount: blob.jackpotCount,
     jackpotRate: pct(blob.jackpotCount, gamesPlayed),
+    combinations: {
+      terz: blob.terz,
+      platina: blob.platina,
+      bella: blob.bella,
+      total: blob.totalMelds,
+      handsPlayed: blob.handsPlayed,
+      handsWithMeld: blob.handsWithMeld,
+      meldRate: pct(blob.handsWithMeld, blob.handsPlayed),
+    },
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }
