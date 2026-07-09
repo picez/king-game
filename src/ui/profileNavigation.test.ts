@@ -66,18 +66,29 @@ describe('Favorite game: local + profile sync, never in the WS protocol', () => 
   });
 });
 
-describe('Server address is an advanced, optional override', () => {
+describe('Server address is an advanced, optional override (Stage 14.2: moved to Profile)', () => {
   const menu = read('src/ui/StartMenu.tsx');
+  const panel = read('src/ui/menu/ProfilePanel.tsx');
 
-  it('lives in a collapsed Advanced connection section with a hint', () => {
-    expect(menu).toContain('advanced__summary');
-    expect(menu).toContain("t('menu.advancedConnection')");
-    expect(menu).toContain("t('menu.serverHint')");
-    // The server input is nested inside the <details>, not a top-level field.
-    const advIdx = menu.indexOf('<details className="advanced">');
-    const srvIdx = menu.indexOf("t('form.server')");
-    expect(advIdx).toBeGreaterThan(-1);
-    expect(srvIdx).toBeGreaterThan(advIdx);
+  it('the Host/Join sheets no longer render a raw server address input', () => {
+    expect(menu).not.toContain("t('form.server')");
+    expect(menu).not.toContain('<details className="advanced">');
+    // The menu derives the URL from the connection setting — no server input state.
+    expect(menu).toContain('resolveServerUrl(customServer');
+  });
+
+  it('the Advanced connection lives in Profile with a Default/Custom mode', () => {
+    expect(panel).toContain("t('menu.advancedConnection')");
+    expect(panel).toContain('<details className="advanced">');
+    expect(panel).toContain("'conn.useDefault'");
+    expect(panel).toContain("'conn.useCustom'");
+    expect(panel).toContain("t('conn.help')");
+    // The custom URL input only renders in custom mode.
+    expect(panel).toMatch(/serverMode === 'custom' &&/);
+    const modeIdx = panel.indexOf("serverMode === 'custom' &&");
+    const srvIdx = panel.indexOf("t('form.server')");
+    expect(modeIdx).toBeGreaterThan(-1);
+    expect(srvIdx).toBeGreaterThan(modeIdx); // input nested under the custom-mode guard
   });
 });
 

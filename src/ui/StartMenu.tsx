@@ -10,7 +10,7 @@ import {
 /** Auto-refresh cadence for the open room browser + how often the "ago" label ticks. */
 const ROOM_AUTO_REFRESH_MS = 9000;
 const ROOM_AGO_TICK_MS = 5000;
-import { defaultServerUrl, isInsecureWsOnSecurePage } from '../net/online';
+import { loadCustomServer, resolveServerUrl } from '../net/connection';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
 import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer, loadFavoriteGame } from '../net/prefs';
@@ -59,7 +59,10 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   const [name, setName] = useState(defaultName);
   const [avatar, setAvatar] = useState<string>(() => loadAvatar() ?? defaultAvatar(loadNickname() ?? 'King'));
-  const [url, setUrl] = useState(() => defaultServerUrl(undefined, ENV_WS_URL));
+  // Connection (Stage 14.2): default server unless the user set a CUSTOM one in
+  // Profile → Advanced connection. `url` is derived — no server input on the menu.
+  const [customServer, setCustomServer] = useState<string | null>(() => loadCustomServer());
+  const url = resolveServerUrl(customServer, ENV_WS_URL);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
@@ -262,7 +265,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           <ProfileMenu account={account}
             name={name} onName={setName} avatar={avatar} onAvatar={setAvatar}
             defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
-            favoriteGame={favoriteGame} onFavoriteGame={pickFavorite} />
+            favoriteGame={favoriteGame} onFavoriteGame={pickFavorite}
+            customServer={customServer} onCustomServer={setCustomServer} />
         </div>
       )}
 
@@ -305,22 +309,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             </div>
             <p className="field__hint">{t('menu.nameInProfile')}</p>
           </div>
-
-          {/* Server address is an ADVANCED, optional override — the app connects to
-              its default server with no input. Collapsed by default so it never
-              reads as a required step. A mixed-content warning still surfaces. */}
-          <details className="advanced">
-            <summary className="advanced__summary">🔌 {t('menu.advancedConnection')}</summary>
-            <div className="field advanced__body">
-              <label className="field__label">{t('form.server')}</label>
-              <input className="input" value={url}
-                onChange={(e) => setUrl(e.target.value)} placeholder="ws://host-ip:3001/ws" />
-              {isInsecureWsOnSecurePage(url) && (
-                <p className="lobby-error">{t('menu.wssWarning')}</p>
-              )}
-              <p className="field__hint">{t('menu.serverHint')}</p>
-            </div>
-          </details>
+          {/* No server address here (Stage 14.2): the app auto-uses the default
+              server; a custom server lives in Profile → Advanced connection. */}
 
           {pane === 'host' && (
             <>

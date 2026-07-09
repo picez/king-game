@@ -3,6 +3,8 @@ import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme } from '../../net/prefs';
 import { saveCustomAvatar, clearCustomAvatar, AVATAR_ACCEPT_ATTR } from '../../net/customAvatar';
+import { saveCustomServer, clearCustomServer } from '../../net/connection';
+import { defaultServerUrl, isInsecureWsOnSecurePage } from '../../net/online';
 import { processAvatarImage } from '../components/customAvatarImage';
 import { useCustomAvatar, setCustomAvatar } from '../components/customAvatarStore';
 import MyAvatar from '../components/MyAvatar';
@@ -55,6 +57,9 @@ interface Props {
   onDefaultTimer: (v: number) => void;
   favoriteGame: GameType;
   onFavoriteGame: (v: GameType) => void;
+  /** Custom server URL (null = default server); Stage 14.2 connection setting. */
+  customServer: string | null;
+  onCustomServer: (v: string | null) => void;
 }
 
 /**
@@ -66,6 +71,7 @@ interface Props {
  */
 export default function ProfilePanel({
   account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, favoriteGame, onFavoriteGame,
+  customServer, onCustomServer,
 }: Props) {
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
@@ -76,6 +82,10 @@ export default function ProfilePanel({
   const customAvatar = useCustomAvatar();
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // Connection setting (Stage 14.2): default vs custom server, device-local.
+  const [serverMode, setServerMode] = useState<'default' | 'custom'>(customServer ? 'custom' : 'default');
+  const [serverDraft, setServerDraft] = useState(customServer ?? '');
+  const [serverError, setServerError] = useState<string | null>(null);
 
   // The LanguageSelector persists the language locally; mirror it to the server.
   useEffect(() => {
@@ -108,6 +118,25 @@ export default function ProfilePanel({
   function removeCustomAvatar() {
     clearCustomAvatar(); setCustomAvatar(null); setAvatarError(null);
   }
+
+  // Connection: switching to "Custom" reveals the input (prefilled with the default
+  // as a starting point); switching to "Default" immediately resets to the default.
+  function switchServerMode(mode: 'default' | 'custom') {
+    setServerMode(mode);
+    setServerError(null);
+    if (mode === 'default') {
+      clearCustomServer(); onCustomServer(null); setServerDraft('');
+    } else if (!serverDraft.trim()) {
+      setServerDraft(customServer ?? defaultServerUrl(undefined, undefined));
+    }
+  }
+  // Validate + persist the custom URL locally (never synced). Invalid → inline error.
+  function applyCustomServer() {
+    const saved = saveCustomServer(serverDraft);
+    if (!saved) { setServerError(t('conn.invalid')); return; }
+    onCustomServer(saved); setServerDraft(saved); setServerError(null);
+  }
+  function resetToDefaultServer() { switchServerMode('default'); }
   function changeTimer(v: number) { onDefaultTimer(v); saveDefaultTimer(v); account.pushTimer(v); }
   // Card back is a local visual pref applied immediately (store + <html> attr),
   // persisted locally, and mirrored to the server profile when signed in.
@@ -274,6 +303,50 @@ export default function ProfilePanel({
           ))}
         </div>
       </div>
+
+      {/* Advanced connection (Stage 14.2): a normal player never sees a server
+          address — the app auto-uses the default. Custom is an opt-in for LAN/dev/
+          private deployments. A DEVICE setting (localStorage), never synced. */}
+      <details className="advanced">
+        <summary className="advanced__summary">
+          🔌 {t('menu.advancedConnection')}
+          <span className="advanced__status">· {customServer ? t('conn.custom') : t('conn.default')}</span>
+        </summary>
+        <div className="advanced__body">
+          <p className="field__hint">{t('conn.help')}</p>
+          <div className="segmented segmented--inline" role="radiogroup" aria-label={t('menu.advancedConnection')}>
+            {(['default', 'custom'] as const).map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={serverMode === m}
+                className={`segmented__tab ${serverMode === m ? 'segmented__tab--active' : ''}`}
+                onClick={() => switchServerMode(m)}>
+                {t(m === 'default' ? 'conn.useDefault' : 'conn.useCustom')}
+              </button>
+            ))}
+          </div>
+          {serverMode === 'custom' && (
+            <div className="field conn-custom">
+              <label className="field__label">{t('form.server')}</label>
+              <input className={`input ${serverError ? 'input--error' : ''}`} value={serverDraft}
+                onChange={(e) => { setServerDraft(e.target.value); setServerError(null); }}
+                placeholder="ws://host-ip:3001/ws" spellCheck={false} autoCapitalize="none" />
+              {serverError && <p className="lobby-error">{serverError}</p>}
+              {isInsecureWsOnSecurePage(serverDraft) && (
+                <p className="lobby-error">{t('menu.wssWarning')}</p>
+              )}
+              <div className="conn-custom__actions">
+                <button type="button" className="btn btn--outline btn--small" onClick={applyCustomServer}>
+                  {t('conn.apply')}
+                </button>
+                {customServer && (
+                  <button type="button" className="btn btn--ghost btn--small" onClick={resetToDefaultServer}>
+                    {t('conn.reset')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </details>
 
       {/* Profile/settings auto-save locally, and auto-sync to the server on every
           change once there is a session (guest-session or signed-in). Before the

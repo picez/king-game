@@ -29,6 +29,9 @@ interface Props {
   onDefaultTimer: (v: number) => void;
   favoriteGame: GameType;
   onFavoriteGame: (v: GameType) => void;
+  /** Custom server URL (null = default); Stage 14.2 connection setting. */
+  customServer: string | null;
+  onCustomServer: (v: string | null) => void;
 }
 
 type Tab = 'profile' | 'stats' | 'leaderboard';
@@ -48,6 +51,7 @@ const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb'] as cons
  */
 export default function ProfileMenu({
   account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, favoriteGame, onFavoriteGame,
+  customServer, onCustomServer,
 }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('profile');
@@ -174,7 +178,8 @@ export default function ProfileMenu({
           <ProfilePanel account={account}
             name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
             defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer}
-            favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame} />
+            favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame}
+            customServer={customServer} onCustomServer={onCustomServer} />
         )}
         {tab === 'stats' && (
               <>

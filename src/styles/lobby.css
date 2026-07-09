@@ -383,7 +383,11 @@
 }
 .advanced[open] .advanced__summary::after { transform: rotate(180deg); }
 .advanced__summary:hover { color: var(--text); }
-.advanced__body { padding: 0 0.8rem 0.8rem; }
+.advanced__body { padding: 0 0.8rem 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; }
+/* Compact connection-mode status in the summary (Stage 14.2). */
+.advanced__status { font-weight: 500; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.conn-custom { gap: 0.4rem; }
+.conn-custom__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
 /* Appearance section header (Stage 13.5) inside the Profile form. */
 .profile-section-head {
