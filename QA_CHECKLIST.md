@@ -30,6 +30,21 @@ All must be green.
 > **Gated DB tests** (stats integration) stay skipped unless `TEST_DATABASE_URL`
 > points at a migrated Postgres: `TEST_DATABASE_URL=postgres://… npm test`.
 
+### Toolchain (Stage 14.3)
+
+CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
+`.node-version`; CI pins `node-version: '22'`). Install with **`npm ci`** — never
+`npm install` in CI, so the lockfile is never rewritten.
+
+> **Do not commit npm-11 lockfile churn.** The committed `package-lock.json`
+> (lockfileVersion 3) is maintained with **npm 10**. Running `npm install` under
+> **npm 11** re-adds `libc` optional-dependency fields that npm 10 cannot reconcile,
+> which makes CI's `npm ci` fail with *"Missing esbuild@… / @esbuild/* from lock
+> file"*. If you must touch dependencies, regenerate the lock with **npm 10**
+> (`npx -y npm@10 install`) and verify `grep -c '"libc"' package-lock.json` is `0`.
+> A dev machine on Node 24 / npm 11 can still run `npm ci` + `npm run verify` (both
+> only *read* the lock), so local builds are fine — just don't `npm install`.
+
 ## Manual — local pass-and-play
 
 - [ ] Start menu → **Local game** opens setup (no landing page).

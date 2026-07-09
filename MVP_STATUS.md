@@ -164,6 +164,15 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 > has intermittently OOM'd (VirtualAlloc); `npm run verify` chains them one at a time.
 > Gated DB stats tests need `TEST_DATABASE_URL` (else skipped).
 
+### Toolchain (Stage 14.3)
+- **Node 22** everywhere: CI (`.github/workflows/ci.yml` → `node-version: '22'`,
+  `actions/checkout@v5` + `actions/setup-node@v5`) and local (`.nvmrc` /
+  `.node-version` = `22`). No `engines` field — policy is documented, not enforced,
+  so Render deploys are unaffected.
+- **Install with `npm ci`** (reads the lock, never rewrites it). The committed
+  `package-lock.json` is maintained with **npm 10**; do **not** commit npm-11
+  lockfile churn (`libc` fields → breaks CI `npm ci`). See QA_CHECKLIST → *Toolchain*.
+
 ### Scripts
 | Script | Purpose |
 |--------|---------|
