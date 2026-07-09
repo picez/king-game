@@ -70,7 +70,10 @@ recording its own per-`game_type` stats + leaderboard):**
   backed by **DB-backed, revocable sessions** (httpOnly cookie; only a hashed
   token stored) and a **guest identity bridge** (no login wall). An optional
   account/profile area syncs display name, avatar, language, and the per-game
-  King default timer, with **localStorage as the fallback**. With **no
+  King default timer, with **localStorage as the fallback**. A **custom avatar
+  image** (Stage 14.1) is **local-only** — re-encoded client-side to a small data
+  URL in `localStorage`, **never uploaded / synced / on the wire**; the whitelisted
+  **emoji** stays the server-safe identity online. With **no
   `DATABASE_URL` the whole API gracefully 503s and play is unaffected**. See
   [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §3 Stage 4 and
   [`DB_SETUP.md`](DB_SETUP.md).

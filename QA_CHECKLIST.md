@@ -194,6 +194,23 @@ All must be green.
       holds only counters (`terz`/`platina`/`bella`/`totalMelds`/`handsPlayed`/
       `handsWithMeld`/`jackpotCount`) — **no card/rank/suit** anywhere.
 
+## Manual — Custom avatar (local-only, Stage 14.1)
+
+> A user may pick a local image avatar. It is **local-only**: re-encoded client-side,
+> stored in `localStorage` (`cardMajlis.customAvatar.v1`), **never uploaded, never in
+> WS/game state, never in the DB**. The whitelisted **emoji** stays the server-safe
+> identity everyone else sees online.
+
+- [ ] **Profile → Avatar → Upload image:** pick a PNG/JPEG/WebP → the circular
+      preview + the top **AccountBar** avatar show the image (360/390, no overflow, RTL ok).
+- [ ] **Reject bad input:** an SVG/GIF (or a >2 MB image) shows an error and does
+      **not** change the avatar; the emoji picker still works.
+- [ ] **Remove image:** "Remove image" resets to the emoji everywhere; refresh keeps
+      the reset (localStorage cleared).
+- [ ] **Online is emoji-only:** host/join a room with a custom image set — your seat
+      + the lobby + other players show your **emoji**, never the image. Confirm no
+      `data:image`/base64 is sent (the WS payload only carries the emoji avatar id).
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches

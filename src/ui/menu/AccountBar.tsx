@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useI18n } from '../../i18n';
 import type { Account } from '../../hooks/useAccount';
+import MyAvatar from '../components/MyAvatar';
 
 interface Props {
   account: Account;
@@ -29,7 +30,7 @@ export default function AccountBar({ account, name, avatar }: Props) {
     <div className="account-bar-wrap">
       <div className="account-bar">
         <div className="account-bar__id">
-          <span className="account-bar__avatar" aria-hidden="true">{avatar}</span>
+          <MyAvatar emoji={avatar} className="account-bar__avatar" />
           <span className="account-bar__meta">
             <span className="account-bar__name">{display}</span>
             <span className="account-bar__sub">

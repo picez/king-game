@@ -1,7 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme } from '../../net/prefs';
+import { saveCustomAvatar, clearCustomAvatar, AVATAR_ACCEPT_ATTR } from '../../net/customAvatar';
+import { processAvatarImage } from '../components/customAvatarImage';
+import { useCustomAvatar, setCustomAvatar } from '../components/customAvatarStore';
+import MyAvatar from '../components/MyAvatar';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
@@ -68,6 +72,10 @@ export default function ProfilePanel({
   const cardBack = useCardBackStyle();
   const cardFace = useCardFaceTheme();
   const animation = useMotionPreference();
+  // Local-only custom avatar (Stage 14.1): NEVER uploaded/synced/put on the wire.
+  const customAvatar = useCustomAvatar();
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // The LanguageSelector persists the language locally; mirror it to the server.
   useEffect(() => {
@@ -77,6 +85,29 @@ export default function ProfilePanel({
 
   function changeName(v: string) { onName(v); saveNickname(v); account.pushName(v); }
   function changeAvatar(v: string) { onAvatar(v); saveAvatar(v); account.pushAvatar(v); }
+
+  // Custom avatar: re-encode the picked image (canvas) to a small local data URL,
+  // store it LOCALLY only, and update the "me" surfaces. The emoji `avatar` above
+  // is untouched — it stays the server-safe identity everyone else sees online.
+  async function onPickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setAvatarError(null);
+    try {
+      const dataUrl = await processAvatarImage(file);
+      if (!saveCustomAvatar(dataUrl)) throw new Error('too_large');
+      setCustomAvatar(dataUrl);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'decode_failed';
+      setAvatarError(code === 'unsupported' ? t('avatar.errType')
+        : code === 'too_large' ? t('avatar.errSize')
+          : t('avatar.errFailed'));
+    }
+  }
+  function removeCustomAvatar() {
+    clearCustomAvatar(); setCustomAvatar(null); setAvatarError(null);
+  }
   function changeTimer(v: number) { onDefaultTimer(v); saveDefaultTimer(v); account.pushTimer(v); }
   // Card back is a local visual pref applied immediately (store + <html> attr),
   // persisted locally, and mirrored to the server profile when signed in.
@@ -118,15 +149,45 @@ export default function ProfilePanel({
 
       <div className="field">
         <label className="field__label">{t('lobby.avatar')}</label>
-        <SelectMenu
-          ariaLabel={t('lobby.avatar')}
-          className="avatar-picker"
-          layout="grid"
-          compactTrigger
-          value={sanitizeAvatar(avatar, name)}
-          onChange={changeAvatar}
-          options={AVATARS.map((a) => ({ value: a, label: a, icon: a }))}
-        />
+        <div className="avatar-row">
+          {/* Circular preview: the local custom image if set, else the emoji. */}
+          <span className="avatar-preview">
+            <MyAvatar emoji={sanitizeAvatar(avatar, name)} className="avatar-preview__inner" />
+          </span>
+          <div className="avatar-row__picker">
+            <SelectMenu
+              ariaLabel={t('lobby.avatar')}
+              className="avatar-picker"
+              layout="grid"
+              compactTrigger
+              value={sanitizeAvatar(avatar, name)}
+              onChange={changeAvatar}
+              options={AVATARS.map((a) => ({ value: a, label: a, icon: a }))}
+            />
+            <div className="avatar-row__actions">
+              {/* A visually-hidden file input driven by a styled button (no native
+                  picker chrome). Accept is EXACTLY the png/jpeg/webp whitelist. */}
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept={AVATAR_ACCEPT_ATTR}
+                className="visually-hidden"
+                onChange={onPickAvatar}
+              />
+              <button type="button" className="btn btn--outline btn--small"
+                onClick={() => avatarFileRef.current?.click()}>
+                🖼️ {t('avatar.upload')}
+              </button>
+              {customAvatar && (
+                <button type="button" className="btn btn--ghost btn--small" onClick={removeCustomAvatar}>
+                  {t('avatar.remove')}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        {avatarError && <p className="lobby-error avatar-error">{avatarError}</p>}
+        <p className="field__hint">{t('avatar.localHint')}</p>
       </div>
 
       <div className="field">
