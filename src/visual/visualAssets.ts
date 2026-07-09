@@ -42,3 +42,13 @@ export const VISUAL_TOTAL_MAX_BYTES = 2_200_000;
 export function visualAsset(id: string): VisualAsset | null {
   return VISUAL_ASSETS.find((a) => a.id === id) ?? null;
 }
+
+/**
+ * Single source for a game's emblem PNG URL (Stage 12.3). Mirrors the manifest
+ * `icon-<game>` entries — the four `available` games each have a transparent
+ * 512×512 icon under public/visual/icons. Callers render it in an `<img>` with an
+ * emoji `onError` fallback (see `GameIcon`), so a missing file never breaks the UI.
+ */
+export function gameIconSrc(game: string): string {
+  return `/visual/icons/game-${game}.png`;
+}

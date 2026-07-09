@@ -23,6 +23,8 @@ import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
+import GameIcon from './components/GameIcon';
+import { gameIconSrc } from '../visual/visualAssets';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -373,7 +375,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                             aria-pressed={gameFilter === g}
                             aria-label={`${g === 'all' ? t('join.all') : t(`gameType.${g}`)} (${roomCounts[g] ?? 0})`}
                             onClick={() => setGameFilter(g)}>
-                            <span aria-hidden="true">{g === 'all' ? t('join.all') : GAME_ICON[g]}</span>
+                            {g === 'all'
+                              ? <span aria-hidden="true">{t('join.all')}</span>
+                              : <GameIcon game={g} size="sm" />}
                             <span className="room-filter__count">{roomCounts[g] ?? 0}</span>
                           </button>
                         ))}
@@ -422,7 +426,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                               </span>
                               <span className="sb-cell sb-game" data-label={t('join.col.game')} role="cell">
                                 <span className="sb-game__val">
-                                  <span className="sb-game__icon" aria-hidden="true">{GAME_ICON[gameType]}</span>
+                                  <GameIcon game={gameType} size="sm" className="sb-game__icon" />
                                   <span className="sb-game__name">{t(`gameType.${gameType}`)}</span>
                                   {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
                                   {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
@@ -507,7 +511,8 @@ function GamePicker({ gameType, onPick, t }: {
   const options = (['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({
     value: id,
     label: t(`gameType.${id}`),
-    icon: GAME_ICON[id],
+    icon: GAME_ICON[id],           // emoji fallback if the emblem PNG 404s
+    iconSrc: gameIconSrc(id),      // Stage 12.3 image emblem
     sublabel: `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`,
   }));
   return (

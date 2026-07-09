@@ -1,6 +1,7 @@
 import type { RoomSnapshot } from '../../net/messages';
 import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
+import GameIcon from '../components/GameIcon';
 
 interface Props {
   room: RoomSnapshot;
@@ -30,7 +31,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
   // Stage 9.10: start once >= minPlayers are seated; the room caps at maxPlayers.
-  const entry = getGameCatalogEntry(room.gameType ?? DEFAULT_GAME_TYPE);
+  const gameType = room.gameType ?? DEFAULT_GAME_TYPE;
+  const entry = getGameCatalogEntry(gameType);
   const minPlayers = entry?.minPlayers ?? 3;
   const maxPlayers = entry?.maxPlayers ?? room.playerCount;
   const enough = players.length >= minPlayers;
@@ -58,7 +60,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
           <div className="room-code">
             {room.code}{room.hasPassword && <span className="room-lock" title="🔒"> 🔒</span>}
           </div>
-          <p className="setup-hint">
+          <p className="setup-hint lobby-game-line">
+            <GameIcon game={gameType} size="sm" className="lobby-game-icon" />
             {players.length} / {maxPlayers} {t('lobby.playersWord')} ·{' '}
             {room.gameType === 'durak' ? (
               <>🃏 {t(room.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}</>

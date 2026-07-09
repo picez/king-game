@@ -66,8 +66,10 @@ describe('multi-game menu polish (Stage 11.2)', () => {
   });
 
   it('the room browser shows a per-game icon + name (and a Tarneeb teams hint)', () => {
+    // Stage 12.3: the per-game emblem is now an image (GameIcon) in the .sb-game__icon
+    // slot, with an emoji fallback — replacing the bare GAME_ICON[gameType] glyph.
     expect(src).toContain('sb-game__icon');
-    expect(src).toContain('GAME_ICON[gameType]');
+    expect(src).toContain('<GameIcon game={gameType} size="sm" className="sb-game__icon" />');
     expect(src).toContain("gameType === 'tarneeb' ? <span className=\"sb-variant\"> · {t('tarneeb.twoTeams')}");
   });
 
@@ -96,8 +98,9 @@ describe('room browser filters + sorting (Stage 11.3)', () => {
     expect(src).toContain('visibleRooms.map((r) =>');
     // Friendly empty state when a filter matches nothing.
     expect(src).toContain("t('join.noRoomsForGame')");
-    // Still shows the per-game icon in each row (Stage 11.2 preserved).
-    expect(src).toContain('GAME_ICON[gameType]');
+    // Still shows the per-game icon in each row (Stage 11.2 preserved; the glyph
+    // became a GameIcon image with an emoji fallback in Stage 12.3).
+    expect(src).toContain('<GameIcon game={gameType}');
   });
 });
 

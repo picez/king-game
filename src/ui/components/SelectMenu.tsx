@@ -7,7 +7,37 @@ export interface SelectMenuOption {
   sublabel?: string;
   /** Leading emoji/glyph (also used as the tile content in the grid layout). */
   icon?: string;
+  /**
+   * Optional image emblem URL (Stage 12.3). When set, the list layout shows this
+   * PNG and falls back to `icon` (the emoji glyph) if it fails to load. Ignored by
+   * the grid layout, which stays emoji-only (avatars).
+   */
+  iconSrc?: string;
   disabled?: boolean;
+}
+
+/**
+ * Leading icon for the list layout: the image emblem if `src` is given (with a
+ * graceful fall back to the emoji `glyph` on load error), else the glyph itself.
+ */
+function MenuIcon({ src, glyph }: { src?: string; glyph?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      <img
+        className="select-menu__icon select-menu__icon-img"
+        src={src}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  if (!glyph) return null;
+  return <span className="select-menu__icon" aria-hidden="true">{glyph}</span>;
 }
 
 interface Props {
@@ -74,7 +104,7 @@ export default function SelectMenu({
             <span className="select-menu__emoji" aria-hidden="true">{selected?.icon ?? selected?.label ?? ''}</span>
           ) : (
             <>
-              {selected?.icon && <span className="select-menu__icon" aria-hidden="true">{selected.icon}</span>}
+              <MenuIcon src={selected?.iconSrc} glyph={selected?.icon} />
               <span className="select-menu__text">
                 <span className="select-menu__label">{selected?.label ?? ''}</span>
                 {selected?.sublabel && <span className="select-menu__sub">{selected.sublabel}</span>}
@@ -103,7 +133,7 @@ export default function SelectMenu({
                   <span className="select-menu__emoji" aria-hidden="true">{o.icon ?? o.label}</span>
                 ) : (
                   <>
-                    {o.icon && <span className="select-menu__icon" aria-hidden="true">{o.icon}</span>}
+                    <MenuIcon src={o.iconSrc} glyph={o.icon} />
                     <span className="select-menu__text">
                       <span className="select-menu__label">{o.label}</span>
                       {o.sublabel && <span className="select-menu__sub">{o.sublabel}</span>}

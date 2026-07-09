@@ -141,14 +141,41 @@
 
 /* ===== Main menu redesign (Stage 7.1) ===== */
 .menu-screen {
+  position: relative;
+  isolation: isolate;           /* keep the hero pseudo-element behind our own content */
   align-items: center;
   justify-content: flex-start;
   gap: 1rem;
+  /* The felt gradient stays the base layer AND the graceful fallback: if the hero
+     image 404s, the ::before below is just a translucent vignette over this. */
   background:
     radial-gradient(70% 48% at 50% 16%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 62%),
     radial-gradient(140% 95% at 50% 8%,
       var(--felt-mid) 0%, var(--felt-edge) 55%, var(--felt-deep) 100%),
     var(--room-bg-2);
+  /* Portrait hero on narrow/mobile (single source; see also the wide swap below). */
+  --menu-hero: url('/visual/menu-hero-portrait.png');
+}
+/* The premium menu backdrop (Stage 12.3): the hero image under a dark vignette,
+   painted between the felt gradient and the UI so text/tiles stay readable. It is
+   purely decorative — a missing image just leaves the vignette + felt behind. */
+.menu-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      rgba(6, 24, 15, 0.58) 0%, rgba(6, 20, 12, 0.30) 42%, rgba(4, 15, 9, 0.74) 100%),
+    var(--menu-hero) center top / cover no-repeat;
+}
+/* Wide hero on desktop/large screens. */
+@media (min-width: 820px) {
+  .menu-screen { --menu-hero: url('/visual/menu-hero-wide.png'); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .menu-screen::before { transition: opacity 0.4s ease; }
 }
 /* Every top-level menu block shares one comfortable column width. */
 .menu-screen > * { width: 100%; max-width: 460px; }
@@ -314,3 +341,26 @@
 /* Coming-soon games (e.g. Durak) — visible but not selectable. */
 .game-chip--disabled { opacity: 0.55; cursor: not-allowed; filter: grayscale(0.4); }
 .game-chip--disabled .game-chip__badge { background: var(--surface-3); color: var(--text-dim); }
+
+/* ===== Game emblem icons (Stage 12.3) =====
+   A transparent PNG emblem in a subtle gold "coin" frame — used in the game
+   picker, room browser, room filters and the lobby. `GameIcon` swaps to an emoji
+   in the same frame on load error, so nothing ever renders as a broken image. */
+.game-icon {
+  flex: 0 0 auto;
+  object-fit: contain;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 32%, rgba(245, 197, 24, 0.18), rgba(0, 0, 0, 0.28));
+  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.34), var(--top-light);
+  vertical-align: middle;
+}
+.game-icon--sm { width: 24px; height: 24px; padding: 3px; }
+.game-icon--md { width: 44px; height: 44px; padding: 5px; }
+/* Emoji fallback: centre the glyph in the same coin. */
+.game-icon--emoji { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.game-icon--sm.game-icon--emoji { font-size: 0.95rem; }
+.game-icon--md.game-icon--emoji { font-size: 1.4rem; }
+
+/* Lobby game line: keep the emblem baseline-aligned with the players text. */
+.lobby-game-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+.lobby-game-icon { margin-inline-end: 0.1rem; }
