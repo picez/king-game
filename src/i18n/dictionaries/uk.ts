@@ -317,6 +317,12 @@ export const UK: Record<string, string> = {
   'profile.cardBack': 'Сорочка карт',
   'profile.cardBackClassic': 'Класична зелена',
   'profile.cardBackRed': 'Червоно-золота',
+  'profile.animation': 'Анімація',
+  'profile.animationSystem': 'Системна',
+  'profile.animationFull': 'Повна',
+  'profile.animationReduced': 'Зменшена',
+  'profile.animationOff': 'Вимкнена',
+  'profile.animationHint': 'Системне налаштування має пріоритет — на пристроях зі зменшеним рухом анімація залишається зменшеною.',
   // ── account / profile (Stage 4) ──
   'account.title': 'Профіль',
   'account.guestShort': 'Гість',

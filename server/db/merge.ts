@@ -42,7 +42,10 @@ async function mergeSettings(tx: PostgresJsDatabase, fromId: string, toId: strin
   const lang = to.lang && to.lang !== 'en' ? to.lang : (from.lang ?? to.lang);
   const avatar = to.avatar ?? from.avatar;
   const cardStyle = to.cardStyle && to.cardStyle !== 'classic' ? to.cardStyle : (from.cardStyle ?? to.cardStyle);
-  await tx.update(userSettings).set({ lang, avatar, cardStyle, updatedAt: new Date() })
+  const animationPreference = to.animationPreference && to.animationPreference !== 'system'
+    ? to.animationPreference
+    : (from.animationPreference ?? to.animationPreference);
+  await tx.update(userSettings).set({ lang, avatar, cardStyle, animationPreference, updatedAt: new Date() })
     .where(eq(userSettings.userId, toId));
   await tx.delete(userSettings).where(eq(userSettings.userId, fromId));
 }

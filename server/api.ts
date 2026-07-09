@@ -226,6 +226,7 @@ async function handlePatchSettings(req: IncomingMessage, res: ServerResponse, us
   if ('lang' in body) patch.lang = body.lang;
   if ('avatar' in body) patch.avatar = body.avatar;
   if ('cardStyle' in body) patch.cardStyle = body.cardStyle;
+  if ('animationPreference' in body) patch.animationPreference = body.animationPreference;
   const settings = await upsertGlobalSettings(userId, patch);
   json(res, 200, { settings }, corsHeaders(req));
 }

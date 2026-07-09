@@ -100,3 +100,71 @@
     animation: none !important;
   }
 }
+
+/* =====================================================================
+   Animation-intensity preference (Stage 13.2) — driven by
+   `<html data-motion-effective="full|reduced|off">`, which the store resolves
+   from the user's choice AND the OS `prefers-reduced-motion` (the @media block
+   above stays as an always-on safety net; these attribute rules are additive).
+
+   Accessibility contract (see src/ui/components/motionPref.ts):
+     • The OS reduce request can only DOWNGRADE motion — the store never emits
+       `effective="full"` while the OS asks to reduce. So 'full' here is only ever
+       applied when the device did NOT ask to reduce → the default motion plays,
+       and this file adds NO rule for `full` (it is the un-overridden baseline).
+     • 'reduced' keeps gentle entrance fades but drops infinite pulses + large
+       flourishes. 'off' stills all decorative motion; elements keep their static
+       end-state (nothing is ever hidden).
+   ===================================================================== */
+
+/* Shared selector set: infinite pulses + large-scale flourishes across all four
+   games (Durak/Deberc/Tarneeb here; King's seat-glow/winner live in table.css,
+   its selectors are listed too since CSS is global). Stilled in BOTH reduced+off. */
+:root[data-motion-effective="reduced"] .durak-seat--acting,
+:root[data-motion-effective="reduced"] .tarneeb-seat--acting,
+:root[data-motion-effective="reduced"] .tseat--active,
+:root[data-motion-effective="reduced"] .trick-slot--winning,
+:root[data-motion-effective="reduced"] .tseat--winner,
+:root[data-motion-effective="reduced"] .tseat__tricks--bump,
+:root[data-motion-effective="off"] .durak-seat--acting,
+:root[data-motion-effective="off"] .tarneeb-seat--acting,
+:root[data-motion-effective="off"] .tseat--active,
+:root[data-motion-effective="off"] .trick-slot--winning,
+:root[data-motion-effective="off"] .tseat--winner,
+:root[data-motion-effective="off"] .tseat__tricks--bump {
+  animation: none !important;
+}
+
+/* Reaction chip must stay VISIBLE and still self-remove even with motion off/
+   reduced → keep an opacity-only fade (no slide/scale). */
+:root[data-motion-effective="reduced"] .reaction-chip,
+:root[data-motion-effective="off"] .reaction-chip {
+  animation: sticker-fade 2.6s linear forwards !important;
+}
+
+/* OFF also stills the entrance fades (deal-in / play-settle / panel reveal) and
+   neutralises the micro-transitions. Keyframes end at opacity:1/transform:none,
+   so with `animation: none` every element resolves to its static, visible state. */
+:root[data-motion-effective="off"] :where(.player-hand, .durak-hand, .tarneeb-hand) > .card,
+:root[data-motion-effective="off"] .trick-slot > .card,
+:root[data-motion-effective="off"] .tarneeb-play > .card,
+:root[data-motion-effective="off"] .durak-pair > .card,
+:root[data-motion-effective="off"] .durak-pair__def > .card,
+:root[data-motion-effective="off"] .tarneeb-seat__bid,
+:root[data-motion-effective="off"] .tarneeb-trumpbar,
+:root[data-motion-effective="off"] .tarneeb-bid,
+:root[data-motion-effective="off"] .deberc-bid--pass,
+:root[data-motion-effective="off"] .deberc-bid--took,
+:root[data-motion-effective="off"] .deberc-meld-chip,
+:root[data-motion-effective="off"] .durak-notice,
+:root[data-motion-effective="off"] .durak-trump,
+:root[data-motion-effective="off"] .tarneeb-trump {
+  animation: none !important;
+}
+:root[data-motion-effective="off"] .card,
+:root[data-motion-effective="off"] .btn,
+:root[data-motion-effective="off"] .server-browser__row,
+:root[data-motion-effective="off"] .avatar-chip,
+:root[data-motion-effective="off"] .tseat {
+  transition: none !important;
+}

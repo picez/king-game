@@ -69,6 +69,8 @@ export const userSettings = pgTable('user_settings', {
   /** Whitelisted emoji id or null (client derives a default when null). */
   avatar: text('avatar'),
   cardStyle: text('card_style').notNull().default('classic'),
+  /** Animation intensity (Stage 13.2): system|full|reduced|off. Purely visual. */
+  animationPreference: text('animation_preference').notNull().default('system'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

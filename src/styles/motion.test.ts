@@ -55,6 +55,30 @@ describe('motion.css — shared table-motion layer', () => {
   });
 });
 
+describe('motion.css — animation-intensity preference (Stage 13.2)', () => {
+  const css = read('src/styles/motion.css');
+
+  it('keys motion off the resolved data-motion-effective attribute (off + reduced)', () => {
+    expect(css).toContain('[data-motion-effective="off"]');
+    expect(css).toContain('[data-motion-effective="reduced"]');
+  });
+
+  it('keeps the prefers-reduced-motion @media guard as an always-on safety net', () => {
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('off stills decorative motion AND neutralises transitions (nothing hidden)', () => {
+    const off = css.slice(css.indexOf('[data-motion-effective="off"]'));
+    expect(off).toContain('animation: none !important');
+    expect(off).toContain('transition: none !important');
+  });
+
+  it('keeps the reaction chip visible + self-removing under reduced/off (opacity fade)', () => {
+    // A time-based auto-dismiss must not be zeroed away, or the chip would vanish.
+    expect(css).toContain('sticker-fade 2.6s linear forwards !important');
+  });
+});
+
 describe('social.css — sticker pop', () => {
   const css = read('src/styles/social.css');
   it('uses a sticker-pop entrance with a reduced-motion fade fallback', () => {

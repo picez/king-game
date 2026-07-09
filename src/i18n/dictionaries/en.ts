@@ -317,6 +317,12 @@ export const EN: Record<string, string> = {
   'profile.cardBack': 'Card back',
   'profile.cardBackClassic': 'Classic green',
   'profile.cardBackRed': 'Red gold',
+  'profile.animation': 'Animation',
+  'profile.animationSystem': 'System',
+  'profile.animationFull': 'Full',
+  'profile.animationReduced': 'Reduced',
+  'profile.animationOff': 'Off',
+  'profile.animationHint': 'Your system setting is respected — reduced-motion devices stay reduced.',
   // ── account / profile (Stage 4) ──
   'account.title': 'Account',
   'account.guestShort': 'Guest',

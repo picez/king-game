@@ -19,7 +19,7 @@ import { users, userSettings, userGameSettings } from './schema';
 import { getDb } from './client';
 import {
   sanitizeGlobalSettings, sanitizeDisplayName, sanitizeGameSettings,
-  DEFAULT_LANG, DEFAULT_CARD_STYLE,
+  DEFAULT_LANG, DEFAULT_CARD_STYLE, DEFAULT_ANIMATION_PREF,
   type GlobalSettings,
 } from '../../src/net/userSettings';
 
@@ -82,6 +82,8 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
       lang: (s?.lang as GlobalSettings['lang']) ?? DEFAULT_LANG,
       avatar: s?.avatar ?? null,
       cardStyle: (s?.cardStyle as GlobalSettings['cardStyle']) ?? DEFAULT_CARD_STYLE,
+      animationPreference:
+        (s?.animationPreference as GlobalSettings['animationPreference']) ?? DEFAULT_ANIMATION_PREF,
     },
   };
 }
@@ -108,12 +110,16 @@ export async function upsertGlobalSettings(
     lang: patch.lang ?? cur?.lang,
     avatar: 'avatar' in patch ? patch.avatar : cur?.avatar,
     cardStyle: patch.cardStyle ?? cur?.cardStyle,
+    animationPreference: patch.animationPreference ?? cur?.animationPreference,
   };
   const clean = sanitizeGlobalSettings(merged);
-  const values = { userId, lang: clean.lang, avatar: clean.avatar, cardStyle: clean.cardStyle, updatedAt: new Date() };
-  await db.insert(userSettings).values(values).onConflictDoUpdate({
+  const cols = {
+    lang: clean.lang, avatar: clean.avatar, cardStyle: clean.cardStyle,
+    animationPreference: clean.animationPreference, updatedAt: new Date(),
+  };
+  await db.insert(userSettings).values({ userId, ...cols }).onConflictDoUpdate({
     target: userSettings.userId,
-    set: { lang: clean.lang, avatar: clean.avatar, cardStyle: clean.cardStyle, updatedAt: new Date() },
+    set: cols,
   });
   return clean;
 }

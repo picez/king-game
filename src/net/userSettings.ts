@@ -29,6 +29,13 @@ export const SUPPORTED_CARD_STYLES = ['classic', 'red'] as const;
 export type CardStyle = (typeof SUPPORTED_CARD_STYLES)[number];
 export const DEFAULT_CARD_STYLE: CardStyle = 'classic';
 
+// Animation-intensity preference (Stage 13.2). Same value space on client and
+// server (no mapping, unlike cardStyle), mirrored from src/ui/components/motionPref.ts
+// so server validation stays React/engine-free. 'system' = follow the device.
+export const SUPPORTED_ANIMATION_PREFS = ['system', 'full', 'reduced', 'off'] as const;
+export type AnimationPreference = (typeof SUPPORTED_ANIMATION_PREFS)[number];
+export const DEFAULT_ANIMATION_PREF: AnimationPreference = 'system';
+
 /** Allowed per-turn timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 export const TURN_TIMER_VALUES = [0, 30, 60, 90] as const;
 export const DEFAULT_TURN_TIMER = 0;
@@ -50,6 +57,13 @@ export function isSupportedCardStyle(v: unknown): v is CardStyle {
 }
 export function sanitizeCardStyle(v: unknown): CardStyle {
   return isSupportedCardStyle(v) ? v : DEFAULT_CARD_STYLE;
+}
+
+export function isSupportedAnimationPref(v: unknown): v is AnimationPreference {
+  return typeof v === 'string' && (SUPPORTED_ANIMATION_PREFS as readonly string[]).includes(v);
+}
+export function sanitizeAnimationPref(v: unknown): AnimationPreference {
+  return isSupportedAnimationPref(v) ? v : DEFAULT_ANIMATION_PREF;
 }
 
 /** Whitelisted emoji id or null — never free text (XSS-safe, like prefs.ts). */
@@ -76,11 +90,14 @@ export interface GlobalSettings {
   /** Whitelisted emoji id, or null when unset (client derives a default). */
   avatar: string | null;
   cardStyle: CardStyle;
+  /** Animation-intensity preference (Stage 13.2); 'system' follows the device. */
+  animationPreference: AnimationPreference;
 }
 
 /**
- * Produces a fully-valid GlobalSettings from arbitrary input. `lang`/`cardStyle`
- * fall back to defaults; `avatar` is kept only if whitelisted, else null.
+ * Produces a fully-valid GlobalSettings from arbitrary input. `lang`/`cardStyle`/
+ * `animationPreference` fall back to defaults; `avatar` is kept only if
+ * whitelisted, else null.
  */
 export function sanitizeGlobalSettings(input: unknown): GlobalSettings {
   const o = (input && typeof input === 'object') ? input as Record<string, unknown> : {};
@@ -88,6 +105,7 @@ export function sanitizeGlobalSettings(input: unknown): GlobalSettings {
     lang: sanitizeLang(o.lang),
     avatar: sanitizeAvatarOrNull(o.avatar),
     cardStyle: sanitizeCardStyle(o.cardStyle),
+    animationPreference: sanitizeAnimationPref(o.animationPreference),
   };
 }
 

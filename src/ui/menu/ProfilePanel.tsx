@@ -1,15 +1,25 @@
 import { useEffect, useRef } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
-import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle } from '../../net/prefs';
+import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
   CARD_BACK_STYLES, cardBackUrl, cardBackWebpUrl, cardBackToSetting, type CardBackStyle,
 } from '../components/cardArt';
 import { useCardBackStyle, setCardBackStyle } from '../components/cardBackStore';
+import { ANIMATION_PREFERENCES, type AnimationPreference } from '../components/motionPref';
+import { useMotionPreference, setMotionPreference } from '../components/motionPreferenceStore';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
+
+/** i18n key for each animation option's label. */
+const ANIMATION_LABEL_KEY: Record<AnimationPreference, string> = {
+  system: 'profile.animationSystem',
+  full: 'profile.animationFull',
+  reduced: 'profile.animationReduced',
+  off: 'profile.animationOff',
+};
 
 interface Props {
   account: Account;
@@ -34,6 +44,7 @@ export default function ProfilePanel({
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
   const cardBack = useCardBackStyle();
+  const animation = useMotionPreference();
 
   // The LanguageSelector persists the language locally; mirror it to the server.
   useEffect(() => {
@@ -50,6 +61,12 @@ export default function ProfilePanel({
     setCardBackStyle(v); saveCardStyle(v); account.pushCardStyle(cardBackToSetting(v));
   }
   const cardBackLabel = (s: CardBackStyle) => t(s === 'red' ? 'profile.cardBackRed' : 'profile.cardBackClassic');
+  // Animation intensity is a local visual pref applied immediately (store + <html>
+  // attrs), persisted locally, and mirrored to the server profile when signed in.
+  // The OS reduced-motion setting still overrides 'full'/'system' at apply time.
+  function changeAnimation(v: AnimationPreference) {
+    setMotionPreference(v); saveMotionPreference(v); account.pushAnimation(v);
+  }
 
   return (
     <div className="profile-form">
@@ -92,6 +109,20 @@ export default function ProfilePanel({
       </div>
 
       <div className="field">
+        <label className="field__label">{t('profile.animation')}</label>
+        <div className="segmented segmented--inline" role="radiogroup" aria-label={t('profile.animation')}>
+          {ANIMATION_PREFERENCES.map((a) => (
+            <button key={a} type="button" role="radio" aria-checked={animation === a}
+              className={`segmented__tab ${animation === a ? 'segmented__tab--active' : ''}`}
+              onClick={() => changeAnimation(a)}>
+              {t(ANIMATION_LABEL_KEY[a])}
+            </button>
+          ))}
+        </div>
+        <p className="field__hint">{t('profile.animationHint')}</p>
+      </div>
+
+      <div className="field">
         <label className="field__label">{t('lang.label')}</label>
         <LanguageSelector />
       </div>
@@ -112,7 +143,7 @@ export default function ProfilePanel({
       {!account.hasSession && (
         <div className="profile-form__save">
           <button className="btn btn--primary" disabled={account.syncing}
-            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack) })}>
+            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation })}>
             {account.syncing ? `${t('net.connecting')}…` : `💾 ${t('account.saveProgress')}`}
           </button>
           <p className="setup-hint">{t('account.signInCta')}</p>

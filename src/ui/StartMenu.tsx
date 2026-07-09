@@ -26,6 +26,7 @@ import SelectMenu from './components/SelectMenu';
 import GameIcon from './components/GameIcon';
 import { gameIconSrc } from '../visual/visualAssets';
 import { setCardBackStyle } from './components/cardBackStore';
+import { setMotionPreference } from './components/motionPreferenceStore';
 
 const ENV_WS_URL = (import.meta.env as Record<string, string | undefined>).VITE_WS_URL;
 
@@ -96,6 +97,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
       if (m.settings?.avatar) setAvatar(m.settings.avatar);
       // Apply the signed-in player's card-back style across devices (Stage 13.0).
       if (m.settings?.cardStyle) setCardBackStyle(m.settings.cardStyle);
+      // Apply the signed-in player's animation-intensity preference (Stage 13.2).
+      if (m.settings?.animationPreference) setMotionPreference(m.settings.animationPreference);
     }
   }, [account.me]);
   useEffect(() => {

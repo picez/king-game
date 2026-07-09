@@ -7,6 +7,7 @@
 import type { StorageLike } from './session';
 import { isValidAvatar } from '../core/avatars';
 import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
+import { normalizeMotionPreference, type AnimationPreference } from '../ui/components/motionPref';
 
 const NICK_KEY = 'king.nickname.v1';
 const LANG_KEY = 'king.lang.v1';
@@ -14,6 +15,7 @@ const AVATAR_KEY = 'king.avatar.v1';
 const TIMER_KEY = 'king.defaultTimer.v1';
 const GUEST_KEY = 'king.guest.v1';
 const CARDBACK_KEY = 'king.cardStyle.v1';
+const MOTION_KEY = 'king.motion.v1';
 
 /** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 const TIMER_VALUES = [0, 30, 60, 90];
@@ -79,6 +81,21 @@ export function loadCardStyle(storage: StorageLike | null = defaultStorage()): C
 export function saveCardStyle(style: string, storage: StorageLike | null = defaultStorage()): void {
   const s = normalizeCardBack(style); // only ever persist a valid style
   try { storage?.setItem(CARDBACK_KEY, s); } catch { /* non-fatal */ }
+}
+
+/**
+ * Preferred animation intensity (Stage 13.2): 'system' | 'full' | 'reduced' | 'off'.
+ * A purely visual, local UI preference — never game state. Unknown/legacy values
+ * normalise to 'system' (follow the device). The OS `prefers-reduced-motion` still
+ * takes priority over 'full'/'system' at apply time (see motionPref.ts).
+ */
+export function loadMotionPreference(storage: StorageLike | null = defaultStorage()): AnimationPreference {
+  return normalizeMotionPreference(storage?.getItem(MOTION_KEY));
+}
+
+export function saveMotionPreference(pref: string, storage: StorageLike | null = defaultStorage()): void {
+  const p = normalizeMotionPreference(pref); // only ever persist a valid value
+  try { storage?.setItem(MOTION_KEY, p); } catch { /* non-fatal */ }
 }
 
 /**

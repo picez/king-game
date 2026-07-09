@@ -317,6 +317,12 @@ export const AR: Record<string, string> = {
   'profile.cardBack': 'ظهر البطاقة',
   'profile.cardBackClassic': 'أخضر كلاسيكي',
   'profile.cardBackRed': 'أحمر وذهبي',
+  'profile.animation': 'الحركة',
+  'profile.animationSystem': 'النظام',
+  'profile.animationFull': 'كاملة',
+  'profile.animationReduced': 'مخفّفة',
+  'profile.animationOff': 'إيقاف',
+  'profile.animationHint': 'يُحترم إعداد نظامك — الأجهزة ذات الحركة المخفّفة تبقى مخفّفة.',
   // ── account / profile (Stage 4) ──
   'account.title': 'الحساب',
   'account.guestShort': 'ضيف',
