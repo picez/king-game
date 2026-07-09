@@ -16,6 +16,7 @@
     "visuals": "node scripts/gen-visual-assets.mjs",
     "cards": "node scripts/slice-card-sources.mjs",
     "e2e": "tsx scripts/e2e-online.mjs",
+    "social-shots": "node scripts/social-shots.mjs",
     "soak": "tsx scripts/durak-soak.mjs",
     "soak:deberc": "tsx scripts/deberc-soak.mjs",
     "start": "NODE_ENV=production tsx server/index.ts",

@@ -188,6 +188,38 @@ All must be green.
 - [ ] Offline after first load: **local** game still opens; online shows
       "Connecting…" (expected — online needs the network).
 
+## Automated — online social visual QA (Stage 12.7)
+
+Screenshot harness for the **online-only** RoomSocial surfaces (chat drawer, sticker
+picker, floating stickers/reactions, raised social controls) that the local shot
+scripts can't reach. Starts a real server on `:3001`, drives one browser as the host
+of an online Durak room (host + 1 bot → reaches `playing` instantly), and captures at
+**360×800 and 390×844**. This is **manual QA** (spins up a server + browser) — it is
+NOT part of `npm run verify`; `npm run e2e` stays the behavioral source of truth for
+social messaging (cooldowns, filtering, redaction).
+
+```bash
+npm run build && npm run preview     # serve the built client on :4173 (one shell)
+node scripts/social-shots.mjs        # another shell → .shots/social/*.png (git-ignored)
+```
+
+Per-viewport states captured + auto-checked (no horizontal overflow + key selectors
+present; prints `PASS/FAIL`, exit non-zero on any fail):
+
+- [ ] `lobby-1-chat-open` — chat drawer open over the lobby.
+- [ ] `lobby-2-media-picker` — in-drawer sticker grid.
+- [ ] `lobby-3-chat-messages` — a text bubble **and** a media sticker bubble.
+- [ ] `lobby-4-reaction-picker` — reaction picker (emoji row + sticker grid).
+- [ ] `lobby-5-float-reaction` — a floating reaction chip.
+- [ ] `game-1-hand-social` — active game: hand visible, social controls **raised**
+      (`.social-controls--raised`) clear of the cards.
+- [ ] `game-2-reaction-picker` — picker open over the active game (hand still visible).
+- [ ] `game-3-float-sticker` — a floating sticker over the table.
+
+Acceptance: **16/16 PASS** (8 states × 2 viewports), no overflow, hand/actions never
+covered. Note: a floating chip is top-centre and may briefly overlap the top seat /
+lobby title — transient (~2.6 s), opaque, and by design never over the hand/trick.
+
 ## Known limitations
 
 - Room password is an **MVP gate**, not full account-level authentication; use
