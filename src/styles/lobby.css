@@ -314,6 +314,14 @@
 .segmented__tab--active { background: var(--gold-grad); color: #2a2407; box-shadow: var(--shadow-1); }
 /* The drawer's tablist has a refresh button alongside; give it bottom spacing. */
 .drawer__body > .segmented { margin-bottom: 0.7rem; }
+/* Stage 12.6: the three drawer tabs share the row with the ↻ refresh button, so
+   keep even long translations (uk/de) legible without ellipsis-clipping on 360.
+   Scoped with `>` to the tablist only — the per-game sub-toggle is untouched. */
+.drawer__body > .segmented .segmented__tab { font-size: 0.78rem; padding-inline: 0.3rem; }
+.drawer__refresh { min-width: 2rem; }
+@media (max-width: 380px) {
+  .drawer__body > .segmented .segmented__tab { font-size: 0.72rem; letter-spacing: -0.01em; }
+}
 
 
 /* ===== Game selector (Stage 8.3 skeleton — King only today) ===== */

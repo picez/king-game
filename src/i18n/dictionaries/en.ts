@@ -351,7 +351,7 @@ export const EN: Record<string, string> = {
   'account.hint': 'Optional. Local and online guest play work without signing in — your settings are saved on this device.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Statistics',
-  'stats.myStats': 'My King stats',
+  'stats.myStats': 'My stats',
   'stats.leaderboard': 'Leaderboard',
   'stats.refresh': 'Refresh',
   'stats.gamesPlayed': 'Games played',

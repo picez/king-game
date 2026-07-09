@@ -351,7 +351,7 @@ export const UK: Record<string, string> = {
   'account.hint': 'Необовʼязково. Локальна та онлайн-гра гостем працюють без входу — налаштування зберігаються на цьому пристрої.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Статистика',
-  'stats.myStats': 'Моя статистика King',
+  'stats.myStats': 'Моя статистика',
   'stats.leaderboard': 'Таблиця лідерів',
   'stats.refresh': 'Оновити',
   'stats.gamesPlayed': 'Зіграно ігор',

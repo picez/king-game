@@ -351,7 +351,7 @@ export const DE: Record<string, string> = {
   'account.hint': 'Optional. Lokales und Online-Gastspiel funktionieren ohne Anmeldung — deine Einstellungen werden auf diesem Gerät gespeichert.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Statistik',
-  'stats.myStats': 'Meine King-Statistik',
+  'stats.myStats': 'Meine Statistik',
   'stats.leaderboard': 'Bestenliste',
   'stats.refresh': 'Aktualisieren',
   'stats.gamesPlayed': 'Gespielte Spiele',

@@ -351,7 +351,7 @@ export const AR: Record<string, string> = {
   'account.hint': 'اختياري. اللعب المحلي واللعب كضيف عبر الإنترنت يعملان دون تسجيل الدخول — تُحفظ إعداداتك على هذا الجهاز.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'الإحصائيات',
-  'stats.myStats': 'إحصائياتي في كينغ',
+  'stats.myStats': 'إحصائياتي',
   'stats.leaderboard': 'لوحة المتصدّرين',
   'stats.refresh': 'تحديث',
   'stats.gamesPlayed': 'الألعاب المُلعوبة',
