@@ -1,0 +1,222 @@
+# Sound Design — Card Majlis (Stage 15.0)
+
+> **Planning doc only. Stage 15.0 adds NO runtime code, NO audio assets, and NO
+> dependencies.** It defines the product stance, the default decision, the event →
+> sound map, the preference model, the asset strategy, a staged rollout (15.1–15.5),
+> and the test/QA plan. Implementation stages must follow this doc and keep
+> gameplay/rules/scoring/AI, server/WS/protocol, DB/stats/auth **unchanged** — sound
+> is purely **client-side feedback**.
+
+Card Majlis is a card lounge for **King, Durak, Deberc, Tarneeb**. The visual
+direction is the "Levantine Card Lounge" (dark-green felt + brass/gold + walnut, see
+[`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md)); the sound direction mirrors it: **warm,
+tactile, understated** — a soft card tap, a felt slide, a brass tick, a warm chime.
+
+---
+
+## 1. Product stance
+
+- **Optional, subtle, short.** Every sound is a brief (< ~350 ms) tactile confirmation
+  of something the player just did or just saw. No looping music in MVP. No ambience.
+- **No autoplay surprise.** Audio is never armed until the **first user gesture** (a
+  tap/click), per browser autoplay policy. Before that, the engine is a no-op.
+- **Never carries hidden information.** A sound may only accompany something ALREADY
+  visible in the UI. It must never reveal an opponent's card, a hidden hand, a value,
+  or a turn the UI doesn't already show. Fairness first — sound is redundant feedback,
+  never a channel. (Corollary: online play sounds the SAME for everyone based on the
+  redacted state each client already renders; the server never emits or gates sound.)
+- **No dependency on server/protocol/game state on the wire.** Sound is derived
+  locally from the state the client already has. No WS message, no reducer, no
+  timing dependency (a sound must never gate or delay a state transition — mirrors the
+  WinnerCelebration rule from Stage 13.7).
+- **Respectful by default** (see §2): a card game is often opened in public / shared
+  spaces; unexpected noise is worse than silence.
+
+---
+
+## 2. Recommended default — **OFF**
+
+**Decision: sound ships DEFAULT OFF for everyone** (existing users AND new users),
+surfaced as an unobtrusive opt-in toggle in Profile → (Appearance or a new "Sound"
+row). No first-run nag, no autoplay.
+
+**Why default-off (not default-subtle):**
+- **Public spaces.** Card games are played on a bus, in an office, in a majlis — a
+  device suddenly ticking/chiming is embarrassing and annoying. Silence is the safe,
+  respectful default.
+- **Browser autoplay restrictions.** Audio can't play until a user gesture anyway, so
+  a "default-subtle" would still be silent on load — meaning the only reliable way to
+  make sound feel intentional is an explicit opt-in.
+- **Reversible + low-friction.** The toggle lives in Profile; a curious player enables
+  it in two taps. We can revisit "default-subtle for signed-in users who opted into
+  other polish" later with real usage data — but MVP is off.
+- **No regression risk.** Default-off guarantees existing users notice zero change.
+
+When enabled, the first playable sound still waits for the next user gesture (the
+same tap that toggled it counts as the gesture, so enabling → next click already
+sounds).
+
+---
+
+## 3. Sound categories / event map
+
+Priorities: **P0** = core tactile MVP (ship first in 15.4); **P1** = nice polish (later
+in 15.4 / a follow-up); **P2** = optional, only if cheap and unobtrusive.
+
+Character vocabulary: *soft card tap*, *felt slide*, *brass tick*, *warm chime*,
+*low thud*, *soft error blip*. "Throttle" = a min-interval / debounce so rapid repeats
+(e.g. dealing 13 cards) don't stack into noise.
+
+### 3.1 UI
+
+| event | sound id | prio | character | max dur | max vol | throttle |
+|---|---|---|---|---|---|---|
+| Button / primary action click | `ui-click` | P0 | soft card tap | 90 ms | 0.5 | 40 ms debounce |
+| Select / segmented change | `ui-select` | P1 | brass tick | 90 ms | 0.4 | 40 ms |
+| Sheet / drawer open | `ui-open` | P2 | felt slide (up) | 160 ms | 0.4 | — |
+| Sheet / drawer close | `ui-close` | P2 | felt slide (down) | 160 ms | 0.4 | — |
+| Error / rejected action / rate-limit | `ui-error` | P1 | soft error blip | 160 ms | 0.5 | 300 ms |
+
+### 3.2 Cards (shared across games)
+
+| event | sound id | prio | character | max dur | max vol | throttle |
+|---|---|---|---|---|---|---|
+| Deal a card (per card, staggered) | `card-deal` | P1 | soft card tap | 80 ms | 0.35 | **staggered** — one per dealt card, ≥ 40 ms apart; hard-cap ~6 in a burst |
+| Play a card to the table | `card-play` | P0 | card tap + felt | 130 ms | 0.5 | 60 ms |
+| Collect / sweep a trick | `card-collect` | P0 | felt slide / gather | 200 ms | 0.5 | 120 ms |
+| Reveal trump | `card-trump` | P1 | warm chime (short) | 240 ms | 0.5 | — |
+
+### 3.3 Game-specific (all reuse the shared card sounds; these are the ACCENTS)
+
+Only fire on events the local client already renders; never on a hidden opponent action
+beyond what the redacted state shows (e.g. Durak "trump-show transfer" already surfaces
+a public `lastTrumpShow` banner — sound is fine; a hidden hand change is not).
+
+- **King** — `king-mode-start` (P1, warm chime — a mode/round begins) · kitty exchange
+  → reuse `card-play` (P2) · trick win → `card-collect` (P0) · game finish → `finish-win`
+  / `finish-neutral` (§3.5).
+- **Durak** — attack → `card-play` (P0) · defend/beat → `card-play` (P0) · take →
+  `card-collect` low variant `durak-take` (P1, low thud — you picked up) · transfer →
+  `card-play` (P1) · **trump-show transfer** → `card-trump` (P1, on the public
+  `lastTrumpShow`).
+- **Deberc** — bid → `ui-select` (P2) · meld declared (terz/platina/bella) →
+  `deberc-meld` (P1, brass tick, ×1 per declaration, throttled) · **bella** →
+  `card-trump` variant (P2) · **deberc jackpot** → `finish-win` (P0, the match-ending
+  flourish).
+- **Tarneeb** — bid → `ui-select` (P2) · pass → `ui-click` (P2) · trump chosen →
+  `card-trump` (P1) · trick won → `card-collect` (P0) · **exact-bid ×2** →
+  `tarneeb-double` (P1, warm chime accent, on the hand-complete "Exact bid ×2" badge).
+
+### 3.4 Social
+
+| event | sound id | prio | character | max dur | max vol | throttle |
+|---|---|---|---|---|---|---|
+| Incoming chat message | `chat-message` | P2 | brass tick (very soft) | 120 ms | 0.3 | 500 ms; **suppress for your own** sent message |
+| Sticker sent / received | `chat-sticker` | P2 | soft pop | 160 ms | 0.35 | 500 ms |
+| Reaction pop (emoji float) | `reaction-pop` | P2 | soft pop | 140 ms | 0.3 | 300 ms |
+
+### 3.5 Finish (aligns with WinnerCelebration kinds, Stage 13.7)
+
+| result kind | sound id | prio | character | max dur | max vol |
+|---|---|---|---|---|---|
+| `win` / `teamWin` | `finish-win` | P0 | warm chime (2–3 gentle notes) | 900 ms | 0.6 |
+| `draw` / `fool` / `loss` | `finish-neutral` | P1 | single soft chime / low note | 500 ms | 0.4 |
+
+Finish sounds are **one-shot** (never looped) and fire ONCE on entering the finished
+screen — mirroring the celebration's "settle, don't loop" rule.
+
+---
+
+## 4. Accessibility / preferences
+
+- **Separate from animation.** Sound preference is its OWN setting, independent of the
+  animation-intensity preference ([`animation-preference-setting`] / motion store).
+  Reduced-motion does **not** auto-mute sound, and muting sound does not change motion.
+- **Proposed values:** `off` | `subtle` | `full`.
+  - `off` (default) — engine is a permanent no-op.
+  - `subtle` — P0 sounds only, at ~60% of the max volumes above.
+  - `full` — P0 + P1 (+ P2 where enabled), at the listed max volumes.
+  - A **volume slider is post-MVP** (values above are the ceiling for `full`).
+- **User-gesture requirement.** The engine lazy-inits its `AudioContext` (or unlocks
+  `<audio>`) only after the first user gesture; before that, `play()` is a no-op. This
+  satisfies iOS/Android/desktop autoplay policies without a "tap to enable audio" nag.
+- **Tab hidden → mute? YES.** When `document.visibilityState === 'hidden'`, suppress
+  playback (a backgrounded tab making noise is jarring, and mobile browsers throttle it
+  anyway). Resume silently when visible. No queue/backlog is played on return.
+- **Fairness restated.** No sound conveys information not on screen (§1).
+- **Haptics / vibration:** **post-MVP, mobile-only, explicit opt-in**, its OWN setting
+  (never bundled with sound-on). Not designed here beyond: gated behind a gesture, off
+  by default, `navigator.vibrate` with a graceful no-op where unsupported.
+
+---
+
+## 5. Asset strategy
+
+- **Procedural / generated, royalty-free only.** No copyrighted or third-party samples.
+  Prefer generating short SFX (e.g. an offline WebAudio render script, or a one-off
+  generator committed as a build-time script like `scripts/gen-visual-assets.mjs`),
+  then exporting fixed files. **No new runtime dependency** — decode/play uses the
+  built-in Web Audio / `<audio>` APIs.
+- **Format:** ship **`.webm` (Opus)** as the primary + **`.mp3`** as the fallback
+  (`<audio>`/`AudioBuffer` picks what the browser supports — Opus/webm covers Chrome/
+  Firefox/Android, mp3 covers Safari/iOS). Decide the exact pair in 15.1 after a quick
+  support check; if one format covers everything at budget, ship one.
+- **Loudness:** normalize all SFX to a consistent perceived loudness (target ≈ −16 to
+  −20 LUFS-ish, peaks ≤ −3 dBFS); no harsh transients or clipping; short fade-out tails
+  to avoid clicks.
+- **Budget:** each SFX **< 30 KB** where possible; **total MVP sound budget < 500 KB**
+  (all formats combined). The P0 set is ~6 sounds → comfortably under budget.
+- **Naming convention** (flat, kebab-case, under `public/sounds/`):
+  `public/sounds/ui-click.webm`, `public/sounds/card-play.webm`,
+  `public/sounds/card-collect.webm`, `public/sounds/finish-win.webm`, … (+ `.mp3`
+  siblings). A manifest (e.g. `src/audio/soundManifest.ts`, mirroring
+  `src/visual/visualAssets.ts`) lists id → path(s) + maxBytes for a guard test.
+- **Fallback:** if a file 404s or fails to decode, the engine **silently no-ops** for
+  that id (never throws, never blocks gameplay) — exactly like the card-back/art image
+  fallbacks.
+
+---
+
+## 6. Implementation plan (rollout)
+
+Each stage is small, independently shippable, and keeps gameplay/server/DB unchanged.
+
+- **15.1 — Assets + manifest.** Generate the **P0** SFX (ui-click, card-play,
+  card-collect, finish-win, finish-neutral, ui-error) royalty-free; add `.webm`(+`.mp3`)
+  under `public/sounds/`; add `src/audio/soundManifest.ts`; add manifest guard tests
+  (each declared file exists, is a real audio container, under maxBytes; total < 500 KB).
+  No engine yet.
+- **15.2 — Preference setting.** Add the `off | subtle | full` **sound preference** in
+  Profile (its own row; a segmented control, no native select), local `localStorage`
+  key (e.g. `cardMajlis.sound.v1`), default **off**. Optional profile sync ONLY if
+  approved (mirrors cardStyle/animation via `user_settings` — otherwise device-local
+  like the connection setting). External store like the animation store.
+- **15.3 — Engine / hook.** A tiny client-side sound engine: lazy-init `AudioContext`
+  after the first gesture; preload **P0 only** (others on demand); `play(soundId)` is a
+  no-op when pref is `off`, tab hidden, or a file failed; per-id throttle/debounce;
+  respects the `subtle`/`full` volume tiers. **No test requires real audio playback** —
+  test the pure decision logic (should-play, throttle, volume tier) with the audio I/O
+  behind an injectable/mockable boundary.
+- **15.4 — Wire events (carefully, incrementally).** Start with the **P0** set only:
+  UI click, card-play, card-collect (trick), finish win/neutral. Verify no sound fires
+  for hidden info and no server change. Add P1/P2 in follow-ups.
+- **15.5 — QA.** Manual matrix: iOS Safari + Android Chrome + desktop; first-gesture
+  unlock; tab-hidden mute/resume; off/subtle/full; rapid-deal throttle; no double-sound
+  online; budget check. Update QA_CHECKLIST.
+
+---
+
+## 7. Acceptance criteria (this Stage 15.0)
+
+- ✅ No runtime code changed in Stage 15.0.
+- ✅ No audio assets added.
+- ✅ No dependency additions.
+- ✅ Clear event → sound map with ids, priorities, character, duration, volume,
+  throttling (§3).
+- ✅ Clear default decision: **default OFF**, opt-in in Profile (§2).
+- ✅ Clear privacy/fairness statement: sound never carries hidden info; client-side
+  only; no server/WS/state change (§1).
+- ✅ Clear rollout stages 15.1–15.5 (§6).
+- ✅ Clear preference model (off/subtle/full, separate from motion) + test plan (§4, §6).
+
+[`animation-preference-setting`]: src/ui/components/motionPreferenceStore.ts

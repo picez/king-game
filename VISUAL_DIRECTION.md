@@ -5,6 +5,10 @@
 > and a staged rollout (12.1–12.6). It is the source of truth for the redesign;
 > implementation stages must follow it and keep gameplay/server/protocol/DB/stats
 > unchanged. Screenshots referenced live under `.shots/` (git-ignored, QA only).
+>
+> **Related:** the matching **sound** direction lives in
+> [`SOUND_DESIGN.md`](SOUND_DESIGN.md) (Stage 15.0, planning-only) — a warm, tactile,
+> default-OFF audio layer that mirrors this felt/brass/gold aesthetic.
 
 Four games ship and are all `available`: **King, Durak, Deberc, Tarneeb** — local
 + server-authoritative online, with stats, chat, and sticker reactions. The

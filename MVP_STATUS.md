@@ -178,6 +178,11 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
+- **Sound: designed, not implemented.** There is **no audio** in the app yet. The
+  full plan (default **OFF**, opt-in `off/subtle/full`, client-side-only event map,
+  royalty-free procedural SFX, staged rollout 15.1–15.5) is written up in
+  [`SOUND_DESIGN.md`](SOUND_DESIGN.md) (Stage 15.0, docs-only) — **implementation not
+  started**.
 - Room password is an **MVP gate**, not full moderation/auth; production should
   keep **WSS** enabled before a public launch.
 - **Per-connection** WS rate limiting is in place (message + CREATE_ROOM token

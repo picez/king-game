@@ -220,6 +220,26 @@ All must be green.
 - [ ] Offline after first load: **local** game still opens; online shows
       "Connecting…" (expected — online needs the network).
 
+## Manual — Sound (PLACEHOLDER — not implemented; see SOUND_DESIGN.md, Stage 15.5)
+
+> There is **no audio in the app yet** (Stage 15.0 is docs-only). Fill this in when
+> sound ships. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+
+- [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
+      Profile → Sound (`off | subtle | full`).
+- [ ] **First-gesture unlock:** after enabling, the next tap/click sounds; no
+      "tap to enable audio" nag; no autoplay before a gesture (iOS Safari + Android
+      Chrome + desktop).
+- [ ] **Tab hidden → muted:** backgrounding the tab silences sound; returning resumes
+      silently (no queued backlog plays).
+- [ ] **Subtle vs Full:** `subtle` plays only the P0 set at a lower volume; `full`
+      adds P1/P2. Reduced-motion does **not** auto-mute; muting sound does not change motion.
+- [ ] **No hidden info / no double-sound:** sounds only accompany what's on screen;
+      an online room sounds the same for everyone and never reveals a hidden hand/turn.
+- [ ] **Throttle:** dealing a full hand does not stack into a burst of taps.
+- [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
+      block); total sound payload stays under budget (< 500 KB).
+
 ## Automated — online social visual QA (Stage 12.7)
 
 Screenshot harness for the **online-only** RoomSocial surfaces (chat drawer, sticker
