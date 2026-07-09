@@ -178,19 +178,18 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- **Sound: minimal P0 gameplay cues wired, default OFF.** The MVP SFX set exists —
-  **12 sounds × webm+mp3 (~55 KB) under `public/sounds/`** + a manifest
-  (`src/audio/soundAssets.ts`), generated dep-free by `npm run sounds` (Stage 15.1). A
-  **sound preference** (Profile → Appearance, `off/subtle/full`, **default off**,
-  **local-only** under `cardMajlis.sound.v1` — no profile/DB sync) drives a **client-side
-  engine** (`src/audio/soundEngine.ts`, lazy, no-op when off/hidden/throttled) — 15.2.
-  Stage 15.3 wires a small **P0 event set** via `useSoundEvents` — **card-play** /
-  **trick-collect** (from the visible table/trick count) and **trump-reveal** (null→set)
-  in all 4 games (King/Durak/Deberc/Tarneeb, local + online), plus **finish-win/neutral**
-  once on each finished screen. All client-side UI feedback, no server/protocol/rules
-  change, and **nothing sounds for hidden info**. Default off ⇒ the app is silent until a
-  user opts in. Noisier cues (per-card deal, bids, chat, clicks) are intentionally left
-  for 15.4. Full plan in [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+- **Sound: ALERT-ONLY, default OFF.** The MVP SFX set exists — **12 sounds × webm+mp3
+  (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`), generated
+  dep-free by `npm run sounds` (Stage 15.1). A **sound preference** (Profile → Appearance,
+  `off/subtle/full`, **default off**, **local-only** under `cardMajlis.sound.v1` — no
+  profile/DB sync) drives a **client-side engine** (`src/audio/soundEngine.ts`, lazy,
+  no-op when off/hidden/throttled) — 15.2. **Stage 15.4 re-scoped sound to useful ALERTS,
+  not atmosphere:** the brief Stage 15.3 decorative cues (card-play / trick-collect /
+  trump-reveal / finish) were **removed**. The only wired sound now is a **low-time
+  alert** — one `ui-error` cue when my turn timer crosses below 10s on my turn (King
+  online with a host-set timer; `useSoundAlerts` → `TurnTimer`). A new-deal alert is
+  deferred. Client-side only, no hidden info, no server/rules change. Default off ⇒ silent
+  until opt-in. Full plan in [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 - Room password is an **MVP gate**, not full moderation/auth; production should
   keep **WSS** enabled before a public launch.
 - **Per-connection** WS rate limiting is in place (message + CREATE_ROOM token

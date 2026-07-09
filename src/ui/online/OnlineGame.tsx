@@ -207,7 +207,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     <>
       <GameContext.Provider value={{
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
-        turnTimerSec: net.room?.turnTimerSec ?? 0, disconnectedSeats,
+        turnTimerSec: net.room?.turnTimerSec ?? 0, myPlayerId: net.myPlayerId, disconnectedSeats,
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>

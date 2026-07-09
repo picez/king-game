@@ -16,6 +16,8 @@ interface GameContextType {
   onExit?: () => void;
   /** Online only: per-turn timer in seconds (0/undefined = off). */
   turnTimerSec?: number;
+  /** Online only: this client's player id (used to detect "it's my turn"). */
+  myPlayerId?: string | null;
   /** Online only: seat indices of human players currently disconnected. */
   disconnectedSeats?: number[];
 }

@@ -16,8 +16,18 @@ tactile, understated** — a soft card tap, a felt slide, a brass tick, a warm c
 
 ## 1. Product stance
 
-- **Optional, subtle, short.** Every sound is a brief (< ~350 ms) tactile confirmation
-  of something the player just did or just saw. No looping music in MVP. No ambience.
+> **⚠️ Revised at Stage 15.4 — sound is a USEFUL ALERT, not atmosphere.** After
+> listening to the MVP set wired as decorative gameplay cues (15.3: card-play /
+> trick-collect / trump-reveal / finish), the decorative ambience added no quality and
+> felt uninteresting. **Those cues were removed.** Sound now exists ONLY to grab
+> attention when the player needs to act: (1) a **low-time warning** when my turn timer
+> runs low, and (2) *(future)* a **new-deal / action-needed** alert. The stance below
+> still holds (default off, no hidden info, client-side only) — just applied to alerts,
+> not tactile confirmations of every action.
+
+- **Alert, not ambience.** A sound only fires to pull attention to something the player
+  must act on. No per-card / per-trick / per-finish decorative cues. No looping music,
+  no ambience.
 - **No autoplay surprise.** Audio is never armed until the **first user gesture** (a
   tap/click), per browser autoplay policy. Before that, the engine is a no-op.
 - **Never carries hidden information.** A sound may only accompany something ALREADY
@@ -222,10 +232,12 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
     Stage 15.4. Guard tests in `soundAssets.test.ts` lock: audio API only in the engine,
     manifest imported only by the engine, `soundEngine` imported only by `ProfilePanel`,
     and `messages.ts` carries no sound field.
-- **15.3 — Wire minimal P0 gameplay events. ✅ DONE.** With the engine already shipped
-  (15.2), this stage wires a small, safe P0 event set as **client-side UI feedback** —
-  no reducers/rules/server/protocol change, and nothing sounds for hidden info (every
-  cue reacts to state THIS client already sees). Still default **off**.
+- **15.3 — Wire minimal P0 gameplay events. ⛔ SUPERSEDED / REMOVED by 15.4.** This
+  stage briefly wired decorative cues (card-play / trick-collect / trump-reveal /
+  finish-win / finish-neutral) via `useSoundEvents` in the 4 game screens + a
+  `useFinishSound` in WinnerCelebration. On review the ambience added no quality, so
+  **15.4 deleted all of it** (hook + wiring). The description below is kept for history
+  only — none of it is in the code anymore.
   - **Hook** (`src/audio/useSoundEvents.ts`): `useSoundEvents({ tableCount?, trumpVisible? })`
     diffs against the previous render via a ref and plays on the VISIBLE transition —
     `tableCount` ↑ → **card-play**, `tableCount` ↓ → **trick-collect**, `trumpVisible`
@@ -255,8 +267,30 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
     engine; `playSound` only in the hook + Profile preview; the hook only in the 4 game
     screens + WinnerCelebration; **no core/server/games/net/hooks module imports the audio
     layer**; `messages.ts` still sound-free.
-- **15.4 — Expand (P1/P2), carefully.** Add P1/P2 cues (deal, bid-tick, chat/reaction pops,
-  error) incrementally, each verified for no hidden-info leak and no server change.
+- **15.4 — Reduce scope to USEFUL ALERTS only. ✅ DONE.** Removed the 15.3 decorative
+  wiring and re-scoped sound to attention/alert. Still default **off**, client-side only,
+  no hidden info, no server/rules/state change.
+  - **Removed:** `src/audio/useSoundEvents.ts` (+ its test) and every call site — the 4
+    game screens (`GameScreen`, `Durak/Deberc/TarneebGameScreen`) and the finish sound in
+    `WinnerCelebration`. The decorative ids (card-play/trick-collect/trump-reveal/finish-*)
+    remain in the manifest as available assets but are **wired nowhere** (guard-enforced).
+  - **Active alert — low-time warning** (`src/audio/useSoundAlerts.ts` → `useTimerLowAlert`,
+    wired in `src/ui/components/TurnTimer.tsx`): fires the existing **`ui-error`** SFX ONCE
+    when the countdown crosses from `>10s` to `≤10s` **on MY active turn**. Pure reducer
+    `timerLowStep` holds the anti-spam: once per turn, resets on turn/step change, never for
+    an opponent's turn, and never on mount/reconnect into an already-low timer (a crossing
+    needs a previously-observed above-threshold value). "My turn" = `getActingPlayerId(state)
+    === myPlayerId` (added `myPlayerId` to the King GameContext). **Coverage:** only where a
+    per-turn countdown exists = **King online** with a host-configured turn timer; the other
+    3 games have no turn timer, so timer-low simply doesn't apply there.
+  - **`document.hidden`:** the engine still no-ops on hidden tabs, so alerts are **in-tab
+    only** for now (not over-engineered into a background notification).
+  - **New-deal / action-needed alert — DEFERRED.** No reliable, reconnect-safe "fresh own
+    hand needs action" signal is uniform across all 4 games, so it is left for a follow-up.
+  - **Guards** (`soundAssets.test.ts`): audio API only in the engine; manifest only in the
+    engine; `playSound` only in `useSoundAlerts` + Profile preview; the alert hook only in
+    `TurnTimer`; the removed decorative ids referenced **nowhere** outside the manifest; no
+    core/server/games/net/hooks import of audio; `messages.ts` sound-free.
 - **15.5 — QA.** Manual matrix: iOS Safari + Android Chrome + desktop; first-gesture
   unlock; tab-hidden mute/resume; off/subtle/full; rapid-deal throttle; no double-sound
   online; budget check. Update QA_CHECKLIST.

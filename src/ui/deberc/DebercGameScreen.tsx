@@ -10,7 +10,6 @@ import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
 import DebercScoreTable from './DebercScoreTable';
 import DebercTricksReview from './DebercTricksReview';
-import { useSoundEvents } from '../../audio/useSoundEvents';
 
 /** Nominal (top card) label for a declared meld — from its cards, or its topValue. */
 const VALUE_TO_RANK: Record<number, string> = { 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
@@ -57,13 +56,6 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const [showScore, setShowScore] = useState(false);
   const [showTricks, setShowTricks] = useState(false);
   const [introDismissed, setIntroDismissed] = useState(false);
-
-  // P0 sound cues (Stage 15.3): cards in the current trick drive card-play /
-  // trick-collect; trumpSuit going null→set (after bidding) plays trump-reveal.
-  useSoundEvents({
-    tableCount: state.currentTrick?.plays.length ?? 0,
-    trumpVisible: state.trumpSuit != null,
-  });
 
   // First-dealer intro (§3): shown on hand 1 only, auto-hides after a few seconds.
   const draw = state.firstDealerDraw;

@@ -12,13 +12,9 @@
 //
 // Winner NAMES / TEAM labels / scores are already rendered by the host screens, so
 // this layer never duplicates that text — it is purely the visual celebration.
-//
-// It is also the single finish-SOUND integration point (Stage 15.3): every game's
-// finished screen mounts this once with a `kind`, so calling useFinishSound here
-// (a client-side, no-op-when-off cue) covers all 4 games without touching them.
+// (Stage 15.4 removed the finish SOUND that briefly lived here — sound is now
+// alert-only, not a decorative finish flourish. See src/audio/useSoundAlerts.ts.)
 // ---------------------------------------------------------------------------
-
-import { useFinishSound } from '../../audio/useSoundEvents';
 
 /** Result kinds a finished screen can hand down (viewer-centric where relevant). */
 export type CelebrationKind = 'win' | 'teamWin' | 'draw' | 'fool' | 'loss';
@@ -36,9 +32,6 @@ interface Props {
 }
 
 export default function WinnerCelebration({ kind, visible = true }: Props) {
-  // Finish sound (once per mount), for ALL kinds — including the calm draw/fool/loss
-  // that render no visual effect below. Client-side cue; silent when sound is off.
-  useFinishSound(isCelebratoryKind(kind));
   if (!visible || !isCelebratoryKind(kind)) return null;
   return (
     <div className={`winner-celebration winner-celebration--${kind}`} aria-hidden="true">

@@ -72,23 +72,23 @@ describe('sound asset manifest', () => {
   });
 });
 
-// ── wiring-boundary guard (Stage 15.2 = engine exists, preview-only) ──────────
-// Stage 15.2 added a sound preference, an external store, and a MINIMAL engine.
-// Stage 15.3 adds a P0 gameplay-event hook (useSoundEvents). These guards lock the
-// boundary: the browser audio API stays inside the engine; playSound is called ONLY
-// by the hook + the Profile preview; the hook is used ONLY by the game screens + the
-// finish celebration; NO rules/engine/server/core imports the audio layer; and
-// nothing leaks onto the WS protocol.
+// ── wiring-boundary guard (Stage 15.2 + 15.4) ────────────────────────────────
+// 15.2 added a sound preference, an external store, and a MINIMAL engine.
+// 15.4 made sound ALERT-ONLY: the Stage 15.3 decorative cues (card-play /
+// trick-collect / trump-reveal / finish-*) were REMOVED, leaving a single
+// low-time alert hook (useSoundAlerts) used only by the turn timer. These guards
+// lock the boundary: the browser audio API stays inside the engine; playSound is
+// called ONLY by the alert hook + the Profile preview; the alert hook is used
+// ONLY by the turn timer; the removed decorative ids are wired NOWHERE; NO
+// rules/engine/server/core imports the audio layer; and nothing leaks onto WS.
 //
-// The non-test UI modules allowed to import the sound-event hook (game screens where a
-// visible transition happens, + the shared finish celebration). Update deliberately.
+// The non-test UI modules allowed to import the sound-alert hook. Update deliberately.
 const SOUND_HOOK_CONSUMERS = [
-  'ui/GameScreen.tsx',                     // King
-  'ui/components/WinnerCelebration.tsx',   // finish sound, all 4 games
-  'ui/deberc/DebercGameScreen.tsx',
-  'ui/durak/DurakGameScreen.tsx',
-  'ui/tarneeb/TarneebGameScreen.tsx',
+  'ui/components/TurnTimer.tsx',   // low-time alert (King online turn timer)
 ].sort();
+// Decorative sound ids removed from gameplay wiring in 15.4 — they may live in the
+// manifest (as available assets) but must not be referenced by any app source.
+const DECORATIVE_SOUND_IDS = ['card-play', 'trick-collect', 'trump-reveal', 'finish-win', 'finish-neutral'];
 const SRC = fileURLToPath(new URL('..', import.meta.url)); // src/
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -103,7 +103,7 @@ const THIS = fileURLToPath(import.meta.url);
 const rel = (p: string) => p.slice(SRC.length).replace(/\\/g, '/');
 const body = (p: string) => readFileSync(p, 'utf8');
 
-describe('sound wiring boundary (Stage 15.2 + 15.3)', () => {
+describe('sound wiring boundary (Stage 15.2 + 15.4)', () => {
   const files = walk(SRC).filter((p) => p !== THIS);
   const importersOf = (re: RegExp) => files
     .filter((p) => !isTest(p) && re.test(body(p)))
@@ -128,20 +128,29 @@ describe('sound wiring boundary (Stage 15.2 + 15.3)', () => {
       .toEqual(['audio/soundEngine.ts']);
   });
 
-  it('playSound (the engine) is imported ONLY by the event hook + the Profile preview', () => {
+  it('playSound (the engine) is imported ONLY by the alert hook + the Profile preview', () => {
     const importers = importersOf(/from\s+['"][^'"]*soundEngine['"]/);
     expect(importers, `unexpected soundEngine importers: ${importers.join(', ')}`)
-      .toEqual(['audio/useSoundEvents.ts', 'ui/menu/ProfilePanel.tsx']);
+      .toEqual(['audio/useSoundAlerts.ts', 'ui/menu/ProfilePanel.tsx']);
   });
 
-  it('the sound-event hook is imported ONLY by the game screens + finish celebration', () => {
-    const importers = importersOf(/from\s+['"][^'"]*useSoundEvents['"]/);
-    expect(importers, `unexpected useSoundEvents importers: ${importers.join(', ')}`)
+  it('the sound-alert hook is imported ONLY by the turn timer', () => {
+    const importers = importersOf(/from\s+['"][^'"]*useSoundAlerts['"]/);
+    expect(importers, `unexpected useSoundAlerts importers: ${importers.join(', ')}`)
       .toEqual(SOUND_HOOK_CONSUMERS);
   });
 
+  it('the removed decorative sound ids are wired NOWHERE in app source', () => {
+    const MANIFEST = 'audio/soundAssets.ts'; // the ids are ALLOWED to exist in the manifest
+    const offenders = files
+      .filter((p) => !isTest(p) && rel(p) !== MANIFEST)
+      .filter((p) => DECORATIVE_SOUND_IDS.some((id) => body(p).includes(`'${id}'`) || body(p).includes(`"${id}"`)))
+      .map(rel);
+    expect(offenders, `decorative sound ids referenced outside the manifest: ${offenders.join(', ')}`).toEqual([]);
+  });
+
   it('no rules/engine/server/core module imports the audio layer (sound is UI-only)', () => {
-    const AUDIO_IMPORT = /from\s+['"][^'"]*(audio\/(soundEngine|soundAssets|soundPreference|soundPreferenceStore|useSoundEvents)|\/audio['"])/;
+    const AUDIO_IMPORT = /from\s+['"][^'"]*(audio\/(soundEngine|soundAssets|soundPreference|soundPreferenceStore|useSoundAlerts)|\/audio['"])/;
     const LOGIC_DIR = /^(core|server|games|net|hooks)\//;
     const offenders = files
       .filter((p) => !isTest(p) && LOGIC_DIR.test(rel(p)) && AUDIO_IMPORT.test(body(p)))
