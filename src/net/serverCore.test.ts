@@ -623,16 +623,57 @@ describe('server-side bots', () => {
     });
   }
 
-  it('host can add a bot before start (seat assigned, type ai, name "Bot 1")', () => {
+  it('host can add a bot before start (seat assigned, type ai, varied " AI" identity)', () => {
     const room = botRoom();
     const host = arr(room)[0];
     const res = addBot(room, host.clientId, { clientId: id(), reconnectToken: id() });
     expect(res.ok).toBe(true);
     expect(res.bot?.type).toBe('ai');
-    expect(res.bot?.name).toBe('Bot 1');
+    // Stage 13.6: no more faceless "Bot N" — a real name, explicitly AI, with a
+    // whitelisted (non-🤖) avatar. Deterministic per (room, gameType, ordinal).
+    expect(res.bot?.name).not.toMatch(/^Bot \d+$/);
+    expect(res.bot?.name.endsWith(' AI')).toBe(true);
+    expect(AVATARS.includes(res.bot!.avatar)).toBe(true);
     expect(res.bot?.role).toBe('player');
     expect(typeof res.bot?.seatIndex).toBe('number');
     expect(activePlayers(room)).toHaveLength(2);
+  });
+
+  it('two bots in one room get distinct names + avatars (deterministic)', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    const a = addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }).bot!;
+    const b = addBot(room, host.clientId, { clientId: id(), reconnectToken: id() }).bot!;
+    expect(a.name).not.toBe(b.name);
+    expect(a.avatar).not.toBe(b.avatar);
+  });
+
+  it('restore keeps a bot identity (no re-roll on serialize → deserialize)', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    const bot = addBot(room, host.clientId, { clientId: 'bot-x', reconnectToken: 'tok-x' }).bot!;
+    const restored = deserializeRoom(serializeRoom(room))!;
+    const rBot = restored.members.get('bot-x')!;
+    expect(rBot.type).toBe('ai');
+    expect(rBot.name).toBe(bot.name);       // identity unchanged by persistence
+    expect(rBot.avatar).toBe(bot.avatar);
+  });
+
+  it('a legacy persisted room with an old "Bot 1" member still deserializes (no migration)', () => {
+    const room = botRoom();
+    const host = arr(room)[0];
+    addBot(room, host.clientId, { clientId: 'legacy-bot', reconnectToken: 'tok-legacy' });
+    // Simulate a room persisted BEFORE Stage 13.6 (member name = "Bot 1", 🤖).
+    const legacy = room.members.get('legacy-bot')!;
+    legacy.name = 'Bot 1';
+    legacy.avatar = '🤖';
+    const restored = deserializeRoom(serializeRoom(room));
+    expect(restored).not.toBeNull();
+    const rBot = restored!.members.get('legacy-bot')!;
+    expect(rBot.name).toBe('Bot 1');        // NOT aggressively renamed to a new identity
+    expect(rBot.type).toBe('ai');           // still a bot; the room is valid + playable
+    expect(typeof rBot.avatar).toBe('string');
+    expect(rBot.avatar.length).toBeGreaterThan(0); // legacy 🤖 sanitises to a valid avatar
   });
 
   it('non-host cannot add a bot (NOT_HOST)', () => {

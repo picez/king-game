@@ -4,6 +4,7 @@ import { tarneebBotAction } from '../../games/tarneeb/ai';
 import { getActingTarneebSeat } from '../../games/tarneeb/rules';
 import type { PlayerType } from '../../models/types';
 import type { TarneebAction, TarneebState, TarneebTrick } from '../../games/tarneeb/types';
+import { localBotNames } from '../../games/botIdentities';
 import TarneebSetup from './TarneebSetup';
 import TarneebGameScreen from './TarneebGameScreen';
 import TarneebFinished from './TarneebFinished';
@@ -55,7 +56,7 @@ export default function TarneebLocalGame({ onExit }: { onExit: () => void }) {
   }, [state, reviewTrick, apply]);
 
   function start() {
-    const playerNames = ['You', 'Bot 1', 'Bot 2', 'Bot 3'];
+    const playerNames = ['You', ...localBotNames('tarneeb', 3, ['You'])];
     const playerTypes: PlayerType[] = ['human', 'ai', 'ai', 'ai'];
     setReviewTrick(null);
     prevCompleted.current = 0;

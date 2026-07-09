@@ -13,7 +13,8 @@
 import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { gameReducer } from '../core/gameEngine';
-import { sanitizeAvatar, BOT_AVATAR } from '../core/avatars';
+import { sanitizeAvatar } from '../core/avatars';
+import { nextBotIdentity } from '../games/botIdentities';
 import { makeRng, randomSeed, hashString } from '../core/rng';
 import { DEFAULT_GAME_TYPE, getGameCatalogEntry, isGameType, type GameType } from '../games/catalog';
 import { getGameDefinition } from '../games/registry';
@@ -338,20 +339,27 @@ export function addBot(
   if (activePlayers(room).length >= roomCapacity(room)) {
     return { ok: false, error: 'ROOM_FULL' };
   }
-  // First free "Bot N" name (unique among current members).
-  const taken = new Set([...room.members.values()].map((m) => m.name));
-  let n = 1;
-  while (taken.has(`Bot ${n}`)) n++;
+  // A deterministic, varied identity (name + avatar), deduped against the current
+  // members so a room never shows two identical bot names/avatars while the pools
+  // allow. Assigned ONCE and stored on the member → reconnect/restore never rerolls
+  // it (Stage 13.6). The seed is stable per (room, gameType); the index is the
+  // bot's ordinal. Bots stay explicitly AI via the " AI" name suffix + lobby badge.
+  const members = [...room.members.values()];
+  const takenNames = new Set(members.map((m) => m.name));
+  const takenAvatars = new Set(members.map((m) => m.avatar));
+  const botOrdinal = members.filter((m) => m.type === 'ai').length;
+  const seed = `${room.code}:${room.gameType ?? DEFAULT_GAME_TYPE}`;
+  const identity = nextBotIdentity(seed, botOrdinal, takenNames, takenAvatars);
   const bot: ServerMember = {
     clientId: ids.clientId,
     reconnectToken: ids.reconnectToken,
-    name: `Bot ${n}`,
+    name: identity.name,
     role: 'player',
     seatIndex: null,
     isHost: false,
     connected: true, // bots are always "present"
     type: 'ai',
-    avatar: BOT_AVATAR,
+    avatar: identity.avatar,
     userId: null, // bots have no account → never written to user_stats
   };
   room.members.set(bot.clientId, bot);

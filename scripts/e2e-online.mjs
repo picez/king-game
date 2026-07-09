@@ -151,6 +151,12 @@ async function main() {
   sendMsg(fullHost, { t: 'ADD_BOT' }); // host + 3 bots = 4/4
   await sleep(250);
   check(fullHost.room.members.filter((m) => m.role === 'player').length === 4, 'King room fills to the catalog max (4)');
+  // Stage 13.6: bots get varied " AI" identities, not faceless "Bot N".
+  const fullBots = fullHost.room.members.filter((m) => m.type === 'ai');
+  check(fullBots.length === 3, 'King room has 3 bots');
+  check(fullBots.every((m) => / AI$/.test(m.name) && !/^Bot \d+$/.test(m.name)), 'bots have varied " AI" names (not "Bot N")');
+  check(new Set(fullBots.map((m) => m.name)).size === 3, 'bot names are distinct');
+  check(new Set(fullBots.map((m) => m.avatar)).size === 3, 'bot avatars are distinct');
   const extra = await connect();
   sendMsg(extra, { t: 'JOIN_ROOM', code: fullCode, name: 'Late' });
   await sleep(150);

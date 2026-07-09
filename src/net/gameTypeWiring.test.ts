@@ -58,7 +58,11 @@ describe('gameType wiring (Stage 8.5)', () => {
     expect(res.ok).toBe(true);
     expect(r.started).toBe(true);
     expect(r.gameState).toEqual(expected);
-    expect(r.gameState!.players.map((p) => p.name)).toEqual(['H', 'B', 'Bot 1']);
+    // Stage 13.6: the two humans keep their names; the bot has a varied " AI" identity.
+    const names = r.gameState!.players.map((p) => p.name);
+    expect(names.slice(0, 2)).toEqual(['H', 'B']);
+    expect(names[2].endsWith(' AI')).toBe(true);
+    expect(names[2]).not.toMatch(/^Bot \d+$/);
   });
 
   it('botAction + applyTimeoutAction still drive the table via the definition', () => {

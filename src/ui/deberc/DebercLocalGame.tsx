@@ -3,6 +3,7 @@ import { debercReducer, getActingDebercPlayerId } from '../../games/deberc/engin
 import { debercBotAction } from '../../games/deberc/ai';
 import type { DebercAction, DebercMatchSize, DebercState } from '../../games/deberc/types';
 import type { PlayerType } from '../../models/types';
+import { localBotNames } from '../../games/botIdentities';
 import DebercSetup from './DebercSetup';
 import DebercGameScreen, { type DebercNotice } from './DebercGameScreen';
 import DebercFinished from './DebercFinished';
@@ -91,7 +92,7 @@ export default function DebercLocalGame({ onExit }: { onExit: () => void }) {
   }, [state, apply]);
 
   function start(matchSize: DebercMatchSize, playerCount: number) {
-    const playerNames = ['You', ...Array.from({ length: playerCount - 1 }, (_, i) => `Bot ${i + 1}`)];
+    const playerNames = ['You', ...localBotNames('deberc', playerCount - 1, ['You'])];
     const playerTypes: PlayerType[] = ['human', ...Array.from({ length: playerCount - 1 }, () => 'ai' as const)];
     setNotice(null);
     apply({ type: 'START_DEBERC', playerNames, playerTypes, matchSize });

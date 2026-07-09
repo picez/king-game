@@ -3,6 +3,7 @@ import { durakReducer, getActingDurakPlayerId } from '../../games/durak/engine';
 import { durakBotAction } from '../../games/durak/ai';
 import type { DurakAction, DurakState, DurakVariant } from '../../games/durak/types';
 import type { PlayerType } from '../../models/types';
+import { localBotNames } from '../../games/botIdentities';
 import DurakSetup from './DurakSetup';
 import DurakGameScreen, { type DurakNotice } from './DurakGameScreen';
 import DurakFinished from './DurakFinished';
@@ -54,7 +55,7 @@ export default function DurakLocalGame({ onExit }: { onExit: () => void }) {
   }, [state, apply]);
 
   function start(variant: DurakVariant, playerCount: number) {
-    const playerNames = ['You', ...Array.from({ length: playerCount - 1 }, (_, i) => `Bot ${i + 1}`)];
+    const playerNames = ['You', ...localBotNames('durak', playerCount - 1, ['You'])];
     const playerTypes: PlayerType[] = ['human', ...Array.from({ length: playerCount - 1 }, () => 'ai' as const)];
     setNotice(null);
     apply({ type: 'START_DURAK', playerNames, playerTypes, variant });
