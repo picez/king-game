@@ -122,6 +122,16 @@ recording its own per-`game_type` stats + leaderboard):**
   read tolerantly, recomputable via `rebuildUserStats`). **No gameplay/rules/
   scoring change.** See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md)
   §3 Stage 5/5.1/5.2.
+- **Achievements / badges foundation (Stage 16.0)**: a Profile **Achievements**
+  tab (4th tab, next to Account / My stats / Leaderboard) showing 11 badges in a
+  compact grid — earned = gold coin, locked = muted padlock with the goal still
+  shown. Badges are a **pure client-side catalog** (`src/stats/achievements.ts`,
+  `evaluateAchievements(AllStats)`) **derived entirely from the existing per-game
+  stats** — **no new DB column, no server route, no write path, no popups**, and
+  nothing from private/card-level or chat data. Missing/unloaded stats → locked;
+  a clean no-session state shows the sign-in hint. Badges: First Win, Veteran (25),
+  Centurion (100), All-Rounder (win all 4), King Winner, Durak Survivor, Tarneeb
+  Bidder / Contractor (5), Deberc Meld Maker (10) / Bella / Jackpot. i18n ×4.
 
 ## Run it
 

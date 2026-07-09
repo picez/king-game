@@ -112,3 +112,42 @@
 .lb-wr { flex: 0 0 auto; color: var(--accent); font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .lb-meta { font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ===== Achievements / badges (Stage 16.0) ===== */
+.ach-panel { display: flex; flex-direction: column; gap: 0.7rem; }
+.ach-signin { margin: 0; }
+.ach-head { display: flex; align-items: baseline; gap: 0.4rem; }
+.ach-head__count {
+  font-weight: 800; font-size: 1.15rem; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.ach-head__label { font-size: 0.8rem; color: var(--text-muted); }
+
+/* Responsive badge grid: 2-up on narrow phones, auto-fills wider. Never overflows. */
+.ach-grid {
+  display: grid; gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+.ach-badge {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.25rem;
+  padding: 0.7rem 0.55rem; min-width: 0;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--top-light);
+}
+.ach-badge__icon {
+  width: 2.4rem; height: 2.4rem; display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; line-height: 1; border-radius: 50%;
+  background: var(--surface-3); box-shadow: var(--top-light);
+}
+.ach-badge__title { font-weight: 700; font-size: 0.86rem; color: var(--text); }
+.ach-badge__desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.25; }
+
+/* Earned = gold coin + full colour; locked = muted, dimmed padlock. */
+.ach-badge--earned { border-color: var(--accent-dark); background: var(--panel-2); }
+.ach-badge--earned .ach-badge__icon { background: var(--gold-grad); }
+.ach-badge--locked { opacity: 0.66; }
+.ach-badge--locked .ach-badge__title { color: var(--text-muted); }
+/* Rarity accent (only meaningful once earned): a coloured left rail. */
+.ach-badge--earned.ach-badge--rare { box-shadow: var(--top-light), inset 3px 0 0 #5aa0ff; }
+.ach-badge--earned.ach-badge--epic { box-shadow: var(--top-light), inset 3px 0 0 #c07bff; }
+.ach-empty { margin: 0; }
+

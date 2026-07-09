@@ -10,6 +10,8 @@ import {
   type TarneebLeaderboardEntry, type Loadable,
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
+import AchievementsPanel from './components/AchievementsPanel';
+import type { AllStats } from '../stats/achievements';
 import StatsPanel from './components/StatsPanel';
 import DurakStatsPanel from './components/DurakStatsPanel';
 import DebercStatsPanel from './components/DebercStatsPanel';
@@ -34,7 +36,7 @@ interface Props {
   onCustomServer: (v: string | null) => void;
 }
 
-type Tab = 'profile' | 'stats' | 'leaderboard';
+type Tab = 'profile' | 'stats' | 'achievements' | 'leaderboard';
 type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb';
 
 const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb'] as const;
@@ -127,6 +129,14 @@ export default function ProfileMenu({
       if (statsGame === 'deberc' && !debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (statsGame === 'tarneeb' && !tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
     }
+    // Achievements are derived from ALL four stat sets — load each once (reusing
+    // the same `once` refs, so opening the stats tab later won't refetch).
+    if (tab === 'achievements') {
+      if (!statsOnce.current) { statsOnce.current = true; void loadStats(); }
+      if (!durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
+      if (!debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
+      if (!tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
+    }
     if (tab === 'leaderboard') {
       if (boardGame === 'king' && !boardOnce.current) { boardOnce.current = true; void loadBoard(); }
       if (boardGame === 'durak' && !durakBoardOnce.current) { durakBoardOnce.current = true; void loadDurakBoard(); }
@@ -153,8 +163,22 @@ export default function ProfileMenu({
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'profile', label: t('account.title') },
     { key: 'stats', label: t('stats.myStats') },
+    { key: 'achievements', label: t('profile.achievements') },
     { key: 'leaderboard', label: t('stats.leaderboard') },
   ];
+
+  // Achievements are derived from the four per-game stat loadables (read-only).
+  const dataOf = <T,>(l: Loadable<T> | null): T | null => (l && l.state === 'ok' ? l.data : null);
+  const allStats: AllStats = {
+    king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats), tarneeb: dataOf(tarneebStats),
+  };
+  const allResolved = !!(stats && durakStats && debercStats && tarneebStats);
+  const achLoading = tab === 'achievements' && !allResolved;
+  // Only a clean "no session" state (every set unauthenticated) shows the sign-in
+  // hint; a mix (some ok, some error) still renders the grid with what we have.
+  const needsSignIn = allResolved
+    && stats!.state === 'unauthenticated' && durakStats!.state === 'unauthenticated'
+    && debercStats!.state === 'unauthenticated' && tarneebStats!.state === 'unauthenticated';
 
   return (
     <div className="profile-screen">
@@ -197,6 +221,9 @@ export default function ProfileMenu({
                 {statsGame === 'deberc' && <DebercStatsPanel result={debercStats} loading={loadingDeberc} />}
                 {statsGame === 'tarneeb' && <TarneebStatsPanel result={tarneebStats} loading={loadingTarneeb} />}
               </>
+            )}
+            {tab === 'achievements' && (
+              <AchievementsPanel stats={allStats} loading={achLoading} needsSignIn={needsSignIn} />
             )}
             {tab === 'leaderboard' && (
               <>
