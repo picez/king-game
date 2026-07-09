@@ -382,9 +382,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       )}
 
       <div className="durak-hand">
-        {sortHand(me.hand, trump).map((c, i) => (
+        {sortHand(me.hand, trump).map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}${i}`}
+            key={`${c.rank}${c.suit}`}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}

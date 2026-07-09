@@ -249,9 +249,9 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
       {/* The human's hand. */}
       <div className="tarneeb-hand">
-        {sortHand(state.handsBySeat[humanSeat], state.trumpSuit).map((c, i) => (
+        {sortHand(state.handsBySeat[humanSeat], state.trumpSuit).map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}${i}`}
+            key={`${c.rank}${c.suit}`}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}

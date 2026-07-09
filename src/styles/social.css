@@ -10,18 +10,27 @@
   background: var(--panel-2); border: 1px solid var(--border);
   border-radius: 999px; padding: 3px 10px 3px 6px;
   box-shadow: var(--shadow-2); font-size: 0.85rem; color: var(--text);
-  animation: reactionPop 2.6s ease forwards;
+  /* Stage 12.5: pop in with a small overshoot, settle, hold, then float up + fade. */
+  animation: sticker-pop 2.6s ease forwards;
 }
 .reaction-chip__emoji { font-size: 1.1rem; }
 .reaction-chip__name { color: var(--text-muted); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Floating sticker chip: a small preview of a media chat message on the table. */
 .reaction-chip--sticker { padding: 3px 10px 3px 5px; }
 .reaction-chip__sticker { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; }
-@keyframes reactionPop {
-  0% { opacity: 0; transform: translateY(10px) scale(0.85); }
-  12% { opacity: 1; transform: none; }
-  78% { opacity: 1; }
-  100% { opacity: 0; transform: translateY(-12px); }
+@keyframes sticker-pop {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.8); }
+  14%  { opacity: 1; transform: translateY(-2px) scale(1.05); }
+  24%  { transform: translateY(0) scale(1); }
+  78%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px) scale(0.98); }
+}
+/* Reduced motion: fade only (no slide/scale), still self-removing. */
+@media (prefers-reduced-motion: reduce) {
+  .reaction-chip { animation: sticker-fade 2.6s linear forwards; }
+}
+@keyframes sticker-fade {
+  0% { opacity: 0; } 8% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; }
 }
 
 .social-toast {

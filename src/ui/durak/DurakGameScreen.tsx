@@ -190,9 +190,9 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
       </div>
 
       <div className="durak-hand">
-        {sortHand(me.hand, state.trumpSuit).map((c, i) => (
+        {sortHand(me.hand, state.trumpSuit).map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}${i}`}
+            key={`${c.rank}${c.suit}`}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}

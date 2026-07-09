@@ -20,11 +20,11 @@ export default function PlayerHand({
 
   return (
     <div className="player-hand">
-      {sorted.map((card, i) => {
+      {sorted.map((card) => {
         const isValid = validCards.some((c) => cardEquals(c, card));
         return (
           <CardView
-            key={`${card.suit}-${card.rank}-${i}`}
+            key={`${card.suit}-${card.rank}`}
             card={card}
             onClick={isValid && !disabled ? () => onPlay(card) : undefined}
             disabled={!isValid || disabled}

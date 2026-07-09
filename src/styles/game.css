@@ -172,7 +172,8 @@
      past the card edge (Stage 7 cleanup). Selection/highlight rings are
      box-shadows on the card itself, so they are NOT clipped by this. */
   overflow: hidden;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  /* Stage 12.5: also transition opacity/filter so illegal cards dim SMOOTHLY. */
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.16s ease, filter 0.16s ease;
   flex-shrink: 0;
   /* A soft contact shadow + a thin top light edge gives every card real depth. */
   box-shadow:
@@ -193,6 +194,11 @@
     transform: translateY(-10px);
     box-shadow: 0 6px 20px rgba(0,0,0,0.5);
   }
+}
+/* Tactile press feedback on a legal card (touch + mouse) — a quick, momentary
+   settle. Stilled under reduced-motion via the .card transition guard below. */
+.card:not(:disabled):not(.card--dimmed):not(.card--preview):not(.card--mini):active {
+  transform: scale(0.97);
 }
 
 .card--red   { color: var(--card-red); }
