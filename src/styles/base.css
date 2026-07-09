@@ -90,6 +90,16 @@
   --tap-min:      44px; /* minimum comfortable touch target */
 }
 
+/* Stage 12.9: where `image-set()` is supported, prefer the much smaller WebP for
+   the big OPAQUE assets; the PNG urls set above stay as the universal fallback
+   (both inside image-set AND for browsers that skip this @supports block). */
+@supports (background-image: image-set(url('/visual/felt-tile.webp') type('image/webp'))) {
+  :root {
+    --felt-tile: image-set(url('/visual/felt-tile.webp') type('image/webp'), url('/visual/felt-tile.png') type('image/png'));
+    --card-back: image-set(url('/cards/back/back-green.webp') type('image/webp'), url('/cards/back/back-green.png') type('image/png'));
+  }
+}
+
 /* ===== Reset ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 

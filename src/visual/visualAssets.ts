@@ -22,13 +22,19 @@ export interface VisualAsset {
   priority: VisualPriority;
   /** True once the file is committed under public/ (all P0 are present today). */
   present: boolean;
+  /**
+   * Optional smaller WebP variant (Stage 12.9) served in preference to `src` via
+   * CSS `image-set()`; the PNG `src` stays as the universal fallback. Only the big
+   * OPAQUE assets are converted (heroes/felt/back) — small alpha icons stay PNG.
+   */
+  webp?: string;
 }
 
 export const VISUAL_ASSETS: readonly VisualAsset[] = [
-  { id: 'felt-tile',      src: '/visual/felt-tile.png',            format: 'png', maxBytes: 340_000, priority: 'P0', present: true },
-  { id: 'menu-hero-portrait', src: '/visual/menu-hero-portrait.png', format: 'png', maxBytes: 720_000, priority: 'P0', present: true },
-  { id: 'menu-hero-wide', src: '/visual/menu-hero-wide.png',        format: 'png', maxBytes: 720_000, priority: 'P0', present: true },
-  { id: 'card-back-green', src: '/cards/back/back-green.png',       format: 'png', maxBytes: 260_000, priority: 'P0', present: true },
+  { id: 'felt-tile',      src: '/visual/felt-tile.png',            format: 'png', maxBytes: 340_000, priority: 'P0', present: true, webp: '/visual/felt-tile.webp' },
+  { id: 'menu-hero-portrait', src: '/visual/menu-hero-portrait.png', format: 'png', maxBytes: 720_000, priority: 'P0', present: true, webp: '/visual/menu-hero-portrait.webp' },
+  { id: 'menu-hero-wide', src: '/visual/menu-hero-wide.png',        format: 'png', maxBytes: 720_000, priority: 'P0', present: true, webp: '/visual/menu-hero-wide.webp' },
+  { id: 'card-back-green', src: '/cards/back/back-green.png',       format: 'png', maxBytes: 260_000, priority: 'P0', present: true, webp: '/cards/back/back-green.webp' },
   { id: 'icon-king',      src: '/visual/icons/game-king.png',       format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-durak',     src: '/visual/icons/game-durak.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-deberc',    src: '/visual/icons/game-deberc.png',     format: 'png', maxBytes: 150_000, priority: 'P0', present: true },

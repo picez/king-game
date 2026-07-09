@@ -46,10 +46,26 @@ Same procedural generator + palette. Ornamental finish frame + unified seat-stat
 | `badges/badge-offline.png` | 256×256 (α) | ~15 KB | offline badge (power/off) — lobby `.tag--off` |
 | `badges/badge-active.png` | 256×256 (α) | ~14 KB | active-turn badge (▶) — King `.tseat__turn` (others use the CSS glow) |
 
-**Total ≈ 1.92 MB** — slightly above the 1.5 MB aspirational target from
-`VISUAL_DIRECTION.md §3`; the two full-res hero PNGs dominate (~1.3 MB). Converting
-the opaque assets (heroes/felt/back) to **WebP** in a later optimization pass would
-cut ~40–55% and bring the total well under 1 MB. Icons are already tiny.
+## WebP optimization (Stage 12.9)
+
+The big **opaque** assets also ship a **WebP** variant, served in preference via CSS
+`image-set()` — the PNG stays as the universal fallback (kept inside `image-set` AND
+for browsers that don't support it). Regenerate with `npm run visuals:webp` (uses the
+system **ffmpeg**/libwebp — no npm dependency). Heroes/back are high-quality lossy; the
+seamless **felt tile is LOSSLESS** so repeat edges never band. Small transparent
+badges/icons stay PNG (alpha WebP not worth it at that size).
+
+| Asset | PNG | WebP | Saved |
+|------|-----|------|-------|
+| `menu-hero-portrait` | 645 KB | ~22 KB | −97% |
+| `menu-hero-wide` | 667 KB | ~27 KB | −96% |
+| `cards/back/back-green` | 212 KB | ~28 KB | −87% |
+| `felt-tile` (lossless) | 292 KB | ~225 KB | −23% |
+| **preferred (WebP) total** | **1815 KB** | **~302 KB** | **−83%** |
+
+The manifest (`src/visual/visualAssets.ts`) records each `webp` variant next to its PNG
+`src`. Note: `CardView`'s hidden-card `<img>` still loads the PNG back (only the CSS
+deck/fan backgrounds use the WebP via `--card-back`).
 
 ## Not here yet (pending an image model)
 

@@ -196,6 +196,18 @@
 @media (min-width: 820px) {
   .menu-screen { --menu-hero: url('/visual/menu-hero-wide.png'); }
 }
+/* Stage 12.9: prefer the WebP heroes where image-set is supported (the PNG urls
+   above stay as the fallback — inside image-set and for non-supporting browsers). */
+@supports (background-image: image-set(url('/visual/menu-hero-wide.webp') type('image/webp'))) {
+  .menu-screen {
+    --menu-hero: image-set(url('/visual/menu-hero-portrait.webp') type('image/webp'), url('/visual/menu-hero-portrait.png') type('image/png'));
+  }
+  @media (min-width: 820px) {
+    .menu-screen {
+      --menu-hero: image-set(url('/visual/menu-hero-wide.webp') type('image/webp'), url('/visual/menu-hero-wide.png') type('image/png'));
+    }
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .menu-screen::before { transition: opacity 0.4s ease; }
 }
