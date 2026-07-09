@@ -13,6 +13,7 @@
     "typecheck:server": "tsc -p tsconfig.server.json",
     "verify": "npm run typecheck:server && npm test && npm run build && npm run e2e",
     "icons": "node scripts/generate-icons.mjs",
+    "visuals": "node scripts/gen-visual-assets.mjs",
     "cards": "node scripts/slice-card-sources.mjs",
     "e2e": "tsx scripts/e2e-online.mjs",
     "soak": "tsx scripts/durak-soak.mjs",
