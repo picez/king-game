@@ -37,7 +37,7 @@
   --gold-grad:    linear-gradient(180deg, #ffe070 0%, #f7cb26 42%, #e3ab0c 100%);
   /* Stage 12.2 art (single source; graceful fallback if a file 404s). */
   --felt-tile:    url('/visual/felt-tile.png');
-  --card-back:    url('/cards/back/back-green.png');
+  --card-back:    url('/cards/back/back-green.png'); /* default; red via [data-card-back] */
   /* Stage 12.8 P1 art (finish frame + unified seat-status badge coins). */
   --finish-frame:  url('/visual/finish-frame.png');
   --badge-host:    url('/visual/badges/badge-host.png');
@@ -90,6 +90,15 @@
   --tap-min:      44px; /* minimum comfortable touch target */
 }
 
+/* Stage 13.0: card-back style is a local visual pref, applied by flipping the
+   `--card-back` image on <html data-card-back="red">. Green is the :root default
+   above, so no attribute (or data-card-back="green") keeps the classic back. This
+   drives the CSS decks/fans (.durak-deck__back, .ai-card-back); CardView's <img>
+   picks the style up directly. WebP is preferred in the @supports block below. */
+:root[data-card-back="red"] {
+  --card-back: url('/cards/back/back-red.png');
+}
+
 /* Stage 12.9: where `image-set()` is supported, prefer the much smaller WebP for
    the big OPAQUE assets; the PNG urls set above stay as the universal fallback
    (both inside image-set AND for browsers that skip this @supports block). */
@@ -97,6 +106,9 @@
   :root {
     --felt-tile: image-set(url('/visual/felt-tile.webp') type('image/webp'), url('/visual/felt-tile.png') type('image/png'));
     --card-back: image-set(url('/cards/back/back-green.webp') type('image/webp'), url('/cards/back/back-green.png') type('image/png'));
+  }
+  :root[data-card-back="red"] {
+    --card-back: image-set(url('/cards/back/back-red.webp') type('image/webp'), url('/cards/back/back-red.png') type('image/png'));
   }
 }
 

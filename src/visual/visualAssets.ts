@@ -35,6 +35,9 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   { id: 'menu-hero-portrait', src: '/visual/menu-hero-portrait.png', format: 'png', maxBytes: 720_000, priority: 'P0', present: true, webp: '/visual/menu-hero-portrait.webp' },
   { id: 'menu-hero-wide', src: '/visual/menu-hero-wide.png',        format: 'png', maxBytes: 720_000, priority: 'P0', present: true, webp: '/visual/menu-hero-wide.webp' },
   { id: 'card-back-green', src: '/cards/back/back-green.png',       format: 'png', maxBytes: 260_000, priority: 'P0', present: true, webp: '/cards/back/back-green.webp' },
+  // Stage 13.0: burgundy/gold alternate card back (a profile visual pref). P1 so
+  // the "8 P0 assets" invariant is unchanged; carries a WebP variant like green.
+  { id: 'card-back-red',  src: '/cards/back/back-red.png',          format: 'png', maxBytes: 260_000, priority: 'P1', present: true, webp: '/cards/back/back-red.webp' },
   { id: 'icon-king',      src: '/visual/icons/game-king.png',       format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-durak',     src: '/visual/icons/game-durak.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-deberc',    src: '/visual/icons/game-deberc.png',     format: 'png', maxBytes: 150_000, priority: 'P0', present: true },

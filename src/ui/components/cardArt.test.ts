@@ -11,6 +11,9 @@ import {
   CARD_BACK_URL,
   cardBackWebpUrl,
   CARD_BACK_WEBP_URL,
+  CARD_BACK_STYLES,
+  normalizeCardBack,
+  cardBackToSetting,
 } from './cardArt';
 import type { Rank, Suit } from '../../models/types';
 
@@ -104,6 +107,58 @@ describe('card back WebP variant (Stage 12.9.1)', () => {
   it('keeps the PNG fallback URL alongside the WebP (both exported)', () => {
     expect(CARD_BACK_URL).toContain('cards/back/back-green.png');
     expect(CARD_BACK_WEBP_URL).toContain('cards/back/back-green.webp');
+  });
+});
+
+describe('card back style selection (Stage 13.0)', () => {
+  const BACK_DIR = join(process.cwd(), 'public', 'cards', 'back');
+  const RIFF = Buffer.from('RIFF', 'ascii');
+
+  it('exposes exactly the green + red styles', () => {
+    expect([...CARD_BACK_STYLES]).toEqual(['green', 'red']);
+  });
+
+  it("normalizes 'red' to red and everything else (classic/unknown/null) to green", () => {
+    expect(normalizeCardBack('red')).toBe('red');
+    expect(normalizeCardBack('green')).toBe('green');
+    expect(normalizeCardBack('classic')).toBe('green'); // legacy DB value
+    expect(normalizeCardBack('holographic')).toBe('green');
+    expect(normalizeCardBack(null)).toBe('green');
+    expect(normalizeCardBack(undefined)).toBe('green');
+  });
+
+  it('maps a visual style back to the server setting value (classic = green)', () => {
+    expect(cardBackToSetting('green')).toBe('classic');
+    expect(cardBackToSetting('red')).toBe('red');
+  });
+
+  it('cardBackUrl / cardBackWebpUrl resolve per style; default stays green', () => {
+    expect(cardBackUrl()).toContain('cards/back/back-green.png');
+    expect(cardBackUrl('green')).toContain('cards/back/back-green.png');
+    expect(cardBackUrl('red')).toContain('cards/back/back-red.png');
+    expect(cardBackWebpUrl('red')).toContain('cards/back/back-red.webp');
+    // Backward-compatible constants still point at the classic green back.
+    expect(CARD_BACK_URL).toContain('back-green.png');
+    expect(CARD_BACK_WEBP_URL).toContain('back-green.webp');
+  });
+
+  it('each style has a real, non-empty PNG + a smaller WebP on disk', () => {
+    for (const style of CARD_BACK_STYLES) {
+      const png = join(BACK_DIR, `back-${style}.png`);
+      const webp = join(BACK_DIR, `back-${style}.webp`);
+      expect(existsSync(png), `back-${style}.png exists`).toBe(true);
+      expect(readFileSync(png).subarray(0, 8).equals(PNG_SIG), `back-${style}.png is PNG`).toBe(true);
+      expect(existsSync(webp), `back-${style}.webp exists`).toBe(true);
+      const buf = readFileSync(webp);
+      expect(buf.subarray(0, 4).equals(RIFF) && buf.subarray(8, 12).toString('ascii') === 'WEBP').toBe(true);
+      expect(statSync(webp).size).toBeLessThanOrEqual(statSync(png).size);
+    }
+  });
+
+  it('the red back is a DISTINCT image from the green back (different bytes)', () => {
+    const green = readFileSync(join(BACK_DIR, 'back-green.png'));
+    const red = readFileSync(join(BACK_DIR, 'back-red.png'));
+    expect(green.equals(red)).toBe(false);
   });
 });
 

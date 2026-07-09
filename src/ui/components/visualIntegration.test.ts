@@ -9,9 +9,10 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
 describe('CardView renders the ornamental back for hidden cards', () => {
   const cv = read('src/ui/components/CardView.tsx');
-  it('detects a redacted "?" card and shows the back image via CARD_BACK_URL', () => {
+  it('detects a redacted "?" card and shows the back image via the styled helper', () => {
     expect(cv).toMatch(/card\.rank[^=]*===\s*'\?'/); // isHidden check (tolerates a cast)
-    expect(cv).toContain('CARD_BACK_URL');
+    // Stage 13.0: the back URL is derived from the selected style, not a constant.
+    expect(cv).toContain('cardBackUrl(backStyle)');
     expect(cv).toContain('className="card__back"');
     expect(cv).toContain("' card--back'");
   });

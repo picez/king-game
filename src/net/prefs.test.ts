@@ -3,6 +3,7 @@ import type { StorageLike } from './session';
 import {
   loadDefaultTimer, saveDefaultTimer, loadGuestKey, saveGuestKey,
   loadNickname, saveNickname, loadAvatar, saveAvatar,
+  loadCardStyle, saveCardStyle,
 } from './prefs';
 import { AVATARS } from '../core/avatars';
 
@@ -30,6 +31,25 @@ describe('prefs — guest device handle (Stage 4)', () => {
     expect(loadGuestKey(s)).toBe('device-abc');
     saveGuestKey('   ', s);
     expect(loadGuestKey(s)).toBe('device-abc'); // unchanged
+  });
+});
+
+describe('prefs — card back style (Stage 13.0)', () => {
+  it('defaults to green and round-trips green/red', () => {
+    const s = mem();
+    expect(loadCardStyle(s)).toBe('green');
+    saveCardStyle('red', s);
+    expect(loadCardStyle(s)).toBe('red');
+    saveCardStyle('green', s);
+    expect(loadCardStyle(s)).toBe('green');
+  });
+
+  it('maps the legacy "classic" value and rejects junk → green', () => {
+    const s = mem();
+    saveCardStyle('classic', s);        // legacy DB value → normalised to green
+    expect(loadCardStyle(s)).toBe('green');
+    saveCardStyle('holographic', s);    // off the whitelist → green
+    expect(loadCardStyle(s)).toBe('green');
   });
 });
 

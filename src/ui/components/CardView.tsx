@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Card, Suit } from '../../models/types';
-import { cardFaceUrl, CARD_BACK_URL, CARD_BACK_WEBP_URL } from './cardArt';
+import { cardFaceUrl, cardBackUrl, cardBackWebpUrl } from './cardArt';
+import { useCardBackStyle } from './cardBackStore';
 import { useI18n } from '../../i18n';
 
 export const SUIT_SYMBOL: Record<Suit, string> = {
@@ -56,6 +57,8 @@ export default function CardView({
   highlight = false,
 }: CardViewProps) {
   const { t } = useI18n();
+  // The player's selected card-back style (Stage 13.0) — a local, visual pref.
+  const backStyle = useCardBackStyle();
   const colorClass = IS_RED[card.suit] ? 'card--red' : 'card--black';
   const stateClass = selected
     ? 'card--selected'
@@ -93,10 +96,10 @@ export default function CardView({
         // Prefer the smaller WebP back (Stage 12.9.1); the PNG <img> stays as the
         // universal fallback, and if BOTH fail onError drops to the CSS card back.
         <picture>
-          <source srcSet={CARD_BACK_WEBP_URL} type="image/webp" />
+          <source srcSet={cardBackWebpUrl(backStyle)} type="image/webp" />
           <img
             className="card__back"
-            src={CARD_BACK_URL}
+            src={cardBackUrl(backStyle)}
             alt=""
             draggable={false}
             loading="lazy"

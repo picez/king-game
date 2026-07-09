@@ -9,7 +9,7 @@
 // The allowed value lists mirror the client's source of truth:
 //   • languages → src/i18n (LANGS: en/uk/de/ar)
 //   • avatars   → src/core/avatars (the emoji whitelist; reused directly below)
-//   • cardStyle → src/ui/components/cardArt.ts (single 'classic' style today)
+//   • cardStyle → src/ui/components/cardArt.ts ('classic' = green, or 'red')
 //   • turn timer values → KING_RULES.md (Off/30/60/90)
 // They are duplicated here as plain constants only to avoid pulling React/engine
 // modules into server validation; keep them in sync if the UI lists change.
@@ -23,7 +23,9 @@ export const SUPPORTED_LANGS = ['en', 'uk', 'de', 'ar'] as const;
 export type Lang = (typeof SUPPORTED_LANGS)[number];
 export const DEFAULT_LANG: Lang = 'en';
 
-export const SUPPORTED_CARD_STYLES = ['classic'] as const;
+// 'classic' = the green back (kept as the stored default so existing card_style
+// rows are never broken); 'red' = the burgundy/gold alternate (Stage 13.0).
+export const SUPPORTED_CARD_STYLES = ['classic', 'red'] as const;
 export type CardStyle = (typeof SUPPORTED_CARD_STYLES)[number];
 export const DEFAULT_CARD_STYLE: CardStyle = 'classic';
 

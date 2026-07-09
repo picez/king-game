@@ -16,7 +16,9 @@ describe('userSettings field validators', () => {
 
   it('validates card style with fallback', () => {
     expect(sanitizeCardStyle('classic')).toBe('classic');
+    expect(sanitizeCardStyle('red')).toBe('red'); // Stage 13.0 alternate
     expect(sanitizeCardStyle('holographic')).toBe(DEFAULT_CARD_STYLE);
+    expect(sanitizeCardStyle('green')).toBe(DEFAULT_CARD_STYLE); // client visual value ≠ stored value
   });
 
   it('keeps only whitelisted avatars, else null', () => {

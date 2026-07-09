@@ -314,6 +314,9 @@ export const AR: Record<string, string> = {
   'mode.last_two_tricks': 'آخر أكلتين',
   'mode.trump': 'الحكم',
   'lang.label': 'اللغة',
+  'profile.cardBack': 'ظهر البطاقة',
+  'profile.cardBackClassic': 'أخضر كلاسيكي',
+  'profile.cardBackRed': 'أحمر وذهبي',
   // ── account / profile (Stage 4) ──
   'account.title': 'الحساب',
   'account.guestShort': 'ضيف',

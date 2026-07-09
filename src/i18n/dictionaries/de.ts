@@ -314,6 +314,9 @@ export const DE: Record<string, string> = {
   'mode.last_two_tricks': 'Letzte zwei Stiche',
   'mode.trump': 'Trumpf',
   'lang.label': 'Sprache',
+  'profile.cardBack': 'Kartenrückseite',
+  'profile.cardBackClassic': 'Klassisch Grün',
+  'profile.cardBackRed': 'Rot-Gold',
   // ── account / profile (Stage 4) ──
   'account.title': 'Konto',
   'account.guestShort': 'Gast',

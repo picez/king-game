@@ -6,12 +6,14 @@
 
 import type { StorageLike } from './session';
 import { isValidAvatar } from '../core/avatars';
+import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
 
 const NICK_KEY = 'king.nickname.v1';
 const LANG_KEY = 'king.lang.v1';
 const AVATAR_KEY = 'king.avatar.v1';
 const TIMER_KEY = 'king.defaultTimer.v1';
 const GUEST_KEY = 'king.guest.v1';
+const CARDBACK_KEY = 'king.cardStyle.v1';
 
 /** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 const TIMER_VALUES = [0, 30, 60, 90];
@@ -63,6 +65,20 @@ export function loadDefaultTimer(storage: StorageLike | null = defaultStorage())
 export function saveDefaultTimer(seconds: number, storage: StorageLike | null = defaultStorage()): void {
   if (!TIMER_VALUES.includes(seconds)) return; // ignore anything off the whitelist
   try { storage?.setItem(TIMER_KEY, String(seconds)); } catch { /* non-fatal */ }
+}
+
+/**
+ * Preferred card-back style (Stage 13.0): 'green' (classic default) or 'red'.
+ * A purely visual, local UI preference — never game state. Any legacy/unknown
+ * value (e.g. the DB's 'classic') normalises to 'green'.
+ */
+export function loadCardStyle(storage: StorageLike | null = defaultStorage()): CardBackStyle {
+  return normalizeCardBack(storage?.getItem(CARDBACK_KEY));
+}
+
+export function saveCardStyle(style: string, storage: StorageLike | null = defaultStorage()): void {
+  const s = normalizeCardBack(style); // only ever persist a valid style
+  try { storage?.setItem(CARDBACK_KEY, s); } catch { /* non-fatal */ }
 }
 
 /**

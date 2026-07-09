@@ -23,6 +23,7 @@ const JOBS = [
   ['visual/menu-hero-portrait.png', ['-quality', '86', '-compression_level', '6']],
   ['visual/menu-hero-wide.png',     ['-quality', '86', '-compression_level', '6']],
   ['cards/back/back-green.png',     ['-quality', '90', '-compression_level', '6']],
+  ['cards/back/back-red.png',       ['-quality', '90', '-compression_level', '6']],
   ['visual/felt-tile.png',          ['-lossless', '1', '-compression_level', '6']], // seamless → lossless
 ];
 

@@ -14,9 +14,9 @@ const withWebp = VISUAL_ASSETS.filter((a) => a.webp);
 const RIFF = Buffer.from('RIFF', 'ascii');
 
 describe('WebP variants (Stage 12.9)', () => {
-  it('optimizes exactly the four big opaque assets (heroes + felt + back)', () => {
+  it('optimizes the big opaque assets (heroes + felt + both card backs)', () => {
     expect(withWebp.map((a) => a.id).sort()).toEqual(
-      ['card-back-green', 'felt-tile', 'menu-hero-portrait', 'menu-hero-wide'],
+      ['card-back-green', 'card-back-red', 'felt-tile', 'menu-hero-portrait', 'menu-hero-wide'],
     );
   });
 
@@ -56,6 +56,11 @@ describe('CSS prefers WebP with a PNG fallback', () => {
     expect(base).toContain("image-set(url('/visual/felt-tile.webp') type('image/webp')");
     expect(base).toContain("url('/visual/felt-tile.png')");           // fallback retained
     expect(base).toContain("url('/cards/back/back-green.webp')");
+  });
+  it('base.css retints the card back to red via [data-card-back], WebP-preferred', () => {
+    expect(base).toContain('[data-card-back="red"]');
+    expect(base).toContain("url('/cards/back/back-red.png')");            // fallback
+    expect(base).toContain("image-set(url('/cards/back/back-red.webp') type('image/webp')");
   });
   it('lobby.css upgrades both menu heroes to WebP with the PNG fallback', () => {
     expect(lobby).toContain("image-set(url('/visual/menu-hero-portrait.webp') type('image/webp')");

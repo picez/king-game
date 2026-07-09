@@ -30,6 +30,8 @@ const FELT_LIT = [31, 122, 69], FELT_MID = [21, 95, 54], FELT_EDGE = [12, 67, 36
 const ACCENT = [245, 197, 24], ACCENT_LIGHT = [255, 226, 115], ACCENT_DARK = [184, 135, 10];
 const WALNUT = [58, 36, 22], WALNUT_LIT = [96, 62, 36];
 const WARM = [58, 140, 78]; // felt with a warm lamp tint
+// Alternate card-back ground (Stage 13.0): dark red / burgundy enamel, lit centre.
+const BURGUNDY_LIT = [150, 34, 38], BURGUNDY_EDGE = [74, 12, 16];
 
 // ── math helpers ────────────────────────────────────────────────────────────
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -113,12 +115,17 @@ function hero(nx, ny, portrait) {
   return [col[0], col[1], col[2], 255];
 }
 
-// ── asset: card back (green ground, gold border + 8-point star medallion) ────
-function cardBack(nx, ny) {
+// ── asset: card back (ground colour + gold border + 8-point star medallion) ──
+// `litCol`/`edgeCol` set the ground so the SAME ornament renders on green (default)
+// or the burgundy alternate (Stage 13.0) — identical geometry, distinct felt.
+function cardBackWith(litCol, edgeCol) {
+  return (nx, ny) => cardBack(nx, ny, litCol, edgeCol);
+}
+function cardBack(nx, ny, litCol = FELT_LIT, edgeCol = FELT_EDGE) {
   const dx = nx - 0.5, dy = ny - 0.5;
   const r = Math.sqrt(dx * dx + dy * dy), ang = Math.atan2(dy, dx);
-  // Green ground, slightly lit centre.
-  let col = lerp3(FELT_LIT, FELT_EDGE, smooth(0.0, 0.72, r));
+  // Ground colour, slightly lit centre.
+  let col = lerp3(litCol, edgeCol, smooth(0.0, 0.72, r));
   const gold = (t) => lerp3(ACCENT_DARK, ACCENT_LIGHT, t);
   // Inset filigree border (rounded-rect ring): distance to a rounded rectangle.
   const bx = 0.5 - 0.055, by = 0.5 - 0.055; // inset
@@ -290,7 +297,8 @@ console.log('Generating P0 visual assets…');
 emit('visual/felt-tile.png', png(1024, 1024, 2, feltTile));
 emit('visual/menu-hero-portrait.png', png(1242, 2208, 1, (x, y) => hero(x, y, true)));
 emit('visual/menu-hero-wide.png', png(2560, 1440, 1, (x, y) => hero(x, y, false)));
-emit('cards/back/back-green.png', png(750, 1050, 3, cardBack));
+emit('cards/back/back-green.png', png(750, 1050, 3, cardBackWith(FELT_LIT, FELT_EDGE)));
+emit('cards/back/back-red.png', png(750, 1050, 3, cardBackWith(BURGUNDY_LIT, BURGUNDY_EDGE)));
 emit('visual/icons/game-king.png', png(512, 512, 4, iconKing));
 emit('visual/icons/game-durak.png', png(512, 512, 4, iconDurak));
 emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));

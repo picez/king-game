@@ -46,24 +46,45 @@ export const ALL_FACE_FILES: string[] = ART_SUITS.flatMap((s) =>
 );
 
 /**
- * Public URL for the shared card BACK artwork (Stage 12.2) — used for hidden
- * cards, deck stacks, and opponent fans. Single source; the UI falls back to a
- * CSS card-back if this file fails to load. See public/cards/back/back-green.png.
+ * Selectable card-back styles (Stage 13.0). A purely VISUAL profile preference —
+ * never gameplay, never in room/WS state, never revealed. `'green'` is the classic
+ * default; `'red'` is the burgundy/gold alternate. The DB/settings layer stores
+ * the legacy value `'classic'` for green (see src/net/userSettings.ts), so
+ * `normalizeCardBack` maps `'classic'`/unknown → `'green'` for backward compat.
  */
-export function cardBackUrl(): string {
+export type CardBackStyle = 'green' | 'red';
+export const CARD_BACK_STYLES: readonly CardBackStyle[] = ['green', 'red'];
+
+/** Any input → a valid CardBackStyle. 'red' stays red; everything else → green. */
+export function normalizeCardBack(v: string | null | undefined): CardBackStyle {
+  return v === 'red' ? 'red' : 'green';
+}
+
+/** Maps a visual style to the server/DB setting value ('classic' = green). */
+export function cardBackToSetting(style: CardBackStyle): 'classic' | 'red' {
+  return style === 'red' ? 'red' : 'classic';
+}
+
+/**
+ * Public URL for the shared card BACK artwork (Stage 12.2; styled in 13.0) — used
+ * for hidden cards, deck stacks, and opponent fans. The UI falls back to a CSS
+ * card-back if this file fails to load. `style` defaults to the classic green.
+ * See public/cards/back/back-{green,red}.png.
+ */
+export function cardBackUrl(style: CardBackStyle = 'green'): string {
   const base = import.meta.env.BASE_URL ?? '/';
-  return `${base}cards/back/back-green.png`;
+  return `${base}cards/back/back-${style}.png`;
 }
 export const CARD_BACK_URL = cardBackUrl();
 
 /**
- * WebP variant of the card back (Stage 12.9.1) — a much smaller, same-image
- * source preferred via a `<picture><source type="image/webp">` in CardView, with
- * `CARD_BACK_URL` (PNG) kept as the universal `<img>` fallback. Mirrors the
- * `card-back-green` manifest `webp` entry. See public/cards/back/back-green.webp.
+ * WebP variant of the card back (Stage 12.9.1; styled in 13.0) — a much smaller,
+ * same-image source preferred via a `<picture><source type="image/webp">` in
+ * CardView, with the PNG kept as the universal `<img>` fallback. Mirrors the
+ * `card-back-{green,red}` manifest `webp` entries.
  */
-export function cardBackWebpUrl(): string {
+export function cardBackWebpUrl(style: CardBackStyle = 'green'): string {
   const base = import.meta.env.BASE_URL ?? '/';
-  return `${base}cards/back/back-green.webp`;
+  return `${base}cards/back/back-${style}.webp`;
 }
 export const CARD_BACK_WEBP_URL = cardBackWebpUrl();

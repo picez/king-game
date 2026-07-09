@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
-import { saveNickname, saveAvatar, saveDefaultTimer } from '../../net/prefs';
+import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle } from '../../net/prefs';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
+import {
+  CARD_BACK_STYLES, cardBackUrl, cardBackWebpUrl, cardBackToSetting, type CardBackStyle,
+} from '../components/cardArt';
+import { useCardBackStyle, setCardBackStyle } from '../components/cardBackStore';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
 
@@ -29,6 +33,7 @@ export default function ProfilePanel({
 }: Props) {
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
+  const cardBack = useCardBackStyle();
 
   // The LanguageSelector persists the language locally; mirror it to the server.
   useEffect(() => {
@@ -39,6 +44,12 @@ export default function ProfilePanel({
   function changeName(v: string) { onName(v); saveNickname(v); account.pushName(v); }
   function changeAvatar(v: string) { onAvatar(v); saveAvatar(v); account.pushAvatar(v); }
   function changeTimer(v: number) { onDefaultTimer(v); saveDefaultTimer(v); account.pushTimer(v); }
+  // Card back is a local visual pref applied immediately (store + <html> attr),
+  // persisted locally, and mirrored to the server profile when signed in.
+  function changeCardBack(v: CardBackStyle) {
+    setCardBackStyle(v); saveCardStyle(v); account.pushCardStyle(cardBackToSetting(v));
+  }
+  const cardBackLabel = (s: CardBackStyle) => t(s === 'red' ? 'profile.cardBackRed' : 'profile.cardBackClassic');
 
   return (
     <div className="profile-form">
@@ -62,6 +73,25 @@ export default function ProfilePanel({
       </div>
 
       <div className="field">
+        <label className="field__label">{t('profile.cardBack')}</label>
+        <div className="cardback-picker" role="radiogroup" aria-label={t('profile.cardBack')}>
+          {CARD_BACK_STYLES.map((s) => (
+            <button key={s} type="button" role="radio" aria-checked={cardBack === s}
+              className={`cardback-swatch ${cardBack === s ? 'cardback-swatch--on' : ''}`}
+              onClick={() => changeCardBack(s)} title={cardBackLabel(s)}>
+              <span className="cardback-swatch__art">
+                <picture>
+                  <source srcSet={cardBackWebpUrl(s)} type="image/webp" />
+                  <img src={cardBackUrl(s)} alt="" draggable={false} loading="lazy" decoding="async" />
+                </picture>
+              </span>
+              <span className="cardback-swatch__label">{cardBackLabel(s)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
         <label className="field__label">{t('lang.label')}</label>
         <LanguageSelector />
       </div>
@@ -82,7 +112,7 @@ export default function ProfilePanel({
       {!account.hasSession && (
         <div className="profile-form__save">
           <button className="btn btn--primary" disabled={account.syncing}
-            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer })}>
+            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack) })}>
             {account.syncing ? `${t('net.connecting')}…` : `💾 ${t('account.saveProgress')}`}
           </button>
           <p className="setup-hint">{t('account.signInCta')}</p>

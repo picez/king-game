@@ -314,6 +314,9 @@ export const UK: Record<string, string> = {
   'mode.last_two_tricks': 'Останні дві взятки',
   'mode.trump': 'Козир',
   'lang.label': 'Мова',
+  'profile.cardBack': 'Сорочка карт',
+  'profile.cardBackClassic': 'Класична зелена',
+  'profile.cardBackRed': 'Червоно-золота',
   // ── account / profile (Stage 4) ──
   'account.title': 'Профіль',
   'account.guestShort': 'Гість',
