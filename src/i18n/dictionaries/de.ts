@@ -352,6 +352,13 @@ export const DE: Record<string, string> = {
   'profile.animationReduced': 'Reduziert',
   'profile.animationOff': 'Aus',
   'profile.animationHint': 'Deine Systemeinstellung hat Vorrang — Geräte mit reduzierter Bewegung bleiben reduziert.',
+  'profile.sound': 'Ton',
+  'profile.soundOff': 'Aus',
+  'profile.soundSubtle': 'Dezent',
+  'profile.soundFull': 'Voll',
+  'profile.soundHint': 'Ton ist standardmäßig aus. Es wird kein Ton abgespielt, bis du ihn aktivierst.',
+  'profile.soundPreview': 'Ton testen',
+  'profile.soundPreviewOff': 'Ton einschalten, um zu testen.',
   'profile.favoriteGame': 'Lieblingsspiel',
   'profile.favoriteGameHint': 'Vorausgewählt beim Start eines lokalen oder Online-Spiels.',
   // ── account / profile (Stage 4) ──

@@ -178,12 +178,15 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- **Sound: assets present, not wired.** The MVP SFX set now exists — **12 sounds ×
-  webm+mp3 (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`),
-  generated dep-free by `npm run sounds` (Stage 15.1). But there is **still no audio in
-  the app**: no engine, no playback, no wiring, and **sound remains OFF** (there is no
-  preference UI yet — that's Stage 15.2). The full plan (default **OFF**, opt-in
-  `off/subtle/full`, client-side-only event map, staged rollout 15.1–15.5) is in
+- **Sound: preference + engine present, gameplay NOT wired.** The MVP SFX set exists —
+  **12 sounds × webm+mp3 (~55 KB) under `public/sounds/`** + a manifest
+  (`src/audio/soundAssets.ts`), generated dep-free by `npm run sounds` (Stage 15.1).
+  Stage 15.2 adds a **sound preference** (Profile → Appearance, `off/subtle/full`,
+  **default off**, **local-only** under `cardMajlis.sound.v1` — no profile/DB sync) and a
+  **minimal client-side engine** (`src/audio/soundEngine.ts`, lazy, no-op when off/hidden).
+  **Only the Profile "Preview sound" button plays anything** — no card/game/chat/finish
+  events are wired yet (Stage 15.4), so with the default off the app is still silent. The
+  full plan (client-side-only event map, staged rollout 15.1–15.5) is in
   [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 - Room password is an **MVP gate**, not full moderation/auth; production should
   keep **WSS** enabled before a public launch.

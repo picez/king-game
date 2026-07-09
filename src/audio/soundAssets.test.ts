@@ -72,7 +72,11 @@ describe('sound asset manifest', () => {
   });
 });
 
-// ── runtime-not-wired guard (Stage 15.1 = assets only) ────────────────────────
+// ── wiring-boundary guard (Stage 15.2 = engine exists, preview-only) ──────────
+// Stage 15.2 adds a sound preference, an external store, and a MINIMAL engine —
+// but the ONLY caller of playSound is the Profile "Preview sound" button. These
+// guards lock that boundary: the browser audio API stays inside the engine, no
+// game/table/chat UI imports the engine, and nothing leaks onto the WS protocol.
 const SRC = fileURLToPath(new URL('..', import.meta.url)); // src/
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -84,25 +88,43 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 const isTest = (p: string) => /\.test\.tsx?$/.test(p);
 const THIS = fileURLToPath(import.meta.url);
+const rel = (p: string) => p.slice(SRC.length).replace(/\\/g, '/');
+const body = (p: string) => readFileSync(p, 'utf8');
 
-describe('sound runtime is not wired yet (Stage 15.1)', () => {
+describe('sound wiring boundary (Stage 15.2)', () => {
   const files = walk(SRC).filter((p) => p !== THIS);
 
-  it('no app source uses the browser audio APIs yet', () => {
+  it('the browser audio API lives ONLY inside the sound engine', () => {
     const AUDIO_API = /\bnew Audio\s*\(|\bAudioContext\b|\bwebkitAudioContext\b|\bHTMLAudioElement\b/;
     const offenders = files
       .filter((p) => !isTest(p))
-      .filter((p) => AUDIO_API.test(readFileSync(p, 'utf8')))
-      .map((p) => p.slice(SRC.length));
-    expect(offenders, `audio API used before Stage 15.3: ${offenders.join(', ')}`).toEqual([]);
+      .filter((p) => AUDIO_API.test(body(p)))
+      .map(rel);
+    expect(offenders, `audio API outside the engine: ${offenders.join(', ')}`)
+      .toEqual(['audio/soundEngine.ts']);
   });
 
-  it('nothing imports the sound manifest except this guard', () => {
+  it('the sound manifest is imported ONLY by the engine (+ audio tests)', () => {
     const IMPORTS = /from\s+['"][^'"]*soundAssets['"]/;
     const importers = files
-      .filter((p) => IMPORTS.test(readFileSync(p, 'utf8')))
-      .map((p) => p.slice(SRC.length));
-    // Only this test file is allowed to reference the manifest in Stage 15.1.
-    expect(importers, `unexpected soundAssets importers: ${importers.join(', ')}`).toEqual([]);
+      .filter((p) => !isTest(p) && IMPORTS.test(body(p)))
+      .map(rel);
+    expect(importers, `unexpected soundAssets importers: ${importers.join(', ')}`)
+      .toEqual(['audio/soundEngine.ts']);
+  });
+
+  it('playSound (the engine) is imported ONLY by the Profile preview — no game/chat UI', () => {
+    const IMPORTS = /from\s+['"][^'"]*soundEngine['"]/;
+    const importers = files
+      .filter((p) => !isTest(p) && IMPORTS.test(body(p)))
+      .map(rel);
+    expect(importers, `unexpected soundEngine importers: ${importers.join(', ')}`)
+      .toEqual(['ui/menu/ProfilePanel.tsx']);
+  });
+
+  it('the WS message protocol carries no sound/soundPreference fields', () => {
+    const messages = files.find((p) => rel(p) === 'net/messages.ts');
+    expect(messages, 'src/net/messages.ts not found').toBeTruthy();
+    expect(/sound/i.test(body(messages!)), 'messages.ts must not mention sound').toBe(false);
   });
 });

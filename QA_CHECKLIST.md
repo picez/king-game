@@ -220,11 +220,12 @@ All must be green.
 - [ ] Offline after first load: **local** game still opens; online shows
       "Connecting…" (expected — online needs the network).
 
-## Manual — Sound (PLACEHOLDER — not implemented; see SOUND_DESIGN.md, Stage 15.5)
+## Manual — Sound (preference + preview live in 15.2; gameplay wiring is 15.4)
 
-> **Assets exist (Stage 15.1), but there is still no playback** — no engine, no
-> wiring, sound OFF. The manual runtime checks below apply from Stage 15.3+; fill
-> them in when playback ships. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
+> **Assets (15.1) + preference & minimal engine (15.2) exist.** Only the Profile
+> **"Preview sound"** button plays anything today; no card/game/chat/finish events are
+> wired (Stage 15.4), and sound is **OFF by default**. The gameplay runtime checks
+> further below apply from Stage 15.4+. Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 
 **Asset verification (Stage 15.1 — automated, no device needed):**
 
@@ -233,10 +234,25 @@ All must be green.
       required).
 - [ ] `npm test` — `src/audio/soundAssets.test.ts` passes: all 12 ids present as
       **webm + mp3**, unique, `/sounds/`-scoped, under the per-file cap, total < 500 KB,
-      and the **runtime-not-wired guard** holds (no browser audio API used yet; nothing
-      imports the manifest).
+      and the **wiring-boundary guard** holds (audio API only in the engine; the manifest
+      imported only by the engine; `soundEngine` imported only by `ProfilePanel`;
+      `messages.ts` carries no sound field).
 - [ ] After `npm run build`, `dist/sounds/` contains the 24 files (Vite copies
       `public/sounds/`).
+
+**Preference + preview (Stage 15.2 — manual, ~2 min):**
+
+- [ ] Profile → Appearance shows a **Sound** row (`Off | Subtle | Full`), default
+      **Off**, with the "off by default" hint. No native `<select>`.
+- [ ] With **Off**: the **Preview sound** button is **disabled** and shows the quiet
+      "turn sound on to preview" hint; nothing plays.
+- [ ] Switch to **Subtle** / **Full**: Preview enables and plays a click on tap;
+      Subtle is audibly quieter than Full.
+- [ ] Reload the app: the chosen preference persists (localStorage `cardMajlis.sound.v1`);
+      a signed-in account on another device is **unaffected** (local-only, not synced).
+- [ ] No other button in the app makes a sound (only the explicit Preview is wired).
+- [ ] **RTL (Arabic):** the Sound row + Preview button lay out correctly at 360/390,
+      no overflow, label/hint mirror properly.
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

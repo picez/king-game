@@ -196,11 +196,32 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
   > Two ids differ from this section's earlier prose (§3): the shipped `trick-collect`
   > / `trump-reveal` are the same sounds as `card-collect` / `card-trump` in §3.2 —
   > the manifest ids are canonical for 15.2+.
-- **15.2 — Preference setting.** Add the `off | subtle | full` **sound preference** in
-  Profile (its own row; a segmented control, no native select), local `localStorage`
-  key (e.g. `cardMajlis.sound.v1`), default **off**. Optional profile sync ONLY if
-  approved (mirrors cardStyle/animation via `user_settings` — otherwise device-local
-  like the connection setting). External store like the animation store.
+- **15.2 — Preference setting + minimal engine (preview-only). ✅ DONE.** Added the
+  `off | subtle | full` **sound preference** in Profile → Appearance (its own row; a
+  segmented control, no native select) plus a **minimal client-side engine**, wired to a
+  single explicit-gesture **"Preview sound"** button and NOTHING else. Details:
+  - **Storage decision: LOCAL-ONLY** under `cardMajlis.sound.v1`, default **off**. We
+    deliberately did **not** add profile/DB sync — sound is device-contextual (a quiet
+    phone on a bus, a loud desktop) and keeping it local means **no `user_settings`
+    column, no migration, and no WS/`messages.ts` field** to leak. Mirrors the connection
+    setting's device-local rationale, not the visual prefs' server sync.
+  - **Model** (`src/audio/soundPreference.ts`): `normalizeSoundPreference` → `off` fallback;
+    `soundTierVolume` (off 0 / subtle 0.5 / full 1.0); `load/saveSoundPreference`.
+  - **Store** (`src/audio/soundPreferenceStore.ts`): external store like the animation
+    store (`useSyncExternalStore`, no provider); stamps `data-sound` on `<html>` for
+    inspection only (no CSS keys off it). Read by the engine at play time.
+  - **Engine** (`src/audio/soundEngine.ts`): `playSound(id)` — **lazy** (creates no
+    `HTMLAudioElement` until the first play), hard no-op when `off` / tab hidden /
+    unknown id / throttled (per-id `SOUND_THROTTLE_MS`), picks webm→mp3 by `canPlayType`,
+    swallows `play()` rejections. Browser audio API lives **only** here. The env
+    (preference/hidden/now/createAudio) is injectable so tests mock audio — **no test
+    requires real playback**. This front-loads a trimmed version of what 15.3 expands
+    (P0 preload, richer gesture-unlock).
+  - **Wiring boundary:** the ONLY caller of `playSound` is the Profile preview button
+    (silent + disabled when `off`). No card/game/chat/finish events are wired — that stays
+    Stage 15.4. Guard tests in `soundAssets.test.ts` lock: audio API only in the engine,
+    manifest imported only by the engine, `soundEngine` imported only by `ProfilePanel`,
+    and `messages.ts` carries no sound field.
 - **15.3 — Engine / hook.** A tiny client-side sound engine: lazy-init `AudioContext`
   after the first gesture; preload **P0 only** (others on demand); `play(soundId)` is a
   no-op when pref is `off`, tab hidden, or a file failed; per-id throttle/debounce;

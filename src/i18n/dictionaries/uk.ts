@@ -352,6 +352,13 @@ export const UK: Record<string, string> = {
   'profile.animationReduced': 'Зменшена',
   'profile.animationOff': 'Вимкнена',
   'profile.animationHint': 'Системне налаштування має пріоритет — на пристроях зі зменшеним рухом анімація залишається зменшеною.',
+  'profile.sound': 'Звук',
+  'profile.soundOff': 'Вимкнено',
+  'profile.soundSubtle': 'Тихо',
+  'profile.soundFull': 'Повний',
+  'profile.soundHint': 'Звук вимкнено за замовчуванням. Нічого не звучатиме, доки ви його не увімкнете.',
+  'profile.soundPreview': 'Прослухати',
+  'profile.soundPreviewOff': 'Увімкніть звук, щоб прослухати.',
   'profile.favoriteGame': 'Улюблена гра',
   'profile.favoriteGameHint': 'Обирається за замовчуванням для локальної чи онлайн-гри.',
   // ── account / profile (Stage 4) ──

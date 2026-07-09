@@ -249,6 +249,8 @@
 .avatar-preview__inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .avatar-row__picker { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .avatar-row__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sound-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.sound-preview .field__hint { margin: 0; }
 .avatar-error { margin: 0.3rem 0 0; }
 .account-bar__meta { display: flex; flex-direction: column; min-width: 0; }
 .account-bar__name { font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

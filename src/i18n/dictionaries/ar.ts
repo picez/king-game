@@ -352,6 +352,13 @@ export const AR: Record<string, string> = {
   'profile.animationReduced': 'مخفّفة',
   'profile.animationOff': 'إيقاف',
   'profile.animationHint': 'يُحترم إعداد نظامك — الأجهزة ذات الحركة المخفّفة تبقى مخفّفة.',
+  'profile.sound': 'الصوت',
+  'profile.soundOff': 'إيقاف',
+  'profile.soundSubtle': 'خفيف',
+  'profile.soundFull': 'كامل',
+  'profile.soundHint': 'الصوت متوقّف افتراضيًا. لا يُشغّل أي صوت حتى تفعّله.',
+  'profile.soundPreview': 'تجربة الصوت',
+  'profile.soundPreviewOff': 'فعّل الصوت للتجربة.',
   'profile.favoriteGame': 'اللعبة المفضّلة',
   'profile.favoriteGameHint': 'تُختار مسبقًا عند بدء لعبة محلية أو عبر الإنترنت.',
   // ── account / profile (Stage 4) ──

@@ -18,6 +18,9 @@ import { CARD_FACE_THEMES, type CardFaceTheme } from '../components/cardFaceThem
 import { useCardFaceTheme, setCardFaceTheme } from '../components/cardFaceStore';
 import { ANIMATION_PREFERENCES, type AnimationPreference } from '../components/motionPref';
 import { useMotionPreference, setMotionPreference } from '../components/motionPreferenceStore';
+import { SOUND_PREFERENCES, type SoundPreference } from '../../audio/soundPreference';
+import { useSoundPreference, setSoundPreference } from '../../audio/soundPreferenceStore';
+import { playSound } from '../../audio/soundEngine';
 import { GAME_TYPES, type GameType } from '../../games/catalog';
 import { gameIconSrc } from '../../visual/visualAssets';
 
@@ -45,6 +48,13 @@ const ANIMATION_LABEL_KEY: Record<AnimationPreference, string> = {
   full: 'profile.animationFull',
   reduced: 'profile.animationReduced',
   off: 'profile.animationOff',
+};
+
+/** i18n key for each sound option's label. */
+const SOUND_LABEL_KEY: Record<SoundPreference, string> = {
+  off: 'profile.soundOff',
+  subtle: 'profile.soundSubtle',
+  full: 'profile.soundFull',
 };
 
 interface Props {
@@ -78,6 +88,7 @@ export default function ProfilePanel({
   const cardBack = useCardBackStyle();
   const cardFace = useCardFaceTheme();
   const animation = useMotionPreference();
+  const sound = useSoundPreference();
   // Local-only custom avatar (Stage 14.1): NEVER uploaded/synced/put on the wire.
   const customAvatar = useCustomAvatar();
   const avatarFileRef = useRef<HTMLInputElement>(null);
@@ -156,6 +167,13 @@ export default function ProfilePanel({
   function changeAnimation(v: AnimationPreference) {
     setMotionPreference(v); saveMotionPreference(v); account.pushAnimation(v);
   }
+  // Sound is a LOCAL, device-only preference (default off), never synced to the
+  // server — so no account.push*, unlike the visual prefs above. The store
+  // persists it to localStorage itself.
+  function changeSound(v: SoundPreference) { setSoundPreference(v); }
+  const soundLabel = (s: SoundPreference) => t(SOUND_LABEL_KEY[s]);
+  // The ONLY sound wired in Stage 15.2: an explicit-gesture preview. Silent when off.
+  function previewSound() { if (sound !== 'off') playSound('ui-click'); }
   // Favorite game pre-selects the Local/Host picker. Local pref + server profile
   // sync (signed in). onFavoriteGame lets the menu update its live picker default.
   function changeFavorite(v: GameType) {
@@ -284,6 +302,27 @@ export default function ProfilePanel({
           ))}
         </div>
         <p className="field__hint">{t('profile.animationHint')}</p>
+      </div>
+
+      <div className="field">
+        <label className="field__label">{t('profile.sound')}</label>
+        <div className="segmented segmented--inline" role="radiogroup" aria-label={t('profile.sound')}>
+          {SOUND_PREFERENCES.map((s) => (
+            <button key={s} type="button" role="radio" aria-checked={sound === s}
+              className={`segmented__tab ${sound === s ? 'segmented__tab--active' : ''}`}
+              onClick={() => changeSound(s)}>
+              {soundLabel(s)}
+            </button>
+          ))}
+        </div>
+        <p className="field__hint">{t('profile.soundHint')}</p>
+        <div className="sound-preview">
+          <button type="button" className="btn btn--outline btn--small"
+            disabled={sound === 'off'} onClick={previewSound}>
+            🔈 {t('profile.soundPreview')}
+          </button>
+          {sound === 'off' && <span className="field__hint">{t('profile.soundPreviewOff')}</span>}
+        </div>
       </div>
 
       <div className="field">
