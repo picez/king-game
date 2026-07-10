@@ -8,6 +8,8 @@ interface Props {
   loading: boolean;
   /** True when every stat set came back unauthenticated (no session yet). */
   needsSignIn: boolean;
+  /** Achievement ids already announced to the user; earned-but-unseen get a "New" chip. */
+  seen?: readonly string[];
 }
 
 /**
@@ -16,13 +18,14 @@ interface Props {
  * a muted padlock with the same title/description so the goal is always visible.
  * No DB writes, no popups — a read-only overview.
  */
-export default function AchievementsPanel({ stats, loading, needsSignIn }: Props) {
+export default function AchievementsPanel({ stats, loading, needsSignIn, seen = [] }: Props) {
   const { t } = useI18n();
 
   if (loading) return <p className="stats-msg">{t('net.connecting')}…</p>;
 
   const rows = evaluateAchievements(stats);
   const earned = earnedCount(rows);
+  const seenSet = new Set(seen);
 
   return (
     <div className="ach-panel">
@@ -39,17 +42,21 @@ export default function AchievementsPanel({ stats, loading, needsSignIn }: Props
       </div>
 
       <div className="ach-grid">
-        {rows.map(({ achievement: a, earned: e }) => (
-          <div
-            key={a.id}
-            data-ach={a.id}
-            className={`ach-badge ach-badge--${a.rarity} ${e ? 'ach-badge--earned' : 'ach-badge--locked'}`}
-          >
-            <span className="ach-badge__icon" aria-hidden="true">{e ? a.icon : '🔒'}</span>
-            <span className="ach-badge__title">{t(a.titleKey)}</span>
-            <span className="ach-badge__desc">{t(a.descriptionKey)}</span>
-          </div>
-        ))}
+        {rows.map(({ achievement: a, earned: e }) => {
+          const isNew = e && !seenSet.has(a.id);
+          return (
+            <div
+              key={a.id}
+              data-ach={a.id}
+              className={`ach-badge ach-badge--${a.rarity} ${e ? 'ach-badge--earned' : 'ach-badge--locked'}${isNew ? ' ach-badge--new' : ''}`}
+            >
+              {isNew && <span className="ach-badge__new">{t('ach.new')}</span>}
+              <span className="ach-badge__icon" aria-hidden="true">{e ? a.icon : '🔒'}</span>
+              <span className="ach-badge__title">{t(a.titleKey)}</span>
+              <span className="ach-badge__desc">{t(a.descriptionKey)}</span>
+            </div>
+          );
+        })}
       </div>
 
       {earned === 0 && !needsSignIn && (

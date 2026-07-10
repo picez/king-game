@@ -222,6 +222,24 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Earned state (DB configured):** after winning a game, **First Win** (and the
       relevant per-game badge) flip to gold; the `n/11 unlocked` counter updates.
 
+## Manual — Achievement unlock toast (Stage 16.1)
+
+> A compact **"Achievement unlocked"** toast appears **only on the Profile screen after
+> the stats load** — never during a game, never over cards/hands. A device-local seen
+> ledger (`localStorage` key `cardMajlis.achievementsSeen.v1`) means each unlock is shown
+> once. **No sound is played.**
+
+- [ ] **First open with earned badges:** open **Profile → Achievements** on an account
+      that already has wins → a bottom toast announces the unlock(s); the grid shows a
+      gold **"New"** chip on those badges. **360/390** no horizontal overflow.
+- [ ] **Multiple unlocks:** with several earned-but-unseen badges the toast shows one at a
+      time with a **"+N more"** chip and **Next**; ✕ closes the whole queue.
+- [ ] **Seen is sticky:** dismiss the toast, leave Profile, reopen → **no toast** and no
+      **New** chips (ledger persisted). Signed-out / no stats → **no toast**.
+- [ ] **RTL (Arabic):** toast + New chip mirror cleanly, no overflow.
+- [ ] **Motion:** reduced/off (Profile → Animation) → the toast fades / appears instantly
+      instead of sliding; it is never hidden. Confirm **no sound** plays.
+
 ## Manual — Custom avatar (local-only, Stage 14.1)
 
 > A user may pick a local image avatar. It is **local-only**: re-encoded client-side,

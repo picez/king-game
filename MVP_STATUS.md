@@ -132,6 +132,17 @@ recording its own per-`game_type` stats + leaderboard):**
   a clean no-session state shows the sign-in hint. Badges: First Win, Veteran (25),
   Centurion (100), All-Rounder (win all 4), King Winner, Durak Survivor, Tarneeb
   Bidder / Contractor (5), Deberc Meld Maker (10) / Bella / Jackpot. i18n ×4.
+- **Achievement unlock toast (Stage 16.1)**: a compact, non-blocking
+  "Achievement unlocked" toast surfaced **only on the Profile screen after the
+  stats resolve** — never during active gameplay, never over cards/hands. A
+  **device-local seen ledger** (`src/stats/achievementsSeen.ts`,
+  `localStorage` key `cardMajlis.achievementsSeen.v1`) records which earned
+  badges have been announced; earned-but-unseen ids queue into
+  `AchievementToast` (walks one badge at a time, "+N more" chip + Next; ✕ closes
+  the queue). Dismiss persists the ids (`markSeen`) so nothing re-announces. The
+  Achievements grid shows a gold **"New"** chip on unseen earned badges. Logged
+  out / missing stats → no toast. Motion-aware (full = slide/fade, reduced =
+  fade, off = instant); **no sound**. **No DB / server / WS / gameplay change.**
 
 ## Run it
 

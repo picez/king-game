@@ -151,3 +151,71 @@
 .ach-badge--earned.ach-badge--epic { box-shadow: var(--top-light), inset 3px 0 0 #c07bff; }
 .ach-empty { margin: 0; }
 
+/* "New" chip on a freshly-earned-but-unseen badge (Stage 16.1). */
+.ach-badge { position: relative; }
+.ach-badge__new {
+  position: absolute; top: 0.35rem; inset-inline-end: 0.35rem;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 0.08rem 0.34rem; border-radius: 999px;
+  color: #1c1400; background: var(--gold-grad); box-shadow: var(--top-light);
+}
+
+/* ===== Achievement unlock toast (Stage 16.1) ===== */
+/* Fixed, non-blocking, bottom-centered within the safe area. Never wider than the
+   viewport (max-width + inset), so it cannot cause horizontal overflow. Shown only
+   on the Profile screen — never over cards/hands. */
+.ach-toast-wrap {
+  position: fixed; z-index: 60;
+  inset-inline: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.9rem);
+  display: flex; justify-content: center;
+  padding-inline: 0.8rem; pointer-events: none;
+}
+.ach-toast {
+  pointer-events: auto;
+  position: relative; display: flex; align-items: center; gap: 0.7rem;
+  width: min(30rem, 100%); box-sizing: border-box;
+  padding: 0.7rem 2.1rem 0.7rem 0.8rem;
+  background: var(--panel-2, var(--surface-2)); border: 1px solid var(--accent-dark);
+  border-radius: 16px; box-shadow: var(--top-light), 0 10px 28px rgba(0, 0, 0, 0.4);
+  animation: ach-toast-in 0.32s ease-out both;
+}
+.ach-toast__icon {
+  flex: 0 0 auto; width: 2.5rem; height: 2.5rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 1.5rem; line-height: 1;
+  background: var(--gold-grad); box-shadow: var(--top-light);
+}
+.ach-toast__body { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 auto; }
+.ach-toast__eyebrow {
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--accent);
+}
+.ach-toast__title {
+  font-weight: 800; font-size: 0.95rem; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ach-toast__rarity { font-size: 0.7rem; color: var(--text-muted); }
+.ach-toast__rarity--rare { color: #5aa0ff; }
+.ach-toast__rarity--epic { color: #c07bff; }
+.ach-toast__actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; }
+.ach-toast__more { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+.ach-toast__btn {
+  font-size: 0.78rem; font-weight: 700; color: #1c1400; cursor: pointer;
+  padding: 0.3rem 0.7rem; border: none; border-radius: 999px; background: var(--gold-grad);
+  box-shadow: var(--top-light);
+}
+.ach-toast__close {
+  position: absolute; top: 0.3rem; inset-inline-end: 0.4rem;
+  width: 1.4rem; height: 1.4rem; display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; color: var(--text-muted); background: none; border: none; cursor: pointer; border-radius: 50%;
+}
+.ach-toast__close:hover { color: var(--text); }
+
+@keyframes ach-toast-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Reduced = plain fade (no slide); off = appear instantly. Never hidden. */
+:root[data-motion-effective="reduced"] .ach-toast { animation: ach-toast-fade 0.3s ease-out both; }
+:root[data-motion-effective="off"] .ach-toast { animation: none; }
+@keyframes ach-toast-fade { from { opacity: 0; } to { opacity: 1; } }
+

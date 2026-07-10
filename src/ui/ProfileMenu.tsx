@@ -11,7 +11,11 @@ import {
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
 import AchievementsPanel from './components/AchievementsPanel';
-import type { AllStats } from '../stats/achievements';
+import AchievementToast from './components/AchievementToast';
+import {
+  ACHIEVEMENTS, evaluateAchievements, type AllStats, type Achievement,
+} from '../stats/achievements';
+import { earnedIds, loadSeen, unseenEarned, markSeen } from '../stats/achievementsSeen';
 import StatsPanel from './components/StatsPanel';
 import DurakStatsPanel from './components/DurakStatsPanel';
 import DebercStatsPanel from './components/DebercStatsPanel';
@@ -59,6 +63,14 @@ export default function ProfileMenu({
   const [tab, setTab] = useState<Tab>('profile');
   const [statsGame, setStatsGame] = useState<GameKey>('king');
   const [boardGame, setBoardGame] = useState<GameKey>('king');
+
+  // Achievement unlock toast (Stage 16.1) — device-local, post-stats-load only.
+  // `seenAtOpen` is snapshotted once on mount so the toast queue AND the grid's
+  // "New" chips stay stable while the screen is open; dismissing persists the
+  // ids (markSeen) so nothing re-announces next time.
+  const [seenAtOpen] = useState<string[]>(() => loadSeen());
+  const [toastQueue, setToastQueue] = useState<readonly Achievement[]>([]);
+  const detectedRef = useRef(false);
 
   const [stats, setStats] = useState<Loadable<KingStats> | null>(null);
   const [durakStats, setDurakStats] = useState<Loadable<DurakStats> | null>(null);
@@ -180,6 +192,26 @@ export default function ProfileMenu({
     && stats!.state === 'unauthenticated' && durakStats!.state === 'unauthenticated'
     && debercStats!.state === 'unauthenticated' && tarneebStats!.state === 'unauthenticated';
 
+  // Once the four stat sets have resolved, compare earned badges against the
+  // seen ledger and queue any that are new. Runs at most once per screen open;
+  // logged-out / no stats → nothing queued (unseenEarned over an empty set).
+  useEffect(() => {
+    if (detectedRef.current || !allResolved || needsSignIn) return;
+    detectedRef.current = true;
+    const earned = earnedIds(evaluateAchievements(allStats));
+    const unseen = unseenEarned(earned, seenAtOpen);
+    if (unseen.length > 0) {
+      setToastQueue(ACHIEVEMENTS.filter((a) => unseen.includes(a.id)));
+    }
+    // allStats is derived from the four loadables in the dep list; safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allResolved, needsSignIn, seenAtOpen, stats, durakStats, debercStats, tarneebStats]);
+
+  function dismissToast() {
+    markSeen(earnedIds(evaluateAchievements(allStats)));
+    setToastQueue([]);
+  }
+
   return (
     <div className="profile-screen">
       <div className="segmented profile-screen__tabs" role="tablist">
@@ -223,7 +255,7 @@ export default function ProfileMenu({
               </>
             )}
             {tab === 'achievements' && (
-              <AchievementsPanel stats={allStats} loading={achLoading} needsSignIn={needsSignIn} />
+              <AchievementsPanel stats={allStats} loading={achLoading} needsSignIn={needsSignIn} seen={seenAtOpen} />
             )}
             {tab === 'leaderboard' && (
               <>
@@ -243,6 +275,10 @@ export default function ProfileMenu({
               </>
             )}
       </div>
+
+      {toastQueue.length > 0 && (
+        <AchievementToast achievements={toastQueue} onDismiss={dismissToast} />
+      )}
     </div>
   );
 }
