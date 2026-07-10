@@ -66,7 +66,7 @@ arabesque) used sparingly on card backs, frames, and the menu hero. Soft warm
 glass app shell over it. Premium, warm, readable — not a neon casino, not cartoon.
 - **Why:** it matches the existing palette (near-zero re-theming of CSS vars),
   fits Tarneeb's Syrian heritage, and the "one warm table, many games" story unifies
-  all four games. Gold-on-green already has strong contrast for AA text.
+  all five games. Gold-on-green already has strong contrast for AA text.
 
 ### Option B — "Midnight Art-Deco"
 Charcoal/ink background, teal-green felt inlay, chrome + champagne-gold deco lines,
@@ -97,7 +97,7 @@ accents later.
    zones behind text rather than lightening text.
 2. **Depth, not noise.** Texture + soft shadow + a single light source create depth;
    avoid high-frequency grain, heavy bevels, or drop-shadow soup.
-3. **One system, four games.** Shared felt/rim/card-back/motion. A game is identified
+3. **One system, five games.** Shared felt/rim/card-back/motion. A game is identified
    by its icon and a subtle accent tint — never by re-styling the whole table.
 4. **Tactile.** Buttons, cards, chips look pressable and respond to touch (≤120ms
    press feedback). Tap targets stay ≥44px.
@@ -259,14 +259,14 @@ Each stage keeps gameplay/server/protocol/DB/stats unchanged and ends green on
 - **12.4 — Lobby + room browser polish.** Real game icons (replace emoji), brass code
   plaque, seat badges, row hover motion. Filters/sort/auto-refresh (11.3–11.4) intact.
 - **12.5 — Table animations.** Deal / play / trick-collect / trump reveal / active
-  glow / bid highlight across all four games, all reduced-motion aware.
+  glow / bid highlight across all five games, all reduced-motion aware.
 - **12.6 — Mobile / RTL visual QA + cleanup.** Re-run `scripts/*shots*.mjs` at 360/390,
   verify no overflow, AA contrast over backgrounds, reduced-motion, and asset sizes;
   prune any dead CSS.
 - **14.x — Card Majlis app-icon refresh (done).** Replaced the King-era plain gold
   **diamond** PWA/app icons with a multi-game **Card Majlis medallion**: an emerald
   circular felt "coin" (gold rim) + a bold gold **8-point Levantine (Rub el Hizb)
-  star** + four subtle gold **suit pips** (♠♥♦♣ = the four games). No text, no crown;
+  star** + four subtle gold **suit pips** (♠♥♦♣ = the four suits). No text, no crown;
   reads at 32/64/192/512 px. Procedural, zero-dep — regenerate with `npm run icons`
   (`scripts/generate-icons.mjs`). Emits `icon-192`, `icon-512`, `maskable-512`
   (motif in the safe zone), `apple-touch-icon` (180), `favicon-32`, and a matching
@@ -285,7 +285,7 @@ Each stage keeps gameplay/server/protocol/DB/stats unchanged and ends green on
   everything under `public/` and served by Vite/Render.
 - UI remains readable over hero/felt; the current CSS gradient/emoji fallback still
   works if an asset 404s.
-- All four games look like one system yet stay distinguishable (icon + accent).
+- All five games look like one system yet stay distinguishable (icon + accent).
 - **RTL** unaffected: table seat/play order not mirrored; frames symmetric.
 - `npm run verify` green after each implementation stage.
 
