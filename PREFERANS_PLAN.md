@@ -78,9 +78,22 @@ pattern for stats.
   ("Coming soon") so it is visible but **not startable** (no local/online path). Favorite
   picker excludes it. `DEFAULT_GAME_TYPE` unchanged (King). Tests: catalog/registry/api +
   picker wiring. **Still NOT playable.** Next: 19.3 local UI prototype.
-- **19.3 — local UI prototype.** A `PreferansGameScreen` (1 human + 2 bots, hot-seat)
-  reusing the shared table/seat/trick components: bidding bar, talon-exchange
-  (take → discard 2 → declare), trick play, score sheet. Flip `supportsLocal: true`.
+- **19.3 — local UI prototype. ✅ DONE.** `src/ui/preferans/` (`PreferansLocalGame` +
+  `PreferansSetup` / `PreferansGameScreen` / `PreferansFinished` / `PreferansHelp` +
+  pure `bids.ts`): 1 human (seat 0) + 2 bots, reuses `CardView` + the felt/seat/trick
+  primitives. Phases wired end-to-end — bidding (5×5 legal ladder + Pass), talon-exchange
+  (take → bury exactly 2 → declare ≥ winning bid), trick play (illegal cards dimmed),
+  hand-complete score sheet, finished (winner **or draw**). `App` routes local
+  `gameType==='preferans'` to it; the game picker is now gated **per mode**
+  (`supportsLocal` locally / `supportsOnline` when hosting), so Preferans is selectable
+  in the Local sheet and **disabled** ("coming soon") in Host. Catalog flipped to
+  `supportsLocal: true`, `status: 'experimental'` (still `supportsOnline: false`,
+  `recordsStats: false`; favorite picker still excludes it). i18n ×4. Tests:
+  `preferansLocalWiring` (routing/source/no-server-or-stats-imports/reducer flows +
+  bot-only soak to `game_finished`) + `preferansUi` (validBids/validDeclareContracts,
+  discard-exactly-2, declare ≥ bid). Visual smoke `scripts/preferans-shots.mjs` (360/390,
+  **no horizontal overflow**). Verify green (1452 unit + build + E2E). **Playable locally.**
+  Next: 19.4 online readiness / redaction.
 - **19.4 — online readiness / redaction.** Wire the online start seam + per-viewer
   `redactStateFor` (own hand only; talon hidden pre-take; discards hidden). Redaction
   leak tests (mirror `tarneeb/redact.test`). Still not user-facing online.

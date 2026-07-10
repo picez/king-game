@@ -33,13 +33,18 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).toContain('<SelectMenu');
     expect(src).not.toMatch(/game-picker[^]*segmented__tab/); // no segmented inside the picker
   });
-  it('shows Preferans as a DISABLED coming-soon option (not startable), data-driven from the catalog', () => {
-    // The picker iterates GAME_TYPES and disables any non-`available` game (Stage 19.2:
-    // Preferans is coming_soon), so King/Durak/Deberc/Tarneeb stay selectable but
-    // Preferans is shown disabled and cannot be picked/started.
-    expect(src).toContain('const soon = GAME_CATALOG[id].status !== \'available\'');
-    expect(src).toContain('disabled: soon');
+  it('gates the picker per mode: local=supportsLocal, host=supportsOnline (Stage 19.3)', () => {
+    // The picker iterates GAME_TYPES and disables a game that does not support THIS
+    // mode. Preferans (Stage 19.3) is experimental + local-only: selectable in the
+    // Local sheet, disabled in the Host sheet. An unsupported game shows "coming soon";
+    // a supported-but-experimental one shows "experimental".
+    expect(src).toContain('const usable = mode === \'host\' ? entry.supportsOnline : entry.supportsLocal');
+    expect(src).toContain('disabled: !usable');
     expect(src).toContain("t('menu.comingSoon')");
+    expect(src).toContain("t('menu.experimental')");
+    // The two pickers pass their mode explicitly.
+    expect(src).toContain('mode="local"');
+    expect(src).toContain('mode="host"');
     // It is not hardcoded to the old 4-game list anymore.
     expect(src).not.toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({");
   });

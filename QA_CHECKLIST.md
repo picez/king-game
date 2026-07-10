@@ -270,6 +270,37 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       rows (`games`/`game_players`/`rounds`) hold **no cards** — only scores and a
       word-free bid+trump label (e.g. `9S`).
 
+## Manual — Preferans LOCAL (experimental, Stage 19.3)
+
+> Preferans is a **3-player, each-for-themselves** contract-bidding trick game
+> (32-card deck, 2-card talon). **Local only** (1 human + 2 bots) — **no online, no
+> stats** yet. Automated smoke: `node scripts/preferans-shots.mjs` (360/390, checks
+> for horizontal overflow); run a `vite preview` server first.
+
+- [ ] **Picker gating:** the **Local** sheet lists **🎩 Preferans · 3 · Experimental**
+      and it is **selectable**; the **Host** sheet shows it **disabled** ("Coming soon")
+      and the Create button stays blocked.
+- [ ] **Setup** shows the experimental note, "1 human + 2 bots", target **10**, and a
+      "How to play" summary; **Start** deals a hand (you sit bottom; 2 bots up-left/right).
+- [ ] **Bidding:** on your turn the 5×5 ladder (levels 6–10 × ♠♣♦♥ NT) shows **only
+      legal** cells active (already-≤-high-bid cells are dimmed); **Pass** works; passing
+      is final; an all-pass redeals to the next dealer.
+- [ ] **Win the auction** → **Take the talon** (2 face-down cards join your hand → 12),
+      then **bury exactly 2** (the confirm button stays disabled until 2 are selected),
+      then **declare** a contract **≥ your winning bid** (lower cells are not offered).
+- [ ] **Trick play:** left-of-declarer leads; you must **follow the led suit** when able
+      (illegal cards dim); trump beats non-trump; the just-won trick freezes briefly.
+- [ ] **Readouts:** scoreboard shows the three seat scores, target, the **contract +
+      trump** (or highest bid pre-contract), the **led suit**, **talon** state, the
+      **dealer (D)** + **declarer (★)** badges, and per-seat trick counts.
+- [ ] **Hand complete** shows made/set, declarer tricks vs level, and the per-seat score
+      delta; **Next hand** rotates the dealer left and deals again.
+- [ ] **Finished** when a seat reaches the target: **You won / You lost / draw** with
+      final scores; **Play again** restarts, **Back to menu** exits. A bot-only run always
+      terminates (covered by the wiring soak test).
+- [ ] **Mobile/RTL:** no horizontal overflow at 360/390; Arabic (RTL) reads correctly and
+      the seat order is **not** mirrored (play still flows to your left).
+
 ## Manual — Deberc combination stats (Stage 13.8)
 
 > Deberc records the team outcome + jackpot **and** an aggregate combination

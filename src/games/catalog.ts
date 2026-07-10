@@ -16,7 +16,7 @@ export type GameType = typeof GAME_TYPES[number];
  * Playability status surfaced to the client:
  *  - 'available'   → fully playable (King, Durak, Deberc, and Tarneeb today);
  *  - 'coming_soon' → registered but not yet startable (none today);
- *  - 'experimental'→ playable but rough (reserved; unused for now).
+ *  - 'experimental'→ playable but rough (Preferans: local-only prototype, Stage 19.3).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
 
@@ -99,10 +99,10 @@ export const GAME_CATALOG = {
     minPlayers: 3,          // 3-player only (PREFERANS_RULES §2)
     maxPlayers: 3,
     defaultPlayerCount: 3,
-    supportsLocal: false,   // Stage 19.2: registered but NOT playable yet (coming_soon)
+    supportsLocal: true,    // Stage 19.3: local prototype (1 human + 2 bots)
     supportsOnline: false,  // no online rooms yet (Stage 19.5+)
     supportsBots: true,     // pure core has a working deterministic bot (Stage 19.1)
-    status: 'coming_soon',  // Stage 19.2: catalog/registry only; local UI lands in 19.3
+    status: 'experimental', // Stage 19.3: playable locally but rough (no online/stats)
     rulesDoc: 'PREFERANS_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

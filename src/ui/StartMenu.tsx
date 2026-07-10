@@ -304,7 +304,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             <h2 className="sheet__title">{t('menu.localSetupTitle')}</h2>
             <span className="sheet__who"><span aria-hidden="true">{avatar}</span> {name}</span>
           </div>
-          <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+          <GamePicker gameType={gameType} onPick={setGameType} t={t} mode="local" />
           <button type="button" className="btn btn--primary sheet__cta" onClick={() => onLocal(gameType)}>
             {t('menu.startLocal')}
           </button>
@@ -368,7 +368,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
           {pane === 'host' && (
             <>
-              <GamePicker gameType={gameType} onPick={setGameType} t={t} />
+              <GamePicker gameType={gameType} onPick={setGameType} t={t} mode="host" />
               {gameType === 'durak' && (
                 <div className="field">
                   <label className="field__label">{t('durak.variant')}</label>
@@ -579,7 +579,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
 const GAME_META_KEY: Record<GameType, string> = {
   king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.twoTeams',
-  preferans: 'menu.comingSoon', // never shown (coming-soon uses the coming-soon sublabel), but keeps the map total
+  preferans: 'menu.experimental', // never shown (experimental uses the experimental sublabel), but keeps the map total
 };
 
 /** "3–4" / "4" player-count range from the catalog (data-driven, all 4 games). */
@@ -591,26 +591,34 @@ export function playersRange(id: GameType): string {
 /**
  * Compact game picker — a custom dropdown. Each option shows the game name + a
  * `👥 <players> · <short meta>` subtitle (player-count from the catalog, so it
- * scales to all four games without per-game code). All four are `available`
- * local + online (Stage 10.8).
+ * scales to every game without per-game code).
+ *
+ * Gating is per `mode` (Stage 19.3): a game is selectable when it supports THIS
+ * mode (`supportsLocal` locally / `supportsOnline` when hosting); otherwise it is
+ * shown DISABLED with a "coming soon" note. A game that IS supported but still
+ * `experimental` (e.g. Preferans local) is selectable and flagged "Experimental".
+ * SelectMenu ignores clicks on a disabled option.
  */
-function GamePicker({ gameType, onPick, t }: {
+function GamePicker({ gameType, onPick, t, mode }: {
   gameType: GameType;
   onPick: (g: GameType) => void;
   t: (key: string) => string;
+  mode: 'local' | 'host';
 }) {
-  // Data-driven from the catalog: `available` games are selectable; a `coming_soon`
-  // game (e.g. Preferans, Stage 19.2) is shown DISABLED so it is visible but cannot
-  // be started. SelectMenu ignores clicks on a disabled option.
   const options = GAME_TYPES.map((id) => {
-    const soon = GAME_CATALOG[id].status !== 'available';
+    const entry = GAME_CATALOG[id];
+    const usable = mode === 'host' ? entry.supportsOnline : entry.supportsLocal;
+    const experimental = entry.status === 'experimental';
+    const meta = !usable
+      ? t('menu.comingSoon')
+      : experimental ? t('menu.experimental') : t(GAME_META_KEY[id]);
     return {
       value: id,
       label: t(`gameType.${id}`),
       icon: GAME_ICON[id],           // emoji fallback if the emblem PNG 404s
       iconSrc: gameIconSrc(id),      // Stage 12.3 image emblem
-      sublabel: soon ? `👥 ${playersRange(id)} · ${t('menu.comingSoon')}` : `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`,
-      disabled: soon,
+      sublabel: `👥 ${playersRange(id)} · ${meta}`,
+      disabled: !usable,
     };
   });
   return (

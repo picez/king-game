@@ -44,14 +44,14 @@ describe('App routes local Tarneeb to its own screen', () => {
 describe('StartMenu — Tarneeb is selectable local AND online (released)', () => {
   const menu = read('../StartMenu.tsx');
   it('both the local and host pickers offer Tarneeb', () => {
-    // The picker is data-driven over GAME_TYPES (Stage 19.2); Tarneeb is `available`
-    // so it is selectable (only coming-soon games are disabled).
+    // The picker is data-driven over GAME_TYPES; Tarneeb is `available` and supports
+    // both modes, so it is selectable in the local AND host sheets (Stage 19.3 gates
+    // per mode on supportsLocal / supportsOnline).
     expect(menu).toContain('const options = GAME_TYPES.map((id) => {');
-    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} />');
-    // Only a coming-soon game is disabled — Tarneeb (available) is not.
-    expect(menu).toContain('disabled: soon');
-    // Released (Stage 10.8): no Experimental tag in the picker.
-    expect(menu).not.toContain("sublabel: t('menu.experimental')");
+    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} mode="local" />');
+    expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} mode="host" />');
+    // A game unusable in this mode is disabled — Tarneeb (available, both modes) is not.
+    expect(menu).toContain('disabled: !usable');
   });
   it("host() sends gameType 'tarneeb' and still guards non-online games", () => {
     expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");

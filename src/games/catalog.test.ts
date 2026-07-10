@@ -10,7 +10,7 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King, Durak, Deberc, Tarneeb (available) + Preferans (coming_soon)', () => {
+  it('registers King, Durak, Deberc, Tarneeb (available) + Preferans (experimental, local-only)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king'); // unchanged
     expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
     expect(GAME_CATALOG.king).toMatchObject({
@@ -32,11 +32,11 @@ describe('game catalog', () => {
       supportsLocal: true, supportsOnline: true, supportsBots: true,
       status: 'available', rulesDoc: 'TARNEEB_RULES.md',
     });
-    // Preferans (Stage 19.2): registered but NOT playable — coming_soon, no local/online.
+    // Preferans (Stage 19.3): local prototype — experimental, local only, no online yet.
     expect(GAME_CATALOG.preferans).toMatchObject({
       id: 'preferans', minPlayers: 3, maxPlayers: 3, defaultPlayerCount: 3,
-      supportsLocal: false, supportsOnline: false, supportsBots: true,
-      status: 'coming_soon', rulesDoc: 'PREFERANS_RULES.md',
+      supportsLocal: true, supportsOnline: false, supportsBots: true,
+      status: 'experimental', rulesDoc: 'PREFERANS_RULES.md',
     });
   });
 
@@ -50,7 +50,7 @@ describe('game catalog', () => {
     expect(getGameCatalogEntry('deberc')?.id).toBe('deberc');
     expect(getGameCatalogEntry('tarneeb')?.id).toBe('tarneeb');
     expect(isGameType('preferans')).toBe(true);
-    expect(getGameCatalogEntry('preferans')?.status).toBe('coming_soon');
+    expect(getGameCatalogEntry('preferans')?.status).toBe('experimental');
     expect(getGameCatalogEntry('poker')).toBeNull();
   });
 
@@ -65,12 +65,12 @@ describe('game catalog', () => {
   it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
     expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
-    // Preferans surfaces publicly as coming_soon, not startable.
+    // Preferans surfaces publicly as experimental — startable locally, not online.
     const preferans = pub.find((g) => g.id === 'preferans')!;
     expect(preferans).toEqual({
       id: 'preferans', title: 'gameType.preferans', shortTitle: 'gameType.preferans',
       minPlayers: 3, maxPlayers: 3, defaultPlayerCount: 3,
-      supportsLocal: false, supportsOnline: false, supportsBots: true, status: 'coming_soon',
+      supportsLocal: true, supportsOnline: false, supportsBots: true, status: 'experimental',
     });
     const king = pub.find((g) => g.id === 'king')!;
     expect(king).toEqual({

@@ -35,7 +35,7 @@ describe('game registry', () => {
   });
 });
 
-describe('Preferans game definition (registered, coming_soon — not playable yet)', () => {
+describe('Preferans game definition (registered, experimental — local prototype)', () => {
   const snap = {
     code: 'ABCD',
     members: [
@@ -46,15 +46,15 @@ describe('Preferans game definition (registered, coming_soon — not playable ye
     playerCount: 3, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
   } as RoomSnapshot;
 
-  it('references the Preferans core + catalog; coming_soon, no stats, no local/online', () => {
+  it('references the Preferans core + catalog; experimental local, no stats/online', () => {
     expect(preferansGameDefinition.id).toBe('preferans');
     expect(preferansGameDefinition.catalog).toBe(GAME_CATALOG.preferans);
     expect(preferansGameDefinition.rulesDoc).toBe('PREFERANS_RULES.md');
     expect(preferansGameDefinition.supportedPlayerCounts).toEqual([3]);
-    expect(preferansGameDefinition.recordsStats).toBe(false); // no stats yet (coming_soon)
-    expect(preferansGameDefinition.catalog.status).toBe('coming_soon');
-    expect(preferansGameDefinition.catalog.supportsLocal).toBe(false);
-    expect(preferansGameDefinition.catalog.supportsOnline).toBe(false);
+    expect(preferansGameDefinition.recordsStats).toBe(false); // no stats yet (Stage 19.3)
+    expect(preferansGameDefinition.catalog.status).toBe('experimental');
+    expect(preferansGameDefinition.catalog.supportsLocal).toBe(true);  // Stage 19.3: local UI
+    expect(preferansGameDefinition.catalog.supportsOnline).toBe(false); // no online yet
   });
 
   it('smoke: buildStartAction → reducer creates a bidding PreferansState; botAction is legal', () => {

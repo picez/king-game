@@ -26,11 +26,14 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | 3 solo / 4 team, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 7–13, target 41; [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 
-**Coming soon (registered, NOT playable):** **Preferans / Преферанс** — a 3-player,
-32-card, contract-bidding trick game (declarer + talon vs two defenders). The pure
-core (Stage 19.1) + catalog/registry registration (Stage 19.2, `status: coming_soon`)
-are done; `/api/games` lists it as coming-soon and the game picker shows it disabled.
-There is **no local/online play yet** (local UI = Stage 19.3). Spec + plan:
+**Experimental (local-only):** **Preferans / Преферанс** — a 3-player, 32-card,
+contract-bidding trick game (declarer + talon vs two defenders). Playable **locally**
+(1 human + 2 bots) since Stage 19.3: `status: experimental`, `supportsLocal: true`.
+The local UI (`src/ui/preferans/`) covers the full hand — bidding, talon exchange
+(take → bury 2 → declare), trick play, hand-complete scoring, finished. The game
+picker offers it in the **Local** sheet (flagged "Experimental") and shows it
+**disabled** ("Coming soon") when hosting. There is **no online play or stats yet**
+(`supportsOnline: false`, `recordsStats: false`; online = Stage 19.4+). Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works
