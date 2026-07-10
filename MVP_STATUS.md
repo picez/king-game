@@ -35,6 +35,14 @@ recording its own per-`game_type` stats + leaderboard):**
 - **Online (server-authoritative)**: Node `ws` server owns the GameState, runs
   the reducer, redacts hands per client. Lobby with room code, host start,
   per-turn screens, read-only waiting view.
+- **Team lobby clarity (Deberc / Tarneeb, Stage 18.0)**: the lobby for the 2×2
+  partnership games groups all four seats by team (**Team A = seats 0 & 2, Team B =
+  1 & 3**), shows empty seats per team, highlights your team, and marks You / Partner —
+  so who's with whom, who's opposite, which seats are free, and what's needed to start
+  are all clear before Start ("Need 4 players for teams" → "Teams ready"). Purely
+  presentational: seat order, the start gate (Deberc still starts at 3 = each-for-self;
+  Tarneeb needs 4), avatars (SeatAvatar), and the rules are unchanged; King/Durak keep
+  the flat member list.
 - **Online bots**: the host can add server-side AI bots to free seats in the
   lobby (and remove them) before start — e.g. **2 humans + 1 bot** play a full
   3-player game. Bots run entirely on the server (no extra socket/client), play

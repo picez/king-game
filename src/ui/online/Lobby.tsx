@@ -39,15 +39,18 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   const enough = players.length >= minPlayers;
   const hasFreeSeat = players.length < maxPlayers;
 
-  // Tarneeb is fixed 2×2 partnerships (even seats vs odd seats). Tint each seat
-  // card's rail by whether they are on the viewer's team — a visual "0/2 vs 1/3"
-  // link. Purely cosmetic: seat assignment/order is unchanged.
-  const isTeamGame = gameType === 'tarneeb';
-  const myParity = myPlayerId ? Number(myPlayerId.split('-')[1]) % 2 : 0;
-  const teamClass = (seatIndex: number | null) =>
-    isTeamGame && seatIndex != null
-      ? ((seatIndex % 2) === myParity ? ' lobby-member--partner' : ' lobby-member--opponent')
-      : '';
+  // Team lobby (Stage 18.0): Deberc + Tarneeb are 2×2 partnership games — Team A =
+  // seats 0 & 2, Team B = seats 1 & 3 (partners sit opposite). We show all four seats
+  // grouped by team (occupied + empty) so players see who's with whom before Start.
+  // Purely presentational — seat assignment/order and the game rules are unchanged.
+  // NOTE: Tarneeb always needs 4 (fixed teams); Deberc can also start with 3 (each for
+  // themselves), so we DON'T force 4 for Deberc — only the labels/readiness adapt.
+  const isTeamGame = gameType === 'tarneeb' || gameType === 'deberc';
+  const strictTeams = gameType === 'tarneeb';           // must be 4 to start
+  const teamsFull = isTeamGame && players.length >= maxPlayers; // 4/4 seated
+  const mySeat = myPlayerId ? Number(myPlayerId.split('-')[1]) : -1;
+  const myTeam = mySeat >= 0 ? mySeat % 2 : -1;          // 0 = Team A, 1 = Team B
+  const seatMember = (s: number) => room.members.find((m) => m.role === 'player' && m.seatIndex === s) ?? null;
 
   function handleKick(clientId: string) {
     // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
@@ -59,6 +62,29 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
     // confirm to avoid a mis-tap. A non-host just frees their seat — leave now.
     if (isHost && typeof window !== 'undefined' && !window.confirm(t('lobby.leaveConfirm'))) return;
     onLeave();
+  }
+
+  // Shared member tags (host / AI / spectator / connection) + the host-only Kick
+  // button — rendered the same way in both the flat list and the team seats.
+  function renderTags(m: RoomSnapshot['members'][number]) {
+    return (
+      <span className="lobby-member__tags">
+        {m.isHost && <span className="tag tag--host">{t('lobby.host')}</span>}
+        {m.type === 'ai' && <span className="tag tag--bot" title={t('lobby.aiPlayer')}>{t('lobby.bot')}</span>}
+        {m.role === 'spectator' && <span className="tag">{t('lobby.spectator')}</span>}
+        {m.type !== 'ai' && (
+          <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>
+            {m.connected ? t('lobby.online') : t('lobby.offline')}
+          </span>
+        )}
+        {isHost && !room.started && m.clientId !== myClientId && (
+          <button type="button" className="btn btn--ghost btn--small lobby-kick"
+            onClick={() => handleKick(m.clientId)}>
+            {t('lobby.kick')}
+          </button>
+        )}
+      </span>
+    );
   }
 
   return (
@@ -91,40 +117,64 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
 
         <div className="field-group">
           <label>{t('lobby.players')}</label>
-          <ul className="lobby-members">
-            {room.members.map((m) => {
-              const isMe = `player-${m.seatIndex}` === myPlayerId;
-              return (
-                <li key={m.clientId} className={`lobby-member${m.type === 'human' && !m.connected ? ' lobby-member--offline' : ''}${teamClass(m.seatIndex)}`}>
-                  <span className="lobby-member__name">
-                    <SeatAvatar emoji={m.avatar} imageUrl={m.avatarImageUrl} />
-                    {m.name}{isMe ? ` ${t('lobby.you')}` : ''}
-                  </span>
-                  <span className="lobby-member__tags">
-                    {m.isHost && <span className="tag tag--host">{t('lobby.host')}</span>}
-                    {m.type === 'ai' && <span className="tag tag--bot" title={t('lobby.aiPlayer')}>{t('lobby.bot')}</span>}
-                    {m.role === 'spectator' && <span className="tag">{t('lobby.spectator')}</span>}
-                    {m.type !== 'ai' && (
-                      <span className={`tag ${m.connected ? 'tag--ok' : 'tag--off'}`}>
-                        {m.connected ? t('lobby.online') : t('lobby.offline')}
-                      </span>
-                    )}
-                    {isHost && !room.started && m.clientId !== myClientId && (
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--small lobby-kick"
-                        onClick={() => handleKick(m.clientId)}
-                      >
-                        {t('lobby.kick')}
-                      </button>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          {room.gameType === 'tarneeb' && (
-            <p className="setup-hint lobby-teams-hint">👥 {t('tarneeb.teamsHint')}</p>
+          {isTeamGame ? (
+            <>
+              <div className="lobby-teams">
+                {([0, 1] as const).map((team) => {
+                  const seats = team === 0 ? [0, 2] : [1, 3];
+                  const isMine = team === myTeam;
+                  return (
+                    <div key={team} className={`lobby-team lobby-team--${team === 0 ? 'a' : 'b'}${isMine ? ' lobby-team--mine' : ''}`}>
+                      <div className="lobby-team__head">
+                        <span className="lobby-team__label">{t(team === 0 ? 'lobby.teamA' : 'lobby.teamB')}</span>
+                        {isMine && <span className="lobby-team__you">{t('lobby.yourTeam')}</span>}
+                      </div>
+                      <ul className="lobby-team__seats">
+                        {seats.map((s) => {
+                          const m = seatMember(s);
+                          if (!m) {
+                            return (
+                              <li key={s} className="lobby-seat lobby-seat--empty">
+                                <span className="lobby-seat__name">🪑 {t('lobby.emptySeat')}</span>
+                              </li>
+                            );
+                          }
+                          const role = s === mySeat ? t('lobby.you')
+                            : (myTeam >= 0 && s % 2 === myTeam) ? t('lobby.partner') : null;
+                          return (
+                            <li key={s} className={`lobby-seat${m.type === 'human' && !m.connected ? ' lobby-seat--offline' : ''}`}>
+                              <span className="lobby-seat__name">
+                                <SeatAvatar emoji={m.avatar} imageUrl={m.avatarImageUrl} />
+                                {m.name}
+                                {role && <span className="lobby-seat__role">{role}</span>}
+                              </span>
+                              {renderTags(m)}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="setup-hint lobby-teams-hint">👥 {t('lobby.partnerHint')}</p>
+              {gameType === 'deberc' && <p className="setup-hint">{t('lobby.debercTeams')}</p>}
+            </>
+          ) : (
+            <ul className="lobby-members">
+              {room.members.map((m) => {
+                const isMe = `player-${m.seatIndex}` === myPlayerId;
+                return (
+                  <li key={m.clientId} className={`lobby-member${m.type === 'human' && !m.connected ? ' lobby-member--offline' : ''}`}>
+                    <span className="lobby-member__name">
+                      <SeatAvatar emoji={m.avatar} imageUrl={m.avatarImageUrl} />
+                      {m.name}{isMe ? ` ${t('lobby.you')}` : ''}
+                    </span>
+                    {renderTags(m)}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
@@ -154,7 +204,11 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
 
         {isHost ? (
           <button className="btn btn--primary btn--large" disabled={!enough} onClick={onStart}>
-            {enough ? t('btn.start') : `${t('wait.waitingFor')} ${minPlayers - players.length} ${t('lobby.waitingMore')}`}
+            {teamsFull ? t('lobby.teamsReady')
+              : !enough ? (strictTeams
+                ? t('lobby.needTeams')
+                : `${t('wait.waitingFor')} ${minPlayers - players.length} ${t('lobby.waitingMore')}`)
+                : t('btn.start')}
           </button>
         ) : (
           <p className="setup-hint">{t('lobby.waitingHost')}</p>

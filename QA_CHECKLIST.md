@@ -75,6 +75,28 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Opponents' cards never visible (card backs / counts only).
 - [ ] Trick / round screens advance automatically (no dead buttons online).
 
+## Manual — Team lobby (Deberc / Tarneeb, Stage 18.0)
+
+> Deberc + Tarneeb are 2×2 partnership games (**Team A = seats 0 & 2, Team B = seats
+> 1 & 3** — partners sit opposite). The lobby groups all four seats by team, shows
+> empty seats per team, and marks You / Partner. Purely presentational — seat order,
+> the start gate, and the game rules are unchanged. King/Durak keep the flat list.
+
+- [ ] **Tarneeb, 1 human + 3 empty:** Team A shows You (host) + an Empty seat; Team B
+      shows two Empty seats; your team is highlighted; Start reads **"Need 4 players
+      for teams"** and is disabled (360/390, no overflow).
+- [ ] **Add bots → 4/4:** seats fill in order; the AI badge shows on bots; your
+      **Partner** is marked (opposite seat); Start reads **"Teams ready"** and is enabled.
+- [ ] **Deberc, 3 players:** teams still render, plus the note "*teams of 2 at 4 players;
+      3 = each for themselves*"; Start is **enabled at 3** (Deberc's each-for-self is a
+      valid game — not forced to 4). At 4/4 it reads "Teams ready".
+- [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
+      others show the emoji.
+- [ ] **King / Durak regression:** the lobby still shows the plain flat member list —
+      no team labels/rails; Start/add-bot/kick/timer unchanged.
+- [ ] **RTL (Arabic):** team blocks + rails mirror to the leading (right) edge; no
+      horizontal overflow; seat/team order is unchanged (only text direction flips).
+
 ## Manual — room social (reactions + chat, Stage 7)
 
 - [ ] In a room (lobby or game), tap **😀** → the reaction row opens; tapping an

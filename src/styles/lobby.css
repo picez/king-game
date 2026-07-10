@@ -48,9 +48,54 @@
   box-shadow: var(--top-light), 0 1px 3px rgba(0, 0, 0, 0.22);
 }
 .lobby-member--offline { border-inline-start-color: var(--text-dim); }
-/* Tarneeb 2×2 team link on the seat rail (offline still wins the dim rail). */
-.lobby-member--partner:not(.lobby-member--offline)  { border-inline-start-color: var(--accent); }
-.lobby-member--opponent:not(.lobby-member--offline) { border-inline-start-color: rgba(240, 170, 120, 0.7); }
+
+/* ===== Team lobby (Stage 18.0) — Deberc / Tarneeb 2×2 partnerships ===== */
+/* Two team blocks (A = seats 0&2, B = seats 1&3), each with a subtle team-coloured
+   leading rail; the viewer's team gets a soft ring. Compact + mobile-first. */
+.lobby-teams { display: flex; flex-direction: column; gap: 0.5rem; }
+.lobby-team {
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.55rem;
+  background: var(--surface);
+  box-shadow: var(--top-light);
+}
+.lobby-team--a { border-inline-start-color: var(--accent); }
+.lobby-team--b { border-inline-start-color: rgba(240, 170, 120, 0.85); }
+.lobby-team--mine { box-shadow: var(--top-light), inset 0 0 0 1px var(--accent-dark); }
+.lobby-team__head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
+.lobby-team__label {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.lobby-team--a .lobby-team__label { color: var(--accent); }
+.lobby-team--b .lobby-team__label { color: #e0a879; }
+.lobby-team__you {
+  font-size: 0.62rem; font-weight: 700; color: #1c1400; background: var(--gold-grad);
+  padding: 0.06rem 0.4rem; border-radius: 999px; box-shadow: var(--top-light);
+}
+.lobby-team__seats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.lobby-seat {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+  padding: 0.4rem 0.5rem; min-width: 0;
+  background: var(--surface-2); border-radius: 8px; box-shadow: var(--top-light);
+}
+.lobby-seat--offline { opacity: 0.66; }
+.lobby-seat--empty {
+  background: transparent; border: 1px dashed var(--border); box-shadow: none;
+  color: var(--text-muted); font-style: italic;
+}
+.lobby-seat__name {
+  font-weight: 700; display: flex; align-items: center; gap: 0.35rem; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lobby-seat__name .member-avatar { font-size: 1.25rem; }
+.lobby-seat__role {
+  font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--accent); background: var(--surface-3); padding: 0.05rem 0.35rem; border-radius: 999px;
+  flex: 0 0 auto;
+}
 
 .lobby-member__name { font-weight: 700; display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .lobby-member__name .member-avatar { font-size: 1.3rem; }

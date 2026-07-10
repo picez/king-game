@@ -134,10 +134,10 @@ describe('room browser auto-refresh + stale UX (Stage 11.4)', () => {
 
 describe('Lobby shows the game + start-disabled reason (Stage 11.2)', () => {
   const src = read('../online/Lobby.tsx');
-  it('labels the room game and a Tarneeb partnership hint', () => {
+  it('labels the room game and a team partnership hint (Stage 18.0)', () => {
     expect(src).toContain("room.gameType === 'tarneeb'");
     expect(src).toContain('lobby-teams-hint');
-    expect(src).toContain("t('tarneeb.teamsHint')");
+    expect(src).toContain("t('lobby.partnerHint')");        // team layout hint (was tarneeb.teamsHint)
   });
   it('the Start button reports how many more players are needed', () => {
     expect(src).toContain('minPlayers - players.length');

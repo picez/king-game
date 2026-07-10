@@ -19,24 +19,35 @@ describe('Lobby — behaviour preserved through the polish', () => {
     expect(lb).toContain('onSetTimer');
     expect(lb).toContain('handleKick');                       // kick still wired
   });
-  it('keeps the Tarneeb partnership hint', () => {
+  it('keeps the team partnership hint (Stage 18.0 — game-neutral)', () => {
     expect(lb).toContain('lobby-teams-hint');
-    expect(lb).toContain("t('tarneeb.teamsHint')");
+    expect(lb).toContain("t('lobby.partnerHint')");
   });
 });
 
-describe('Lobby — Tarneeb team-rail polish (cosmetic, seat order unchanged)', () => {
+describe('Lobby — team layout (Stage 18.0, cosmetic, seat order unchanged)', () => {
   const lb = read('src/ui/online/Lobby.tsx');
-  it('tints partner vs opponent seats for Tarneeb by seat parity', () => {
-    expect(lb).toContain("gameType === 'tarneeb'");
-    expect(lb).toContain('lobby-member--partner');
-    expect(lb).toContain('lobby-member--opponent');
-    expect(lb).toMatch(/seatIndex % 2/);                      // parity, not reordering
+  it('groups Deberc + Tarneeb seats into Team A (0,2) / Team B (1,3) by seat parity', () => {
+    expect(lb).toContain("gameType === 'tarneeb' || gameType === 'deberc'"); // both team games
+    expect(lb).toContain('lobby-team--mine');                // viewer's team block
+    expect(lb).toContain("'lobby.teamA'");
+    expect(lb).toContain("'lobby.teamB'");
+    expect(lb).toMatch(/\[0, 2\]/);                          // Team A seats
+    expect(lb).toMatch(/\[1, 3\]/);                          // Team B seats
+    expect(lb).toContain('s % 2 === myTeam');                // parity link, not reordering
   });
-  it('the team rails are defined in CSS and yield to the offline rail', () => {
+  it('shows empty seats + you/partner markers, and the team CSS exists', () => {
+    expect(lb).toContain("t('lobby.emptySeat')");
+    expect(lb).toContain("t('lobby.partner')");
     const css = read('src/styles/lobby.css');
-    expect(css).toContain('.lobby-member--partner:not(.lobby-member--offline)');
-    expect(css).toContain('.lobby-member--opponent:not(.lobby-member--offline)');
+    expect(css).toContain('.lobby-team--a');
+    expect(css).toContain('.lobby-team--b');
+    expect(css).toContain('.lobby-seat--empty');
+  });
+  it('adapts start readiness for teams without changing the gate', () => {
+    expect(lb).toContain("t('lobby.needTeams')");            // Tarneeb waiting label
+    expect(lb).toContain("t('lobby.teamsReady')");           // 4/4 label
+    expect(lb).toContain("strictTeams = gameType === 'tarneeb'"); // Deberc keeps min=3
   });
 });
 
