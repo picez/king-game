@@ -11,6 +11,12 @@ at the end of this file.
 > serves both the client and the WebSocket on one HTTPS domain, no proxy to
 > configure. See **`RENDER_DEPLOY.md`** (+ `render.yaml`). The VPS path below is
 > for self-hosting with Caddy/nginx.
+>
+> **Docker (optional):** the repo ships a root **`Dockerfile`** (+ `.dockerignore`)
+> that adds **ffmpeg** so server avatar upload works in production. It runs the same
+> build + `npm run server:prod`; switch the Render service Runtime to **Docker** to
+> use it (the default stays native `runtime: node`, where uploads return `503`). See
+> **`RENDER_DEPLOY.md → "Uploaded avatars"`**.
 
 ## 1. What runs where
 

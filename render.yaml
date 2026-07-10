@@ -8,6 +8,11 @@
 services:
   - type: web
     name: king
+    # Native Node runtime (default). This has NO ffmpeg, so server avatar upload
+    # returns a clean 503 — everything else works. To enable uploads, the repo ships
+    # a root Dockerfile with ffmpeg: switch the service Runtime to Docker in the
+    # dashboard (or set `runtime: docker` here) + add DATABASE_URL + run migrations.
+    # See RENDER_DEPLOY.md → "Uploaded avatars". Left on `node` deliberately.
     runtime: node
     plan: free                      # free tier sleeps when idle; upgrade for always-on + disks
     # region: oregon                # optional

@@ -246,28 +246,38 @@ switch the service to Docker unless you intend to**.
 
 2. **ffmpeg (the runtime binary).** The native `runtime: node` service can't `apt
    install`, so choose one:
-   - **Recommended — Docker runtime (owner opt-in).** Switch the Web Service to a
-     Dockerfile that installs ffmpeg. This repo does **not** ship a Dockerfile (the
-     default is the native runtime); add one only if you commit to Docker deploys.
-     A minimal image:
+   - **Recommended — Docker runtime (owner opt-in).** This repo now **ships a
+     `Dockerfile`** (+ `.dockerignore`) that installs ffmpeg, runs `npm ci`, builds
+     the client, and starts the SAME `npm run server:prod` command as the native
+     path (Node 22 / npm 10; no secrets baked in). Switching runtimes does not change
+     app behaviour — it only adds ffmpeg. Step by step on Render:
 
-     ```dockerfile
-     FROM node:22-bookworm-slim
-     RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-       && rm -rf /var/lib/apt/lists/*
-     WORKDIR /app
-     COPY package*.json ./
-     RUN npm ci
-     COPY . .
-     RUN npm run build
-     ENV NODE_ENV=production
-     CMD ["npm", "run", "server:prod"]
+     1. **Web Service → Settings → Runtime → Docker** (Render auto-detects the root
+        `Dockerfile`). In a Blueprint you would set `runtime: docker` instead of
+        `runtime: node` — but `render.yaml` is intentionally left on `runtime: node`
+        so the native path stays the default; flip it in the dashboard when you want
+        uploads.
+     2. Keep the env vars from the native service (`NODE_ENV`, `HOST=0.0.0.0`,
+        `ALLOWED_ORIGINS`, `ROOM_TTL_HOURS`, …). **Do NOT** set `PORT` — Render injects
+        it and the server binds `process.env.PORT`. Add `DATABASE_URL` (step 1) for
+        uploads, and optionally `AVATAR_FFMPEG_TIMEOUT_MS`.
+     3. **Migrations:** run once against the Postgres URL — either a Render **one-off
+        job** / the service **Shell** (`npm run db:migrate`) or a pre-deploy step. It
+        is idempotent, so re-running on later deploys is safe.
+     4. **Deploy** and confirm the boot log shows `avatar uploads: ffmpeg found` (and
+        `ffmpeg -version` works in the Shell).
+
+     Build/verify the image locally the same way Render does:
+
+     ```bash
+     docker build -t card-majlis:test .
+     docker run --rm -p 3005:3001 -e PORT=3001 card-majlis:test
+     # → boot log includes: [King] avatar uploads: ffmpeg found …
+     curl -s http://localhost:3005/health           # → ok
      ```
-
-     Then in Render set the service **Runtime = Docker** (or `runtime: docker` in a
-     Blueprint) and redeploy. Verify the boot log shows "ffmpeg found".
    - **Alternative — `FFMPEG_PATH`.** If your host already has an ffmpeg binary
-     somewhere, set the env var `FFMPEG_PATH=/path/to/ffmpeg` (read at runtime).
+     somewhere, set the env var `FFMPEG_PATH=/path/to/ffmpeg` (read at runtime) — no
+     Docker needed.
    - **Do nothing** — leave the native runtime; uploads stay a clean `503` and the
      app is fully usable with emoji avatars.
 

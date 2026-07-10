@@ -424,7 +424,10 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
   The production-readiness conclusion + the exact enable/verify checklist (Docker
   runtime with ffmpeg, migration `0008`, `bytea` storage sizing) live in
   **RENDER_DEPLOY.md → "Uploaded avatars — production readiness"**. Enabling it (Docker
-  or `FFMPEG_PATH`) is an explicit owner decision; the repo ships no Dockerfile.
+  or `FFMPEG_PATH`) is an explicit owner decision. **Stage 20.1: the repo now ships a
+  root `Dockerfile` (+ `.dockerignore`)** that installs ffmpeg and runs the same
+  build/start — switch the Render Runtime to Docker to turn uploads on (the default
+  `render.yaml` stays native `runtime: node`).
 - **No idle/slowloris timeout on the request body read** (shared by the whole API, not
   avatar-specific). Per-IP / connection-rate limiting remains an infra/proxy concern
   (already noted in MVP_STATUS "known limitations").

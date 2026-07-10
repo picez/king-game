@@ -1,0 +1,18 @@
+# Keep the build context small + reproducible. node_modules is reinstalled with
+# `npm ci` inside the image; dist/ is rebuilt with `npm run build`. NEVER copy env
+# files or local data/screenshots into the image. (Do NOT exclude source, public/,
+# scripts/, or the config/lockfiles — the build needs them.)
+node_modules
+dist
+.git
+.github
+.env
+.env.*
+.data
+.data-*
+.shots
+coverage
+*.log
+.DS_Store
+.vscode
+.idea

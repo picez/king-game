@@ -79,8 +79,9 @@ URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) 
 
 - **Render (hosted, simplest):** one Web Service, `runtime: node` — client + WS + API on
   one domain. **Caveat:** the native runtime has **no ffmpeg**, so avatar upload returns a
-  clean `503` (everything else works); enable it via a Docker runtime with ffmpeg or
-  `FFMPEG_PATH`. Postgres is optional. Guide: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md).
+  clean `503` (everything else works); enable it by switching the Render Runtime to
+  **Docker** (the repo ships a `Dockerfile` with ffmpeg) or by setting `FFMPEG_PATH`.
+  Postgres is optional. Guide: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md).
 - **VPS (HTTPS/WSS):** Caddy/nginx + systemd/pm2 — [`DEPLOYMENT.md`](DEPLOYMENT.md).
 - **CI toolchain:** **Node 22 / npm 10**, install with `npm ci`; the committed
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
@@ -90,8 +91,9 @@ URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) 
 - **Single Node instance** — horizontal scaling needs Redis/pub-sub or sticky sessions.
 - **Ephemeral rooms** on the free tier unless `ROOM_STORAGE=pg` (Postgres); **ephemeral
   social** (chat/reactions lost on restart).
-- **Avatar upload needs ffmpeg** at runtime (native Render has none → `503`); no content
-  moderation console yet; no idle/slowloris timeout on body reads (infra concern).
+- **Avatar upload needs ffmpeg** at runtime (native Render has none → `503`; use the
+  shipped Docker runtime to enable it); no content moderation console yet; no
+  idle/slowloris timeout on body reads (infra concern).
 - Public screens advance on a server timer (no manual skip online).
 
 ## Useful scripts
