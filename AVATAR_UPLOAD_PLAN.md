@@ -341,11 +341,29 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
 ## 10. Rollout stages
 
 - **17.0 — this plan (docs-only).** No code.
-- **17.1 — server storage + processing + API, behind tests.** `avatarStore` driver
-  (Postgres `bytea` default), image pipeline + magic-byte validation, `0008` additive
-  migration, `POST`/`DELETE /api/me/avatar` + `GET /api/avatar/...`, `/api/me`
-  extension, rate limiting, safe serving headers. **No UI yet**; validated by unit +
-  API tests. Feature is inert to users until 17.2.
+- **17.1 — server storage + processing + API, behind tests. ✅ DONE.** Shipped:
+  additive idempotent migration `0008_avatar_upload.sql` (`user_avatars` blob table,
+  one row per user + denormalised `user_settings.avatar_image_version`); repository
+  `server/db/userAvatars.ts` (raw `bytea` via postgres.js: upsert/get/serve-by-id/
+  delete, version bump on replace, settings mirror); pure `src/net/avatarImage.ts`
+  (magic-byte detection, WebP-dimension reader, single-file multipart parser,
+  same-origin URL builder, UUID-only path parser = traversal-safe); `POST`/`DELETE
+  /api/me/avatar` (signed-in only, guests 403, Origin-checked, in-memory rate limit
+  → 429, 2 MB cap) + public `GET /api/avatar/<id>.webp` (`nosniff` + immutable cache,
+  404→emoji); `/api/me` gains `avatarImageUrl` (distinct from the OAuth `avatarUrl`).
+  **No UI wiring, no WS/room-payload change** — the feature is inert to users until 17.2.
+
+  **Image-processing dependency decision:** processing uses **ffmpeg via
+  `child_process`** (fixed `pipe:0`→`pipe:1` argv, no shell/path), NOT a new npm
+  dependency. Rationale: this repo already invokes ffmpeg in its asset scripts, and
+  its CI `npm ci` is sensitive to native-module lockfile churn (the documented `libc`
+  problem) — adding `sharp` would risk breaking CI, so we reused the ffmpeg binary
+  that dev + the GitHub ubuntu runner already provide. **Runtime caveat:** on a host
+  without ffmpeg (e.g. a bare Render instance), `POST /api/me/avatar` returns `503`
+  and the feature simply stays off — zero impact on gameplay or the rest of the API.
+  A future swap to a bundled/WASM processor (or a vetted `sharp`) can replace the
+  processor behind the same API. Validated: `npm run verify` green; unit + ffmpeg
+  processing tests pass; the DB round-trip test is CI-gated (Postgres).
 - **17.2 — Profile UI upload / remove.** "Synced avatar" controls, signed-in gating +
   guest hint, progress/error states, `MyAvatar` precedence. Local-only 14.1 path
   stays intact.

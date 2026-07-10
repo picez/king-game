@@ -246,7 +246,17 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   disk), served same-origin from `/api/avatar/<id>.webp?v=<version>` with
   magic-byte validation, no SVG/GIF, no remote URLs, and **no base64 on the socket**.
   Rollout 17.1 (server+API) → 17.2 (Profile UI) → 17.3 (seats) → 17.4 (QA/security).
-  **No upload/API/DB code exists yet.**
+  **Stage 17.1 backend is now IMPLEMENTED but HIDDEN (no UI wiring).** Additive
+  migration `0008_avatar_upload.sql` adds a `user_avatars` blob table (+
+  `user_settings.avatar_image_version`); the API exposes `POST`/`DELETE
+  /api/me/avatar` (signed-in only, guests 403, Origin-checked, rate-limited, 2 MB
+  cap) and public `GET /api/avatar/<id>.webp` (`nosniff` + immutable cache); `/api/me`
+  gains `avatarImageUrl` (a same-origin URL, distinct from the OAuth `avatarUrl`).
+  Image processing decodes/crops/resizes/re-encodes to a 192×192 WebP (metadata
+  stripped) **via ffmpeg** — no new npm dependency (avoids the CI `libc` lockfile
+  risk); on a host without ffmpeg the upload cleanly returns `503`. **No Profile UI,
+  no lobby/game-seat avatar, and no WS/room-payload change yet** — invisible to users
+  until Stage 17.2 wires the UI.
 
 ## Recommended next steps (after manual LAN/mobile QA)
 

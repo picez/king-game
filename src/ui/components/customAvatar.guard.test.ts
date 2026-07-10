@@ -16,12 +16,22 @@ describe('custom avatar stays OFF the wire + out of the server profile', () => {
     expect(/base64/i.test(m)).toBe(false);
   });
 
-  it('the profile API + settings schema are NOT extended for a custom image', () => {
+  it('no image DATA (local custom avatar) reaches the profile API or settings schema', () => {
+    // Stage 17.1 adds a SERVER-synced avatar as a same-origin URL (`avatarImageUrl`)
+    // in the profile API — that is a URL, NOT image bytes. The invariant that still
+    // holds: neither the API nor the settings sanitize path ever carries the LOCAL
+    // custom-avatar data URL / base64, and userSettings gains no avatar-image field.
     const api = read('src/net/profileApi.ts');
     const settings = read('src/net/userSettings.ts');
     for (const src of [api, settings]) {
-      expect(/customAvatar|avatarImage|data:image/i.test(src)).toBe(false);
+      expect(/customAvatar|data:image|base64/i.test(src)).toBe(false);
     }
+    // The global settings model/sanitizer stays free of ANY avatar-image field
+    // (the uploaded-avatar version lives only in the avatar repo, not settings).
+    expect(/avatarImage/i.test(settings)).toBe(false);
+    // The profile API may expose the same-origin URL, but only as a URL string.
+    expect(api).toContain('avatarImageUrl');
+    expect(/data:image|base64/i.test(api)).toBe(false);
   });
 
   it('the store is local + never imports the WS protocol or the network', () => {

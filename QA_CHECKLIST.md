@@ -257,23 +257,35 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       + the lobby + other players show your **emoji**, never the image. Confirm no
       `data:image`/base64 is sent (the WS payload only carries the emoji avatar id).
 
-## Manual — Server avatar upload (PLANNED, Stage 17.x — placeholder)
+## Manual — Server avatar upload
 
-> **Not implemented yet.** Design in [`AVATAR_UPLOAD_PLAN.md`](AVATAR_UPLOAD_PLAN.md)
-> (Stage 17.0, docs-only). These checks activate when the upload ships (17.1–17.3);
-> until then there is nothing to test beyond the local-only avatar above.
+> **Stage 17.1 BACKEND is implemented but HIDDEN (no UI wiring).** Design in
+> [`AVATAR_UPLOAD_PLAN.md`](AVATAR_UPLOAD_PLAN.md). The API endpoints exist; the UI
+> checks below activate in Stage 17.2–17.3. Automated coverage: `avatarImage.test.ts`
+> (magic bytes / multipart / WebP dims / traversal-safe id), `avatarProcess.test.ts`
+> (ffmpeg-gated decode→192×192 WebP + svg/gif/oversize rejection), `avatarApi.test.ts`
+> (routing + no-DB 503/404 + privacy guards), `avatarUpload.integration.test.ts`
+> (DB-gated repo round-trip). The processing tests need **ffmpeg** on PATH; the
+> integration test needs **TEST_DATABASE_URL** (both present in CI).
 
-- [ ] **Signed-in upload:** Profile → **Synced avatar** → upload a PNG/JPEG/WebP →
-      preview + AccountBar update; the served thumbnail is `image/webp` with `nosniff`.
-- [ ] **Reject bad input:** SVG / GIF / >2 MB / a file whose **magic bytes** don't
-      match its type → clear error, avatar unchanged.
-- [ ] **Remove:** removing the synced avatar reverts everywhere to the emoji;
-      replacing cleans up the old image (no orphan; the URL version changes).
-- [ ] **Guest gating:** a guest sees a **sign-in hint**, not the upload control.
-- [ ] **Online seats:** other players see the uploaded thumbnail (same-origin URL),
-      and a forced 404 **falls back to the emoji** (no broken image).
-- [ ] **Privacy:** confirm **no base64 / image bytes** ride the WebSocket — the room
-      payload carries at most a short same-origin URL.
+### Backend API (17.1 — curl against a DB-enabled server)
+- [ ] **Auth required:** `POST /api/me/avatar` and `DELETE /api/me/avatar` without a
+      session cookie → `401`; with no `DATABASE_URL` → `503 db_disabled`.
+- [ ] **Upload:** `POST` multipart `file=@small.png` (signed-in, allowed Origin) →
+      `200 { avatarImageUrl: "/api/avatar/<uuid>.webp?v=1" }`; `GET` that URL serves
+      `image/webp` with `X-Content-Type-Options: nosniff` + immutable cache.
+- [ ] **Reject:** an SVG / GIF / >2 MB image / bad-magic-byte file → `400`/`413`, no row.
+- [ ] **Replace + delete:** re-`POST` bumps `?v=2`; `DELETE` → `200 { avatarImageUrl:
+      null }` and the `GET` URL then 404s.
+- [ ] **Guest forbidden:** a guest session `POST` → `403 guest_forbidden`.
+- [ ] **Traversal-safe:** `GET /api/avatar/../../etc/passwd.webp` → not served (404).
+
+### UI (activates in Stage 17.2–17.3)
+- [ ] **Signed-in upload:** Profile → **Synced avatar** → upload → preview + AccountBar
+      update (360/390, no overflow, RTL ok).
+- [ ] **Remove / guest gating:** remove reverts to emoji; a guest sees a **sign-in hint**.
+- [ ] **Online seats:** other players see the thumbnail; a forced 404 **falls back to
+      the emoji**. Confirm **no base64 / image bytes** ride the WebSocket.
 
 ## Manual — PWA / mobile
 

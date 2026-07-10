@@ -42,6 +42,12 @@ export interface MeResponse {
   email?: string | null;
   /** Provider picture URL (informational; not the game avatar). */
   avatarUrl?: string | null;
+  /**
+   * Uploaded custom avatar (Stage 17.1): a same-origin, versioned URL
+   * (`/api/avatar/<id>.webp?v=<n>`), or null. DISTINCT from `avatarUrl` (the OAuth
+   * provider picture). Not consumed by any UI yet — the backend is hidden this stage.
+   */
+  avatarImageUrl?: string | null;
 }
 
 /**

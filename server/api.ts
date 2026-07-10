@@ -30,6 +30,10 @@ import {
 import { sanitizeGameSettings } from '../src/net/userSettings';
 import { publicGameCatalog } from '../src/games/catalog';
 import {
+  MAX_AVATAR_UPLOAD_BYTES, multipartBoundary, parseSingleFileMultipart,
+  avatarImageUrlPath, avatarPublicIdFromPath,
+} from '../src/net/avatarImage';
+import {
   googleConfig, buildAuthUrl, exchangeCode, decodeIdToken, validateIdClaims, isLinkableIdentity,
 } from './googleOAuth';
 import {
@@ -100,6 +104,37 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
   });
 }
 
+/**
+ * Reads the raw request body up to `maxBytes` (for the multipart avatar upload —
+ * the 16 KB JSON cap does NOT apply here). Aborts early past the cap, returning
+ * null; returns the concatenated Buffer otherwise.
+ */
+async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Buffer | null> {
+  return new Promise((resolve) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    let aborted = false;
+    req.on('data', (c: Buffer) => {
+      if (aborted) return;
+      size += c.length;
+      if (size > maxBytes) { aborted = true; resolve(null); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => { if (!aborted) resolve(Buffer.concat(chunks)); });
+    req.on('error', () => resolve(null));
+  });
+}
+
+/** Sends binary (an image) with explicit safe headers. */
+function sendBinary(res: ServerResponse, status: number, body: Buffer, contentType: string, headers: Record<string, string> = {}): void {
+  res.writeHead(status, {
+    'content-type': contentType,
+    'x-content-type-options': 'nosniff',
+    ...headers,
+  });
+  res.end(body);
+}
+
 // ── session helpers ─────────────────────────────────────────────────────────
 
 function cookieSecure(): boolean {
@@ -156,14 +191,88 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
   // provider_account_id, tokens, or session id.
   const { getAccountForUser } = await import('./db/authAccounts');
   const account = await getAccountForUser(userId);
+  // Uploaded custom avatar (Stage 17.1), if any — a SAME-ORIGIN, versioned URL.
+  // Distinct from `avatarUrl` (the OAuth provider picture) — never conflated.
+  const { getAvatarForUser } = await import('./db/userAvatars');
+  const uploaded = await getAvatarForUser(userId);
   json(res, 200, {
     authenticated: true,
     user: { ...publicUser(profile), avatar: profile.settings.avatar },
     provider: account?.provider ?? null,
     email: account?.email ?? null,
     avatarUrl: account?.picture ?? null,
+    avatarImageUrl: uploaded ? avatarImageUrlPath(uploaded.id, uploaded.version) : null,
     settings: profile.settings,
   }, corsHeaders(req));
+}
+
+// ── avatar upload / delete / serve (Stage 17.1; hidden backend, no UI wiring) ──
+
+/** Maps a processing failure to an HTTP status + error code. */
+const AVATAR_ERR_STATUS: Record<string, number> = {
+  unsupported_type: 400, invalid_image: 400, too_large: 413, unavailable: 503,
+};
+
+async function handlePostAvatar(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  // Guests may not upload (local-only avatar remains theirs). Signed-in only.
+  const { getProfile } = await import('./db/users');
+  const profile = await getProfile(userId);
+  if (!profile || profile.isGuest) {
+    return json(res, 403, { error: 'guest_forbidden', message: 'Sign in to sync a custom avatar.' }, corsHeaders(req));
+  }
+  const { allowAvatarUpload } = await import('./avatarRateLimit');
+  if (!allowAvatarUpload(userId)) {
+    return json(res, 429, { error: 'rate_limited', message: 'Too many uploads. Try again later.' }, corsHeaders(req));
+  }
+  const boundary = multipartBoundary(req.headers['content-type']);
+  if (!boundary) {
+    return json(res, 415, { error: 'expected_multipart', message: 'Send multipart/form-data with a single image file.' }, corsHeaders(req));
+  }
+  const body = await readRawBody(req, MAX_AVATAR_UPLOAD_BYTES + 4096); // + small multipart overhead
+  if (!body) {
+    return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
+  }
+  const file = parseSingleFileMultipart(body, boundary);
+  if (!file || file.bytes.length === 0) {
+    return json(res, 400, { error: 'no_file', message: 'No image file found in the request.' }, corsHeaders(req));
+  }
+  if (file.bytes.length > MAX_AVATAR_UPLOAD_BYTES) {
+    return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
+  }
+  const { processAvatarToWebp } = await import('./avatarProcess');
+  const processed = await processAvatarToWebp(Buffer.from(file.bytes));
+  if (!processed.ok) {
+    const status = AVATAR_ERR_STATUS[processed.reason] ?? 400;
+    return json(res, status, { error: processed.reason }, corsHeaders(req));
+  }
+  const { upsertAvatar } = await import('./db/userAvatars');
+  const ref = await upsertAvatar(userId, {
+    mimeType: processed.mimeType, bytes: processed.bytes, byteSize: processed.byteSize,
+    width: processed.width, height: processed.height,
+  });
+  json(res, 200, { avatarImageUrl: avatarImageUrlPath(ref.id, ref.version) }, corsHeaders(req));
+}
+
+async function handleDeleteAvatar(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { deleteAvatar } = await import('./db/userAvatars');
+  await deleteAvatar(userId);
+  json(res, 200, { avatarImageUrl: null }, corsHeaders(req));
+}
+
+/**
+ * Public GET /api/avatar/<id>.webp — serves the processed bytes with safe, immutable
+ * (version-stamped URL) caching. No session, no cookies echoed. A missing id / row →
+ * a plain 404 so clients fall back to the emoji. Never JSON here.
+ */
+async function handleServeAvatar(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+  if (!isDbEnabled()) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('Not found'); return; }
+  const { getAvatarByPublicId } = await import('./db/userAvatars');
+  const stored = await getAvatarByPublicId(id);
+  if (!stored) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('Not found'); return; }
+  sendBinary(res, 200, stored.bytes, stored.mimeType, {
+    'cache-control': 'public, max-age=31536000, immutable',
+    'content-disposition': 'inline',
+  });
 }
 
 /** Whitelist the user fields exposed to the client (no email/status/timestamps). */
@@ -453,7 +562,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       ...corsHeaders(req),
-      'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
       'access-control-allow-headers': 'content-type',
       'access-control-max-age': '600',
     });
@@ -482,6 +591,18 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   // Only public fields (catalog mapper omits anything internal like rulesDoc).
   if (path === '/api/games' && method === 'GET') {
     return json(res, 200, { games: publicGameCatalog() }, corsHeaders(req));
+  }
+
+  // Public avatar image (Stage 17.1). A same-origin, versioned, cacheable read that
+  // must serve even mid-gate; with no DB there is simply nothing to serve (404). The
+  // id is a strict UUID (avatarPublicIdFromPath) so no path traversal is possible.
+  if (method === 'GET') {
+    const avatarId = avatarPublicIdFromPath(path);
+    if (avatarId) {
+      return handleServeAvatar(req, res, avatarId).catch(() => {
+        if (!res.headersSent) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('Not found'); }
+      });
+    }
   }
 
   // No database → the whole API is gracefully disabled (gameplay unaffected).
@@ -516,6 +637,12 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     if (path === '/api/profile' && method === 'PATCH') {
       const u = await requireUser(); if (!u) return; return await handlePatchProfile(req, res, u);
+    }
+    if (path === '/api/me/avatar' && method === 'POST') {
+      const u = await requireUser(); if (!u) return; return await handlePostAvatar(req, res, u);
+    }
+    if (path === '/api/me/avatar' && method === 'DELETE') {
+      const u = await requireUser(); if (!u) return; return await handleDeleteAvatar(req, res, u);
     }
     if (path === '/api/settings' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetSettings(req, res, u);

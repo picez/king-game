@@ -11,8 +11,11 @@
 // imported and the server runs on file/memory storage exactly as before.
 // ---------------------------------------------------------------------------
 
-import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey, unique } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey, unique, customType } from 'drizzle-orm/pg-core';
 import type { PersistedRoom } from '../../src/net/serverCore';
+
+/** Postgres `bytea` column (Node Buffer <-> bytea), for the processed avatar blob. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType() { return 'bytea'; } });
 
 export const rooms = pgTable('rooms', {
   /** 4-char room code (matches the in-memory/file key). */
@@ -75,8 +78,40 @@ export const userSettings = pgTable('user_settings', {
   favoriteGame: text('favorite_game').notNull().default('king'),
   /** Card face theme (Stage 13.5): classic|clean. Purely visual. */
   cardFaceTheme: text('card_face_theme').notNull().default('classic'),
+  /**
+   * Uploaded-avatar fast-flag (Stage 17.1): 0 = none, else the current version.
+   * Denormalised mirror of user_avatars.version; the blob lives in user_avatars.
+   * Managed only by the avatar repository — NOT part of the settings sanitize path.
+   */
+  avatarImageVersion: integer('avatar_image_version').notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Stage 17.1 — server-synced custom avatar (HIDDEN backend; no UI/WS wiring).
+//
+// Stores ONLY the server-PROCESSED WebP (192x192, metadata stripped) — never the
+// raw upload, never a filename, never a remote URL. `id` is the OPAQUE public id
+// used in /api/avatar/<id>.webp (not the userId). One row per user (unique user_id);
+// a replace overwrites the row and bumps `version` so the served URL cache-busts.
+// Emoji avatar (user_settings.avatar) stays the fallback + the WS-room identity.
+// See AVATAR_UPLOAD_PLAN.md.
+// ---------------------------------------------------------------------------
+
+export const userAvatars = pgTable('user_avatars', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  mimeType: text('mime_type').notNull(),
+  bytes: bytea('bytes').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  width: integer('width').notNull(),
+  height: integer('height').notNull(),
+  version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type UserAvatarsTable = typeof userAvatars;
 
 export const userGameSettings = pgTable('user_game_settings', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
