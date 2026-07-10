@@ -35,6 +35,15 @@ recording its own per-`game_type` stats + leaderboard):**
 - **Online (server-authoritative)**: Node `ws` server owns the GameState, runs
   the reducer, redacts hands per client. Lobby with room code, host start,
   per-turn screens, read-only waiting view.
+- **Room invite link / share (Stage 18.1)**: the lobby has an **Invite** row under the
+  room code — **Copy code**, **Copy link**, and **Share** (shown only when
+  `navigator.share` exists). The invite link is `<origin>/?room=<CODE>` — the browser
+  origin + the **room code only** (already the public join secret): **no session/token/
+  userId**, and never the ws/custom-server URL. Opening such a link **prefills the Join
+  sheet** with the code (the user still presses Join — no auto-join, so an active game is
+  never disrupted) and clears the `?room` param. Copy uses the Clipboard API with a
+  selectable-text fallback; a cancelled Share is silent. Pure helpers
+  (`src/net/invite.ts`) are unit-tested; no server/protocol/DB change.
 - **Team lobby clarity (Deberc / Tarneeb, Stage 18.0)**: the lobby for the 2×2
   partnership games groups all four seats by team (**Team A = seats 0 & 2, Team B =
   1 & 3**), shows empty seats per team, highlights your team, and marks You / Partner —

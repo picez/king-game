@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { RoomSnapshot } from '../../net/messages';
 import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
+import { buildInviteLink } from '../../net/invite';
 import GameIcon from '../components/GameIcon';
 import SeatAvatar from '../components/SeatAvatar';
 
@@ -52,6 +54,36 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   const myTeam = mySeat >= 0 ? mySeat % 2 : -1;          // 0 = Team A, 1 = Team B
   const seatMember = (s: number) => room.members.find((m) => m.role === 'player' && m.seatIndex === s) ?? null;
 
+  // Invite (Stage 18.1): share the room code or a same-origin invite link. The link
+  // carries ONLY the room code (no session/token) and always uses the browser origin
+  // — never the ws / custom-server URL. Copy via the Clipboard API; Share via
+  // navigator.share when supported (a cancelled share stays silent). Host + guests
+  // can both invite.
+  const inviteLink = typeof window !== 'undefined' ? buildInviteLink(window.location.origin, room.code) : '';
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function' && !!inviteLink;
+  const [copied, setCopied] = useState<null | 'code' | 'link'>(null);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  async function copyText(text: string, which: 'code' | 'link') {
+    setCopyFailed(false);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopied(which);
+        setTimeout(() => setCopied(null), 1600);
+        return;
+      }
+    } catch { /* fall through to the manual-copy hint */ }
+    setCopyFailed(true);
+  }
+
+  async function shareInvite() {
+    if (!canShare) return;
+    // A cancelled or unsupported share must NOT surface a scary error.
+    try { await navigator.share({ title: t('app.title'), text: t('invite.shareText'), url: inviteLink }); }
+    catch { /* silent */ }
+  }
+
   function handleKick(clientId: string) {
     // The lobby is pre-start; a simple confirm is enough to avoid mis-taps.
     if (typeof window === 'undefined' || window.confirm(t('lobby.kickConfirm'))) onKick(clientId);
@@ -97,6 +129,31 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
           <div className="room-code">
             {room.code}{room.hasPassword && <span className="room-lock" title="🔒"> 🔒</span>}
           </div>
+          {/* Invite actions (Stage 18.1): copy the code / a same-origin link, or Share. */}
+          <div className="lobby-invite" role="group" aria-label={t('invite.title')}>
+            <button type="button" className="btn btn--outline btn--small"
+              onClick={() => void copyText(room.code, 'code')}>
+              {copied === 'code' ? `✓ ${t('invite.copied')}` : `📋 ${t('invite.copyCode')}`}
+            </button>
+            {inviteLink && (
+              <button type="button" className="btn btn--outline btn--small"
+                onClick={() => void copyText(inviteLink, 'link')}>
+                {copied === 'link' ? `✓ ${t('invite.copied')}` : `🔗 ${t('invite.copyLink')}`}
+              </button>
+            )}
+            {canShare && (
+              <button type="button" className="btn btn--outline btn--small" onClick={() => void shareInvite()}>
+                📤 {t('invite.share')}
+              </button>
+            )}
+          </div>
+          {copyFailed && inviteLink && (
+            <p className="setup-hint lobby-invite__manual">
+              {t('invite.copyManual')}
+              {/* Selectable, read-only text (not an editable field) — tap to select all. */}
+              <code className="lobby-invite__field" aria-label={t('invite.roomLink')}>{inviteLink}</code>
+            </p>
+          )}
           <p className="setup-hint lobby-game-line">
             <GameIcon game={gameType} size="sm" className="lobby-game-icon" />
             {players.length} / {maxPlayers} {t('lobby.playersWord')} ·{' '}

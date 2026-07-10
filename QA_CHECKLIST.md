@@ -97,6 +97,28 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **RTL (Arabic):** team blocks + rails mirror to the leading (right) edge; no
       horizontal overflow; seat/team order is unchanged (only text direction flips).
 
+## Manual — Room invite link / share (Stage 18.1)
+
+> The lobby has an **Invite** row under the room code: **Copy code**, **Copy link**,
+> and **Share** (only when the device supports `navigator.share`). The invite link is
+> `<origin>/?room=<CODE>` — same browser origin, **room code only** (no session/token).
+
+- [ ] **Copy code / Copy link:** tapping each copies to the clipboard and briefly shows
+      **"✓ Copied!"**; the link is `https://<your-host>/?room=<CODE>` (360/390, no overflow, RTL ok).
+- [ ] **Share (mobile):** on a device with the Web Share sheet, **Share** opens it with
+      the link; **cancelling the share shows no error**. On desktop (no share API) the
+      Share button is simply absent — Copy still works.
+- [ ] **Clipboard blocked:** if the clipboard is unavailable, a **selectable link** is
+      shown to copy manually (no crash).
+- [ ] **Open an invite link:** load `https://<your-host>/?room=<CODE>` in a browser →
+      the **Join sheet opens with the code prefilled**; you still press **Join** yourself
+      (no auto-join). The `?room` param is cleared from the URL after it opens.
+- [ ] **Bad/blank code in the link** (`?room=ab`) → no Join prefill, app opens normally.
+- [ ] **Privacy:** the invite URL contains **no token / session / userId** and uses the
+      browser origin even when a custom server is set in Profile → Advanced.
+- [ ] **Not disruptive:** Leave / Start (and, for team games, the team layout) are all
+      still visible; host and guests can both invite.
+
 ## Manual — room social (reactions + chat, Stage 7)
 
 - [ ] In a room (lobby or game), tap **😀** → the reaction row opens; tapping an

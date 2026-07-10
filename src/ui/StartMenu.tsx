@@ -13,6 +13,7 @@ const ROOM_AGO_TICK_MS = 5000;
 import { loadCustomServer, resolveServerUrl } from '../net/connection';
 import type { ErrorCode } from '../net/messages';
 import { loadSession, clearSession } from '../net/session';
+import { roomCodeFromQuery, INVITE_ROOM_PARAM } from '../net/invite';
 import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer, loadFavoriteGame } from '../net/prefs';
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
@@ -124,6 +125,22 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   useEffect(() => {
     if (account.serverTimer != null) setDefaultTimer(account.serverTimer);
   }, [account.serverTimer]);
+
+  // Invite link (Stage 18.1): if the app was opened with `?room=CODE`, PREFILL the
+  // Join sheet with that code and consume the param — never auto-join (the user still
+  // presses Join, so a missing name/session/active game is never disrupted). Runs once
+  // on mount; StartMenu only renders pre-game, so a link opened mid-reconnect is a no-op.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const invited = roomCodeFromQuery(window.location.search);
+    if (!invited) return;
+    setCode(invited);
+    setPane('join');
+    const params = new URLSearchParams(window.location.search);
+    params.delete(INVITE_ROOM_PARAM);
+    const qs = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+  }, []);
 
   // Room browser auto-refresh: while the Join pane is open, poll the room list on
   // a timer (the hook skips a tick if a fetch is still in flight, so requests never

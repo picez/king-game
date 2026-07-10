@@ -23,6 +23,20 @@
   font-weight: 700;
 }
 
+/* Invite actions (Stage 18.1): compact copy/share row under the room code. */
+.lobby-invite {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin-top: 0.5rem;
+}
+.lobby-invite__manual { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.4rem; }
+/* Selectable read-only link text (a <code>, not an editable input) — user-select:all
+   so a single tap grabs the whole URL for a manual copy. Wraps, never overflows. */
+.lobby-invite__field {
+  user-select: all; -webkit-user-select: all;
+  font-size: 0.82rem; font-weight: 600; word-break: break-all;
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.3rem 0.45rem; color: var(--text);
+}
+
 .lobby-members {
   list-style: none;
   display: flex;
