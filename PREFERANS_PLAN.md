@@ -69,9 +69,15 @@ pattern for stats.
 - **19.1 — pure core.** `types/deck/rules/engine/ai/redact/invariants` + full unit tests
   (RULES §16) + a bot-only **soak** (`scripts/preferans-soak.mjs`, like durak/deberc)
   proving termination + invariants over many seeds. No catalog/UI/registry yet.
-- **19.2 — catalog + definition (`coming_soon`).** Add the `'preferans'` catalog entry
-  and `preferansGameDefinition` to the registry; wire `buildStartAction`/`isFinished`/
-  `getActingPlayerId`. Menu shows it as coming-soon; not startable. Guard tests.
+- **19.2 — catalog + definition (`coming_soon`). ✅ DONE.** `'preferans'` added to
+  `GAME_TYPES` + `GAME_CATALOG` (min/max 3, `supportsLocal/Online: false`, `supportsBots`,
+  `status: 'coming_soon'`, `rulesDoc: PREFERANS_RULES.md`); `preferansGameDefinition`
+  (reducer / getActingPlayerId / buildStartAction / botAction / redactStateFor /
+  isFinished / `recordsStats: false`) wired into `GAME_DEFINITIONS`. `/api/games` now
+  returns Preferans as `coming_soon`; the Local/Host game picker shows it **disabled**
+  ("Coming soon") so it is visible but **not startable** (no local/online path). Favorite
+  picker excludes it. `DEFAULT_GAME_TYPE` unchanged (King). Tests: catalog/registry/api +
+  picker wiring. **Still NOT playable.** Next: 19.3 local UI prototype.
 - **19.3 — local UI prototype.** A `PreferansGameScreen` (1 human + 2 bots, hot-seat)
   reusing the shared table/seat/trick components: bidding bar, talon-exchange
   (take → discard 2 → declare), trick play, score sheet. Flip `supportsLocal: true`.

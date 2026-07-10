@@ -23,12 +23,13 @@ import { useMotionPreference, setMotionPreference } from '../components/motionPr
 import { SOUND_PREFERENCES, type SoundPreference } from '../../audio/soundPreference';
 import { useSoundPreference, setSoundPreference } from '../../audio/soundPreferenceStore';
 import { playSound } from '../../audio/soundEngine';
-import { GAME_TYPES, type GameType } from '../../games/catalog';
+import { type GameType } from '../../games/catalog';
+import { SUPPORTED_FAVORITE_GAMES, sanitizeFavoriteGame, type FavoriteGame } from '../../net/userSettings';
 import { gameIconSrc } from '../../visual/visualAssets';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
-/** Emoji fallback for each game's favorite-picker option (matches StartMenu). */
-const GAME_EMOJI: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
+/** Emoji fallback per favorite-able game (the favorite picker excludes coming-soon games). */
+const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
 
 /** i18n label key per card-back style. */
 const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {
@@ -214,10 +215,12 @@ export default function ProfilePanel({
   function previewSound() { if (sound !== 'off') playSound('ui-click'); }
   // Favorite game pre-selects the Local/Host picker. Local pref + server profile
   // sync (signed in). onFavoriteGame lets the menu update its live picker default.
-  function changeFavorite(v: GameType) {
+  // Only favorite-able (available) games are offered — a coming-soon game like
+  // Preferans is not selectable as a favorite.
+  function changeFavorite(v: FavoriteGame) {
     onFavoriteGame(v); saveFavoriteGame(v); account.pushFavoriteGame(v);
   }
-  const favoriteOptions = GAME_TYPES.map((id) => ({
+  const favoriteOptions = SUPPORTED_FAVORITE_GAMES.map((id) => ({
     value: id,
     label: t(`gameType.${id}`),
     icon: GAME_EMOJI[id],       // emoji fallback if the emblem PNG 404s
@@ -356,7 +359,7 @@ export default function ProfilePanel({
           ariaLabel={t('profile.favoriteGame')}
           className="game-picker"
           value={favoriteGame}
-          onChange={(v) => changeFavorite(v as GameType)}
+          onChange={(v) => changeFavorite(v as FavoriteGame)}
           options={favoriteOptions}
         />
         <p className="field__hint">{t('profile.favoriteGameHint')}</p>
@@ -509,7 +512,7 @@ export default function ProfilePanel({
       {account.apiReachable && !account.hasSession && (
         <div className="profile-form__sync">
           <button className="btn btn--ghost btn--small" disabled={account.syncing}
-            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation, favoriteGame, cardFaceTheme: cardFace })}>
+            onClick={() => void account.saveProgress({ name, avatar, lang, defaultTimer, cardStyle: cardBackToSetting(cardBack), animationPreference: animation, favoriteGame: sanitizeFavoriteGame(favoriteGame), cardFaceTheme: cardFace })}>
             {account.syncing ? `${t('net.connecting')}…` : `☁️ ${t('account.syncProfile')}`}
           </button>
           <p className="field__hint">{t('account.signInCta')}</p>

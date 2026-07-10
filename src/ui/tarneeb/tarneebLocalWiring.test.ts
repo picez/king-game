@@ -44,11 +44,12 @@ describe('App routes local Tarneeb to its own screen', () => {
 describe('StartMenu — Tarneeb is selectable local AND online (released)', () => {
   const menu = read('../StartMenu.tsx');
   it('both the local and host pickers offer Tarneeb', () => {
-    // The picker is data-driven over all four game types (Stage 11.2).
-    expect(menu).toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map");
+    // The picker is data-driven over GAME_TYPES (Stage 19.2); Tarneeb is `available`
+    // so it is selectable (only coming-soon games are disabled).
+    expect(menu).toContain('const options = GAME_TYPES.map((id) => {');
     expect(menu).toContain('<GamePicker gameType={gameType} onPick={setGameType} t={t} />');
-    // Tarneeb is no longer disabled in the host picker (Stage 10.5).
-    expect(menu).not.toContain("icon: '♠️', disabled: true");
+    // Only a coming-soon game is disabled — Tarneeb (available) is not.
+    expect(menu).toContain('disabled: soon');
     // Released (Stage 10.8): no Experimental tag in the picker.
     expect(menu).not.toContain("sublabel: t('menu.experimental')");
   });

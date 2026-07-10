@@ -8,7 +8,7 @@
  * stats.
  */
 
-export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb'] as const;
+export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
 
@@ -91,6 +91,19 @@ export const GAME_CATALOG = {
     supportsBots: true,     // pure core has a working bot (Stage 10.1 soak)
     status: 'available',    // Stage 10.8: released — records stats, no experimental tag
     rulesDoc: 'TARNEEB_RULES.md',
+  },
+  preferans: {
+    id: 'preferans',
+    titleKey: 'gameType.preferans',
+    shortTitleKey: 'gameType.preferans',
+    minPlayers: 3,          // 3-player only (PREFERANS_RULES §2)
+    maxPlayers: 3,
+    defaultPlayerCount: 3,
+    supportsLocal: false,   // Stage 19.2: registered but NOT playable yet (coming_soon)
+    supportsOnline: false,  // no online rooms yet (Stage 19.5+)
+    supportsBots: true,     // pure core has a working deterministic bot (Stage 19.1)
+    status: 'coming_soon',  // Stage 19.2: catalog/registry only; local UI lands in 19.3
+    rulesDoc: 'PREFERANS_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
 

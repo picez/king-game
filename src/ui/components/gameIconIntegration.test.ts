@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gameIconSrc } from '../../visual/visualAssets';
-import { GAME_TYPES } from '../../games/catalog';
+import { GAME_TYPES, GAME_CATALOG } from '../../games/catalog';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -18,8 +18,10 @@ describe('gameIconSrc helper (single source)', () => {
     }
   });
 
-  it('every game emblem PNG exists on disk and is a real, non-empty PNG', () => {
-    for (const g of GAME_TYPES) {
+  it('every AVAILABLE game emblem PNG exists on disk and is a real, non-empty PNG', () => {
+    // Released games ship a PNG emblem. A coming-soon game (e.g. Preferans, Stage 19.2)
+    // has no emblem yet — GameIcon falls back to its emoji when the PNG 404s.
+    for (const g of GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available')) {
       const path = join(process.cwd(), 'public', 'visual', 'icons', `game-${g}.png`);
       expect(existsSync(path), `game-${g}.png should exist`).toBe(true);
       expect(statSync(path).size, `game-${g}.png non-empty`).toBeGreaterThan(0);

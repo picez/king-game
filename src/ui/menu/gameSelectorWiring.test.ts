@@ -33,6 +33,16 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     expect(src).toContain('<SelectMenu');
     expect(src).not.toMatch(/game-picker[^]*segmented__tab/); // no segmented inside the picker
   });
+  it('shows Preferans as a DISABLED coming-soon option (not startable), data-driven from the catalog', () => {
+    // The picker iterates GAME_TYPES and disables any non-`available` game (Stage 19.2:
+    // Preferans is coming_soon), so King/Durak/Deberc/Tarneeb stay selectable but
+    // Preferans is shown disabled and cannot be picked/started.
+    expect(src).toContain('const soon = GAME_CATALOG[id].status !== \'available\'');
+    expect(src).toContain('disabled: soon');
+    expect(src).toContain("t('menu.comingSoon')");
+    // It is not hardcoded to the old 4-game list anymore.
+    expect(src).not.toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({");
+  });
   it('hosts the selected game online, passing gameType + variant for Durak', () => {
     expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
     expect(src).toContain('setDurakVariant');
@@ -59,11 +69,11 @@ describe('App routing — local Durak goes to its own screen', () => {
 describe('multi-game menu polish (Stage 11.2)', () => {
   const src = read('../StartMenu.tsx');
 
-  it('picker subtitles are data-driven from the catalog player counts (all 4 games)', () => {
-    // A single data-driven map over the four game types, not per-game literals.
+  it('picker subtitles are data-driven from the catalog player counts (over GAME_TYPES)', () => {
+    // A single data-driven map over ALL game types (Stage 19.2), not per-game literals.
     expect(src).toContain('export function playersRange');
-    expect(src).toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map");
-    expect(src).toContain('sublabel: `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`');
+    expect(src).toContain('const options = GAME_TYPES.map((id) => {');
+    expect(src).toContain('t(GAME_META_KEY[id])'); // available games keep their meta subtitle
   });
 
   it('the room browser shows a per-game icon + name (and a Tarneeb teams hint)', () => {

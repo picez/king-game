@@ -87,7 +87,7 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(out.status).toBe(200);
     const body = out.body as { games: { id: string; status: string; supportsLocal: boolean; supportsOnline: boolean }[] };
     expect(Array.isArray(body.games)).toBe(true);
-    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb']);
+    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
     const king = body.games.find((g) => g.id === 'king')!;
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');
@@ -100,7 +100,13 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(tarneeb.status).toBe('available');
     expect(tarneeb.supportsLocal).toBe(true);
     expect(tarneeb.supportsOnline).toBe(true);
+    // Preferans (Stage 19.2) is registered but coming_soon — not startable.
+    const preferans = body.games.find((g) => g.id === 'preferans')!;
+    expect(preferans.status).toBe('coming_soon');
+    expect(preferans.supportsLocal).toBe(false);
+    expect(preferans.supportsOnline).toBe(false);
     // Public shape only — no internal fields leak.
     expect('rulesDoc' in king).toBe(false);
+    expect('rulesDoc' in preferans).toBe(false);
   });
 });

@@ -13,12 +13,14 @@ import { kingGameDefinition } from './king/definition';
 import { durakGameDefinition } from './durak/definition';
 import { debercGameDefinition } from './deberc/definition';
 import { tarneebGameDefinition } from './tarneeb/definition';
+import { preferansGameDefinition } from './preferans/definition';
 
 export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   king: kingGameDefinition,
   durak: durakGameDefinition,
   deberc: debercGameDefinition,
   tarneeb: tarneebGameDefinition,
+  preferans: preferansGameDefinition, // Stage 19.2: coming_soon (not startable yet)
 };
 
 /** The definition for a game type, or null for an unknown/invalid value. */

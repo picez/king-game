@@ -576,9 +576,10 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 }
 
 /** Per-game glyph + a short descriptor key for the picker sublabel. */
-const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
+const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
 const GAME_META_KEY: Record<GameType, string> = {
   king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.twoTeams',
+  preferans: 'menu.comingSoon', // never shown (coming-soon uses the coming-soon sublabel), but keeps the map total
 };
 
 /** "3–4" / "4" player-count range from the catalog (data-driven, all 4 games). */
@@ -598,13 +599,20 @@ function GamePicker({ gameType, onPick, t }: {
   onPick: (g: GameType) => void;
   t: (key: string) => string;
 }) {
-  const options = (['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({
-    value: id,
-    label: t(`gameType.${id}`),
-    icon: GAME_ICON[id],           // emoji fallback if the emblem PNG 404s
-    iconSrc: gameIconSrc(id),      // Stage 12.3 image emblem
-    sublabel: `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`,
-  }));
+  // Data-driven from the catalog: `available` games are selectable; a `coming_soon`
+  // game (e.g. Preferans, Stage 19.2) is shown DISABLED so it is visible but cannot
+  // be started. SelectMenu ignores clicks on a disabled option.
+  const options = GAME_TYPES.map((id) => {
+    const soon = GAME_CATALOG[id].status !== 'available';
+    return {
+      value: id,
+      label: t(`gameType.${id}`),
+      icon: GAME_ICON[id],           // emoji fallback if the emblem PNG 404s
+      iconSrc: gameIconSrc(id),      // Stage 12.3 image emblem
+      sublabel: soon ? `👥 ${playersRange(id)} · ${t('menu.comingSoon')}` : `👥 ${playersRange(id)} · ${t(GAME_META_KEY[id])}`,
+      disabled: soon,
+    };
+  });
   return (
     <div className="field">
       <label className="field__label">{t('menu.game')}</label>

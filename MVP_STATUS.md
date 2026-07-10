@@ -26,11 +26,12 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | 3 solo / 4 team, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 7–13, target 41; [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 
-**Planned (spec only, not built):** **Preferans / Преферанс** — a 3-player,
-32-card, contract-bidding trick game (declarer + talon vs two defenders). MVP variant
-+ build plan are specced in [`PREFERANS_RULES.md`](PREFERANS_RULES.md) /
-[`PREFERANS_PLAN.md`](PREFERANS_PLAN.md) (Stage 19.0, docs-only; awaiting owner
-confirmations before Stage 19.1). No code/catalog/registry yet.
+**Coming soon (registered, NOT playable):** **Preferans / Преферанс** — a 3-player,
+32-card, contract-bidding trick game (declarer + talon vs two defenders). The pure
+core (Stage 19.1) + catalog/registry registration (Stage 19.2, `status: coming_soon`)
+are done; `/api/games` lists it as coming-soon and the game picker shows it disabled.
+There is **no local/online play yet** (local UI = Stage 19.3). Spec + plan:
+[`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works
 

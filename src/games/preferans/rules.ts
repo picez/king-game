@@ -102,6 +102,30 @@ export function canPlayCard(s: PreferansState, seat: number, card: Card): boolea
   return getValidPlayableCards(s, seat).some((c) => cardEquals(c, card));
 }
 
+// ── Acting seat / status (for the GameDefinition seam) ────────────────────────
+
+/** The seat that must act now, or null between hands / when finished. */
+export function getActingPreferansSeat(state: PreferansState): number | null {
+  switch (state.phase) {
+    case 'bidding':
+    case 'talon':
+    case 'playing':
+      return state.currentSeat;
+    default:
+      return null;
+  }
+}
+
+/** The player id that must act now, or null. */
+export function getActingPreferansPlayerId(state: PreferansState): string | null {
+  const seat = getActingPreferansSeat(state);
+  return seat == null ? null : state.players[seat].id;
+}
+
+export function isPreferansFinished(state: PreferansState): boolean {
+  return state.phase === 'game_finished';
+}
+
 /**
  * The winning seat of a completed/partial trick: the highest trump if any trump was
  * played, otherwise the highest card of the led suit. `trumpSuit` null = No-Trump.

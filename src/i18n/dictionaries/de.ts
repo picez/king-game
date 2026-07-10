@@ -168,6 +168,7 @@ export const DE: Record<string, string> = {
   'durak.promptTransfer': 'Tippe eine ranggleiche Karte zum Weitergeben',
   'gameType.deberc': 'Deberz',
   'gameType.tarneeb': 'Tarneeb',
+  'gameType.preferans': 'Preferans',
   'deberc.setupTagline': 'Gewinne Stiche und Kombinationen — erreiche das Matchziel',
   'deberc.matchSize': 'Matchlänge',
   'deberc.matchShort': '510 · 1020',

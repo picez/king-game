@@ -168,6 +168,7 @@ export const AR: Record<string, string> = {
   'durak.promptTransfer': 'انقر بطاقة بنفس الرتبة للتحويل',
   'gameType.deberc': 'ديبيرتس',
   'gameType.tarneeb': 'طرنيب',
+  'gameType.preferans': 'بريفيرانس',
   'deberc.setupTagline': 'اربح الأكلات والتشكيلات — بلوغ هدف المباراة',
   'deberc.matchSize': 'طول المباراة',
   'deberc.matchShort': '510 · 1020',

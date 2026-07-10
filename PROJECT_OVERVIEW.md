@@ -29,9 +29,10 @@ file/memory storage and every `/api/*` returns a clean `503` (play unaffected).
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Planned:** **Preferans / Преферанс** (3-player, 32-card, contract-bidding trick game
-with a talon) is specced but not built — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) /
-[`PREFERANS_PLAN.md`](PREFERANS_PLAN.md) (Stage 19.0, docs-only).
+**Coming soon:** **Preferans / Преферанс** (3-player, 32-card, contract-bidding trick
+game with a talon) — pure core + catalog/registry registered as `coming_soon` (not
+playable yet); local UI is the next stage. [`PREFERANS_RULES.md`](PREFERANS_RULES.md) /
+[`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## Core architecture
 
