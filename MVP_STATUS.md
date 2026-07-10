@@ -236,6 +236,17 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   server restart.
 - Disconnected humans are AI-substituted after a delay, but there is no full
   spectator/admin moderation console yet.
+- **Custom avatars are LOCAL-ONLY (Stage 14.1); server upload is PLANNED, not
+  implemented.** A picked image is re-encoded and kept in `localStorage` on the
+  device only — never uploaded, never in the WS payload/DB, and other players still
+  see the **whitelisted emoji**. A **server-synced** avatar (uploaded, validated,
+  visible online) is designed in [`AVATAR_UPLOAD_PLAN.md`](AVATAR_UPLOAD_PLAN.md)
+  (Stage 17.0, docs-only): recommended MVP storage is a **hard-capped WebP in
+  Postgres behind a storage-driver seam** (the free Render tier has no persistent
+  disk), served same-origin from `/api/avatar/<id>.webp?v=<version>` with
+  magic-byte validation, no SVG/GIF, no remote URLs, and **no base64 on the socket**.
+  Rollout 17.1 (server+API) → 17.2 (Profile UI) → 17.3 (seats) → 17.4 (QA/security).
+  **No upload/API/DB code exists yet.**
 
 ## Recommended next steps (after manual LAN/mobile QA)
 

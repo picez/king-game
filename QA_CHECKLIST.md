@@ -257,6 +257,24 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       + the lobby + other players show your **emoji**, never the image. Confirm no
       `data:image`/base64 is sent (the WS payload only carries the emoji avatar id).
 
+## Manual — Server avatar upload (PLANNED, Stage 17.x — placeholder)
+
+> **Not implemented yet.** Design in [`AVATAR_UPLOAD_PLAN.md`](AVATAR_UPLOAD_PLAN.md)
+> (Stage 17.0, docs-only). These checks activate when the upload ships (17.1–17.3);
+> until then there is nothing to test beyond the local-only avatar above.
+
+- [ ] **Signed-in upload:** Profile → **Synced avatar** → upload a PNG/JPEG/WebP →
+      preview + AccountBar update; the served thumbnail is `image/webp` with `nosniff`.
+- [ ] **Reject bad input:** SVG / GIF / >2 MB / a file whose **magic bytes** don't
+      match its type → clear error, avatar unchanged.
+- [ ] **Remove:** removing the synced avatar reverts everywhere to the emoji;
+      replacing cleans up the old image (no orphan; the URL version changes).
+- [ ] **Guest gating:** a guest sees a **sign-in hint**, not the upload control.
+- [ ] **Online seats:** other players see the uploaded thumbnail (same-origin URL),
+      and a forced 404 **falls back to the emoji** (no broken image).
+- [ ] **Privacy:** confirm **no base64 / image bytes** ride the WebSocket — the room
+      payload carries at most a short same-origin URL.
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches
