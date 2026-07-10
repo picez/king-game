@@ -55,6 +55,21 @@ describe('service worker — controlled updates (no mid-game auto-refresh)', () 
   it('bumps the cache version so a new shell purges the old offline copy', () => {
     expect(sw).toMatch(/const CACHE = 'card-majlis-shell-v\d+'/);
   });
+
+  it('is NETWORK-ONLY for /api and /auth (never caches dynamic responses), skips non-GET', () => {
+    // Dynamic endpoints must bypass the SW so they are never served stale offline.
+    expect(sw).toMatch(/pathname\.startsWith\('\/api\/'\)[^\n]*pathname\.startsWith\('\/auth\/'\)/);
+    // Mutating requests are never handled at all.
+    expect(sw).toMatch(/req\.method !== 'GET'\)\s*return/);
+    // Only .ok responses are cached (no error/opaque caching), and only for our origin.
+    expect(sw).toContain('res.ok');
+    expect(sw).toContain('url.origin !== self.location.origin');
+  });
+
+  it('offline navigations fall back to the cached app shell (index.html / root)', () => {
+    expect(sw).toContain("req.mode === 'navigate'");
+    expect(sw).toMatch(/caches\.match\('\/index\.html'\)/);
+  });
 });
 
 describe('registration + reload are user-controlled', () => {
@@ -73,8 +88,41 @@ describe('registration + reload are user-controlled', () => {
   it('applyWaitingUpdate posts SKIP_WAITING to the waiting worker (user-initiated only)', () => {
     expect(client).toContain("postMessage({ type: 'SKIP_WAITING' })");
   });
+  it('has exactly ONE controllerchange listener and no reload outside the update path', () => {
+    // A single controllerchange registration (inside the controller-exists guard) →
+    // no way to reload on a first install or to loop.
+    const occurrences = client.match(/addEventListener\('controllerchange'/g) ?? [];
+    expect(occurrences).toHaveLength(1);
+    const reloads = client.match(/window\.location\.reload\(\)/g) ?? [];
+    expect(reloads).toHaveLength(1); // one guarded reload, nothing else
+  });
   it('main.tsx no longer registers the SW itself (single source = usePwa)', () => {
     expect(main).not.toContain("serviceWorker.register('/sw.js')");
+  });
+});
+
+describe('usePwa — event wiring + cleanup', () => {
+  const hook = readFileSync(join(process.cwd(), 'src/pwa/usePwa.ts'), 'utf8');
+  it('captures beforeinstallprompt (preventDefault) + appinstalled, and tracks online/offline', () => {
+    expect(hook).toContain("addEventListener('beforeinstallprompt'");
+    expect(hook).toContain('e.preventDefault()');           // suppress Chrome mini-infobar
+    expect(hook).toContain("addEventListener('appinstalled'");
+    expect(hook).toContain("addEventListener('online'");
+    expect(hook).toContain("addEventListener('offline'");
+  });
+  it('removes every listener on unmount (no leaks / stale handlers)', () => {
+    for (const ev of ['beforeinstallprompt', 'appinstalled', 'online', 'offline']) {
+      expect(hook).toContain(`removeEventListener('${ev}'`);
+    }
+  });
+  it('registers the SW once (prod only) and drives updateReady from a waiting worker', () => {
+    expect(hook).toContain('import.meta.env.PROD');
+    expect(hook).toContain('registered.current');            // idempotent register guard
+    expect(hook).toContain('registerServiceWorker((reg) => setWaitingReg(reg))');
+    expect(hook).toContain('updateReady: waitingReg != null');
+  });
+  it('the install prompt is one-shot (cleared after userChoice)', () => {
+    expect(hook).toContain('ev.userChoice.finally(() => setInstallEvent(null))');
   });
 });
 

@@ -528,6 +528,10 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Offline pill:** go offline → thin top **"You're offline. Local games may still
       work."** pill; it never covers the top-left ✕ / hand / actions / social; hides when
       back online. **Local** game still opens offline; online shows "Connecting…".
+- [ ] **No stale API offline (Stage 21.1):** the service worker is **network-only** for
+      `/api/*` + `/auth/*` (profile/stats/leaderboard/sessions/OAuth) — it caches only the
+      static app shell + assets, so online data is always fresh and offline never serves a
+      stale profile/stats. (WebSocket never passes through the SW.)
 - [ ] Notch/safe-area: header, banners, and the hand are not hidden under system bars.
 - [ ] Touch targets comfortable; **no horizontal overflow** at 360/390; **RTL (Arabic)**
       the banners/pills mirror cleanly.

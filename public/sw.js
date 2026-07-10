@@ -43,10 +43,17 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET') return;
+  if (req.method !== 'GET') return;               // never touch POST/PATCH/DELETE
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // only our own app shell
+
+  // Dynamic endpoints are NETWORK-ONLY — never cached and never served stale:
+  //   • /api/*  — profile, stats, leaderboard, sessions, avatar processing;
+  //   • /auth/* — Google OAuth.
+  // (WebSocket ws(s):// never reaches this handler at all.) The SW only owns the
+  // static app shell + build assets below.
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
 
   event.respondWith(
     fetch(req)
