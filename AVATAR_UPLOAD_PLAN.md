@@ -394,10 +394,38 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
   Durak/Deberc/Tarneeb tables show name-only today (no avatar surface) — unchanged. The
   local-only image is **never** shown to other players; **no bytes on the wire**, no
   DB schema change, no gameplay change.
-- **17.4 — QA + security audit.** Full `QA_CHECKLIST` pass on real phones; a security
-  pass on magic-byte/polyglot rejection, path-traversal, headers, rate limiting, and
-  the off-wire guarantees; moderation-risk review + decide whether an admin blank
-  tool graduates from "future" to scheduled.
+- **17.4 — QA + security audit. ✅ DONE.** Targeted audit of the 17.1–17.3 surface.
+  **Hardening fixes applied:** (1) ffmpeg now runs under a **watchdog timeout**
+  (`AVATAR_FFMPEG_TIMEOUT_MS`, default 8 s) that **SIGKILLs a hung process** + a
+  **stdout cap** that kills a runaway stream — a malformed/hostile input can no longer
+  wedge a request or leak a child; (2) the upload handler **rate-limits FIRST**
+  (in-memory, keyed by the server-resolved userId) before any DB query or body read,
+  and rejects an oversized **Content-Length** before reading a byte; (3) the serve
+  route **clamps the Content-Type** to a known-safe image type (never echoes a stored
+  value) alongside `nosniff`; (4) the rate-limit map **self-bounds** (`MAX_TRACKED_USERS`).
+  **Audit confirmed (no change needed):** auth+Origin on POST/DELETE, guest 403,
+  multipart-only 415, 2 MB cap, magic-byte (not MIME) validation, svg/gif/polyglot
+  rejection + re-encode neutralisation, fixed `pipe:0→pipe:1` argv (no shell/path/
+  filename), `unique(user_id)` + `ON DELETE CASCADE` + opaque avatar-row id (never the
+  userId) + versioned cache-bust, snapshot/restore same-origin sanitisation, the OAuth
+  picture never copied into `avatarImageUrl`, no image bytes/base64 on the wire or in
+  logs, and a 404 → emoji client fallback. Verified with `npm run verify` + a live
+  HTTP smoke (GET avatar → 404 text/plain with no DB; traversal path not served;
+  malformed POST does not crash the process).
+
+## Remaining limitations (post-17.4)
+
+- **ffmpeg must be present at runtime.** Processing shells out to the `ffmpeg` binary
+  (see §3 for why not `sharp`). On a host without it, `POST /api/me/avatar` returns a
+  clean `503` and the feature stays off — no crash, no impact elsewhere. Render's plain
+  Node runtime does **not** ship ffmpeg; see RENDER_DEPLOY.md for how to add it / verify.
+- **No idle/slowloris timeout on the request body read** (shared by the whole API, not
+  avatar-specific). Per-IP / connection-rate limiting remains an infra/proxy concern
+  (already noted in MVP_STATUS "known limitations").
+- **No content moderation.** MVP mitigation stays type/size limits + user remove/reset;
+  an admin blank tool + classifier is still **future** (not scheduled this line).
+- **Single-instance rate limit + storage.** The in-memory limiter and Postgres-`bytea`
+  store fit one Node instance; horizontal scale would move both to shared infra.
 
 ---
 

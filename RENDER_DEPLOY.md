@@ -207,6 +207,30 @@ never double-counts stats.
   Google access/refresh tokens** — only the stable `sub` + email/name/picture
   for display. See ARCHITECTURE_DB_AUTH.md §1.4/§3 Stage 6.
 
+### Uploaded avatars need `ffmpeg` at runtime (optional, Stage 17)
+
+Signed-in players can upload a custom avatar (processed server-side to a 192×192
+WebP, stored in Postgres, shown on lobby/King-table seats). **Processing shells out
+to the `ffmpeg` binary** (a deliberate no-native-dependency choice — see
+AVATAR_UPLOAD_PLAN.md §3). Render's plain Node runtime does **not** include ffmpeg,
+so out of the box `POST /api/me/avatar` returns a clean **`503`** ("avatar processing
+unavailable") and everything else keeps working — the emoji avatar is used everywhere.
+
+To enable uploads on Render:
+
+- **Provide ffmpeg.** Either switch the service to a **Docker** runtime whose image
+  installs ffmpeg (`apt-get install -y ffmpeg`), or point `FFMPEG_PATH` at an ffmpeg
+  binary available on the instance. (A Postgres `DATABASE_URL` is also required — the
+  avatar rows live there; see the Postgres section above and run migration `0008`.)
+- **Verify** after deploy, signed in: upload a small PNG → expect `200 { avatarImageUrl }`
+  and `GET /api/avatar/<id>.webp` returning `image/webp` with `X-Content-Type-Options:
+  nosniff`. If you instead get `503`, ffmpeg is missing on the host.
+- **Tune (optional):** `AVATAR_FFMPEG_TIMEOUT_MS` (default `8000`) caps how long a
+  single conversion may run before the watchdog kills it.
+
+Nothing here is required for gameplay — leave it unset and the app runs exactly as
+before, with emoji avatars only.
+
 ---
 
 ## Security notes

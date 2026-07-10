@@ -232,15 +232,22 @@ const AVATAR_ERR_STATUS: Record<string, number> = {
 };
 
 async function handlePostAvatar(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  // Rate limit FIRST — an in-memory, per-(authenticated)-user cap that blunts a flood
+  // with NO DB query or body read, whether the caller is a guest or signed-in.
+  const { allowAvatarUpload } = await import('./avatarRateLimit');
+  if (!allowAvatarUpload(userId)) {
+    return json(res, 429, { error: 'rate_limited', message: 'Too many uploads. Try again later.' }, corsHeaders(req));
+  }
   // Guests may not upload (local-only avatar remains theirs). Signed-in only.
   const { getProfile } = await import('./db/users');
   const profile = await getProfile(userId);
   if (!profile || profile.isGuest) {
     return json(res, 403, { error: 'guest_forbidden', message: 'Sign in to sync a custom avatar.' }, corsHeaders(req));
   }
-  const { allowAvatarUpload } = await import('./avatarRateLimit');
-  if (!allowAvatarUpload(userId)) {
-    return json(res, 429, { error: 'rate_limited', message: 'Too many uploads. Try again later.' }, corsHeaders(req));
+  // Reject an obviously-oversized upload before reading a single byte of the body.
+  const declaredLen = Number(req.headers['content-length']);
+  if (Number.isFinite(declaredLen) && declaredLen > MAX_AVATAR_UPLOAD_BYTES + 4096) {
+    return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
   }
   const boundary = multipartBoundary(req.headers['content-type']);
   if (!boundary) {
@@ -287,7 +294,11 @@ async function handleServeAvatar(req: IncomingMessage, res: ServerResponse, id: 
   const { getAvatarByPublicId } = await import('./db/userAvatars');
   const stored = await getAvatarByPublicId(id);
   if (!stored) { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('Not found'); return; }
-  sendBinary(res, 200, stored.bytes, stored.mimeType, {
+  // Defense-in-depth: serve a KNOWN-SAFE image content type (never echo an arbitrary
+  // stored value), paired with nosniff so a bad type can't be interpreted as anything
+  // executable. The server only ever writes webp today; jpeg is the reserved fallback.
+  const contentType = stored.mimeType === 'image/jpeg' ? 'image/jpeg' : 'image/webp';
+  sendBinary(res, 200, stored.bytes, contentType, {
     'cache-control': 'public, max-age=31536000, immutable',
     'content-disposition': 'inline',
   });

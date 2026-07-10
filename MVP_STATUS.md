@@ -268,6 +268,15 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   emoji fallback + a same-origin gate). Durak/Deberc/Tarneeb tables are name-only (no
   avatar surface) and unchanged. The **local-only image is never sent to others**; no
   image bytes on the WebSocket, no DB schema change, no gameplay change.
+  **Stage 17.4 released + hardened the feature (security audit).** Added an ffmpeg
+  **watchdog timeout + SIGKILL** (a hung/hostile input can't wedge a request) + a
+  stdout cap; the upload **rate-limits first** (in-memory, per server-resolved user)
+  before any DB/body work and rejects an oversized `Content-Length` early; the serve
+  route **clamps the Content-Type** to a safe image type with `nosniff`; the limiter
+  map self-bounds. Confirmed off-wire (no bytes/base64), same-origin-only, opaque id
+  (never the userId), magic-byte/polyglot rejection, and a 404 → emoji fallback.
+  **Requires `ffmpeg` at runtime** — without it, `POST /api/me/avatar` returns a clean
+  `503` (feature off, nothing else affected); see RENDER_DEPLOY.md.
 
 ## Recommended next steps (after manual LAN/mobile QA)
 

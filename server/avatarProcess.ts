@@ -12,9 +12,11 @@
 // no traversal / injection surface. The re-encode strips all metadata and rebuilds
 // a clean WebP, neutralising EXIF and polyglot payloads.
 //
-// Runtime note: if ffmpeg is absent (e.g. a minimal host), processing returns
-// `unavailable` and the API answers 503 — the feature simply stays off there, with
-// zero impact on gameplay or the rest of the API.
+// Hardening (Stage 17.4): a WATCHDOG kills a hung/slow ffmpeg after a timeout, and a
+// STDOUT cap kills a process that streams more than a sane amount — neither can wedge
+// a request or leak a child. Runtime note: if ffmpeg is absent (e.g. a minimal host),
+// processing returns `unavailable` and the API answers 503 — the feature simply stays
+// off there, with zero impact on gameplay or the rest of the API.
 // ---------------------------------------------------------------------------
 
 import { spawn } from 'node:child_process';
@@ -24,12 +26,21 @@ import {
 } from '../src/net/avatarImage';
 
 const FFMPEG = process.env.FFMPEG_PATH?.trim() || 'ffmpeg';
+/** Watchdog: kill ffmpeg if it hasn't finished in time (env-overridable for tests). */
+function timeoutMs(): number {
+  const v = Number(process.env.AVATAR_FFMPEG_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 8000;
+}
+/** Hard ceiling on collected stdout — far above the 120 KB target; a bigger stream
+ *  means a misbehaving process, so we kill it rather than buffer unbounded memory. */
+const MAX_FFMPEG_STDOUT = 4 * 1024 * 1024;
 
 export type ProcessResult =
   | { ok: true; mimeType: string; bytes: Buffer; byteSize: number; width: number; height: number }
   | { ok: false; reason: 'unsupported_type' | 'invalid_image' | 'too_large' | 'unavailable' };
 
-/** Runs ffmpeg with a fixed argv, feeding `input` on stdin, collecting stdout. */
+/** Runs ffmpeg with a fixed argv, feeding `input` on stdin, collecting stdout. A
+ *  watchdog kills a hung process (→ null); an oversized stdout stream also kills it. */
 function runFfmpeg(args: string[], input: Buffer): Promise<Buffer | { unavailable: true } | null> {
   return new Promise((resolve) => {
     let child;
@@ -39,10 +50,24 @@ function runFfmpeg(args: string[], input: Buffer): Promise<Buffer | { unavailabl
       return resolve({ unavailable: true });
     }
     const out: Buffer[] = [];
+    let size = 0;
     let settled = false;
-    const done = (v: Buffer | { unavailable: true } | null) => { if (!settled) { settled = true; resolve(v); } };
+    const kill = () => { try { child.kill('SIGKILL'); } catch { /* already gone */ } };
+    const done = (v: Buffer | { unavailable: true } | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(v);
+    };
+    // Watchdog: a malformed/hostile input that hangs the decoder can't wedge the
+    // request — kill and fail after the timeout.
+    const timer = setTimeout(() => { kill(); done(null); }, timeoutMs());
     child.on('error', (e: NodeJS.ErrnoException) => done(e?.code === 'ENOENT' ? { unavailable: true } : null));
-    child.stdout.on('data', (c: Buffer) => out.push(c));
+    child.stdout.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_FFMPEG_STDOUT) { kill(); done(null); return; } // runaway output → abort
+      out.push(c);
+    });
     child.stdout.on('error', () => { /* ignore broken pipe on reject */ });
     child.on('close', (code) => done(code === 0 ? Buffer.concat(out) : null));
     // Feed the upload; ignore EPIPE if ffmpeg rejects the input early.

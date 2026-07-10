@@ -308,6 +308,21 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Wire check:** the WS payload carries at most a short `/api/avatar/<uuid>.webp`
       URL — **no base64 / data URI / image bytes**. Create/join/reconnect unaffected.
 
+### Production release smoke (17.4)
+> Run against the live, DB-enabled deploy while signed in.
+- [ ] **Upload each type:** a valid **PNG / JPEG / WebP** all succeed → the served
+      `/api/avatar/<uuid>.webp?v=1` returns `image/webp`, `X-Content-Type-Options:
+      nosniff`, `Cache-Control: public, max-age=31536000, immutable`.
+- [ ] **Reject:** **GIF / SVG** and a **> 2 MB** image are refused (no avatar change);
+      a non-multipart body → `415`.
+- [ ] **Delete:** removing the avatar → the URL then `404`s; the emoji returns.
+- [ ] **Re-upload cache-bust:** upload again → the URL version bumps (`?v=2`); the new
+      image shows immediately (an old cached `?v=1` copy is harmless).
+- [ ] **See it in rooms:** the avatar appears on **lobby seats** + the **King table**
+      for other players; bots/guests stay emoji.
+- [ ] **ffmpeg absent (if applicable):** on a host without ffmpeg, upload returns a
+      clean **`503`** and the rest of the app is unaffected (verify `/health` stays 200).
+
 ## Manual — PWA / mobile
 
 - [ ] Production HTTPS build: Chrome Android → **Install app**; launches
