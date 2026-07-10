@@ -85,9 +85,12 @@ describe('account + API boundaries — no binary on settings/wire, OAuth kept se
     expect(account).not.toContain('avatarImageUrl: me?.avatarUrl');
   });
 
-  it('the WS protocol + room payload gain no uploaded-avatar field', () => {
-    expect(read('src/net/messages.ts')).not.toMatch(/avatarImageUrl|data:image/i);
-    expect(read('src/net/serverCore.ts')).not.toContain('avatarImageUrl');
+  it('the WS protocol carries only a same-origin URL — never image bytes', () => {
+    // Stage 17.3 adds an OPTIONAL same-origin avatarImageUrl (a URL) to the room
+    // member; the invariant that holds is no image DATA (data URI / base64) on the wire.
+    expect(read('src/net/messages.ts')).not.toMatch(/data:image|base64/i);
+    // The server snapshot emits it only behind the same-origin validation gate.
+    expect(read('src/net/serverCore.ts')).toContain('isSafeAvatarImageUrl');
   });
 });
 

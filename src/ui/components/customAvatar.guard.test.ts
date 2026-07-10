@@ -8,10 +8,12 @@ import { join } from 'node:path';
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
 describe('custom avatar stays OFF the wire + out of the server profile', () => {
-  it('messages.ts declares no custom-avatar / image / data-URL field', () => {
+  it('messages.ts carries no local-custom / OAuth / image-DATA avatar field', () => {
+    // Stage 17.3 adds an OPTIONAL same-origin `avatarImageUrl` (a server URL) to the
+    // room member — a URL, NOT the local-only image, the OAuth picture, or bytes.
     const m = read('src/net/messages.ts');
-    expect(/custom ?avatar/i.test(m)).toBe(false);
-    expect(/avatarImage|avatarUrl|avatar_data/i.test(m)).toBe(false);
+    expect(/custom ?avatar/i.test(m)).toBe(false);   // no local custom avatar on the wire
+    expect(/avatarUrl|avatar_data/i.test(m)).toBe(false); // no OAuth picture / raw data field
     expect(/data:image/i.test(m)).toBe(false);
     expect(/base64/i.test(m)).toBe(false);
   });

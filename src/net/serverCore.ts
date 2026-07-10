@@ -14,6 +14,7 @@ import type { GameModeId, GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import { gameReducer } from '../core/gameEngine';
 import { sanitizeAvatar } from '../core/avatars';
+import { isSafeAvatarImageUrl } from './avatarImage';
 import { nextBotIdentity } from '../games/botIdentities';
 import { makeRng, randomSeed, hashString } from '../core/rng';
 import { DEFAULT_GAME_TYPE, getGameCatalogEntry, isGameType, type GameType } from '../games/catalog';
@@ -78,6 +79,15 @@ export interface ServerMember {
    * flows through clientId + reconnectToken (auth only NAMES the player).
    */
   userId?: string | null;
+  /**
+   * Uploaded server avatar URL (Stage 17.3) — a SAME-ORIGIN, versioned
+   * `/api/avatar/<id>.webp?v=<n>`, stamped by the I/O layer from the authenticated
+   * user's avatar row (never a client-sent value, never encoded bytes / a remote URL /
+   * the OAuth picture / the local-only image). Undefined/null for bots, guests, anyone with
+   * no uploaded avatar → seats fall back to the emoji. A public URL only, so it is
+   * safe to include in snapshots + persistence.
+   */
+  avatarImageUrl?: string | null;
 }
 
 export interface ServerRoom {
@@ -734,6 +744,9 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       connected: m.connected,
       type: m.type,
       avatar: m.avatar,
+      // Public same-origin URL only; emitted when a valid one is stamped (else omitted
+      // so legacy/guest/bot members are unchanged and the client shows the emoji).
+      ...(isSafeAvatarImageUrl(m.avatarImageUrl) ? { avatarImageUrl: m.avatarImageUrl } : {}),
     })),
     gameType: room.gameType ?? DEFAULT_GAME_TYPE,
     variant: room.variant,
@@ -926,6 +939,11 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
       type: m.type === 'ai' ? 'ai' : 'human',
       avatar: sanitizeAvatar(m.avatar, typeof m.name === 'string' ? m.name : 'player'),
       userId: typeof m.userId === 'string' ? m.userId : null,
+      // Restore the uploaded-avatar URL only if it is a valid same-origin value;
+      // legacy rooms (no field) and any tampered value degrade to the emoji. A stale
+      // URL (avatar since deleted) simply 404s on the client → emoji fallback, and a
+      // fresh reconnect re-stamps the current value.
+      avatarImageUrl: isSafeAvatarImageUrl(m.avatarImageUrl) ? m.avatarImageUrl : null,
     });
   }
 

@@ -99,7 +99,9 @@ describe('Layout resilience + boundaries', () => {
   it('the custom avatar stays LOCAL-only — no WS/profile-API expansion', () => {
     // The summary uses the local MyAvatar; the wire protocol never learns the image.
     const messages = read('src/net/messages.ts');
-    expect(/customAvatar|avatarImage|avatarDataUrl/i.test(messages)).toBe(false);
+    // 17.3 adds a same-origin avatarImageUrl (a URL); the LOCAL custom image / data
+    // URL still never reach the wire.
+    expect(/customAvatar|data:image|avatarDataUrl|base64/i.test(messages)).toBe(false);
     // No new avatar-upload field slipped into the profile settings payload.
     const settings = read('src/net/userSettings.ts');
     expect(/customAvatar|avatarImage|avatarDataUrl/i.test(settings)).toBe(false);

@@ -261,8 +261,13 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   error states. `MyAvatar` shows a **server avatar → local custom → emoji** priority
   (with a 404 fallback) on the Profile summary/preview + AccountBar. The OAuth provider
   picture stays a separate field; the uploaded image never rides `PATCH /api/settings`.
-  **Still NO lobby/game-seat avatar and NO WS/room-payload change** — the synced image
-  shows only on "me" surfaces until Stage 17.3 wires seats.
+  **Stage 17.3 wired ONLINE SEATS (available now).** The room member payload carries
+  an optional **same-origin** `avatarImageUrl`, stamped server-side from the signed-in
+  user's avatar (bots/guests → emoji). Other players now see the uploaded avatar on
+  **lobby seats** (all games) and the **King table** (a `<SeatAvatar>` with a 404 →
+  emoji fallback + a same-origin gate). Durak/Deberc/Tarneeb tables are name-only (no
+  avatar surface) and unchanged. The **local-only image is never sent to others**; no
+  image bytes on the WebSocket, no DB schema change, no gameplay change.
 
 ## Recommended next steps (after manual LAN/mobile QA)
 

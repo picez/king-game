@@ -42,6 +42,14 @@ export interface RoomMember {
   type: 'human' | 'ai';
   /** Whitelisted emoji avatar id (see core/avatars). */
   avatar?: string;
+  /**
+   * Uploaded server avatar (Stage 17.3): a SAME-ORIGIN, versioned URL
+   * (`/api/avatar/<id>.webp?v=<n>`) for a signed-in human with a stored avatar, or
+   * absent. Never encoded image bytes, never a remote URL, never the OAuth picture,
+   * never the local-only image. The client validates it (`isSafeAvatarImageUrl`)
+   * before use and falls back to `avatar` (emoji) on any miss/404.
+   */
+  avatarImageUrl?: string | null;
 }
 
 export interface RoomSnapshot {

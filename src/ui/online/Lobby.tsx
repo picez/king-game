@@ -2,6 +2,7 @@ import type { RoomSnapshot } from '../../net/messages';
 import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
 import GameIcon from '../components/GameIcon';
+import SeatAvatar from '../components/SeatAvatar';
 
 interface Props {
   room: RoomSnapshot;
@@ -96,7 +97,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               return (
                 <li key={m.clientId} className={`lobby-member${m.type === 'human' && !m.connected ? ' lobby-member--offline' : ''}${teamClass(m.seatIndex)}`}>
                   <span className="lobby-member__name">
-                    {m.avatar && <span className="member-avatar">{m.avatar}</span>}
+                    <SeatAvatar emoji={m.avatar} imageUrl={m.avatarImageUrl} />
                     {m.name}{isMe ? ` ${t('lobby.you')}` : ''}
                   </span>
                   <span className="lobby-member__tags">

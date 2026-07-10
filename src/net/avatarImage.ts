@@ -149,6 +149,18 @@ export function avatarImageUrlPath(id: string, version: number): string {
 }
 
 /**
+ * True only for a SAME-ORIGIN avatar URL the server itself would mint —
+ * `/api/avatar/<uuid>.webp` with an optional `?v=<n>`. Used server-side to validate
+ * a persisted value on restore, and client-side as a hard gate before setting an
+ * <img src> for another player (so a remote / `data:` / `javascript:` URL, even if
+ * it somehow appeared in a payload, is rejected → the emoji fallback is used).
+ */
+export function isSafeAvatarImageUrl(v: unknown): v is string {
+  if (typeof v !== 'string') return false;
+  return /^\/api\/avatar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp(\?v=\d+)?$/i.test(v);
+}
+
+/**
  * Parses `/api/avatar/<id>.webp` → the opaque id, or null. The id MUST be a UUID —
  * this both identifies the row and makes path traversal impossible (no slashes /
  * dots / user input reach any filesystem or query beyond a parameterised lookup).

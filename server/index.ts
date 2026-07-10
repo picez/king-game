@@ -33,7 +33,7 @@ import {
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled } from './db/client';
-import { handleApiRequest, resolveSessionUserId } from './api';
+import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { serveStatic, handleHealth, SERVE_STATIC, DIST } from './httpStatic';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
@@ -538,12 +538,32 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   // it resolves and on each CREATE/JOIN/RECONNECT. Null for guests/no-DB/cross-
   // origin — those simply have no attributed identity. Never trusts client input.
   let resolvedUserId: string | null = null;
+  // Stage 17.3: the resolved user's SAME-ORIGIN uploaded-avatar URL (null = none),
+  // fetched ONCE when the identity resolves — never on every broadcast. Stamped onto
+  // the seated member so other players' seats show the image. A stale value (avatar
+  // deleted after this fetch) 404s on the client → emoji; a fresh connect re-fetches.
+  let resolvedAvatarImageUrl: string | null = null;
   const attachIdentity = (): void => {
     if (!sessionRef.value || !resolvedUserId) return;
     const m = sessionRef.value.room.members.get(sessionRef.value.clientId);
-    if (m && m.type === 'human' && !m.userId) m.userId = resolvedUserId;
+    if (m && m.type === 'human') {
+      if (!m.userId) m.userId = resolvedUserId;
+      if (resolvedAvatarImageUrl && m.avatarImageUrl !== resolvedAvatarImageUrl) {
+        m.avatarImageUrl = resolvedAvatarImageUrl;
+      }
+    }
   };
-  void resolveSessionUserId(request).then((uid) => { resolvedUserId = uid; attachIdentity(); });
+  void resolveSessionUserId(request).then(async (uid) => {
+    resolvedUserId = uid;
+    attachIdentity();
+    // Then fetch the avatar URL (DB, once) and, if present, stamp + re-broadcast so
+    // seats that were already rendered pick up the image a beat later.
+    resolvedAvatarImageUrl = await resolveAvatarImageUrl(uid);
+    if (resolvedAvatarImageUrl && sessionRef.value) {
+      attachIdentity();
+      broadcastRoom(sessionRef.value.room);
+    }
+  });
 
   socket.on('message', (raw) => {
     let msg: ClientMessage;

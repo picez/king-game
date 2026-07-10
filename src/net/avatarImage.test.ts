@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectImageType, isAcceptedUpload, readWebpDimensions, multipartBoundary,
-  parseSingleFileMultipart, avatarImageUrlPath, avatarPublicIdFromPath,
+  parseSingleFileMultipart, avatarImageUrlPath, avatarPublicIdFromPath, isSafeAvatarImageUrl,
 } from './avatarImage';
 
 const bytes = (...b: number[]): Uint8Array => Uint8Array.from(b);
@@ -107,5 +107,24 @@ describe('URL shape + opaque id parsing (traversal-safe)', () => {
     expect(avatarPublicIdFromPath('/api/avatar/not-a-uuid.webp')).toBeNull();
     expect(avatarPublicIdFromPath('/api/avatar/3f2504e0.png')).toBeNull();
     expect(avatarPublicIdFromPath('/api/me')).toBeNull();
+  });
+});
+
+describe('isSafeAvatarImageUrl — same-origin gate for OTHER players', () => {
+  const uuid = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+  it('accepts a same-origin /api/avatar URL (with or without ?v)', () => {
+    expect(isSafeAvatarImageUrl(`/api/avatar/${uuid}.webp?v=3`)).toBe(true);
+    expect(isSafeAvatarImageUrl(`/api/avatar/${uuid}.webp`)).toBe(true);
+  });
+  it('rejects remote / data / javascript / non-string / off-path values', () => {
+    expect(isSafeAvatarImageUrl(`https://evil.example/api/avatar/${uuid}.webp`)).toBe(false);
+    expect(isSafeAvatarImageUrl('data:image/webp;base64,AAAA')).toBe(false);
+    expect(isSafeAvatarImageUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeAvatarImageUrl(`//evil/api/avatar/${uuid}.webp`)).toBe(false);
+    expect(isSafeAvatarImageUrl(`/api/avatar/${uuid}.png`)).toBe(false);
+    expect(isSafeAvatarImageUrl('/api/avatar/not-a-uuid.webp')).toBe(false);
+    expect(isSafeAvatarImageUrl(null)).toBe(false);
+    expect(isSafeAvatarImageUrl(undefined)).toBe(false);
+    expect(isSafeAvatarImageUrl(123)).toBe(false);
   });
 });

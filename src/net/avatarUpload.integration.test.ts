@@ -43,6 +43,10 @@ describe.skipIf(!TEST_DATABASE_URL)('user avatar repository (integration)', () =
     expect(served?.version).toBe(1);
     expect(Buffer.compare(served!.bytes, fakeWebp(0x11))).toBe(0);
 
+    // Stage 17.3: the WS-identity resolver builds the same-origin room URL.
+    const { resolveAvatarImageUrl } = await import('../../server/api');
+    expect(await resolveAvatarImageUrl(user.id)).toBe(`/api/avatar/${first.id}.webp?v=1`);
+
     // Settings mirror reflects the version.
     const conn = await getDb();
     const sql = conn!.sql as unknown as (s: TemplateStringsArray, ...a: unknown[]) => Promise<Array<{ avatar_image_version: number }>>;
@@ -61,6 +65,7 @@ describe.skipIf(!TEST_DATABASE_URL)('user avatar repository (integration)', () =
     await repo.deleteAvatar(user.id);
     expect(await repo.getAvatarForUser(user.id)).toBeNull();
     expect(await repo.getAvatarByPublicId(first.id)).toBeNull();
+    expect(await (await import('../../server/api')).resolveAvatarImageUrl(user.id)).toBeNull();
     const after = await sql`SELECT avatar_image_version FROM user_settings WHERE user_id = ${user.id}`;
     expect(Number(after[0].avatar_image_version)).toBe(0);
   });

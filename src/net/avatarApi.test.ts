@@ -65,15 +65,18 @@ describe('privacy / boundary guards — nothing leaks onto the wire', () => {
   const migration = read('server/db/migrations/0008_avatar_upload.sql');
   const proc = read('server/avatarProcess.ts');
 
-  it('the WS protocol (messages.ts) has no avatar image URL / blob / data URI', () => {
-    for (const needle of ['avatarImageUrl', 'avatar_image', 'data:image', 'bytea', 'multipart']) {
+  it('the WS protocol (messages.ts) carries no image BYTES / blob (only a URL is added in 17.3)', () => {
+    // Stage 17.3 adds an OPTIONAL same-origin `avatarImageUrl` (a URL, not bytes).
+    for (const needle of ['avatar_image', 'data:image', 'bytea', 'multipart', 'base64']) {
       expect(messages, `messages.ts must not mention ${needle}`).not.toContain(needle);
     }
   });
 
-  it('the room payload (serverCore.ts) is unchanged — no uploaded-avatar field', () => {
-    expect(serverCore).not.toContain('avatarImageUrl');
-    expect(serverCore).not.toContain('avatar_image');
+  it('the room payload (serverCore.ts) emits the avatar URL ONLY behind the same-origin gate', () => {
+    // 17.3: the snapshot may carry avatarImageUrl, but only a validated same-origin
+    // value — never raw bytes / a data URI.
+    expect(serverCore).toContain('isSafeAvatarImageUrl(m.avatarImageUrl)');
+    expect(serverCore).not.toMatch(/data:image|base64/i);
   });
 
   it('no user-controlled filename is stored (repo + migration)', () => {

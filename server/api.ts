@@ -179,6 +179,24 @@ export async function resolveSessionUserId(req: IncomingMessage): Promise<string
   }
 }
 
+/**
+ * DB-gated, never-throwing resolver of a user's SAME-ORIGIN uploaded-avatar URL
+ * (Stage 17.3), for the WS layer to stamp onto a seated member. Returns null when no
+ * DB / no uploaded avatar / any hiccup — so the seat simply shows the emoji. The URL
+ * is built by the server's own helper from the stored (id, version); no client value
+ * is ever involved.
+ */
+export async function resolveAvatarImageUrl(userId: string | null): Promise<string | null> {
+  if (!userId || !isDbEnabled()) return null;
+  try {
+    const { getAvatarForUser } = await import('./db/userAvatars');
+    const ref = await getAvatarForUser(userId);
+    return ref ? avatarImageUrlPath(ref.id, ref.version) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── route handlers ──────────────────────────────────────────────────────────
 
 async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void> {

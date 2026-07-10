@@ -295,9 +295,18 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Separation:** the OAuth provider picture is not treated as the custom avatar;
       the uploaded image is not sent through the settings sync.
 
-### Seats (activates in Stage 17.3)
-- [ ] **Online seats:** other players see the thumbnail; a forced 404 **falls back to
-      the emoji**. Confirm **no base64 / image bytes** ride the WebSocket.
+### Online seats (17.3 — LIVE)
+- [ ] **Lobby seats:** a signed-in player with a synced avatar shows the image next to
+      their name in the room lobby for OTHER players; bots + guests + no-upload show the
+      **emoji** (360/390, no overflow, RTL ok).
+- [ ] **King table:** the same image shows on the King table seats (name + avatar).
+      Durak/Deberc/Tarneeb tables remain name-only (unchanged).
+- [ ] **404 fallback:** delete your synced avatar mid-session (or force a stale URL) →
+      other seats **fall back to the emoji** (no broken image); a reconnect refreshes.
+- [ ] **Local image is private:** a player using only the **This device** (local) image
+      shows their **emoji** to others — the local image never appears on another client.
+- [ ] **Wire check:** the WS payload carries at most a short `/api/avatar/<uuid>.webp`
+      URL — **no base64 / data URI / image bytes**. Create/join/reconnect unaffected.
 
 ## Manual — PWA / mobile
 

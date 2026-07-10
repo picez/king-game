@@ -6,6 +6,7 @@ import { getActingPlayerId } from '../../core/gameEngine';
 import { isJoinError } from '../../net/online';
 import type { ErrorCode } from '../../net/messages';
 import { clearSession } from '../../net/session';
+import { isSafeAvatarImageUrl } from '../../net/avatarImage';
 import { useI18n } from '../../i18n';
 import GameRouter from '../GameRouter';
 import DurakOnlineGame from '../durak/DurakOnlineGame';
@@ -141,6 +142,16 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
     .filter((m) => m.type === 'human' && !m.connected && m.seatIndex != null)
     .map((m) => m.seatIndex as number);
 
+  // Stage 17.3: seat index → a member's SAME-ORIGIN uploaded avatar URL, from the
+  // room snapshot. Only validated same-origin values are kept; everyone else (bots /
+  // guests / no upload) is absent → the seat shows the emoji. Never the local image.
+  const seatAvatarImages: Record<number, string> = {};
+  for (const m of net.room?.members ?? []) {
+    if (m.seatIndex != null && isSafeAvatarImageUrl(m.avatarImageUrl)) {
+      seatAvatarImages[m.seatIndex] = m.avatarImageUrl;
+    }
+  }
+
   // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
   // The Durak screen itself shows the read-only table + "waiting / bot thinking /
   // offline — AI may play" when it is not this client's turn.
@@ -208,6 +219,7 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
       <GameContext.Provider value={{
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
         turnTimerSec: net.room?.turnTimerSec ?? 0, myPlayerId: net.myPlayerId, disconnectedSeats,
+        seatAvatarImages,
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>

@@ -20,6 +20,12 @@ interface GameContextType {
   myPlayerId?: string | null;
   /** Online only: seat indices of human players currently disconnected. */
   disconnectedSeats?: number[];
+  /**
+   * Online only (Stage 17.3): seat index → a seated member's SAME-ORIGIN uploaded
+   * avatar URL. Built from the room snapshot; seats render the image (with an emoji
+   * fallback) for members present here. Absent seats / offline flow → emoji.
+   */
+  seatAvatarImages?: Record<number, string>;
 }
 
 export const GameContext = createContext<GameContextType>({

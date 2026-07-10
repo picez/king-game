@@ -379,9 +379,21 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
   preview and the AccountBar. The local-only 14.1 path ("Choose local image") is fully
   intact. **Still NO lobby/game-seat avatar and NO WS/room-payload change** — the
   uploaded image shows only on "me" surfaces until 17.3.
-- **17.3 — room / lobby / game seats show `avatarImageUrl`.** Server adds the
-  same-origin versioned URL to member payloads; `<SeatAvatar>` renders it with an
-  emoji `onError` fallback. Still no bytes on the wire.
+- **17.3 — room / lobby / game seats show `avatarImageUrl`. ✅ DONE.** The room
+  member payload (`RoomMember` / `snapshot()`) gained an OPTIONAL **same-origin**
+  `avatarImageUrl`. The WS layer stamps it on the seated member from the authenticated
+  user's avatar row: `attachIdentity` resolves the URL ONCE (`resolveAvatarImageUrl`,
+  DB-gated, never on every broadcast) and re-broadcasts so seats update a beat later.
+  Bots/guests/no-upload → absent (emoji). The snapshot + persistence restore both gate
+  on **`isSafeAvatarImageUrl`** (same-origin `/api/avatar/<uuid>.webp[?v=n]`), so a
+  legacy/tampered/remote value degrades to the emoji; a stale URL (avatar deleted)
+  404s → emoji, and a fresh reconnect re-stamps. A new **`<SeatAvatar>`** renders the
+  image with an `onError` → emoji fallback and the SAME same-origin gate client-side;
+  it is used on **lobby seats** (all games) and the **King table** (via a
+  `seatIndex → URL` map on `GameContext`, built in `OnlineGame` from the snapshot).
+  Durak/Deberc/Tarneeb tables show name-only today (no avatar surface) — unchanged. The
+  local-only image is **never** shown to other players; **no bytes on the wire**, no
+  DB schema change, no gameplay change.
 - **17.4 — QA + security audit.** Full `QA_CHECKLIST` pass on real phones; a security
   pass on magic-byte/polyglot rejection, path-traversal, headers, rate limiting, and
   the off-wire guarantees; moderation-risk review + decide whether an admin blank

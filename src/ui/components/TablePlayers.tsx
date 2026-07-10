@@ -1,5 +1,6 @@
 import { useGame } from '../../hooks/useGame';
 import CardView from './CardView';
+import SeatAvatar from './SeatAvatar';
 
 export type SeatPos = 'bottom' | 'left' | 'top' | 'right';
 
@@ -29,7 +30,7 @@ interface Props {
  * fade as the next trick is dealt (no chaotic fly-to-pile animation).
  */
 export default function TablePlayers({ viewerId }: Props) {
-  const { state, disconnectedSeats } = useGame();
+  const { state, disconnectedSeats, seatAvatarImages } = useGame();
   if (!state) return null;
   const offline = new Set(disconnectedSeats ?? []);
 
@@ -70,7 +71,7 @@ export default function TablePlayers({ viewerId }: Props) {
           >
             <div className="tseat__name">
               {isDealer && <span title="Dealer">👑</span>}
-              {p.avatar && <span className="member-avatar">{p.avatar}</span>}
+              <SeatAvatar emoji={p.avatar} imageUrl={seatAvatarImages?.[p.seatIndex]} />
               {p.name}
               {p.type === 'ai' && <span className="ai-badge" title="AI">🤖</span>}
               {isOffline && <span className="tseat__offline" title="Offline">📴</span>}

@@ -231,6 +231,12 @@
 
 /* Custom avatar (Stage 14.1): a local image fills the circular slot; emoji else. */
 .my-avatar__img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+/* Seat avatar image (Stage 17.3): another player's uploaded avatar in lobby/table
+   seats. Sized in em so it tracks the surrounding avatar font-size; circular crop. */
+.member-avatar__img {
+  width: 1.4em; height: 1.4em; border-radius: 50%; object-fit: cover;
+  display: inline-block; vertical-align: middle;
+}
 
 /* Accessible visually-hidden file input (kept operable; only the styled button shows). */
 .visually-hidden {
