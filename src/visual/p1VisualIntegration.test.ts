@@ -42,12 +42,13 @@ describe('P1 CSS single-source vars', () => {
   });
 });
 
-describe('Finish screens wear the frame (all 4 games, graceful)', () => {
+describe('Finish screens wear the frame (all 5 games, graceful)', () => {
   it('each finish component adds the finish-frame class', () => {
     expect(read('src/ui/GameFinishedScreen.tsx')).toContain('finish-frame');
     expect(read('src/ui/durak/DurakFinished.tsx')).toContain('finish-frame');
     expect(read('src/ui/deberc/DebercFinished.tsx')).toContain('finish-frame');
     expect(read('src/ui/tarneeb/TarneebFinished.tsx')).toContain('finish-frame');
+    expect(read('src/ui/preferans/PreferansFinished.tsx')).toContain('finish-frame');
   });
   it('screens.css layers the frame behind content via var(--finish-frame)', () => {
     const css = read('src/styles/screens.css');

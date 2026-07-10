@@ -10,8 +10,10 @@
 > [`SOUND_DESIGN.md`](SOUND_DESIGN.md) (Stage 15.0, planning-only) — a warm, tactile,
 > default-OFF audio layer that mirrors this felt/brass/gold aesthetic.
 
-Four games ship and are all `available`: **King, Durak, Deberc, Tarneeb** — local
-+ server-authoritative online, with stats, chat, and sticker reactions. The
+Five games ship and are all `available`: **King, Durak, Deberc, Tarneeb, Preferans**
+— local + server-authoritative online, with stats, chat, and sticker reactions.
+(King/Durak/Deberc/Tarneeb each ship a PNG emblem; **Preferans is emoji-only 🎩** —
+no PNG asset was generated for it. A future stage could add `game-preferans.png`.) The
 **function is strong; the shell reads flat/cheap**. The palette in `base.css` is
 already the right idea (dark-green felt + brass/gold); it just needs real texture,
 depth, tactile assets, and motion instead of flat CSS gradients + emoji.

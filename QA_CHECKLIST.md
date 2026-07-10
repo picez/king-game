@@ -31,7 +31,7 @@ npm run verify   # runs the four checks below, SEQUENTIALLY (recommended)
 
 ```bash
 npm run typecheck:server  # server/index.ts import graph (tsc -p tsconfig.server.json)
-npm test                  # unit + pure-logic tests (all 4 games + net/UI)
+npm test                  # unit + pure-logic tests (all 5 games + net/UI)
 npm run build             # client type-check + production build
 npm run e2e               # spawns a server, plays full online rounds, restart restore
 npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
@@ -270,18 +270,19 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       rows (`games`/`game_players`/`rounds`) hold **no cards** — only scores and a
       word-free bid+trump label (e.g. `9S`).
 
-## Manual — Preferans LOCAL (experimental, Stage 19.3)
+## Manual — Preferans LOCAL (Stage 19.3+)
 
 > Preferans is a **3-player, each-for-themselves** contract-bidding trick game
-> (32-card deck, 2-card talon). **Local only** (1 human + 2 bots) — **no online, no
-> stats** yet. Automated smoke: `node scripts/preferans-shots.mjs` (360/390, checks
-> for horizontal overflow); run a `vite preview` server first.
+> (32-card deck, 2-card talon), **released** (Stage 19.7) — this is the local (1 human
+> + 2 bots) QA; online + stats have their own sections below. Automated smoke:
+> `node scripts/preferans-shots.mjs` (360/390, checks for horizontal overflow); run a
+> `vite preview` server first.
 
-- [ ] **Picker gating:** the **Local** sheet lists **🎩 Preferans · 3 · Experimental**
-      and it is **selectable**; the **Host** sheet shows it **disabled** ("Coming soon")
-      and the Create button stays blocked.
-- [ ] **Setup** shows the experimental note, "1 human + 2 bots", target **10**, and a
-      "How to play" summary; **Start** deals a hand (you sit bottom; 2 bots up-left/right).
+- [ ] **Picker:** the **Local** sheet lists **🎩 Preferans · 3 · Contract**, selectable —
+      no "Experimental"/"Coming soon" tag (the **Host** sheet offers it too; see the online
+      section).
+- [ ] **Setup** shows "1 human + 2 bots", target **10**, and a "How to play" summary;
+      **Start** deals a hand (you sit bottom; 2 bots up-left/right).
 - [ ] **Bidding:** on your turn the 5×5 ladder (levels 6–10 × ♠♣♦♥ NT) shows **only
       legal** cells active (already-≤-high-bid cells are dimmed); **Pass** works; passing
       is final; an all-pass redeals to the next dealer.
@@ -305,8 +306,8 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 
 > Core hardening + online-redaction readiness. Most of this is covered automatically
 > (`npm run verify`): invariants, all-phase/all-seat redaction, a 40-seed bot soak, and
-> a serverCore seam drive. Preferans is still **local-only** — `wsHandlers` rejects
-> `CREATE_ROOM preferans` (guarded by a test).
+> a serverCore seam drive. (Historical note: at 19.4 Preferans was still local-only;
+> online hosting was enabled at 19.5 and released at 19.7.)
 
 - [ ] **Clear prompts:** on your play turn while you still hold the led suit, a "Follow the
       led suit if you can" reminder shows; during **declare**, the bar shows the minimum
@@ -316,18 +317,18 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       "all pass → redeal" loop).
 - [ ] **Privacy:** across the whole hand you never see another seat's cards, the un-taken
       talon, or the 2 buried discards — not even your own buried cards once declared.
-## Manual — Preferans ONLINE (experimental, Stage 19.5)
+## Manual — Preferans ONLINE (Stage 19.5+)
 
-> Preferans online is **experimental** (`supportsOnline: true`, `status: experimental`,
-> **no stats**). Server-authoritative 3-seat rooms. Automated: `scripts/e2e-online.mjs`
+> Preferans online is **released** (`supportsOnline: true`, `status: available`, records
+> stats). Server-authoritative 3-seat rooms. Automated: `scripts/e2e-online.mjs`
 > (the `[2p]` section) + `scripts/preferans-online-shots.mjs` (360/390, overflow check).
 
-- [ ] **Host:** the Host sheet offers **🎩 Preferans** (with a "🧪 experimental" note); the
+- [ ] **Host:** the Host sheet offers **🎩 Preferans** (no experimental note); the
       Create button is enabled and a room is exactly **3 seats**.
-- [ ] **Lobby:** the room labels itself **🎩 Experimental** (not "Dealer's Choice"); Add-bot
+- [ ] **Lobby:** the room labels itself **🎩 Contract** (not "Dealer's Choice"); Add-bot
       fills toward 3/3; **Start** is blocked until 3 seats are occupied; a 4th joiner is
       rejected (ROOM_FULL).
-- [ ] **Room browser:** the Preferans room appears with its emblem + an "experimental" hint.
+- [ ] **Room browser:** the Preferans room appears with its emblem + a "Contract" hint.
 - [ ] **Start → play:** all three clients receive the deal; on your turn you bid / take the
       talon / bury 2 / declare / play; off-turn the screen is read-only with a
       "waiting / bot thinking" note; the hand auto-advances (no "Next hand" button online).

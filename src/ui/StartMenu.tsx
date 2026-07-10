@@ -589,7 +589,7 @@ const GAME_META_KEY: Record<GameType, string> = {
   preferans: 'preferans.metaShort', // "Contract" — Preferans is a solo contract trick game (3p)
 };
 
-/** "3–4" / "4" player-count range from the catalog (data-driven, all 4 games). */
+/** "3–4" / "4" player-count range from the catalog (data-driven, all games). */
 export function playersRange(id: GameType): string {
   const e = GAME_CATALOG[id];
   return e.minPlayers === e.maxPlayers ? `${e.minPlayers}` : `${e.minPlayers}–${e.maxPlayers}`;

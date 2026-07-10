@@ -4,8 +4,8 @@
 // A GameDefinition REFERENCES a game's existing modules (reducer, AI, start
 // action, …) without moving any logic. It is the active runtime seam that plugs
 // each game into serverCore / the UI / stats instead of scattering `gameType`
-// checks around. King, Durak, Deberc, and Tarneeb all implement it and run
-// through it online. A future game plugs in the same way.
+// checks around. King, Durak, Deberc, Tarneeb, and Preferans all implement it and
+// run through it online. A future game plugs in the same way.
 //
 // This module is pure + client-safe: it only imports TYPES from core/net, so a
 // definition can be referenced from either the server or the client bundle.

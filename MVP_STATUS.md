@@ -1,7 +1,7 @@
 # Card Majlis — MVP Status
 
-> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for four games:
-> **King, Durak, Deberc, Tarneeb**. "King" now refers ONLY to the King game, not the
+> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for five games:
+> **King, Durak, Deberc, Tarneeb, Preferans**. "King" now refers ONLY to the King game, not the
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 

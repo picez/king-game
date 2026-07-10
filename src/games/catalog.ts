@@ -3,8 +3,8 @@
  *
  * Every card game enters through this registry instead of scattering string
  * literals across room discovery, stats, and settings. King is the default;
- * King, Durak, Deberc, and Tarneeb are all fully playable (`available`) —
- * local + server-authoritative online, each recording its own per-`game_type`
+ * King, Durak, Deberc, Tarneeb, and Preferans are all fully playable (`available`)
+ * — local + server-authoritative online, each recording its own per-`game_type`
  * stats.
  */
 

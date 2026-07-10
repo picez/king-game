@@ -11,7 +11,7 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps
 
 ## What it is
 
-A mobile-first web **card lounge** for four games, playable **local pass-and-play** or
+A mobile-first web **card lounge** for five games, playable **local pass-and-play** or
 **server-authoritative online**. React + TypeScript (Vite) client; a single Node
 (`ws`) server hosts the client, the `/ws` socket, and the `/api/*` HTTP surface on one
 origin. Postgres is **optional** — with no `DATABASE_URL` the app runs fully on

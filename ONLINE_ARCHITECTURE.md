@@ -43,18 +43,19 @@ with a `t` discriminator.
   `gameType` is emitted from the room so the same server browser lists every card
   game. `hostAvatar` is re-sanitized to the emoji whitelist at the source (never
   free text); `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
-  > **Multi-game online (four games).** `CREATE_ROOM` takes an optional
-  > `gameType: 'king' | 'durak' | 'deberc' | 'tarneeb'` (default King; unknown →
-  > `BAD_MESSAGE`) plus per-game options: Durak `variant: 'simple' | 'transfer'`,
+  > **Multi-game online (five games).** `CREATE_ROOM` takes an optional
+  > `gameType: 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans'` (default King;
+  > unknown → `BAD_MESSAGE`) plus per-game options: Durak `variant: 'simple' | 'transfer'`,
   > Deberc `matchSize: 'small' | 'big'`, and a `playerCount` that ranges 2–5 by
-  > game (Durak may be **2**, Tarneeb is fixed **4**). `RoomSnapshot`/`RoomSummary`
+  > game (Durak may be **2**, Tarneeb is fixed **4**, Preferans is fixed **3**).
+  > `RoomSnapshot`/`RoomSummary`
   > carry `gameType` (+ variant/matchSize). `STATE_UPDATE.state` /
   > `ACTION_REQUEST.action` are game-state / game-action **unions** routed by
   > `gameType`; the server runs each game through its `GameDefinition` (reducer /
   > acting-player / **per-game redaction** / bots / start action). King's message
-  > shapes are unchanged. All four games are `available` and record their own
+  > shapes are unchanged. All five games are `available` and record their own
   > **per-`game_type` stats**. Designs: [`DURAK_PLAN.md`](DURAK_PLAN.md),
-  > [`TARNEEB_PLAN.md`](TARNEEB_PLAN.md).
+  > [`TARNEEB_PLAN.md`](TARNEEB_PLAN.md), [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state
 - `HOST_STATE { state }` — retired legacy relay only; ignored by the server (§4b)

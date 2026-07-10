@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // Game definition registry (Stage 8.4; Durak Stage 9.2; Tarneeb Stage 10.2).
 //
-// Maps each GameType to its GameDefinition. King, Durak, Deberc, and Tarneeb are
-// all fully playable (`available`) — local + server-authoritative online.
+// Maps each GameType to its GameDefinition. King, Durak, Deberc, Tarneeb, and
+// Preferans are all fully playable (`available`) — local + server-authoritative online.
 // `getGameDefinition` mirrors `getGameCatalogEntry` (returns null for unknown
 // input).
 // ---------------------------------------------------------------------------

@@ -460,7 +460,7 @@ export const AR: Record<string, string> = {
   'ach.centurion.title': 'المئوي',
   'ach.centurion.desc': 'العب 100 مباراة إجمالًا.',
   'ach.allRounder.title': 'متعدد المهارات',
-  'ach.allRounder.desc': 'افز بمباراة واحدة على الأقل في الألعاب الأربع.',
+  'ach.allRounder.desc': 'افز بمباراة واحدة على الأقل في كل لعبة.',
   'ach.kingWinner.title': 'بطل كينج',
   'ach.kingWinner.desc': 'افز بمباراة كينج.',
   'ach.durakSurvivor.title': 'ناجٍ من دوراك',

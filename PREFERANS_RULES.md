@@ -1,9 +1,11 @@
-# Preferans (Преферанс) — Rules (Card Majlis) v0.1 (MVP spec, docs-only)
+# Preferans (Преферанс) — Rules (Card Majlis) v0.1 (MVP)
 
-> **Status: SPEC ONLY (Stage 19.0).** No code, catalog, registry, UI, or server
-> exists for Preferans yet — see [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md) for the build
-> plan. This document is the source of truth for the **MVP variant**. If future code
-> disagrees with this doc, the code is wrong (until this doc is revised).
+> **Status: RELEASED (Stage 19.7).** Preferans is a fully `available` game — local
+> + server-authoritative online, with per-`game_type` stats/leaderboard, a favorite
+> option, and a "Preferans Declarer" achievement (see [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md)
+> for the 19.1→19.7 rollout). This document remains the source of truth for the shipped
+> **MVP variant**; if the code disagrees with this doc, the code is wrong (until this doc
+> is revised).
 >
 > Preferans has *many* regional variants (Сочинка / Ленинградка / Ростов, and endless
 > house rules). **The MVP deliberately fixes ONE clean, internally-consistent variant**

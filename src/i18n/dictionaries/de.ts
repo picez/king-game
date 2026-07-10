@@ -460,7 +460,7 @@ export const DE: Record<string, string> = {
   'ach.centurion.title': 'Zenturio',
   'ach.centurion.desc': 'Spiele insgesamt 100 Partien.',
   'ach.allRounder.title': 'Allrounder',
-  'ach.allRounder.desc': 'Gewinne mindestens ein Spiel in allen vier Spielen.',
+  'ach.allRounder.desc': 'Gewinne mindestens ein Spiel in jedem Spiel.',
   'ach.kingWinner.title': 'King-Sieger',
   'ach.kingWinner.desc': 'Gewinne eine Partie King.',
   'ach.durakSurvivor.title': 'Durak-Überlebender',

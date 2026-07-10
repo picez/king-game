@@ -460,7 +460,7 @@ export const UK: Record<string, string> = {
   'ach.centurion.title': 'Сотник',
   'ach.centurion.desc': 'Зіграйте 100 ігор загалом.',
   'ach.allRounder.title': 'Універсал',
-  'ach.allRounder.desc': 'Виграйте хоча б одну гру в усіх чотирьох іграх.',
+  'ach.allRounder.desc': 'Виграйте хоча б одну гру в кожній грі.',
   'ach.kingWinner.title': 'Переможець King',
   'ach.kingWinner.desc': 'Виграйте гру в King.',
   'ach.durakSurvivor.title': 'Не дурень',

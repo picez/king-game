@@ -460,7 +460,7 @@ export const EN: Record<string, string> = {
   'ach.centurion.title': 'Centurion',
   'ach.centurion.desc': 'Play 100 games in total.',
   'ach.allRounder.title': 'All-Rounder',
-  'ach.allRounder.desc': 'Win at least one game in all four games.',
+  'ach.allRounder.desc': 'Win at least one game in every game.',
   'ach.kingWinner.title': 'King Winner',
   'ach.kingWinner.desc': 'Win a game of King.',
   'ach.durakSurvivor.title': 'Durak Survivor',
