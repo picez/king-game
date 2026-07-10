@@ -417,8 +417,14 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
 
 - **ffmpeg must be present at runtime.** Processing shells out to the `ffmpeg` binary
   (see §3 for why not `sharp`). On a host without it, `POST /api/me/avatar` returns a
-  clean `503` and the feature stays off — no crash, no impact elsewhere. Render's plain
-  Node runtime does **not** ship ffmpeg; see RENDER_DEPLOY.md for how to add it / verify.
+  clean `503` and the feature stays off — no crash, no impact elsewhere. Render's
+  default `runtime: node` service does **not** ship ffmpeg, so **uploads are OFF on a
+  stock deploy** (Stage 17.5 audit). Every boot logs the state
+  (`avatar uploads: ffmpeg found / NOT found`), and `FFMPEG_PATH` overrides the binary.
+  The production-readiness conclusion + the exact enable/verify checklist (Docker
+  runtime with ffmpeg, migration `0008`, `bytea` storage sizing) live in
+  **RENDER_DEPLOY.md → "Uploaded avatars — production readiness"**. Enabling it (Docker
+  or `FFMPEG_PATH`) is an explicit owner decision; the repo ships no Dockerfile.
 - **No idle/slowloris timeout on the request body read** (shared by the whole API, not
   avatar-specific). Per-IP / connection-rate limiting remains an infra/proxy concern
   (already noted in MVP_STATUS "known limitations").

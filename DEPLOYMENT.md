@@ -89,6 +89,8 @@ All optional; defaults keep LAN/dev simple.
 | `SESSION_TTL_DAYS`| `30`          | Stage 4: session lifetime in days (clamped 1..365). |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(unset)_ | **Stage 6: Google sign-in.** Set all three to enable. While any is unset, `/auth/google/start` returns 503 `oauth_disabled` and the server runs normally (guest/local play unaffected). `GOOGLE_REDIRECT_URI` must EXACTLY match the Authorized redirect URI in Google Cloud Console: `https://<your-domain>/auth/google/callback`. |
 | `APP_ORIGIN`      | _(request)_   | Stage 6: canonical app origin used for the post-login redirect (`https://<domain>`). Defaults to the request's host when unset. |
+| `FFMPEG_PATH`     | _(ffmpeg)_    | **Stage 17: avatar uploads.** Path to the `ffmpeg` binary used to process uploaded avatars. Defaults to `ffmpeg` on `PATH`. If ffmpeg is absent, `POST /api/me/avatar` returns a clean `503` and the app is otherwise unaffected (emoji avatars everywhere). Uploads also require `DATABASE_URL` + migration `0008`. See RENDER_DEPLOY.md → "Uploaded avatars". Every boot logs `avatar uploads: ffmpeg found/NOT found`. |
+| `AVATAR_FFMPEG_TIMEOUT_MS` | `8000` | Stage 17.4: watchdog — max ms one avatar conversion may run before ffmpeg is killed and the upload fails cleanly. |
 | `ROOM_TTL_HOURS`  | `24`          | Idle rooms with **no connected players** are deleted after this many hours. |
 | `ROOM_HARD_TTL_HOURS` | `48`      | Rooms with a connected player survive until this hard cap (so an active table is never yanked). |
 | `ORPHAN_ROOM_TTL_MS` | `900000`   | **Stage 7.2:** an orphan room (no connected human — only bots/offline humans) is deleted after this many ms (15 min). Applies to lobby AND active game. |

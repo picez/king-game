@@ -25,7 +25,11 @@ import {
   AVATAR_OUTPUT_PX, MAX_AVATAR_OUTPUT_BYTES, AVATAR_STORED_MIME,
 } from '../src/net/avatarImage';
 
-const FFMPEG = process.env.FFMPEG_PATH?.trim() || 'ffmpeg';
+/** The ffmpeg binary to run — `FFMPEG_PATH` (e.g. a Render-provided path) or `ffmpeg`
+ *  on PATH. Read per-call so a runtime env / test override is honoured. */
+function ffmpegBin(): string {
+  return process.env.FFMPEG_PATH?.trim() || 'ffmpeg';
+}
 /** Watchdog: kill ffmpeg if it hasn't finished in time (env-overridable for tests). */
 function timeoutMs(): number {
   const v = Number(process.env.AVATAR_FFMPEG_TIMEOUT_MS);
@@ -45,7 +49,7 @@ function runFfmpeg(args: string[], input: Buffer): Promise<Buffer | { unavailabl
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(FFMPEG, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      child = spawn(ffmpegBin(), args, { stdio: ['pipe', 'pipe', 'pipe'] });
     } catch {
       return resolve({ unavailable: true });
     }
@@ -118,7 +122,7 @@ export async function processAvatarToWebp(input: Buffer): Promise<ProcessResult>
 export function ffmpegAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     let child;
-    try { child = spawn(FFMPEG, ['-hide_banner', '-version'], { stdio: 'ignore' }); }
+    try { child = spawn(ffmpegBin(), ['-hide_banner', '-version'], { stdio: 'ignore' }); }
     catch { return resolve(false); }
     child.on('error', () => resolve(false));
     child.on('close', (code) => resolve(code === 0));

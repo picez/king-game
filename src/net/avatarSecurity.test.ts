@@ -49,6 +49,28 @@ describe.skipIf(!hasFfmpeg)('ffmpeg processing — watchdog + polyglot neutralis
   });
 });
 
+describe('ffmpegAvailable — production readiness self-check, never throws', () => {
+  afterEach(() => { delete process.env.FFMPEG_PATH; });
+
+  it('resolves false for a missing binary (does not throw or hang the boot log)', async () => {
+    process.env.FFMPEG_PATH = 'definitely-not-a-real-ffmpeg-binary-xyz';
+    await expect(ffmpegAvailable()).resolves.toBe(false);
+  });
+
+  it('honours FFMPEG_PATH at call time (dynamic, so a Render env override applies)', async () => {
+    const proc = read('server/avatarProcess.ts');
+    expect(proc).toContain('function ffmpegBin()');
+    expect(proc).toContain("process.env.FFMPEG_PATH?.trim() || 'ffmpeg'");
+  });
+
+  it('startup logs avatar-upload readiness once (non-fatal), pointing at the runtime doc', () => {
+    const index = read('server/index.ts');
+    expect(index).toContain('ffmpegAvailable().then');
+    expect(index).toContain('avatar uploads: ffmpeg');
+    expect(index).toContain('RENDER_DEPLOY.md');
+  });
+});
+
 describe('malformed multipart never throws (returns null)', () => {
   const boundary = 'B';
   const enc = (s: string) => Uint8Array.from(Array.from(s, (c) => c.charCodeAt(0)));

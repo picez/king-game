@@ -34,6 +34,7 @@ import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
+import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, SERVE_STATIC, DIST } from './httpStatic';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
@@ -669,6 +670,15 @@ async function bootstrap(): Promise<void> {
     console.log(isDbEnabled()
       ? '[King] database: DATABASE_URL set — /health probes Postgres'
       : '[King] database: disabled (no DATABASE_URL)');
+    // Avatar upload readiness (Stage 17.5): a one-time, non-fatal probe so the deploy
+    // log states plainly whether uploads will work here. Uploads need BOTH a database
+    // AND ffmpeg; without ffmpeg, POST /api/me/avatar returns a clean 503 (feature off,
+    // everything else unaffected). Never throws, runs once at boot — no per-request cost.
+    void ffmpegAvailable().then((ok) => {
+      console.log(ok
+        ? '[King] avatar uploads: ffmpeg found — uploads work when DATABASE_URL is set'
+        : '[King] avatar uploads: ffmpeg NOT found — POST /api/me/avatar returns 503 (see RENDER_DEPLOY.md)');
+    });
     console.log(
       `[King] startup: restored ${restored} room(s) from storage, removed ${expiredOnStartup} expired ` +
       `(TTL ${ROOM_TTL_MS / HOUR_MS}h, hard TTL ${ROOM_HARD_TTL_MS / HOUR_MS}h, ` +

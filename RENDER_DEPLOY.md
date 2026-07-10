@@ -207,29 +207,96 @@ never double-counts stats.
   Google access/refresh tokens** — only the stable `sub` + email/name/picture
   for display. See ARCHITECTURE_DB_AUTH.md §1.4/§3 Stage 6.
 
-### Uploaded avatars need `ffmpeg` at runtime (optional, Stage 17)
+### Uploaded avatars — production readiness (optional, Stage 17)
 
 Signed-in players can upload a custom avatar (processed server-side to a 192×192
 WebP, stored in Postgres, shown on lobby/King-table seats). **Processing shells out
 to the `ffmpeg` binary** (a deliberate no-native-dependency choice — see
-AVATAR_UPLOAD_PLAN.md §3). Render's plain Node runtime does **not** include ffmpeg,
-so out of the box `POST /api/me/avatar` returns a clean **`503`** ("avatar processing
-unavailable") and everything else keeps working — the emoji avatar is used everywhere.
+AVATAR_UPLOAD_PLAN.md §3).
 
-To enable uploads on Render:
+**Readiness conclusion for THIS repo's default deploy:** `render.yaml` uses
+`runtime: node` (the native Node environment — **no `apt` packages, no Docker,
+no ffmpeg**). So on a stock deploy **avatar upload is OFF**: `POST /api/me/avatar`
+returns a clean **`503`** ("avatar processing unavailable"), and everything else —
+gameplay, rooms, stats, emoji avatars, the profile "This device" local image —
+works exactly as before. Every boot logs which state you are in:
 
-- **Provide ffmpeg.** Either switch the service to a **Docker** runtime whose image
-  installs ffmpeg (`apt-get install -y ffmpeg`), or point `FFMPEG_PATH` at an ffmpeg
-  binary available on the instance. (A Postgres `DATABASE_URL` is also required — the
-  avatar rows live there; see the Postgres section above and run migration `0008`.)
-- **Verify** after deploy, signed in: upload a small PNG → expect `200 { avatarImageUrl }`
-  and `GET /api/avatar/<id>.webp` returning `image/webp` with `X-Content-Type-Options:
-  nosniff`. If you instead get `503`, ffmpeg is missing on the host.
-- **Tune (optional):** `AVATAR_FFMPEG_TIMEOUT_MS` (default `8000`) caps how long a
-  single conversion may run before the watchdog kills it.
+```
+[King] avatar uploads: ffmpeg found — uploads work when DATABASE_URL is set
+[King] avatar uploads: ffmpeg NOT found — POST /api/me/avatar returns 503 (see RENDER_DEPLOY.md)
+```
 
-Nothing here is required for gameplay — leave it unset and the app runs exactly as
-before, with emoji avatars only.
+Uploads need **BOTH** a Postgres `DATABASE_URL` (with migrations applied) **and**
+`ffmpeg` on the host. Enabling them is an explicit, owner-approved choice — **do not
+switch the service to Docker unless you intend to**.
+
+#### To ENABLE uploads on Render (two independent requirements)
+
+1. **Database (see the Postgres section above).** Set `DATABASE_URL` and run the
+   migrations so table `user_avatars` + `user_settings.avatar_image_version` exist:
+
+   ```bash
+   DATABASE_URL=<render-postgres-url> npm run db:migrate   # applies ALL *.sql in order, incl. 0008_avatar_upload
+   ```
+
+   `db:migrate` is idempotent (safe to re-run); **migration `0008` is required** for
+   uploads (without it a signed-in `/api/me` still works, but uploads error).
+   **No persistent disk is needed** — avatars live in Postgres as `bytea`, so they
+   survive restarts/redeploys on the free tier (unlike `.data/rooms.json`).
+
+2. **ffmpeg (the runtime binary).** The native `runtime: node` service can't `apt
+   install`, so choose one:
+   - **Recommended — Docker runtime (owner opt-in).** Switch the Web Service to a
+     Dockerfile that installs ffmpeg. This repo does **not** ship a Dockerfile (the
+     default is the native runtime); add one only if you commit to Docker deploys.
+     A minimal image:
+
+     ```dockerfile
+     FROM node:22-bookworm-slim
+     RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+       && rm -rf /var/lib/apt/lists/*
+     WORKDIR /app
+     COPY package*.json ./
+     RUN npm ci
+     COPY . .
+     RUN npm run build
+     ENV NODE_ENV=production
+     CMD ["npm", "run", "server:prod"]
+     ```
+
+     Then in Render set the service **Runtime = Docker** (or `runtime: docker` in a
+     Blueprint) and redeploy. Verify the boot log shows "ffmpeg found".
+   - **Alternative — `FFMPEG_PATH`.** If your host already has an ffmpeg binary
+     somewhere, set the env var `FFMPEG_PATH=/path/to/ffmpeg` (read at runtime).
+   - **Do nothing** — leave the native runtime; uploads stay a clean `503` and the
+     app is fully usable with emoji avatars.
+
+3. **Tune (optional):** `AVATAR_FFMPEG_TIMEOUT_MS` (default `8000` ms) caps how long
+   one conversion may run before the watchdog kills it.
+
+#### Verify (in the Render shell / after deploy, signed in)
+
+```bash
+ffmpeg -version                 # in the Render Shell — confirms the binary exists (Docker path)
+# then, from your machine (replace host + use your session cookie):
+curl -i -X POST https://<host>/api/me/avatar -H "Cookie: king_session=<...>" -F file=@small.png
+#   → 200 { "avatarImageUrl": "/api/avatar/<uuid>.webp?v=1" }   (uploads ON)
+#   → 503 { "error": "unavailable" }                            (ffmpeg missing)
+#   → 503 { "error": "db_disabled" }                            (no DATABASE_URL)
+curl -i https://<host>/api/avatar/<uuid>.webp   # image/webp + nosniff + immutable cache
+curl -i -X DELETE https://<host>/api/me/avatar -H "Cookie: king_session=<...>"  # → 200 { avatarImageUrl: null }
+```
+
+#### Storage sizing (Postgres `bytea`)
+
+Each stored avatar is a 192×192 WebP, **hard-capped at 120 KB** (typical solid/photo
+avatars land ~5–40 KB). One row per user (replacing overwrites, not appends). Rough
+budget: **1,000 users ≈ 5–40 MB; 10,000 users ≈ 50–400 MB** — comfortably within
+Render's free Postgres (~1 GB), and there is nothing to prune since each user keeps
+at most one avatar.
+
+Nothing here is required for gameplay — leave it all unset and the app runs exactly
+as before, with emoji avatars only.
 
 ---
 
