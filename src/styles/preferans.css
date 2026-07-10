@@ -125,6 +125,8 @@
   box-shadow: 0 0 0 2px var(--accent-light), 0 0 14px rgba(255, 226, 115, 0.55);
   border-color: var(--accent-light);
 }
+.preferans-seat--offline { opacity: 0.6; }
+.preferans-seat__off { font-size: 0.72rem; }
 .preferans-seat__badges { display: flex; gap: 0.2rem; min-height: 0.9rem; }
 .preferans-badge {
   font-size: 0.62rem;
@@ -193,6 +195,9 @@
   justify-content: center;
   gap: 0.4rem;
 }
+/* Online only: keep action bars clear of the fixed emoji/chat social corner
+   (right: 12px, ~46px wide). Local play has no social overlay, so bars stay centred. */
+.preferans-screen--online .preferans-actions { padding-right: 7rem; }
 .preferans-bidbar,
 .preferans-declarebar { flex-direction: column; gap: 0.3rem; }
 .preferans-declarebar__label { font-size: 0.85rem; font-weight: 700; color: var(--text); text-align: center; }
@@ -274,6 +279,7 @@
 .preferans-handdone__table td { text-align: center; padding: 0.3rem 0.2rem; border-top: 1px solid var(--border); }
 .preferans-handdone__table td:first-child { text-align: left; font-weight: 700; }
 .preferans-handdone__next { width: 100%; margin-top: 0.8rem; min-height: 44px; }
+.preferans-handdone__note { margin: 0.8rem 0 0; text-align: center; color: var(--accent-light); font-weight: 700; }
 
 /* --- Help modal --- */
 .preferans-help__head { display: flex; align-items: center; justify-content: space-between; }

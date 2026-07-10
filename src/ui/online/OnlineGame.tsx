@@ -15,6 +15,8 @@ import DebercOnlineGame from '../deberc/DebercOnlineGame';
 import type { DebercState } from '../../games/deberc/types';
 import TarneebOnlineGame from '../tarneeb/TarneebOnlineGame';
 import type { TarneebState } from '../../games/tarneeb/types';
+import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
+import type { PreferansState } from '../../games/preferans/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -203,6 +205,26 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
         {/* No Leave-game pill here: Tarneeb's full-width bid/trump action bars would
             collide with it. The board's top-left ✕ already leaves the game
             (reconnectable). Social keeps only the compact emoji/chat corner. */}
+        {renderSocial(true)}
+      </>
+    );
+  }
+
+  // Experimental online Preferans (Stage 19.5): render the Preferans screens (NOT
+  // King's GameRouter). The server drives bots + the public hand_complete advance
+  // (START_NEXT_HAND); the screen is read-only when it is not this client's turn.
+  if (net.room?.gameType === 'preferans') {
+    return (
+      <>
+        <PreferansOnlineGame
+          state={net.state as unknown as PreferansState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+          disconnectedSeats={disconnectedSeats}
+        />
+        {/* Like Tarneeb: no Leave-game pill (the board ✕ leaves, reconnectable);
+            social keeps the compact emoji/chat corner. */}
         {renderSocial(true)}
       </>
     );

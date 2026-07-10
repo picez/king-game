@@ -51,10 +51,10 @@ describe('Preferans game definition (registered, experimental — local prototyp
     expect(preferansGameDefinition.catalog).toBe(GAME_CATALOG.preferans);
     expect(preferansGameDefinition.rulesDoc).toBe('PREFERANS_RULES.md');
     expect(preferansGameDefinition.supportedPlayerCounts).toEqual([3]);
-    expect(preferansGameDefinition.recordsStats).toBe(false); // no stats yet (Stage 19.3)
+    expect(preferansGameDefinition.recordsStats).toBe(false); // no stats yet (Stage 19.5)
     expect(preferansGameDefinition.catalog.status).toBe('experimental');
     expect(preferansGameDefinition.catalog.supportsLocal).toBe(true);  // Stage 19.3: local UI
-    expect(preferansGameDefinition.catalog.supportsOnline).toBe(false); // no online yet
+    expect(preferansGameDefinition.catalog.supportsOnline).toBe(true); // Stage 19.5: online
   });
 
   it('smoke: buildStartAction → reducer creates a bidding PreferansState; botAction is legal', () => {

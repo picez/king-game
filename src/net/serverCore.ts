@@ -615,9 +615,7 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     // CREATE_ROOM), so this branch only runs in internal serverCore readiness tests.
     const def = getGameDefinition('preferans');
     if (!def) return false;
-    // Preferans is not in the wire AnyGame union yet (joins at Stage 19.5) — cast via
-    // unknown. The registry stores its definition as GameDefinition<any, any>.
-    const state = room.gameState as unknown as PreferansState;
+    const state = room.gameState as PreferansState;
     if (state.phase === 'hand_complete') {
       const seed = deal.seed ?? randomSeed();
       room.gameState = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
@@ -658,7 +656,7 @@ export function publicScreenOf(room: ServerRoom): PublicScreen {
   if (gt === 'preferans') {
     // Like Tarneeb: `hand_complete` is the single public between-hands pause.
     // (Internal-only until Preferans online lands — see autoAdvance note.)
-    return (s as unknown as PreferansState).phase === 'hand_complete' ? 'round_scoring' : null;
+    return (s as PreferansState).phase === 'hand_complete' ? 'round_scoring' : null;
   }
   return null;
 }

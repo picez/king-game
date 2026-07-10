@@ -316,8 +316,30 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       "all pass → redeal" loop).
 - [ ] **Privacy:** across the whole hand you never see another seat's cards, the un-taken
       talon, or the 2 buried discards — not even your own buried cards once declared.
-- [ ] **Not online:** the Host sheet keeps Preferans disabled ("Coming soon"); there is no
-      way to create or join a Preferans room.
+## Manual — Preferans ONLINE (experimental, Stage 19.5)
+
+> Preferans online is **experimental** (`supportsOnline: true`, `status: experimental`,
+> **no stats**). Server-authoritative 3-seat rooms. Automated: `scripts/e2e-online.mjs`
+> (the `[2p]` section) + `scripts/preferans-online-shots.mjs` (360/390, overflow check).
+
+- [ ] **Host:** the Host sheet offers **🎩 Preferans** (with a "🧪 experimental" note); the
+      Create button is enabled and a room is exactly **3 seats**.
+- [ ] **Lobby:** the room labels itself **🎩 Experimental** (not "Dealer's Choice"); Add-bot
+      fills toward 3/3; **Start** is blocked until 3 seats are occupied; a 4th joiner is
+      rejected (ROOM_FULL).
+- [ ] **Room browser:** the Preferans room appears with its emblem + an "experimental" hint.
+- [ ] **Start → play:** all three clients receive the deal; on your turn you bid / take the
+      talon / bury 2 / declare / play; off-turn the screen is read-only with a
+      "waiting / bot thinking" note; the hand auto-advances (no "Next hand" button online).
+- [ ] **Redaction:** you only ever see **your own** hand; opponents show a face-down count;
+      the un-taken talon and the buried discards never appear in your client (check across
+      hands + after reconnect).
+- [ ] **Reconnect / leave:** reconnecting mid-hand restores your hand + phase with no leak;
+      Leave-lobby before start frees your seat; the board ✕ leaves the game (reconnectable).
+- [ ] **Social:** chat + reactions work and never cover the hand/table (360/390, RTL); the
+      action bars stay clear of the emoji/chat corner.
+- [ ] **No stats:** finishing an online Preferans game records **nothing** (no Profile
+      Preferans tab, no leaderboard) — stats land at Stage 19.6.
 
 ## Manual — Deberc combination stats (Stage 13.8)
 

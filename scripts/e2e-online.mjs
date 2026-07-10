@@ -19,6 +19,7 @@ import { getValidCards } from '../src/core/rules';
 import { getActingPlayerId } from '../src/core/gameEngine';
 import { seatToPlayerId, humanError } from '../src/net/online';
 import { getValidBids, getValidPlayableCards } from '../src/games/tarneeb/rules';
+import { preferansBotAction } from '../src/games/preferans/ai';
 import { CHAT_MEDIA } from '../src/net/chatMediaCatalog';
 
 const PORT = 3990;
@@ -871,6 +872,138 @@ async function main() {
   await sleep(200);
   check(!tnlHost.room.members.some((m) => m.name === 'TnLeaver'), 'leave lobby frees the Tarneeb seat');
   tnlHost.ws.close(); tnlJoin.ws.close();
+
+  // 2p) ONLINE Preferans (experimental, Stage 19.5): host a 3-seat Preferans room,
+  // fill with a 2nd human + 1 bot, start, redaction per human, a human acts, a trick
+  // completes, chat + reactions + reconnect + leave-lobby all work. No stats recorded.
+  console.log('\n[2p] online Preferans room (experimental)');
+  const pfHost = await connect();
+  sendMsg(pfHost, { t: 'CREATE_ROOM', name: 'PfHost', modeSelectionType: 'fixed', gameType: 'preferans' });
+  await sleep(220);
+  check(pfHost.room?.gameType === 'preferans', 'CREATE_ROOM preferans → room.gameType preferans');
+  check(pfHost.room?.playerCount === 3, 'Preferans room is 3 seats (catalog min=max)');
+  const pfCode = pfHost.room.code;
+
+  // Room browser shows the Preferans room.
+  const pfList = await connect();
+  sendMsg(pfList, { t: 'LIST_ROOMS' });
+  await sleep(150);
+  check((pfList.roomsList ?? []).some((r) => r.code === pfCode && r.gameType === 'preferans'),
+    'Preferans room appears in the room browser as preferans');
+  pfList.ws.close();
+
+  // Start before 3 seats is rejected (Preferans requires exactly 3).
+  pfHost.lastError = null;
+  sendMsg(pfHost, { t: 'START_GAME' });
+  await sleep(200);
+  check(!pfHost.state, 'Preferans start rejected before 3 seats (not started)');
+
+  // A 2nd human joins; 1 bot fills to 3.
+  const pfJoin = await connect();
+  sendMsg(pfJoin, { t: 'JOIN_ROOM', code: pfCode, name: 'PfJoin' });
+  await sleep(200);
+  sendMsg(pfHost, { t: 'ADD_BOT' });
+  await sleep(300);
+  check(pfHost.room.members.filter((m) => m.role === 'player').length === 3, 'Preferans room fills to 3 (2 humans + 1 bot)');
+
+  // Full room rejects an extra joiner.
+  const pfLate = await connect();
+  sendMsg(pfLate, { t: 'JOIN_ROOM', code: pfCode, name: 'PfLate' });
+  await sleep(150);
+  check(pfLate.lastError?.code === 'ROOM_FULL', 'full Preferans room → ROOM_FULL');
+  pfLate.ws.close();
+
+  // Start → PreferansState over the wire.
+  sendMsg(pfHost, { t: 'START_GAME' });
+  await sleep(450);
+  check(pfHost.state?.gameType === 'preferans', 'online Preferans start → PreferansState over WS');
+  check(pfHost.state?.phase === 'bidding', 'Preferans starts in the bidding phase');
+  check(pfHost.state?.players?.length === 3, 'Preferans state has 3 players');
+  check(pfHost.state?.talon?.length === 2, 'Preferans deals a 2-card talon');
+
+  // Redaction: each human sees only its own hand; opponents + the talon are hidden.
+  const pfHostSeat = pfHost.seat, pfJoinSeat = pfJoin.seat;
+  check(pfHost.state.handsBySeat[pfHostSeat].every((c) => c.rank !== '?'), 'host sees its own Preferans hand');
+  check(pfHost.state.handsBySeat[pfJoinSeat].every((c) => c.rank === '?'), "host cannot see the joiner's hand");
+  check(pfHost.state.talon.every((c) => c.rank === '?'), 'the un-taken talon is hidden from the host');
+  check(pfJoin.state.handsBySeat[pfJoinSeat].every((c) => c.rank !== '?'), 'joiner sees its own Preferans hand');
+  const pfLeak = (st, mySeat) => st.handsBySeat.some((h, seat) => seat !== mySeat && h.some((c) => c.rank !== '?'));
+  check(!pfLeak(pfHost.state, pfHostSeat) && !pfLeak(pfJoin.state, pfJoinSeat),
+    'no opponent Preferans hand leaks in either human payload');
+
+  // Drive: each acting human plays a legal move (via the deterministic bot heuristic
+  // on its OWN redacted hand); bots + the server drive the rest. Look for a human
+  // action accepted and a completed trick.
+  const pfHumans = {};
+  pfHumans[pfHostSeat] = pfHost; pfHumans[pfJoinSeat] = pfJoin;
+  let pfHumanActed = false, pfTrickSeen = false, pfAdvanceSeen = false;
+  let pfLastHand = pfHost.state.handNumber;
+  for (let step = 0; step < 400 && !(pfTrickSeen && pfHumanActed); step++) {
+    const s = pfHost.state;
+    if (!s || s.phase === 'game_finished') break;
+    if ((s.completedTricks?.length ?? 0) >= 1) pfTrickSeen = true;
+    if (s.handNumber > pfLastHand) { pfAdvanceSeen = true; pfLastHand = s.handNumber; }
+    const actionable = s.phase === 'bidding' || s.phase === 'talon' || s.phase === 'playing';
+    if (!actionable) { await sleep(80); continue; } // hand_complete → server auto-advances
+    const human = pfHumans[s.currentSeat];
+    if (!human) { await sleep(80); continue; }       // bot's turn → the server acts
+    const before = JSON.stringify(human.state);
+    sendMsg(human, { t: 'ACTION_REQUEST', action: preferansBotAction(human.state, human.seat) });
+    await sleep(90);
+    if (JSON.stringify(human.state) !== before) pfHumanActed = true;
+  }
+  check(pfHumanActed, 'a human Preferans action was accepted + advanced the state online');
+  check(pfTrickSeen, 'at least one Preferans trick completed online');
+  console.log(`  · Preferans hand auto-advanced online: ${pfAdvanceSeen}`);
+
+  // Out-of-turn: a non-acting human's action is refused server-side.
+  {
+    const s = pfHost.state;
+    if (s && s.phase !== 'game_finished') {
+      const offHuman = [pfHost, pfJoin].find((c) => c.seat !== s.currentSeat);
+      if (offHuman) {
+        offHuman.lastError = null;
+        sendMsg(offHuman, { t: 'ACTION_REQUEST', action: { type: 'PASS_BID' } });
+        await sleep(150);
+        check(offHuman.lastError != null, 'out-of-turn Preferans action rejected server-side');
+      }
+    }
+  }
+
+  // Social: chat + a reaction both work in the Preferans room.
+  sendMsg(pfHost, { t: 'SEND_CHAT', text: 'gg preferans' });
+  await sleep(200);
+  check(pfJoin.chats.some((m) => m.text.includes('gg preferans')), 'chat works in an online Preferans room');
+  const pfReactBefore = pfJoin.reactions.length;
+  sendMsg(pfJoin, { t: 'SEND_REACTION', emoji: '👏' });
+  await sleep(200);
+  check(pfJoin.reactions.length > pfReactBefore, 'reaction works in an online Preferans room');
+
+  // Reconnect the host mid-game → own hand intact, no leak.
+  const pfToken = pfHost.token;
+  pfHost.ws.close();
+  await sleep(250);
+  const pfBack = await connect();
+  sendMsg(pfBack, { t: 'RECONNECT', code: pfCode, reconnectToken: pfToken });
+  await sleep(350);
+  check(!pfBack.lastError && pfBack.state?.gameType === 'preferans', 'reconnect restores the online Preferans game');
+  check(pfBack.state.handsBySeat[pfBack.seat].every((c) => c.rank !== '?'), 'reconnected Preferans player sees their own hand');
+  check(!pfLeak(pfBack.state, pfBack.seat), 'no opponent Preferans hand leaks after reconnect');
+  pfBack.ws.close(); pfJoin.ws.close();
+
+  // Leave lobby before start frees a Preferans seat (separate room).
+  const pflHost = await connect();
+  sendMsg(pflHost, { t: 'CREATE_ROOM', name: 'PfLHost', modeSelectionType: 'fixed', gameType: 'preferans' });
+  await sleep(160);
+  const pflCode = pflHost.room.code;
+  const pflJoin = await connect();
+  sendMsg(pflJoin, { t: 'JOIN_ROOM', code: pflCode, name: 'PfLeaver' });
+  await sleep(200);
+  check(pflHost.room.members.some((m) => m.name === 'PfLeaver'), 'joiner is in the Preferans lobby');
+  sendMsg(pflJoin, { t: 'LEAVE_ROOM' });
+  await sleep(200);
+  check(!pflHost.room.members.some((m) => m.name === 'PfLeaver'), 'leave lobby frees the Preferans seat');
+  pflHost.ws.close(); pflJoin.ws.close();
 
   // 3) Host starts the game
   console.log('\n[2] start game → mode selection');

@@ -100,9 +100,9 @@ export const GAME_CATALOG = {
     maxPlayers: 3,
     defaultPlayerCount: 3,
     supportsLocal: true,    // Stage 19.3: local prototype (1 human + 2 bots)
-    supportsOnline: false,  // no online rooms yet (Stage 19.5+)
+    supportsOnline: true,   // Stage 19.5: experimental server-authoritative online rooms
     supportsBots: true,     // pure core has a working deterministic bot (Stage 19.1)
-    status: 'experimental', // Stage 19.3: playable locally but rough (no online/stats)
+    status: 'experimental', // Stage 19.5: playable local + online but rough (no stats yet)
     rulesDoc: 'PREFERANS_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

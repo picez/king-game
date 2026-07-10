@@ -191,6 +191,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize } : {}),
       ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const } : {}),
+      ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
@@ -404,6 +405,12 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                   <p className="durak-variant-desc">{t('tarneeb.setupTagline')}</p>
                 </div>
               )}
+              {gameType === 'preferans' && (
+                <div className="field">
+                  <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
+                  <p className="field__hint">🧪 {t('preferans.onlineExperimental')}</p>
+                </div>
+              )}
               {gameType === 'king' && (
                 <div className="field">
                   <label className="field__label">{t('form.mode')}</label>
@@ -521,6 +528,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                                   {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
                                   {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
                                   {gameType === 'tarneeb' ? <span className="sb-variant"> · {t('tarneeb.twoTeams')}</span> : null}
+                                  {gameType === 'preferans' ? <span className="sb-variant"> · {t('menu.experimental')}</span> : null}
                                 </span>
                               </span>
                               <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">

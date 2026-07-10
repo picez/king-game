@@ -165,6 +165,10 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // Tarneeb has no dealer's-choice / fixed-order mode (fixed 2×2
               // partnerships, bid-and-trump); show the partnership label, not a King term.
               <>♠️ {t('tarneeb.twoTeams')}</>
+            ) : room.gameType === 'preferans' ? (
+              // Preferans (3-player, each-for-self) has no King-style mode; flag it
+              // experimental rather than a dealer's-choice/fixed-order term.
+              <>🎩 {t('menu.experimental')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

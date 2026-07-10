@@ -1,15 +1,11 @@
 // ---------------------------------------------------------------------------
-// Preferans online SEAM readiness (Stage 19.4). Drives Preferans through the SAME
-// server-authoritative functions the WS layer uses (startGame / applyActionRequest
-// / applyBotTurn / applyTimeoutAction / autoAdvance / sanitizedStateFor /
-// serialize+deserialize), proving the game is technically ready for online play —
-// even though it is STILL not hostable: GAME_CATALOG.preferans.supportsOnline =
-// false, so wsHandlers rejects CREATE_ROOM preferans (see wsHandlers.preferans.test).
-// Mirrors tarneebServerCore.test.ts, which validated Tarneeb's seam before hosting.
-//
-// Nothing here makes Preferans user-hostable: these call serverCore directly. The
-// registry stores definitions as GameDefinition<any, any>, so the seam runs the
-// Preferans reducer/redaction without Preferans being in the wire AnyGame union yet.
+// Preferans online seam (Stage 19.4 readiness; hosting enabled Stage 19.5). Drives
+// Preferans through the SAME server-authoritative functions the WS layer uses
+// (startGame / applyActionRequest / applyBotTurn / applyTimeoutAction / autoAdvance /
+// sanitizedStateFor / serialize+deserialize). Preferans online is now experimental
+// (GAME_CATALOG.preferans.supportsOnline = true) and hostable via wsHandlers
+// (see wsHandlers.preferans.test); the full WS flow is covered by scripts/e2e-online.
+// Mirrors tarneebServerCore.test.ts.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';

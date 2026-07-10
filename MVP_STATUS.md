@@ -26,17 +26,18 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | 3 solo / 4 team, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 7–13, target 41; [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 
-**Experimental (local-only):** **Preferans / Преферанс** — a 3-player, 32-card,
+**Experimental (local + online):** **Preferans / Преферанс** — a 3-player, 32-card,
 contract-bidding trick game (declarer + talon vs two defenders). Playable **locally**
-(1 human + 2 bots) since Stage 19.3: `status: experimental`, `supportsLocal: true`.
-The local UI (`src/ui/preferans/`) covers the full hand — bidding, talon exchange
-(take → bury 2 → declare), trick play, hand-complete scoring, finished. The game
-picker offers it in the **Local** sheet (flagged "Experimental") and shows it
-**disabled** ("Coming soon") when hosting. There is **no online play or stats yet**
-(`supportsOnline: false`, `recordsStats: false`; online = Stage 19.5+). Stage 19.4
-hardened the local core (guaranteed bot-only termination, expanded invariant/redaction
-tests) and proved the server seam is ready (serverCore drives Preferans internally)
-while keeping it un-hostable (`wsHandlers` rejects `CREATE_ROOM preferans`). Spec + plan:
+(1 human + 2 bots, Stage 19.3) AND **online** (server-authoritative rooms, Stage 19.5):
+`status: experimental`, `supportsLocal: true`, `supportsOnline: true`. The shared UI
+(`src/ui/preferans/`) covers the full hand — bidding, talon exchange (take → bury 2 →
+declare), trick play, hand-complete scoring, finished — locally and online (via the
+thin `PreferansOnlineGame` adapter; the server drives bots + the hand advance, and the
+screen is read-only off-turn). Host/join a 3-seat room with reconnect + social + leave;
+each client sees only its own hand (server redaction, talon/discards hidden), verified
+by an online e2e. There are **no stats yet** (`recordsStats: false`;
+`maybeRecordFinished` skips it). The favorite-game picker still excludes it while
+experimental. Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works

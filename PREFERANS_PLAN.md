@@ -116,9 +116,26 @@ pattern for stats.
   no room). Preferans is NOT in the wire `AnyGame` union yet (joins at 19.5). **UI:**
   clearer prompts — a follow-suit reminder + the declare minimum (≥ winning bid); i18n
   ×4. Verify green. Next: 19.5 experimental online.
-- **19.5 — experimental online.** `status: 'experimental'`, `supportsOnline: true`:
-  host/join rooms with bots, reconnect/restart, an online soak + a multi-human e2e with
-  **no redaction leak**. Experimental label in menu/host/lobby.
+- **19.5 — experimental online. ✅ DONE.** `GAME_CATALOG.preferans.supportsOnline: true`
+  (still `status: experimental`, `recordsStats: false`). `PreferansState`/`PreferansAction`
+  joined the wire `AnyGame` union (STATE_UPDATE / ACTION_REQUEST carry them); **no new
+  message types**. serverCore already drove the game (19.4 seam) — `createRoom` needs
+  exactly 3 seats, start requires 3 occupied, room full at 3/3, `maybeRecordFinished`
+  skips it (recordsStats false). `wsHandlers` now allows `CREATE_ROOM preferans` (3 seats,
+  guarded by the `supportsOnline` gate). Client: `OnlineGame` routes `gameType==='preferans'`
+  → new **`PreferansOnlineGame`** (thin adapter: dispatch → ACTION_REQUEST, no local
+  reducer/bot loop); `PreferansGameScreen` gained an `online` mode (read-only off-turn,
+  offline-seat badges + "AI may play", hides "Next hand" → server auto-advances). StartMenu
+  Host offers Preferans (Experimental), room browser + Lobby flag it experimental; favorite
+  picker **still excludes** it (experimental — revisit at release). i18n ×4. Tests:
+  `wsHandlers.preferans` (CREATE_ROOM allowed), `preferansServerCore` (auth / follow-suit /
+  bot+timeout / redaction / serialize+restore / bot-only finish), `preferansOnlineWiring`
+  (routing/adapter/online-mode source guards), and an **online Preferans e2e section**
+  (create → browser → start<3 rejected → 3/3 start → PreferansState over WS → human acts →
+  trick → out-of-turn rejected → chat/reaction → reconnect no-leak → leave frees seat).
+  Visual smoke `scripts/preferans-online-shots.mjs` (host/lobby 1&3-of-3/bidding/talon/
+  playing, 360/390, **no overflow**). **No stats yet.** Verify green (typecheck + tests +
+  build + E2E). Next: 19.6 stats.
 - **19.6 — stats.** Additive per-`game_type` stats (`game_type='preferans'`): games/wins,
   contracts made/failed, avg contract level — score-only, additive migration, DB-gated,
   graceful with no DB. New `getPreferansStats` + a Profile stats panel + leaderboard.

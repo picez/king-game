@@ -4,3 +4,4 @@ export { default as PreferansSetup } from './PreferansSetup';
 export { default as PreferansGameScreen } from './PreferansGameScreen';
 export { default as PreferansFinished } from './PreferansFinished';
 export { default as PreferansHelp } from './PreferansHelp';
+export { default as PreferansOnlineGame } from './PreferansOnlineGame';

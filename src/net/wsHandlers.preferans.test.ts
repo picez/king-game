@@ -1,10 +1,11 @@
 // ---------------------------------------------------------------------------
-// wsHandlers Preferans gate (Stage 19.4): Preferans is playable LOCALLY only
-// (GAME_CATALOG.preferans.supportsOnline = false, status experimental). The WS
-// layer MUST reject CREATE_ROOM preferans so it can never be hosted/joined online,
-// even though its serverCore seam is otherwise ready (see preferansServerCore.test).
-// Drives the real handleClientMessage with the same minimal in-memory context as
-// wsHandlers.tarneeb.test.ts.
+// wsHandlers Preferans hosting (Stage 19.5): Preferans online is now enabled as
+// experimental (GAME_CATALOG.preferans.supportsOnline = true, status experimental),
+// so the WS layer must ALLOW hosting a 3-seat Preferans room — while still rejecting
+// unknown game types. Start-gating (needs 3 seats), room-full, redaction, reconnect
+// and social are exercised end-to-end by scripts/e2e-online.mjs + preferansServerCore.
+// Drives the real handleClientMessage with a minimal in-memory context (same
+// approach as wsHandlers.tarneeb.test.ts).
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -48,22 +49,34 @@ function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; errors: Er
 const create = (gameType: string): ClientMessage =>
   ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType } as ClientMessage);
 
-describe('wsHandlers rejects hosting Preferans online (Stage 19.4)', () => {
-  it('the catalog keeps Preferans local-only (experimental, no online)', () => {
-    expect(GAME_CATALOG.preferans.supportsOnline).toBe(false);
+describe('wsHandlers now allows hosting Preferans online (Stage 19.5, experimental)', () => {
+  it('the catalog enables Preferans online (experimental, still no stats)', () => {
+    expect(GAME_CATALOG.preferans.supportsOnline).toBe(true);
     expect(GAME_CATALOG.preferans.status).toBe('experimental');
     expect(GAME_CATALOG.preferans.supportsLocal).toBe(true);
   });
 
-  it('CREATE_ROOM preferans is rejected (BAD_MESSAGE) and creates no room', () => {
-    const { ctx, rooms, errors } = makeCtx();
+  it('CREATE_ROOM preferans creates a 3-seat Preferans room', () => {
+    const { ctx, rooms } = makeCtx();
     const sessionRef: SessionRef = { value: null };
     const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
 
     handleClientMessage(ctx, socket, sessionRef, () => {}, create('preferans'), limiter);
 
+    expect(rooms.size).toBe(1);
+    const room = sessionRef.value!.room;
+    expect(room.gameType).toBe('preferans');
+    expect(room.playerCount).toBe(3); // catalog min = max = 3
+  });
+
+  it('CREATE_ROOM with an unknown game type is still rejected', () => {
+    const { ctx, rooms, errors } = makeCtx();
+    const sessionRef: SessionRef = { value: null };
+    const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
+
+    handleClientMessage(ctx, socket, sessionRef, () => {}, create('poker'), limiter);
+
     expect(errors).toContain('BAD_MESSAGE');
     expect(rooms.size).toBe(0);
-    expect(sessionRef.value).toBeNull();
   });
 });

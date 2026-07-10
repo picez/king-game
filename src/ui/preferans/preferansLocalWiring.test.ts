@@ -46,10 +46,11 @@ describe('StartMenu — Preferans is local-only (experimental), host stays disab
     expect(menu).toContain('mode="local"');
     expect(menu).toContain('mode="host"');
   });
-  it('host() still guards non-online games (Preferans cannot be hosted)', () => {
+  it('host() keeps the generic supportsOnline guard (now passes for Preferans, Stage 19.5)', () => {
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
-    // No preferans branch is added to host()/online intents.
-    expect(menu).not.toContain("gameType: 'preferans'");
+    // Preferans online is enabled (19.5) — host() now sends its gameType. The online
+    // routing itself is guarded by preferansOnlineWiring.test.
+    expect(menu).toContain("gameType === 'preferans' ? { gameType: 'preferans' as const }");
   });
 });
 

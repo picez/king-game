@@ -16,12 +16,17 @@ import PreferansHelp from './PreferansHelp';
 
 interface Props {
   state: PreferansState;
-  /** The human's seat (always 0 in the local game). */
+  /** The human's seat (0 in the local game; the client's own seat online). */
   humanSeat: number;
   apply: (a: PreferansAction) => void;
   onExit: () => void;
   /** A just-resolved trick shown briefly in the centre (blocks input while set). */
   reviewTrick: PreferansTrick | null;
+  /** Online mode: the SERVER drives bots + the hand_complete advance, so the
+   *  "Next hand" button is hidden (a note shows instead). Default false (local). */
+  online?: boolean;
+  /** Seats whose human is offline (online only) — for offline badges / hints. */
+  disconnectedSeats?: number[];
 }
 
 /** Seat slots around the felt by RELATIVE offset from the viewer (bottom). Preferans
@@ -57,9 +62,10 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 }
 
 /** The local human's table view for one Preferans hand. */
-export default function PreferansGameScreen({ state, humanSeat, apply, onExit, reviewTrick }: Props) {
+export default function PreferansGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
+  const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
   // Cards the human has picked to bury (talon discard step); reset whenever the
   // phase or the acting seat changes so a stale selection never carries over.
   const [selectedDiscards, setSelectedDiscards] = useState<Card[]>([]);
@@ -111,11 +117,14 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
     (talonDeclarePending && isMyTurn ? validDeclareContracts(state, humanSeat) : []).map(bidKey),
   );
 
-  // One clear instruction for the current moment.
+  // One clear instruction for the current moment. An OPPONENT's turn reads as: an
+  // offline human (AI may substitute), a bot thinking, or waiting for a connected human.
   const actor = actingSeat != null ? state.players[actingSeat] : null;
+  const actorOffline = actingSeat != null && offline(actingSeat);
   const waitFor = (botKey: string) =>
-    actor?.type === 'ai' ? t(botKey)
-      : actor ? `${t('preferans.waiting')} ${actor.name}…` : '';
+    actorOffline ? `${actor?.name} ${t('preferans.offlineAI')}`
+      : actor?.type === 'ai' ? t(botKey)
+        : actor ? `${t('preferans.waiting')} ${actor.name}…` : '';
   let prompt = '';
   if (blocked) prompt = '';
   else if (phase === 'bidding') prompt = isMyTurn ? t('preferans.yourBid') : waitFor('preferans.botBidding');
@@ -143,7 +152,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
   const declareMinLabel = state.highBid ? contractLabel(state.highBid) : null;
 
   return (
-    <div className="screen preferans-screen">
+    <div className={`screen preferans-screen ${online ? 'preferans-screen--online' : ''}`}>
       {showHelp && <PreferansHelp onClose={() => setShowHelp(false)} />}
 
       <div className="preferans-topbar">
@@ -199,6 +208,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
           const isActing = p.seatIndex === actingSeat && !blocked;
           const isDealer = p.seatIndex === state.dealerSeat;
           const isDeclarer = p.seatIndex === state.declarerSeat;
+          const isOffline = p.seatIndex !== humanSeat && offline(p.seatIndex);
           const bidLabel = phase === 'bidding'
             ? (state.passed[p.seatIndex]
               ? t('preferans.passed')
@@ -207,13 +217,14 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
           return (
             <div
               key={p.id}
-              className={`preferans-seat preferans-seat--${pos} ${isActing ? 'preferans-seat--acting' : ''} ${isDeclarer ? 'preferans-seat--declarer' : ''}`}
+              className={`preferans-seat preferans-seat--${pos} ${isActing ? 'preferans-seat--acting' : ''} ${isDeclarer ? 'preferans-seat--declarer' : ''} ${isOffline ? 'preferans-seat--offline' : ''}`}
             >
               <span className="preferans-seat__badges">
                 {isDealer && <span className="preferans-badge preferans-badge--dealer" title={t('preferans.dealer')}>D</span>}
                 {isDeclarer && <span className="preferans-badge preferans-badge--declarer" title={t('preferans.declarer')}>★</span>}
               </span>
               <span className="preferans-seat__name">
+                {isOffline && <span className="preferans-seat__off" aria-label={t('common.offline')}>📴 </span>}
                 {p.seatIndex === humanSeat ? t('preferans.you') : p.name}
               </span>
               <span className="preferans-seat__meta">
@@ -313,7 +324,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
       </div>
 
       {phase === 'hand_complete' && state.lastHand && (
-        <HandComplete state={state} humanSeat={humanSeat} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
+        <HandComplete state={state} humanSeat={humanSeat} online={online} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
       )}
     </div>
   );
@@ -360,11 +371,14 @@ function phaseKey(phase: PreferansState['phase']): string {
   }
 }
 
-/** The between-hands result panel (contract / tricks / per-seat score delta). */
-function HandComplete({ state, humanSeat, onNext }: {
+/** The between-hands result panel (contract / tricks / per-seat score delta).
+ *  Online: the SERVER auto-advances the hand, so the button is replaced by a note
+ *  (a client START_NEXT_HAND would be rejected — no seat acts on this screen). */
+function HandComplete({ state, humanSeat, onNext, online }: {
   state: PreferansState;
   humanSeat: number;
   onNext: () => void;
+  online: boolean;
 }) {
   const { t } = useI18n();
   const hand = state.lastHand!;
@@ -396,9 +410,13 @@ function HandComplete({ state, humanSeat, onNext }: {
             ))}
           </tbody>
         </table>
-        <button type="button" className="btn btn--primary preferans-handdone__next" onClick={onNext} autoFocus>
-          {t('preferans.nextHand')}
-        </button>
+        {online ? (
+          <p className="preferans-handdone__note">{t('preferans.nextHandSoon')}</p>
+        ) : (
+          <button type="button" className="btn btn--primary preferans-handdone__next" onClick={onNext} autoFocus>
+            {t('preferans.nextHand')}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -29,10 +29,11 @@ file/memory storage and every `/api/*` returns a clean `503` (play unaffected).
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Experimental (local-only):** **Preferans / Преферанс** (3-player, 32-card,
-contract-bidding trick game with a talon) — playable **locally** vs 2 bots since
-Stage 19.3 (`status: experimental`, `supportsLocal: true`); full local UI in
-`src/ui/preferans/`. No online/stats yet (online = Stage 19.4+).
+**Experimental (local + online):** **Preferans / Преферанс** (3-player, 32-card,
+contract-bidding trick game with a talon) — playable **locally** vs 2 bots (Stage 19.3)
+AND **online** in server-authoritative 3-seat rooms (Stage 19.5): `status: experimental`,
+`supportsLocal`/`supportsOnline` both true. Shared UI in `src/ui/preferans/` (+ the
+`PreferansOnlineGame` adapter). **No stats yet** (`recordsStats: false`; stats = 19.6).
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## Core architecture
