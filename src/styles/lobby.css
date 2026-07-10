@@ -249,6 +249,11 @@
 .avatar-preview__inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .avatar-row__picker { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .avatar-row__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+/* Grouped avatar sub-sections (Stage 17.2): Emoji / Synced avatar / This device. */
+.avatar-group { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.6rem; }
+.avatar-group__title { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.avatar-group .field__hint { margin: 0; }
+.avatar-row__picker .avatar-group__title { text-transform: none; letter-spacing: 0; }
 .sound-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .sound-preview .field__hint { margin: 0; }
 .avatar-error { margin: 0.3rem 0 0; }

@@ -30,7 +30,7 @@ export default function AccountBar({ account, name, avatar }: Props) {
     <div className="account-bar-wrap">
       <div className="account-bar">
         <div className="account-bar__id">
-          <MyAvatar emoji={avatar} className="account-bar__avatar" />
+          <MyAvatar emoji={avatar} imageUrl={account.avatarImageUrl} className="account-bar__avatar" />
           <span className="account-bar__meta">
             <span className="account-bar__name">{display}</span>
             <span className="account-bar__sub">

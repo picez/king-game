@@ -364,9 +364,21 @@ like the existing mutations. They live in the same `handleApiRequest` dispatcher
   A future swap to a bundled/WASM processor (or a vetted `sharp`) can replace the
   processor behind the same API. Validated: `npm run verify` green; unit + ffmpeg
   processing tests pass; the DB round-trip test is CI-gated (Postgres).
-- **17.2 — Profile UI upload / remove.** "Synced avatar" controls, signed-in gating +
-  guest hint, progress/error states, `MyAvatar` precedence. Local-only 14.1 path
-  stays intact.
+- **17.2 — Profile UI upload / remove. ✅ DONE.** The Profile avatar section is now
+  grouped into **Emoji / Synced avatar / This device**. The **Synced avatar** area is
+  signed-in only (guests see a sign-in hint), with an "Upload synced avatar" button
+  (busy/`Uploading…` + disabled state), a "Remove synced avatar" button when one
+  exists, and inline error messages mapped from the API (`too_large` / `unsupported_type`
+  / `rate_limited` / **503 → "Avatar processing is unavailable"** / sign-in / generic).
+  Client adaptor `src/net/avatarApi.ts` (`uploadAvatar` multipart FormData — **no JSON
+  base64** — + `deleteServerAvatar`); `useAccount` exposes `avatarImageUrl` and
+  `uploadAvatarImage`/`removeAvatarImage` (dedicated endpoints, **never** `PATCH
+  /api/settings`), re-hydrating `/api/me` after each. `MyAvatar` now resolves a
+  **server `avatarImageUrl` → local custom image → emoji** priority with an `onError`
+  fallback (a 404 degrades to the next candidate), used on the Profile summary +
+  preview and the AccountBar. The local-only 14.1 path ("Choose local image") is fully
+  intact. **Still NO lobby/game-seat avatar and NO WS/room-payload change** — the
+  uploaded image shows only on "me" surfaces until 17.3.
 - **17.3 — room / lobby / game seats show `avatarImageUrl`.** Server adds the
   same-origin versioned URL to member payloads; `<SeatAvatar>` renders it with an
   emoji `onError` fallback. Still no bytes on the wire.

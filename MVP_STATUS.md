@@ -254,9 +254,15 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   gains `avatarImageUrl` (a same-origin URL, distinct from the OAuth `avatarUrl`).
   Image processing decodes/crops/resizes/re-encodes to a 192×192 WebP (metadata
   stripped) **via ffmpeg** — no new npm dependency (avoids the CI `libc` lockfile
-  risk); on a host without ffmpeg the upload cleanly returns `503`. **No Profile UI,
-  no lobby/game-seat avatar, and no WS/room-payload change yet** — invisible to users
-  until Stage 17.2 wires the UI.
+  risk); on a host without ffmpeg the upload cleanly returns `503`.
+  **Stage 17.2 wired the PROFILE UI (available now).** The Profile avatar section
+  groups **Emoji / Synced avatar / This device**: signed-in users get an "Upload
+  synced avatar" + "Remove" control (guests see a sign-in hint), with progress + inline
+  error states. `MyAvatar` shows a **server avatar → local custom → emoji** priority
+  (with a 404 fallback) on the Profile summary/preview + AccountBar. The OAuth provider
+  picture stays a separate field; the uploaded image never rides `PATCH /api/settings`.
+  **Still NO lobby/game-seat avatar and NO WS/room-payload change** — the synced image
+  shows only on "me" surfaces until Stage 17.3 wires seats.
 
 ## Recommended next steps (after manual LAN/mobile QA)
 

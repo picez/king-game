@@ -4,6 +4,7 @@ import {
   updateProfile, updateSettings, fetchKingSettings, updateKingSettings,
   logout as logoutApi, googleStartUrl, type MeResponse,
 } from '../net/profileApi';
+import { uploadAvatar, deleteServerAvatar, type AvatarUploadResult } from '../net/avatarApi';
 import { loadGuestKey, saveGuestKey } from '../net/prefs';
 import type { Lang } from '../i18n';
 import type { CardStyle, AnimationPreference, FavoriteGame, CardFaceTheme } from '../net/userSettings';
@@ -33,6 +34,11 @@ export interface Account {
   email: string | null;
   /** Server's King default timer (cross-device), or null. */
   serverTimer: number | null;
+  /**
+   * Uploaded synced-avatar URL (Stage 17.2): same-origin `/api/avatar/<id>.webp?v=n`,
+   * or null. DISTINCT from the OAuth provider picture. Shown only on "me" surfaces.
+   */
+  avatarImageUrl: string | null;
   banner: 'success' | 'error' | null;
   clearBanner: () => void;
   syncing: boolean;
@@ -40,6 +46,10 @@ export interface Account {
   hydrate: () => Promise<void>;
   saveProgress: (input: SaveProgressInput) => Promise<void>;
   logout: () => Promise<void>;
+  /** Upload a synced avatar (signed-in only); re-hydrates on success. */
+  uploadAvatarImage: (file: File) => Promise<AvatarUploadResult>;
+  /** Remove the synced avatar; re-hydrates on success. */
+  removeAvatarImage: () => Promise<boolean>;
   // Push a single field to the server when there is a session (else a no-op).
   pushName: (v: string) => void;
   pushAvatar: (v: string) => void;
@@ -112,6 +122,20 @@ export function useAccount(serverUrl: string): Account {
     }
   }, [base, hydrate]);
 
+  // Synced avatar (Stage 17.2): upload/remove go through the DEDICATED multipart /
+  // DELETE endpoints (never PATCH /api/settings), then re-hydrate so `me.avatarImageUrl`
+  // (and the "me" surfaces) refresh. The emoji `avatar` + OAuth `avatarUrl` are untouched.
+  const uploadAvatarImage = useCallback(async (file: File): Promise<AvatarUploadResult> => {
+    const res = await uploadAvatar(base, file);
+    if (res.ok) await hydrate();
+    return res;
+  }, [base, hydrate]);
+  const removeAvatarImage = useCallback(async (): Promise<boolean> => {
+    const ok = await deleteServerAvatar(base);
+    if (ok) await hydrate();
+    return ok;
+  }, [base, hydrate]);
+
   const pushName = useCallback((v: string) => { if (hasSession) void updateProfile(base, v); }, [base, hasSession]);
   const pushAvatar = useCallback((v: string) => { if (hasSession) void updateSettings(base, { avatar: v }); }, [base, hasSession]);
   const pushLang = useCallback((v: Lang) => { if (hasSession) void updateSettings(base, { lang: v }); }, [base, hasSession]);
@@ -124,7 +148,9 @@ export function useAccount(serverUrl: string): Account {
   return {
     base, me, apiReachable, hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
+    avatarImageUrl: me?.avatarImageUrl ?? null,
     banner, clearBanner: () => setBanner(null), syncing, googleUrl: googleStartUrl(base),
-    hydrate, saveProgress, logout, pushName, pushAvatar, pushLang, pushTimer, pushCardStyle, pushAnimation, pushFavoriteGame, pushCardFaceTheme,
+    hydrate, saveProgress, logout, uploadAvatarImage, removeAvatarImage,
+    pushName, pushAvatar, pushLang, pushTimer, pushCardStyle, pushAnimation, pushFavoriteGame, pushCardFaceTheme,
   };
 }

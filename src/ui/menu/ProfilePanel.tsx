@@ -3,6 +3,7 @@ import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
 import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme } from '../../net/prefs';
 import { saveCustomAvatar, clearCustomAvatar, AVATAR_ACCEPT_ATTR } from '../../net/customAvatar';
+import type { AvatarUploadError } from '../../net/avatarApi';
 import { saveCustomServer, clearCustomServer } from '../../net/connection';
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../../net/online';
 import { processAvatarImage } from '../components/customAvatarImage';
@@ -94,6 +95,12 @@ export default function ProfilePanel({
   const customAvatar = useCustomAvatar();
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // Server-SYNCED avatar (Stage 17.2): signed-in only, uploaded via the dedicated
+  // multipart endpoint (NOT settings). Its own busy/error state so the two avatar
+  // paths (synced vs this-device) never share UI state.
+  const syncedFileRef = useRef<HTMLInputElement>(null);
+  const [syncedBusy, setSyncedBusy] = useState(false);
+  const [syncedError, setSyncedError] = useState<string | null>(null);
   // Connection setting (Stage 14.2): default vs custom server, device-local.
   const [serverMode, setServerMode] = useState<'default' | 'custom'>(customServer ? 'custom' : 'default');
   const [serverDraft, setServerDraft] = useState(customServer ?? '');
@@ -129,6 +136,36 @@ export default function ProfilePanel({
   }
   function removeCustomAvatar() {
     clearCustomAvatar(); setCustomAvatar(null); setAvatarError(null);
+  }
+
+  // Synced avatar: upload the picked file to the server (multipart), then the
+  // account re-hydrates so the preview + AccountBar pick up the new URL. Guests
+  // never reach here (the control is signed-in only). No image bytes on the WS.
+  const syncedErrorMsg = (e: AvatarUploadError): string => {
+    switch (e) {
+      case 'unsupported_type': return t('avatar.errType');
+      case 'too_large': return t('avatar.errSize');
+      case 'rate_limited': return t('avatar.errRate');
+      case 'unavailable': return t('avatar.errUnavailable');
+      case 'unauthenticated': case 'forbidden': return t('avatar.errSignIn');
+      default: return t('avatar.errFailed');
+    }
+  };
+  async function onPickSynced(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setSyncedError(null); setSyncedBusy(true);
+    try {
+      const res = await account.uploadAvatarImage(file);
+      if (!res.ok) setSyncedError(syncedErrorMsg(res.error));
+    } finally {
+      setSyncedBusy(false);
+    }
+  }
+  async function removeSyncedAvatar() {
+    setSyncedError(null); setSyncedBusy(true);
+    try { await account.removeAvatarImage(); } finally { setSyncedBusy(false); }
   }
 
   // Connection: switching to "Custom" reveals the input (prefilled with the default
@@ -204,7 +241,7 @@ export default function ProfilePanel({
           live in the grouped sections below. Sign-in/out stays in AccountBar. */}
       <div className="profile-summary">
         <span className="profile-summary__avatar">
-          <MyAvatar emoji={sanitizeAvatar(avatar, name)} className="profile-summary__avatar-inner" />
+          <MyAvatar emoji={sanitizeAvatar(avatar, name)} imageUrl={account.avatarImageUrl} className="profile-summary__avatar-inner" />
         </span>
         <div className="profile-summary__meta">
           <span className="profile-summary__name">{displayName}</span>
@@ -241,11 +278,13 @@ export default function ProfilePanel({
       <div className="field">
         <label className="field__label">{t('lobby.avatar')}</label>
         <div className="avatar-row">
-          {/* Circular preview: the local custom image if set, else the emoji. */}
+          {/* Circular preview: synced server image → local custom image → emoji. */}
           <span className="avatar-preview">
-            <MyAvatar emoji={sanitizeAvatar(avatar, name)} className="avatar-preview__inner" />
+            <MyAvatar emoji={sanitizeAvatar(avatar, name)} imageUrl={account.avatarImageUrl} className="avatar-preview__inner" />
           </span>
           <div className="avatar-row__picker">
+            {/* Emoji fallback identity — what online players still see. */}
+            <span className="avatar-group__title">{t('avatar.emojiTitle')}</span>
             <SelectMenu
               ariaLabel={t('lobby.avatar')}
               className="avatar-picker"
@@ -255,30 +294,58 @@ export default function ProfilePanel({
               onChange={changeAvatar}
               options={AVATARS.map((a) => ({ value: a, label: a, icon: a }))}
             />
-            <div className="avatar-row__actions">
-              {/* A visually-hidden file input driven by a styled button (no native
-                  picker chrome). Accept is EXACTLY the png/jpeg/webp whitelist. */}
-              <input
-                ref={avatarFileRef}
-                type="file"
-                accept={AVATAR_ACCEPT_ATTR}
-                className="visually-hidden"
-                onChange={onPickAvatar}
-              />
-              <button type="button" className="btn btn--outline btn--small"
-                onClick={() => avatarFileRef.current?.click()}>
-                🖼️ {t('avatar.upload')}
-              </button>
-              {customAvatar && (
-                <button type="button" className="btn btn--ghost btn--small" onClick={removeCustomAvatar}>
-                  {t('avatar.remove')}
-                </button>
-              )}
-            </div>
           </div>
         </div>
-        {avatarError && <p className="lobby-error avatar-error">{avatarError}</p>}
-        <p className="field__hint">{t('avatar.localHint')}</p>
+
+        {/* Synced avatar (server, Stage 17.2) — signed-in only; visible in your
+            profile now, on table/lobby seats in a later update. */}
+        <div className="avatar-group">
+          <span className="avatar-group__title">☁️ {t('avatar.syncedTitle')}</span>
+          {account.signedIn ? (
+            <>
+              <div className="avatar-row__actions">
+                <input ref={syncedFileRef} type="file" accept={AVATAR_ACCEPT_ATTR}
+                  className="visually-hidden" onChange={onPickSynced} />
+                <button type="button" className="btn btn--outline btn--small" disabled={syncedBusy}
+                  onClick={() => syncedFileRef.current?.click()}>
+                  {syncedBusy ? `${t('avatar.uploading')}…` : `☁️ ${t('avatar.uploadSynced')}`}
+                </button>
+                {account.avatarImageUrl && (
+                  <button type="button" className="btn btn--ghost btn--small" disabled={syncedBusy}
+                    onClick={() => void removeSyncedAvatar()}>
+                    {t('avatar.removeSynced')}
+                  </button>
+                )}
+              </div>
+              {syncedError && <p className="lobby-error avatar-error">{syncedError}</p>}
+              <p className="field__hint">{t('avatar.syncedHint')}</p>
+            </>
+          ) : (
+            <p className="field__hint">{t('avatar.syncedGuestHint')}</p>
+          )}
+        </div>
+
+        {/* This device (local-only, Stage 14.1) — never uploaded / on the wire. */}
+        <div className="avatar-group">
+          <span className="avatar-group__title">🖼️ {t('avatar.deviceTitle')}</span>
+          <div className="avatar-row__actions">
+            {/* A visually-hidden file input driven by a styled button (no native
+                picker chrome). Accept is EXACTLY the png/jpeg/webp whitelist. */}
+            <input ref={avatarFileRef} type="file" accept={AVATAR_ACCEPT_ATTR}
+              className="visually-hidden" onChange={onPickAvatar} />
+            <button type="button" className="btn btn--outline btn--small"
+              onClick={() => avatarFileRef.current?.click()}>
+              🖼️ {t('avatar.chooseLocal')}
+            </button>
+            {customAvatar && (
+              <button type="button" className="btn btn--ghost btn--small" onClick={removeCustomAvatar}>
+                {t('avatar.remove')}
+              </button>
+            )}
+          </div>
+          {avatarError && <p className="lobby-error avatar-error">{avatarError}</p>}
+          <p className="field__hint">{t('avatar.localHint')}</p>
+        </div>
       </div>
 
       <h3 className="profile-section-head">{t('profile.preferences')}</h3>

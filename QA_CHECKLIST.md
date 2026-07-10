@@ -280,10 +280,22 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Guest forbidden:** a guest session `POST` → `403 guest_forbidden`.
 - [ ] **Traversal-safe:** `GET /api/avatar/../../etc/passwd.webp` → not served (404).
 
-### UI (activates in Stage 17.2–17.3)
-- [ ] **Signed-in upload:** Profile → **Synced avatar** → upload → preview + AccountBar
-      update (360/390, no overflow, RTL ok).
-- [ ] **Remove / guest gating:** remove reverts to emoji; a guest sees a **sign-in hint**.
+### Profile UI (17.2 — LIVE)
+- [ ] **Signed-in upload:** Profile → **Synced avatar** → "Upload synced avatar" → the
+      circular preview + AccountBar update to the image (360/390, no overflow, RTL ok).
+      The "Uploading…" state disables the button while it runs.
+- [ ] **Priority:** with a synced avatar set, the preview shows it; **Remove synced
+      avatar** reverts to the local custom image (if any) → else the emoji.
+- [ ] **Guest gating:** a guest / not-signed-in user sees the **sign-in hint** in the
+      Synced-avatar group and NO upload button; the **This device** (local) controls +
+      emoji picker still work.
+- [ ] **Errors:** an SVG/GIF/oversize → inline "Use a PNG/JPEG/WebP" / "too large"; when
+      the server has **no ffmpeg** (503) the inline message reads **"Avatar processing
+      is unavailable right now."** and nothing changes.
+- [ ] **Separation:** the OAuth provider picture is not treated as the custom avatar;
+      the uploaded image is not sent through the settings sync.
+
+### Seats (activates in Stage 17.3)
 - [ ] **Online seats:** other players see the thumbnail; a forced 404 **falls back to
       the emoji**. Confirm **no base64 / image bytes** ride the WebSocket.
 

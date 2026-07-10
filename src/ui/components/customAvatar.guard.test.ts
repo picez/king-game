@@ -60,10 +60,12 @@ describe('custom avatar processing is client-side + safe', () => {
 describe('Profile avatar UI (Stage 14.1)', () => {
   const panel = read('src/ui/menu/ProfilePanel.tsx');
 
-  it('keeps the emoji picker AND adds upload + remove + local hint', () => {
+  it('keeps the emoji picker AND the LOCAL (this-device) image controls', () => {
+    // Stage 17.2 relabelled the local upload button ("Choose local image") and added
+    // a SEPARATE synced-avatar area — the local-only 14.1 feature stays intact.
     expect(panel).toContain('AVATARS.map');                 // emoji grid still there
-    expect(panel).toContain("t('avatar.upload')");
-    expect(panel).toContain("t('avatar.remove')");
+    expect(panel).toContain("t('avatar.chooseLocal')");     // local (this-device) upload
+    expect(panel).toContain("t('avatar.remove')");          // local remove
     expect(panel).toContain("t('avatar.localHint')");
   });
 
