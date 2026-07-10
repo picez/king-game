@@ -17,6 +17,9 @@ at the end of this file.
 > build + `npm run server:prod`; switch the Render service Runtime to **Docker** to
 > use it (the default stays native `runtime: node`, where uploads return `503`). See
 > **`RENDER_DEPLOY.md → "Uploaded avatars"`**.
+>
+> **After deploying,** run the quick [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
+> checklist (10–15 min) to confirm health / games / rooms / stats / avatars / social.
 
 ## 1. What runs where
 

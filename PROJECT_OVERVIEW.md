@@ -85,6 +85,8 @@ URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) 
 - **VPS (HTTPS/WSS):** Caddy/nginx + systemd/pm2 — [`DEPLOYMENT.md`](DEPLOYMENT.md).
 - **CI toolchain:** **Node 22 / npm 10**, install with `npm ci`; the committed
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
+- **After a deploy:** run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
+  checklist (health / 5 games / rooms / stats / avatars / social / security).
 
 ## Current limitations
 
