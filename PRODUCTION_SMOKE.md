@@ -103,11 +103,21 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
 - [ ] **Sticker** picker + a **reaction** float both work and never cover the hand/table
       (check at a 360/390-wide window). Media is whitelist-only (no free URLs/uploads).
 
-## 10. PWA / icons
+## 10. PWA — install / update / offline / icons
 
-- [ ] Browser tab shows the **favicon**; the app is installable (Add to Home Screen /
-      install icon) with the Card Majlis medallion icon.
-- [ ] `curl -sI $HOST/icons/icon-192.png` and `.../icon-512.png` → `200`.
+- [ ] Browser tab shows the **favicon**; `curl -sI $HOST/icons/icon-192.png` and
+      `.../icon-512.png` → `200`.
+- [ ] **Install:** on Android Chrome (not already installed), a bottom **"Install Card
+      Majlis — Play faster from your home screen"** card appears with **Install** + **✕**.
+      Install adds it to the home screen; **✕** dismisses it (stays hidden afterwards).
+      It never shows during a game, and iOS Safari shows no card (expected — use Share →
+      Add to Home Screen there).
+- [ ] **Update:** after deploying a new build, reopening the installed app shows a thin
+      top **"Update available"** pill with **Refresh**. Tapping Refresh reloads into the
+      new version; **nothing auto-refreshes mid-game**.
+- [ ] **Offline:** toggle the device offline → a thin **"You're offline. Local games may
+      still work."** pill shows at the top (never covering the ✕ / hand / actions); it
+      auto-hides when back online. Local play still starts offline.
 
 ## 11. Security spot-checks
 

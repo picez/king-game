@@ -4,6 +4,13 @@
 export const UK: Record<string, string> = {
   'app.title': 'Card Majlis',
   'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц, Тарніб і Преферанс',
+  'pwa.installTitle': 'Встановити Card Majlis',
+  'pwa.installBody': 'Грайте швидше з головного екрана',
+  'pwa.install': 'Встановити',
+  'pwa.dismiss': 'Сховати',
+  'pwa.updateTitle': 'Доступне оновлення',
+  'pwa.refresh': 'Оновити',
+  'pwa.offline': 'Ви офлайн. Локальні ігри можуть працювати.',
   'menu.play': 'Грати',
   'menu.localTitle': 'Локальна гра',
   'menu.localSub': 'Передавайте пристрій по черзі',

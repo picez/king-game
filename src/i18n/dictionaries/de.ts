@@ -4,6 +4,13 @@
 export const DE: Record<string, string> = {
   'app.title': 'Card Majlis',
   'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz, Tarneeb & Preferans',
+  'pwa.installTitle': 'Card Majlis installieren',
+  'pwa.installBody': 'Schneller vom Startbildschirm spielen',
+  'pwa.install': 'Installieren',
+  'pwa.dismiss': 'Ausblenden',
+  'pwa.updateTitle': 'Update verfügbar',
+  'pwa.refresh': 'Aktualisieren',
+  'pwa.offline': 'Du bist offline. Lokale Spiele funktionieren evtl. weiter.',
   'menu.play': 'Spielen',
   'menu.localTitle': 'Lokal spielen',
   'menu.localSub': 'Gerät am Tisch weitergeben',

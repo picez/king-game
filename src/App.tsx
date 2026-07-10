@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { OnlineIntent } from './hooks/useNetworkGame';
 import type { ErrorCode } from './net/messages';
 import type { GameType } from './games/catalog';
@@ -9,6 +9,8 @@ import DebercLocalGame from './ui/deberc/DebercLocalGame';
 import TarneebLocalGame from './ui/tarneeb/TarneebLocalGame';
 import PreferansLocalGame from './ui/preferans/PreferansLocalGame';
 import OnlineGame from './ui/online/OnlineGame';
+import { usePwa } from './pwa/usePwa';
+import PwaBanners from './ui/components/PwaBanners';
 
 type Mode =
   | { kind: 'menu' }
@@ -20,38 +22,41 @@ export default function App() {
   const [mode, setMode] = useState<Mode>({ kind: 'menu' });
   // A join error carried back so the menu can highlight the offending field.
   const [joinError, setJoinError] = useState<ErrorCode | null>(null);
+  // PWA install / update / offline surfaces (Stage 21.0) — rendered as a sibling of
+  // every screen so the banners persist across menu/local/online without unmounting.
+  const pwa = usePwa();
+  const toMenu = () => setMode({ kind: 'menu' });
 
+  let content: ReactNode;
   if (mode.kind === 'local') {
-    if (mode.gameType === 'durak') {
-      return <DurakLocalGame onExit={() => setMode({ kind: 'menu' })} />;
-    }
-    if (mode.gameType === 'deberc') {
-      return <DebercLocalGame onExit={() => setMode({ kind: 'menu' })} />;
-    }
-    if (mode.gameType === 'tarneeb') {
-      return <TarneebLocalGame onExit={() => setMode({ kind: 'menu' })} />;
-    }
-    if (mode.gameType === 'preferans') {
-      return <PreferansLocalGame onExit={() => setMode({ kind: 'menu' })} />;
-    }
-    return <LocalGame />; // King — unchanged
-  }
-
-  if (mode.kind === 'online') {
-    return (
+    content = mode.gameType === 'durak' ? <DurakLocalGame onExit={toMenu} />
+      : mode.gameType === 'deberc' ? <DebercLocalGame onExit={toMenu} />
+        : mode.gameType === 'tarneeb' ? <TarneebLocalGame onExit={toMenu} />
+          : mode.gameType === 'preferans' ? <PreferansLocalGame onExit={toMenu} />
+            : <LocalGame />; // King — unchanged
+  } else if (mode.kind === 'online') {
+    content = (
       <OnlineGame
         url={mode.url}
         intent={mode.intent}
         onExit={(err) => { setJoinError(err ?? null); setMode({ kind: 'menu' }); }}
       />
     );
+  } else {
+    content = (
+      <StartMenu
+        initialError={joinError}
+        onLocal={(gameType) => setMode({ kind: 'local', gameType })}
+        onOnline={(url, intent) => { setJoinError(null); setMode({ kind: 'online', url, intent }); }}
+      />
+    );
   }
 
   return (
-    <StartMenu
-      initialError={joinError}
-      onLocal={(gameType) => setMode({ kind: 'local', gameType })}
-      onOnline={(url, intent) => { setJoinError(null); setMode({ kind: 'online', url, intent }); }}
-    />
+    <>
+      {content}
+      {/* Install card is suppressed in a game; the thin update/offline strips stay. */}
+      <PwaBanners pwa={pwa} inGame={mode.kind !== 'menu'} />
+    </>
   );
 }

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// King — minimal service worker (app-shell offline + installability).
+// Card Majlis — minimal service worker (app-shell offline + installability).
 //
 // Strategy: NETWORK-FIRST with a runtime cache fallback. No hardcoded precache
 // list (so hashed Vite asset names never go stale), no aggressive caching:
@@ -8,15 +8,30 @@
 //
 // It only ever sees same-origin HTTP(S) GETs. WebSocket (ws://, wss://) traffic
 // does NOT pass through the fetch handler, so online game state is never cached.
-// Registered only in production builds (see src/main.tsx).
+// Registered only in production builds (see src/pwa/pwaClient.ts).
+//
+// CONTROLLED UPDATES (Stage 21.0): install does NOT call skipWaiting(), so a new
+// SW enters the `waiting` state instead of taking over immediately. The client
+// (usePwa) shows a non-blocking "Update available" banner and only activates the
+// new worker when the user taps Refresh (→ postMessage {type:'SKIP_WAITING'}),
+// which triggers `controllerchange` and a single reload. This is why there is no
+// auto-refresh during an active game.
 // ---------------------------------------------------------------------------
 
 // Bump this on each release that must invalidate any previously-cached shell.
 // On activate, every cache whose name !== CACHE is deleted, so a new SW version
 // purges the old offline copy (belt-and-suspenders on top of network-first).
-const CACHE = 'king-shell-v2';
+const CACHE = 'card-majlis-shell-v3';
 
-self.addEventListener('install', () => self.skipWaiting());
+// Do NOT skipWaiting() here — wait for the user's explicit Refresh so an update
+// never reloads mid-game. (On first-ever install with no active worker, the new
+// SW activates immediately anyway, per the spec — nothing to wait for.)
+self.addEventListener('install', () => { /* controlled activation via SKIP_WAITING */ });
+
+// The client asks the waiting worker to take over when the user taps Refresh.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

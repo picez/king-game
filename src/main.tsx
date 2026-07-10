@@ -12,12 +12,6 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 )
 
-// Register the app-shell service worker in production only. In dev we skip it so
-// there is never a stale cache to fight while iterating.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      /* SW is a progressive enhancement — ignore registration failures */
-    })
-  })
-}
+// The app-shell service worker is registered from the PWA hook (src/pwa/usePwa.ts,
+// production only), which also wires the "update available" + offline UX. Registering
+// there keeps a single source of truth for the SW lifecycle (no double register).

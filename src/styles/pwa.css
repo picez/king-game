@@ -1,0 +1,84 @@
+/* ===== PWA install / update / offline surfaces (Stage 21.0) =====
+   Thin, mobile-first, RTL-safe, and non-blocking. The top strips are CENTRED PILLS
+   in a pointer-events:none container, so taps pass through to the game and the
+   corner controls (top-left ✕ / top-right ❓) stay reachable — the pill never
+   covers the hand/actions/social. The install card is bottom-centre and shows only
+   on the menu (App passes inGame to suppress it during play). */
+
+.pwa-strips {
+  position: fixed;
+  top: env(safe-area-inset-top, 0);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.5rem 0;
+  pointer-events: none;              /* container is click-through … */
+}
+
+.pwa-banner {
+  pointer-events: auto;             /* … only the pill itself is interactive */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: min(92vw, 30rem);
+  box-sizing: border-box;
+  padding: 0.35rem 0.8rem;
+  border-radius: 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.pwa-banner__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pwa-banner__action { flex: 0 0 auto; min-height: 1.9rem; }
+
+.pwa-banner--offline {
+  background: var(--surface-2, #143a24);
+  color: var(--text-dim);
+}
+.pwa-banner--update {
+  background: var(--surface, #143a24);
+  border-color: var(--accent-light);
+  color: var(--text);
+}
+
+/* Install card — bottom-centre, dismissible (menu only). */
+.pwa-install {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.7rem + env(safe-area-inset-bottom, 0));
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(92vw, 26rem);
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.9rem;
+  background: var(--surface, #143a24);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+.pwa-install__icon { font-size: 1.5rem; flex: 0 0 auto; }
+.pwa-install__text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.pwa-install__title { font-weight: 800; color: var(--text); }
+.pwa-install__body { font-size: 0.8rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
+.pwa-install__cta { flex: 0 0 auto; min-height: 2.2rem; }
+.pwa-install__x {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.3rem;
+  cursor: pointer;
+}
+.pwa-install__x:hover { color: var(--text); }

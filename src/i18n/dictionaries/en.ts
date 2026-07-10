@@ -4,6 +4,13 @@
 export const EN: Record<string, string> = {
   'app.title': 'Card Majlis',
   'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb & Preferans',
+  'pwa.installTitle': 'Install Card Majlis',
+  'pwa.installBody': 'Play faster from your home screen',
+  'pwa.install': 'Install',
+  'pwa.dismiss': 'Dismiss',
+  'pwa.updateTitle': 'Update available',
+  'pwa.refresh': 'Refresh',
+  'pwa.offline': "You're offline. Local games may still work.",
   'menu.play': 'Play',
   'menu.localTitle': 'Play locally',
   'menu.localSub': 'Pass & play on this device',

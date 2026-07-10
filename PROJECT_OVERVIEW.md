@@ -16,6 +16,9 @@ A mobile-first web **card lounge** for five games, playable **local pass-and-pla
 (`ws`) server hosts the client, the `/ws` socket, and the `/api/*` HTTP surface on one
 origin. Postgres is **optional** — with no `DATABASE_URL` the app runs fully on
 file/memory storage and every `/api/*` returns a clean `503` (play unaffected).
+Installable **PWA**: a network-first service worker (offline app shell), a
+non-intrusive **install** card, a user-controlled **"Update available"** refresh (no
+auto-refresh mid-game), and an **offline** hint.
 
 ## Supported games (all released, local + online)
 

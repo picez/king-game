@@ -510,12 +510,27 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 
 ## Manual — PWA / mobile
 
-- [ ] Production HTTPS build: Chrome Android → **Install app**; launches
-      standalone, portrait, with the King icon.
-- [ ] Notch/safe-area: header and the hand are not hidden under system bars.
-- [ ] Touch targets are comfortable; no horizontal overflow on a narrow screen.
-- [ ] Offline after first load: **local** game still opens; online shows
-      "Connecting…" (expected — online needs the network).
+> Install / update / offline UX = Stage 21.0. Banners are a progressive enhancement:
+> the install card only shows when Chrome fires `beforeinstallprompt`; the update pill
+> only when the service worker has a WAITING new version; the offline pill only when
+> `navigator.onLine` is false. Automated smoke: `node scripts/pwa-shots.mjs` (needs a
+> `vite preview` — production build so the SW/PWA hook is active).
+
+- [ ] Production HTTPS build: Chrome Android → **Install app** (or the bottom
+      **"Install Card Majlis"** card → Install); launches standalone, portrait, with the
+      Card Majlis medallion icon.
+- [ ] **Install card:** shows on the menu only (bottom card, Install + ✕), **never during
+      a game**; ✕ dismisses it and it stays hidden on later visits (localStorage). Already
+      installed / iOS Safari → no card (no fake prompt).
+- [ ] **Update available:** deploy a new build, reopen → a thin top **"Update available"**
+      pill with **Refresh**. Refresh reloads into the new version; **no auto-refresh
+      mid-game** (the SW waits for the tap).
+- [ ] **Offline pill:** go offline → thin top **"You're offline. Local games may still
+      work."** pill; it never covers the top-left ✕ / hand / actions / social; hides when
+      back online. **Local** game still opens offline; online shows "Connecting…".
+- [ ] Notch/safe-area: header, banners, and the hand are not hidden under system bars.
+- [ ] Touch targets comfortable; **no horizontal overflow** at 360/390; **RTL (Arabic)**
+      the banners/pills mirror cleanly.
 
 ## Manual — Sound (preference+preview 15.2; ALERT-ONLY 15.4)
 

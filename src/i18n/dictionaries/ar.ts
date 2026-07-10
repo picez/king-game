@@ -4,6 +4,13 @@
 export const AR: Record<string, string> = {
   'app.title': 'Card Majlis',
   'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب وبريفيرانس',
+  'pwa.installTitle': 'ثبّت Card Majlis',
+  'pwa.installBody': 'العب أسرع من شاشتك الرئيسية',
+  'pwa.install': 'تثبيت',
+  'pwa.dismiss': 'إخفاء',
+  'pwa.updateTitle': 'تحديث متاح',
+  'pwa.refresh': 'تحديث',
+  'pwa.offline': 'أنت غير متصل. قد تعمل الألعاب المحلية.',
   'menu.play': 'العب',
   'menu.localTitle': 'لعب محلي',
   'menu.localSub': 'مرّر الجهاز بين اللاعبين',
