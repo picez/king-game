@@ -65,6 +65,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   const [customServer, setCustomServer] = useState<string | null>(() => loadCustomServer());
   const url = resolveServerUrl(customServer, ENV_WS_URL);
   const [code, setCode] = useState('');
+  // The room code that arrived via an invite link (`?room=`), or null. Drives the
+  // Join-sheet invite banner + the resume-vs-invited choice (Stage 18.2).
+  const [invitedCode, setInvitedCode] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
@@ -126,17 +129,25 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     if (account.serverTimer != null) setDefaultTimer(account.serverTimer);
   }, [account.serverTimer]);
 
-  // Invite link (Stage 18.1): if the app was opened with `?room=CODE`, PREFILL the
-  // Join sheet with that code and consume the param — never auto-join (the user still
-  // presses Join, so a missing name/session/active game is never disrupted). Runs once
-  // on mount; StartMenu only renders pre-game, so a link opened mid-reconnect is a no-op.
+  // Invite link (Stage 18.1 + edge cases 18.2): if the app was opened with `?room=`,
+  // PREFILL the Join sheet with a VALID code and consume the param — never auto-join
+  // (the user still presses Join, so a missing name / active game is never disrupted).
+  // An INVALID/blank code is ignored quietly (no broken sheet) but the param is still
+  // consumed so it can't linger. A saved resumable room is left intact — the Join sheet
+  // surfaces a Resume-vs-Join choice. Runs once on mount; StartMenu only renders
+  // pre-game, so a link opened mid-reconnect is a no-op.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const invited = roomCodeFromQuery(window.location.search);
-    if (!invited) return;
-    setCode(invited);
-    setPane('join');
-    const params = new URLSearchParams(window.location.search);
+    const search = window.location.search;
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    if (!params.has(INVITE_ROOM_PARAM)) return; // no invite → nothing to do
+    const invited = roomCodeFromQuery(search); // normalized (upper/trim) or null
+    if (invited) {
+      setInvitedCode(invited);
+      setCode(invited);
+      setPane('join');
+    }
+    // Consume the param either way (valid or not) so a refresh/back doesn't re-trigger.
     params.delete(INVITE_ROOM_PARAM);
     const qs = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
@@ -315,6 +326,32 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           )}
           {joinError === 'NAME_TAKEN' && resumable && resumable.roomCode === code.trim().toUpperCase() && (
             <button className="btn btn--primary" onClick={resume}>{t('menu.resume')}</button>
+          )}
+
+          {/* Invite banner (Stage 18.2): shown while the invited code is still the one
+              in the field. If a DIFFERENT room is saved, offer a clear Resume-vs-Join
+              choice (never auto-anything); otherwise a gentle "check your name" nudge. */}
+          {pane === 'join' && invitedCode && code.trim().toUpperCase() === invitedCode && (
+            <div className="invite-banner">
+              <p className="invite-banner__room">
+                🔗 {t('invite.invitedRoom')}: <strong>{invitedCode}</strong>
+              </p>
+              {resumable && resumable.roomCode !== invitedCode ? (
+                <>
+                  <p className="invite-banner__conflict">⚠️ {t('invite.resumeConflict')}</p>
+                  <div className="button-row">
+                    <button type="button" className="btn btn--outline btn--small" onClick={resume}>
+                      {t('invite.resumeCurrent')} ({resumable.roomCode})
+                    </button>
+                    <button type="button" className="btn btn--primary btn--small" onClick={join}>
+                      {t('invite.joinInvited')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="field__hint invite-banner__hint">{t('invite.checkName')}</p>
+              )}
+            </div>
           )}
 
           <div className="field">

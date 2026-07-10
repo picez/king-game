@@ -119,6 +119,21 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Not disruptive:** Leave / Start (and, for team games, the team layout) are all
       still visible; host and guests can both invite.
 
+### Edge cases (Stage 18.2)
+- [ ] **Invite banner:** opening `?room=Q7Z2` shows a banner **"Invited room: Q7Z2"** at
+      the top of the Join sheet + a **"Check your profile name before joining"** nudge;
+      the name stays read-only (edited only in Profile).
+- [ ] **Resume conflict:** with a **saved room in progress** (e.g. WXYZ) AND a **different**
+      invite (`?room=Q7Z2`), the banner shows **"You have a room in progress"** with a clear
+      choice — **Resume current room (WXYZ)** vs **Join invited room**. Neither auto-fires.
+- [ ] **Same room invited:** if the invite code equals your saved room code, there is **no
+      "in progress" conflict warning** — just the invite banner + name nudge (Join / the
+      existing NAME_TAKEN → Resume path still work).
+- [ ] **Invalid link ignored:** `?room=ab` / `?room=` / `?room=!!` opens the app normally
+      (no broken Join sheet), and the `?room` param is still **stripped from the URL**.
+- [ ] **Lowercase / spaces:** `?room=q7z2` and `?room=%20q7z2%20` both prefill **Q7Z2**.
+- [ ] **RTL (Arabic):** the banner + Resume/Join choice mirror cleanly, no overflow.
+
 ## Manual — room social (reactions + chat, Stage 7)
 
 - [ ] In a room (lobby or game), tap **😀** → the reaction row opens; tapping an

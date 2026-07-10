@@ -37,6 +37,20 @@
   padding: 0.3rem 0.45rem; color: var(--text);
 }
 
+/* Invite banner in the Join sheet (Stage 18.2): the invited code + either a
+   "check your name" nudge or a Resume-vs-Join choice when another room is saved. */
+.invite-banner {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  padding: 0.55rem 0.65rem; margin-bottom: 0.6rem;
+  background: var(--surface-2); border: 1px solid var(--accent-dark);
+  border-inline-start: 3px solid var(--accent); border-radius: var(--radius-sm);
+  box-shadow: var(--top-light);
+}
+.invite-banner__room { margin: 0; font-size: 0.9rem; color: var(--text); }
+.invite-banner__room strong { color: var(--accent-light); letter-spacing: 0.08em; }
+.invite-banner__conflict { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--accent-light); }
+.invite-banner__hint { margin: 0; }
+
 .lobby-members {
   list-style: none;
   display: flex;

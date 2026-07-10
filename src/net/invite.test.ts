@@ -49,6 +49,17 @@ describe('roomCodeFromQuery', () => {
   it('ignores every other param', () => {
     expect(roomCodeFromQuery('?room=abcd&token=SECRET')).toBe('ABCD');
   });
+  it('normalises lowercase + whitespace inside the param', () => {
+    expect(roomCodeFromQuery('?room=abcd')).toBe('ABCD');
+    expect(roomCodeFromQuery('?room=%20ab12%20')).toBe('AB12'); // encoded spaces trimmed
+    expect(roomCodeFromQuery('?room=a-b-c-d')).toBe('ABCD');     // stray separators stripped
+  });
+  it('ignores an invalid/blank code (no broken Join sheet)', () => {
+    expect(roomCodeFromQuery('?room=')).toBeNull();
+    expect(roomCodeFromQuery('?room=%20%20')).toBeNull();
+    expect(roomCodeFromQuery('?room=!!')).toBeNull();
+    expect(roomCodeFromQuery('?room=abc')).toBeNull(); // 3 chars < 4
+  });
   it('round-trips with buildInviteLink', () => {
     const link = buildInviteLink('https://h', 'q7z2');
     const search = link.slice(link.indexOf('?'));

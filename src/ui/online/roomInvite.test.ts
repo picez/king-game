@@ -51,7 +51,8 @@ describe('Lobby — invite link is same-origin + secret-free', () => {
 
 describe('StartMenu — ?room=CODE prefills Join, never auto-joins', () => {
   it('reads the code from the query and opens the Join pane with it prefilled', () => {
-    expect(menu).toContain('roomCodeFromQuery(window.location.search)');
+    expect(menu).toContain('const search = window.location.search');
+    expect(menu).toContain('roomCodeFromQuery(search)');
     expect(menu).toContain('setCode(invited)');
     expect(menu).toContain("setPane('join')");
   });

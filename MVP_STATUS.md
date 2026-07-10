@@ -42,8 +42,13 @@ recording its own per-`game_type` stats + leaderboard):**
   userId**, and never the ws/custom-server URL. Opening such a link **prefills the Join
   sheet** with the code (the user still presses Join — no auto-join, so an active game is
   never disrupted) and clears the `?room` param. Copy uses the Clipboard API with a
-  selectable-text fallback; a cancelled Share is silent. Pure helpers
-  (`src/net/invite.ts`) are unit-tested; no server/protocol/DB change.
+  selectable-text fallback; a cancelled Share is silent. **Edge cases (Stage 18.2):**
+  the Join sheet shows an **"Invited room: CODE"** banner; if a *different* room is
+  saved in progress it offers a clear **Resume current room vs Join invited room**
+  choice (never auto-anything, saved session preserved); an invalid/blank `?room` is
+  ignored (no broken sheet) but still stripped from the URL; lowercase/whitespace codes
+  normalise. Pure helpers (`src/net/invite.ts`) are unit-tested; no server/protocol/DB
+  change.
 - **Team lobby clarity (Deberc / Tarneeb, Stage 18.0)**: the lobby for the 2×2
   partnership games groups all four seats by team (**Team A = seats 0 & 2, Team B =
   1 & 3**), shows empty seats per team, highlights your team, and marks You / Partner —
