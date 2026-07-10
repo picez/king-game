@@ -301,6 +301,24 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Mobile/RTL:** no horizontal overflow at 360/390; Arabic (RTL) reads correctly and
       the seat order is **not** mirrored (play still flows to your left).
 
+### Hardening (Stage 19.4)
+
+> Core hardening + online-redaction readiness. Most of this is covered automatically
+> (`npm run verify`): invariants, all-phase/all-seat redaction, a 40-seed bot soak, and
+> a serverCore seam drive. Preferans is still **local-only** — `wsHandlers` rejects
+> `CREATE_ROOM preferans` (guarded by a test).
+
+- [ ] **Clear prompts:** on your play turn while you still hold the led suit, a "Follow the
+      led suit if you can" reminder shows; during **declare**, the bar shows the minimum
+      contract ("at least {bid}"); the bury button counts **0/2 → 1/2 → 2/2**.
+- [ ] **No stall:** repeatedly play bot-only hands (Play again a few times) — every hand
+      resolves to a declarer and the match always reaches a winner/draw (no endless
+      "all pass → redeal" loop).
+- [ ] **Privacy:** across the whole hand you never see another seat's cards, the un-taken
+      talon, or the 2 buried discards — not even your own buried cards once declared.
+- [ ] **Not online:** the Host sheet keeps Preferans disabled ("Coming soon"); there is no
+      way to create or join a Preferans room.
+
 ## Manual — Deberc combination stats (Stage 13.8)
 
 > Deberc records the team outcome + jackpot **and** an aggregate combination

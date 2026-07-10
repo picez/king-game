@@ -195,7 +195,8 @@
 }
 .preferans-bidbar,
 .preferans-declarebar { flex-direction: column; gap: 0.3rem; }
-.preferans-declarebar__label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.preferans-declarebar__label { font-size: 0.85rem; font-weight: 700; color: var(--text); text-align: center; }
+.preferans-declarebar__min { color: var(--accent-light); font-weight: 800; }
 .preferans-passbtn { min-height: 2.4rem; }
 
 /* Bid / declare ladder: levels 6–10 (rows) × ♠♣♦♥NT (cells). */

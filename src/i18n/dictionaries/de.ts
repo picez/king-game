@@ -332,6 +332,8 @@ export const DE: Record<string, string> = {
   'preferans.takeTalon': 'Talon nehmen',
   'preferans.discard': '2 ablegen',
   'preferans.declareLabel': 'Nenne deinen Kontrakt',
+  'preferans.declareMin': 'mindestens {bid}',
+  'preferans.mustFollow': 'Bediene die ausgespielte Farbe, wenn du kannst',
   'preferans.yourBid': 'Du bist dran — reizen oder passen',
   'preferans.youTakeTalon': 'Du hast das Reizen gewonnen — nimm den Talon',
   'preferans.youDiscard': 'Wähle genau 2 Karten zum Ablegen',

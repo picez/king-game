@@ -23,6 +23,7 @@ import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize, DebercState } from '../games/deberc/types';
 import type { TarneebState } from '../games/tarneeb/types';
+import type { PreferansState } from '../games/preferans/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -604,6 +605,27 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     return false;
   }
 
+  if (gameType === 'preferans') {
+    // Preferans mirrors Tarneeb: the only server-advanced public screen is
+    // `hand_complete` (no seat acts there: getActingPreferansSeat → null).
+    // START_NEXT_HAND RE-DEALS, so it must be threaded with a server seed to stay
+    // reproducible. The trick resolves inside PLAY_CARD (no trick_complete screen)
+    // and `game_finished` is terminal. NOTE: Preferans is NOT hostable online yet
+    // (GAME_CATALOG.preferans.supportsOnline = false → wsHandlers rejects
+    // CREATE_ROOM), so this branch only runs in internal serverCore readiness tests.
+    const def = getGameDefinition('preferans');
+    if (!def) return false;
+    // Preferans is not in the wire AnyGame union yet (joins at Stage 19.5) — cast via
+    // unknown. The registry stores its definition as GameDefinition<any, any>.
+    const state = room.gameState as unknown as PreferansState;
+    if (state.phase === 'hand_complete') {
+      const seed = deal.seed ?? randomSeed();
+      room.gameState = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
+      return true;
+    }
+    return false;
+  }
+
   // Durak: no server-advanced public screens (bouts resolve inside the reducer).
   return false;
 }
@@ -632,6 +654,11 @@ export function publicScreenOf(room: ServerRoom): PublicScreen {
     // Tarneeb has one public between-hands screen (`hand_complete`), mapped to the
     // generic 'round_scoring' pause. No trick_complete screen (see autoAdvance).
     return (s as TarneebState).phase === 'hand_complete' ? 'round_scoring' : null;
+  }
+  if (gt === 'preferans') {
+    // Like Tarneeb: `hand_complete` is the single public between-hands pause.
+    // (Internal-only until Preferans online lands — see autoAdvance note.)
+    return (s as unknown as PreferansState).phase === 'hand_complete' ? 'round_scoring' : null;
   }
   return null;
 }

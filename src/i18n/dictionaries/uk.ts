@@ -332,6 +332,8 @@ export const UK: Record<string, string> = {
   'preferans.takeTalon': 'Взяти прикуп',
   'preferans.discard': 'Скинути 2',
   'preferans.declareLabel': 'Заяви свій контракт',
+  'preferans.declareMin': 'не нижче {bid}',
+  'preferans.mustFollow': 'Ходь у зайшлу масть, якщо можеш',
   'preferans.yourBid': 'Твій хід — заяви або пас',
   'preferans.youTakeTalon': 'Ти виграв торги — візьми прикуп',
   'preferans.youDiscard': 'Обери рівно 2 карти для скиду',

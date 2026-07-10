@@ -332,6 +332,8 @@ export const EN: Record<string, string> = {
   'preferans.takeTalon': 'Take the talon',
   'preferans.discard': 'Bury 2',
   'preferans.declareLabel': 'Name your contract',
+  'preferans.declareMin': 'at least {bid}',
+  'preferans.mustFollow': 'Follow the led suit if you can',
   'preferans.yourBid': 'Your turn — bid or pass',
   'preferans.youTakeTalon': 'You won the auction — take the talon',
   'preferans.youDiscard': 'Pick exactly 2 cards to bury',

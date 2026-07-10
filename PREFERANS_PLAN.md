@@ -94,9 +94,28 @@ pattern for stats.
   discard-exactly-2, declare ≥ bid). Visual smoke `scripts/preferans-shots.mjs` (360/390,
   **no horizontal overflow**). Verify green (1452 unit + build + E2E). **Playable locally.**
   Next: 19.4 online readiness / redaction.
-- **19.4 — online readiness / redaction.** Wire the online start seam + per-viewer
-  `redactStateFor` (own hand only; talon hidden pre-take; discards hidden). Redaction
-  leak tests (mirror `tarneeb/redact.test`). Still not user-facing online.
+- **19.4 — local hardening + online-redaction readiness. ✅ DONE.** No rule drift found
+  (engine/rules match this doc). **AI:** added a termination guard — the last active
+  bidder facing an all-pass (no high bid) opens the minimum instead of passing, so a
+  bot-only auction ALWAYS yields a declarer → the match is *guaranteed* to terminate
+  (no endless redeal loop). **Invariants:** `checkPreferansInvariants` strengthened
+  (strictly-ascending bids, contract ≥ winning bid, talon/discards ∈ {0,2}, per-seat
+  trick bounds) + new `invariants.test.ts` (32-card conservation across every zone,
+  hand sizes by phase 10/10/10+2 → 12 → 10, no-dup, trick ≤ 10, acting-seat validity,
+  corruption is actually flagged, and a **40-seed bot soak** that finishes well under
+  cap with hands played). **Redaction:** `redact.phases.test.ts` covers every phase ×
+  every seat + spectator — own hand only, talon hidden pre-take, after TAKE_TALON the
+  talon is visible ONLY inside the declarer's hand, discards hidden from EVERYONE
+  (incl. the declarer), trick/bids/contract/scores/`handHistory` public + score-only,
+  UI counts preserved, no mutation. **Server seam:** `autoAdvance`/`publicScreenOf`
+  gained a `preferans` branch (hand_complete → seeded START_NEXT_HAND / `round_scoring`);
+  `preferansServerCore.test.ts` drives startGame / sanitizedStateFor / authorization /
+  applyBotTurn / applyTimeoutAction / serialize↔deserialize / autoAdvance / bot-only
+  finish through serverCore. **Still NOT hostable:** `supportsOnline` stays `false`;
+  `wsHandlers.preferans.test.ts` asserts CREATE_ROOM preferans is rejected (BAD_MESSAGE,
+  no room). Preferans is NOT in the wire `AnyGame` union yet (joins at 19.5). **UI:**
+  clearer prompts — a follow-suit reminder + the declare minimum (≥ winning bid); i18n
+  ×4. Verify green. Next: 19.5 experimental online.
 - **19.5 — experimental online.** `status: 'experimental'`, `supportsOnline: true`:
   host/join rooms with bots, reconnect/restart, an online soak + a multi-human e2e with
   **no redaction leak**. Experimental label in menu/host/lobby.

@@ -76,6 +76,17 @@ describe('Seating flows to the left with the viewer at the bottom', () => {
     expect(screen).toContain('dimmed={phase === \'playing\' && isMyTurn && !cardPlayable(c)}');
     expect(screen).toContain('selectedDiscards.length === 2');
   });
+
+  it('surfaces clear prompts: follow-suit reminder + the declare minimum (Stage 19.4)', () => {
+    // A follow-suit note shows only when the human still holds the led suit.
+    expect(screen).toContain('const mustFollow = phase === \'playing\' && isMyTurn && ledSuit != null');
+    expect(screen).toContain("t('preferans.mustFollow')");
+    // The declare bar shows the minimum contract (= the winning bid).
+    expect(screen).toContain("t('preferans.declareMin')");
+    expect(screen).toContain('declareMinLabel');
+    // The talon count / discard progress stays visible on the confirm button.
+    expect(screen).toContain('({selectedDiscards.length}/2)');
+  });
 });
 
 describe('Preferans UI never imports server / ws / db and records no stats', () => {
@@ -95,6 +106,8 @@ describe('i18n parity for the new Preferans keys', () => {
     'preferans.phase.bidding',
     'preferans.takeTalon',
     'preferans.declareLabel',
+    'preferans.declareMin',
+    'preferans.mustFollow',
     'preferans.nextHand',
     'preferans.experimentalNote',
     'preferans.rule.play',

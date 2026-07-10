@@ -5,7 +5,8 @@
 // ---------------------------------------------------------------------------
 
 import type { PreferansState } from './types';
-import { NUM_SEATS } from './deck';
+import { NUM_SEATS, TALON_SIZE } from './deck';
+import { bidRank } from './rules';
 
 /** Total cards currently in play across every zone (should always be 32). */
 function totalCards(s: PreferansState): number {
@@ -30,6 +31,28 @@ export function checkPreferansInvariants(s: PreferansState): string[] {
 
   // No seat exceeds 10 tricks; at most 10 tricks per hand.
   if (s.completedTricks.length > 10) errs.push(`>10 completed tricks (${s.completedTricks.length})`);
+
+  // Per-seat trick counts are bounded (0 ≤ won ≤ completed tricks this hand).
+  if (!s.tricksBySeat.every((n) => Number.isInteger(n) && n >= 0 && n <= s.completedTricks.length)) {
+    errs.push('per-seat trick count out of range');
+  }
+
+  // The talon holds either its full 2 cards (before TAKE_TALON) or 0 (after) —
+  // never a partial count. Discards are similarly 0 (none yet) or exactly 2.
+  if (s.talon.length !== 0 && s.talon.length !== TALON_SIZE) errs.push(`talon size ${s.talon.length}`);
+  if (s.discards.length !== 0 && s.discards.length !== TALON_SIZE) errs.push(`discards size ${s.discards.length}`);
+
+  // The auction is a strictly ascending ladder: every bid outranks the previous
+  // one (passes are interleaved but do not reset the order).
+  const madeBids = s.bids.filter((b) => b.bid != null).map((b) => bidRank(b.bid!));
+  for (let i = 1; i < madeBids.length; i++) {
+    if (madeBids[i] <= madeBids[i - 1]) { errs.push('bids not strictly ascending'); break; }
+  }
+
+  // A declared contract is never below the winning (high) bid it was raised from.
+  if (s.contract && s.highBid && bidRank(s.contract) < bidRank(s.highBid)) {
+    errs.push('contract below winning bid');
+  }
 
   // Scores are integers.
   if (!s.scores.every((v) => Number.isInteger(v))) errs.push('non-integer score');

@@ -61,12 +61,21 @@ export function preferansBotAction(state: PreferansState, seat: number): Prefera
       // Open the MINIMUM contract (level 6) in the longest suit when it is at least
       // 4 long AND that bid outranks the current high bid; otherwise pass. Conservative
       // — it never escalates a suit-6 auction, so most hands get exactly one bidder
-      // (the declarer) and the auction resolves quickly. (A hand with no 4+ suit passes;
-      // an all-pass simply redeals, and the dealer rotation keeps deals advancing.)
+      // (the declarer) and the auction resolves quickly.
       const hand = state.handsBySeat[seat];
       const { suit, length } = longestSuit(hand);
-      if (length < 4) return { type: 'PASS_BID' };
       const level = 6;
+
+      // Termination guard: if THIS seat passing would trigger an all-pass redeal
+      // (no bid yet AND every other seat has already passed), open the minimum
+      // contract in the longest suit instead. With no high bid a level-6 bid is
+      // always legal, so a bot-only auction ALWAYS produces a declarer — the score
+      // sum then strictly rises each hand and the match is guaranteed to terminate
+      // in bounded hands (never an endless redeal loop).
+      const lastActiveNoBid = state.highBid == null && state.passed.every((p, i) => i === seat || p);
+      if (lastActiveNoBid) return { type: 'BID', level, suit };
+
+      if (length < 4) return { type: 'PASS_BID' };
       if (state.highBid) {
         // Only bid if a level-6 in our longest suit is strictly above the high bid.
         const order = ['spades', 'clubs', 'diamonds', 'hearts', 'NT'];

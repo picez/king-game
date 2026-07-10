@@ -33,7 +33,10 @@ The local UI (`src/ui/preferans/`) covers the full hand — bidding, talon excha
 (take → bury 2 → declare), trick play, hand-complete scoring, finished. The game
 picker offers it in the **Local** sheet (flagged "Experimental") and shows it
 **disabled** ("Coming soon") when hosting. There is **no online play or stats yet**
-(`supportsOnline: false`, `recordsStats: false`; online = Stage 19.4+). Spec + plan:
+(`supportsOnline: false`, `recordsStats: false`; online = Stage 19.5+). Stage 19.4
+hardened the local core (guaranteed bot-only termination, expanded invariant/redaction
+tests) and proved the server seam is ready (serverCore drives Preferans internally)
+while keeping it un-hostable (`wsHandlers` rejects `CREATE_ROOM preferans`). Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works

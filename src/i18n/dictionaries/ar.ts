@@ -332,6 +332,8 @@ export const AR: Record<string, string> = {
   'preferans.takeTalon': 'خذ الطالون',
   'preferans.discard': 'ارمِ بطاقتين',
   'preferans.declareLabel': 'ناادِ بعقدك',
+  'preferans.declareMin': 'على الأقل {bid}',
+  'preferans.mustFollow': 'اتبع السلسلة المفتتحة إن استطعت',
   'preferans.yourBid': 'دورك — زايد أو مرّر',
   'preferans.youTakeTalon': 'ربحت المزايدة — خذ الطالون',
   'preferans.youDiscard': 'اختر بطاقتين بالضبط لرميهما',

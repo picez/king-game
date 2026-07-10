@@ -136,6 +136,11 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
   const iPassed = phase === 'bidding' && state.passed[humanSeat] && !isMyTurn;
   const ledSuit = state.currentTrick?.ledSuit ?? null;
   const trumpIsRed = trumpSuit != null && isRed(trumpSuit);
+  // Follow-suit reminder: my turn to play, a suit is led, and I still hold it.
+  const mustFollow = phase === 'playing' && isMyTurn && ledSuit != null &&
+    state.handsBySeat[humanSeat].some((c) => c.suit === ledSuit);
+  // The minimum contract the declarer may name = the winning bid (§6).
+  const declareMinLabel = state.highBid ? contractLabel(state.highBid) : null;
 
   return (
     <div className="screen preferans-screen">
@@ -244,6 +249,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
         <span className="preferans-prompt__text">{prompt}</span>
         {iPassed && <span className="preferans-prompt__note">{t('preferans.youPassed')}</span>}
         {discardMode && <span className="preferans-prompt__note">{t('preferans.discardHint')}</span>}
+        {mustFollow && <span className="preferans-prompt__note">{t('preferans.mustFollow')}</span>}
       </div>
 
       {/* Action area: bidding ladder, talon buttons, discard confirm, or declare ladder. */}
@@ -280,7 +286,12 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
 
       {talonDeclarePending && isMyTurn && iAmDeclarer && (
         <div className="preferans-actions preferans-declarebar">
-          <span className="preferans-declarebar__label">{t('preferans.declareLabel')}</span>
+          <span className="preferans-declarebar__label">
+            {t('preferans.declareLabel')}
+            {declareMinLabel && (
+              <span className="preferans-declarebar__min"> · {t('preferans.declareMin').replace('{bid}', declareMinLabel)}</span>
+            )}
+          </span>
           <BidLadder legalKeys={legalDeclareKeys} onPick={(b) => apply({ type: 'DECLARE_CONTRACT', level: b.level, suit: b.suit })} />
         </div>
       )}
