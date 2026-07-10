@@ -338,8 +338,26 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       Leave-lobby before start frees your seat; the board ✕ leaves the game (reconnectable).
 - [ ] **Social:** chat + reactions work and never cover the hand/table (360/390, RTL); the
       action bars stay clear of the emoji/chat corner.
-- [ ] **No stats:** finishing an online Preferans game records **nothing** (no Profile
-      Preferans tab, no leaderboard) — stats land at Stage 19.6.
+### Stats (Stage 19.6, score-only)
+
+> Preferans records score-only stats via the existing per-`game_type` pattern (no
+> schema migration, no cards). Only **human-vs-human** finished games count (any bot →
+> skipped); needs Postgres (`DATABASE_URL`) — otherwise the panels degrade softly.
+> Automated: `preferansStats` aggregator + `statsApi` parser tests + a DB-gated
+> integration test (skips without `TEST_DATABASE_URL`) + `scripts/preferans-stats-shots.mjs`.
+
+- [ ] **Profile → My stats → Preferans** shows a sub-tab; empty state ("no games") before
+      any game, then record / win-rate / contract-rate / declarer-hands / avg-score
+      (with best/worst) after a finished human-vs-human online game.
+- [ ] **Profile → Leaderboard → Preferans** lists public rows (name/avatar/games/wins/
+      win-rate/contract-rate); your own row is highlighted; no user id is exposed.
+- [ ] **Privacy (DB configured):** the stored `games`/`game_players`/`rounds` rows hold
+      **no cards / talon / discards / tricks** — only scores + a word-free contract label
+      (e.g. `7H`, `6NT`). A draw counts as neither a win nor a loss.
+- [ ] **Still experimental:** Preferans has **no achievement badge** yet and is **not** in
+      the favorite-game picker (both deferred to release, 19.7).
+- [ ] **No overflow:** the Preferans stats + leaderboard panels fit at 360/390 and read
+      correctly under Arabic RTL (same layout as the Tarneeb panels).
 
 ## Manual — Deberc combination stats (Stage 13.8)
 

@@ -136,9 +136,26 @@ pattern for stats.
   Visual smoke `scripts/preferans-online-shots.mjs` (host/lobby 1&3-of-3/bidding/talon/
   playing, 360/390, **no overflow**). **No stats yet.** Verify green (typecheck + tests +
   build + E2E). Next: 19.6 stats.
-- **19.6 — stats.** Additive per-`game_type` stats (`game_type='preferans'`): games/wins,
-  contracts made/failed, avg contract level — score-only, additive migration, DB-gated,
-  graceful with no DB. New `getPreferansStats` + a Profile stats panel + leaderboard.
+- **19.6 — stats. ✅ DONE.** Per-`game_type='preferans'` score-only stats reusing the
+  shared `games`/`game_players`/`rounds`/`user_stats` JSONB pattern — **NO schema
+  migration, NO WS/protocol change**. `preferansGameDefinition.recordsStats: true`;
+  `maybeRecordFinished` records via the existing game-agnostic finish path (human-vs-human
+  only; bots skipped; idempotent via `game_key`; DB-gated → no-op without Postgres). Pure
+  aggregator `src/net/preferansStats.ts` (per-SEAT win/loss/draw, declarer/contract tallies,
+  per-hand score deltas + a word-free contract label like `7H`/`6NT`, finish signature) —
+  NEVER cards/talon/discards/tricks. Repo `server/db/preferansStats.ts` (record + read +
+  leaderboard; `gamesDrawn`/best/worst in the JSONB blob). API `GET /api/games/preferans/
+  stats` + `/leaderboard`; client `fetchPreferansStats`/`fetchPreferansLeaderboard` +
+  parsers (graceful defaults). UI `PreferansStatsPanel` + `PreferansLeaderboardPanel`
+  (reuse existing stats i18n; empty/auth/unavailable/error states); Profile adds a
+  **Preferans** sub-tab under My stats + Leaderboard. Achievements deliberately UNCHANGED
+  (Preferans excluded from `AllStats` until release). Fields: gamesPlayed/Won/Lost/Drawn,
+  winRate, handsPlayed, handsAsDeclarer, contractsMade/Failed, contractSuccessRate,
+  totalScore, averageScore, best/worstGameScore. Tests: aggregator (win/loss/draw/no-cards/
+  signature), statsApi parse+fetch+leaderboard, apiDisabled 503, DB-gated integration
+  (idempotency + bots-excluded + privacy sweep — skips without `TEST_DATABASE_URL`), UI
+  source guards. Visual smoke `scripts/preferans-stats-shots.mjs` (360/390, no overflow).
+  `status` stays **experimental**. Verify green. Next: 19.7 release.
 - **19.7 — polish / release.** Remove the experimental label (`status: 'available'`),
   QA_CHECKLIST section, visual/RTL/mobile pass, docs update (MVP_STATUS/PROJECT_OVERVIEW),
   achievements hooks if desired.

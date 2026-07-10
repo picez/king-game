@@ -54,5 +54,5 @@ export const preferansGameDefinition: GameDefinition<PreferansState, PreferansAc
   botAction: preferansDefinitionBotAction,
   redactStateFor: preferansRedactStateFor,
   isFinished: isPreferansFinished,
-  recordsStats: false, // no stats until a later stage (coming_soon)
+  recordsStats: true, // Stage 19.6: score-only stats (experimental online), like Tarneeb
 };

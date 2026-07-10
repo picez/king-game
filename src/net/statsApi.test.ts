@@ -4,6 +4,7 @@ import {
   parseDurakStats, fetchDurakStats, fetchDurakLeaderboard,
   parseDebercStats,
   parseTarneebStats, fetchTarneebStats, fetchTarneebLeaderboard,
+  parsePreferansStats, fetchPreferansStats, fetchPreferansLeaderboard,
   winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
 } from './statsApi';
 
@@ -151,6 +152,65 @@ describe('fetchTarneebStats — graceful state mapping', () => {
     expect((await fetchTarneebStats(BASE)).state).toBe('unauthenticated');
     stubFetch(503, {});
     expect((await fetchTarneebStats(BASE)).state).toBe('unavailable');
+  });
+});
+
+describe('parsePreferansStats — flat payload', () => {
+  it('flattens outcome (incl. draws) + contract + score fields', () => {
+    const s = parsePreferansStats({ stats: {
+      gamesPlayed: 7, gamesWon: 3, gamesLost: 3, gamesDrawn: 1, winRate: 43,
+      handsPlayed: 30, handsAsDeclarer: 11, contractsMade: 7, contractsFailed: 4, contractSuccessRate: 64,
+      totalScore: 21, averageScore: 3, bestGameScore: 10, worstGameScore: -6,
+      lastGameAt: '2026-07-10T00:00:00Z',
+    } });
+    expect(s).toMatchObject({
+      gamesPlayed: 7, gamesWon: 3, gamesLost: 3, gamesDrawn: 1, winRate: 43,
+      handsPlayed: 30, handsAsDeclarer: 11, contractsMade: 7, contractsFailed: 4, contractSuccessRate: 64,
+      totalScore: 21, averageScore: 3, bestGameScore: 10, worstGameScore: -6,
+    });
+  });
+
+  it('derives winRate/contractSuccessRate/average when the server omits them', () => {
+    const s = parsePreferansStats({ stats: { gamesPlayed: 4, gamesWon: 2, contractsMade: 3, contractsFailed: 1, totalScore: 8 } });
+    expect(s.winRate).toBe(50);
+    expect(s.contractSuccessRate).toBe(75);  // 3/(3+1)
+    expect(s.averageScore).toBe(2);          // 8/4
+  });
+
+  it('is all-zero/null for an empty payload', () => {
+    const s = parsePreferansStats({});
+    expect(s).toMatchObject({ gamesPlayed: 0, gamesDrawn: 0, contractsMade: 0, winRate: null, contractSuccessRate: null });
+    expect(s.bestGameScore).toBeNull();
+    expect(s.worstGameScore).toBeNull();
+  });
+});
+
+describe('fetchPreferansStats — graceful state mapping', () => {
+  it('maps 200 → ok, 401 → unauthenticated, 503 → unavailable', async () => {
+    stubFetch(200, { stats: { gamesPlayed: 1, gamesWon: 1 } });
+    expect((await fetchPreferansStats(BASE)).state).toBe('ok');
+    stubFetch(401, {});
+    expect((await fetchPreferansStats(BASE)).state).toBe('unauthenticated');
+    stubFetch(503, {});
+    expect((await fetchPreferansStats(BASE)).state).toBe('unavailable');
+  });
+});
+
+describe('fetchPreferansLeaderboard', () => {
+  it('parses public rows (no userId) and marks self', async () => {
+    stubFetch(200, { leaderboard: [
+      { displayName: 'Vera', avatar: '🦊', gamesPlayed: 9, gamesWon: 5, winRate: 56, contractsMade: 8, contractsFailed: 4, contractSuccessRate: 67, self: true },
+    ] });
+    const r = await fetchPreferansLeaderboard(BASE);
+    expect(r.state).toBe('ok');
+    if (r.state === 'ok') {
+      expect(r.data[0]).toMatchObject({ displayName: 'Vera', gamesWon: 5, contractSuccessRate: 67, self: true });
+      expect('userId' in r.data[0]).toBe(false);
+    }
+  });
+  it('maps a 503 to unavailable and never throws', async () => {
+    stubFetch(503, {});
+    expect((await fetchPreferansLeaderboard(BASE)).state).toBe('unavailable');
   });
 });
 

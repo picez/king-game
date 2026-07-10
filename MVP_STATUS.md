@@ -35,9 +35,10 @@ declare), trick play, hand-complete scoring, finished — locally and online (vi
 thin `PreferansOnlineGame` adapter; the server drives bots + the hand advance, and the
 screen is read-only off-turn). Host/join a 3-seat room with reconnect + social + leave;
 each client sees only its own hand (server redaction, talon/discards hidden), verified
-by an online e2e. There are **no stats yet** (`recordsStats: false`;
-`maybeRecordFinished` skips it). The favorite-game picker still excludes it while
-experimental. Spec + plan:
+by an online e2e. **Per-game score-only stats + leaderboard** land at Stage 19.6
+(Profile → My stats / Leaderboard has a Preferans sub-tab; recorded human-vs-human,
+DB-gated, no cards, no schema migration) — Preferans stays **experimental** and is
+kept out of achievements + the favorite-game picker until release (19.7). Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works

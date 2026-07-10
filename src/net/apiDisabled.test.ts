@@ -68,6 +68,20 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect((out.body as { error: string }).error).toBe('db_disabled');
   });
 
+  it('returns 503 db_disabled for the Preferans stats route (GET /api/games/preferans/stats)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/preferans/stats'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
+  it('returns 503 db_disabled for the Preferans leaderboard route (GET /api/games/preferans/leaderboard)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/preferans/leaderboard'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
   it('answers CORS preflight (OPTIONS) with 204 even without a DB', async () => {
     const { res, out } = mockRes();
     await handleApiRequest(mockReq('OPTIONS', '/api/settings'), res);

@@ -318,6 +318,63 @@ export async function fetchTarneebStats(base: string): Promise<Loadable<TarneebS
   return failFor(status);
 }
 
+/** My Preferans stats — per-seat outcome (win/loss/draw) + contract/score aggregates. */
+export interface PreferansStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  gamesDrawn: number;
+  winRate: number | null;
+  handsPlayed: number;
+  handsAsDeclarer: number;
+  contractsMade: number;
+  contractsFailed: number;
+  /** 0–100 over made+failed declarer hands, or null when none. */
+  contractSuccessRate: number | null;
+  /** Cumulative sum of the user's final scores (can be negative). */
+  totalScore: number;
+  averageScore: number | null;
+  /** Best/worst final score across games, or null when none. */
+  bestGameScore: number | null;
+  worstGameScore: number | null;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into PreferansStats. */
+export function parsePreferansStats(raw: unknown): PreferansStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  const made = num(s.contractsMade);
+  const failed = num(s.contractsFailed);
+  const decided = made + failed;
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    gamesDrawn: num(s.gamesDrawn),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    handsPlayed: num(s.handsPlayed),
+    handsAsDeclarer: num(s.handsAsDeclarer),
+    contractsMade: made,
+    contractsFailed: failed,
+    contractSuccessRate: 'contractSuccessRate' in s ? numOrNull(s.contractSuccessRate) : (decided > 0 ? Math.round((made / decided) * 100) : null),
+    totalScore: num(s.totalScore),
+    averageScore: 'averageScore' in s ? numOrNull(s.averageScore) : (gamesPlayed > 0 ? Math.round(num(s.totalScore) / gamesPlayed) : null),
+    bestGameScore: numOrNull(s.bestGameScore),
+    worstGameScore: numOrNull(s.worstGameScore),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/preferans/stats — the signed-in/guest user's own Preferans stats. */
+export async function fetchPreferansStats(base: string): Promise<Loadable<PreferansStats>> {
+  const { status, data } = await getJson(base, '/api/games/preferans/stats');
+  if (status === 200) return { state: 'ok', data: parsePreferansStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
@@ -460,6 +517,54 @@ export async function fetchTarneebLeaderboard(base: string): Promise<Loadable<Ta
     const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
       .map(parseTarneebLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
+/** One public Preferans leaderboard row — no user id; `self` marks the caller. */
+export interface PreferansLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  contractsMade: number;
+  contractsFailed: number;
+  contractSuccessRate: number | null;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parsePreferansLeaderboardRow(e: Record<string, unknown>): PreferansLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  const made = num(e.contractsMade);
+  const failed = num(e.contractsFailed);
+  const decided = made + failed;
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    contractsMade: made,
+    contractsFailed: failed,
+    contractSuccessRate: 'contractSuccessRate' in e ? numOrNull(e.contractSuccessRate) : (decided > 0 ? Math.round((made / decided) * 100) : null),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/preferans/leaderboard — public top Preferans players. */
+export async function fetchPreferansLeaderboard(base: string): Promise<Loadable<PreferansLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/preferans/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parsePreferansLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);

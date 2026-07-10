@@ -5,9 +5,10 @@ import type { GameType } from '../games/catalog';
 import {
   fetchKingStats, fetchKingLeaderboard, fetchDurakStats, fetchDurakLeaderboard,
   fetchDebercStats, fetchDebercLeaderboard, fetchTarneebStats, fetchTarneebLeaderboard,
-  type KingStats, type DurakStats, type DebercStats, type TarneebStats,
+  fetchPreferansStats, fetchPreferansLeaderboard,
+  type KingStats, type DurakStats, type DebercStats, type TarneebStats, type PreferansStats,
   type LeaderboardEntry, type DurakLeaderboardEntry, type DebercLeaderboardEntry,
-  type TarneebLeaderboardEntry, type Loadable,
+  type TarneebLeaderboardEntry, type PreferansLeaderboardEntry, type Loadable,
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
 import AchievementsPanel from './components/AchievementsPanel';
@@ -20,10 +21,12 @@ import StatsPanel from './components/StatsPanel';
 import DurakStatsPanel from './components/DurakStatsPanel';
 import DebercStatsPanel from './components/DebercStatsPanel';
 import TarneebStatsPanel from './components/TarneebStatsPanel';
+import PreferansStatsPanel from './components/PreferansStatsPanel';
 import LeaderboardPanel from './components/LeaderboardPanel';
 import DurakLeaderboardPanel from './components/DurakLeaderboardPanel';
 import DebercLeaderboardPanel from './components/DebercLeaderboardPanel';
 import TarneebLeaderboardPanel from './components/TarneebLeaderboardPanel';
+import PreferansLeaderboardPanel from './components/PreferansLeaderboardPanel';
 
 interface Props {
   account: Account;
@@ -41,9 +44,12 @@ interface Props {
 }
 
 type Tab = 'profile' | 'stats' | 'achievements' | 'leaderboard';
-type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb';
+type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans';
 
-const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb'] as const;
+// Preferans (Stage 19.6) has stats + leaderboard sub-tabs. It is intentionally NOT
+// part of the achievements derivation (AllStats), which stays on the four released
+// games until Preferans exits experimental (Stage 19.7).
+const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb', 'preferans'] as const;
 
 /**
  * Profile / Statistics / Leaderboard sections (Stage 13.3). Rendered inside the
@@ -76,28 +82,34 @@ export default function ProfileMenu({
   const [durakStats, setDurakStats] = useState<Loadable<DurakStats> | null>(null);
   const [debercStats, setDebercStats] = useState<Loadable<DebercStats> | null>(null);
   const [tarneebStats, setTarneebStats] = useState<Loadable<TarneebStats> | null>(null);
+  const [preferansStats, setPreferansStats] = useState<Loadable<PreferansStats> | null>(null);
   const [board, setBoard] = useState<Loadable<LeaderboardEntry[]> | null>(null);
   const [durakBoard, setDurakBoard] = useState<Loadable<DurakLeaderboardEntry[]> | null>(null);
   const [debercBoard, setDebercBoard] = useState<Loadable<DebercLeaderboardEntry[]> | null>(null);
   const [tarneebBoard, setTarneebBoard] = useState<Loadable<TarneebLeaderboardEntry[]> | null>(null);
+  const [preferansBoard, setPreferansBoard] = useState<Loadable<PreferansLeaderboardEntry[]> | null>(null);
 
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingDurak, setLoadingDurak] = useState(false);
   const [loadingDeberc, setLoadingDeberc] = useState(false);
   const [loadingTarneeb, setLoadingTarneeb] = useState(false);
+  const [loadingPreferans, setLoadingPreferans] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [loadingDurakBoard, setLoadingDurakBoard] = useState(false);
   const [loadingDebercBoard, setLoadingDebercBoard] = useState(false);
   const [loadingTarneebBoard, setLoadingTarneebBoard] = useState(false);
+  const [loadingPreferansBoard, setLoadingPreferansBoard] = useState(false);
 
   const statsOnce = useRef(false);
   const durakOnce = useRef(false);
   const debercOnce = useRef(false);
   const tarneebOnce = useRef(false);
+  const preferansOnce = useRef(false);
   const boardOnce = useRef(false);
   const durakBoardOnce = useRef(false);
   const debercBoardOnce = useRef(false);
   const tarneebBoardOnce = useRef(false);
+  const preferansBoardOnce = useRef(false);
 
   const base = account.base;
 
@@ -117,6 +129,10 @@ export default function ProfileMenu({
     setLoadingTarneeb(true);
     try { setTarneebStats(await fetchTarneebStats(base)); } finally { setLoadingTarneeb(false); }
   }, [base]);
+  const loadPreferansStats = useCallback(async () => {
+    setLoadingPreferans(true);
+    try { setPreferansStats(await fetchPreferansStats(base)); } finally { setLoadingPreferans(false); }
+  }, [base]);
   const loadBoard = useCallback(async () => {
     setLoadingBoard(true);
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
@@ -133,6 +149,10 @@ export default function ProfileMenu({
     setLoadingTarneebBoard(true);
     try { setTarneebBoard(await fetchTarneebLeaderboard(base)); } finally { setLoadingTarneebBoard(false); }
   }, [base]);
+  const loadPreferansBoard = useCallback(async () => {
+    setLoadingPreferansBoard(true);
+    try { setPreferansBoard(await fetchPreferansLeaderboard(base)); } finally { setLoadingPreferansBoard(false); }
+  }, [base]);
 
   useEffect(() => {
     if (tab === 'stats') {
@@ -140,6 +160,7 @@ export default function ProfileMenu({
       if (statsGame === 'durak' && !durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
       if (statsGame === 'deberc' && !debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (statsGame === 'tarneeb' && !tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
+      if (statsGame === 'preferans' && !preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
     }
     // Achievements are derived from ALL four stat sets — load each once (reusing
     // the same `once` refs, so opening the stats tab later won't refetch).
@@ -154,23 +175,24 @@ export default function ProfileMenu({
       if (boardGame === 'durak' && !durakBoardOnce.current) { durakBoardOnce.current = true; void loadDurakBoard(); }
       if (boardGame === 'deberc' && !debercBoardOnce.current) { debercBoardOnce.current = true; void loadDebercBoard(); }
       if (boardGame === 'tarneeb' && !tarneebBoardOnce.current) { tarneebBoardOnce.current = true; void loadTarneebBoard(); }
+      if (boardGame === 'preferans' && !preferansBoardOnce.current) { preferansBoardOnce.current = true; void loadPreferansBoard(); }
     }
   }, [tab, statsGame, boardGame,
-    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats,
-    loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard]);
+    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadPreferansStats,
+    loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard]);
 
   function refresh() {
     if (tab === 'stats') {
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
-        : statsGame === 'tarneeb' ? loadTarneebStats() : loadStats());
+        : statsGame === 'tarneeb' ? loadTarneebStats() : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
     } else if (tab === 'leaderboard') {
       void (boardGame === 'durak' ? loadDurakBoard() : boardGame === 'deberc' ? loadDebercBoard()
-        : boardGame === 'tarneeb' ? loadTarneebBoard() : loadBoard());
+        : boardGame === 'tarneeb' ? loadTarneebBoard() : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
     }
   }
 
-  const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb
-    || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard;
+  const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans
+    || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard || loadingPreferansBoard;
 
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'profile', label: t('account.title') },
@@ -252,6 +274,7 @@ export default function ProfileMenu({
                 {statsGame === 'durak' && <DurakStatsPanel result={durakStats} loading={loadingDurak} />}
                 {statsGame === 'deberc' && <DebercStatsPanel result={debercStats} loading={loadingDeberc} />}
                 {statsGame === 'tarneeb' && <TarneebStatsPanel result={tarneebStats} loading={loadingTarneeb} />}
+                {statsGame === 'preferans' && <PreferansStatsPanel result={preferansStats} loading={loadingPreferans} />}
               </>
             )}
             {tab === 'achievements' && (
@@ -272,6 +295,7 @@ export default function ProfileMenu({
                 {boardGame === 'durak' && <DurakLeaderboardPanel result={durakBoard} loading={loadingDurakBoard} />}
                 {boardGame === 'deberc' && <DebercLeaderboardPanel result={debercBoard} loading={loadingDebercBoard} />}
                 {boardGame === 'tarneeb' && <TarneebLeaderboardPanel result={tarneebBoard} loading={loadingTarneebBoard} />}
+                {boardGame === 'preferans' && <PreferansLeaderboardPanel result={preferansBoard} loading={loadingPreferansBoard} />}
               </>
             )}
       </div>
