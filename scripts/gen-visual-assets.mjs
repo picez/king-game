@@ -223,6 +223,20 @@ function iconTarneeb(nx, ny) {
     return Math.max(star * 0.4, spade);
   }, 0.012);
 }
+// refined top hat (Preferans — a solo contract/бidding game). A single clean brass
+// silhouette in the set's language (crown + wide brim), distinct from crown/jester/
+// gem/spade and legible at 32–64 px. No text/letters.
+function iconPreferans(nx, ny) {
+  return emblem(nx, ny, (x, y) => {
+    const cx = x - 0.5;
+    // Crown: a tall body with a subtle opera-hat flare toward the top.
+    const halfW = 0.150 + 0.020 * smooth(0.66, 0.20, y);
+    const crown = (y > 0.19 && y < 0.685 && Math.abs(cx) < halfW) ? 0.05 : -1;
+    // Brim: a wide, flat lens (ellipse) at the base — the hat's defining line.
+    const brim = (1 - Math.pow(cx / 0.35, 2) - Math.pow((y - 0.705) / 0.052, 2)) * 0.05;
+    return Math.max(crown, brim);
+  }, 0.012);
+}
 
 // ── P1: finish frame (ornamental transparent banner behind a winner summary) ──
 // Transparent interior (content shows through) + a brass double-line rounded-rect
@@ -308,6 +322,7 @@ emit('visual/icons/game-king.png', png(512, 512, 4, iconKing));
 emit('visual/icons/game-durak.png', png(512, 512, 4, iconDurak));
 emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));
 emit('visual/icons/game-tarneeb.png', png(512, 512, 4, iconTarneeb));
+emit('visual/icons/game-preferans.png', png(512, 512, 4, iconPreferans));
 
 console.log('Generating P1 visual assets (finish frame + seat badges)…');
 emit('visual/finish-frame.png', png(1600, 700, 2, finishFrame));

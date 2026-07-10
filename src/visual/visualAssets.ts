@@ -45,6 +45,8 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   { id: 'icon-durak',     src: '/visual/icons/game-durak.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-deberc',    src: '/visual/icons/game-deberc.png',     format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   { id: 'icon-tarneeb',   src: '/visual/icons/game-tarneeb.png',    format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
+  // Stage 19.9: Preferans emblem (top hat) — the 5th available game gains its own icon.
+  { id: 'icon-preferans', src: '/visual/icons/game-preferans.png',  format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   // P1 (Stage 12.8): ornamental finish frame + unified seat-status badge coins.
   { id: 'finish-frame',   src: '/visual/finish-frame.png',          format: 'png', maxBytes: 260_000, priority: 'P1', present: true },
   { id: 'badge-host',     src: '/visual/badges/badge-host.png',     format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
@@ -70,9 +72,10 @@ export function visualAsset(id: string): VisualAsset | null {
 
 /**
  * Single source for a game's emblem PNG URL (Stage 12.3). Mirrors the manifest
- * `icon-<game>` entries — the four `available` games each have a transparent
- * 512×512 icon under public/visual/icons. Callers render it in an `<img>` with an
- * emoji `onError` fallback (see `GameIcon`), so a missing file never breaks the UI.
+ * `icon-<game>` entries — the five `available` games each have a transparent
+ * 512×512 icon under public/visual/icons (Preferans added Stage 19.9). Callers
+ * render it in an `<img>` with an emoji `onError` fallback (see `GameIcon`), so a
+ * missing file never breaks the UI.
  */
 export function gameIconSrc(game: string): string {
   return `/visual/icons/game-${game}.png`;

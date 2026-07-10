@@ -12,8 +12,9 @@
 
 Five games ship and are all `available`: **King, Durak, Deberc, Tarneeb, Preferans**
 — local + server-authoritative online, with stats, chat, and sticker reactions.
-(King/Durak/Deberc/Tarneeb each ship a PNG emblem; **Preferans is emoji-only 🎩** —
-no PNG asset was generated for it. A future stage could add `game-preferans.png`.) The
+(Each of the five ships a procedural PNG emblem under `visual/icons/` — Preferans is a
+refined brass **top hat** added Stage 19.9; emoji remains only as `GameIcon`'s onError
+fallback.) The
 **function is strong; the shell reads flat/cheap**. The palette in `base.css` is
 already the right idea (dark-green felt + brass/gold); it just needs real texture,
 depth, tactile assets, and motion instead of flat CSS gradients + emoji.

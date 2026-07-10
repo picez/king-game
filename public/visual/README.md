@@ -32,10 +32,7 @@ update `format`/`maxBytes` in `src/visual/visualAssets.ts` (the guard follows it
 | `icons/game-durak.png` | 512×512 (α) | ~8 KB | Durak emblem (jester hat + bells) |
 | `icons/game-deberc.png` | 512×512 (α) | ~53 KB | Deberc emblem (suit gem) |
 | `icons/game-tarneeb.png` | 512×512 (α) | ~87 KB | Tarneeb emblem (8-point Levantine star) |
-
-> **Preferans (5th game) ships no PNG emblem** — it is intentionally emoji-only (🎩);
-> `GameIcon` falls back to the emoji when `game-preferans.png` 404s. A future stage
-> could add a procedural `icons/game-preferans.png` (top hat) to match the set.
+| `icons/game-preferans.png` | 512×512 (α) | ~17 KB | Preferans emblem (refined top hat) — Stage 19.9 |
 
 ## Files (P1 — Stage 12.8)
 

@@ -18,23 +18,16 @@ describe('gameIconSrc helper (single source)', () => {
     }
   });
 
-  // Games that ship a PNG emblem. Preferans is `available` (Stage 19.7) but
-  // deliberately EMOJI-ONLY (🎩) — no new asset was generated for it, so GameIcon
-  // falls back to the emoji when its PNG 404s. Keep it out of the on-disk check.
-  const EMOJI_ONLY = new Set<string>(['preferans']);
-
-  it('every AVAILABLE game emblem PNG (except emoji-only games) exists on disk as a real PNG', () => {
-    for (const g of GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available' && !EMOJI_ONLY.has(id))) {
+  it('every AVAILABLE game (all 5) ships a real, non-empty PNG emblem on disk', () => {
+    // Stage 19.9: Preferans gained its own emblem (top hat), so every available game
+    // now has a PNG (emoji stays only as GameIcon's onError fallback).
+    for (const g of GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available')) {
       const path = join(process.cwd(), 'public', 'visual', 'icons', `game-${g}.png`);
       expect(existsSync(path), `game-${g}.png should exist`).toBe(true);
       expect(statSync(path).size, `game-${g}.png non-empty`).toBeGreaterThan(0);
+      expect(statSync(path).size, `game-${g}.png under 120KB`).toBeLessThan(120 * 1024);
       expect(readFileSync(path).subarray(0, 8).equals(PNG_SIG), `game-${g}.png is a PNG`).toBe(true);
     }
-  });
-
-  it('Preferans is emoji-only (no PNG emblem shipped this stage — GameIcon emoji fallback)', () => {
-    const path = join(process.cwd(), 'public', 'visual', 'icons', 'game-preferans.png');
-    expect(existsSync(path)).toBe(false);
   });
 });
 

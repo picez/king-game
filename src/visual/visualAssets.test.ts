@@ -28,12 +28,13 @@ describe('visual asset manifest', () => {
     }
   });
 
-  it('all 8 P0 assets are present (felt, 2 heroes, card back, 4 game icons)', () => {
+  it('all 9 P0 assets are present (felt, 2 heroes, card back, 5 game icons)', () => {
+    // Stage 19.9: the Preferans emblem joins the four original game icons.
     const p0 = VISUAL_ASSETS.filter((a) => a.priority === 'P0');
-    expect(p0).toHaveLength(8);
+    expect(p0).toHaveLength(9);
     expect(p0.every((a) => a.present)).toBe(true);
     for (const id of ['felt-tile', 'menu-hero-portrait', 'menu-hero-wide', 'card-back-green',
-      'icon-king', 'icon-durak', 'icon-deberc', 'icon-tarneeb']) {
+      'icon-king', 'icon-durak', 'icon-deberc', 'icon-tarneeb', 'icon-preferans']) {
       expect(visualAsset(id)?.present, id).toBe(true);
     }
   });
