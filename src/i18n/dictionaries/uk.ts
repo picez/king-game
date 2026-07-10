@@ -3,7 +3,7 @@
 
 export const UK: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц і Тарніб',
+  'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц, Тарніб і Преферанс',
   'menu.play': 'Грати',
   'menu.localTitle': 'Локальна гра',
   'menu.localSub': 'Передавайте пристрій по черзі',
@@ -357,6 +357,7 @@ export const UK: Record<string, string> = {
   'preferans.offlineAI': '— офлайн, може грати ШІ',
   'preferans.nextHandSoon': 'Наступна роздача незабаром…',
   'preferans.onlineExperimental': 'Онлайн-преферанс експериментальний',
+  'preferans.metaShort': 'Контракт',
   'preferans.rule.players': 'Троє гравців, кожен за себе; хід переходить ліворуч.',
   'preferans.rule.deal': 'Кожен отримує 10 карт із колоди на 32; 2 карти йдуть у закритий прикуп.',
   'preferans.rule.bidding': 'Заяви рівень (6–10) і масть (♠♣♦♥ або без козиря). Заявки мають зростати; пас остаточний. Найвищий заявник стає розігрувачем.',
@@ -464,6 +465,8 @@ export const UK: Record<string, string> = {
   'ach.kingWinner.desc': 'Виграйте гру в King.',
   'ach.durakSurvivor.title': 'Не дурень',
   'ach.durakSurvivor.desc': 'Виграйте гру в Дурня — не залишіться дурнем.',
+  'ach.preferansDeclarer.title': 'Розігрувач Преферансу',
+  'ach.preferansDeclarer.desc': 'Виграй торги й заяви контракт у Преферансі.',
   'ach.tarneebDeclarer.title': 'Замовник Tarneeb',
   'ach.tarneebDeclarer.desc': 'Оголосіть контракт у Tarneeb.',
   'ach.tarneebContractor.title': 'Контрактор Tarneeb',

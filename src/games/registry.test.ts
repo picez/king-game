@@ -35,7 +35,7 @@ describe('game registry', () => {
   });
 });
 
-describe('Preferans game definition (registered, experimental — local prototype)', () => {
+describe('Preferans game definition (registered, available — local + online + stats)', () => {
   const snap = {
     code: 'ABCD',
     members: [
@@ -46,13 +46,13 @@ describe('Preferans game definition (registered, experimental — local prototyp
     playerCount: 3, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
   } as RoomSnapshot;
 
-  it('references the Preferans core + catalog; experimental local, no stats/online', () => {
+  it('references the Preferans core + catalog; available with stats (local + online)', () => {
     expect(preferansGameDefinition.id).toBe('preferans');
     expect(preferansGameDefinition.catalog).toBe(GAME_CATALOG.preferans);
     expect(preferansGameDefinition.rulesDoc).toBe('PREFERANS_RULES.md');
     expect(preferansGameDefinition.supportedPlayerCounts).toEqual([3]);
     expect(preferansGameDefinition.recordsStats).toBe(true); // Stage 19.6: score-only stats enabled
-    expect(preferansGameDefinition.catalog.status).toBe('experimental');
+    expect(preferansGameDefinition.catalog.status).toBe('available'); // Stage 19.7: released
     expect(preferansGameDefinition.catalog.supportsLocal).toBe(true);  // Stage 19.3: local UI
     expect(preferansGameDefinition.catalog.supportsOnline).toBe(true); // Stage 19.5: online
   });

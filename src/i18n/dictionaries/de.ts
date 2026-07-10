@@ -3,7 +3,7 @@
 
 export const DE: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz & Tarneeb',
+  'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz, Tarneeb & Preferans',
   'menu.play': 'Spielen',
   'menu.localTitle': 'Lokal spielen',
   'menu.localSub': 'Gerät am Tisch weitergeben',
@@ -357,6 +357,7 @@ export const DE: Record<string, string> = {
   'preferans.offlineAI': '— offline, KI spielt evtl.',
   'preferans.nextHandSoon': 'Nächste Runde startet…',
   'preferans.onlineExperimental': 'Preferans online ist experimentell',
+  'preferans.metaShort': 'Kontrakt',
   'preferans.rule.players': 'Drei Spieler, jeder für sich; das Spiel geht nach links.',
   'preferans.rule.deal': 'Jeder bekommt 10 Karten aus einem 32-Karten-Deck; 2 Karten bilden den verdeckten Talon.',
   'preferans.rule.bidding': 'Reize eine Stufe (6–10) und Farbe (♠♣♦♥ oder Ohne Trumpf). Gebote müssen steigen; Passen ist endgültig. Der Höchstbietende wird Alleinspieler.',
@@ -464,6 +465,8 @@ export const DE: Record<string, string> = {
   'ach.kingWinner.desc': 'Gewinne eine Partie King.',
   'ach.durakSurvivor.title': 'Durak-Überlebender',
   'ach.durakSurvivor.desc': 'Gewinne eine Partie Durak — nicht der Narr.',
+  'ach.preferansDeclarer.title': 'Preferans-Alleinspieler',
+  'ach.preferansDeclarer.desc': 'Gewinne das Reizen und sage einen Kontrakt in Preferans an.',
   'ach.tarneebDeclarer.title': 'Tarneeb-Ansager',
   'ach.tarneebDeclarer.desc': 'Sage einen Kontrakt in Tarneeb an.',
   'ach.tarneebContractor.title': 'Tarneeb-Kontraktor',

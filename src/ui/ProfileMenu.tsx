@@ -162,13 +162,14 @@ export default function ProfileMenu({
       if (statsGame === 'tarneeb' && !tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
       if (statsGame === 'preferans' && !preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
     }
-    // Achievements are derived from ALL four stat sets — load each once (reusing
+    // Achievements are derived from ALL five stat sets — load each once (reusing
     // the same `once` refs, so opening the stats tab later won't refetch).
     if (tab === 'achievements') {
       if (!statsOnce.current) { statsOnce.current = true; void loadStats(); }
       if (!durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
       if (!debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (!tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
+      if (!preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
     }
     if (tab === 'leaderboard') {
       if (boardGame === 'king' && !boardOnce.current) { boardOnce.current = true; void loadBoard(); }
@@ -201,18 +202,20 @@ export default function ProfileMenu({
     { key: 'leaderboard', label: t('stats.leaderboard') },
   ];
 
-  // Achievements are derived from the four per-game stat loadables (read-only).
+  // Achievements are derived from the five per-game stat loadables (read-only).
   const dataOf = <T,>(l: Loadable<T> | null): T | null => (l && l.state === 'ok' ? l.data : null);
   const allStats: AllStats = {
-    king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats), tarneeb: dataOf(tarneebStats),
+    king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats),
+    tarneeb: dataOf(tarneebStats), preferans: dataOf(preferansStats),
   };
-  const allResolved = !!(stats && durakStats && debercStats && tarneebStats);
+  const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats);
   const achLoading = tab === 'achievements' && !allResolved;
   // Only a clean "no session" state (every set unauthenticated) shows the sign-in
   // hint; a mix (some ok, some error) still renders the grid with what we have.
   const needsSignIn = allResolved
     && stats!.state === 'unauthenticated' && durakStats!.state === 'unauthenticated'
-    && debercStats!.state === 'unauthenticated' && tarneebStats!.state === 'unauthenticated';
+    && debercStats!.state === 'unauthenticated' && tarneebStats!.state === 'unauthenticated'
+    && preferansStats!.state === 'unauthenticated';
 
   // Once the four stat sets have resolved, compare earned badges against the
   // seen ledger and queue any that are new. Runs at most once per screen open;
@@ -225,9 +228,9 @@ export default function ProfileMenu({
     if (unseen.length > 0) {
       setToastQueue(ACHIEVEMENTS.filter((a) => unseen.includes(a.id)));
     }
-    // allStats is derived from the four loadables in the dep list; safe to omit.
+    // allStats is derived from the five loadables in the dep list; safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allResolved, needsSignIn, seenAtOpen, stats, durakStats, debercStats, tarneebStats]);
+  }, [allResolved, needsSignIn, seenAtOpen, stats, durakStats, debercStats, tarneebStats, preferansStats]);
 
   function dismissToast() {
     markSeen(earnedIds(evaluateAchievements(allStats)));

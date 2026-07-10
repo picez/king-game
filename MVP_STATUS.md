@@ -25,20 +25,15 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | 3 solo / 4 team, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 7–13, target 41; [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
-**Experimental (local + online):** **Preferans / Преферанс** — a 3-player, 32-card,
-contract-bidding trick game (declarer + talon vs two defenders). Playable **locally**
-(1 human + 2 bots, Stage 19.3) AND **online** (server-authoritative rooms, Stage 19.5):
-`status: experimental`, `supportsLocal: true`, `supportsOnline: true`. The shared UI
-(`src/ui/preferans/`) covers the full hand — bidding, talon exchange (take → bury 2 →
-declare), trick play, hand-complete scoring, finished — locally and online (via the
-thin `PreferansOnlineGame` adapter; the server drives bots + the hand advance, and the
-screen is read-only off-turn). Host/join a 3-seat room with reconnect + social + leave;
-each client sees only its own hand (server redaction, talon/discards hidden), verified
-by an online e2e. **Per-game score-only stats + leaderboard** land at Stage 19.6
-(Profile → My stats / Leaderboard has a Preferans sub-tab; recorded human-vs-human,
-DB-gated, no cards, no schema migration) — Preferans stays **experimental** and is
-kept out of achievements + the favorite-game picker until release (19.7). Spec + plan:
+**Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
+local + server-authoritative online + score-only stats/leaderboard, a favorite-game
+option, and a "Preferans Declarer" achievement. A 3-player, 32-card, each-for-self
+contract-bidding trick game (declarer + talon vs two defenders). Shared UI in
+`src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Remaining Preferans variants
+(misère, распасы, whist/pass, classic Sochi pool/mountain scoring, 4-player) are
+documented as post-MVP, not built. Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works

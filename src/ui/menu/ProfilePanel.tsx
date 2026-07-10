@@ -28,8 +28,8 @@ import { SUPPORTED_FAVORITE_GAMES, sanitizeFavoriteGame, type FavoriteGame } fro
 import { gameIconSrc } from '../../visual/visualAssets';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
-/** Emoji fallback per favorite-able game (the favorite picker excludes coming-soon games). */
-const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️' };
+/** Emoji fallback per favorite-able game (Preferans is emoji-only — no PNG emblem). */
+const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
 
 /** i18n label key per card-back style. */
 const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {

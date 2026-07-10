@@ -166,9 +166,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // partnerships, bid-and-trump); show the partnership label, not a King term.
               <>♠️ {t('tarneeb.twoTeams')}</>
             ) : room.gameType === 'preferans' ? (
-              // Preferans (3-player, each-for-self) has no King-style mode; flag it
-              // experimental rather than a dealer's-choice/fixed-order term.
-              <>🎩 {t('menu.experimental')}</>
+              // Preferans (3-player, each-for-self) has no King-style mode; show its
+              // contract-game label rather than a dealer's-choice/fixed-order term.
+              <>🎩 {t('preferans.metaShort')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

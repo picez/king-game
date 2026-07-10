@@ -114,9 +114,9 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(tarneeb.status).toBe('available');
     expect(tarneeb.supportsLocal).toBe(true);
     expect(tarneeb.supportsOnline).toBe(true);
-    // Preferans (Stage 19.5) is experimental — startable local AND online.
+    // Preferans (Stage 19.7) is released — startable local AND online.
     const preferans = body.games.find((g) => g.id === 'preferans')!;
-    expect(preferans.status).toBe('experimental');
+    expect(preferans.status).toBe('available');
     expect(preferans.supportsLocal).toBe(true);
     expect(preferans.supportsOnline).toBe(true);
     // Public shape only — no internal fields leak.

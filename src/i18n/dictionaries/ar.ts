@@ -3,7 +3,7 @@
 
 export const AR: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب',
+  'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب وبريفيرانس',
   'menu.play': 'العب',
   'menu.localTitle': 'لعب محلي',
   'menu.localSub': 'مرّر الجهاز بين اللاعبين',
@@ -357,6 +357,7 @@ export const AR: Record<string, string> = {
   'preferans.offlineAI': '— غير متصل، قد يلعب الذكاء الاصطناعي',
   'preferans.nextHandSoon': 'الجولة التالية تبدأ…',
   'preferans.onlineExperimental': 'بريفيرانس أونلاين تجريبي',
+  'preferans.metaShort': 'عقد',
   'preferans.rule.players': 'ثلاثة لاعبين، كل لنفسه؛ ينتقل الدور إلى اليسار.',
   'preferans.rule.deal': 'يحصل كل لاعب على 10 بطاقات من مجموعة من 32؛ وتشكّل بطاقتان الطالون المغلق.',
   'preferans.rule.bidding': 'زايد بمستوى (6–10) وسلسلة (♠♣♦♥ أو بلا أتوت). يجب أن ترتفع المزايدات؛ والتمرير نهائي. صاحب أعلى مزايدة يصبح المعلن.',
@@ -464,6 +465,8 @@ export const AR: Record<string, string> = {
   'ach.kingWinner.desc': 'افز بمباراة كينج.',
   'ach.durakSurvivor.title': 'ناجٍ من دوراك',
   'ach.durakSurvivor.desc': 'افز بمباراة دوراك — دون أن تكون الأحمق.',
+  'ach.preferansDeclarer.title': 'مُعلن بريفيرانس',
+  'ach.preferansDeclarer.desc': 'اربح المزايدة وأعلن عقدًا في بريفيرانس.',
   'ach.tarneebDeclarer.title': 'مُعلن طرنيب',
   'ach.tarneebDeclarer.desc': 'أعلن عقدًا في طرنيب.',
   'ach.tarneebContractor.title': 'مُتعهّد طرنيب',

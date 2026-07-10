@@ -5,7 +5,7 @@ import {
   ACHIEVEMENTS, evaluateAchievements, earnedCount, totalWins, totalGames,
   type AllStats,
 } from './achievements';
-import type { KingStats, DurakStats, DebercStats, TarneebStats } from '../net/statsApi';
+import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats } from '../net/statsApi';
 import { EN } from '../i18n/dictionaries/en';
 
 // ── zeroed stat factories (only the fields under test matter) ────────────────
@@ -29,7 +29,12 @@ const tarneeb = (o: Partial<TarneebStats> = {}): TarneebStats => ({
   contractsMade: 0, contractsFailed: 0, contractSuccessRate: null, totalTeamScore: 0,
   averageTeamScore: null, bestGameScore: null, worstGameScore: null, lastGameAt: null, ...o,
 });
-const zero = (): AllStats => ({ king: king(), durak: durak(), deberc: deberc(), tarneeb: tarneeb() });
+const preferans = (o: Partial<PreferansStats> = {}): PreferansStats => ({
+  gamesPlayed: 0, gamesWon: 0, gamesLost: 0, gamesDrawn: 0, winRate: null, handsPlayed: 0, handsAsDeclarer: 0,
+  contractsMade: 0, contractsFailed: 0, contractSuccessRate: null, totalScore: 0,
+  averageScore: null, bestGameScore: null, worstGameScore: null, lastGameAt: null, ...o,
+});
+const zero = (): AllStats => ({ king: king(), durak: durak(), deberc: deberc(), tarneeb: tarneeb(), preferans: preferans() });
 const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
@@ -45,7 +50,7 @@ describe('achievements catalog', () => {
     for (const a of ACHIEVEMENTS) {
       expect(['common', 'rare', 'epic']).toContain(a.rarity);
       expect(a.icon.length).toBeGreaterThan(0);
-      if (a.gameType) expect(['king', 'durak', 'deberc', 'tarneeb']).toContain(a.gameType);
+      if (a.gameType) expect(['king', 'durak', 'deberc', 'tarneeb', 'preferans']).toContain(a.gameType);
     }
   });
 
@@ -69,13 +74,13 @@ describe('achievements catalog', () => {
 
 describe('evaluateAchievements — graceful with missing stats', () => {
   it('returns one row per badge, all locked, when nothing is loaded', () => {
-    const rows = evaluateAchievements({ king: null, durak: null, deberc: null, tarneeb: null });
+    const rows = evaluateAchievements({ king: null, durak: null, deberc: null, tarneeb: null, preferans: null });
     expect(rows).toHaveLength(ACHIEVEMENTS.length);
     expect(earnedCount(rows)).toBe(0);
   });
 
   it('aggregate helpers are null-safe', () => {
-    const empty = { king: null, durak: null, deberc: null, tarneeb: null };
+    const empty = { king: null, durak: null, deberc: null, tarneeb: null, preferans: null };
     expect(totalWins(empty)).toBe(0);
     expect(totalGames(empty)).toBe(0);
   });
@@ -89,13 +94,15 @@ describe('each badge has a positive + negative case', () => {
     { id: 'centurion', earn: { ...zero(), durak: durak({ gamesPlayed: 100 }) }, lock: { ...zero(), durak: durak({ gamesPlayed: 99 }) } },
     {
       id: 'all-rounder',
-      earn: { king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }), tarneeb: tarneeb({ gamesWon: 1 }) },
-      lock: { king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }), tarneeb: tarneeb({ gamesWon: 0 }) },
+      earn: { king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }), tarneeb: tarneeb({ gamesWon: 1 }), preferans: preferans({ gamesWon: 1 }) },
+      // Won every game except Preferans → still locked (a win in EVERY game is required).
+      lock: { king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }), tarneeb: tarneeb({ gamesWon: 1 }), preferans: preferans({ gamesWon: 0 }) },
     },
     { id: 'king-winner', earn: { ...zero(), king: king({ gamesWon: 1 }) }, lock: { ...zero(), king: king({ gamesWon: 0, gamesPlayed: 3 }) } },
     { id: 'durak-survivor', earn: { ...zero(), durak: durak({ gamesWon: 1 }) }, lock: { ...zero(), durak: durak({ gamesWon: 0, foolCount: 2 }) } },
     { id: 'tarneeb-declarer', earn: { ...zero(), tarneeb: tarneeb({ handsAsDeclarer: 1 }) }, lock: { ...zero(), tarneeb: tarneeb({ handsAsDeclarer: 0, handsPlayed: 5 }) } },
     { id: 'tarneeb-contractor', earn: { ...zero(), tarneeb: tarneeb({ contractsMade: 5 }) }, lock: { ...zero(), tarneeb: tarneeb({ contractsMade: 4 }) } },
+    { id: 'preferans-declarer', earn: { ...zero(), preferans: preferans({ handsAsDeclarer: 1 }) }, lock: { ...zero(), preferans: preferans({ handsAsDeclarer: 0, handsPlayed: 5 }) } },
     { id: 'deberc-meld-maker', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 10, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 9, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) } },
     { id: 'deberc-bella', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 1, total: 1, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: zero() },
     { id: 'deberc-jackpot', earn: { ...zero(), deberc: deberc({ jackpotCount: 1 }) }, lock: { ...zero(), deberc: deberc({ jackpotCount: 0, gamesWon: 3 }) } },

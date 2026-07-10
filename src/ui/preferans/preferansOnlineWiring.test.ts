@@ -53,12 +53,13 @@ describe('PreferansGameScreen supports online (read-only) mode (Stage 19.5)', ()
   });
 });
 
-describe('StartMenu hosts Preferans online as experimental (Stage 19.5)', () => {
+describe('StartMenu hosts Preferans online (released, Stage 19.7)', () => {
   const menu = read('../StartMenu.tsx');
-  it("host() sends gameType 'preferans' and the Host sheet flags it experimental", () => {
+  it("host() sends gameType 'preferans'; the Host sheet has no experimental flag", () => {
     expect(menu).toContain("gameType === 'preferans' ? { gameType: 'preferans' as const }");
-    expect(menu).toContain("t('preferans.onlineExperimental')");
-    // The generic supportsOnline guard stays (now passes for Preferans).
+    // Released: no experimental note on the Preferans host sheet anymore.
+    expect(menu).not.toContain("t('preferans.onlineExperimental')");
+    // The generic supportsOnline guard stays (passes for Preferans).
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
   });
 });

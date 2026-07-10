@@ -49,10 +49,10 @@ function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; errors: Er
 const create = (gameType: string): ClientMessage =>
   ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType } as ClientMessage);
 
-describe('wsHandlers now allows hosting Preferans online (Stage 19.5, experimental)', () => {
-  it('the catalog enables Preferans online (experimental, still no stats)', () => {
+describe('wsHandlers allows hosting Preferans online (Stage 19.7, released)', () => {
+  it('the catalog enables Preferans online (available, with stats)', () => {
     expect(GAME_CATALOG.preferans.supportsOnline).toBe(true);
-    expect(GAME_CATALOG.preferans.status).toBe('experimental');
+    expect(GAME_CATALOG.preferans.status).toBe('available');
     expect(GAME_CATALOG.preferans.supportsLocal).toBe(true);
   });
 

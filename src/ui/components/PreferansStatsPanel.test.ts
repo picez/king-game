@@ -36,7 +36,7 @@ describe('PreferansStatsPanel — score-only, soft states', () => {
   });
 });
 
-describe('ProfileMenu wires Preferans stats + leaderboard (not achievements)', () => {
+describe('ProfileMenu wires Preferans stats + leaderboard + achievements (Stage 19.7)', () => {
   it('adds preferans to the game sub-tabs + panels', () => {
     expect(profile).toContain("'king', 'durak', 'deberc', 'tarneeb', 'preferans'");
     expect(profile).toContain('fetchPreferansStats');
@@ -44,10 +44,10 @@ describe('ProfileMenu wires Preferans stats + leaderboard (not achievements)', (
     expect(profile).toContain('<PreferansStatsPanel');
     expect(profile).toContain('<PreferansLeaderboardPanel');
   });
-  it('keeps achievements on the four released games (Preferans excluded from AllStats)', () => {
-    // allStats is built from the four released games only.
-    expect(profile).toContain('king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats), tarneeb: dataOf(tarneebStats)');
-    expect(profile).not.toContain('preferans: dataOf(preferansStats)');
+  it('includes Preferans in the achievements AllStats (released, Stage 19.7)', () => {
+    // allStats now carries preferans, so its badge (preferans-declarer) can earn.
+    expect(profile).toContain('preferans: dataOf(preferansStats)');
+    expect(profile).toContain('debercStats && tarneebStats && preferansStats');
   });
 });
 

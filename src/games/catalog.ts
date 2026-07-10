@@ -14,9 +14,9 @@ export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
- *  - 'available'   → fully playable (King, Durak, Deberc, and Tarneeb today);
+ *  - 'available'   → fully playable (King, Durak, Deberc, Tarneeb, and Preferans);
  *  - 'coming_soon' → registered but not yet startable (none today);
- *  - 'experimental'→ playable but rough (Preferans: local-only prototype, Stage 19.3).
+ *  - 'experimental'→ playable but rough (reserved; none today).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
 
@@ -100,9 +100,9 @@ export const GAME_CATALOG = {
     maxPlayers: 3,
     defaultPlayerCount: 3,
     supportsLocal: true,    // Stage 19.3: local prototype (1 human + 2 bots)
-    supportsOnline: true,   // Stage 19.5: experimental server-authoritative online rooms
+    supportsOnline: true,   // Stage 19.5: server-authoritative online rooms
     supportsBots: true,     // pure core has a working deterministic bot (Stage 19.1)
-    status: 'experimental', // Stage 19.5: playable local + online but rough (no stats yet)
+    status: 'available',    // Stage 19.7: released — local + online + score-only stats
     rulesDoc: 'PREFERANS_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

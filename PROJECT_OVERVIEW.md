@@ -25,18 +25,17 @@ file/memory storage and every `/api/*` returns a clean `503` (play unaffected).
 | **Durak** | 2–5 | Simple + Transfer variants — [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | 3 = solo, 4 = 2×2 teams; melds/bella/jackpot — [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Fixed 2×2 partnerships, bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Preferans** | 3 | Solo contract auction + 2-card talon, 32-card — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Experimental (local + online):** **Preferans / Преферанс** (3-player, 32-card,
-contract-bidding trick game with a talon) — playable **locally** vs 2 bots (Stage 19.3)
-AND **online** in server-authoritative 3-seat rooms (Stage 19.5): `status: experimental`,
-`supportsLocal`/`supportsOnline` both true. Shared UI in `src/ui/preferans/` (+ the
-`PreferansOnlineGame` adapter). **Score-only per-game stats + leaderboard** since Stage
-19.6 (`recordsStats: true`; Profile Preferans sub-tab; no cards, no schema migration).
-Still experimental (not yet in achievements / favorite picker).
-[`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
+**Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
+local + online, score-only stats/leaderboard, a favorite-game option, and a "Preferans
+Declarer" achievement. A 3-player, each-for-self contract-bidding trick game with a talon;
+shared UI in `src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Post-MVP variants
+(misère, распасы, whist/pass, Sochi pool/mountain scoring, 4-player) remain documented,
+not built. [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## Core architecture
 

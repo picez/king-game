@@ -3,7 +3,7 @@
 
 export const EN: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'A card lounge for King, Durak, Deberc & Tarneeb',
+  'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb & Preferans',
   'menu.play': 'Play',
   'menu.localTitle': 'Play locally',
   'menu.localSub': 'Pass & play on this device',
@@ -357,6 +357,7 @@ export const EN: Record<string, string> = {
   'preferans.offlineAI': '— offline, AI may play',
   'preferans.nextHandSoon': 'Next hand starting…',
   'preferans.onlineExperimental': 'Preferans online is experimental',
+  'preferans.metaShort': 'Contract',
   'preferans.rule.players': 'Three players, each for themselves; play passes to the left.',
   'preferans.rule.deal': 'Everyone gets 10 cards from a 32-card deck; 2 cards form the face-down talon.',
   'preferans.rule.bidding': 'Bid a level (6–10) and suit (♠♣♦♥ or No-Trump). Bids must rise; passing is final. The top bidder becomes the declarer.',
@@ -466,6 +467,8 @@ export const EN: Record<string, string> = {
   'ach.durakSurvivor.desc': 'Win a game of Durak — not the fool.',
   'ach.tarneebDeclarer.title': 'Tarneeb Bidder',
   'ach.tarneebDeclarer.desc': 'Declare a contract in Tarneeb.',
+  'ach.preferansDeclarer.title': 'Preferans Declarer',
+  'ach.preferansDeclarer.desc': 'Win the auction and declare a contract in Preferans.',
   'ach.tarneebContractor.title': 'Tarneeb Contractor',
   'ach.tarneebContractor.desc': 'Make 5 contracts in Tarneeb.',
   'ach.debercMeldMaker.title': 'Meld Maker',

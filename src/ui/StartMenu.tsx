@@ -18,7 +18,7 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer, l
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
-import { GAME_CATALOG, GAME_TYPES, normalizeFavoriteGame, type GameType } from '../games/catalog';
+import { GAME_CATALOG, GAME_TYPES, normalizeFavoriteGame, type GameType, type GameAvailability } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import AccountBar from './menu/AccountBar';
@@ -408,7 +408,6 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
               {gameType === 'preferans' && (
                 <div className="field">
                   <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
-                  <p className="field__hint">🧪 {t('preferans.onlineExperimental')}</p>
                 </div>
               )}
               {gameType === 'king' && (
@@ -528,7 +527,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                                   {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
                                   {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
                                   {gameType === 'tarneeb' ? <span className="sb-variant"> · {t('tarneeb.twoTeams')}</span> : null}
-                                  {gameType === 'preferans' ? <span className="sb-variant"> · {t('menu.experimental')}</span> : null}
+                                  {gameType === 'preferans' ? <span className="sb-variant"> · {t('preferans.metaShort')}</span> : null}
                                 </span>
                               </span>
                               <span className="sb-cell sb-players" data-label={t('join.col.players')} role="cell">
@@ -587,7 +586,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
 const GAME_META_KEY: Record<GameType, string> = {
   king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.twoTeams',
-  preferans: 'menu.experimental', // never shown (experimental uses the experimental sublabel), but keeps the map total
+  preferans: 'preferans.metaShort', // "Contract" — Preferans is a solo contract trick game (3p)
 };
 
 /** "3–4" / "4" player-count range from the catalog (data-driven, all 4 games). */
@@ -616,7 +615,9 @@ function GamePicker({ gameType, onPick, t, mode }: {
   const options = GAME_TYPES.map((id) => {
     const entry = GAME_CATALOG[id];
     const usable = mode === 'host' ? entry.supportsOnline : entry.supportsLocal;
-    const experimental = entry.status === 'experimental';
+    // Cast widens the (literal-narrowed) status so the forward-compat experimental
+    // branch stays valid even when every catalog entry is currently `available`.
+    const experimental = (entry.status as GameAvailability) === 'experimental';
     const meta = !usable
       ? t('menu.comingSoon')
       : experimental ? t('menu.experimental') : t(GAME_META_KEY[id]);

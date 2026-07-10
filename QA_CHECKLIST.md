@@ -354,10 +354,29 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Privacy (DB configured):** the stored `games`/`game_players`/`rounds` rows hold
       **no cards / talon / discards / tricks** — only scores + a word-free contract label
       (e.g. `7H`, `6NT`). A draw counts as neither a win nor a loss.
-- [ ] **Still experimental:** Preferans has **no achievement badge** yet and is **not** in
-      the favorite-game picker (both deferred to release, 19.7).
 - [ ] **No overflow:** the Preferans stats + leaderboard panels fit at 360/390 and read
       correctly under Arabic RTL (same layout as the Tarneeb panels).
+
+## Manual — Preferans RELEASE (available, Stage 19.7)
+
+> Preferans is now `status: available` — a first-class game alongside King/Durak/Deberc/
+> Tarneeb. This section is the release smoke.
+
+- [ ] **Picker:** the Local **and** Host sheets list **🎩 Preferans · 👥 3 · Contract** as a
+      normal, selectable option — **no** "Coming soon" / "Experimental" tag, not dimmed.
+- [ ] **Room browser + Lobby:** a Preferans room shows the 🎩 contract label (not
+      "Experimental"); host is fixed at **3 seats** (no player-count picker).
+- [ ] **Favorite:** Profile → Favorite game offers **Preferans**; selecting it makes the
+      Local/Host picker default to Preferans next time; a bad stored value still falls back
+      to King.
+- [ ] **Achievement:** after declaring at least one Preferans contract (online, human-vs-
+      human, DB on), the **Preferans Declarer** badge (🎩) appears earned in Profile →
+      Achievements; the unlock toast may announce it. Locked before any declaration.
+- [ ] **All-rounder:** the cross-game "won every game" badge now also requires a Preferans
+      win (5 games).
+- [ ] **Regression:** local play, online create/join/start, redaction (no opponent-hand
+      leak), reconnect, and stats recording all still work (covered by `npm run verify` +
+      the `[2p]` e2e section).
 
 ## Manual — Deberc combination stats (Stage 13.8)
 

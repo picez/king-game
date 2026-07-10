@@ -25,7 +25,6 @@ export default function PreferansSetup({ onStart, onExit }: Props) {
       </header>
 
       <div className="setup-card">
-        <p className="preferans-setup__badge">🧪 {t('preferans.experimentalNote')}</p>
         <p className="preferans-setup__players">👥 {t('preferans.botsHint')}</p>
         <p className="preferans-setup__target">
           🎯 {t('preferans.target')}: <strong>10</strong>

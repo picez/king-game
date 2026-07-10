@@ -156,9 +156,23 @@ pattern for stats.
   (idempotency + bots-excluded + privacy sweep — skips without `TEST_DATABASE_URL`), UI
   source guards. Visual smoke `scripts/preferans-stats-shots.mjs` (360/390, no overflow).
   `status` stays **experimental**. Verify green. Next: 19.7 release.
-- **19.7 — polish / release.** Remove the experimental label (`status: 'available'`),
-  QA_CHECKLIST section, visual/RTL/mobile pass, docs update (MVP_STATUS/PROJECT_OVERVIEW),
-  achievements hooks if desired.
+- **19.7 — polish / release. ✅ DONE.** `GAME_CATALOG.preferans.status: 'available'`
+  (supportsLocal/Online/Bots true, recordsStats true, fixed 3 players) — the game picker
+  now shows Preferans as a normal available option (**👥 3 · Contract**) in Local AND Host;
+  the room browser + Lobby drop the experimental tag; PreferansSetup drops the 🧪 badge.
+  **Favorite:** `SUPPORTED_FAVORITE_GAMES += 'preferans'` (Profile favorite picker offers
+  it, ProfilePanel emoji map 🎩; StartMenu Local/Host default respects it; unknown values
+  still fall back to King). **Achievement:** new **`preferans-declarer`** ("Preferans
+  Declarer", common, 🎩) = `handsAsDeclarer >= 1`; Preferans joined `AllStats` +
+  `totalWins`/`totalGames`/`wonEveryGame` (all-rounder now spans 5 games); ProfileMenu
+  loads Preferans for the Achievements tab; i18n ×4. **Audit:** verify green — local play,
+  online create/join/start, redaction (e2e no-leak), reconnect, stats record path, stats +
+  leaderboard panels, favorite default, achievement evaluation. **No new asset** (Preferans
+  stays emoji-only 🎩 — gameIconIntegration test excludes it from the on-disk PNG check);
+  **no DB migration, no protocol message types, no rules change.** App subtitle now lists
+  all 5 games. Visual smoke (picker/setup/host/lobby/stats/leaderboard, 360/390, no
+  overflow). **Preferans is RELEASED.** Remaining post-MVP variants (misère, распасы,
+  whist/pass, classic Sochi pool/mountain scoring, 4-player) stay documented, not built.
 
 ## Local UI stages (detail)
 

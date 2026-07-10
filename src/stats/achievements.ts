@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GameType } from '../games/catalog';
-import type { KingStats, DurakStats, DebercStats, TarneebStats } from '../net/statsApi';
+import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats } from '../net/statsApi';
 
 export type Rarity = 'common' | 'rare' | 'epic';
 
@@ -25,6 +25,7 @@ export interface AllStats {
   durak: DurakStats | null;
   deberc: DebercStats | null;
   tarneeb: TarneebStats | null;
+  preferans: PreferansStats | null;
 }
 
 export interface Achievement {
@@ -52,15 +53,16 @@ const played = (s: { gamesPlayed: number } | null): number => (s ? s.gamesPlayed
 
 /** Total wins across every game (0 when nothing loaded). */
 export function totalWins(a: AllStats): number {
-  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb);
+  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans);
 }
 /** Total games played across every game (0 when nothing loaded). */
 export function totalGames(a: AllStats): number {
-  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb);
+  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb) + played(a.preferans);
 }
 /** True only when the user has at least one win in EVERY game (all loaded). */
 function wonEveryGame(a: AllStats): boolean {
-  return won(a.king) >= 1 && won(a.durak) >= 1 && won(a.deberc) >= 1 && won(a.tarneeb) >= 1;
+  return won(a.king) >= 1 && won(a.durak) >= 1 && won(a.deberc) >= 1
+    && won(a.tarneeb) >= 1 && won(a.preferans) >= 1;
 }
 
 // ── the catalog (11 badges, spread across games + rarities) ──────────────────
@@ -92,6 +94,10 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'tarneeb-declarer', titleKey: 'ach.tarneebDeclarer.title', descriptionKey: 'ach.tarneebDeclarer.desc',
     icon: '📣', gameType: 'tarneeb', rarity: 'common', evaluate: (s) => (s.tarneeb ? s.tarneeb.handsAsDeclarer : 0) >= 1,
+  },
+  {
+    id: 'preferans-declarer', titleKey: 'ach.preferansDeclarer.title', descriptionKey: 'ach.preferansDeclarer.desc',
+    icon: '🎩', gameType: 'preferans', rarity: 'common', evaluate: (s) => (s.preferans ? s.preferans.handsAsDeclarer : 0) >= 1,
   },
   {
     id: 'tarneeb-contractor', titleKey: 'ach.tarneebContractor.title', descriptionKey: 'ach.tarneebContractor.desc',

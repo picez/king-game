@@ -10,7 +10,7 @@ import {
 } from './catalog';
 
 describe('game catalog', () => {
-  it('registers King, Durak, Deberc, Tarneeb (available) + Preferans (experimental, local-only)', () => {
+  it('registers King, Durak, Deberc, Tarneeb + Preferans (all available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king'); // unchanged
     expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
     expect(GAME_CATALOG.king).toMatchObject({
@@ -32,11 +32,11 @@ describe('game catalog', () => {
       supportsLocal: true, supportsOnline: true, supportsBots: true,
       status: 'available', rulesDoc: 'TARNEEB_RULES.md',
     });
-    // Preferans (Stage 19.5): experimental online — local + online, still no stats.
+    // Preferans (Stage 19.7): released — local + online + stats.
     expect(GAME_CATALOG.preferans).toMatchObject({
       id: 'preferans', minPlayers: 3, maxPlayers: 3, defaultPlayerCount: 3,
       supportsLocal: true, supportsOnline: true, supportsBots: true,
-      status: 'experimental', rulesDoc: 'PREFERANS_RULES.md',
+      status: 'available', rulesDoc: 'PREFERANS_RULES.md',
     });
   });
 
@@ -50,7 +50,7 @@ describe('game catalog', () => {
     expect(getGameCatalogEntry('deberc')?.id).toBe('deberc');
     expect(getGameCatalogEntry('tarneeb')?.id).toBe('tarneeb');
     expect(isGameType('preferans')).toBe(true);
-    expect(getGameCatalogEntry('preferans')?.status).toBe('experimental');
+    expect(getGameCatalogEntry('preferans')?.status).toBe('available');
     expect(getGameCatalogEntry('poker')).toBeNull();
   });
 
@@ -65,12 +65,12 @@ describe('game catalog', () => {
   it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
     expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
-    // Preferans surfaces publicly as experimental — startable local AND online.
+    // Preferans surfaces publicly as available — startable local AND online.
     const preferans = pub.find((g) => g.id === 'preferans')!;
     expect(preferans).toEqual({
       id: 'preferans', title: 'gameType.preferans', shortTitle: 'gameType.preferans',
       minPlayers: 3, maxPlayers: 3, defaultPlayerCount: 3,
-      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'experimental',
+      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
     const king = pub.find((g) => g.id === 'king')!;
     expect(king).toEqual({
