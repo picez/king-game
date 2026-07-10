@@ -1,4 +1,4 @@
-# Deploy King to Render (single Web Service)
+# Deploy Card Majlis to Render (single Web Service)
 
 The simplest hosted path: **GitHub repo → Render Web Service → Deploy**. One
 service serves both the **frontend** and the **WebSocket** on the same domain,
@@ -180,7 +180,7 @@ API** and **guest sessions** on the same port — no extra service. Add:
 
 ### Google sign-in (optional, Stage 6)
 
-Lets a player link their guest progress (profile/settings/**King stats**) to a
+Lets a player link their guest progress (profile / settings / **per-game stats**) to a
 Google account so it follows them across devices. Guest data is merged
 server-side on first login — nothing is lost, and a returning Google account
 never double-counts stats.

@@ -6,14 +6,15 @@
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
 **Status: stable MVP.** Local pass-and-play and server-authoritative online play
-both work end-to-end. This file is the single "start here" — for details see the
-linked docs.
+both work end-to-end. This file is the running feature list; for the concise
+"what it is / how it fits together" start at [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
 
-- Rules (source of truth): [`KING_RULES.md`](KING_RULES.md)
+- **Overview (start here):** [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)
+- Rules (source of truth): [`KING_RULES.md`](KING_RULES.md) · [`DURAK_RULES.md`](DURAK_RULES.md) · [`DEBERC_RULES.md`](DEBERC_RULES.md) · [`TARNEEB_RULES.md`](TARNEEB_RULES.md)
 - Online design: [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md)
-- Deploy (VPS/HTTPS/WSS, PWA): [`DEPLOYMENT.md`](DEPLOYMENT.md)
+- Deploy: [`DEPLOYMENT.md`](DEPLOYMENT.md) (VPS/HTTPS/WSS) · [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) (hosted)
 - QA: [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
-- `GAP_ANALYSIS.md` is **historical/obsolete** — ignore for current state.
+- `GAP_ANALYSIS.md` / `CHANGES_2026-07-06.md` are **historical** — ignore for current state.
 
 **Games shipped (all `available`, local + server-authoritative online, each
 recording its own per-`game_type` stats + leaderboard):**

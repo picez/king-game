@@ -2,7 +2,24 @@
 
 Automated coverage: `npm test` (unit) and `npm run e2e` (full online flow over
 WebSocket against a real server, incl. restart restore). This file is the
-**manual / device** pass to run before a release.
+**manual / device** pass to run before a release. See
+[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) for what each feature is.
+
+**Sections** (grouped; the detailed checks follow in stage order below):
+
+- **Smoke / automated** — Automated (run first), local pass-and-play.
+- **Online rooms & invite** — LAN online, Team lobby, Room invite link/share,
+  reconnect & restart, orphan rooms + AI substitute.
+- **Each game** — Durak online, Tarneeb online, Deberc (+ combination stats);
+  King is covered by local pass-and-play + LAN online.
+- **Social / chat / stickers** — Room social, online social visual QA.
+- **Stats & achievements** — Deberc combination stats, Achievements / badges,
+  Achievement unlock toast.
+- **Avatars** — Custom avatar (local-only), Server avatar upload (+ seats).
+- **Visual / mobile / RTL / reduced-motion** — PWA / mobile, Sound; RTL + reduced
+  motion are checked within each screen's steps.
+- **Deployment** — see [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) / [`DEPLOYMENT.md`](DEPLOYMENT.md)
+  (avatar upload needs `ffmpeg`; Postgres optional) + Known limitations at the end.
 
 ## Automated (run first)
 
