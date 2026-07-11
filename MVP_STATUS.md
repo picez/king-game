@@ -38,6 +38,11 @@ documented as post-MVP, not built. Spec + plan:
 
 ## What works
 
+- **Quick-rules help hub (Stage 22.0)**: a single generic **"How to play"** sheet
+  (`GameHelpModal`) that works for every game from a pure catalog
+  (`src/games/gameHelp.ts`) + i18n content (`help.<game>.<section>`) — short
+  Goal / Players / Deck / Turns / Scoring / Notes lines, opened from a ❓ button in
+  the Local/Host game picker for the selected game. i18n ×4; no gameplay/server change.
 - **Game rules** (3p/4p): 32/52 decks, dealing, follow-suit, trick resolution
   with/without trump, all 7 modes, Dealer's Choice with per-dealer mode sets
   (9 games/dealer → 27 rounds 3p, 36 rounds 4p), kitty take + legal discard,

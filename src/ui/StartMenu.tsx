@@ -25,6 +25,7 @@ import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
 import GameIcon from './components/GameIcon';
+import GameHelpModal from './components/GameHelpModal';
 import { gameIconSrc } from '../visual/visualAssets';
 import { setCardBackStyle } from './components/cardBackStore';
 import { setCardFaceTheme } from './components/cardFaceStore';
@@ -612,6 +613,7 @@ function GamePicker({ gameType, onPick, t, mode }: {
   t: (key: string) => string;
   mode: 'local' | 'host';
 }) {
+  const [showHelp, setShowHelp] = useState(false);
   const options = GAME_TYPES.map((id) => {
     const entry = GAME_CATALOG[id];
     const usable = mode === 'host' ? entry.supportsOnline : entry.supportsLocal;
@@ -640,6 +642,11 @@ function GamePicker({ gameType, onPick, t, mode }: {
         onChange={(v) => onPick(v as GameType)}
         options={options}
       />
+      {/* Quick-rules sheet for the selected game (Stage 22.0) — generic, one modal
+          for every game from the help catalog + i18n. */}
+      <button type="button" className="btn btn--ghost btn--small game-help-trigger"
+        onClick={() => setShowHelp(true)}>❓ {t('help.howToPlay')}</button>
+      {showHelp && <GameHelpModal game={gameType} onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

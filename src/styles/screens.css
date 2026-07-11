@@ -501,3 +501,29 @@
   border-radius: var(--radius-sm);
 }
 
+
+/* ===== Quick-rules help modal (Stage 22.0) — generic per-game "How to play" ===== */
+.game-help-overlay {
+  position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+  background: var(--overlay); padding: 1rem;
+}
+.game-help {
+  width: min(26rem, 92vw); max-height: 82vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 1rem;
+  padding: 1.1rem 1.2rem; box-shadow: var(--shadow-3);
+}
+.game-help__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.game-help__title { margin: 0; color: var(--text); display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.game-help__x { min-height: 2rem; padding: 0.2rem 0.6rem; flex: 0 0 auto; }
+.game-help__sub {
+  margin: 0.1rem 0 0.7rem; font-size: 0.72rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+}
+.game-help__list { margin: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+.game-help__row { display: flex; flex-direction: column; gap: 0.12rem; }
+.game-help__label {
+  font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent-light);
+}
+.game-help__content { margin: 0; color: var(--text); font-size: 0.9rem; line-height: 1.35; }
+.game-help__ok { width: 100%; margin-top: 0.9rem; min-height: 44px; }
+.game-help-trigger { margin-top: 0.4rem; align-self: flex-start; }
