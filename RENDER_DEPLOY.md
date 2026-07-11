@@ -101,6 +101,21 @@ curl -s https://<your-service>.onrender.com/health
 ```
 Render also polls this path; a non-200 marks the deploy unhealthy.
 
+For a richer, still-public snapshot (build/commit, room + socket load, DB + avatar
+readiness) without opening the Render dashboard, use the diagnostics endpoint:
+
+```bash
+curl -s https://<your-service>.onrender.com/health/diagnostics
+# {"status":"ok","version":"0.1.0","commit":"…","uptime":42,"db":"enabled",
+#  "rooms":{"total":3,"open":1,"inGame":2},"connections":5,
+#  "games":{"count":5,"ids":["king","durak","deberc","tarneeb","preferans"]},
+#  "avatarUploads":{"status":"enabled","reason":null,"ffmpeg":true,"database":true}}
+```
+It exposes **only** aggregate counts, booleans, the app version + short commit, and the
+public game ids — never user/room/session/email/token/chat/card data. It reads in-memory
+counters + a cached boot ffmpeg flag (no DB query, no per-request ffmpeg spawn), so it is
+safe to poll. `commit` is populated when the build env sets `RENDER_GIT_COMMIT`.
+
 ## Play from your phone
 
 1. Open `https://<your-service>.onrender.com` in mobile Chrome/Safari (HTTPS).

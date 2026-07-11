@@ -90,6 +90,10 @@ URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) 
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
 - **After a deploy:** run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
   checklist (health / 5 games / rooms / stats / avatars / social / security).
+- **Diagnostics:** `GET /health` (liveness + DB probe) and `GET /health/diagnostics`
+  (safe operational snapshot — build/commit, uptime, DB + avatar readiness, room + socket
+  counts, available game ids; aggregate-only, no private data). Handy for a quick prod
+  check without the Render dashboard.
 
 ## Current limitations
 

@@ -14,6 +14,7 @@ import { join, normalize, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ServerResponse } from 'node:http';
 import { isDbEnabled, checkDbHealth } from './db/client';
+import { buildDiagnostics, type DiagnosticsInput } from './diagnostics';
 
 export const DIST = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'dist');
 const INDEX_HTML = join(DIST, 'index.html');
@@ -79,5 +80,23 @@ export async function handleHealth(res: ServerResponse, roomCount: number): Prom
     reply(db);
   } catch {
     reply('error');
+  }
+}
+
+/**
+ * GET /health/diagnostics — a SAFE, PUBLIC operational snapshot (Stage 24.0).
+ * Always 200, never throws (a diagnostics endpoint must not itself fail). Carries
+ * only aggregate counts / booleans / a version + short commit / the public game-id
+ * list — NEVER user/room/session/email/token/chat/card data (see diagnostics.ts and
+ * its tests). Cheap: reads in-memory counters + the cached boot ffmpeg flag; it does
+ * NOT probe the database (use plain /health for a live DB probe).
+ */
+export function handleDiagnostics(res: ServerResponse, input: DiagnosticsInput): void {
+  try {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(buildDiagnostics(input)));
+  } catch {
+    if (!res.headersSent) res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
   }
 }

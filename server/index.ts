@@ -35,7 +35,8 @@ import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { ffmpegAvailable } from './avatarProcess';
-import { serveStatic, handleHealth, SERVE_STATIC, DIST } from './httpStatic';
+import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
+import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit } from './diagnostics';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
@@ -475,6 +476,22 @@ function rescheduleAdvance(room: ServerRoom): void {
 // so they never hit this handler.
 const httpServer = createServer((req, res) => {
   const path = (req.url ?? '').split('?')[0];
+  if (path === '/health/diagnostics') {
+    // Aggregate-only operational snapshot (Stage 24.0). Cheap in-memory counters +
+    // the cached boot ffmpeg flag; no DB probe. See server/diagnostics.ts.
+    let open = 0, inGame = 0;
+    for (const room of rooms.values()) { if (room.started) inGame++; else open++; }
+    handleDiagnostics(res, {
+      version: serverVersion(),
+      commit: gitCommit(),
+      uptimeSeconds: process.uptime(),
+      dbEnabled: isDbEnabled(),
+      ffmpegReady: getFfmpegReady(),
+      rooms: { total: rooms.size, open, inGame },
+      connections: sockets.size,
+    });
+    return;
+  }
   if (path === '/health') {
     void handleHealth(res, rooms.size).catch(() => { /* handleHealth never throws */ });
     return;
@@ -680,6 +697,9 @@ async function bootstrap(): Promise<void> {
     // AND ffmpeg; without ffmpeg, POST /api/me/avatar returns a clean 503 (feature off,
     // everything else unaffected). Never throws, runs once at boot — no per-request cost.
     void ffmpegAvailable().then((ok) => {
+      // Cache the one-time result so GET /health/diagnostics can report avatar-upload
+      // readiness without ever spawning ffmpeg per request (Stage 24.0).
+      setFfmpegReady(ok);
       console.log(ok
         ? '[King] avatar uploads: ffmpeg found — uploads work when DATABASE_URL is set'
         : '[King] avatar uploads: ffmpeg NOT found — POST /api/me/avatar returns 503 (see RENDER_DEPLOY.md)');

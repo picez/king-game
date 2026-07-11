@@ -35,6 +35,13 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 
 - [ ] `curl -s $HOST/health` → `{"status":"ok","db":"disabled"|...,"rooms":N,"uptime":N}`
       (`db` is `disabled` without Postgres; it probes Postgres when `DATABASE_URL` is set).
+- [ ] `curl -s $HOST/health/diagnostics` → a safe operational snapshot (Stage 24.0):
+      `status`, `version` + short `commit` (if the build env sets `RENDER_GIT_COMMIT`),
+      `uptime`, `db: enabled|disabled`, `rooms {total,open,inGame}`, `connections`,
+      `games {count,ids}`, and `avatarUploads {status,reason,ffmpeg,database}`. Confirms the
+      build/commit, room + socket load, and avatar readiness at a glance. **Privacy:** it
+      carries only aggregate counts / booleans / the public game ids — **no** user/room/
+      session/email/token/chat/card data. Cheap (in-memory + cached ffmpeg flag; no DB query).
 
 ## 3. Static app + game catalog
 
