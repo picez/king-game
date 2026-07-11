@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { verifyFriendInvite } from './friendInvite';
+import { verifyFriendInvite, inviteReasonToErrorCode } from './friendInvite';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const base = {
@@ -27,6 +27,18 @@ describe('verifyFriendInvite — authorisation', () => {
     // There is no client `code` field in the check; the verdict returns senderRoomCode.
     const v = verifyFriendInvite({ ...base, senderRoomCode: 'WXYZ' });
     expect(v.ok && v.code).toBe('WXYZ');
+  });
+});
+
+describe('inviteReasonToErrorCode — surface actionable failures (Stage 25.7)', () => {
+  it('maps user-actionable reasons to a client error code', () => {
+    expect(inviteReasonToErrorCode('offline')).toBe('FRIEND_NOT_ONLINE');
+    expect(inviteReasonToErrorCode('not_friends')).toBe('NOT_FRIENDS');
+    expect(inviteReasonToErrorCode('not_in_room')).toBe('NOT_IN_ROOM');
+  });
+  it('stays silent for states the UI cannot cause', () => {
+    expect(inviteReasonToErrorCode('unauthenticated')).toBeNull();
+    expect(inviteReasonToErrorCode('bad_target')).toBeNull();
   });
 });
 

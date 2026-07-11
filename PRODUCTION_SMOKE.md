@@ -141,9 +141,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] In an online room, **chat** delivers to the other client.
 - [ ] **Sticker** picker + a **reaction** float both work and never cover the hand/table
       (check at a 360/390-wide window). Media is whitelist-only (no free URLs/uploads).
-- [ ] **Voice chat (Stage 25.4–25.5, opt-in):** in an online Lobby the **Voice chat** card shows
+- [ ] **Friends presence + badge + invite (Stage 25.2 + 25.7, needs Postgres + 2 signed-in
+      accounts):** A adds B by code → B sees a **red badge** on the ⚙️ Profile tile + Friends tab
+      and an incoming request; B **Accepts** → badge clears. With both **just on the menu**, each
+      shows the other **Online** (chip); closing a tab flips to **Offline** within seconds. A hosts
+      a room → A's Lobby Friends shows B with **Invite** → B gets a **Join/Dismiss** toast (works
+      on the menu too); **Join** prefills `?room=` (no auto-join). Inviting offline/non-friend/
+      outside-a-room → a small inline notice. No email/token/session on the wire.
+- [ ] **Voice chat (Stage 25.4–25.7, opt-in):** in an online Lobby the **Voice chat** card shows
       **Join voice** (default off). It needs **HTTPS** for the mic (`getUserMedia` is blocked on
-      plain HTTP). With two contexts in the same room, Join → grant mic → they hear each other;
+      plain HTTP). With two contexts in the same room, Join → grant mic → **they hear each other**
+      and the card's **status block** reads **Mic: allowed · Peers: 1/1 · Connection: connected ·
+      Audio: playing** (Stage 25.7 — the ICE-buffering fix is what makes the mesh actually connect;
+      if every peer is **failed**, the card shows a **"TURN may be required"** hint).
       Mute/Leave work; leaving the room drops voice (**no dangling mic indicator**). Deny the mic
       → a clear "permission denied" note **+ a browser-settings hint**, and **text chat still
       works**. **Reconnect (25.5):** briefly drop one client's network while in voice → on

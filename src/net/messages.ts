@@ -262,6 +262,12 @@ export type ErrorCode =
   | 'RATE_LIMITED'
   /** Chat message had nothing safe to send after filtering (Stage 7). */
   | 'MESSAGE_BLOCKED'
+  /** Friend room-invite failed: the target has no live socket (Stage 25.7). */
+  | 'FRIEND_NOT_ONLINE'
+  /** Friend room-invite failed: the two users are not accepted friends (Stage 25.7). */
+  | 'NOT_FRIENDS'
+  /** Friend room-invite failed: the sender is not currently in a room (Stage 25.7). */
+  | 'NOT_IN_ROOM'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

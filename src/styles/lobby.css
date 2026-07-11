@@ -368,6 +368,36 @@
 .friend-row__invited { font-size: 0.8rem; color: var(--success-light, #46c95f); font-weight: 700; }
 .friend-row__pending-tag { margin: 0; }
 
+/* Explicit online/offline chip (Stage 25.7) — clearer than a bare dot. */
+.friend-status {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-muted); background: var(--surface-2);
+}
+.friend-status__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); opacity: 0.6; }
+.friend-status--online { color: var(--success-light, #46c95f); border-color: color-mix(in srgb, var(--success-light, #46c95f) 45%, transparent); }
+.friend-status--online .friend-status__dot { background: var(--success-light, #46c95f); opacity: 1; }
+.friends-invite-hint { margin: 0 0 0.2rem; }
+
+/* Notification badge (incoming friend requests) — red pill, RTL-safe, no overflow. */
+.tile--badgeable { position: relative; }
+.notif-badge {
+  position: absolute; top: 6px; inset-inline-end: 6px; min-width: 18px; height: 18px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  border-radius: 999px; background: var(--danger, #d64545); color: #fff;
+  font-size: 0.68rem; font-weight: 800; line-height: 1;
+}
+.notif-badge--inline { position: static; margin-inline-start: 0.35rem; top: auto; inset-inline-end: auto; }
+
+/* Voice safe status/debug block (Stage 25.7) — counts + states only, never SDP/ICE. */
+.voice-debug {
+  margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.6rem;
+  font-size: 0.74rem; color: var(--text-muted);
+}
+.voice-debug > div { display: flex; justify-content: space-between; gap: 0.4rem; min-width: 0; }
+.voice-debug dt { font-weight: 700; }
+.voice-debug dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Lobby "Invite friends" collapsible (only when signed in). */
 .lobby-friends { margin: 0.6rem auto 0; width: min(94vw, 32rem); }
 .lobby-friends__summary { cursor: pointer; font-weight: 700; padding: 0.5rem 0.2rem; min-height: var(--tap-min); }

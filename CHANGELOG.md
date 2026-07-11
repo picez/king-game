@@ -17,6 +17,21 @@ also reported at `GET /health/diagnostics` (`version` field).
   Join/Mute/Leave, per-peer state, autoplay-blocked fallback. No audio is stored, recorded,
   or sent through the server (peer-to-peer, signaling relay only).
 
+### Fixed (Stage 25.7)
+
+- **Friends now show live online/offline** — a signed-in user is kept "online" at the menu (an
+  app-level presence connection), so friends see each other and the Profile Friends tab updates
+  without opening a room. Each friend has an explicit **Online/Offline** chip.
+- **Incoming friend requests are visible** — a red badge on the Profile menu tile and the Friends
+  tab; it clears on accept/decline.
+- **Direct room invites are clearer** — an obvious Invite button beside online friends in a room;
+  a "create or join a room to invite" hint otherwise; failed invites (offline / not friends / not
+  in a room) show a small notice instead of failing silently. A received invite pops a Join toast
+  even at the menu.
+- **Voice "button works but no audio"** — ICE candidates arriving before the remote description
+  are now buffered and applied (they used to be dropped, which stalled the connection). A safe
+  status block (Mic / Peers / Connection / Audio) and a "TURN may be required" hint aid diagnosis.
+
 ### Hardened (voice, Stage 25.5)
 
 - **Reconnect resync:** a dropped/reconnected socket rebuilds the voice mesh automatically —

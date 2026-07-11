@@ -649,6 +649,16 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       **Leave + Join** again to recover.
 - [ ] **No auto-rejoin in background:** background the tab / minimise the installed PWA while in
       voice → it does **not** silently re-request the mic; control stays explicit.
+- [ ] **Audio actually flows (25.7):** two tabs on the **same machine/LAN**, both **Join voice**,
+      speak → each hears the other. The Lobby card's **status block** reads **Mic: allowed ·
+      Peers: 1/1 · Connection: connected · Audio: playing**. This is the primary regression check
+      for the 25.7 ICE-buffering fix (candidates arriving before the remote description are no
+      longer dropped, so the mesh actually connects). Autoplay-blocked → **Audio: blocked** + a
+      **"Tap to enable audio"** button; tap → **playing**.
+- [ ] **Failed / TURN hint (25.7):** if every peer ends up **failed/disconnected** (e.g. strict
+      cross-network on STUN-only), the card shows **"Connection failed — a TURN server may be
+      required on this network."** — same-LAN success means this is a NAT limitation, not a bug
+      (configure TURN per 25.6).
 - [ ] **ICE config indicator (25.6):** the Lobby Voice card shows a small **"Network: STUN"** or
       **"TURN + STUN"** line; `GET /health/diagnostics` → `voice.ice` matches (`stun_only` /
       `turn_configured`); `GET /api/voice/ice-config` returns `{ iceServers }`.
@@ -666,26 +676,37 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 > peer add/remove, unsupported/permission errors, **reconnect resync rebuilds without dup PCs**)
 > + `iceConfig` (STUN default, env override, TURN-cred parse, **redaction never leaks the secret**)
 > + the 25.3 relay routing + source guards (WebRTC/getUserMedia confined to `src/voice/webrtc.ts`;
-> **no committed TURN url/credential** across `src/`+`server/`; no server audio/DB).
+> **no committed TURN url/credential** across `src/`+`server/`; no server audio/DB)
+> + **25.7**: buffered-ICE-before-remote-description → applied after `setRemoteDescription`,
+> `ontrack` → remote audio sink, `connectionSummary().allFailed` → TURN hint. **Real two-party
+> audio is manual-only** (CI has no mic); the mesh/signaling logic is fully mocked.
 
-## Manual — Friends UI + room invites (Stage 25.2, needs Postgres + a signed-in account)
+## Manual — Friends UI + room invites (Stage 25.2 + 25.7 bugfix, needs Postgres + a signed-in account)
 
 > Two signed-in Google sessions (A + B) on a migrated Postgres. Guests see a sign-in CTA
 > (no API calls). No email is ever shown; the invite carries only a room code + display name.
 
 - [ ] Profile → **Friends** tab: your **friend code** (`CM-XXXX-XXXX`) + **Copy**; **Add** by
       B's code → B sees an **incoming request**; B taps **Accept** → both show each other under
-      **Friends**, **online friends first** (green dot), offline below.
-- [ ] Host an online room as A while both are online → A's Lobby **"👥 Friends"** shows B with
-      **Invite**; tap it → B (in a room/lobby) gets a **"A invited you to a game · ABCD"** toast
-      with **Join / Dismiss**. **Join** opens the Join sheet **prefilled** with `ABCD` (never
-      auto-joins); **Dismiss** clears it. Rapid invites are rate-limited.
-- [ ] **Presence:** when B closes their tab, A's Friends list shows B **offline** on refresh /
-      the next FRIEND_PRESENCE push.
-- [ ] **Guest / privacy:** a guest sees the sign-in CTA only; no request/invite payload contains
-      an email, token, or session; the invite works only between accepted friends who are online.
-- [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab + the invite toast don't overflow and
-      the toast never covers the hand/actions.
+      **Friends**, **online friends first**, each with an explicit **Online / Offline chip**.
+- [ ] **Request badge (25.7):** while A has a pending incoming request, a **red badge** shows on
+      the **⚙️ Profile tile** on the main menu **and** on the **Friends tab**; it clears after
+      Accept/Decline. Works on mobile/RTL without overflow; with no Postgres/guest there is no
+      badge and the menu is unaffected.
+- [ ] **Presence at the menu (25.7):** with A and B both **signed in and sitting on the menu**
+      (no room), A's Friends list shows B **Online**; when B closes the tab / signs out, A flips
+      B to **Offline** within a few seconds (no manual refresh needed). Manual **↻** still works.
+- [ ] **Invite (25.7):** A hosts an online room → A's Lobby Friends panel shows B with a clear
+      **Invite** button (online) or a **disabled Invite** (offline, "friend is offline" hint). In
+      the **menu** Friends tab a hint reads **"Create or join a room to invite friends."** Tap
+      Invite → B gets an **"A invited you to a game · ABCD"** toast (Join / Dismiss) whether B is
+      **in a room OR on the menu**. **Join** opens the Join sheet **prefilled** with `ABCD` (never
+      auto-joins). Inviting an **offline** friend / a **non-friend** / **outside a room** shows a
+      small inline notice (not the fatal error surface). Rapid invites are rate-limited.
+- [ ] **Guest / privacy:** a guest sees the sign-in CTA only; no request/invite/presence payload
+      contains an email, token, or session; the invite works only between accepted online friends.
+- [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab (chips + badges + invite), the request
+      badges, and the invite toast don't overflow and the toast never covers the hand/actions.
 
 ## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 

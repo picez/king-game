@@ -36,7 +36,7 @@ import { isDbEnabled, probeDbState } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { attachPresence, detachPresence, isOnline, presenceSocketsFor } from './friendsPresence';
 import { allowFriendInvite } from './friendsRateLimit';
-import { verifyFriendInvite } from '../src/net/friendInvite';
+import { verifyFriendInvite, inviteReasonToErrorCode } from '../src/net/friendInvite';
 import { joinVoice, leaveVoice, relayVoiceSignal, setVoiceMute, type VoiceDelivery } from './voiceSignaling';
 import { allowVoiceSignal } from './voiceRateLimit';
 import { isValidSdp, isValidIce } from '../src/net/voiceSignal';
@@ -294,9 +294,9 @@ function broadcastState(room: ServerRoom): void {
  * target's live sockets. The room code is the SENDER's own room (never a client value).
  * Best-effort + rate-limited; carries no email/token/session. Fails silently.
  */
-async function deliverFriendInvite(senderUserId: string | null, session: SessionRef, toUserId: unknown): Promise<void> {
+async function deliverFriendInvite(socket: WebSocket, senderUserId: string | null, session: SessionRef, toUserId: unknown): Promise<void> {
   if (!senderUserId || !isDbEnabled()) return;
-  if (!allowFriendInvite(senderUserId)) return;
+  if (!allowFriendInvite(senderUserId)) { sendError(socket, 'RATE_LIMITED', 'Slow down — too many invites.'); return; }
   const s = session.value;
   const roomCode = s?.room.code ?? null;
   let friends = false;
@@ -308,7 +308,13 @@ async function deliverFriendInvite(senderUserId: string | null, session: Session
     senderUserId, senderRoomCode: roomCode, toUserId, areFriends: friends,
     targetOnline: typeof toUserId === 'string' && isOnline(toUserId),
   });
-  if (!verdict.ok || !s) return;
+  if (!verdict.ok) {
+    // Surface an actionable failure back to the SENDER as a non-fatal toast (Stage 25.7).
+    const code = inviteReasonToErrorCode(verdict.reason);
+    if (code) sendError(socket, code, INVITE_ERROR_TEXT[code]);
+    return;
+  }
+  if (!s) return;
   const fromName = s.room.members.get(s.clientId)?.name ?? 'A friend';
   const payload: ServerMessage = {
     t: 'FRIEND_INVITE_RECEIVED',
@@ -316,6 +322,13 @@ async function deliverFriendInvite(senderUserId: string | null, session: Session
   };
   for (const sock of presenceSocketsFor(verdict.toUserId)) send(sock as WebSocket, payload);
 }
+
+/** Human-readable text for an invite failure (the client also has i18n via the code). */
+const INVITE_ERROR_TEXT: Record<'FRIEND_NOT_ONLINE' | 'NOT_FRIENDS' | 'NOT_IN_ROOM', string> = {
+  FRIEND_NOT_ONLINE: 'That friend is offline right now.',
+  NOT_FRIENDS: 'You are not friends with that player.',
+  NOT_IN_ROOM: 'Create or join a room before inviting.',
+};
 
 // ── voice signaling relay (Stage 25.3) — server is a room-scoped RELAY, no audio ────
 function dispatchVoice(deliveries: VoiceDelivery[]): void {
@@ -709,7 +722,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     }
     // Friends (Stage 25.2): a room invite is handled here (it needs the socket's resolved
     // userId + presence, which the room dispatch doesn't carry). Everything else → dispatch.
-    if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(resolvedUserId, sessionRef, msg.toUserId); return; }
+    if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(socket, resolvedUserId, sessionRef, msg.toUserId); return; }
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }

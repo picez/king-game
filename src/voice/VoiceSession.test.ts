@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { VoiceSession, type PeerConnLike, type StreamLike, type TrackLike, type VoiceDeps } from './VoiceSession';
 
+/** Flush the microtask queue several times so a chain of awaited async steps settles. */
+const flush = async (n = 8) => { for (let i = 0; i < n; i++) await Promise.resolve(); };
+
 function fakeTrack(kind = 'audio'): TrackLike & { stop: ReturnType<typeof vi.fn> } {
   return { kind, enabled: true, stop: vi.fn() };
 }
@@ -105,12 +108,12 @@ describe('VoiceSession — mesh signaling', () => {
     const { deps, signal, peers } = makeDeps({ myClientId: 'zzz' });
     const s = new VoiceSession(deps); await s.join();
     s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: JSON.stringify({ type: 'offer' }) });
-    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    await flush();
     expect(peers[0].setRemoteDescription).toHaveBeenCalled();
     expect(peers[0].createAnswer).toHaveBeenCalled();
     expect(signal.answer).toHaveBeenCalledWith('bbb', expect.any(String));
     s.onMessage({ t: 'VOICE_SIGNAL_ICE', fromClientId: 'bbb', candidate: JSON.stringify({ candidate: 'c' }) });
-    await Promise.resolve();
+    await flush();
     expect(peers[0].addIceCandidate).toHaveBeenCalled();
   });
 
@@ -187,5 +190,46 @@ describe('VoiceSession — reconnect / resync (Stage 25.5)', () => {
     s.resync();
     expect(signal.join).not.toHaveBeenCalled();
     expect(s.status).toBe('idle');
+  });
+});
+
+describe('VoiceSession — ICE queueing + connection summary (Stage 25.7)', () => {
+  it('an ICE candidate arriving BEFORE the remote description is buffered, then applied', async () => {
+    // me = 'zzz' > 'bbb' → I wait for the offer, so the PC has no remote description yet.
+    const { deps, peers } = makeDeps({ myClientId: 'zzz' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await flush();
+    s.onMessage({ t: 'VOICE_SIGNAL_ICE', fromClientId: 'bbb', candidate: JSON.stringify({ candidate: 'early' }) });
+    await flush();
+    expect(peers[0].addIceCandidate).not.toHaveBeenCalled();      // buffered, NOT dropped
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: JSON.stringify({ type: 'offer' }) });
+    await flush();
+    expect(peers[0].addIceCandidate).toHaveBeenCalledTimes(1);    // flushed after setRemoteDescription
+  });
+
+  it('ontrack hands the remote stream to onRemoteStream (drives the audio sink)', async () => {
+    const onRemoteStream = vi.fn();
+    const { deps, peers } = makeDeps({ myClientId: 'aaa', onRemoteStream });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    await flush();
+    const remote = fakeStream();
+    (peers[0] as unknown as { ontrack: (e: { streams: StreamLike[] }) => void }).ontrack({ streams: [remote] });
+    expect(onRemoteStream).toHaveBeenCalledWith('bbb', remote);
+  });
+
+  it('connectionSummary tracks peer states; allFailed only when every peer is down', async () => {
+    const { deps, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    await flush();
+    const pc = peers[0] as unknown as { connectionState: string; onconnectionstatechange: () => void };
+    pc.connectionState = 'connected';
+    pc.onconnectionstatechange();
+    expect(s.connectionSummary()).toMatchObject({ peers: 1, connected: 1, allFailed: false });
+    pc.connectionState = 'failed';
+    pc.onconnectionstatechange();
+    expect(s.connectionSummary().allFailed).toBe(true);
   });
 });

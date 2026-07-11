@@ -14,6 +14,16 @@ function connLabel(peers: RoomVoice['peers']): string {
       : '';
 }
 
+/** Aggregate connection word for the debug block. */
+function connText(voice: RoomVoice, t: (k: string) => string): string {
+  const c = voice.connection;
+  if (c.allFailed) return t('voice.connFailed');
+  if (c.peers === 0) return t('voice.connWaiting');
+  if (c.connected === c.peers) return t('voice.connConnected');
+  if (c.connecting) return t('voice.connConnecting');
+  return t('voice.connWaiting');
+}
+
 /**
  * Voice chat control (Stage 25.4). Opt-in: nothing happens until the user taps Join voice
  * (which prompts for the mic). Shows unsupported / permission-denied / connecting states and
@@ -89,6 +99,16 @@ export default function VoiceControl({ voice, variant = 'card' }: Props) {
             <button type="button" className="btn btn--outline btn--small" onClick={voice.enableAudio}>
               🔈 {t('voice.enableAudio')}
             </button>
+          )}
+          {/* Safe status/debug (Stage 25.7) — counts + states only, never SDP/ICE/identity. */}
+          <dl className="voice-debug">
+            <div><dt>{t('voice.dbgMic')}</dt><dd>{voice.mic === 'denied' ? t('voice.micDenied') : t('voice.micAllowed')}</dd></div>
+            <div><dt>{t('voice.dbgPeers')}</dt><dd>{voice.connection.connected}/{voice.connection.peers}</dd></div>
+            <div><dt>{t('voice.dbgConn')}</dt><dd>{connText(voice, t)}</dd></div>
+            <div><dt>{t('voice.dbgAudio')}</dt><dd>{voice.audioBlocked ? t('voice.audioBlocked') : t('voice.audioPlaying')}</dd></div>
+          </dl>
+          {voice.connection.allFailed && (
+            <p className="lobby-error voice-card__err">{t('voice.turnRequired')}</p>
           )}
           {voice.peers.length > 0 && (
             <ul className="voice-peers">

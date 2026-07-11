@@ -232,8 +232,10 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         break;
       }
       case 'ERROR': {
-        // Non-fatal social limits → a small toast, not the game error surface.
-        if (msg.code === 'RATE_LIMITED' || msg.code === 'MESSAGE_BLOCKED') {
+        // Non-fatal social limits + friend-invite failures → a small toast, not the game
+        // error surface (Stage 25.7).
+        if (msg.code === 'RATE_LIMITED' || msg.code === 'MESSAGE_BLOCKED'
+          || msg.code === 'FRIEND_NOT_ONLINE' || msg.code === 'NOT_FRIENDS' || msg.code === 'NOT_IN_ROOM') {
           setSocialNotice({ code: msg.code, message: msg.message, at: Date.now() });
           break;
         }

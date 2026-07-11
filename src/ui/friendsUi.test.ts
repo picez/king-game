@@ -48,6 +48,41 @@ describe('Room invite wiring (OnlineGame)', () => {
   });
 });
 
+describe('Presence + request badge + invite affordance (Stage 25.7)', () => {
+  const startMenu = read('src/ui/StartMenu.tsx');
+  const presence = read('src/hooks/usePresence.ts');
+
+  it('an app-level presence connection keeps a signed-in menu user online + drives the badge', () => {
+    expect(startMenu).toContain('usePresence(');
+    // A red badge shows on the Profile tile when there are incoming requests.
+    expect(startMenu).toMatch(/presence\.incomingCount > 0[\s\S]*notif-badge/);
+    // The Friends tab gets a count badge too.
+    expect(profileMenu).toMatch(/friendsIncoming > 0[\s\S]*notif-badge/);
+  });
+
+  it('presence carries no secrets and re-fetches on FRIEND_PRESENCE', () => {
+    const code = presence.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/\bemail\b|reconnectToken|sessionId|\btoken\b/i);
+    expect(code).toContain("'FRIEND_PRESENCE'");
+    expect(code).toContain('fetchFriends');
+  });
+
+  it('shows an explicit online/offline chip and an invite hint when not in a room', () => {
+    expect(panel).toContain('friend-status');
+    expect(panel).toContain("t('friends.online')");
+    expect(panel).toContain("t('friends.offline')");
+    // Menu context (no onInvite) → a "create/join a room" hint.
+    expect(panel).toMatch(/!onInvite[\s\S]*friends\.inviteNeedsRoom/);
+    // Offline friend in a room → a disabled Invite with an offline hint.
+    expect(panel).toContain("t('friends.friendOffline')");
+  });
+
+  it('a failed invite surfaces a non-fatal toast (not the fatal game error surface)', () => {
+    const net = read('src/hooks/useNetworkGame.ts');
+    expect(net).toMatch(/FRIEND_NOT_ONLINE'[\s\S]*NOT_FRIENDS'[\s\S]*NOT_IN_ROOM'[\s\S]*setSocialNotice/);
+  });
+});
+
 describe('privacy — no secrets in the friends client', () => {
   it('the client never reads/sends email, token, session, reconnect, or the LOCAL custom avatar', () => {
     for (const src of [panel, read('src/net/friendsApi.ts')]) {

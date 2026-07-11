@@ -15,6 +15,8 @@ interface Props {
   invited?: ReadonlySet<string>;
   /** Bumping this re-fetches (e.g. on a FRIEND_PRESENCE push). */
   refreshNonce?: number;
+  /** Called after any local mutation (add/accept/decline/remove) so a parent badge can refresh. */
+  onChanged?: () => void;
 }
 
 /** A friend's avatar — the server-safe emoji, with the same-origin synced image on top
@@ -37,7 +39,7 @@ function FriendAvatar({ friend }: { friend: Friend }) {
  * over the HTTP API — no email is ever shown. With `onInvite`, online friends get an
  * Invite button (used in the Lobby). Guests see a sign-in prompt (no API calls).
  */
-export default function FriendsPanel({ base, signedIn, onInvite, invited, refreshNonce = 0 }: Props) {
+export default function FriendsPanel({ base, signedIn, onInvite, invited, refreshNonce = 0, onChanged }: Props) {
   const { t } = useI18n();
   const [data, setData] = useState<FriendsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,11 +65,11 @@ export default function FriendsPanel({ base, signedIn, onInvite, invited, refres
     setAddMsg(null);
     const outcome = await requestFriend(base, code);
     setAddMsg(addOutcomeMsg(outcome));
-    if (outcome === 'created' || outcome === 'accepted') { setCodeInput(''); await load(); }
+    if (outcome === 'created' || outcome === 'accepted') { setCodeInput(''); await load(); onChanged?.(); }
   }
   async function act(userId: string, fn: () => Promise<boolean>) {
     setBusy(userId);
-    try { if (await fn()) await load(); } finally { setBusy(null); }
+    try { if (await fn()) { await load(); onChanged?.(); } } finally { setBusy(null); }
   }
   function copyCode() {
     if (!data?.friendCode) return;
@@ -124,16 +126,26 @@ export default function FriendsPanel({ base, signedIn, onInvite, invited, refres
       <div className="friends-section">
         <h4 className="friends-section__head">{t('friends.title')}{friends.length > 0 ? ` (${friends.length})` : ''}</h4>
         {friends.length === 0 && !loading && <p className="field__hint">{t('friends.empty')}</p>}
+        {/* Menu context (no invite handler): tell the user how to invite. */}
+        {!onInvite && friends.some((f) => f.online) && (
+          <p className="friends-invite-hint field__hint">💡 {t('friends.inviteNeedsRoom')}</p>
+        )}
         {friends.map((f) => (
           <div key={f.userId} className={`friend-row ${f.online ? 'friend-row--online' : 'friend-row--offline'}`}>
             <FriendAvatar friend={f} />
             <span className="friend-row__name">{f.displayName ?? t('account.guestShort')}</span>
-            <span className={`friend-row__dot ${f.online ? 'is-online' : ''}`} title={f.online ? t('friends.online') : t('friends.offline')} />
+            <span className={`friend-status ${f.online ? 'friend-status--online' : 'friend-status--offline'}`}>
+              <span className="friend-status__dot" aria-hidden="true" />
+              {f.online ? t('friends.online') : t('friends.offline')}
+            </span>
             <span className="friend-row__actions">
-              {onInvite && f.online && (
-                invited?.has(f.userId)
-                  ? <span className="friend-row__invited">✓ {t('friends.invited')}</span>
-                  : <button type="button" className="btn btn--outline btn--small" onClick={() => onInvite(f.userId)}>{t('friends.invite')}</button>
+              {onInvite && (
+                f.online
+                  ? (invited?.has(f.userId)
+                      ? <span className="friend-row__invited">✓ {t('friends.invited')}</span>
+                      : <button type="button" className="btn btn--outline btn--small" onClick={() => onInvite(f.userId)}>{t('friends.invite')}</button>)
+                  : <button type="button" className="btn btn--outline btn--small" disabled
+                      title={t('friends.friendOffline')}>{t('friends.invite')}</button>
               )}
               <button type="button" className="btn btn--ghost btn--small" disabled={busy === f.userId}
                 onClick={() => void act(f.userId, () => removeFriend(base, f.userId))}>{t('friends.remove')}</button>

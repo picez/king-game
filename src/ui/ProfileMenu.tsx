@@ -42,6 +42,12 @@ interface Props {
   /** Custom server URL (null = default); Stage 14.2 connection setting. */
   customServer: string | null;
   onCustomServer: (v: string | null) => void;
+  /** Incoming friend-request count (Stage 25.7) — drives the Friends tab badge. */
+  friendsIncoming?: number;
+  /** Bumped on a FRIEND_PRESENCE push so the Friends tab re-fetches live. */
+  friendsRefreshNonce?: number;
+  /** Called after a local friends mutation so the app-level badge refreshes. */
+  onFriendsChanged?: () => void;
 }
 
 type Tab = 'profile' | 'friends' | 'stats' | 'achievements' | 'leaderboard';
@@ -64,7 +70,7 @@ const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb', 'prefer
  */
 export default function ProfileMenu({
   account, name, onName, avatar, onAvatar, defaultTimer, onDefaultTimer, favoriteGame, onFavoriteGame,
-  customServer, onCustomServer,
+  customServer, onCustomServer, friendsIncoming = 0, friendsRefreshNonce = 0, onFriendsChanged,
 }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('profile');
@@ -247,6 +253,9 @@ export default function ProfileMenu({
             className={`segmented__tab ${tab === tb.key ? 'segmented__tab--active' : ''}`}
             onClick={() => setTab(tb.key)}>
             {tb.label}
+            {tb.key === 'friends' && friendsIncoming > 0 && (
+              <span className="notif-badge notif-badge--inline" aria-label={`${friendsIncoming} ${t('friends.requests')}`}>{friendsIncoming}</span>
+            )}
           </button>
         ))}
         {(tab === 'stats' || tab === 'leaderboard') && (
@@ -265,7 +274,8 @@ export default function ProfileMenu({
             customServer={customServer} onCustomServer={onCustomServer} />
         )}
         {tab === 'friends' && (
-          <FriendsPanel base={account.base} signedIn={account.signedIn} />
+          <FriendsPanel base={account.base} signedIn={account.signedIn}
+            refreshNonce={friendsRefreshNonce} onChanged={onFriendsChanged} />
         )}
         {tab === 'stats' && (
               <>

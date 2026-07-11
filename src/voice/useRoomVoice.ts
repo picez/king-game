@@ -26,6 +26,9 @@ export interface RoomVoice {
   audioBlocked: boolean;
   /** Resolved voice connectivity mode (Stage 25.6) — for the optional UI indicator. No creds. */
   iceMode: 'stun_only' | 'turn_configured' | 'unknown';
+  /** Safe status summary for the UI/debug block (Stage 25.7) — no SDP/ICE/identity. */
+  mic: 'idle' | 'requesting' | 'allowed' | 'denied';
+  connection: { peers: number; connected: number; connecting: boolean; allFailed: boolean };
   join: () => void;
   leave: () => void;
   toggleMute: () => void;
@@ -117,14 +120,21 @@ export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
   }, []);
 
   const s = sessionRef.current;
+  const status = s?.status ?? 'idle';
+  const error = s?.error ?? null;
+  const mic: RoomVoice['mic'] = error === 'permission' ? 'denied'
+    : status === 'requesting' ? 'requesting'
+      : status === 'joined' ? 'allowed' : 'idle';
   return {
     supported,
-    status: s?.status ?? 'idle',
-    error: s?.error ?? null,
+    status,
+    error,
     muted: s?.muted ?? false,
     peers: s?.peerList() ?? [],
     audioBlocked,
     iceMode,
+    mic,
+    connection: s?.connectionSummary() ?? { peers: 0, connected: 0, connecting: false, allFailed: false },
     join, leave, toggleMute, enableAudio,
   };
 }

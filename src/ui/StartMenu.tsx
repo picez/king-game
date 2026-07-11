@@ -18,6 +18,7 @@ import { loadNickname, saveNickname, loadAvatar, saveAvatar, loadDefaultTimer, l
 import { defaultAvatar } from '../core/avatars';
 import { useI18n } from '../i18n';
 import { useAccount } from '../hooks/useAccount';
+import { usePresence } from '../hooks/usePresence';
 import { GAME_CATALOG, GAME_TYPES, normalizeFavoriteGame, type GameType, type GameAvailability } from '../games/catalog';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
@@ -89,6 +90,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   const account = useAccount(url, customServer);
   const roomList = useRoomList();
+  // App-level presence (Stage 25.7): keeps a signed-in user "online" at the menu and drives
+  // the incoming-request badge + a friend room-invite toast. Idle for guests.
+  const presence = usePresence(url, account.base, account.signedIn);
   // Carry the signed-in flag into the online flow (enables the Friends invite panel).
   const onOnlineWithAuth = (u: string, intent: OnlineIntent) => onOnline(u, intent, account.signedIn);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -234,6 +238,23 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     <div className="screen menu-screen">
       <AccountBar account={account} name={name} avatar={avatar} />
 
+      {/* Friend room-invite received while at the menu (Stage 25.7). Join reuses the ?room=
+          prefill (never auto-join); Dismiss clears it. */}
+      {presence.invite && (
+        <div className="friend-invite-toast" role="status">
+          <span className="friend-invite-toast__text">
+            <strong>{presence.invite.fromName}</strong> {t('friends.invitedYou')} · <code>{presence.invite.code}</code>
+          </span>
+          <span className="friend-invite-toast__actions">
+            <button type="button" className="btn btn--primary btn--small" onClick={() => {
+              const c = presence.invite!.code;
+              setInvitedCode(c); setCode(c); setPane('join'); presence.dismissInvite();
+            }}>{t('friends.join')}</button>
+            <button type="button" className="btn btn--ghost btn--small" onClick={presence.dismissInvite}>{t('friends.dismiss')}</button>
+          </span>
+        </div>
+      )}
+
       <header className="menu-header">
         <h1 className="menu-title">{t('app.title')}</h1>
         <p className="menu-tagline">{t('app.subtitle')}</p>
@@ -277,12 +298,17 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
                 <span className="tile__sub">{t('menu.joinSub')}</span>
               </span>
             </button>
-            <button className="tile" onClick={() => setPane('profile')}>
+            <button className="tile tile--badgeable" onClick={() => setPane('profile')}>
               <span className="tile__icon" aria-hidden="true">⚙️</span>
               <span className="tile__text">
                 <span className="tile__title">{t('menu.profileTitle')}</span>
                 <span className="tile__sub">{t('menu.profileSub')}</span>
               </span>
+              {presence.incomingCount > 0 && (
+                <span className="notif-badge" aria-label={`${presence.incomingCount} ${t('friends.requests')}`}>
+                  {presence.incomingCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -298,7 +324,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
             name={name} onName={setName} avatar={avatar} onAvatar={setAvatar}
             defaultTimer={defaultTimer} onDefaultTimer={setDefaultTimer}
             favoriteGame={favoriteGame} onFavoriteGame={pickFavorite}
-            customServer={customServer} onCustomServer={setCustomServer} />
+            customServer={customServer} onCustomServer={setCustomServer}
+            friendsIncoming={presence.incomingCount} friendsRefreshNonce={presence.presenceNonce}
+            onFriendsChanged={presence.refetch} />
         </div>
       )}
 

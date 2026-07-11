@@ -41,6 +41,7 @@ online friend straight into their current room — reusing the existing invite/j
 | 25.3 | Voice **signaling WS protocol** (see [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md)). |
 | 25.4 | Voice **WebRTC UI**. |
 | **25.5** | **Production hardening** (rate limits, presence cleanup, abuse guards, block MVP, docs/smoke) — spans both features. |
+| **25.7** ✅ **DONE** | **Friends production bugfix pass** — presence + invites + request badge. **Root cause of "no online status":** the client only opened a WS when entering a room, so a signed-in user at the menu was offline and the Profile Friends tab got no live pushes (the server already attaches presence to ANY authed socket). Fix: an app-level **`usePresence`** connection (one lightweight socket while signed-in at the menu; sends nothing room-related, listens for `FRIEND_PRESENCE` + `FRIEND_INVITE_RECEIVED`, re-fetches `/api/friends`). **Request badge:** red `notif-badge` on the Profile menu tile + the Friends tab (`incoming.length`), clears on accept/decline/refresh; safe with no-DB/guest (count 0). **Explicit online/offline chip** + online-first (unchanged sort). **Invite UX:** in-room online friend → active Invite; offline → disabled Invite (hint); menu (no room) → a "create/join a room to invite" hint. **Invite failures now surface** a non-fatal toast via new ErrorCodes `FRIEND_NOT_ONLINE` / `NOT_FRIENDS` / `NOT_IN_ROOM` (server sends the reason back to the sender; `verifyFriendInvite` reason → `inviteReasonToErrorCode`). Menu also shows the received-invite toast (Join reuses `?room=`). No email/token/session on the wire. |
 
 Each stage ships behind `verify` green and is additive (no gameplay/room-protocol break).
 
@@ -144,6 +145,13 @@ needs no write on every connect/disconnect):
   (Redis pub/sub) is added — a post-MVP item, same limitation as rooms/social today.
 
 Presence carries only `{ userId, online: boolean }` — no email, no room code, no IP.
+
+**Client presence socket (Stage 25.7):** the server attaches presence to ANY authenticated
+socket, but the client historically only opened one when entering a ROOM — so a signed-in user
+at the menu was invisible. `usePresence` (mounted in `StartMenu` while signed-in) opens one
+lightweight socket at the menu so the user is genuinely "online" and the Friends tab / request
+badge update live. During an online game the room socket owns presence and the menu is unmounted,
+so there is never a duplicate presence socket for the same user.
 
 ## 8. WS protocol additions (`src/net/messages.ts`)
 

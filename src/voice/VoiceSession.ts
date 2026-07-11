@@ -64,10 +64,28 @@ export class VoiceSession {
   readonly peers = new Map<string, VoicePeerView>();
   private local: StreamLike | null = null;
   private readonly pcs = new Map<string, PeerConnLike>();
+  // ICE candidates that arrive BEFORE the peer's remote description is set must be buffered —
+  // adding them early throws and the candidate is lost, which can stall/kill the connection so
+  // no audio ever flows. Flushed in order once setRemoteDescription resolves (Stage 25.7).
+  private readonly pendingIce = new Map<string, unknown[]>();
+  private readonly remoteReady = new Set<string>();
 
   constructor(private readonly deps: VoiceDeps) {}
 
   peerList(): VoicePeerView[] { return [...this.peers.values()]; }
+
+  /** A secret-free connectivity summary for the UI (Stage 25.7) — counts + states, no SDP/ICE. */
+  connectionSummary(): { peers: number; connected: number; connecting: boolean; allFailed: boolean } {
+    const states = this.peerList().map((p) => p.connState);
+    const connected = states.filter((s) => s === 'connected' || s === 'completed').length;
+    const failed = states.filter((s) => s === 'failed' || s === 'disconnected' || s === 'closed').length;
+    return {
+      peers: states.length,
+      connected,
+      connecting: states.some((s) => s === 'new' || s === 'connecting' || s === 'checking'),
+      allFailed: states.length > 0 && failed === states.length,
+    };
+  }
 
   /** Request the mic (once), then announce VOICE_JOIN. Sets an error state on failure. */
   async join(): Promise<void> {
@@ -105,6 +123,8 @@ export class VoiceSession {
     }
     this.pcs.clear();
     this.peers.clear();
+    this.pendingIce.clear();
+    this.remoteReady.clear();
     this.deps.signal.join();               // server → fresh VOICE_PEERS → rebuild
     if (this.muted) this.deps.signal.mute(true); // re-assert mute (server resets it on rejoin)
     this.deps.onChange();
@@ -145,6 +165,8 @@ export class VoiceSession {
     for (const pc of this.pcs.values()) { try { pc.close(); } catch { /* already closed */ } }
     this.pcs.clear();
     this.peers.clear();
+    this.pendingIce.clear();
+    this.remoteReady.clear();
     for (const tr of this.local?.getTracks() ?? []) { try { tr.stop(); } catch { /* ignore */ } }
     this.local = null;
     this.muted = false;
@@ -184,6 +206,7 @@ export class VoiceSession {
     if (!this.peers.has(from)) this.peers.set(from, { clientId: from, name: from, muted: false, connState: 'new' });
     const pc = this.pcs.get(from) ?? this.newPeer(from);
     await pc.setRemoteDescription(safeParse(sdp));
+    await this.flushIce(from, pc); // remote description is now set — apply any buffered candidates
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     this.deps.signal.answer(from, JSON.stringify(answer));
@@ -192,18 +215,40 @@ export class VoiceSession {
 
   private async onAnswer(from: string, sdp: string): Promise<void> {
     const pc = this.pcs.get(from);
-    if (pc) await pc.setRemoteDescription(safeParse(sdp));
+    if (!pc) return;
+    await pc.setRemoteDescription(safeParse(sdp));
+    await this.flushIce(from, pc);
   }
 
   private async onIce(from: string, candidate: string): Promise<void> {
     const pc = this.pcs.get(from);
-    if (pc) { try { await pc.addIceCandidate(safeParse(candidate)); } catch { /* candidate may arrive early */ } }
+    if (!pc) return;
+    const cand = safeParse(candidate);
+    if (!this.remoteReady.has(from)) {
+      // Remote description not set yet — buffer instead of dropping (see pendingIce above).
+      const q = this.pendingIce.get(from) ?? [];
+      q.push(cand);
+      this.pendingIce.set(from, q);
+      return;
+    }
+    try { await pc.addIceCandidate(cand); } catch { /* malformed candidate */ }
+  }
+
+  /** Mark a peer's remote description ready and drain its buffered ICE candidates in order. */
+  private async flushIce(from: string, pc: PeerConnLike): Promise<void> {
+    this.remoteReady.add(from);
+    const queued = this.pendingIce.get(from);
+    if (!queued) return;
+    this.pendingIce.delete(from);
+    for (const c of queued) { try { await pc.addIceCandidate(c); } catch { /* malformed candidate */ } }
   }
 
   private removePeer(clientId: string): void {
     const pc = this.pcs.get(clientId);
     if (pc) { try { pc.close(); } catch { /* ignore */ } this.pcs.delete(clientId); }
     this.peers.delete(clientId);
+    this.pendingIce.delete(clientId);
+    this.remoteReady.delete(clientId);
     this.deps.onRemoteGone?.(clientId);
     this.deps.onChange();
   }
