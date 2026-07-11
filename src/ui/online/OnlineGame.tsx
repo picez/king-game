@@ -1,9 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { GameContext } from '../../hooks/useGame';
 import { useNetworkGame } from '../../hooks/useNetworkGame';
 import type { OnlineIntent } from '../../hooks/useNetworkGame';
 import { getActingPlayerId } from '../../core/gameEngine';
 import { isJoinError } from '../../net/online';
+import { apiBaseFromWsUrl } from '../../net/profileApi';
+import FriendsPanel from '../components/FriendsPanel';
 import type { ErrorCode } from '../../net/messages';
 import { clearSession } from '../../net/session';
 import { isSafeAvatarImageUrl } from '../../net/avatarImage';
@@ -29,6 +31,8 @@ interface Props {
   /** Return to the menu. A join error code is passed back so the menu can
    *  highlight the offending field. */
   onExit: (joinError?: ErrorCode) => void;
+  /** Whether the local user is a signed-in account (enables the Friends invite panel). */
+  signedIn?: boolean;
 }
 
 const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finished']);
@@ -39,9 +43,33 @@ const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finish
  * screen only on its own turn; otherwise a read-only waiting view. Each client
  * receives only its own hand (server-side redaction).
  */
-export default function OnlineGame({ url, intent, onExit }: Props) {
+export default function OnlineGame({ url, intent, onExit, signedIn = false }: Props) {
   const net = useNetworkGame(url, intent);
   const { t } = useI18n();
+  // Friends (Stage 25.2): API base is same-origin as the WS host; invited-this-session set.
+  const friendsBase = apiBaseFromWsUrl(url);
+  const [invited, setInvited] = useState<Set<string>>(new Set());
+  const inviteFriend = (uid: string) => { net.sendFriendInvite(uid); setInvited((s) => new Set(s).add(uid)); };
+
+  // A received friend invite → a Join/Dismiss toast (never auto-join). Join reuses the
+  // existing `?room=CODE` invite flow (a same-origin navigation that lands on the Join
+  // sheet prefilled). Built once so it shows in the lobby and in-game alike.
+  const inviteToast = net.friendInvite ? (
+    <div className="friend-invite-toast" role="status">
+      <span className="friend-invite-toast__text">
+        <strong>{net.friendInvite.fromName}</strong> {t('friends.invitedYou')} · <code>{net.friendInvite.code}</code>
+      </span>
+      <span className="friend-invite-toast__actions">
+        <button type="button" className="btn btn--primary btn--small"
+          onClick={() => { window.location.href = `/?room=${encodeURIComponent(net.friendInvite!.code)}`; }}>
+          {t('friends.join')}
+        </button>
+        <button type="button" className="btn btn--ghost btn--small" onClick={net.dismissFriendInvite}>
+          {t('friends.dismiss')}
+        </button>
+      </span>
+    </div>
+  ) : null;
   const errText = (code: ErrorCode | null) => t(code && JOIN_ERR_CODES.has(code) ? `err.${code}` : 'err.generic');
 
   // Room-social overlay (reactions + chat). Rendered ONCE at this online level,
@@ -53,12 +81,15 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
   // start menu still offers Resume (does NOT remove the seat or log out).
   const leaveGameToMenu = () => { net.backToMenu(); onExit(); };
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
-    <RoomSocial
-      reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
-      onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
-      notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
-      handVisible={handVisible} onLeaveGame={onLeaveGame}
-    />
+    <>
+      {inviteToast}
+      <RoomSocial
+        reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
+        onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
+        notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
+        handVisible={handVisible} onLeaveGame={onLeaveGame}
+      />
+    </>
   );
 
   if (net.status === 'connecting') {
@@ -124,6 +155,13 @@ export default function OnlineGame({ url, intent, onExit }: Props) {
           onSetTimer={net.setTimer}
           error={net.error}
         />
+        {signedIn && (
+          <details className="lobby-friends">
+            <summary className="lobby-friends__summary">👥 {t('friends.title')}</summary>
+            <FriendsPanel base={friendsBase} signedIn={signedIn}
+              onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
+          </details>
+        )}
         {renderSocial(false)}
       </>
     );

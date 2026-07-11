@@ -170,6 +170,13 @@ export type ClientMessage =
   /** Room-social (Stage 11): send a whitelisted sticker by catalog id (server
    *  resolves the id → approved media; rejects unknown ids; same chat rate limit). */
   | { t: 'SEND_CHAT_MEDIA'; mediaId: string }
+  /**
+   * Friends (Stage 25.2): invite an ONLINE friend to MY CURRENT room. Carries only the
+   * target userId — the room code is derived SERVER-side from the sender's own room (so
+   * a client can never invite to an arbitrary room). The server verifies the sender is
+   * authenticated, in a room, and an accepted friend of the target. NEVER sends audio.
+   */
+  | { t: 'FRIEND_INVITE'; toUserId: string }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -204,6 +211,16 @@ export type ServerMessage =
   | { t: 'CHAT'; message: ChatMessage }
   /** Recent chat for a freshly joined/reconnected client (last N, server-capped). */
   | { t: 'CHAT_HISTORY'; messages: ChatMessage[] }
+  /**
+   * Friends (Stage 25.2): a friend invited you to their room. Delivered to the target's
+   * live sockets. Carries ONLY public routing info — the room code (already the public
+   * join secret), the inviter's display name + userId, and the game type. NEVER an email,
+   * session, token, or reconnect token. The client shows a Join / Dismiss toast; Join
+   * opens the EXISTING Join flow prefilled — it never auto-joins.
+   */
+  | { t: 'FRIEND_INVITE_RECEIVED'; fromUserId: string; fromName: string; code: RoomCode; gameType: GameType; at: number }
+  /** Friends (Stage 25.2): a friend's presence changed (online/offline) — public only. */
+  | { t: 'FRIEND_PRESENCE'; updates: Array<{ userId: string; online: boolean }> }
   | { t: 'PONG' };
 
 export type ErrorCode =

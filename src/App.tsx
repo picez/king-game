@@ -16,7 +16,7 @@ type Mode =
   | { kind: 'menu' }
   // Local play carries the chosen game (King unchanged; Durak = local prototype).
   | { kind: 'local'; gameType: GameType }
-  | { kind: 'online'; url: string; intent: OnlineIntent };
+  | { kind: 'online'; url: string; intent: OnlineIntent; signedIn: boolean };
 
 export default function App() {
   const [mode, setMode] = useState<Mode>({ kind: 'menu' });
@@ -39,6 +39,7 @@ export default function App() {
       <OnlineGame
         url={mode.url}
         intent={mode.intent}
+        signedIn={mode.signedIn}
         onExit={(err) => { setJoinError(err ?? null); setMode({ kind: 'menu' }); }}
       />
     );
@@ -47,7 +48,7 @@ export default function App() {
       <StartMenu
         initialError={joinError}
         onLocal={(gameType) => setMode({ kind: 'local', gameType })}
-        onOnline={(url, intent) => { setJoinError(null); setMode({ kind: 'online', url, intent }); }}
+        onOnline={(url, intent, signedIn) => { setJoinError(null); setMode({ kind: 'online', url, intent, signedIn: !!signedIn }); }}
       />
     );
   }

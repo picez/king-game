@@ -11,6 +11,7 @@ import {
   type TarneebLeaderboardEntry, type PreferansLeaderboardEntry, type Loadable,
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
+import FriendsPanel from './components/FriendsPanel';
 import AchievementsPanel from './components/AchievementsPanel';
 import AchievementToast from './components/AchievementToast';
 import {
@@ -43,7 +44,7 @@ interface Props {
   onCustomServer: (v: string | null) => void;
 }
 
-type Tab = 'profile' | 'stats' | 'achievements' | 'leaderboard';
+type Tab = 'profile' | 'friends' | 'stats' | 'achievements' | 'leaderboard';
 type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans';
 
 // Preferans (Stage 19.6) has stats + leaderboard sub-tabs. It is intentionally NOT
@@ -197,6 +198,7 @@ export default function ProfileMenu({
 
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'profile', label: t('account.title') },
+    { key: 'friends', label: t('friends.title') },
     { key: 'stats', label: t('stats.myStats') },
     { key: 'achievements', label: t('profile.achievements') },
     { key: 'leaderboard', label: t('stats.leaderboard') },
@@ -261,6 +263,9 @@ export default function ProfileMenu({
             defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer}
             favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame}
             customServer={customServer} onCustomServer={onCustomServer} />
+        )}
+        {tab === 'friends' && (
+          <FriendsPanel base={account.base} signedIn={account.signedIn} />
         )}
         {tab === 'stats' && (
               <>

@@ -34,7 +34,9 @@ import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled, probeDbState } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
-import { attachPresence, detachPresence } from './friendsPresence';
+import { attachPresence, detachPresence, isOnline, presenceSocketsFor } from './friendsPresence';
+import { allowFriendInvite } from './friendsRateLimit';
+import { verifyFriendInvite } from '../src/net/friendInvite';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
 import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
@@ -278,6 +280,48 @@ function broadcastState(room: ServerRoom): void {
   for (const m of room.members.values()) {
     send(socketOf(m), { t: 'STATE_UPDATE', state: sanitizedStateFor(room, m.clientId) });
   }
+}
+
+// ── friends: room invite + presence push (Stage 25.2) ────────────────────────
+
+/**
+ * Handle a FRIEND_INVITE from an authenticated socket: verify the sender is in a room and
+ * an accepted friend of an ONLINE target, then deliver FRIEND_INVITE_RECEIVED to the
+ * target's live sockets. The room code is the SENDER's own room (never a client value).
+ * Best-effort + rate-limited; carries no email/token/session. Fails silently.
+ */
+async function deliverFriendInvite(senderUserId: string | null, session: SessionRef, toUserId: unknown): Promise<void> {
+  if (!senderUserId || !isDbEnabled()) return;
+  if (!allowFriendInvite(senderUserId)) return;
+  const s = session.value;
+  const roomCode = s?.room.code ?? null;
+  let friends = false;
+  try {
+    const { areFriends } = await import('./db/friends');
+    friends = typeof toUserId === 'string' ? await areFriends(senderUserId, toUserId) : false;
+  } catch { return; }
+  const verdict = verifyFriendInvite({
+    senderUserId, senderRoomCode: roomCode, toUserId, areFriends: friends,
+    targetOnline: typeof toUserId === 'string' && isOnline(toUserId),
+  });
+  if (!verdict.ok || !s) return;
+  const fromName = s.room.members.get(s.clientId)?.name ?? 'A friend';
+  const payload: ServerMessage = {
+    t: 'FRIEND_INVITE_RECEIVED',
+    fromUserId: senderUserId, fromName, code: verdict.code, gameType: s.room.gameType, at: Date.now(),
+  };
+  for (const sock of presenceSocketsFor(verdict.toUserId)) send(sock as WebSocket, payload);
+}
+
+/** Push a FRIEND_PRESENCE update to a user's online friends (best-effort, DB-gated). */
+async function broadcastPresence(userId: string, online: boolean): Promise<void> {
+  if (!isDbEnabled()) return;
+  try {
+    const { friendUserIds } = await import('./db/friends');
+    const ids = await friendUserIds(userId);
+    const update: ServerMessage = { t: 'FRIEND_PRESENCE', updates: [{ userId, online }] };
+    for (const fid of ids) for (const sock of presenceSocketsFor(fid)) send(sock as WebSocket, update);
+  } catch { /* best-effort — presence is a nicety, never fatal */ }
 }
 
 /** Clears all server-driven timers for a room (advance / bot / human turn). */
@@ -586,9 +630,10 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   };
   void resolveSessionUserId(request).then(async (uid) => {
     resolvedUserId = uid;
-    // Friends presence (Stage 25.1): a signed-in socket makes that user "online" on this
-    // instance (in-memory only; no room/gameplay effect). Detached on close below.
-    if (uid) attachPresence(uid, socket);
+    // Friends presence (Stage 25.1/25.2): a signed-in socket makes that user "online" on
+    // this instance (in-memory; no room/gameplay effect). On the offline→online transition,
+    // push a FRIEND_PRESENCE to their online friends. Detached on close below.
+    if (uid && attachPresence(uid, socket)) void broadcastPresence(uid, true);
     attachIdentity();
     // Then fetch the avatar URL (DB, once) and, if present, stamp + re-broadcast so
     // seats that were already rendered pick up the image a beat later.
@@ -599,8 +644,11 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     }
   });
   // Presence detach runs on close REGARDLESS of room membership (a signed-in socket may
-  // be open for presence without being seated in a room).
-  socket.on('close', () => { if (resolvedUserId) detachPresence(resolvedUserId, socket); });
+  // be open for presence without being seated in a room). On the online→offline transition,
+  // push a FRIEND_PRESENCE(offline) to their online friends.
+  socket.on('close', () => {
+    if (resolvedUserId && detachPresence(resolvedUserId, socket)) void broadcastPresence(resolvedUserId, false);
+  });
 
   socket.on('message', (raw) => {
     let msg: ClientMessage;
@@ -609,6 +657,9 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     } catch {
       return sendError(socket, 'BAD_MESSAGE', 'Invalid JSON');
     }
+    // Friends (Stage 25.2): a room invite is handled here (it needs the socket's resolved
+    // userId + presence, which the room dispatch doesn't carry). Everything else → dispatch.
+    if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(resolvedUserId, sessionRef, msg.toUserId); return; }
     handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter);
   });
 

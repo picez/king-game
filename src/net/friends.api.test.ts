@@ -79,9 +79,13 @@ describe('friends — privacy + boundary source guards', () => {
     expect(fn).toContain('addressee_id = ${userId}');
   });
 
-  it('NO voice WS messages exist yet, and no friend WS invite in 25.1', () => {
-    expect(messages).not.toMatch(/VOICE_/);
-    expect(messages).not.toMatch(/FRIEND_INVITE|FRIEND_PRESENCE/);
+  it('NO voice WS messages exist yet; friend invite/presence WS messages carry no secrets', () => {
+    expect(messages).not.toMatch(/VOICE_/); // voice is 25.3+
+    // Friends WS (25.2) exists but FRIEND_INVITE_RECEIVED carries only public routing fields.
+    expect(messages).toContain('FRIEND_INVITE');
+    expect(messages).toContain('FRIEND_PRESENCE');
+    const block = messages.slice(messages.indexOf('FRIEND_INVITE_RECEIVED'), messages.indexOf('FRIEND_INVITE_RECEIVED') + 220);
+    expect(block).not.toMatch(/email|token|session|reconnect|password/i);
   });
 
   it('migration 0009 has the friend_code unique, status check, self-check, PK, and both indexes', () => {

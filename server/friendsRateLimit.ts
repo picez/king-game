@@ -32,9 +32,29 @@ export function allowFriendRequest(userId: string, now: number = Date.now()): bo
   return true;
 }
 
+// ── room-invite limiter (Stage 25.2): tighter window, own bucket ──────────────
+const INVITE_WINDOW_MS = 60 * 1000; // 1 minute
+const INVITE_MAX = 10;              // 10 room invites / minute / user
+const inviteHits = new Map<string, number[]>();
+
+/** Records a friend room-invite attempt for `userId`; returns whether it is allowed. */
+export function allowFriendInvite(userId: string, now: number = Date.now()): boolean {
+  if (inviteHits.size > MAX_TRACKED_USERS) {
+    const cutoff = now - INVITE_WINDOW_MS;
+    for (const [k, times] of inviteHits) if (times.length === 0 || times[times.length - 1] <= cutoff) inviteHits.delete(k);
+  }
+  const cutoff = now - INVITE_WINDOW_MS;
+  const recent = (inviteHits.get(userId) ?? []).filter((t) => t > cutoff);
+  if (recent.length >= INVITE_MAX) { inviteHits.set(userId, recent); return false; }
+  recent.push(now);
+  inviteHits.set(userId, recent);
+  return true;
+}
+
 /** Test/maintenance hook: forget all recorded attempts. */
 export function resetFriendRateLimit(): void {
   hits.clear();
+  inviteHits.clear();
 }
 
-export const FRIEND_RATE_LIMIT = { WINDOW_MS, MAX_PER_WINDOW } as const;
+export const FRIEND_RATE_LIMIT = { WINDOW_MS, MAX_PER_WINDOW, INVITE_WINDOW_MS, INVITE_MAX } as const;

@@ -48,6 +48,11 @@ export function isOnline(userId: string): boolean {
   return (sockets.get(userId)?.size ?? 0) > 0;
 }
 
+/** The user's live sockets (to deliver a friend invite / presence push). Empty if offline. */
+export function presenceSocketsFor(userId: string): SocketKey[] {
+  return [...(sockets.get(userId) ?? [])];
+}
+
 /** Filter a list of userIds down to those currently online (for a presence snapshot). */
 export function onlineAmong(userIds: readonly string[]): string[] {
   return userIds.filter(isOnline);

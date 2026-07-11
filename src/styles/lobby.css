@@ -335,6 +335,55 @@
 .avatar-row__picker .avatar-group__title { text-transform: none; letter-spacing: 0; }
 .sound-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .sound-preview .field__hint { margin: 0; }
+/* ===== Friends panel (Stage 25.2) ===== */
+.friends-panel { display: flex; flex-direction: column; gap: 0.7rem; }
+.friends-guest { margin: 0.5rem 0; }
+.friends-code {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem;
+  padding: 0.5rem 0.6rem; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);
+}
+.friends-code__label { font-size: 0.78rem; color: var(--text-muted); }
+.friends-code__value { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 800; letter-spacing: 0.03em; color: var(--text); }
+.friends-add { display: flex; gap: 0.5rem; }
+.friends-add .input { flex: 1 1 auto; min-width: 0; }
+.friends-add__msg { margin: -0.2rem 0 0; }
+.friends-section { display: flex; flex-direction: column; gap: 0.35rem; }
+.friends-section__head { margin: 0.2rem 0 0.1rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 700; }
+.friend-row {
+  display: flex; align-items: center; gap: 0.55rem; min-width: 0;
+  padding: 0.4rem 0.5rem; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border);
+}
+.friend-row--offline { opacity: 0.72; }
+.friend-avatar {
+  flex: 0 0 auto; width: 2rem; height: 2rem; border-radius: 50%; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.friend-row__name { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-row__dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; }
+.friend-row__dot.is-online { background: var(--success-light, #46c95f); opacity: 1; }
+.friend-row__actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.35rem; }
+.friend-row__actions .btn { min-height: var(--tap-min); }
+.friend-row__invited { font-size: 0.8rem; color: var(--success-light, #46c95f); font-weight: 700; }
+.friend-row__pending-tag { margin: 0; }
+
+/* Lobby "Invite friends" collapsible (only when signed in). */
+.lobby-friends { margin: 0.6rem auto 0; width: min(94vw, 32rem); }
+.lobby-friends__summary { cursor: pointer; font-weight: 700; padding: 0.5rem 0.2rem; min-height: var(--tap-min); }
+
+/* Friend invite received — a top toast; pointer-events on the pill only, clears the notch. */
+.friend-invite-toast {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 0.4rem); left: 50%; transform: translateX(-50%);
+  z-index: 70; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: center;
+  max-width: min(94vw, 32rem); box-sizing: border-box; padding: 0.5rem 0.8rem; border-radius: 0.8rem;
+  background: var(--surface, #143a24); border: 1px solid var(--accent-light); box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.friend-invite-toast__text { font-size: 0.85rem; color: var(--text); min-width: 0; }
+.friend-invite-toast__text code { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 800; }
+.friend-invite-toast__actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+.friend-invite-toast__actions .btn { min-height: var(--tap-min); }
+
 .avatar-error { margin: 0.3rem 0 0; }
 /* The safe error code (e.g. server_timeout) — small, muted, so a stuck user can report
    the exact reason without it dominating the message. */

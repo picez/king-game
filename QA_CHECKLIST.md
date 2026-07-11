@@ -625,7 +625,26 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
       block); total sound payload stays under budget (< 500 KB).
 
-## Manual — Friends backend (Stage 25.1, needs Postgres; no UI yet)
+## Manual — Friends UI + room invites (Stage 25.2, needs Postgres + a signed-in account)
+
+> Two signed-in Google sessions (A + B) on a migrated Postgres. Guests see a sign-in CTA
+> (no API calls). No email is ever shown; the invite carries only a room code + display name.
+
+- [ ] Profile → **Friends** tab: your **friend code** (`CM-XXXX-XXXX`) + **Copy**; **Add** by
+      B's code → B sees an **incoming request**; B taps **Accept** → both show each other under
+      **Friends**, **online friends first** (green dot), offline below.
+- [ ] Host an online room as A while both are online → A's Lobby **"👥 Friends"** shows B with
+      **Invite**; tap it → B (in a room/lobby) gets a **"A invited you to a game · ABCD"** toast
+      with **Join / Dismiss**. **Join** opens the Join sheet **prefilled** with `ABCD` (never
+      auto-joins); **Dismiss** clears it. Rapid invites are rate-limited.
+- [ ] **Presence:** when B closes their tab, A's Friends list shows B **offline** on refresh /
+      the next FRIEND_PRESENCE push.
+- [ ] **Guest / privacy:** a guest sees the sign-in CTA only; no request/invite payload contains
+      an email, token, or session; the invite works only between accepted friends who are online.
+- [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab + the invite toast don't overflow and
+      the toast never covers the hand/actions.
+
+## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 
 > Backend foundation only (DB/API/presence) — the Friends **UI** lands in 25.2. Requires a
 > migrated Postgres (through `0009_friends.sql`) + a signed-in Google session cookie. Guests

@@ -37,7 +37,7 @@ online friend straight into their current room — reusing the existing invite/j
 | Stage | Scope |
 |------|-------|
 | **25.1** ✅ **DONE** | Friends **DB + API + presence backend** — migration `0009_friends.sql` (friend_code + friendships), repo `server/db/friends.ts`, `/api/friends` · `/request` · `/accept` · `/decline` · DELETE `/:userId` (signed-in only), in-memory `server/friendsPresence.ts` attached on the authed WS lifecycle, pure `src/net/friendCode.ts`, client `src/net/friendsApi.ts`, rate limit `server/friendsRateLimit.ts`. No UI, **no WS friend/voice messages yet** (`FRIEND_PRESENCE`/`FRIEND_INVITE` land in 25.2). |
-| **25.2** | Friends **UI + room invite** (Profile Friends tab, add-by-code, accept/decline, online-first list, "Invite to room" → WS `FRIEND_INVITE` → existing Join flow). |
+| **25.2** ✅ **DONE** | Friends **UI + room invite** — Profile **Friends tab** (`FriendsPanel`: code+Copy, add-by-code, accept/decline, online-first list, Remove), guest CTA. Room invite: WS **`FRIEND_INVITE`** (client→server, verified: authed + in-room + `areFriends` + target online, rate-limited) → **`FRIEND_INVITE_RECEIVED`** toast (Join reuses the `?room=CODE` flow — never auto-joins) → **`FRIEND_PRESENCE`** push on connect/disconnect. Invite surface = the Lobby's collapsible Friends panel (signed-in). Code is the sender's OWN room (never a client value); no email/token on the wire. |
 | 25.3 | Voice **signaling WS protocol** (see [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md)). |
 | 25.4 | Voice **WebRTC UI**. |
 | **25.5** | **Production hardening** (rate limits, presence cleanup, abuse guards, block MVP, docs/smoke) — spans both features. |

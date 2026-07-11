@@ -43,7 +43,7 @@ const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', '
 interface Props {
   /** Start a local game of the selected type (King unchanged; Durak prototype). */
   onLocal: (gameType: GameType) => void;
-  onOnline: (url: string, intent: OnlineIntent) => void;
+  onOnline: (url: string, intent: OnlineIntent, signedIn?: boolean) => void;
   /** A join error carried back from a failed attempt (highlights the field). */
   initialError?: ErrorCode | null;
 }
@@ -89,6 +89,8 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   const account = useAccount(url, customServer);
   const roomList = useRoomList();
+  // Carry the signed-in flag into the online flow (enables the Friends invite panel).
+  const onOnlineWithAuth = (u: string, intent: OnlineIntent) => onOnline(u, intent, account.signedIn);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [needPassword, setNeedPassword] = useState(initialError === 'BAD_PASSWORD');
   // Client-only room-browser view controls (never touches the server payload).
@@ -174,7 +176,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
 
   function resume() {
     if (!resumable) return;
-    onOnline(resumable.serverUrl, {
+    onOnlineWithAuth(resumable.serverUrl, {
       kind: 'resume', code: resumable.roomCode,
       reconnectToken: resumable.reconnectToken, name: resumable.playerName,
     });
@@ -187,7 +189,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     if (!GAME_CATALOG[gameType].supportsOnline) return;
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
-    onOnline(url.trim(), {
+    onOnlineWithAuth(url.trim(), {
       kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize } : {}),
@@ -202,7 +204,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     if (!name.trim() || !url.trim() || code.trim().length < 4) return;
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
-    onOnline(url.trim(), {
+    onOnlineWithAuth(url.trim(), {
       kind: 'join', code: code.trim().toUpperCase(), name: name.trim(), avatar,
       ...(pw ? { password: pw } : {}),
     });
@@ -225,7 +227,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     setNeedPassword(false);
     if (!name.trim() || !url.trim()) return;
     saveNickname(name); saveAvatar(avatar);
-    onOnline(url.trim(), { kind: 'join', code: room.code, name: name.trim(), avatar });
+    onOnlineWithAuth(url.trim(), { kind: 'join', code: room.code, name: name.trim(), avatar });
   }
 
   return (

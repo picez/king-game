@@ -322,10 +322,11 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
 2. Add join/create **rate limiting** before any broader public launch.
    - **Social roadmap (designed, Stage 25.0; staged 25.1–25.5):**
-     [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md) — **25.1 backend DONE** (migration 0009 friend_code +
-     friendships, `/api/friends/*` signed-in routes, in-memory presence, add-by-friend-code, no
-     email exposure; **no UI yet** — 25.2). Persistent friends + presence + invite an online
-     friend to your room. And
+     [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md) — **25.1 + 25.2 DONE**: migration 0009 friend_code +
+     friendships, `/api/friends/*` signed-in routes, in-memory presence; **Profile Friends tab**
+     (code/add-by-code/accept/decline/online-first) + **room invites** (WS FRIEND_INVITE →
+     FRIEND_INVITE_RECEIVED toast reusing the `?room=` Join flow, FRIEND_PRESENCE push). Add-by-
+     friend-code, no email exposure. Voice = 25.3+. And
      [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) (opt-in, room-scoped **WebRTC mesh** voice over
      the existing WS as signaling; STUN-only MVP; no recording/DB; graceful text-chat fallback).
 3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)

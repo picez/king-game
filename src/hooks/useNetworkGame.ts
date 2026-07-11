@@ -68,7 +68,17 @@ export interface NetworkGame {
   /** A transient rate-limit / blocked notice for a small toast, or null. */
   socialNotice: SocialNotice | null;
   clearSocialNotice: () => void;
+  /** Friends (Stage 25.2): invite an online friend to THIS room. */
+  sendFriendInvite: (toUserId: string) => void;
+  /** A friend invite this client just received (Join/Dismiss toast), or null. */
+  friendInvite: FriendInvite | null;
+  dismissFriendInvite: () => void;
+  /** Bumped on every FRIEND_PRESENCE push so a friends list can re-fetch live. */
+  presenceNonce: number;
 }
+
+/** A received friend room-invite (public routing fields only — no email/token). */
+export interface FriendInvite { fromUserId: string; fromName: string; code: string; gameType: string; at: number; }
 
 const RECONNECT_DELAY_MS = 1500;
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -88,6 +98,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
+  const [friendInvite, setFriendInvite] = useState<FriendInvite | null>(null);
+  const [presenceNonce, setPresenceNonce] = useState(0);
   const reactionKeyRef = useRef(0);
 
   const transportRef = useRef<WebSocketTransport | null>(null);
@@ -178,6 +190,15 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
       }
       case 'CHAT_HISTORY': {
         setChat(msg.messages.slice(-100));
+        break;
+      }
+      case 'FRIEND_INVITE_RECEIVED': {
+        // Show a Join/Dismiss toast (never auto-join). Public routing fields only.
+        setFriendInvite({ fromUserId: msg.fromUserId, fromName: msg.fromName, code: msg.code, gameType: msg.gameType, at: msg.at });
+        break;
+      }
+      case 'FRIEND_PRESENCE': {
+        setPresenceNonce((n) => n + 1); // nudge any open friends list to re-fetch
         break;
       }
       case 'ERROR': {
@@ -290,6 +311,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const sendReaction = useCallback((emoji: string) => send({ t: 'SEND_REACTION', emoji }), [send]);
   const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
+  const sendFriendInvite = useCallback((toUserId: string) => send({ t: 'FRIEND_INVITE', toUserId }), [send]);
   const clearSocialNotice = useCallback(() => setSocialNotice(null), []);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
@@ -319,5 +341,6 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
+    sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
   };
 }
