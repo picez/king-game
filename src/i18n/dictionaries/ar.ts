@@ -544,6 +544,7 @@ export const AR: Record<string, string> = {
   'account.signInUnavailable': 'هذا الخادم لا يوفّر تسجيل الدخول — أنت تلعب محليًا. ملفك الشخصي محفوظ على هذا الجهاز.',
   'account.serverUnreachable': 'تعذّر الوصول إلى خادم اللعبة.',
   'account.serverBusy': 'خدمة الملف الشخصي غير متاحة مؤقتًا. يُرجى المحاولة مرة أخرى بعد لحظات.',
+  'account.migrationRequired': 'قاعدة بيانات الخادم بحاجة إلى تحديث. شغّل الترحيلات ثم أعد المحاولة.',
   'account.retry': 'إعادة المحاولة',
   'account.useDefaultServer': 'استخدام الخادم الافتراضي',
   'account.diagnostics': 'تشخيص الاتصال',

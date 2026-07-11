@@ -19,7 +19,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { isDbEnabled } from './db/client';
+import { isDbEnabled, classifyDbError } from './db/client';
 import {
   generateSessionToken, hashSessionToken, sessionTtlSeconds, hashIp,
 } from './sessionTokens';
@@ -241,6 +241,13 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
     }, corsHeaders(req));
   } catch (err) {
     logDbBrief('GET /api/me', err);
+    // A SCHEMA drift (missing migration) must NOT be masked as a guest: OAuth would
+    // succeed but the profile still couldn't be read. Surface a safe `migration_required`
+    // so the UI tells the operator to run migrations. A TRANSIENT DB error still degrades
+    // to a guest (Stage 24.3), so a Postgres blip never traps the UI.
+    if (classifyDbError(err) === 'migration_required') {
+      return json(res, 503, { error: 'migration_required', message: 'The server database needs a schema update (run migrations).' }, corsHeaders(req));
+    }
     json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
   }
 }
@@ -739,9 +746,13 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   } catch (err) {
     // A DB hiccup (e.g. unreachable Postgres) must not crash the process or leak
     // details. `/api/me` degrades to a guest above; the remaining (session-required)
-    // routes return a SAFE `db_error` code (no SQL / params / credentials) that the
-    // client shows as "temporarily unavailable — retry", not "server unreachable".
+    // routes return a SAFE code (no SQL / params / credentials): `migration_required`
+    // for a schema drift (run migrations), else `db_error` ("temporarily unavailable").
     logDbBrief(`${method} ${path}`, err);
-    json(res, 503, { error: 'db_error', message: 'The profile service is temporarily unavailable.' }, corsHeaders(req));
+    const code = classifyDbError(err);
+    const message = code === 'migration_required'
+      ? 'The server database needs a schema update (run migrations).'
+      : 'The profile service is temporarily unavailable.';
+    json(res, 503, { error: code, message }, corsHeaders(req));
   }
 }

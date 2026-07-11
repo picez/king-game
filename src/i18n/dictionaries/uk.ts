@@ -544,6 +544,7 @@ export const UK: Record<string, string> = {
   'account.signInUnavailable': 'Цей сервер не пропонує вхід — ви граєте локально. Профіль збережено на цьому пристрої.',
   'account.serverUnreachable': 'Не вдається зʼєднатися з ігровим сервером.',
   'account.serverBusy': 'Сервіс профілю тимчасово недоступний. Спробуйте ще раз за мить.',
+  'account.migrationRequired': 'Базі даних сервера потрібне оновлення. Застосуйте міграції, тоді повторіть.',
   'account.retry': 'Повторити',
   'account.useDefaultServer': 'Стандартний сервер',
   'account.diagnostics': 'Діагностика зʼєднання',

@@ -43,6 +43,14 @@ describe('fetchMe — classified probe (server-down vs sign-in-off vs signed-in)
     expect(p.code).toBe('db_error');
   });
 
+  it('503 migration_required → server REACHABLE (up, schema behind) so the UI explains + retries', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(503, { error: 'migration_required' })));
+    const p = await fetchMe('http://x');
+    expect(p.serverReachable).toBe(true);   // the server answered — the DB just needs migrations
+    expect(p.authAvailable).toBe(false);    // sign-in would still fail to read the profile
+    expect(p.code).toBe('migration_required');
+  });
+
   it('carries a debug-safe endpoint + null code on a clean 200', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => resp(200, { authenticated: false, user: null })));
     const p = await fetchMe('http://x');

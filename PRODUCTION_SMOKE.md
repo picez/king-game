@@ -39,13 +39,17 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
       (`db` is `disabled` without Postgres; it probes Postgres when `DATABASE_URL` is set).
 - [ ] `curl -s $HOST/health/diagnostics` → a safe operational snapshot (Stage 24.0):
       `status`, `version` + short `commit` (if the build env sets `RENDER_GIT_COMMIT`),
-      `uptime`, `db: enabled|disabled|error`, `rooms {total,open,inGame}`, `connections`,
-      `games {count,ids}`, and `avatarUploads {status,reason,ffmpeg,database}`. Confirms the
-      build/commit, room + socket load, and avatar readiness at a glance. `db:error` = a
-      configured DB whose `select 1` probe failed (see RENDER_DEPLOY db_error troubleshooting;
-      `/api/me` still degrades to a guest so the Profile isn't trapped). **Privacy:** it
-      carries only aggregate counts / booleans / the public game ids — **no** user/room/
-      session/email/token/chat/card data (one cheap `select 1` DB probe; nothing else).
+      `uptime`, `db: enabled|disabled|error|migration_required`, `rooms {total,open,inGame}`,
+      `connections`, `games {count,ids}`, and `avatarUploads {status,reason,ffmpeg,database}`.
+      Confirms the build/commit, room + socket load, and avatar readiness at a glance.
+      `db:error` = a configured DB whose probe failed; `db:migration_required` = reachable but
+      a required `user_settings` column is missing → **run `npm run db:migrate`** (see
+      RENDER_DEPLOY). Either way `/api/me` never traps the Profile. **Privacy:** aggregate
+      counts / booleans / public game ids only — **no** user/room/session/email/token/chat/card
+      (one cheap `select 1` + `information_schema` column check, cached ~30 s).
+- [ ] `curl -s $HOST/api/me` → **`200 {"authenticated":false}`** before login. If it is
+      **`503 {"error":"migration_required"}`**, run `npm run db:migrate` (Render Shell / Job);
+      `503 {"error":"db_error"}` is a transient Postgres blip — retry.
 
 ## 3. Static app + game catalog
 

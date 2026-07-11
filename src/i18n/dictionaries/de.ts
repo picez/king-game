@@ -544,6 +544,7 @@ export const DE: Record<string, string> = {
   'account.signInUnavailable': 'Dieser Server bietet keine Anmeldung — du spielst lokal. Dein Profil wird auf diesem Gerät gespeichert.',
   'account.serverUnreachable': 'Spielserver nicht erreichbar.',
   'account.serverBusy': 'Der Profildienst ist vorübergehend nicht verfügbar. Bitte versuche es gleich noch einmal.',
+  'account.migrationRequired': 'Die Server-Datenbank benötigt ein Update. Führe die Migrationen aus und versuche es erneut.',
   'account.retry': 'Erneut versuchen',
   'account.useDefaultServer': 'Standardserver verwenden',
   'account.diagnostics': 'Verbindungsdiagnose',

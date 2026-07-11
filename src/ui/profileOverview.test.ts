@@ -125,18 +125,22 @@ describe('Account auth controls + recovery (no dead-end)', () => {
     expect(account).toContain('sameOrigin:');
   });
 
-  it('distinguishes a transient db_error (busy, retry) from unreachable / sign-in-off', () => {
-    // db_error → serverReachable is true, so a plain serverReachable check would wrongly
-    // say "no sign-in here"; the panel must branch on the code to show a "busy" message.
+  it('distinguishes db_error (busy) AND migration_required from unreachable / sign-in-off', () => {
+    // Both codes keep serverReachable true, so a plain serverReachable check would wrongly
+    // say "no sign-in here"; the panel must branch on the code for the right message.
+    expect(panel).toMatch(/account\.diagnostics\.code === 'migration_required'[\s\S]*?t\('account\.migrationRequired'\)/);
     expect(panel).toMatch(/account\.diagnostics\.code === 'db_error'[\s\S]*?t\('account\.serverBusy'\)/);
-    expect(read('src/net/profileApi.ts')).toMatch(/code === 'db_disabled' \|\| code === 'db_error'/);
+    expect(read('src/net/profileApi.ts')).toMatch(/'db_disabled' \|\| code === 'db_error' \|\| code === 'migration_required'/);
   });
 
-  it('/api/me degrades to a guest on a DB error (never a hard 503 that traps the UI)', () => {
+  it('/api/me: transient error → guest; schema drift → 503 migration_required (not masked)', () => {
     const api = read('server/api.ts');
-    // handleMe wraps its body and, on any DB throw, answers 200 { authenticated:false }.
-    const me = api.slice(api.indexOf('async function handleMe'), api.indexOf('async function handleMe') + 1600);
-    expect(me).toMatch(/try \{[\s\S]*\} catch \(err\) \{[\s\S]*authenticated: false[\s\S]*\}/);
+    const me = api.slice(api.indexOf('async function handleMe'), api.indexOf('async function handleMe') + 1900);
+    // Schema drift must NOT be masked as a guest — it returns a safe migration_required code.
+    expect(me).toMatch(/classifyDbError\(err\) === 'migration_required'/);
+    expect(me).toMatch(/error: 'migration_required'/);
+    // A transient DB error still degrades to a guest (never a hard 503 that traps the UI).
+    expect(me).toContain('authenticated: false');
     expect(me).toContain('logDbBrief');
   });
 
@@ -226,7 +230,8 @@ describe('i18n parity for the new profile keys', () => {
     'profile.statusSynced', 'profile.statusGuest', 'profile.statusLocal',
     'profile.localPrefsNote',
     'account.checking', 'account.signInUnavailable',
-    'account.serverUnreachable', 'account.serverBusy', 'account.retry', 'account.useDefaultServer',
+    'account.serverUnreachable', 'account.serverBusy', 'account.migrationRequired',
+    'account.retry', 'account.useDefaultServer',
     'account.diagnostics', 'account.copyDiagnostics', 'account.copied', 'account.trySignIn',
   ];
   for (const lang of ['en', 'uk', 'de', 'ar']) {

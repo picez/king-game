@@ -64,6 +64,59 @@ export async function checkDbHealth(): Promise<DbHealth> {
   }
 }
 
+/**
+ * Classify a DB error for a SAFE client code (no SQL / params / secrets):
+ *   • 42703 undefined_column / 42P01 undefined_relation → the DB is reachable but its
+ *     SCHEMA is behind the code (missing migrations) → 'migration_required';
+ *   • anything else (connection drop, timeout, …) → 'db_error' (transient).
+ * Postgres.js attaches the SQLSTATE as `err.code`.
+ */
+export function classifyDbError(err: unknown): 'migration_required' | 'db_error' {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === '42703' || code === '42P01' ? 'migration_required' : 'db_error';
+}
+
+/** Columns the profile reader (`getProfile`) needs — added by migrations 0005–0008.
+ *  A production DB missing any of these throws 42703 on GET /api/me. */
+export const REQUIRED_USER_SETTINGS_COLUMNS = [
+  'animation_preference', 'favorite_game', 'card_face_theme', 'avatar_image_version',
+] as const;
+
+// Short-TTL cache so repeated /health/diagnostics calls don't probe the schema each time.
+const SCHEMA_PROBE_TTL_MS = 30_000;
+let dbStateCache: { state: 'enabled' | 'disabled' | 'error' | 'migration_required'; at: number } | null = null;
+
+/**
+ * Resolve the DB state for diagnostics: 'disabled' (no URL) / 'error' (`select 1` failed)
+ * / 'migration_required' (up but a required user_settings column is missing) / 'enabled'.
+ * A cheap `information_schema` lookup, cached for {@link SCHEMA_PROBE_TTL_MS}. Never throws.
+ */
+export async function probeDbState(
+  now: number,
+): Promise<'enabled' | 'disabled' | 'error' | 'migration_required'> {
+  if (!isDbEnabled()) return 'disabled';
+  if (dbStateCache && now - dbStateCache.at < SCHEMA_PROBE_TTL_MS) return dbStateCache.state;
+  let state: 'enabled' | 'disabled' | 'error' | 'migration_required';
+  try {
+    const conn = await getDb();
+    if (!conn) {
+      state = 'disabled';
+    } else {
+      await conn.sql`select 1`;
+      const rows = (await conn.sql`
+        select column_name from information_schema.columns
+        where table_name = 'user_settings'
+          and column_name = any(${REQUIRED_USER_SETTINGS_COLUMNS as unknown as string[]})
+      `) as unknown as Array<{ column_name: string }>;
+      state = rows.length >= REQUIRED_USER_SETTINGS_COLUMNS.length ? 'enabled' : 'migration_required';
+    }
+  } catch {
+    state = 'error';
+  }
+  dbStateCache = { state, at: now };
+  return state;
+}
+
 /** Closes the pooled connection (for graceful shutdown / scripts). */
 export async function closeDb(): Promise<void> {
   if (!cached) return;

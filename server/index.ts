@@ -32,7 +32,7 @@ import {
 } from '../src/net/serverCore';
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
-import { isDbEnabled, checkDbHealth } from './db/client';
+import { isDbEnabled, probeDbState } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
@@ -492,10 +492,11 @@ const httpServer = createServer((req, res) => {
       connections: sockets.size,
     });
     void (async () => {
-      const db: DbState = !isDbEnabled() ? 'disabled'
-        : (await checkDbHealth()).state === 'ok' ? 'enabled' : 'error';
+      // Cheap, short-TTL-cached probe: select 1 + a required-columns check on
+      // user_settings → enabled / disabled / error / migration_required.
+      const db: DbState = await probeDbState(Date.now());
       emit(db);
-    })().catch(() => emit(isDbEnabled() ? 'error' : 'disabled')); // checkDbHealth never throws
+    })().catch(() => emit(isDbEnabled() ? 'error' : 'disabled')); // probeDbState never throws
     return;
   }
   if (path === '/health') {

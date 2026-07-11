@@ -43,8 +43,9 @@ export function availableGameIds(): string[] {
   return GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available');
 }
 
-/** Resolved database state: no DATABASE_URL / a healthy probe / a failing probe. */
-export type DbState = 'enabled' | 'disabled' | 'error';
+/** Resolved database state: no DATABASE_URL / healthy / a failing probe / reachable but
+ *  behind on migrations (required columns missing). */
+export type DbState = 'enabled' | 'disabled' | 'error' | 'migration_required';
 
 export interface DiagnosticsInput {
   version: string | null;

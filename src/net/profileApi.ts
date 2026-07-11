@@ -127,11 +127,13 @@ export async function fetchMe(base: string): Promise<MeProbe> {
   // Only a clean `503 db_disabled` counts as "up but sign-in off". A network failure
   // (status 0) or any other error status (500/502/504 from a crashed app or proxy) is
   // treated as UNREACHABLE so the user gets Retry rather than a misleading message.
-  // The server ANSWERED (it is up) for a deliberate `db_disabled` OR a transient
-  // `db_error` (Postgres blip) — both keep serverReachable true so the UI shows a
-  // helpful message + Retry, not "server unreachable". Only a network failure (status 0)
-  // or a raw 5xx without a known code is treated as truly unreachable.
-  const serverUp = status === 503 && (code === 'db_disabled' || code === 'db_error');
+  // The server ANSWERED (it is up) for a known 503 code — `db_disabled` (no sign-in
+  // here), `db_error` (transient Postgres blip), or `migration_required` (schema behind
+  // the code). All keep serverReachable true so the UI shows a helpful message + Retry,
+  // not "server unreachable". Only a network failure (status 0) or a raw 5xx without a
+  // known code is treated as truly unreachable.
+  const serverUp = status === 503
+    && (code === 'db_disabled' || code === 'db_error' || code === 'migration_required');
   return { me: null, serverReachable: serverUp, authAvailable: false, status, code, endpoint };
 }
 

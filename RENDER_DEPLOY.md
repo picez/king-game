@@ -196,22 +196,45 @@ API** and **guest sessions** on the same port — no extra service. Add:
   rooms work. Migrations are idempotent — see the room-storage note above for
   running `npm run db:migrate` (a release step or one-off Job).
 
+#### Troubleshooting: Profile shows `/api/me -> 503 (migration_required)`
+
+`migration_required` means the database is **reachable but its schema is behind the code**
+— a required `user_settings` column is missing (added by migrations **0005** `animation_preference`,
+**0006** `favorite_game`, **0007** `card_face_theme`, **0008** `avatar_image_version`), so the
+profile read throws Postgres `42703 undefined_column`. **Fix it by running the migrations** —
+they are **idempotent** (`ADD COLUMN IF NOT EXISTS`), so re-running is safe:
+
+```bash
+# Render → your Web Service → "Shell" (or a one-off Job), with DATABASE_URL in the env:
+npm run db:migrate
+```
+
+Docker vs native runtime does **not** matter — `db:migrate` only needs `DATABASE_URL`. Confirm
+with `curl -s $HOST/health/diagnostics` → `"db":"enabled"` and `curl -s $HOST/api/me` → `200
+{"authenticated":false}`. To avoid this after every schema change, make migrations part of the
+**Start Command** (`npm run db:migrate && npm run server:prod`) or a release step. Until fixed,
+`/api/me` returns the safe `migration_required` code (it does **not** pretend you're a signed-in
+guest, because a Google sign-in would still fail to read the profile).
+
 #### Troubleshooting: Profile shows a connection error / `/api/me -> 503 (db_error)`
 
 `db_error` means the server is **up and same-origin**, but a profile/session query
 hit the database and failed — the frontend, CORS, custom server, and PWA are **not**
 the cause (the in-app **Copy diagnostics** button confirms `Origin: … (same-origin)`).
 It is usually a **transient** Render free-tier Postgres event (cold-start after idle,
-a dropped pooled connection, or connection-limit pressure).
+a dropped pooled connection, or connection-limit pressure). Distinct from
+`migration_required` above (a schema drift), which needs `npm run db:migrate`.
 
 - **`GET /api/me` no longer hard-fails on this** — it degrades to `200 {"authenticated":false}`
   (the visitor is treated as a guest, so the Profile shows **Sign in**, not a dead-end);
   the real identity returns on the next probe once the DB is back. Session-required
   routes (`/api/settings`, stats) still answer a safe `503 db_error` ("temporarily
   unavailable — retry"). No SQL, params, credentials, or emails are ever logged/returned.
-- **Distinguish the cause** with `curl -s $HOST/health/diagnostics` → the `db` field is now
-  one of **`enabled`** (probe ok) / **`disabled`** (no `DATABASE_URL`) / **`error`** (probe
-  `select 1` failed). `error` → the DB is configured but unreachable/unhealthy right now.
+- **Distinguish the cause** with `curl -s $HOST/health/diagnostics` → the `db` field is one of
+  **`enabled`** (probe ok) / **`disabled`** (no `DATABASE_URL`) / **`error`** (probe `select 1`
+  failed → unreachable/unhealthy) / **`migration_required`** (reachable but a required
+  `user_settings` column is missing → run `npm run db:migrate`). The probe is cheap
+  (`select 1` + an `information_schema` column check) and cached for ~30 s.
 - **If `db` stays `error`:** check the Render **Postgres** instance is running and not
   suspended; confirm `DATABASE_URL` is present and correct (Render's *Internal* URL for a
   same-region service); ensure **migrations ran** (`npm run db:migrate`, idempotent) — a

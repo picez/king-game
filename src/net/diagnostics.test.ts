@@ -66,6 +66,14 @@ describe('buildDiagnostics — db + avatar readiness', () => {
     expect(d.avatarUploads.database).toBe(false); // an errored DB is not usable
   });
 
+  it('db MIGRATION_REQUIRED passes through, and disables avatar uploads (schema not usable)', () => {
+    const d = buildDiagnostics({ ...base, db: 'migration_required', ffmpegReady: true });
+    expect(d.db).toBe('migration_required');      // reachable but behind on migrations
+    expect(d.avatarUploads.database).toBe(false);
+    // No SQL / column names leak — the db field is a plain state string.
+    expect(JSON.stringify(d)).not.toMatch(/select|user_settings|column/i);
+  });
+
   it('avatar uploads ENABLED only with both db AND ffmpeg', () => {
     const d = buildDiagnostics({ ...base, db: 'enabled', ffmpegReady: true });
     expect(d.avatarUploads.status).toBe('enabled');
