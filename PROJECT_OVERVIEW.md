@@ -4,6 +4,9 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
+> **Release:** **v0.2.0** — five-game platform release (2026-07-11). See
+> [`CHANGELOG.md`](CHANGELOG.md); the running version is also at `GET /health/diagnostics`.
+
 > **Naming:** the product is **Card Majlis** (Stage 14.0 rebrand). "King" now names
 > only the *King game*. Internal ids stay legacy on purpose — package `king-card-game`,
 > `king.*`/`cardMajlis.*` localStorage keys, `game_type='king'`, the `[King]` server log

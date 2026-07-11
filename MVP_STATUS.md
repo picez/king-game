@@ -5,8 +5,9 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP.** Local pass-and-play and server-authoritative online play
-both work end-to-end. This file is the running feature list; for the concise
+**Status: stable MVP — release `v0.2.0`** (five-game platform release, 2026-07-11;
+see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
+online play both work end-to-end. This file is the running feature list; for the concise
 "what it is / how it fits together" start at [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
 
 - **Overview (start here):** [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)

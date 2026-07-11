@@ -6,6 +6,8 @@ upload are live — **without** reading the full deployment docs.
 
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+- Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.2.0`** (tag `v0.2.0`).
 
 Set your host once and reuse it below:
 
