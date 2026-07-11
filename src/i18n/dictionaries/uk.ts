@@ -541,7 +541,10 @@ export const UK: Record<string, string> = {
   'account.logout': 'Вийти',
   'account.signInCta': 'Увійдіть, щоб зберігати статистику на всіх пристроях.',
   'account.checking': 'Перевіряємо ваш акаунт…',
-  'account.signInUnavailable': 'Вхід зараз недоступний — не вдається зʼєднатися з ігровим сервером. Ви граєте локально; профіль збережено на цьому пристрої.',
+  'account.signInUnavailable': 'Цей сервер не пропонує вхід — ви граєте локально. Профіль збережено на цьому пристрої.',
+  'account.serverUnreachable': 'Не вдається зʼєднатися з ігровим сервером.',
+  'account.retry': 'Повторити',
+  'account.useDefaultServer': 'Стандартний сервер',
   'account.loginSuccess': 'Ви увійшли. Гостьовий прогрес збережено до акаунта.',
   'account.loginError': 'Не вдалося увійти. Спробуйте ще раз.',
   // ── room social (Stage 7) ──

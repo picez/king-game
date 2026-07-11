@@ -60,7 +60,7 @@ describe('Profile summary header (Stage 14.2)', () => {
   });
 });
 
-describe('Explicit auth controls are on the Profile screen (login/logout bugfix)', () => {
+describe('Account auth controls + recovery (no dead-end)', () => {
   const bar = read('src/ui/menu/AccountBar.tsx');
   const account = read('src/hooks/useAccount.ts');
 
@@ -69,9 +69,9 @@ describe('Explicit auth controls are on the Profile screen (login/logout bugfix)
     expect(panel).toContain('profile-account__row');
   });
 
-  it('a guest with a reachable API sees a real "Sign in with Google" action', () => {
-    // Uses the existing OAuth start URL from the account (full-page navigation).
-    expect(panel).toMatch(/account\.apiReachable[\s\S]*?href=\{account\.googleUrl\}/);
+  it('a guest on a sign-in-capable server sees a real "Sign in with Google" action', () => {
+    // Gated on authAvailable (a 200 from /api/me), NOT on the coarse old apiReachable.
+    expect(panel).toMatch(/account\.authAvailable\s*\?[\s\S]*?href=\{account\.googleUrl\}/);
     expect(panel).toContain("t('account.google')");
   });
 
@@ -81,27 +81,47 @@ describe('Explicit auth controls are on the Profile screen (login/logout bugfix)
     expect(panel).toContain("t('account.logout')");
   });
 
-  it('shows a clear note (not nothing) when sign-in is unavailable, and a neutral loading state', () => {
-    expect(panel).toContain("t('account.signInUnavailable')"); // API/DB down → explain, don't hide
-    expect(panel).toContain("t('account.checking')");          // first /api/me pending → neutral
+  it('the unavailable state is NOT a dead-end — it has Retry (+ reset when custom)', () => {
+    // Distinguish sign-in-off (reachable) from unreachable, and always offer recovery.
+    expect(panel).toContain('profile-account__recovery');
+    expect(panel).toMatch(/account\.serverReachable\s*\?\s*t\('account\.signInUnavailable'\)\s*:\s*t\('account\.serverUnreachable'\)/);
+    expect(panel).toContain("t('account.retry')");
+    expect(panel).toMatch(/account\.retry\(\)/);
+    // A one-tap reset to the default server when a custom one is set (no Advanced scroll).
+    expect(panel).toMatch(/customServer && \([\s\S]*?resetToDefaultServer/);
+    expect(panel).toContain("t('account.useDefaultServer')");
+    expect(panel).toContain("t('account.checking')");   // first /api/me pending → neutral
   });
 
-  it('useAccount exposes a loading flag so the UI never flashes Guest prematurely', () => {
+  it('useAccount splits the state (loading / serverReachable / authAvailable) + a retry', () => {
     expect(account).toMatch(/loading:\s*boolean/);
     expect(account).toContain('loading: !loaded');
+    expect(account).toMatch(/serverReachable:\s*boolean/);
+    expect(account).toMatch(/authAvailable:\s*boolean/);
+    expect(account).toMatch(/retry:\s*\(\)\s*=>\s*void/);
+    // apiReachable is kept as a back-compat alias of authAvailable (a 200 response).
+    expect(account).toContain('apiReachable = authAvailable');
   });
 
-  it('AccountBar keeps BOTH a sign-in link and a sign-out button (not lost)', () => {
+  it('AccountBar keeps sign-in + sign-out AND adds a compact Retry when unreachable', () => {
     expect(bar).toContain('account.googleUrl');      // guest → sign in
     expect(bar).toMatch(/account\.logout\(\)/);      // signed-in → sign out
+    expect(bar).toMatch(/account\.retry\(\)/);       // unreachable → retry (not null)
     expect(bar).toContain("t('account.signIn')");
     expect(bar).toContain("t('account.logout')");
-    // Sign-in is gated on reachability, sign-out on being signed in.
-    expect(bar).toMatch(/account\.signedIn\s*\?[\s\S]*?account\.apiReachable\s*\?/);
+    expect(bar).toContain("t('account.retry')");
+    // Order of gates: signed-in → auth-available → (not loading & unreachable) → retry.
+    expect(bar).toMatch(/account\.signedIn\s*\?[\s\S]*?account\.authAvailable\s*\?[\s\S]*?!account\.serverReachable\s*\?/);
   });
 
   it('the sign-in control is a real link/button, no native <select> introduced', () => {
     expect(panel).not.toMatch(/<select[\s>]/);
+  });
+
+  it('no cookie/token/email logging in the auth flow (debug-safe)', () => {
+    for (const src of [account, read('src/net/profileApi.ts')]) {
+      expect(src).not.toMatch(/console\.\w+\([^)]*(cookie|token|email|password|session)/i);
+    }
   });
 });
 
@@ -163,6 +183,7 @@ describe('i18n parity for the new profile keys', () => {
     'profile.statusSynced', 'profile.statusGuest', 'profile.statusLocal',
     'profile.localPrefsNote',
     'account.checking', 'account.signInUnavailable',
+    'account.serverUnreachable', 'account.retry', 'account.useDefaultServer',
   ];
   for (const lang of ['en', 'uk', 'de', 'ar']) {
     it(`${lang} defines every new key`, () => {

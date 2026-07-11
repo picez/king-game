@@ -541,7 +541,10 @@ export const EN: Record<string, string> = {
   'account.logout': 'Sign out',
   'account.signInCta': 'Sign in to save your stats across devices.',
   'account.checking': 'Checking your account…',
-  'account.signInUnavailable': 'Sign-in isn’t available right now — the game server can’t be reached. You’re playing locally; your profile is saved on this device.',
+  'account.signInUnavailable': 'This server doesn’t offer sign-in — you’re playing locally. Your profile is saved on this device.',
+  'account.serverUnreachable': 'Can’t reach the game server.',
+  'account.retry': 'Retry',
+  'account.useDefaultServer': 'Use default server',
   'account.loginSuccess': 'Signed in. Your guest progress was saved to your account.',
   'account.loginError': 'Sign-in failed. Please try again.',
   // ── room social (Stage 7) ──

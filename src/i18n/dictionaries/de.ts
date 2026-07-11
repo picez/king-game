@@ -541,7 +541,10 @@ export const DE: Record<string, string> = {
   'account.logout': 'Abmelden',
   'account.signInCta': 'Melde dich an, um deine Statistik geräteübergreifend zu speichern.',
   'account.checking': 'Dein Konto wird geprüft…',
-  'account.signInUnavailable': 'Anmeldung derzeit nicht möglich — der Spielserver ist nicht erreichbar. Du spielst lokal; dein Profil wird auf diesem Gerät gespeichert.',
+  'account.signInUnavailable': 'Dieser Server bietet keine Anmeldung — du spielst lokal. Dein Profil wird auf diesem Gerät gespeichert.',
+  'account.serverUnreachable': 'Spielserver nicht erreichbar.',
+  'account.retry': 'Erneut versuchen',
+  'account.useDefaultServer': 'Standardserver verwenden',
   'account.loginSuccess': 'Angemeldet. Dein Gastfortschritt wurde im Konto gespeichert.',
   'account.loginError': 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
   // ── room social (Stage 7) ──

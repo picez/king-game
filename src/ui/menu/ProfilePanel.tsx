@@ -285,7 +285,7 @@ export default function ProfilePanel({
               {t('account.logout')}
             </button>
           </div>
-        ) : account.apiReachable ? (
+        ) : account.authAvailable ? (
           <div className="profile-account__row">
             <a className="btn btn--primary btn--small profile-account__signin" href={account.googleUrl}>
               {t('account.google')}
@@ -293,7 +293,26 @@ export default function ProfilePanel({
             <span className="profile-account__note field__hint">{t('account.signInCta')}</span>
           </div>
         ) : (
-          <span className="profile-account__note field__hint">{t('account.signInUnavailable')}</span>
+          // Not signed in AND sign-in unavailable — NEVER a dead-end. Distinguish a
+          // reachable server with sign-in off (db_disabled) from an unreachable one
+          // (network/CORS/wrong custom URL), and always offer a recovery action:
+          // Retry, and — when a custom server is set — a one-tap reset to the default
+          // (so a bad custom URL doesn't trap the user; no Advanced scrolling needed).
+          <div className="profile-account__recovery">
+            <span className="profile-account__note field__hint">
+              {account.serverReachable ? t('account.signInUnavailable') : t('account.serverUnreachable')}
+            </span>
+            <div className="profile-account__row">
+              <button type="button" className="btn btn--outline btn--small" onClick={() => account.retry()}>
+                ↻ {t('account.retry')}
+              </button>
+              {customServer && (
+                <button type="button" className="btn btn--ghost btn--small" onClick={resetToDefaultServer}>
+                  {t('account.useDefaultServer')}
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

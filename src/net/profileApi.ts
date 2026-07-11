@@ -85,10 +85,34 @@ async function call<T>(
   }
 }
 
-/** GET /api/me — current identity + settings, or null when unavailable. */
-export async function fetchMe(base: string): Promise<MeResponse | null> {
-  const { ok, data } = await call<MeResponse>(base, '/api/me');
-  return ok ? data : null;
+/**
+ * Classified result of GET /api/me. Lets the UI tell a network/CORS failure (the
+ * server is UNREACHABLE) apart from a reachable server whose account service is off
+ * (a 503 `db_disabled` — sign-in isn't available, but the server is up). Carries no
+ * secrets: only the parsed public body + the HTTP status.
+ */
+export interface MeProbe {
+  /** The identity (a 200 response), else null. */
+  me: MeResponse | null;
+  /** Got ANY HTTP response (even a 503) → the origin is reachable. */
+  serverReachable: boolean;
+  /** Sign-in / account service is available here (a 200 from /api/me). */
+  authAvailable: boolean;
+  /** HTTP status (0 = network / CORS failure). */
+  status: number;
+}
+
+/**
+ * GET /api/me — classified so the UI never conflates "not signed in" with "server
+ * down". A 200 → reachable + auth available (identity may be a guest); a 503 (e.g.
+ * `db_disabled`) → reachable but sign-in unavailable; status 0 → unreachable.
+ */
+export async function fetchMe(base: string): Promise<MeProbe> {
+  const { ok, status, data } = await call<MeResponse>(base, '/api/me');
+  if (ok && data) return { me: data, serverReachable: true, authAvailable: true, status };
+  // status 0 = network/CORS failure (unreachable); any HTTP status (503 db_disabled,
+  // 5xx, …) means the server answered but sign-in/DB is unavailable here.
+  return { me: null, serverReachable: status > 0, authAvailable: false, status };
 }
 
 /**

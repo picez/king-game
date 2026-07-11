@@ -541,6 +541,11 @@
 .profile-account__note {
   margin: 0; flex: 1 1 12rem; min-width: 0;
 }
+/* Unreachable / sign-in-off recovery: a short reason line + a Retry (and, when a
+   custom server is set, a one-tap reset to default) — stacked so nothing clips. */
+.profile-account__recovery { display: flex; flex-direction: column; gap: 0.5rem; }
+.profile-account__recovery .profile-account__row { gap: 0.5rem; }
+.profile-account__recovery .btn { min-height: var(--tap-min); }
 
 /* Card-back style picker (Stage 13.0; 4 styles in a 2×2 grid at 360/390 — Stage
    13.5): compact swatches with a mini live preview of each back. */

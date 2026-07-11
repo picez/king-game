@@ -541,7 +541,10 @@ export const AR: Record<string, string> = {
   'account.logout': 'تسجيل الخروج',
   'account.signInCta': 'سجّل الدخول لحفظ إحصائياتك عبر الأجهزة.',
   'account.checking': 'جارٍ التحقّق من حسابك…',
-  'account.signInUnavailable': 'تسجيل الدخول غير متاح حاليًا — تعذّر الوصول إلى خادم اللعبة. أنت تلعب محليًا؛ ملفك الشخصي محفوظ على هذا الجهاز.',
+  'account.signInUnavailable': 'هذا الخادم لا يوفّر تسجيل الدخول — أنت تلعب محليًا. ملفك الشخصي محفوظ على هذا الجهاز.',
+  'account.serverUnreachable': 'تعذّر الوصول إلى خادم اللعبة.',
+  'account.retry': 'إعادة المحاولة',
+  'account.useDefaultServer': 'استخدام الخادم الافتراضي',
   'account.loginSuccess': 'تم تسجيل الدخول. تم حفظ تقدّمك كضيف في حسابك.',
   'account.loginError': 'فشل تسجيل الدخول. حاول مرة أخرى.',
   // ── room social (Stage 7) ──

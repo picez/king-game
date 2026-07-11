@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   apiBaseFromWsUrl, fetchMe, ensureGuestSession,
   updateProfile, updateSettings, fetchKingSettings, updateKingSettings,
-  logout as logoutApi, googleStartUrl, type MeResponse,
+  logout as logoutApi, googleStartUrl, type MeResponse, type MeProbe,
 } from '../net/profileApi';
 import { uploadAvatar, deleteServerAvatar, type AvatarUploadResult } from '../net/avatarApi';
 import { loadGuestKey, saveGuestKey } from '../net/prefs';
@@ -25,11 +25,19 @@ export interface SaveProgressInput {
 export interface Account {
   base: string;
   me: MeResponse | null;
-  /** True when /api/me responded (DB on). False = no DB/offline → local only. */
+  /** Sign-in / account service is available here (a 200 from /api/me — DB on).
+   *  Back-compat alias of `authAvailable`; gates the sync-profile / push helpers. */
   apiReachable: boolean;
+  /** The origin answered at all (even a 503) — distinguishes "server down" from
+   *  "server up but sign-in disabled". False = network/CORS failure / wrong URL. */
+  serverReachable: boolean;
+  /** Sign-in is possible here (a 200 from /api/me). */
+  authAvailable: boolean;
   /** True until the first /api/me settles — so the UI shows a neutral "checking"
    *  state instead of flashing "Guest" (and hiding sign-in) before it is known. */
   loading: boolean;
+  /** Re-probe /api/me (recovery action after a transient failure). */
+  retry: () => void;
   hasSession: boolean;
   isGuest: boolean;
   signedIn: boolean;
@@ -66,7 +74,9 @@ export interface Account {
 
 export function useAccount(serverUrl: string): Account {
   const base = apiBaseFromWsUrl(serverUrl);
-  const [me, setMe] = useState<MeResponse | null>(null);
+  // The whole classified /api/me probe (identity + reachability), so the UI can tell
+  // "not signed in" apart from "server unreachable" vs "sign-in disabled here".
+  const [probe, setProbe] = useState<MeProbe | null>(null);
   const [serverTimer, setServerTimer] = useState<number | null>(null);
   const [banner, setBanner] = useState<'success' | 'error' | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -76,9 +86,9 @@ export function useAccount(serverUrl: string): Account {
 
   const hydrate = useCallback(async () => {
     try {
-      const m = await fetchMe(base);
-      setMe(m); // null when unreachable / DB disabled
-      if (m?.authenticated) {
+      const p = await fetchMe(base);
+      setProbe(p); // classified: me / serverReachable / authAvailable / status
+      if (p.me?.authenticated) {
         const king = await fetchKingSettings(base);
         if (king) setServerTimer(king.defaultTimer);
       }
@@ -86,6 +96,10 @@ export function useAccount(serverUrl: string): Account {
       setLoaded(true);
     }
   }, [base]);
+
+  // Recovery action: show the neutral "checking" state, then re-probe /api/me. Used
+  // by the Retry button when the server was unreachable (or after a server switch).
+  const retry = useCallback(() => { setLoaded(false); void hydrate(); }, [hydrate]);
 
   // Mount: consume the OAuth ?login redirect (banner + strip), then hydrate.
   useEffect(() => {
@@ -102,7 +116,10 @@ export function useAccount(serverUrl: string): Account {
     void hydrate();
   }, [hydrate]);
 
-  const apiReachable = me !== null;
+  const me = probe?.me ?? null;
+  const serverReachable = probe?.serverReachable ?? false;
+  const authAvailable = probe?.authAvailable ?? false;
+  const apiReachable = authAvailable; // back-compat alias (== a 200 from /api/me)
   const hasSession = !!me?.authenticated && !!me?.user;
   const isGuest = hasSession && me?.user?.isGuest === true;
   const signedIn = hasSession && !!me?.provider;
@@ -110,7 +127,8 @@ export function useAccount(serverUrl: string): Account {
   const logout = useCallback(async () => {
     await logoutApi(base);
     setBanner(null);
-    setMe({ authenticated: false, user: null });
+    // Stay on the reachable+auth-available server; just clear the identity.
+    setProbe({ me: { authenticated: false, user: null }, serverReachable: true, authAvailable: true, status: 200 });
   }, [base]);
 
   const saveProgress = useCallback(async (input: SaveProgressInput) => {
@@ -156,7 +174,8 @@ export function useAccount(serverUrl: string): Account {
   const pushCardFaceTheme = useCallback((v: CardFaceTheme) => { if (hasSession) void updateSettings(base, { cardFaceTheme: v }); }, [base, hasSession]);
 
   return {
-    base, me, apiReachable, loading: !loaded, hasSession, isGuest, signedIn,
+    base, me, apiReachable, serverReachable, authAvailable, loading: !loaded, retry,
+    hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
     avatarImageUrl: me?.avatarImageUrl ?? null,
     banner, clearBanner: () => setBanner(null), syncing, googleUrl: googleStartUrl(base),

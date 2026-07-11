@@ -48,10 +48,16 @@ export default function AccountBar({ account, name, avatar }: Props) {
             <button className="btn btn--ghost btn--small" onClick={() => void account.logout()}>
               {t('account.logout')}
             </button>
-          ) : account.apiReachable ? (
+          ) : account.authAvailable ? (
             <a className="btn btn--primary btn--small account-bar__signin" href={account.googleUrl}>
               {t('account.signIn')}
             </a>
+          ) : !account.loading && !account.serverReachable ? (
+            // Server unreachable (network/CORS/wrong URL) → a compact recovery action,
+            // never a dead-end. The Profile screen holds the fuller options.
+            <button className="btn btn--outline btn--small" onClick={() => account.retry()}>
+              ↻ {t('account.retry')}
+            </button>
           ) : null}
         </div>
       </div>
