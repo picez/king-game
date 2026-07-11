@@ -177,6 +177,18 @@ export type ClientMessage =
    * authenticated, in a room, and an accepted friend of the target. NEVER sends audio.
    */
   | { t: 'FRIEND_INVITE'; toUserId: string }
+  /**
+   * Voice chat SIGNALING (Stage 25.3) — the server is a room-scoped RELAY only; NO audio,
+   * NO SDP/ICE inspection beyond a size cap, NO persistence. Voice membership = being a
+   * member of the socket's current room (guests allowed); the room is derived server-side.
+   * SDP/ICE are opaque strings the peers exchange to open a direct WebRTC connection (25.4).
+   */
+  | { t: 'VOICE_JOIN' }
+  | { t: 'VOICE_LEAVE' }
+  | { t: 'VOICE_SIGNAL_OFFER'; toClientId: string; sdp: string }
+  | { t: 'VOICE_SIGNAL_ANSWER'; toClientId: string; sdp: string }
+  | { t: 'VOICE_SIGNAL_ICE'; toClientId: string; candidate: string }
+  | { t: 'VOICE_MUTE_STATE'; muted: boolean }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -221,6 +233,18 @@ export type ServerMessage =
   | { t: 'FRIEND_INVITE_RECEIVED'; fromUserId: string; fromName: string; code: RoomCode; gameType: GameType; at: number }
   /** Friends (Stage 25.2): a friend's presence changed (online/offline) — public only. */
   | { t: 'FRIEND_PRESENCE'; updates: Array<{ userId: string; online: boolean }> }
+  /**
+   * Voice signaling relay (Stage 25.3) — public routing fields only (clientId, display
+   * name, muted). The OFFER/ANSWER/ICE relays are delivered ONLY to the single target peer
+   * (never broadcast); mute state broadcasts to the room's voice peers. No email/token/audio.
+   */
+  | { t: 'VOICE_PEERS'; peers: Array<{ clientId: string; name: string; muted: boolean }> }
+  | { t: 'VOICE_PEER_JOINED'; clientId: string; name: string; muted: boolean }
+  | { t: 'VOICE_PEER_LEFT'; clientId: string }
+  | { t: 'VOICE_SIGNAL_OFFER'; fromClientId: string; sdp: string }
+  | { t: 'VOICE_SIGNAL_ANSWER'; fromClientId: string; sdp: string }
+  | { t: 'VOICE_SIGNAL_ICE'; fromClientId: string; candidate: string }
+  | { t: 'VOICE_MUTE_STATE'; clientId: string; muted: boolean }
   | { t: 'PONG' };
 
 export type ErrorCode =

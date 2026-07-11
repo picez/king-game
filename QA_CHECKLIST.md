@@ -625,6 +625,19 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
       block); total sound payload stays under budget (< 500 KB).
 
+## Manual — Voice signaling (Stage 25.3, protocol only — no audio yet)
+
+> Signaling RELAY only; there is **no microphone, no WebRTC, no audible voice** until 25.4.
+> Verified today by the WS routing tests (`voiceSignaling.test.ts`) — a manual browser check
+> is a placeholder until the 25.4 UI exists. No Postgres needed (voice is in-memory, no DB).
+
+- [ ] (Automated) `npm test` covers: VOICE_JOIN sends the joiner the peer roster + notifies
+      others; leave/close removes the peer (VOICE_PEER_LEFT); OFFER/ANSWER/ICE relay to the
+      **single target** only (never broadcast); reject when sender/target not in the same voice
+      room; mute broadcasts to peers; SDP/ICE size caps + per-client rate limit.
+- [ ] (Placeholder, 25.4) With two tabs in the same online room, enabling voice will grant the
+      mic, connect peer-to-peer, and let each hear the other; text chat stays as the fallback.
+
 ## Manual — Friends UI + room invites (Stage 25.2, needs Postgres + a signed-in account)
 
 > Two signed-in Google sessions (A + B) on a migrated Postgres. Guests see a sign-in CTA

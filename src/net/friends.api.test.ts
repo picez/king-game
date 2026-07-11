@@ -79,9 +79,7 @@ describe('friends — privacy + boundary source guards', () => {
     expect(fn).toContain('addressee_id = ${userId}');
   });
 
-  it('NO voice WS messages exist yet; friend invite/presence WS messages carry no secrets', () => {
-    expect(messages).not.toMatch(/VOICE_/); // voice is 25.3+
-    // Friends WS (25.2) exists but FRIEND_INVITE_RECEIVED carries only public routing fields.
+  it('friend invite/presence WS messages carry only public routing fields (no secrets)', () => {
     expect(messages).toContain('FRIEND_INVITE');
     expect(messages).toContain('FRIEND_PRESENCE');
     const block = messages.slice(messages.indexOf('FRIEND_INVITE_RECEIVED'), messages.indexOf('FRIEND_INVITE_RECEIVED') + 220);

@@ -326,7 +326,10 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
      friendships, `/api/friends/*` signed-in routes, in-memory presence; **Profile Friends tab**
      (code/add-by-code/accept/decline/online-first) + **room invites** (WS FRIEND_INVITE →
      FRIEND_INVITE_RECEIVED toast reusing the `?room=` Join flow, FRIEND_PRESENCE push). Add-by-
-     friend-code, no email exposure. Voice = 25.3+. And
+     friend-code, no email exposure.
+     [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) — **25.3 DONE**: voice **signaling relay only**
+     (room-scoped `VOICE_*` WS: join/leave/offer/answer/ice/mute, target-only relay, size caps +
+     rate limit) — **no audio/WebRTC/getUserMedia yet** (25.4). No server audio, no DB. And
      [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) (opt-in, room-scoped **WebRTC mesh** voice over
      the existing WS as signaling; STUN-only MVP; no recording/DB; graceful text-chat fallback).
 3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)

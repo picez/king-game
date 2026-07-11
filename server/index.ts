@@ -37,6 +37,9 @@ import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from '.
 import { attachPresence, detachPresence, isOnline, presenceSocketsFor } from './friendsPresence';
 import { allowFriendInvite } from './friendsRateLimit';
 import { verifyFriendInvite } from '../src/net/friendInvite';
+import { joinVoice, leaveVoice, relayVoiceSignal, setVoiceMute, type VoiceDelivery } from './voiceSignaling';
+import { allowVoiceSignal } from './voiceRateLimit';
+import { isValidSdp, isValidIce } from '../src/net/voiceSignal';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
 import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
@@ -313,6 +316,42 @@ async function deliverFriendInvite(senderUserId: string | null, session: Session
   for (const sock of presenceSocketsFor(verdict.toUserId)) send(sock as WebSocket, payload);
 }
 
+// ── voice signaling relay (Stage 25.3) — server is a room-scoped RELAY, no audio ────
+function dispatchVoice(deliveries: VoiceDelivery[]): void {
+  for (const d of deliveries) send(d.socket as WebSocket, d.msg);
+}
+
+/**
+ * Handle a VOICE_* signaling message. Voice membership = being a member of the socket's
+ * current room (guests allowed); the room is derived server-side. OFFER/ANSWER/ICE are
+ * relayed ONLY to the single target peer in the SAME room (never broadcast), rate-limited,
+ * and size-capped. No audio is ever seen; SDP/ICE are opaque strings. Fails silently.
+ */
+function handleVoiceMessage(socket: WebSocket, session: SessionRef, msg: ClientMessage): void {
+  const s = session.value;
+  if (!s) return; // voice requires being in a room
+  const roomCode = s.room.code;
+  const clientId = s.clientId;
+  const name = s.room.members.get(clientId)?.name ?? 'Player';
+  switch (msg.t) {
+    case 'VOICE_JOIN': return dispatchVoice(joinVoice(roomCode, clientId, socket, name));
+    case 'VOICE_LEAVE': return dispatchVoice(leaveVoice(roomCode, clientId));
+    case 'VOICE_MUTE_STATE': return dispatchVoice(setVoiceMute(roomCode, clientId, !!msg.muted));
+    case 'VOICE_SIGNAL_OFFER':
+    case 'VOICE_SIGNAL_ANSWER': {
+      if (!allowVoiceSignal(clientId) || !isValidSdp(msg.sdp) || typeof msg.toClientId !== 'string') return;
+      const relay = { t: msg.t, fromClientId: clientId, sdp: msg.sdp } as ServerMessage;
+      return dispatchVoice(relayVoiceSignal(roomCode, clientId, msg.toClientId, relay));
+    }
+    case 'VOICE_SIGNAL_ICE': {
+      if (!allowVoiceSignal(clientId) || !isValidIce(msg.candidate) || typeof msg.toClientId !== 'string') return;
+      const relay = { t: 'VOICE_SIGNAL_ICE', fromClientId: clientId, candidate: msg.candidate } as ServerMessage;
+      return dispatchVoice(relayVoiceSignal(roomCode, clientId, msg.toClientId, relay));
+    }
+    default: return;
+  }
+}
+
 /** Push a FRIEND_PRESENCE update to a user's online friends (best-effort, DB-gated). */
 async function broadcastPresence(userId: string, online: boolean): Promise<void> {
   if (!isDbEnabled()) return;
@@ -488,6 +527,7 @@ function welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reco
 
 function handleLeave(room: ServerRoom, clientId: string): void {
   sockets.delete(clientId);
+  dispatchVoice(leaveVoice(room.code, clientId)); // drop from voice on an explicit room leave
   const { empty } = removeMember(room, clientId);
   // Tear the room down once no humans remain (bots alone must not keep it alive
   // or be promoted to host).
@@ -660,6 +700,9 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     // Friends (Stage 25.2): a room invite is handled here (it needs the socket's resolved
     // userId + presence, which the room dispatch doesn't carry). Everything else → dispatch.
     if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(resolvedUserId, sessionRef, msg.toUserId); return; }
+    // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
+    // its room/clientId). No audio; the room dispatch never sees these.
+    if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
     handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter);
   });
 
@@ -667,6 +710,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     const session = sessionRef.value;
     if (!session) return;
     sockets.delete(session.clientId);
+    dispatchVoice(leaveVoice(session.room.code, session.clientId)); // notify voice peers
     markDisconnected(session.room, session.clientId);
     broadcastRoom(session.room);
     persistRoom(session.room); // keep the store fresh (debounced); connected resets on restore

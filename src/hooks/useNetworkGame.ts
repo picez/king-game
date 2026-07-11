@@ -75,7 +75,24 @@ export interface NetworkGame {
   dismissFriendInvite: () => void;
   /** Bumped on every FRIEND_PRESENCE push so a friends list can re-fetch live. */
   presenceNonce: number;
+  /**
+   * Voice signaling (Stage 25.3) — plumbing only (no WebRTC/audio yet; 25.4 wires the
+   * peer connections). Send helpers + a listener that receives the relayed VOICE_* server
+   * messages. INERT until a caller registers a listener.
+   */
+  sendVoiceJoin: () => void;
+  sendVoiceLeave: () => void;
+  sendVoiceOffer: (toClientId: string, sdp: string) => void;
+  sendVoiceAnswer: (toClientId: string, sdp: string) => void;
+  sendVoiceIce: (toClientId: string, candidate: string) => void;
+  sendVoiceMute: (muted: boolean) => void;
+  registerVoiceListener: (fn: (msg: VoiceServerMessage) => void) => () => void;
 }
+
+/** The server→client voice signaling messages (25.4 consumes these to drive WebRTC). */
+export type VoiceServerMessage = Extract<ServerMessage, { t:
+  'VOICE_PEERS' | 'VOICE_PEER_JOINED' | 'VOICE_PEER_LEFT'
+  | 'VOICE_SIGNAL_OFFER' | 'VOICE_SIGNAL_ANSWER' | 'VOICE_SIGNAL_ICE' | 'VOICE_MUTE_STATE' }>;
 
 /** A received friend room-invite (public routing fields only — no email/token). */
 export interface FriendInvite { fromUserId: string; fromName: string; code: string; gameType: string; at: number; }
@@ -100,6 +117,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
   const [friendInvite, setFriendInvite] = useState<FriendInvite | null>(null);
   const [presenceNonce, setPresenceNonce] = useState(0);
+  // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
+  const voiceListeners = useRef(new Set<(m: VoiceServerMessage) => void>());
   const reactionKeyRef = useRef(0);
 
   const transportRef = useRef<WebSocketTransport | null>(null);
@@ -131,6 +150,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   }, []);
 
   const handleMessage = useCallback((msg: ServerMessage) => {
+    // Voice signaling (Stage 25.3): forward every VOICE_* server message to registered
+    // listeners (25.4 drives WebRTC from them). Handled before the room switch; inert here.
+    if (msg.t.startsWith('VOICE_')) { voiceListeners.current.forEach((l) => l(msg as VoiceServerMessage)); return; }
     switch (msg.t) {
       case 'WELCOME': {
         clientIdRef.current = msg.clientId;
@@ -312,6 +334,16 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
   const sendFriendInvite = useCallback((toUserId: string) => send({ t: 'FRIEND_INVITE', toUserId }), [send]);
+  const sendVoiceJoin = useCallback(() => send({ t: 'VOICE_JOIN' }), [send]);
+  const sendVoiceLeave = useCallback(() => send({ t: 'VOICE_LEAVE' }), [send]);
+  const sendVoiceOffer = useCallback((toClientId: string, sdp: string) => send({ t: 'VOICE_SIGNAL_OFFER', toClientId, sdp }), [send]);
+  const sendVoiceAnswer = useCallback((toClientId: string, sdp: string) => send({ t: 'VOICE_SIGNAL_ANSWER', toClientId, sdp }), [send]);
+  const sendVoiceIce = useCallback((toClientId: string, candidate: string) => send({ t: 'VOICE_SIGNAL_ICE', toClientId, candidate }), [send]);
+  const sendVoiceMute = useCallback((muted: boolean) => send({ t: 'VOICE_MUTE_STATE', muted }), [send]);
+  const registerVoiceListener = useCallback((fn: (m: VoiceServerMessage) => void) => {
+    voiceListeners.current.add(fn);
+    return () => { voiceListeners.current.delete(fn); };
+  }, []);
   const clearSocialNotice = useCallback(() => setSocialNotice(null), []);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
@@ -342,5 +374,6 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
+    sendVoiceJoin, sendVoiceLeave, sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendVoiceMute, registerVoiceListener,
   };
 }

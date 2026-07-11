@@ -39,7 +39,7 @@ that same socket ONLY as a signaling channel. **No audio ever touches the server
 | Stage | Scope |
 |------|-------|
 | 25.1–25.2 | Friends (see [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)). |
-| **25.3** | Voice **signaling WS protocol** — the `VOICE_*` messages, the server **relay** (member-scoped, no audio), presence of who's in the voice session. No media yet; unit-testable message routing. |
+| **25.3** ✅ **DONE** | Voice **signaling WS protocol** — `VOICE_*` messages (messages.ts), a room-scoped server **relay** `server/voiceSignaling.ts` (join/leave/relay-to-target/mute, returns targeted deliveries; NO audio, NO DB), pure `src/net/voiceSignal.ts` (SDP 16 KB / ICE 4 KB caps + glare `shouldOffer`), per-client signaling limit (`voiceRateLimit.ts`, 120/min), wired in index.ts (verify same-room + size + rate; cleanup on close/leave). Client plumbing in useNetworkGame (`sendVoice*` + `registerVoiceListener`) — **INERT, no WebRTC/media yet**. |
 | **25.4** | Voice **WebRTC UI** — `RTCPeerConnection` mesh, `getUserMedia`, Join/Leave/Mute controls in Lobby + in-game RoomSocial, remote `<audio>` elements, fallback states. |
 | **25.5** | **Production hardening** — signaling rate limits, renegotiation/cleanup on seat changes & disconnects, permission-state UX, mobile/PWA polish, TURN decision, docs/smoke (shared with friends). |
 
