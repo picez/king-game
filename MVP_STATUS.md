@@ -321,6 +321,11 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
 2. Add join/create **rate limiting** before any broader public launch.
+   - **Social roadmap (designed, Stage 25.0 — design only, staged 25.1–25.5):**
+     [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md) (persistent friends + presence + invite an online
+     friend to your room, add-by-friend-code, no email exposure) and
+     [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) (opt-in, room-scoped **WebRTC mesh** voice over
+     the existing WS as signaling; STUN-only MVP; no recording/DB; graceful text-chat fallback).
 3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)
    and **online Durak** rooms (host/join with bots) are fully playable — King
    state/action are a union over the wire, hands are redacted per game, the
