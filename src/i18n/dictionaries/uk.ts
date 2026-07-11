@@ -540,6 +540,8 @@ export const UK: Record<string, string> = {
   'account.signedInGoogle': 'Увійшли через Google',
   'account.logout': 'Вийти',
   'account.signInCta': 'Увійдіть, щоб зберігати статистику на всіх пристроях.',
+  'account.checking': 'Перевіряємо ваш акаунт…',
+  'account.signInUnavailable': 'Вхід зараз недоступний — не вдається зʼєднатися з ігровим сервером. Ви граєте локально; профіль збережено на цьому пристрої.',
   'account.loginSuccess': 'Ви увійшли. Гостьовий прогрес збережено до акаунта.',
   'account.loginError': 'Не вдалося увійти. Спробуйте ще раз.',
   // ── room social (Stage 7) ──

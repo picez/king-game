@@ -540,6 +540,8 @@ export const AR: Record<string, string> = {
   'account.signedInGoogle': 'تم تسجيل الدخول عبر Google',
   'account.logout': 'تسجيل الخروج',
   'account.signInCta': 'سجّل الدخول لحفظ إحصائياتك عبر الأجهزة.',
+  'account.checking': 'جارٍ التحقّق من حسابك…',
+  'account.signInUnavailable': 'تسجيل الدخول غير متاح حاليًا — تعذّر الوصول إلى خادم اللعبة. أنت تلعب محليًا؛ ملفك الشخصي محفوظ على هذا الجهاز.',
   'account.loginSuccess': 'تم تسجيل الدخول. تم حفظ تقدّمك كضيف في حسابك.',
   'account.loginError': 'فشل تسجيل الدخول. حاول مرة أخرى.',
   // ── room social (Stage 7) ──

@@ -540,6 +540,8 @@ export const EN: Record<string, string> = {
   'account.signedInGoogle': 'Signed in with Google',
   'account.logout': 'Sign out',
   'account.signInCta': 'Sign in to save your stats across devices.',
+  'account.checking': 'Checking your account…',
+  'account.signInUnavailable': 'Sign-in isn’t available right now — the game server can’t be reached. You’re playing locally; your profile is saved on this device.',
   'account.loginSuccess': 'Signed in. Your guest progress was saved to your account.',
   'account.loginError': 'Sign-in failed. Please try again.',
   // ── room social (Stage 7) ──

@@ -27,6 +27,9 @@ export interface Account {
   me: MeResponse | null;
   /** True when /api/me responded (DB on). False = no DB/offline → local only. */
   apiReachable: boolean;
+  /** True until the first /api/me settles — so the UI shows a neutral "checking"
+   *  state instead of flashing "Guest" (and hiding sign-in) before it is known. */
+  loading: boolean;
   hasSession: boolean;
   isGuest: boolean;
   signedIn: boolean;
@@ -67,13 +70,20 @@ export function useAccount(serverUrl: string): Account {
   const [serverTimer, setServerTimer] = useState<number | null>(null);
   const [banner, setBanner] = useState<'success' | 'error' | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // False until the first /api/me settles (reachable or not). Prevents a premature
+  // "Guest" flash + a hidden sign-in button while the identity is still unknown.
+  const [loaded, setLoaded] = useState(false);
 
   const hydrate = useCallback(async () => {
-    const m = await fetchMe(base);
-    setMe(m); // null when unreachable / DB disabled
-    if (m?.authenticated) {
-      const king = await fetchKingSettings(base);
-      if (king) setServerTimer(king.defaultTimer);
+    try {
+      const m = await fetchMe(base);
+      setMe(m); // null when unreachable / DB disabled
+      if (m?.authenticated) {
+        const king = await fetchKingSettings(base);
+        if (king) setServerTimer(king.defaultTimer);
+      }
+    } finally {
+      setLoaded(true);
     }
   }, [base]);
 
@@ -146,7 +156,7 @@ export function useAccount(serverUrl: string): Account {
   const pushCardFaceTheme = useCallback((v: CardFaceTheme) => { if (hasSession) void updateSettings(base, { cardFaceTheme: v }); }, [base, hasSession]);
 
   return {
-    base, me, apiReachable, hasSession, isGuest, signedIn,
+    base, me, apiReachable, loading: !loaded, hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
     avatarImageUrl: me?.avatarImageUrl ?? null,
     banner, clearBanner: () => setBanner(null), syncing, googleUrl: googleStartUrl(base),

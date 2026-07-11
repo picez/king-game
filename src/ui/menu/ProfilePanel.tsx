@@ -266,6 +266,37 @@ export default function ProfilePanel({
           </div>
         </div>
       </div>
+
+      {/* Explicit login / logout control — ALWAYS visible on entering Profile, not
+          only in the top AccountBar (which scrolls out of view on this long form).
+          Guest + API reachable → Sign in with Google; signed-in → account line +
+          Sign out; API unreachable (no server/DB) → a clear "unavailable" note;
+          still loading → a neutral checking state (never a premature Guest). */}
+      <div className="profile-account">
+        {account.loading ? (
+          <span className="profile-account__note field__hint">{t('account.checking')}</span>
+        ) : account.signedIn ? (
+          <div className="profile-account__row">
+            <span className="profile-account__status">
+              <span className="account-bar__chip" aria-hidden="true">G</span> {t('account.signedInGoogle')}
+            </span>
+            <button type="button" className="btn btn--ghost btn--small"
+              onClick={() => void account.logout()}>
+              {t('account.logout')}
+            </button>
+          </div>
+        ) : account.apiReachable ? (
+          <div className="profile-account__row">
+            <a className="btn btn--primary btn--small profile-account__signin" href={account.googleUrl}>
+              {t('account.google')}
+            </a>
+            <span className="profile-account__note field__hint">{t('account.signInCta')}</span>
+          </div>
+        ) : (
+          <span className="profile-account__note field__hint">{t('account.signInUnavailable')}</span>
+        )}
+      </div>
+
       {!account.signedIn && (
         <p className="profile-summary__note field__hint">{t('profile.localPrefsNote')}</p>
       )}

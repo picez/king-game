@@ -34,9 +34,11 @@ export default function AccountBar({ account, name, avatar }: Props) {
           <span className="account-bar__meta">
             <span className="account-bar__name">{display}</span>
             <span className="account-bar__sub">
-              {account.signedIn
-                ? <><span className="account-bar__chip">G</span> {t('account.signedInShort')}</>
-                : t('account.guestShort')}
+              {account.loading
+                ? t('account.checking')
+                : account.signedIn
+                  ? <><span className="account-bar__chip">G</span> {t('account.signedInShort')}</>
+                  : t('account.guestShort')}
             </span>
           </span>
         </div>

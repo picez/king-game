@@ -60,6 +60,51 @@ describe('Profile summary header (Stage 14.2)', () => {
   });
 });
 
+describe('Explicit auth controls are on the Profile screen (login/logout bugfix)', () => {
+  const bar = read('src/ui/menu/AccountBar.tsx');
+  const account = read('src/hooks/useAccount.ts');
+
+  it('the Profile form renders a dedicated auth control block', () => {
+    expect(panel).toContain('profile-account');
+    expect(panel).toContain('profile-account__row');
+  });
+
+  it('a guest with a reachable API sees a real "Sign in with Google" action', () => {
+    // Uses the existing OAuth start URL from the account (full-page navigation).
+    expect(panel).toMatch(/account\.apiReachable[\s\S]*?href=\{account\.googleUrl\}/);
+    expect(panel).toContain("t('account.google')");
+  });
+
+  it('a signed-in user sees the account line + a Sign out button wired to logout', () => {
+    expect(panel).toMatch(/account\.signedIn[\s\S]*?account\.logout\(\)/);
+    expect(panel).toContain("t('account.signedInGoogle')");
+    expect(panel).toContain("t('account.logout')");
+  });
+
+  it('shows a clear note (not nothing) when sign-in is unavailable, and a neutral loading state', () => {
+    expect(panel).toContain("t('account.signInUnavailable')"); // API/DB down → explain, don't hide
+    expect(panel).toContain("t('account.checking')");          // first /api/me pending → neutral
+  });
+
+  it('useAccount exposes a loading flag so the UI never flashes Guest prematurely', () => {
+    expect(account).toMatch(/loading:\s*boolean/);
+    expect(account).toContain('loading: !loaded');
+  });
+
+  it('AccountBar keeps BOTH a sign-in link and a sign-out button (not lost)', () => {
+    expect(bar).toContain('account.googleUrl');      // guest → sign in
+    expect(bar).toMatch(/account\.logout\(\)/);      // signed-in → sign out
+    expect(bar).toContain("t('account.signIn')");
+    expect(bar).toContain("t('account.logout')");
+    // Sign-in is gated on reachability, sign-out on being signed in.
+    expect(bar).toMatch(/account\.signedIn\s*\?[\s\S]*?account\.apiReachable\s*\?/);
+  });
+
+  it('the sign-in control is a real link/button, no native <select> introduced', () => {
+    expect(panel).not.toMatch(/<select[\s>]/);
+  });
+});
+
 describe('Profile form is grouped into clear sections', () => {
   it('has Account / Preferences / Appearance / Connection headers, in order', () => {
     const account = panel.indexOf("t('account.title')");
@@ -117,6 +162,7 @@ describe('i18n parity for the new profile keys', () => {
     'profile.preferences', 'profile.connection',
     'profile.statusSynced', 'profile.statusGuest', 'profile.statusLocal',
     'profile.localPrefsNote',
+    'account.checking', 'account.signInUnavailable',
   ];
   for (const lang of ['en', 'uk', 'de', 'ar']) {
     it(`${lang} defines every new key`, () => {

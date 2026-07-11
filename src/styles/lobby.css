@@ -526,6 +526,22 @@
 .profile-summary__status--guest { background: var(--surface-3); color: var(--text); }
 .profile-summary__note { margin: -0.05rem 0 0.1rem; }
 
+/* Explicit login / logout control inside the Profile form (bugfix): a always-on
+   auth action so a guest can sign in (or a user sign out) without scrolling back
+   to the top AccountBar. Wraps on narrow phones so nothing clips at 360/390. */
+.profile-account { margin: 0.1rem 0 0.35rem; }
+.profile-account__row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.65rem; min-width: 0;
+}
+.profile-account__signin { flex: 0 0 auto; min-height: var(--tap-min); }
+.profile-account__status {
+  display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0;
+  font-size: 0.82rem; font-weight: 700; color: var(--text);
+}
+.profile-account__note {
+  margin: 0; flex: 1 1 12rem; min-width: 0;
+}
+
 /* Card-back style picker (Stage 13.0; 4 styles in a 2×2 grid at 360/390 — Stage
    13.5): compact swatches with a mini live preview of each back. */
 .cardback-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
