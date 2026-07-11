@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { handleApiRequest } from '../../server/api';
+import { uploadAvatar, deleteServerAvatar } from './avatarApi';
 
 // Routing + boundary tests for the Stage 17.1 avatar backend that need NO DB and NO
 // ffmpeg. Full processing/storage round-trips live in avatarProcess.test.ts (ffmpeg)
@@ -98,5 +99,65 @@ describe('privacy / boundary guards — nothing leaks onto the wire', () => {
     expect(api).toContain('multipartBoundary');
     expect(api).toContain('parseSingleFileMultipart');
     expect(api).not.toMatch(/avatar[^\n]*base64/i);
+  });
+});
+
+describe('uploadAvatar client — always settles (no stuck "Uploading…")', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'a.png', { type: 'image/png' });
+  const resp = (status: number, body: unknown) => ({
+    ok: status >= 200 && status < 300, status, json: async () => body,
+  });
+
+  it('a stalled request is ABORTED by the timeout → a retryable `timeout` error (never hangs)', async () => {
+    // fetch that only ever rejects when the AbortController fires — models a server hang.
+    vi.stubGlobal('fetch', (_url: string, opts: { signal?: AbortSignal }) => new Promise((_res, rej) => {
+      opts.signal?.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }));
+    const r = await uploadAvatar('http://x', png(), 20); // 20 ms timeout
+    expect(r).toEqual({ ok: false, error: 'timeout' });
+  });
+
+  it('a 200 with a URL succeeds; a 503 → unavailable; a 408 → timeout', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, { avatarImageUrl: '/api/avatar/x.webp?v=1' })));
+    expect(await uploadAvatar('http://x', png())).toEqual({ ok: true, avatarImageUrl: '/api/avatar/x.webp?v=1' });
+    vi.stubGlobal('fetch', vi.fn(async () => resp(503, { error: 'unavailable' })));
+    expect((await uploadAvatar('http://x', png())).ok).toBe(false);
+    expect(await uploadAvatar('http://x', png())).toEqual({ ok: false, error: 'unavailable' });
+    vi.stubGlobal('fetch', vi.fn(async () => resp(408, { error: 'timeout' })));
+    expect(await uploadAvatar('http://x', png())).toEqual({ ok: false, error: 'timeout' });
+  });
+
+  it('a real fetch failure (not an abort) maps to `network`, and never throws', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('failed'); }));
+    await expect(uploadAvatar('http://x', png())).resolves.toEqual({ ok: false, error: 'network' });
+    await expect(deleteServerAvatar('http://x')).resolves.toBe(false);
+  });
+});
+
+describe('avatar upload never hangs — source guards', () => {
+  const api = read('src/net/avatarApi.ts');
+  const panel = read('src/ui/menu/ProfilePanel.tsx');
+  const server = read('server/api.ts');
+
+  it('the client upload uses an AbortController timeout and always clears its timer', () => {
+    expect(api).toContain('new AbortController()');
+    expect(api).toContain('signal: controller.signal');
+    expect(api).toMatch(/finally \{\s*clearTimeout\(timer\)/);
+  });
+
+  it('ProfilePanel clears the busy flag in finally and resets the file input on every pick', () => {
+    const fn = panel.slice(panel.indexOf('function onPickSynced'), panel.indexOf('function onPickSynced') + 500);
+    expect(fn).toContain("e.target.value = ''");        // same file can be re-picked after a failure
+    expect(fn).toMatch(/finally \{\s*setSyncedBusy\(false\)/); // button never stuck disabled
+    // timeout / network map to their own clear messages.
+    expect(panel).toContain("case 'timeout': return t('avatar.errTimeout')");
+    expect(panel).toContain("case 'network': return t('avatar.errNetwork')");
+  });
+
+  it('the server body read has a watchdog → a stalled upload returns 408, never pends forever', () => {
+    expect(server).toContain('bodyTimeoutMs');
+    expect(server).toMatch(/reason: 'timeout'/);
+    expect(server).toContain("error: 'timeout'");       // → 408 mapped to a client timeout
   });
 });

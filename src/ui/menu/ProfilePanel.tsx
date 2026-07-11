@@ -151,6 +151,8 @@ export default function ProfilePanel({
       case 'too_large': return t('avatar.errSize');
       case 'rate_limited': return t('avatar.errRate');
       case 'unavailable': return t('avatar.errUnavailable');
+      case 'timeout': return t('avatar.errTimeout');
+      case 'network': return t('avatar.errNetwork');
       case 'unauthenticated': case 'forbidden': return t('avatar.errSignIn');
       default: return t('avatar.errFailed');
     }

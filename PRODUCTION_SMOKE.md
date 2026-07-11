@@ -110,7 +110,14 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
 **Native runtime (uploads OFF — expected):**
 
 - [ ] Upload attempt → clean **`503`** and the inline message "Avatar processing is
-      unavailable" — **no crash**; emoji avatars keep working everywhere.
+      unavailable on this server." — **no crash**; emoji avatars keep working everywhere.
+
+**Never-stuck (any runtime):** the **"Upload synced avatar"** button must ALWAYS return to
+its normal label after an attempt — it never stays on "Uploading…". The client aborts after
+30 s (`AVATAR_UPLOAD_TIMEOUT_MS`) → an inline **timeout** message; a 503 → **unavailable**;
+an offline/network failure → **network**; and the **same file can be re-selected** to retry
+(the input is reset). Check `curl -s $HOST/health/diagnostics` → `avatarUploads.status` is
+`enabled` only when `ffmpeg:true` **and** `database:true`; otherwise uploads answer `503` fast.
 
 ## 9. Social
 

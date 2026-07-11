@@ -109,19 +109,37 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
  * the 16 KB JSON cap does NOT apply here). Aborts early past the cap, returning
  * null; returns the concatenated Buffer otherwise.
  */
-async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Buffer | null> {
+type BodyRead = { ok: true; body: Buffer } | { ok: false; reason: 'too_large' | 'timeout' };
+
+/** Body-read watchdog: a stalled/slowloris upload (headers + partial body, then silence)
+ *  never reaches `end` and never exceeds the cap, so WITHOUT this the request would hang
+ *  forever. Env-overridable (AVATAR_UPLOAD_TIMEOUT_MS), default 20 s. */
+function bodyTimeoutMs(): number {
+  const v = Number(process.env.AVATAR_UPLOAD_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 20_000;
+}
+
+async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<BodyRead> {
   return new Promise((resolve) => {
     let size = 0;
     const chunks: Buffer[] = [];
-    let aborted = false;
+    let settled = false;
+    const done = (v: BodyRead) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(v);
+    };
+    // Give up on a stalled upload so the handler always returns (never a pending request).
+    const timer = setTimeout(() => { try { req.destroy(); } catch { /* already gone */ } done({ ok: false, reason: 'timeout' }); }, bodyTimeoutMs());
     req.on('data', (c: Buffer) => {
-      if (aborted) return;
+      if (settled) return;
       size += c.length;
-      if (size > maxBytes) { aborted = true; resolve(null); return; }
+      if (size > maxBytes) { done({ ok: false, reason: 'too_large' }); return; }
       chunks.push(c);
     });
-    req.on('end', () => { if (!aborted) resolve(Buffer.concat(chunks)); });
-    req.on('error', () => resolve(null));
+    req.on('end', () => done({ ok: true, body: Buffer.concat(chunks) }));
+    req.on('error', () => done({ ok: false, reason: 'timeout' }));
   });
 }
 
@@ -281,11 +299,13 @@ async function handlePostAvatar(req: IncomingMessage, res: ServerResponse, userI
   if (!boundary) {
     return json(res, 415, { error: 'expected_multipart', message: 'Send multipart/form-data with a single image file.' }, corsHeaders(req));
   }
-  const body = await readRawBody(req, MAX_AVATAR_UPLOAD_BYTES + 4096); // + small multipart overhead
-  if (!body) {
-    return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
+  const bodyRead = await readRawBody(req, MAX_AVATAR_UPLOAD_BYTES + 4096); // + small multipart overhead
+  if (!bodyRead.ok) {
+    return bodyRead.reason === 'timeout'
+      ? json(res, 408, { error: 'timeout', message: 'Upload timed out. Please try again.' }, corsHeaders(req))
+      : json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
   }
-  const file = parseSingleFileMultipart(body, boundary);
+  const file = parseSingleFileMultipart(bodyRead.body, boundary);
   if (!file || file.bytes.length === 0) {
     return json(res, 400, { error: 'no_file', message: 'No image file found in the request.' }, corsHeaders(req));
   }

@@ -293,6 +293,19 @@ Uploads need **BOTH** a Postgres `DATABASE_URL` (with migrations applied) **and*
 `ffmpeg` on the host. Enabling them is an explicit, owner-approved choice — **do not
 switch the service to Docker unless you intend to**.
 
+**Read readiness from diagnostics:** `curl -s $HOST/health/diagnostics` → `avatarUploads`:
+- `status:"enabled"` (with `ffmpeg:true`, `database:true`) → uploads work;
+- `status:"disabled"` + `reason` `no_ffmpeg` / `no_database` / `no_database_and_ffmpeg` →
+  uploads answer a fast **`503`** and the Profile shows "unavailable" (emoji + local avatar
+  still work);
+- `status:"unknown"` → the boot ffmpeg probe hasn't resolved yet (retry in a moment).
+
+The upload never leaves the button spinning: the client aborts after 30 s
+(`AVATAR_UPLOAD_TIMEOUT_MS`) and the server has a body-read watchdog
+(`AVATAR_UPLOAD_TIMEOUT_MS`, default 20 s → `408`) plus the ffmpeg watchdog
+(`AVATAR_FFMPEG_TIMEOUT_MS`, default 8 s → SIGKILL), so a stall always surfaces a clear,
+retryable error instead of hanging.
+
 #### To ENABLE uploads on Render (two independent requirements)
 
 1. **Database (see the Postgres section above).** Set `DATABASE_URL` and run the

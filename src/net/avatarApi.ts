@@ -18,8 +18,14 @@ export type AvatarUploadError =
   | 'unsupported_type'// 400/415 — not a png/jpeg/webp we can process
   | 'rate_limited'    // 429 — too many uploads
   | 'unavailable'     // 503 — DB off or ffmpeg processing unavailable
+  | 'timeout'         // client aborted after no response (server stalled / slow network)
   | 'network'         // fetch failed / offline
   | 'failed';         // anything else
+
+/** Client-side upload timeout. A stalled request (server hang, slow mobile network,
+ *  proxy buffering) must NEVER leave the button spinning forever — we abort and surface
+ *  a clear, retryable error instead. Overridable for tests. */
+export const AVATAR_UPLOAD_TIMEOUT_MS = 30_000;
 
 export type AvatarUploadResult =
   | { ok: true; avatarImageUrl: string }
@@ -29,6 +35,7 @@ function mapError(status: number, code: unknown): AvatarUploadError {
   if (status === 0) return 'network';
   if (status === 401) return 'unauthenticated';
   if (status === 403) return 'forbidden';
+  if (status === 408) return 'timeout';   // server body-read timed out
   if (status === 413) return 'too_large';
   if (status === 429) return 'rate_limited';
   if (status === 503) return 'unavailable';
@@ -44,28 +51,45 @@ function mapError(status: number, code: unknown): AvatarUploadError {
  * POST /api/me/avatar — multipart upload of the picked image. The browser sets the
  * multipart boundary Content-Type from the FormData, so we DO NOT set it ourselves
  * (and never send JSON here). Returns the new same-origin avatar URL, or a typed error.
+ *
+ * A hard client TIMEOUT (AbortController) guarantees the call ALWAYS settles — a stalled
+ * request resolves to a `timeout` error instead of hanging the "Uploading…" button.
  */
-export async function uploadAvatar(base: string, file: File): Promise<AvatarUploadResult> {
+export async function uploadAvatar(
+  base: string, file: File, timeoutMs: number = AVATAR_UPLOAD_TIMEOUT_MS,
+): Promise<AvatarUploadResult> {
   const form = new FormData();
   form.append('file', file);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${base}/api/me/avatar`, { method: 'POST', credentials: 'include', body: form });
+    const res = await fetch(`${base}/api/me/avatar`, {
+      method: 'POST', credentials: 'include', body: form, signal: controller.signal,
+    });
     type Body = { avatarImageUrl?: string; error?: string };
     let data: Body | null = null;
     try { data = (await res.json()) as Body; } catch { /* empty/non-JSON */ }
     if (res.ok && data?.avatarImageUrl) return { ok: true, avatarImageUrl: data.avatarImageUrl };
     return { ok: false, error: mapError(res.status, data?.error) };
-  } catch {
-    return { ok: false, error: 'network' };
+  } catch (err) {
+    // AbortError = our timeout fired; anything else = a real network/fetch failure.
+    return { ok: false, error: (err as { name?: string })?.name === 'AbortError' ? 'timeout' : 'network' };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/** DELETE /api/me/avatar — remove the synced avatar. Returns true on success. */
-export async function deleteServerAvatar(base: string): Promise<boolean> {
+/** DELETE /api/me/avatar — remove the synced avatar. Returns true on success. A short
+ *  timeout keeps the "Remove" action from hanging if the request stalls. */
+export async function deleteServerAvatar(base: string, timeoutMs: number = AVATAR_UPLOAD_TIMEOUT_MS): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${base}/api/me/avatar`, { method: 'DELETE', credentials: 'include' });
+    const res = await fetch(`${base}/api/me/avatar`, { method: 'DELETE', credentials: 'include', signal: controller.signal });
     return res.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
