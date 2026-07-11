@@ -49,13 +49,18 @@ describe('custom avatar stays OFF the wire + out of the server profile', () => {
 describe('custom avatar processing is client-side + safe', () => {
   it('re-encodes via canvas (strips EXIF) and validates type/size before decoding', () => {
     const proc = read('src/ui/components/customAvatarImage.ts');
-    expect(proc).toContain('canvas');
+    // Local path re-encodes to a data URL via the SHARED square-crop canvas…
+    expect(proc).toContain('drawAvatarSquareCanvas');
     expect(proc).toContain('toDataURL');
-    expect(proc).toContain('isAcceptedAvatarType');
-    expect(proc).toContain('isAvatarInputTooLarge');
-    // No upload / network in the processing path.
-    expect(proc).not.toContain('fetch');
-    expect(proc).not.toMatch(/XMLHttpRequest|\.upload/);
+    // …and the shared canvas does the type/size validation before any decode.
+    const shared = read('src/net/avatarCompress.ts');
+    expect(shared).toContain('isAcceptedAvatarType');
+    expect(shared).toContain('isAvatarInputTooLarge');
+    // No upload / network in either processing path.
+    for (const src of [proc, shared]) {
+      expect(src).not.toContain('fetch');
+      expect(src).not.toMatch(/XMLHttpRequest|\.upload/);
+    }
   });
 });
 

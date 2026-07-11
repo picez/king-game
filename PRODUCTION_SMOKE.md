@@ -118,8 +118,14 @@ its normal label after an attempt — it never stays on "Uploading…". The clie
 too long to receive the image"; a **503** → **unavailable**; offline → **network**. The safe
 error **code** shows in small text; the **same file can be re-selected** to retry.
 
-**Tiny-image happy path (uploads ON):** sign in and upload a **known-good < 100 KB**
-png/jpeg/webp:
+**Client precompression (Stage 24.8):** the synced upload **compresses in the browser first**
+— decode → center-crop → 192×192 → WebP (JPEG fallback) via a quality ladder targeting
+**≤ 100 KB** — so even a multi-MB photo POSTs a tiny payload (a ~680 KB PNG → ~1–3 KB WebP).
+The button shows **"Preparing image…" → "Uploading…"**. The server still validates magic
+bytes / size and re-encodes (authoritative). This makes a Render timeout unlikely.
+
+**Tiny-image happy path (uploads ON):** sign in and upload a **normal photo** (any size up
+to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] Expect **`200 {"avatarImageUrl":…}` within ~a few seconds** (not 30 s). The Render logs
       show the phase trace ending in `db_write_ok` → `response_sent <ms>` (see RENDER_DEPLOY).
 - [ ] `curl -sI $HOST/api/avatar/<uuid>.webp` → `200 image/webp`; the avatar updates on the

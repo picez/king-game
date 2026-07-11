@@ -306,6 +306,12 @@ gets a real HTTP status, not its own timeout — body read `AVATAR_BODY_TIMEOUT_
 `408 upload_timeout`), ffmpeg `AVATAR_FFMPEG_TIMEOUT_MS` (8 s → SIGKILL → `503
 processing_unavailable`), DB write `AVATAR_DB_TIMEOUT_MS` (8 s → `503`).
 
+**Client precompression (Stage 24.8) makes a timeout unlikely.** The browser decodes,
+center-crops, resizes to 192×192, and re-encodes to a small WebP (JPEG fallback) targeting
+**≤ 100 KB** BEFORE the POST — a multi-MB photo uploads as a ~1–3 KB payload, so `ffmpeg` and
+the DB write finish in milliseconds. The server remains authoritative (still validates magic
+bytes / size, re-encodes, strips metadata, whitelists png/jpeg/webp).
+
 **Diagnosing a slow/failed upload from the logs.** `POST /api/me/avatar` emits a safe
 phase trace (no filename / bytes / email / token / session / full userId) — read it in the
 Render logs during an upload:

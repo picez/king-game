@@ -20,6 +20,8 @@ export type AvatarUploadError =
   | 'unavailable'     // 503 — DB off or ffmpeg/DB processing unavailable
   | 'timeout'         // client AbortController fired — NO response within the client budget
   | 'server_timeout'  // 408 — the SERVER gave up receiving/processing (distinct from above)
+  | 'compress_failed' // client-side pre-upload compression could not prepare the image
+  | 'compress_too_large' // still over the target size after the full quality ladder
   | 'network'         // fetch failed / offline
   | 'failed';         // anything else
 

@@ -4,7 +4,8 @@ import {
   updateProfile, updateSettings, fetchKingSettings, updateKingSettings,
   logout as logoutApi, googleStartUrl, type MeResponse, type MeProbe,
 } from '../net/profileApi';
-import { uploadAvatar, deleteServerAvatar, type AvatarUploadResult } from '../net/avatarApi';
+import { uploadAvatar, deleteServerAvatar, type AvatarUploadResult, type AvatarUploadError } from '../net/avatarApi';
+import { compressAvatarForUpload } from '../net/avatarCompress';
 import type { AccountDiagnostics } from '../net/accountDiagnostics';
 import { loadGuestKey, saveGuestKey } from '../net/prefs';
 import type { Lang } from '../i18n';
@@ -60,8 +61,10 @@ export interface Account {
   hydrate: () => Promise<void>;
   saveProgress: (input: SaveProgressInput) => Promise<void>;
   logout: () => Promise<void>;
-  /** Upload a synced avatar (signed-in only); re-hydrates on success. */
-  uploadAvatarImage: (file: File) => Promise<AvatarUploadResult>;
+  /** Compress the picked image (client-side, to a small WebP/JPEG) then upload it
+   *  (signed-in only); re-hydrates on success. `onPhase('uploading')` fires once the
+   *  compression finishes so the UI can switch "Preparing…" → "Uploading…". */
+  uploadAvatarImage: (file: File, onPhase?: (phase: 'uploading') => void) => Promise<AvatarUploadResult>;
   /** Remove the synced avatar; re-hydrates on success. */
   removeAvatarImage: () => Promise<boolean>;
   // Push a single field to the server when there is a session (else a no-op).
@@ -172,8 +175,25 @@ export function useAccount(serverUrl: string, customServer: string | null = null
   // Synced avatar (Stage 17.2): upload/remove go through the DEDICATED multipart /
   // DELETE endpoints (never PATCH /api/settings), then re-hydrate so `me.avatarImageUrl`
   // (and the "me" surfaces) refresh. The emoji `avatar` + OAuth `avatarUrl` are untouched.
-  const uploadAvatarImage = useCallback(async (file: File): Promise<AvatarUploadResult> => {
-    const res = await uploadAvatar(base, file);
+  const uploadAvatarImage = useCallback(async (
+    file: File, onPhase?: (phase: 'uploading') => void,
+  ): Promise<AvatarUploadResult> => {
+    // Compress on the CLIENT first (small 192px WebP/JPEG <= ~100 KB) so the POST is fast
+    // and rarely times out — the server still validates + re-encodes authoritatively.
+    let prepared: File;
+    try {
+      prepared = await compressAvatarForUpload(file);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      const error: AvatarUploadError =
+        msg === 'unsupported' ? 'unsupported_type'
+          : msg === 'too_large' ? 'too_large'
+            : msg === 'compress_too_large' ? 'compress_too_large'
+              : 'compress_failed';
+      return { ok: false, error };
+    }
+    onPhase?.('uploading');
+    const res = await uploadAvatar(base, prepared);
     if (res.ok) await hydrate();
     return res;
   }, [base, hydrate]);

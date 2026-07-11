@@ -102,6 +102,8 @@ export default function ProfilePanel({
   // paths (synced vs this-device) never share UI state.
   const syncedFileRef = useRef<HTMLInputElement>(null);
   const [syncedBusy, setSyncedBusy] = useState(false);
+  // Which phase the busy button reflects: client compression, then the upload.
+  const [syncedPhase, setSyncedPhase] = useState<'preparing' | 'uploading' | null>(null);
   const [syncedError, setSyncedError] = useState<string | null>(null);
   // The raw error code (e.g. server_timeout / unavailable) shown in small text so a stuck
   // user can report the exact reason without guessing. Safe: an enum, never a secret.
@@ -156,6 +158,8 @@ export default function ProfilePanel({
       case 'unavailable': return t('avatar.errUnavailable');
       case 'timeout': return t('avatar.errTimeout');
       case 'server_timeout': return t('avatar.errServerTimeout');
+      case 'compress_failed': return t('avatar.errCompress');
+      case 'compress_too_large': return t('avatar.errCompressTooLarge');
       case 'network': return t('avatar.errNetwork');
       case 'unauthenticated': case 'forbidden': return t('avatar.errSignIn');
       default: return t('avatar.errFailed');
@@ -165,12 +169,12 @@ export default function ProfilePanel({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    setSyncedError(null); setSyncedErrorCode(null); setSyncedBusy(true);
+    setSyncedError(null); setSyncedErrorCode(null); setSyncedPhase('preparing'); setSyncedBusy(true);
     try {
-      const res = await account.uploadAvatarImage(file);
+      const res = await account.uploadAvatarImage(file, () => setSyncedPhase('uploading'));
       if (!res.ok) { setSyncedError(syncedErrorMsg(res.error)); setSyncedErrorCode(res.error); }
     } finally {
-      setSyncedBusy(false);
+      setSyncedBusy(false); setSyncedPhase(null);
     }
   }
   async function removeSyncedAvatar() {
@@ -401,7 +405,9 @@ export default function ProfilePanel({
                   className="visually-hidden" onChange={onPickSynced} />
                 <button type="button" className="btn btn--outline btn--small" disabled={syncedBusy}
                   onClick={() => syncedFileRef.current?.click()}>
-                  {syncedBusy ? `${t('avatar.uploading')}…` : `☁️ ${t('avatar.uploadSynced')}`}
+                  {syncedBusy
+                    ? `${syncedPhase === 'preparing' ? t('avatar.preparing') : t('avatar.uploading')}…`
+                    : `☁️ ${t('avatar.uploadSynced')}`}
                 </button>
                 {account.avatarImageUrl && (
                   <button type="button" className="btn btn--ghost btn--small" disabled={syncedBusy}

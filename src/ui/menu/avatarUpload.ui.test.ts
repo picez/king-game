@@ -27,7 +27,7 @@ describe('Profile — synced avatar controls (signed-in) + guest gating', () => 
   });
 
   it('upload/remove go through the dedicated account methods, not settings/emoji push', () => {
-    expect(panel).toContain('account.uploadAvatarImage(file)');
+    expect(panel).toContain('account.uploadAvatarImage(file,'); // (+ an onPhase callback, Stage 24.8)
     expect(panel).toContain('account.removeAvatarImage()');
     // The synced image must NOT ride the emoji push or the settings PATCH.
     expect(panel).not.toMatch(/pushAvatar\([^)]*(image|synced|url)/i);
@@ -64,7 +64,9 @@ describe('preview priority — server avatarImageUrl > local custom > emoji', ()
 describe('account + API boundaries — no binary on settings/wire, OAuth kept separate', () => {
   it('useAccount exposes avatarImageUrl from /api/me and re-hydrates after upload/remove', () => {
     expect(account).toContain('avatarImageUrl: me?.avatarImageUrl ?? null');
-    expect(account).toContain('uploadAvatar(base, file)');
+    // Stage 24.8: the picked file is client-COMPRESSED first, then the small result uploaded.
+    expect(account).toContain('compressAvatarForUpload(file)');
+    expect(account).toContain('uploadAvatar(base, prepared)');
     expect(account).toContain('deleteServerAvatar(base)');
     expect(account).toContain('await hydrate()');
     // The uploaded image never goes through PATCH /api/settings.

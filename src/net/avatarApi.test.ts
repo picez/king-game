@@ -160,13 +160,20 @@ describe('avatar upload never hangs — source guards', () => {
   });
 
   it('ProfilePanel clears the busy flag in finally and resets the file input on every pick', () => {
-    const fn = panel.slice(panel.indexOf('function onPickSynced'), panel.indexOf('function onPickSynced') + 500);
+    const fn = panel.slice(panel.indexOf('function onPickSynced'), panel.indexOf('function onPickSynced') + 700);
     expect(fn).toContain("e.target.value = ''");        // same file can be re-picked after a failure
     expect(fn).toMatch(/finally \{\s*setSyncedBusy\(false\)/); // button never stuck disabled
-    // timeout / network map to their own clear messages.
+    // timeout / network / compression map to their own clear messages.
     expect(panel).toContain("case 'timeout': return t('avatar.errTimeout')");
     expect(panel).toContain("case 'server_timeout': return t('avatar.errServerTimeout')");
+    expect(panel).toContain("case 'compress_failed': return t('avatar.errCompress')");
+    expect(panel).toContain("case 'compress_too_large': return t('avatar.errCompressTooLarge')");
     expect(panel).toContain("case 'network': return t('avatar.errNetwork')");
+    // The busy button shows a PHASE (Preparing… → Uploading…), and resets it in finally.
+    expect(panel).toContain('setSyncedPhase');
+    expect(panel).toMatch(/syncedPhase === 'preparing' \? t\('avatar\.preparing'\)/);
+    expect(fn).toContain("setSyncedPhase('preparing')");
+    expect(fn).toMatch(/uploadAvatarImage\(file, \(\) => setSyncedPhase\('uploading'\)\)/);
     // The safe error code is surfaced in small text so a stuck user can report it.
     expect(panel).toContain('syncedErrorCode');
     expect(panel).toContain('avatar-error__code');
