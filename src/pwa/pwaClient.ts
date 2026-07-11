@@ -57,6 +57,18 @@ export function detectStandalone(): boolean {
   return isStandaloneDisplay(!!mm, ios);
 }
 
+/** Reflect installed/standalone state on the root element as
+ *  `data-standalone="true"|"false"` so CSS can add installed-only tweaks (see
+ *  base.css) and the mobile visual harness can emulate standalone. Takes an
+ *  explicit element for testability; defaults to <html>. No-op without a DOM. */
+export function applyStandaloneAttr(
+  standalone: boolean,
+  el: { dataset: DOMStringMap } | null | undefined =
+    typeof document !== 'undefined' ? document.documentElement : null,
+): void {
+  if (el) el.dataset.standalone = standalone ? 'true' : 'false';
+}
+
 /**
  * Register the app-shell SW (production only) and detect a WAITING update. Calls
  * `onUpdateReady(reg)` when a new worker is installed and waiting (see sw.js —

@@ -36,7 +36,7 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 .pwa-banner__text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pwa-banner__action { flex: 0 0 auto; min-height: 1.9rem; }
+.pwa-banner__action { flex: 0 0 auto; min-height: var(--tap-min); }
 
 .pwa-banner--offline {
   background: var(--surface-2, #143a24);
@@ -70,9 +70,14 @@
 .pwa-install__text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .pwa-install__title { font-weight: 800; color: var(--text); }
 .pwa-install__body { font-size: 0.8rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; }
-.pwa-install__cta { flex: 0 0 auto; min-height: 2.2rem; }
+.pwa-install__cta { flex: 0 0 auto; min-height: var(--tap-min); }
 .pwa-install__x {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
   background: none;
   border: none;
   color: var(--text-dim);

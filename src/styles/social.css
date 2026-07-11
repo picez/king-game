@@ -54,7 +54,7 @@
    online game (sits above the reaction/chat FABs, clear of the hand). */
 .social-leave {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 0.4rem 0.85rem; min-height: 40px;
+  padding: 0.4rem 0.85rem; min-height: var(--tap-min);
   background: var(--danger-soft); color: var(--danger-light);
   border: 1px solid var(--danger); border-radius: 999px;
   font-size: 0.84rem; font-weight: 700; cursor: pointer;

@@ -118,6 +118,10 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
 - [ ] **Offline:** toggle the device offline → a thin **"You're offline. Local games may
       still work."** pill shows at the top (never covering the ✕ / hand / actions); it
       auto-hides when back online. Local play still starts offline.
+- [ ] **Installed feel (Stage 23.0):** launch from the home screen (standalone). On a
+      notched phone the **hand + action bar + social FABs clear the home indicator**, the
+      **top pills clear the notch**, there is **no horizontal scroll**, and rotating to
+      landscape shows **no blocker** (content just adapts).
 
 ## 11. Security spot-checks
 

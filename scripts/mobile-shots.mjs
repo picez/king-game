@@ -17,7 +17,14 @@ const URL = process.argv[2] || 'http://127.0.0.1:4173/';
 const OUT = process.argv[3] || '.shots';
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const PORT = 9222;
-const VIEWPORTS = [{ w: 360, h: 800 }, { w: 390, h: 844 }];
+// Portrait matrix walks the FULL local-game flow. 430×932 = large modern phone.
+const VIEWPORTS = [{ w: 360, h: 800 }, { w: 390, h: 844 }, { w: 430, h: 932 }];
+// Stage 23.0 extras: landscape resilience + installed/standalone emulation. These
+// only capture the menu + one King table (enough to eyeball safe-area + overflow).
+const EXTRA = [
+  { tag: '568x320-landscape', w: 568, h: 320, standalone: false },
+  { tag: '390x844-standalone', w: 390, h: 844, standalone: true },
+];
 
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -237,6 +244,40 @@ async function run() {
       await sleep(350);
       await shot(cdp, `${tag}-d4-help`);
 
+      cdp.ws.close();
+    }
+
+    // ── Stage 23.0: landscape + standalone emulation ─────────────────────────
+    // A short pass per extra scenario: menu + a King table. `standalone` stamps the
+    // same <html data-standalone> attribute the PWA hook sets on an installed app,
+    // so the installed-only CSS tweaks render. Overflow is checked on every shot.
+    const CLICKSEL2 = (sel, i = 0) => `(()=>{const e=document.querySelectorAll(${JSON.stringify(sel)})[${i}];if(e){e.click();return true}return false})()`;
+    for (const vp of EXTRA) {
+      const targets = await fetchJson('/json');
+      const page = targets.find((t) => t.type === 'page');
+      const cdp = new CDP(page.webSocketDebuggerUrl);
+      await cdp.open();
+      await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+      await cdp.send('Emulation.setDeviceMetricsOverride',
+        { width: vp.w, height: vp.h, deviceScaleFactor: 2, mobile: true, screenWidth: vp.w, screenHeight: vp.h });
+      console.log(`\n[viewport ${vp.tag}]`);
+      await cdp.send('Page.navigate', { url: URL });
+      await sleep(900);
+      if (vp.standalone) {
+        await cdp.evaluate(`document.documentElement.dataset.standalone='true'`);
+        await sleep(120);
+      }
+      await shot(cdp, `${vp.tag}-menu`);
+      // Walk into a King game to eyeball the table + bottom controls in this mode.
+      await cdp.evaluate(CLICKSEL2('.tile', 0));               // Play locally → setup
+      await sleep(400);
+      await cdp.evaluate(CLICK('3 Players'));
+      await sleep(150);
+      await cdp.evaluate(CLICK('Start Game'));
+      await sleep(500);
+      await cdp.evaluate(CLICK('show my hand'));               // dealer hand
+      await sleep(450);
+      await shot(cdp, `${vp.tag}-table`);
       cdp.ws.close();
     }
   } finally {

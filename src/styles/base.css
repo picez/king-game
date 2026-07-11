@@ -88,6 +88,16 @@
   --radius-sm:    8px;
   --space:        1rem;
   --tap-min:      44px; /* minimum comfortable touch target */
+
+  /* ---- Safe-area insets (notch / home indicator / rounded corners) ----
+     Reusable, self-documenting aliases for the raw env() values. They resolve
+     to the inset at the point of use and fall back to 0px where there is no
+     inset (desktop, non-cover viewports) — so they add NO padding on desktop.
+     Requires <meta viewport-fit=cover> (set in index.html). */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
 }
 
 /* Stage 13.0: card-back style is a local visual pref, applied by flipping the
@@ -157,6 +167,17 @@ body {
     max(1rem, env(safe-area-inset-right))
     max(1rem, env(safe-area-inset-bottom))
     max(1rem, env(safe-area-inset-left));
+}
+
+/* ===== Installed / standalone (Stage 23.0) =====
+   <html data-standalone="true"> is stamped by the PWA hook when the app runs as
+   an installed app (matchMedia display-mode: standalone OR iOS navigator.standalone).
+   There is no browser chrome and the iOS status bar is translucent, so guarantee a
+   small top floor for the top strips even when env(safe-area-inset-top) reports 0
+   (Android installed / non-notch). Never applied in a normal browser tab (attr is
+   "false" or unset), so desktop and mobile-browser layouts are untouched. */
+:root[data-standalone="true"] .pwa-strips {
+  top: max(var(--safe-top), 0.35rem);
 }
 
 .center-screen {

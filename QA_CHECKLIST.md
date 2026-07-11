@@ -533,8 +533,30 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       static app shell + assets, so online data is always fresh and offline never serves a
       stale profile/stats. (WebSocket never passes through the SW.)
 - [ ] Notch/safe-area: header, banners, and the hand are not hidden under system bars.
-- [ ] Touch targets comfortable; **no horizontal overflow** at 360/390; **RTL (Arabic)**
-      the banners/pills mirror cleanly.
+
+### Mobile safe-area & touch ergonomics (Stage 23.0)
+
+> `viewport-fit=cover` + reusable `--safe-top/right/bottom/left` (base.css) + a 44px
+> `--tap-min`. Installed apps stamp `<html data-standalone="true">` (PWA hook) for
+> installed-only tweaks. Automated matrix: `node scripts/mobile-shots.mjs <previewUrl> .shots`
+> now walks **360×800 / 390×844 / 430×932** portrait + **568×320 landscape** +
+> **standalone-emulated 390×844**, and fails on any horizontal overflow. Source guards:
+> `src/styles/mobileSafeArea.test.ts`. (`.shots/` is git-ignored — no artifacts committed.)
+
+- [ ] **Bottom safe-area (home indicator):** on a notched device the player's hand, the
+      King/Durak action bar, the install card, and the social FABs / "Leave game" pill all
+      sit **clear of the home indicator** (never underlapped).
+- [ ] **Top safe-area (notch / status bar):** the top-left ✕, top-right ❓, and the
+      update/offline pills clear the notch; in **standalone** the pills keep a small top
+      floor even where the OS reports no inset.
+- [ ] **Tap targets ≥ 44px:** game picker, cards/actions, lobby buttons, social buttons,
+      and the PWA **Install / Refresh / ✕** are all comfortably tappable.
+- [ ] **No horizontal overflow** at 360 / 390 / 430; the card hand scrolls horizontally
+      where needed **without** scrolling the page sideways.
+- [ ] **Landscape:** rotate to landscape (≈568×320) — no "rotate your phone" blocker; menu,
+      setup, and the table adapt (content scrolls vertically, no clipped controls).
+- [ ] **RTL (Arabic):** the banners/pills and social controls mirror cleanly; safe-area
+      padding still applies on the mirrored edge.
 
 ## Manual — Sound (preference+preview 15.2; ALERT-ONLY 15.4)
 

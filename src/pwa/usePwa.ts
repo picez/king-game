@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type BeforeInstallPromptEvent,
-  detectStandalone, registerServiceWorker, applyWaitingUpdate,
+  detectStandalone, applyStandaloneAttr, registerServiceWorker, applyWaitingUpdate,
   loadInstallDismissed, saveInstallDismissed,
 } from './pwaClient';
 
@@ -38,6 +38,9 @@ export function usePwa(): PwaState {
   const [offline, setOffline] = useState(() =>
     typeof navigator !== 'undefined' && navigator.onLine === false);
   const registered = useRef(false);
+
+  // Stamp <html data-standalone> once so installed-only CSS tweaks can apply.
+  useEffect(() => { applyStandaloneAttr(standalone); }, [standalone]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

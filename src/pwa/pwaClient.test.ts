@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  INSTALL_DISMISS_KEY, isStandaloneDisplay, shouldOfferInstall,
+  INSTALL_DISMISS_KEY, isStandaloneDisplay, shouldOfferInstall, applyStandaloneAttr,
   loadInstallDismissed, saveInstallDismissed, type KVStore,
 } from './pwaClient';
 
@@ -28,6 +28,15 @@ describe('pwaClient — pure helpers', () => {
     expect(shouldOfferInstall({ ...base, dismissed: true })).toBe(false);  // user dismissed
     expect(shouldOfferInstall({ ...base, standalone: true })).toBe(false); // already installed
     expect(shouldOfferInstall({ ...base, inGame: true })).toBe(false);     // never during play
+  });
+
+  it('applyStandaloneAttr stamps data-standalone true/false on the given element', () => {
+    const el = { dataset: {} as DOMStringMap };
+    applyStandaloneAttr(true, el);
+    expect(el.dataset.standalone).toBe('true');   // installed → CSS installed-only tweaks apply
+    applyStandaloneAttr(false, el);
+    expect(el.dataset.standalone).toBe('false');  // browser tab → tweaks off
+    expect(() => applyStandaloneAttr(true, null)).not.toThrow(); // no DOM → no-op
   });
 
   it('dismiss suppression round-trips via the KV store (persisted flag)', () => {
@@ -123,6 +132,9 @@ describe('usePwa — event wiring + cleanup', () => {
   });
   it('the install prompt is one-shot (cleared after userChoice)', () => {
     expect(hook).toContain('ev.userChoice.finally(() => setInstallEvent(null))');
+  });
+  it('stamps <html data-standalone> from the resolved standalone state', () => {
+    expect(hook).toContain('applyStandaloneAttr(standalone)');
   });
 });
 
