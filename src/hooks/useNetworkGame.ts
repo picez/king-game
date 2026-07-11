@@ -73,6 +73,12 @@ export interface NetworkGame {
   /** A friend invite this client just received (Join/Dismiss toast), or null. */
   friendInvite: FriendInvite | null;
   dismissFriendInvite: () => void;
+  /** Rematch progress after an online game finishes (Stage 25.9), or null when none pending. */
+  rematch: RematchProgress | null;
+  /** "Play again" for an online room — mark this client ready for a rematch. */
+  sendRematchReady: () => void;
+  /** Cancel this client's rematch readiness. */
+  sendRematchDecline: () => void;
   /** Bumped on every FRIEND_PRESENCE push so a friends list can re-fetch live. */
   presenceNonce: number;
   /**
@@ -103,6 +109,17 @@ export type VoiceServerMessage = Extract<ServerMessage, { t:
 /** A received friend room-invite (public routing fields only — no email/token). */
 export interface FriendInvite { fromUserId: string; fromName: string; code: string; gameType: string; at: number; }
 
+/** Rematch progress for the online finish screen (Stage 25.9) — public clientIds only. */
+export interface RematchProgress { ready: string[]; needed: number; }
+
+/** Is a game state (any of the 5 games) in its terminal/finished screen? */
+function stateIsFinished(s: unknown): boolean {
+  if (!s || typeof s !== 'object') return false;
+  const o = s as { status?: string; phase?: string };
+  return o.status === 'game_finished' || o.status === 'finished'
+    || o.phase === 'game_finished' || o.phase === 'finished';
+}
+
 const RECONNECT_DELAY_MS = 1500;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -122,6 +139,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
   const [friendInvite, setFriendInvite] = useState<FriendInvite | null>(null);
+  const [rematch, setRematch] = useState<RematchProgress | null>(null);
   const [presenceNonce, setPresenceNonce] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
@@ -184,6 +202,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         // and own their finished screen, so only King drives net.status here.
         const s = msg.state;
         setState(s as GameState | null);
+        // A fresh (non-finished) state means a new game/deal is live — clear any pending
+        // rematch so the NEXT finish starts a clean rematch (Stage 25.9).
+        if (!stateIsFinished(s)) setRematch(null);
         // `'status' in s` narrows the union: King/Durak carry `status`, Deberc
         // carries `phase`. King's game_finished is the only wrapper-level finish.
         if (s && 'status' in s && s.status === 'game_finished') setStatus('finished');
@@ -229,6 +250,10 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
       }
       case 'FRIEND_PRESENCE': {
         setPresenceNonce((n) => n + 1); // nudge any open friends list to re-fetch
+        break;
+      }
+      case 'REMATCH_STATE': {
+        setRematch({ ready: msg.ready, needed: msg.needed });
         break;
       }
       case 'ERROR': {
@@ -344,6 +369,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
   const sendFriendInvite = useCallback((toUserId: string) => send({ t: 'FRIEND_INVITE', toUserId }), [send]);
+  const sendRematchReady = useCallback(() => send({ t: 'REMATCH_READY' }), [send]);
+  const sendRematchDecline = useCallback(() => send({ t: 'REMATCH_DECLINE' }), [send]);
   const sendVoiceJoin = useCallback(() => send({ t: 'VOICE_JOIN' }), [send]);
   const sendVoiceLeave = useCallback(() => send({ t: 'VOICE_LEAVE' }), [send]);
   const sendVoiceOffer = useCallback((toClientId: string, sdp: string) => send({ t: 'VOICE_SIGNAL_OFFER', toClientId, sdp }), [send]);
@@ -384,6 +411,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
+    rematch, sendRematchReady, sendRematchDecline,
     connectionEpoch,
     sendVoiceJoin, sendVoiceLeave, sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendVoiceMute, registerVoiceListener,
   };

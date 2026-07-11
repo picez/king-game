@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import TarneebGameScreen from './TarneebGameScreen';
 import TarneebFinished from './TarneebFinished';
+import type { RematchUi } from '../online/RematchControls';
 import type { TarneebAction, TarneebState } from '../../games/tarneeb/types';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   onExit: () => void;
   /** Seats whose human is offline (for offline badges / "AI may play" hints). */
   disconnectedSeats?: number[];
+  /** Online rematch controls (Stage 25.9). */
+  rematch?: RematchUi | null;
 }
 
 /**
@@ -23,7 +26,7 @@ interface Props {
  * GameRouter) and holds no local state. The `online` flag makes the screen
  * read-only when it is not this client's turn and hides the "Next hand" button.
  */
-export default function TarneebOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats }: Props) {
+export default function TarneebOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -32,7 +35,7 @@ export default function TarneebOnlineGame({ state, myPlayerId, dispatch, onExit,
     return <CenterNote title={t('gameType.tarneeb')} sub={t('tarneeb.spectating')} />;
   }
   if (state.phase === 'game_finished') {
-    return <TarneebFinished state={state} humanSeat={me.seatIndex} onPlayAgain={onExit} onExit={onExit} />;
+    return <TarneebFinished state={state} humanSeat={me.seatIndex} onPlayAgain={onExit} onExit={onExit} rematch={rematch} />;
   }
   return (
     <TarneebGameScreen

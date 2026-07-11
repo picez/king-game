@@ -2,6 +2,7 @@ import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import ScoreTracker from './components/ScoreTracker';
 import WinnerCelebration from './components/WinnerCelebration';
+import RematchControls from './online/RematchControls';
 
 interface RankedPlayer {
   name: string;
@@ -10,7 +11,7 @@ interface RankedPlayer {
 }
 
 export default function GameFinishedScreen() {
-  const { state, dispatch, online, onExit } = useGame();
+  const { state, dispatch, online, onExit, rematch } = useGame();
   const { t } = useI18n();
   if (!state) return null;
 
@@ -71,9 +72,13 @@ export default function GameFinishedScreen() {
         </div>
 
         {online ? (
-          <button className="btn btn--primary btn--large" onClick={() => onExit?.()}>
-            {t('btn.backToMenu')}
-          </button>
+          <div className="finished-actions">
+            {/* Online rematch (Stage 25.9): "Play again" restarts the same room's game. */}
+            {rematch && <RematchControls {...rematch} />}
+            <button className="btn btn--ghost" onClick={() => onExit?.()}>
+              {t('btn.backToMenu')}
+            </button>
+          </div>
         ) : (
           <button className="btn btn--primary btn--large" onClick={handleReset}>
             {t('finished.playAgain')}

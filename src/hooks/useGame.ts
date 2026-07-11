@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
+import type { RematchUi } from '../ui/online/RematchControls';
 
 interface GameContextType {
   state: GameState | null;
@@ -26,6 +27,8 @@ interface GameContextType {
    * fallback) for members present here. Absent seats / offline flow → emoji.
    */
   seatAvatarImages?: Record<number, string>;
+  /** Online only (Stage 25.9): rematch controls for the King finish screen. */
+  rematch?: RematchUi | null;
 }
 
 export const GameContext = createContext<GameContextType>({

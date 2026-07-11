@@ -28,6 +28,8 @@ import {
   markDisconnected, removeMember, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
   actingMember, applyTimeoutAction, recomputeOrphan, substituteDelayMs, publicScreenOf,
+  isRoomFinished, markRematchReady, removeRematchReady, clearRematch, rematchStateOf,
+  allHumansReady, restartGame,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { createStorage, type AppStorage } from './storage';
@@ -323,6 +325,45 @@ async function deliverFriendInvite(socket: WebSocket, senderUserId: string | nul
   for (const sock of presenceSocketsFor(verdict.toUserId)) send(sock as WebSocket, payload);
 }
 
+/** Broadcast the current rematch progress to everyone in the room (public clientIds only). */
+function broadcastRematch(room: ServerRoom): void {
+  const { ready, needed } = rematchStateOf(room);
+  broadcastToRoom(room, { t: 'REMATCH_STATE', ready, needed });
+}
+
+/**
+ * Handle REMATCH_READY / REMATCH_DECLINE for an online room (Stage 25.9). Only after the game is
+ * finished and only from a seated human. When all connected humans are ready (bots always count
+ * as ready), restart the SAME game in the SAME room; otherwise broadcast the progress. DECLINE
+ * clears the pending readiness. Best-effort + silent on invalid state; no token/session/email.
+ */
+function handleRematch(session: SessionRef, decline: boolean): void {
+  const s = session.value;
+  if (!s) return;
+  const room = s.room;
+  if (!isRoomFinished(room)) return;                 // only offerable once the game is over
+  const me = room.members.get(s.clientId);
+  if (!me || me.role !== 'player' || me.type !== 'human') return;
+
+  if (decline) { removeRematchReady(room, s.clientId); broadcastRematch(room); return; }
+
+  markRematchReady(room, s.clientId);
+  if (allHumansReady(room)) {
+    // Let the fresh game record its OWN finish (the previous finish is already recorded once).
+    recordedFinish.delete(room.code);
+    clearRematch(room);
+    const res = restartGame(room, { now: Date.now() });
+    if (res.ok) {
+      logLatestDeal(room);
+      broadcastRoom(room);
+      broadcastAndAdvance(room);
+      persistRoom(room);
+    }
+    return; // the fresh STATE_UPDATE clears the finish screen — no REMATCH_STATE needed
+  }
+  broadcastRematch(room);
+}
+
 /** Human-readable text for an invite failure (the client also has i18n via the code). */
 const INVITE_ERROR_TEXT: Record<'FRIEND_NOT_ONLINE' | 'NOT_FRIENDS' | 'NOT_IN_ROOM', string> = {
   FRIEND_NOT_ONLINE: 'That friend is offline right now.',
@@ -554,7 +595,10 @@ function handleLeave(room: ServerRoom, clientId: string): void {
     storage.deleteRoom(room.code);
     return;
   }
+  removeRematchReady(room, clientId);
   broadcastRoom(room);
+  // If a rematch was pending, refresh its progress (this human's consent + count are gone).
+  if (isRoomFinished(room)) broadcastRematch(room);
   persistRoom(room);
 }
 
@@ -723,6 +767,8 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     // Friends (Stage 25.2): a room invite is handled here (it needs the socket's resolved
     // userId + presence, which the room dispatch doesn't carry). Everything else → dispatch.
     if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(socket, resolvedUserId, sessionRef, msg.toUserId); return; }
+    // Rematch / Play again (Stage 25.9): restart the same finished game in the same room.
+    if (msg.t === 'REMATCH_READY' || msg.t === 'REMATCH_DECLINE') { handleRematch(sessionRef, msg.t === 'REMATCH_DECLINE'); return; }
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
@@ -736,6 +782,8 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     dispatchVoice(leaveVoice(session.room.code, session.clientId)); // notify voice peers
     markDisconnected(session.room, session.clientId);
     broadcastRoom(session.room);
+    // If a rematch was pending on a finished game, refresh its progress (this human went offline).
+    if (rooms.has(session.room.code) && isRoomFinished(session.room)) broadcastRematch(session.room);
     persistRoom(session.room); // keep the store fresh (debounced); connected resets on restore
     // In an active game, re-evaluate the timers now that someone went offline:
     // if it is the disconnected player's turn, this schedules the AI substitute

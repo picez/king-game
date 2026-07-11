@@ -2,16 +2,19 @@ import { useI18n } from '../../i18n';
 import type { DebercState } from '../../games/deberc/types';
 import { DebercScoreSheet } from './DebercScoreTable';
 import WinnerCelebration from '../components/WinnerCelebration';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
   state: DebercState;
   humanId: string;
   onPlayAgain: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 25.9). */
+  rematch?: RematchUi | null;
 }
 
 /** End screen: did the human's team win the match (target reached or деберц jackpot). */
-export default function DebercFinished({ state, humanId, onPlayAgain, onExit }: Props) {
+export default function DebercFinished({ state, humanId, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const me = state.players.find((p) => p.id === humanId);
   const myTeam = me ? state.teamOf[me.seatIndex] : 0;
@@ -37,7 +40,9 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit }: 
         </ul>
         {state.handHistory.length > 0 && <DebercScoreSheet state={state} />}
         <div className="durak-finished__actions">
-          <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('deberc.playAgain')}</button>
+          {rematch
+            ? <RematchControls {...rematch} />
+            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('deberc.playAgain')}</button>}
           <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
         </div>
       </div>

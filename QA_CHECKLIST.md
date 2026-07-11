@@ -697,11 +697,13 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Presence at the menu (25.7):** with A and B both **signed in and sitting on the menu**
       (no room), A's Friends list shows B **Online**; when B closes the tab / signs out, A flips
       B to **Offline** within a few seconds (no manual refresh needed). Manual **↻** still works.
-- [ ] **Lobby invite is visible (25.8):** in ANY game's Lobby (King/Durak/Deberc/Tarneeb) the
-      **"👥 Invite friends"** block is **always shown** (not collapsed). A **guest** sees **"Sign
-      in to invite friends"**; a signed-in user with **no friends** sees **"Add friends in Profile
-      to invite them"**; otherwise online friends list first with an **Invite** button (offline →
-      disabled + hint). No overflow at 360/390 or in RTL.
+- [ ] **Lobby invite is visible (25.8/25.9):** in ANY game's Lobby (King/Durak/Deberc/Tarneeb) the
+      **"👥 Invite friends"** block is **inside the lobby card, right after the players — visible
+      without scrolling** (25.9 fix: it used to fall below the fold). States: **guest → "Sign in
+      to invite friends"**, **loading → "Loading friends…"**, **API error → "Could not load
+      friends" + Retry**, **no friends → "Add friends in Profile to invite them"**, otherwise
+      online friends first with an **Invite** button (offline → disabled + hint). No overflow at
+      360/390 or in RTL.
 - [ ] **Invite (25.7):** A hosts an online room → A's Lobby Friends panel shows B with a clear
       **Invite** button (online) or a **disabled Invite** (offline, "friend is offline" hint). In
       the **menu** Friends tab a hint reads **"Create or join a room to invite friends."** Tap
@@ -713,6 +715,26 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       contains an email, token, or session; the invite works only between accepted online friends.
 - [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab (chips + badges + invite), the request
       badges, and the invite toast don't overflow and the toast never covers the hand/actions.
+
+## Manual — Online rematch / Play again (Stage 25.9)
+
+> After an online game FINISHES, "Play again" restarts the SAME game in the SAME room — it no
+> longer leaves to the menu. No Postgres needed for the flow itself.
+
+- [ ] **One human + bots:** host an online room, add bots, play to the finish. The finish screen
+      shows **🔁 Play again** → tap it → the **same game restarts in the same room** (same
+      players/seats/settings) — you are **not** sent to the menu. Works for King, Durak, Deberc,
+      Tarneeb.
+- [ ] **Two humans:** two clients (A + B) in one room, play to the finish. A taps **Play again**
+      → A shows **"Starting…/Waiting"** and **B sees "A wants a rematch"** + its own Play again.
+      The game restarts **only after BOTH** tap Play again (no auto-start). **Cancel** (on the
+      ready client) clears readiness. If one client **leaves**, the pending rematch updates/cancels
+      and never starts without consent.
+- [ ] **Back to menu still works** on the finish screen (a secondary button), and after a rematch
+      the new game plays normally; the previous game's stats are **not** duplicated (a fresh game
+      records its own finish only, human-vs-human).
+- [ ] **Privacy:** DevTools → the `REMATCH_*` frames carry only ready **clientIds** + a count —
+      **no email/token/session**. Mobile 360/390: the finish actions don't overflow.
 
 ## Manual — Card reliability + trick pacing (Stage 25.8, any game, no Postgres)
 

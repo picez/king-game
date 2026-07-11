@@ -1,16 +1,19 @@
 import { useI18n } from '../../i18n';
 import type { DurakState } from '../../games/durak/types';
 import WinnerCelebration from '../components/WinnerCelebration';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
   state: DurakState;
   humanId: string;
   onPlayAgain: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 25.9). When present, "Play again" restarts the room's game. */
+  rematch?: RematchUi | null;
 }
 
 /** End screen: did the human win / lose (become the fool) / draw. */
-export default function DurakFinished({ state, humanId, onPlayAgain, onExit }: Props) {
+export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const humanIsFool = state.foolId === humanId;
   const title = state.isDraw ? t('durak.draw') : humanIsFool ? t('durak.youLost') : t('durak.youWon');
@@ -30,7 +33,9 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit }: P
           </p>
         )}
         <div className="durak-finished__actions">
-          <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('durak.playAgain')}</button>
+          {rematch
+            ? <RematchControls {...rematch} />
+            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('durak.playAgain')}</button>}
           <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
         </div>
       </div>

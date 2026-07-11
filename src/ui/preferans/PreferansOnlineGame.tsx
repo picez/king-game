@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import PreferansGameScreen from './PreferansGameScreen';
 import PreferansFinished from './PreferansFinished';
+import type { RematchUi } from '../online/RematchControls';
 import type { PreferansAction, PreferansState } from '../../games/preferans/types';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   onExit: () => void;
   /** Seats whose human is offline (for offline badges / "AI may play" hints). */
   disconnectedSeats?: number[];
+  /** Online rematch controls (Stage 25.9). */
+  rematch?: RematchUi | null;
 }
 
 /**
@@ -23,7 +26,7 @@ interface Props {
  * renders nothing King-specific (no GameRouter). The `online` flag makes the
  * screen read-only when it is not this client's turn and hides "Next hand".
  */
-export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats }: Props) {
+export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -32,7 +35,7 @@ export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExi
     return <CenterNote title={t('gameType.preferans')} sub={t('preferans.spectating')} />;
   }
   if (state.phase === 'game_finished') {
-    return <PreferansFinished state={state} humanSeat={me.seatIndex} onPlayAgain={onExit} onExit={onExit} />;
+    return <PreferansFinished state={state} humanSeat={me.seatIndex} onPlayAgain={onExit} onExit={onExit} rematch={rematch} />;
   }
   return (
     <PreferansGameScreen

@@ -2,6 +2,7 @@ import { useI18n } from '../../i18n';
 import { teamOfSeat } from '../../games/tarneeb/rules';
 import type { TarneebState } from '../../games/tarneeb/types';
 import WinnerCelebration from '../components/WinnerCelebration';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
   state: TarneebState;
@@ -9,10 +10,12 @@ interface Props {
   humanSeat: number;
   onPlayAgain: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 25.9). */
+  rematch?: RematchUi | null;
 }
 
 /** End screen: did the human's team win the match (target 41 reached). */
-export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit }: Props) {
+export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const myTeam = teamOfSeat(humanSeat);
   const humanWon = state.winnerTeam === myTeam;
@@ -39,9 +42,9 @@ export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit 
           </div>
         </div>
         <div className="tarneeb-finished__actions">
-          <button type="button" className="btn btn--primary" onClick={onPlayAgain}>
-            {t('tarneeb.playAgain')}
-          </button>
+          {rematch
+            ? <RematchControls {...rematch} />
+            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('tarneeb.playAgain')}</button>}
           <button type="button" className="btn btn--ghost" onClick={onExit}>
             {t('btn.backToMenu')}
           </button>

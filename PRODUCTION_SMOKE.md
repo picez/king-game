@@ -151,11 +151,16 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       accounts):** A adds B by code → B sees a **red badge** on the ⚙️ Profile tile + Friends tab
       and an incoming request; B **Accepts** → badge clears. With both **just on the menu**, each
       shows the other **Online** (chip); closing a tab flips to **Offline** within seconds. A hosts
-      a room → the Lobby's **always-visible "👥 Invite friends" block** (Stage 25.8) shows B with
-      **Invite** → B gets a **Join/Dismiss** toast (works on the menu too); **Join** prefills
-      `?room=` (no auto-join). A **guest** sees "Sign in to invite friends"; **no friends** →
-      "Add friends in Profile". Inviting offline/non-friend/outside-a-room → a small inline notice.
-      No email/token/session on the wire.
+      a room → the Lobby's **"👥 Invite friends" block INSIDE the lobby card, after the players**
+      (Stage 25.9 — visible without scrolling) shows B with **Invite** → B gets a **Join/Dismiss**
+      toast (works on the menu too); **Join** prefills `?room=` (no auto-join). States: guest →
+      "Sign in to invite friends"; loading → "Loading friends…"; error → "Could not load friends"
+      + Retry; none → "Add friends in Profile". Inviting offline/non-friend/outside-a-room → a
+      small inline notice. No email/token/session on the wire.
+- [ ] **Online rematch / Play again (Stage 25.9):** finish an online game. **Play again** restarts
+      the **same game in the same room** (NOT back to menu). One human + bots → immediate restart;
+      two humans → both must tap Play again (one sees the other's "wants a rematch"), no auto-start.
+      `REMATCH_*` frames carry only clientIds + a count (no token/session/email).
 - [ ] **Voice chat (Stage 25.4–25.7, opt-in):** in an online Lobby the **Voice chat** card shows
       **Join voice** (default off). It needs **HTTPS** for the mic (`getUserMedia` is blocked on
       plain HTTP). With two contexts in the same room, Join → grant mic → **they hear each other**

@@ -137,6 +137,12 @@ export interface ServerRoom {
    * moment a human reconnects/joins. Persisted so restarts honour the timer.
    */
   orphanSince: number | null;
+  /**
+   * Rematch readiness (Stage 25.9) — the clientIds of seated humans who pressed "Play again"
+   * after the game finished. In-memory only (never persisted / snapshotted); cleared on restart,
+   * leave, or a fresh game start. Undefined when no rematch is pending.
+   */
+  rematchReady?: Set<string>;
 }
 
 export interface OpResult {
@@ -502,6 +508,67 @@ export function startGame(room: ServerRoom, deal: DealContext = {}): OpResult {
   room.started = true;
   recordDeal(room, seed, deal.now ?? 0);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Rematch / "Play again" for an online room (Stage 25.9)
+//
+// After a game finishes, seated humans can restart the SAME game (same gameType/options/
+// members/seats) in the SAME room. All state is in-memory on the room; nothing is persisted.
+// ---------------------------------------------------------------------------
+
+/** Is the room's game over (so a rematch may be offered)? Routes through the game definition. */
+export function isRoomFinished(room: ServerRoom): boolean {
+  if (!room.started || !room.gameState) return false;
+  const def = getGameDefinition(room.gameType ?? DEFAULT_GAME_TYPE);
+  return !!def && def.isFinished(room.gameState as never);
+}
+
+/** Connected human players — the members whose consent a rematch needs (bots are always ready). */
+export function rematchHumans(room: ServerRoom): ServerMember[] {
+  return activePlayers(room).filter((m) => m.type === 'human' && m.connected);
+}
+
+/** Mark a member ready for a rematch (only seated players; ignored otherwise). */
+export function markRematchReady(room: ServerRoom, clientId: string): void {
+  const m = room.members.get(clientId);
+  if (!m || m.role !== 'player' || m.type !== 'human') return;
+  (room.rematchReady ??= new Set()).add(clientId);
+}
+
+/** Drop a member's rematch readiness (on leave/decline). */
+export function removeRematchReady(room: ServerRoom, clientId: string): void {
+  room.rematchReady?.delete(clientId);
+}
+
+/** Forget any pending rematch (on restart / new game / reset). */
+export function clearRematch(room: ServerRoom): void {
+  room.rematchReady = undefined;
+}
+
+/** Public rematch snapshot for REMATCH_STATE — ready clientIds (still-connected humans) + needed. */
+export function rematchStateOf(room: ServerRoom): { ready: string[]; needed: number } {
+  const humanIds = new Set(rematchHumans(room).map((m) => m.clientId));
+  const ready = [...(room.rematchReady ?? [])].filter((id) => humanIds.has(id));
+  return { ready, needed: humanIds.size };
+}
+
+/** True once every connected human has pressed ready (and there is at least one). */
+export function allHumansReady(room: ServerRoom): boolean {
+  const { ready, needed } = rematchStateOf(room);
+  return needed > 0 && ready.length >= needed;
+}
+
+/**
+ * Restart the SAME game in the SAME room after it finished: reset to a fresh deal keeping the
+ * members/seats/gameType/options. Fails unless the current game is actually finished.
+ */
+export function restartGame(room: ServerRoom, deal: DealContext = {}): OpResult {
+  if (!isRoomFinished(room)) return { ok: false, error: 'ILLEGAL_ACTION' };
+  clearRematch(room);
+  room.started = false;
+  room.gameState = null;
+  return startGame(room, deal);
 }
 
 /**

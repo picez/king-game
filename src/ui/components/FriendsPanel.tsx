@@ -49,11 +49,15 @@ export default function FriendsPanel({ base, signedIn, onInvite, invited, refres
   const [addMsg, setAddMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null); // userId currently mutating
+  const [errored, setErrored] = useState(false); // last fetch failed (unreachable / no-DB / migration)
 
   const load = useCallback(async () => {
     if (!signedIn) return;
-    setLoading(true);
-    try { setData(await fetchFriends(base)); } finally { setLoading(false); }
+    setLoading(true); setErrored(false);
+    try {
+      const d = await fetchFriends(base);
+      if (d) setData(d); else setErrored(true);
+    } finally { setLoading(false); }
   }, [base, signedIn]);
 
   useEffect(() => { void load(); }, [load, refreshNonce]);
@@ -92,8 +96,15 @@ export default function FriendsPanel({ base, signedIn, onInvite, invited, refres
           )}
         </div>
         {!signedIn && <p className="field__hint">{t('friends.signInToInvite')}</p>}
-        {signedIn && list.length === 0 && !loading && <p className="field__hint">{t('friends.addInProfile')}</p>}
-        {signedIn && list.map((f) => (
+        {signedIn && loading && !data && <p className="field__hint">{t('friends.loading')}</p>}
+        {signedIn && !loading && errored && (
+          <p className="field__hint friends-invite__error">
+            {t('friends.loadError')}{' '}
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => void load()}>{t('account.retry')}</button>
+          </p>
+        )}
+        {signedIn && !loading && !errored && list.length === 0 && <p className="field__hint">{t('friends.addInProfile')}</p>}
+        {signedIn && !errored && list.map((f) => (
           <div key={f.userId} className={`friend-row ${f.online ? 'friend-row--online' : 'friend-row--offline'}`}>
             <FriendAvatar friend={f} />
             <span className="friend-row__name">{f.displayName ?? t('account.guestShort')}</span>

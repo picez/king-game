@@ -17,6 +17,18 @@ also reported at `GET /health/diagnostics` (`version` field).
   Join/Mute/Leave, per-peer state, autoplay-blocked fallback. No audio is stored, recorded,
   or sent through the server (peer-to-peer, signaling relay only).
 
+### Added (Stage 25.9)
+
+- **Online rematch / Play again** — after an online game finishes, Play again restarts the same
+  game in the same room instead of leaving to the menu. Solo + bots restarts immediately; with
+  multiple humans everyone must tap Play again (no auto-start), and others see who wants a rematch.
+
+### Fixed (Stage 25.9)
+
+- **Lobby friend-invite is actually visible** — the invite block is now rendered inside the lobby
+  card (right after the players) instead of below the full-height screen where it was off-screen;
+  added clear loading and error+retry states.
+
 ### Fixed (Stage 25.8)
 
 - **Invite friends from the Lobby** — the room Lobby now shows an always-visible "Invite friends"

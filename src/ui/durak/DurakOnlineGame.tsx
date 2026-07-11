@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n';
 import DurakGameScreen from './DurakGameScreen';
 import DurakFinished from './DurakFinished';
 import type { DurakAction, DurakState } from '../../games/durak/types';
+import type { RematchUi } from '../online/RematchControls';
 
 interface Props {
   /** The server's redacted Durak state (own hand visible, opponents hidden). */
@@ -13,6 +14,8 @@ interface Props {
   onExit: () => void;
   /** Seats whose human is offline (for offline badges / "AI may play" hints). */
   disconnectedSeats?: number[];
+  /** Online rematch controls (Stage 25.9) for the finish screen. */
+  rematch?: RematchUi | null;
 }
 
 /**
@@ -20,7 +23,7 @@ interface Props {
  * DurakGameScreen, but actions go through the network and bots/other players are
  * driven by the server. Renders nothing King-specific (no GameRouter).
  */
-export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats }: Props) {
+export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -29,7 +32,7 @@ export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, d
     return <CenterNote title={t('gameType.durak')} sub={t('durak.spectating')} />;
   }
   if (state.status === 'finished') {
-    return <DurakFinished state={state} humanId={me.id} onPlayAgain={onExit} onExit={onExit} />;
+    return <DurakFinished state={state} humanId={me.id} onPlayAgain={onExit} onExit={onExit} rematch={rematch} />;
   }
   return (
     <DurakGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} />

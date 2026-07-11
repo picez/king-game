@@ -39,6 +39,15 @@ documented as post-MVP, not built. Spec + plan:
 
 ## What works
 
+- **Online rematch / "Play again" (Stage 25.9)**: after an online game finishes, the finish
+  screen offers a real **Play again** that restarts the **same game in the same room** (same
+  gameType / options / members / seats) — it no longer silently leaves to the menu. A room with
+  **one human + bots** restarts immediately (bots are always ready); with **multiple humans**,
+  Play again marks you **Ready**, others see "<name> wants a rematch" and a ready-count note,
+  and the server restarts only when **every connected human is ready** (no auto-start). Leaving /
+  disconnecting updates or cancels the pending rematch. Server-authoritative (`restartGame` reuses
+  `startGame`); WS `REMATCH_READY` / `REMATCH_DECLINE` / `REMATCH_STATE`; in-memory only, no DB,
+  no token/session/email; a fresh game records its own stats (no duplication). All 5 games.
 - **Quick-rules help hub (Stage 22.0)**: a single generic **"How to play"** sheet
   (`GameHelpModal`) that works for every game from a pure catalog
   (`src/games/gameHelp.ts`) + i18n content (`help.<game>.<section>`) — short

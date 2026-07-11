@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { RoomSnapshot } from '../../net/messages';
 import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
@@ -21,6 +21,8 @@ interface Props {
   /** Host-only: set the per-turn timer (seconds; 0 = off). */
   onSetTimer: (turnTimerSec: number) => void;
   error: string | null;
+  /** Friends invite block (Stage 25.9) — rendered INSIDE the lobby card, always visible. */
+  inviteSlot?: ReactNode;
 }
 
 const TIMER_OPTIONS = [0, 30, 60, 90];
@@ -30,7 +32,7 @@ const TIMER_OPTIONS = [0, 30, 60, 90];
  * a Start button enabled once enough players have joined. The host can also
  * remove other members before the game starts.
  */
-export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, onSetTimer, error }: Props) {
+export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, onLeave, onKick, onAddBot, onSetTimer, error, inviteSlot }: Props) {
   const { t } = useI18n();
   const players = room.members.filter((m) => m.role === 'player');
   // Stage 9.10: start once >= minPlayers are seated; the room caps at maxPlayers.
@@ -238,6 +240,10 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             </ul>
           )}
         </div>
+
+        {/* Friends invite (Stage 25.9): INSIDE the lobby card, right after the players — always
+            visible (never below the fold / behind a collapsed section). */}
+        {inviteSlot && <div className="lobby-friends-slot">{inviteSlot}</div>}
 
         {isHost && !room.started && hasFreeSeat && (
           <button className="btn btn--outline" onClick={onAddBot}>🤖 {t('lobby.addBot')}</button>

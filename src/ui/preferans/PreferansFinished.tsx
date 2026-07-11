@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { PreferansState } from '../../games/preferans/types';
 import WinnerCelebration from '../components/WinnerCelebration';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
   state: PreferansState;
@@ -8,10 +9,12 @@ interface Props {
   humanSeat: number;
   onPlayAgain: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 25.9). */
+  rematch?: RematchUi | null;
 }
 
 /** End screen: did the human reach the target first (a draw is possible, §11). */
-export default function PreferansFinished({ state, humanSeat, onPlayAgain, onExit }: Props) {
+export default function PreferansFinished({ state, humanSeat, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const isDraw = state.winnerSeat == null;
   const humanWon = state.winnerSeat === humanSeat;
@@ -45,9 +48,9 @@ export default function PreferansFinished({ state, humanSeat, onPlayAgain, onExi
           })}
         </div>
         <div className="preferans-finished__actions">
-          <button type="button" className="btn btn--primary" onClick={onPlayAgain}>
-            {t('preferans.playAgain')}
-          </button>
+          {rematch
+            ? <RematchControls {...rematch} />
+            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('preferans.playAgain')}</button>}
           <button type="button" className="btn btn--ghost" onClick={onExit}>
             {t('btn.backToMenu')}
           </button>

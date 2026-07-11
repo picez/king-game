@@ -24,6 +24,7 @@ import type { PreferansState } from '../../games/preferans/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
+import type { RematchUi } from './RematchControls';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
 
@@ -55,6 +56,17 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
   const voice = useRoomVoice(net, friendsBase);
   const [invited, setInvited] = useState<Set<string>>(new Set());
   const inviteFriend = (uid: string) => { net.sendFriendInvite(uid); setInvited((s) => new Set(s).add(uid)); };
+
+  // Rematch / "Play again" (Stage 25.9): a shared object passed to each online finish screen so
+  // "Play again" restarts the same room's game (bots auto-ready; multi-human needs everyone ready)
+  // instead of leaving to the menu. Null until we have a room.
+  const rematchUi: RematchUi | null = net.room ? {
+    progress: net.rematch,
+    members: net.room.members,
+    myClientId: net.myClientId,
+    onReady: net.sendRematchReady,
+    onDecline: net.sendRematchDecline,
+  } : null;
 
   // A received friend invite → a Join/Dismiss toast (never auto-join). Join reuses the
   // existing `?room=CODE` invite flow (a same-origin navigation that lands on the Join
@@ -160,13 +172,13 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           onAddBot={net.addBot}
           onSetTimer={net.setTimer}
           error={net.error}
+          inviteSlot={
+            // Always-visible invite block INSIDE the lobby card (Stage 25.9): online friends first
+            // with a clear Invite button; guests / no-friends / loading / error get an explicit state.
+            <FriendsPanel base={friendsBase} signedIn={signedIn} variant="invite"
+              onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
+          }
         />
-        {/* Always-visible, compact invite block (Stage 25.8): online friends first with a clear
-            Invite button; guests / no-friends get an explicit hint instead of nothing. */}
-        <div className="lobby-invite-wrap">
-          <FriendsPanel base={friendsBase} signedIn={signedIn} variant="invite"
-            onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
-        </div>
         <div className="lobby-voice"><VoiceControl voice={voice} variant="card" /></div>
         {renderSocial(false)}
       </>
@@ -209,6 +221,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
         {renderSocial(true, leaveGameToMenu)}
@@ -226,6 +239,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
         {renderSocial(true, leaveGameToMenu)}
@@ -244,6 +258,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
         {/* No Leave-game pill here: Tarneeb's full-width bid/trump action bars would
@@ -265,6 +280,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
         {/* Like Tarneeb: no Leave-game pill (the board ✕ leaves, reconnectable);
@@ -285,7 +301,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
       <GameContext.Provider value={{
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
         turnTimerSec: net.room?.turnTimerSec ?? 0, myPlayerId: net.myPlayerId, disconnectedSeats,
-        seatAvatarImages,
+        seatAvatarImages, rematch: rematchUi,
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>

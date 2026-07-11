@@ -189,6 +189,15 @@ export type ClientMessage =
   | { t: 'VOICE_SIGNAL_ANSWER'; toClientId: string; sdp: string }
   | { t: 'VOICE_SIGNAL_ICE'; toClientId: string; candidate: string }
   | { t: 'VOICE_MUTE_STATE'; muted: boolean }
+  /**
+   * Rematch / "Play again" for an ONLINE room (Stage 25.9). After the game finishes, a seated
+   * human presses Play again → READY. When ALL connected humans are ready (bots are always
+   * ready), the server restarts the SAME game (same gameType/options/seats) in the SAME room.
+   * DECLINE clears the pending readiness. No payload beyond the type — the server derives the
+   * room + sender from the socket; carries no token/session/email.
+   */
+  | { t: 'REMATCH_READY' }
+  | { t: 'REMATCH_DECLINE' }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -233,6 +242,13 @@ export type ServerMessage =
   | { t: 'FRIEND_INVITE_RECEIVED'; fromUserId: string; fromName: string; code: RoomCode; gameType: GameType; at: number }
   /** Friends (Stage 25.2): a friend's presence changed (online/offline) — public only. */
   | { t: 'FRIEND_PRESENCE'; updates: Array<{ userId: string; online: boolean }> }
+  /**
+   * Rematch progress (Stage 25.9) — broadcast to the room while a rematch is pending. `ready` is
+   * the list of member clientIds (public routing ids, already in the room snapshot) who pressed
+   * Play again; `needed` is the count of connected human players whose consent is required. When
+   * `ready.length >= needed` the server restarts the game (clients then receive a fresh state).
+   * No token/session/email. */
+  | { t: 'REMATCH_STATE'; ready: string[]; needed: number }
   /**
    * Voice signaling relay (Stage 25.3) — public routing fields only (clientId, display
    * name, muted). The OFFER/ANSWER/ICE relays are delivered ONLY to the single target peer

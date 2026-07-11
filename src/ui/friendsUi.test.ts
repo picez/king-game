@@ -43,15 +43,25 @@ describe('Room invite wiring (OnlineGame)', () => {
     expect(online).toContain("t('friends.dismiss')");
     // Join reuses the existing ?room= invite flow — never auto-joins.
     expect(online).toMatch(/\/\?room=\$\{encodeURIComponent\(net\.friendInvite/);
-    // Stage 25.8: the Lobby shows an ALWAYS-VISIBLE compact invite block (not gated/collapsed),
-    // so guests + no-friends users see an explicit hint instead of nothing.
-    expect(online).toMatch(/<FriendsPanel[^>]*variant="invite"/);
-    expect(online).toContain('lobby-invite-wrap');
+    // Stage 25.9: the invite block is passed INTO the Lobby card (inviteSlot), so it is always
+    // visible after the players — not a sibling that falls below the full-height lobby screen.
+    expect(online).toMatch(/inviteSlot=\{[\s\S]*?variant="invite"/);
   });
 
-  it('the compact invite block has explicit guest / empty / online-first states', () => {
+  it('the invite block lives INSIDE the lobby card (not a collapsed <details> or off-card sibling)', () => {
+    const lobby = read('src/ui/online/Lobby.tsx');
+    expect(lobby).toContain('inviteSlot');                    // Lobby accepts + renders the slot
+    expect(lobby).toContain('lobby-friends-slot');            // inside the setup-card
+    // It must NOT be hidden behind a collapsed <details>.
+    expect(lobby).not.toMatch(/<details[^>]*>\s*[\s\S]*inviteSlot/);
+  });
+
+  it('the compact invite block has explicit guest / loading / error / empty / online-first states', () => {
     expect(panel).toMatch(/variant === 'invite'/);
-    expect(panel).toContain("t('friends.signInToInvite')");   // guest
+    expect(panel).toContain("t('friends.signInToInvite')");   // signed-out
+    expect(panel).toContain("t('friends.loading')");          // signed-in, loading
+    expect(panel).toContain("t('friends.loadError')");        // API error + Retry
+    expect(panel).toContain("t('account.retry')");
     expect(panel).toContain("t('friends.addInProfile')");     // signed-in, no friends
     expect(panel).toContain("t('friends.inviteFriends')");    // header
   });
