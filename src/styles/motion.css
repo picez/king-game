@@ -1,6 +1,6 @@
 /* ===== Table motion system (Stage 12.5) =====
-   One shared, CSS-only motion layer for all four games (King / Durak / Deberc /
-   Tarneeb). Everything is transform/opacity (GPU-friendly), never animates
+   One shared, CSS-only motion layer for all five games (King / Durak / Deberc /
+   Tarneeb / Preferans). Everything is transform/opacity (GPU-friendly), never animates
    layout (width/height/top/left), never blocks a click, and never changes game
    state. Every animation is stilled under `prefers-reduced-motion: reduce`
    (single guard at the bottom + per-file guards in social.css / table.css).

@@ -10,10 +10,10 @@
 > hand (§10). **No-Trump** not in MVP (§6). Card assets: reuse King's full 52-card
 > deck (§3 / plan §1). All previously-open `[CONFIRM]` items are now resolved.
 
-> **STATUS: Specification only. No code exists yet.** This file is the source of
-> truth for the **fourth game** (after King, Durak, Deberc). When the game is
-> implemented, the pure reducer, UI, AI, online redaction, and tests must follow
-> this file. When rules change, update this file **first**, then the code.
+> **STATUS: Implemented and released** (Stage 13.4). This file is the source of
+> truth for the **fourth game** (after King, Durak, Deberc). The pure reducer, UI,
+> AI, online redaction, and tests follow this file. When rules change, update this
+> file **first**, then the code.
 >
 > **Variant scope:** Tarneeb has many regional variants. This document fixes
 > **"Syrian / Levantine Tarneeb"** as the MVP baseline. Wherever a rule differs
