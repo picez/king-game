@@ -625,6 +625,25 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
       block); total sound payload stays under budget (< 500 KB).
 
+## Manual — Friends backend (Stage 25.1, needs Postgres; no UI yet)
+
+> Backend foundation only (DB/API/presence) — the Friends **UI** lands in 25.2. Requires a
+> migrated Postgres (through `0009_friends.sql`) + a signed-in Google session cookie. Guests
+> and no-DB deploys return `403` / `503` (expected). No email is ever returned.
+
+- [ ] `GET /api/friends` (with your session cookie) → `{ friendCode:"CM-XXXX-XXXX", friends:[],
+      incoming:[], outgoing:[] }`; the same call again returns the **same** friend code.
+- [ ] `POST /api/friends/request {friendCode:<your own>}` → `400 self`; a bogus code → `404
+      invalid_code`; a second session's code → `200 {status:"created"}`.
+- [ ] From the second session, `POST /api/friends/accept {userId:<first user id>}` → `200`;
+      then both `GET /api/friends` show each other under `friends` (with `online:true` while
+      both WS sockets are connected).
+- [ ] `DELETE /api/friends/:userId` → `200`; `areFriends` false afterwards.
+- [ ] **Privacy:** no response body contains an email or session/token; `friendCode` is only
+      ever your own. Guest session → every route `403 guest_forbidden`.
+- [ ] DB-gated repo test: `TEST_DATABASE_URL=… npm test` runs `friends.integration.test.ts`
+      (request/accept/auto-accept/remove/self/duplicate/cascade). Without it, it **skips**.
+
 ## Automated — online social visual QA (Stage 12.7)
 
 Screenshot harness for the **online-only** RoomSocial surfaces (chat drawer, sticker

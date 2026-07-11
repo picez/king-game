@@ -34,6 +34,7 @@ import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled, probeDbState } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
+import { attachPresence, detachPresence } from './friendsPresence';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
 import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
@@ -585,6 +586,9 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   };
   void resolveSessionUserId(request).then(async (uid) => {
     resolvedUserId = uid;
+    // Friends presence (Stage 25.1): a signed-in socket makes that user "online" on this
+    // instance (in-memory only; no room/gameplay effect). Detached on close below.
+    if (uid) attachPresence(uid, socket);
     attachIdentity();
     // Then fetch the avatar URL (DB, once) and, if present, stamp + re-broadcast so
     // seats that were already rendered pick up the image a beat later.
@@ -594,6 +598,9 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
       broadcastRoom(sessionRef.value.room);
     }
   });
+  // Presence detach runs on close REGARDLESS of room membership (a signed-in socket may
+  // be open for presence without being seated in a room).
+  socket.on('close', () => { if (resolvedUserId) detachPresence(resolvedUserId, socket); });
 
   socket.on('message', (raw) => {
     let msg: ClientMessage;

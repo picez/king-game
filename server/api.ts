@@ -697,6 +697,81 @@ function clientIp(req: IncomingMessage): string | null {
   return req.socket?.remoteAddress ?? null;
 }
 
+// ── friends (Stage 25.1) ──────────────────────────────────────────────────────
+// All friend routes are SIGNED-IN (non-guest) only and never expose an email. The
+// caller has already passed requireAccount() (session + not-guest); DB errors bubble
+// to the dispatcher's classifier (db_disabled / db_error / migration_required).
+
+/** GET /api/friends — the friend code + accepted friends (with live presence) +
+ *  incoming/outgoing pending requests. No email in any item. */
+async function handleGetFriends(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getOrCreateFriendCode, listFriends } = await import('./db/friends');
+  const { isOnline } = await import('./friendsPresence');
+  const friendCode = await getOrCreateFriendCode(userId);
+  const lists = await listFriends(userId);
+  json(res, 200, {
+    friendCode,
+    friends: lists.friends.map((f) => ({ ...f, online: isOnline(f.userId) })),
+    incoming: lists.incoming,
+    outgoing: lists.outgoing,
+  }, corsHeaders(req));
+}
+
+const FRIEND_REQUEST_STATUS: Record<string, { status: number; body: Record<string, string> }> = {
+  created:         { status: 200, body: { status: 'created' } },
+  auto_accepted:   { status: 200, body: { status: 'accepted' } },
+  self:            { status: 400, body: { error: 'self' } },
+  invalid_code:    { status: 404, body: { error: 'invalid_code' } },
+  already_friends: { status: 409, body: { error: 'already_friends' } },
+  pending_exists:  { status: 409, body: { error: 'pending_exists' } },
+  blocked:         { status: 403, body: { error: 'forbidden' } },
+};
+
+/** POST /api/friends/request { friendCode } — send a request by CODE (never email). */
+async function handlePostFriendRequest(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { allowFriendRequest } = await import('./friendsRateLimit');
+  if (!allowFriendRequest(userId)) {
+    return json(res, 429, { error: 'rate_limited', message: 'Too many friend requests. Try again later.' }, corsHeaders(req));
+  }
+  const body = await readJsonBody(req);
+  const friendCode = typeof body.friendCode === 'string' ? body.friendCode : '';
+  const { sendFriendRequest } = await import('./db/friends');
+  const { result } = await sendFriendRequest(userId, friendCode);
+  const m = FRIEND_REQUEST_STATUS[result] ?? { status: 400, body: { error: 'invalid_code' } };
+  json(res, m.status, m.body, corsHeaders(req));
+}
+
+/** Reads a target user id from a JSON body field (safe: a plain string, capped). */
+function bodyUserId(body: Record<string, unknown>): string | null {
+  const v = body.userId;
+  return typeof v === 'string' && v.length > 0 && v.length <= 64 ? v : null;
+}
+
+/** POST /api/friends/accept { userId } — accept a request addressed to me. */
+async function handlePostFriendAccept(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const other = bodyUserId(await readJsonBody(req));
+  if (!other) return json(res, 400, { error: 'invalid_request' }, corsHeaders(req));
+  const { acceptFriendRequest } = await import('./db/friends');
+  const ok = await acceptFriendRequest(userId, other);
+  json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not_found' }, corsHeaders(req));
+}
+
+/** POST /api/friends/decline { userId } — decline a request addressed to me. */
+async function handlePostFriendDecline(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const other = bodyUserId(await readJsonBody(req));
+  if (!other) return json(res, 400, { error: 'invalid_request' }, corsHeaders(req));
+  const { declineFriendRequest } = await import('./db/friends');
+  const ok = await declineFriendRequest(userId, other);
+  json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not_found' }, corsHeaders(req));
+}
+
+/** DELETE /api/friends/:userId — remove an accepted friend. */
+async function handleDeleteFriend(req: IncomingMessage, res: ServerResponse, userId: string, otherUserId: string): Promise<void> {
+  const { removeFriend } = await import('./db/friends');
+  const ok = await removeFriend(userId, otherUserId);
+  json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not_found' }, corsHeaders(req));
+}
+
 // ── dispatcher ──────────────────────────────────────────────────────────────
 
 /**
@@ -785,6 +860,37 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
       if (!userId) { json(res, 401, { error: 'unauthenticated', message: 'No active session.' }, corsHeaders(req)); return null; }
       return userId;
     };
+    // Signed-in NON-GUEST only (friends). A guest session → 403 (local play unaffected).
+    const requireAccount = async (): Promise<string | null> => {
+      const userId = await requireUser();
+      if (!userId) return null;
+      const { getProfile } = await import('./db/users');
+      const profile = await getProfile(userId);
+      if (!profile || profile.isGuest) {
+        json(res, 403, { error: 'guest_forbidden', message: 'Sign in to use friends.' }, corsHeaders(req));
+        return null;
+      }
+      return userId;
+    };
+
+    // Friends (Stage 25.1) — signed-in only; add-by-code, no email exposure.
+    if (path === '/api/friends' && method === 'GET') {
+      const u = await requireAccount(); if (!u) return; return await handleGetFriends(req, res, u);
+    }
+    if (path === '/api/friends/request' && method === 'POST') {
+      const u = await requireAccount(); if (!u) return; return await handlePostFriendRequest(req, res, u);
+    }
+    if (path === '/api/friends/accept' && method === 'POST') {
+      const u = await requireAccount(); if (!u) return; return await handlePostFriendAccept(req, res, u);
+    }
+    if (path === '/api/friends/decline' && method === 'POST') {
+      const u = await requireAccount(); if (!u) return; return await handlePostFriendDecline(req, res, u);
+    }
+    if (path.startsWith('/api/friends/') && method === 'DELETE') {
+      const other = decodeURIComponent(path.slice('/api/friends/'.length));
+      if (!other || other.includes('/')) return json(res, 400, { error: 'invalid_request' }, corsHeaders(req));
+      const u = await requireAccount(); if (!u) return; return await handleDeleteFriend(req, res, u, other);
+    }
 
     if (path === '/api/profile' && method === 'PATCH') {
       const u = await requireUser(); if (!u) return; return await handlePatchProfile(req, res, u);
