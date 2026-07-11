@@ -17,6 +17,8 @@ interface Props {
   refreshNonce?: number;
   /** Called after any local mutation (add/accept/decline/remove) so a parent badge can refresh. */
   onChanged?: () => void;
+  /** 'full' = the Profile tab; 'invite' = a compact online-first invite list for the Lobby. */
+  variant?: 'full' | 'invite';
 }
 
 /** A friend's avatar — the server-safe emoji, with the same-origin synced image on top
@@ -39,7 +41,7 @@ function FriendAvatar({ friend }: { friend: Friend }) {
  * over the HTTP API — no email is ever shown. With `onInvite`, online friends get an
  * Invite button (used in the Lobby). Guests see a sign-in prompt (no API calls).
  */
-export default function FriendsPanel({ base, signedIn, onInvite, invited, refreshNonce = 0, onChanged }: Props) {
+export default function FriendsPanel({ base, signedIn, onInvite, invited, refreshNonce = 0, onChanged, variant = 'full' }: Props) {
   const { t } = useI18n();
   const [data, setData] = useState<FriendsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,6 +76,42 @@ export default function FriendsPanel({ base, signedIn, onInvite, invited, refres
   function copyCode() {
     if (!data?.friendCode) return;
     void navigator.clipboard?.writeText(data.friendCode).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
+  }
+
+  // Compact Lobby invite block (Stage 25.8): always visible, online-first, with clear empty /
+  // guest states so a player can always find "invite a friend" while hosting a room.
+  if (variant === 'invite') {
+    const list = data?.friends ?? [];
+    return (
+      <div className="friends-invite">
+        <div className="friends-invite__head">
+          <span className="friends-invite__title">👥 {t('friends.inviteFriends')}</span>
+          {signedIn && (
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => void load()}
+              disabled={loading} aria-label={t('friends.refresh')} title={t('friends.refresh')}>↻</button>
+          )}
+        </div>
+        {!signedIn && <p className="field__hint">{t('friends.signInToInvite')}</p>}
+        {signedIn && list.length === 0 && !loading && <p className="field__hint">{t('friends.addInProfile')}</p>}
+        {signedIn && list.map((f) => (
+          <div key={f.userId} className={`friend-row ${f.online ? 'friend-row--online' : 'friend-row--offline'}`}>
+            <FriendAvatar friend={f} />
+            <span className="friend-row__name">{f.displayName ?? t('account.guestShort')}</span>
+            <span className={`friend-status ${f.online ? 'friend-status--online' : 'friend-status--offline'}`}>
+              <span className="friend-status__dot" aria-hidden="true" />
+              {f.online ? t('friends.online') : t('friends.offline')}
+            </span>
+            <span className="friend-row__actions">
+              {f.online
+                ? (invited?.has(f.userId)
+                    ? <span className="friend-row__invited">✓ {t('friends.invited')}</span>
+                    : <button type="button" className="btn btn--outline btn--small" onClick={() => onInvite?.(f.userId)}>{t('friends.invite')}</button>)
+                : <button type="button" className="btn btn--outline btn--small" disabled title={t('friends.friendOffline')}>{t('friends.invite')}</button>}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (!signedIn) {

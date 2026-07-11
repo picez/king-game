@@ -14,7 +14,7 @@ import { shouldOffer } from '../net/voiceSignal';
 export type VoiceStatus = 'idle' | 'requesting' | 'joined' | 'error';
 export type VoiceError = 'unsupported' | 'permission' | null;
 
-export interface VoicePeerView { clientId: string; name: string; muted: boolean; connState: string; }
+export interface VoicePeerView { clientId: string; name: string; muted: boolean; connState: string; iceState: string; }
 
 /** Server → client voice messages the session reacts to. */
 export type VoiceServerMessage = Extract<ServerMessage, { t:
@@ -33,9 +33,11 @@ export interface PeerConnLike {
   addIceCandidate(candidate: unknown): Promise<void>;
   close(): void;
   connectionState: string;
+  iceConnectionState?: string;
   onicecandidate: ((ev: { candidate: unknown }) => void) | null;
   ontrack: ((ev: { streams: StreamLike[] }) => void) | null;
   onconnectionstatechange: (() => void) | null;
+  oniceconnectionstatechange?: (() => void) | null;
 }
 
 export interface VoiceSignalOut {
@@ -74,16 +76,24 @@ export class VoiceSession {
 
   peerList(): VoicePeerView[] { return [...this.peers.values()]; }
 
-  /** A secret-free connectivity summary for the UI (Stage 25.7) — counts + states, no SDP/ICE. */
-  connectionSummary(): { peers: number; connected: number; connecting: boolean; allFailed: boolean } {
-    const states = this.peerList().map((p) => p.connState);
+  /** A secret-free connectivity summary for the UI (Stage 25.7/25.8) — counts + states, no SDP/ICE. */
+  connectionSummary(): { peers: number; connected: number; connecting: boolean; allFailed: boolean; iceState: string } {
+    const views = this.peerList();
+    const states = views.map((p) => p.connState);
     const connected = states.filter((s) => s === 'connected' || s === 'completed').length;
     const failed = states.filter((s) => s === 'failed' || s === 'disconnected' || s === 'closed').length;
+    // Representative ICE state for the debug line: worst-first so a problem is visible.
+    const ices = views.map((p) => p.iceState);
+    const iceState = views.length === 0 ? 'new'
+      : ices.find((s) => s === 'failed') ?? ices.find((s) => s === 'disconnected')
+        ?? ices.find((s) => s === 'checking' || s === 'new')
+        ?? (ices.every((s) => s === 'connected' || s === 'completed') ? 'connected' : (ices[0] ?? 'new'));
     return {
       peers: states.length,
       connected,
       connecting: states.some((s) => s === 'new' || s === 'connecting' || s === 'checking'),
       allFailed: states.length > 0 && failed === states.length,
+      iceState,
     };
   }
 
@@ -174,7 +184,7 @@ export class VoiceSession {
 
   private addPeer(clientId: string, name: string, muted: boolean): void {
     if (this.status !== 'joined' || clientId === this.deps.myClientId) return;
-    if (!this.peers.has(clientId)) this.peers.set(clientId, { clientId, name, muted, connState: 'new' });
+    if (!this.peers.has(clientId)) this.peers.set(clientId, { clientId, name, muted, connState: 'new', iceState: 'new' });
     if (!this.pcs.has(clientId)) {
       const pc = this.newPeer(clientId);
       // GLARE: only the lower clientId offers; the other waits for the offer.
@@ -193,6 +203,10 @@ export class VoiceSession {
       const p = this.peers.get(clientId);
       if (p) { p.connState = pc.connectionState; this.deps.onChange(); }
     };
+    pc.oniceconnectionstatechange = () => {
+      const p = this.peers.get(clientId);
+      if (p && pc.iceConnectionState) { p.iceState = pc.iceConnectionState; this.deps.onChange(); }
+    };
     return pc;
   }
 
@@ -203,7 +217,7 @@ export class VoiceSession {
   }
 
   private async onOffer(from: string, sdp: string): Promise<void> {
-    if (!this.peers.has(from)) this.peers.set(from, { clientId: from, name: from, muted: false, connState: 'new' });
+    if (!this.peers.has(from)) this.peers.set(from, { clientId: from, name: from, muted: false, connState: 'new', iceState: 'new' });
     const pc = this.pcs.get(from) ?? this.newPeer(from);
     await pc.setRemoteDescription(safeParse(sdp));
     await this.flushIce(from, pc); // remote description is now set — apply any buffered candidates

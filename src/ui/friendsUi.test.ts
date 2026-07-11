@@ -43,8 +43,17 @@ describe('Room invite wiring (OnlineGame)', () => {
     expect(online).toContain("t('friends.dismiss')");
     // Join reuses the existing ?room= invite flow — never auto-joins.
     expect(online).toMatch(/\/\?room=\$\{encodeURIComponent\(net\.friendInvite/);
-    // The FriendsPanel invite surface is gated on being signed in.
-    expect(online).toMatch(/signedIn && \([\s\S]*<FriendsPanel/);
+    // Stage 25.8: the Lobby shows an ALWAYS-VISIBLE compact invite block (not gated/collapsed),
+    // so guests + no-friends users see an explicit hint instead of nothing.
+    expect(online).toMatch(/<FriendsPanel[^>]*variant="invite"/);
+    expect(online).toContain('lobby-invite-wrap');
+  });
+
+  it('the compact invite block has explicit guest / empty / online-first states', () => {
+    expect(panel).toMatch(/variant === 'invite'/);
+    expect(panel).toContain("t('friends.signInToInvite')");   // guest
+    expect(panel).toContain("t('friends.addInProfile')");     // signed-in, no friends
+    expect(panel).toContain("t('friends.inviteFriends')");    // header
   });
 });
 

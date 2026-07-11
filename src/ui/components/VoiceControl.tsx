@@ -14,14 +14,21 @@ function connLabel(peers: RoomVoice['peers']): string {
       : '';
 }
 
-/** Aggregate connection word for the debug block. */
+/** Aggregate ICE state for the debug block (raw WebRTC state so issues are visible). */
 function connText(voice: RoomVoice, t: (k: string) => string): string {
   const c = voice.connection;
-  if (c.allFailed) return t('voice.connFailed');
   if (c.peers === 0) return t('voice.connWaiting');
-  if (c.connected === c.peers) return t('voice.connConnected');
-  if (c.connecting) return t('voice.connConnecting');
-  return t('voice.connWaiting');
+  return c.iceState; // new / checking / connected / completed / failed / disconnected
+}
+
+/** Remote-audio word for the debug block. */
+function audioText(voice: RoomVoice, t: (k: string) => string): string {
+  switch (voice.audio) {
+    case 'playing': return t('voice.audioPlaying');
+    case 'blocked': return t('voice.audioBlocked');
+    case 'no-track': return t('voice.audioNoTrack');
+    default: return '—';
+  }
 }
 
 /**
@@ -105,7 +112,7 @@ export default function VoiceControl({ voice, variant = 'card' }: Props) {
             <div><dt>{t('voice.dbgMic')}</dt><dd>{voice.mic === 'denied' ? t('voice.micDenied') : t('voice.micAllowed')}</dd></div>
             <div><dt>{t('voice.dbgPeers')}</dt><dd>{voice.connection.connected}/{voice.connection.peers}</dd></div>
             <div><dt>{t('voice.dbgConn')}</dt><dd>{connText(voice, t)}</dd></div>
-            <div><dt>{t('voice.dbgAudio')}</dt><dd>{voice.audioBlocked ? t('voice.audioBlocked') : t('voice.audioPlaying')}</dd></div>
+            <div><dt>{t('voice.dbgAudio')}</dt><dd>{audioText(voice, t)}</dd></div>
           </dl>
           {voice.connection.allFailed && (
             <p className="lobby-error voice-card__err">{t('voice.turnRequired')}</p>

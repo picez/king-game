@@ -1,8 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
-import type { DurakAction, DurakState } from '../../games/durak/types';
+import type { DurakAction, DurakState, TablePair } from '../../games/durak/types';
+
+/** How long the just-cleared bout lingers on the felt so the final beat/take is readable. */
+const TABLE_REVIEW_MS = 1100;
+
+/**
+ * Keep the last bout's cards visible for a beat after the table clears (Stage 25.8). Purely
+ * presentational: it lingers on the previous `table` only when it drops to empty, and switches
+ * to live the instant a new card appears — so it never hides a new play or blocks input, and
+ * (being a fixed local timer on the same server state) it does not desync online clients.
+ */
+function useTableReview(table: TablePair[], reviewMs = TABLE_REVIEW_MS): TablePair[] {
+  const [display, setDisplay] = useState<TablePair[]>(table);
+  const prevRef = useRef<TablePair[]>(table);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const prev = prevRef.current;
+    prevRef.current = table;
+    if (table.length === 0 && prev.length > 0) {
+      setDisplay(prev); // bout cleared → linger on the final table
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setDisplay([]), reviewMs);
+    } else {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      setDisplay(table); // live (a new/updated bout cancels any lingering review)
+    }
+  }, [table, reviewMs]);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  return display;
+}
 import { getActingDurakPlayerId } from '../../games/durak/engine';
 import {
   beats, canTransfer, canTrumpShowTransfer, getValidAttackCards, getValidTransferCards,
@@ -55,6 +84,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  // Linger on the final bout after the table clears so the last beat/take is readable (25.8).
+  const reviewTable = useTableReview(state.table);
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
@@ -172,9 +203,9 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
           )}
           <DurakDeck count={state.drawPile.length} trumpCard={state.trumpCard} trumpSuit={state.trumpSuit} />
           <div className="durak-table__cards">
-            {state.table.length === 0
+            {reviewTable.length === 0
               ? <p className="durak-table__empty">{isMyTurn && iAmThrower ? t('durak.tableEmpty') : '·'}</p>
-              : state.table.map((pair, i) => (
+              : reviewTable.map((pair, i) => (
                 <div className={`durak-pair ${pair.defense ? 'durak-pair--beaten' : 'durak-pair--unbeaten'}`} key={i}>
                   <CardView card={pair.attack} size="table" disabled highlight={pair.defense === null} />
                   {pair.defense && (

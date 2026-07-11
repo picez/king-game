@@ -415,6 +415,16 @@
 .friend-invite-toast__actions .btn { min-height: var(--tap-min); }
 
 /* ===== Voice chat (Stage 25.4) ===== */
+/* Compact Lobby invite block (Stage 25.8) — always visible, online-first. */
+.lobby-invite-wrap { width: min(94vw, 32rem); margin: 0.4rem auto 0; }
+.friends-invite {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  padding: 0.6rem 0.7rem; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);
+}
+.friends-invite__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.friends-invite__title { font-weight: 700; }
+.friends-invite .friend-row { padding: 0.15rem 0; }
+
 .lobby-voice { width: min(94vw, 32rem); margin: 0.4rem auto 0; }
 .voice-card {
   display: flex; flex-direction: column; gap: 0.5rem;

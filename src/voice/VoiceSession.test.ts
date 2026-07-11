@@ -232,4 +232,19 @@ describe('VoiceSession — ICE queueing + connection summary (Stage 25.7)', () =
     pc.onconnectionstatechange();
     expect(s.connectionSummary().allFailed).toBe(true);
   });
+
+  it('connectionSummary surfaces the peer ICE state for the debug line (Stage 25.8)', async () => {
+    const { deps, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    await flush();
+    expect(s.connectionSummary().iceState).toBe('new');
+    const pc = peers[0] as unknown as { iceConnectionState: string; oniceconnectionstatechange: () => void };
+    pc.iceConnectionState = 'checking';
+    pc.oniceconnectionstatechange();
+    expect(s.connectionSummary().iceState).toBe('checking');
+    pc.iceConnectionState = 'connected';
+    pc.oniceconnectionstatechange();
+    expect(s.connectionSummary().iceState).toBe('connected');
+  });
 });

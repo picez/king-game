@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Card, Suit } from '../../models/types';
 import { cardFaceUrl, cardBackUrl, cardBackWebpUrl } from './cardArt';
 import { useCardBackStyle } from './cardBackStore';
@@ -74,8 +74,16 @@ export default function CardView({
   // Real card artwork (already includes its own corner indices + centre motif).
   const artUrl = cardFaceUrl(card.suit, card.rank);
   const [artFailed, setArtFailed] = useState(false);
+  const [artLoaded, setArtLoaded] = useState(false);
   const [backFailed, setBackFailed] = useState(false);
-  const showArt = !isHidden && artUrl !== null && !artFailed;
+  // Reset load state when the card art changes (list reuse) so a new card never inherits
+  // a stale "loaded" and blank the face (Stage 25.8 card-reliability fix).
+  useEffect(() => { setArtFailed(false); setArtLoaded(false); }, [artUrl]);
+  const attemptArt = !isHidden && artUrl !== null && !artFailed; // render the <img> to load it
+  // Only HIDE the text fallback once the image has actually painted (onLoad). A stalled or
+  // broken-but-not-errored request (e.g. a bad service-worker cache entry) then shows the
+  // rank/suit text instead of a blank card.
+  const showArt = attemptArt && artLoaded;
   const showBack = isHidden && !backFailed; // the ornamental back image (else CSS back)
 
   return (
@@ -108,14 +116,14 @@ export default function CardView({
           />
         </picture>
       )}
-      {showArt && (
+      {attemptArt && (
         <img
           className="card__art"
           src={artUrl}
           alt=""
           draggable={false}
-          loading="lazy"
           decoding="async"
+          onLoad={() => setArtLoaded(true)}
           onError={() => setArtFailed(true)}
         />
       )}

@@ -649,12 +649,13 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       **Leave + Join** again to recover.
 - [ ] **No auto-rejoin in background:** background the tab / minimise the installed PWA while in
       voice → it does **not** silently re-request the mic; control stays explicit.
-- [ ] **Audio actually flows (25.7):** two tabs on the **same machine/LAN**, both **Join voice**,
-      speak → each hears the other. The Lobby card's **status block** reads **Mic: allowed ·
-      Peers: 1/1 · Connection: connected · Audio: playing**. This is the primary regression check
-      for the 25.7 ICE-buffering fix (candidates arriving before the remote description are no
-      longer dropped, so the mesh actually connects). Autoplay-blocked → **Audio: blocked** + a
-      **"Tap to enable audio"** button; tap → **playing**.
+- [ ] **Audio actually flows (25.7/25.8):** two tabs on the **same machine/LAN**, both **Join
+      voice**, speak → each hears the other. The Lobby card's **status block** reads **Mic:
+      allowed · Peers: 1/1 · Connection: `connected`/`completed` (raw ICE state) · Audio: playing**.
+      This is the primary regression check for the ICE-buffering fix + the DOM-attached audio
+      sink (25.8). While connecting the ICE line steps **new → checking → connected**; if a peer
+      links but no audio arrives it reads **Audio: no-track**; autoplay-blocked → **Audio: blocked**
+      + a **"Tap to enable audio"** button → **playing**.
 - [ ] **Failed / TURN hint (25.7):** if every peer ends up **failed/disconnected** (e.g. strict
       cross-network on STUN-only), the card shows **"Connection failed — a TURN server may be
       required on this network."** — same-LAN success means this is a NAT limitation, not a bug
@@ -696,6 +697,11 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Presence at the menu (25.7):** with A and B both **signed in and sitting on the menu**
       (no room), A's Friends list shows B **Online**; when B closes the tab / signs out, A flips
       B to **Offline** within a few seconds (no manual refresh needed). Manual **↻** still works.
+- [ ] **Lobby invite is visible (25.8):** in ANY game's Lobby (King/Durak/Deberc/Tarneeb) the
+      **"👥 Invite friends"** block is **always shown** (not collapsed). A **guest** sees **"Sign
+      in to invite friends"**; a signed-in user with **no friends** sees **"Add friends in Profile
+      to invite them"**; otherwise online friends list first with an **Invite** button (offline →
+      disabled + hint). No overflow at 360/390 or in RTL.
 - [ ] **Invite (25.7):** A hosts an online room → A's Lobby Friends panel shows B with a clear
       **Invite** button (online) or a **disabled Invite** (offline, "friend is offline" hint). In
       the **menu** Friends tab a hint reads **"Create or join a room to invite friends."** Tap
@@ -707,6 +713,22 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       contains an email, token, or session; the invite works only between accepted online friends.
 - [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab (chips + badges + invite), the request
       badges, and the invite toast don't overflow and the toast never covers the hand/actions.
+
+## Manual — Card reliability + trick pacing (Stage 25.8, any game, no Postgres)
+
+> Both are display-only fixes — no rules/scoring change. Run a quick local game of each.
+
+- [ ] **No blank cards:** play a hand of each game; every visible card shows either its **artwork**
+      or, if the image is slow/broken, its **rank + suit text** — **never a blank rectangle**. To
+      force the fallback: DevTools → Network → block `*/cards/*` (or throttle) and re-deal — faces
+      render as text, not blank. Hidden cards still show the patterned back (or CSS back on error).
+- [ ] **Trick/last-card reveal delay (~0.9–1.2 s):** the final card of a completed trick/bout stays
+      readable before play moves on, in **every** game:
+      - **King / Deberc** — the completed trick lingers on the felt (server `trick_complete` pause).
+      - **Tarneeb / Preferans** — the just-won trick freezes ~1.1 s before the next lead.
+      - **Durak** — after a bout is beaten/taken, the final attack/defense cards **linger ~1.1 s**
+        before the table clears; playing a **new** attack immediately cancels the linger (no stall).
+      Reduced-motion is respected elsewhere, but this readability delay is kept regardless.
 
 ## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 

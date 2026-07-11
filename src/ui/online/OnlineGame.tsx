@@ -161,13 +161,12 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
           onSetTimer={net.setTimer}
           error={net.error}
         />
-        {signedIn && (
-          <details className="lobby-friends">
-            <summary className="lobby-friends__summary">👥 {t('friends.title')}</summary>
-            <FriendsPanel base={friendsBase} signedIn={signedIn}
-              onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
-          </details>
-        )}
+        {/* Always-visible, compact invite block (Stage 25.8): online friends first with a clear
+            Invite button; guests / no-friends get an explicit hint instead of nothing. */}
+        <div className="lobby-invite-wrap">
+          <FriendsPanel base={friendsBase} signedIn={signedIn} variant="invite"
+            onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
+        </div>
         <div className="lobby-voice"><VoiceControl voice={voice} variant="card" /></div>
         {renderSocial(false)}
       </>

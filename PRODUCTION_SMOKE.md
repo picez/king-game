@@ -79,6 +79,12 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       appropriate). Seat counts: King 3–4, Durak 2–5, Deberc 3–4, Tarneeb 4, Preferans 3.
 - [ ] Each game shows its **own PNG emblem** (King crown / Durak / Deberc gem / Tarneeb
       star / Preferans top hat) — not a bare emoji.
+- [ ] **Cards render, never blank (Stage 25.8):** every dealt/table card shows artwork or its
+      **rank+suit text** fallback — no blank rectangles (even right after a deploy, before the
+      card art is cached).
+- [ ] **Last-card reveal delay (Stage 25.8):** the final card of a trick/bout stays readable
+      (~1 s) before play advances in every game — King/Deberc (server pause), Tarneeb/Preferans
+      (client review), Durak (bout lingers before the table clears).
 
 ## 6. Rooms / invite
 
@@ -145,15 +151,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       accounts):** A adds B by code → B sees a **red badge** on the ⚙️ Profile tile + Friends tab
       and an incoming request; B **Accepts** → badge clears. With both **just on the menu**, each
       shows the other **Online** (chip); closing a tab flips to **Offline** within seconds. A hosts
-      a room → A's Lobby Friends shows B with **Invite** → B gets a **Join/Dismiss** toast (works
-      on the menu too); **Join** prefills `?room=` (no auto-join). Inviting offline/non-friend/
-      outside-a-room → a small inline notice. No email/token/session on the wire.
+      a room → the Lobby's **always-visible "👥 Invite friends" block** (Stage 25.8) shows B with
+      **Invite** → B gets a **Join/Dismiss** toast (works on the menu too); **Join** prefills
+      `?room=` (no auto-join). A **guest** sees "Sign in to invite friends"; **no friends** →
+      "Add friends in Profile". Inviting offline/non-friend/outside-a-room → a small inline notice.
+      No email/token/session on the wire.
 - [ ] **Voice chat (Stage 25.4–25.7, opt-in):** in an online Lobby the **Voice chat** card shows
       **Join voice** (default off). It needs **HTTPS** for the mic (`getUserMedia` is blocked on
       plain HTTP). With two contexts in the same room, Join → grant mic → **they hear each other**
       and the card's **status block** reads **Mic: allowed · Peers: 1/1 · Connection: connected ·
-      Audio: playing** (Stage 25.7 — the ICE-buffering fix is what makes the mesh actually connect;
-      if every peer is **failed**, the card shows a **"TURN may be required"** hint).
+      Audio: playing** (the ICE-buffering fix + the DOM-attached audio sink make the mesh connect
+      and play; the ICE line shows the raw state new→checking→connected, Audio shows
+      playing/blocked/no-track — Stage 25.7/25.8). If every peer is **failed**, the card shows a
+      **"TURN may be required"** hint.
       Mute/Leave work; leaving the room drops voice (**no dangling mic indicator**). Deny the mic
       → a clear "permission denied" note **+ a browser-settings hint**, and **text chat still
       works**. **Reconnect (25.5):** briefly drop one client's network while in voice → on

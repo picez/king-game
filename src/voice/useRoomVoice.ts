@@ -26,9 +26,11 @@ export interface RoomVoice {
   audioBlocked: boolean;
   /** Resolved voice connectivity mode (Stage 25.6) — for the optional UI indicator. No creds. */
   iceMode: 'stun_only' | 'turn_configured' | 'unknown';
-  /** Safe status summary for the UI/debug block (Stage 25.7) — no SDP/ICE/identity. */
+  /** Safe status summary for the UI/debug block (Stage 25.7/25.8) — no SDP/ICE/identity. */
   mic: 'idle' | 'requesting' | 'allowed' | 'denied';
-  connection: { peers: number; connected: number; connecting: boolean; allFailed: boolean };
+  connection: { peers: number; connected: number; connecting: boolean; allFailed: boolean; iceState: string };
+  /** Remote-audio state for the debug block. */
+  audio: 'idle' | 'playing' | 'blocked' | 'no-track';
   join: () => void;
   leave: () => void;
   toggleMute: () => void;
@@ -43,6 +45,7 @@ export interface RoomVoice {
 export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
   const [, force] = useReducer((x: number) => x + 1, 0);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [sinkCount, setSinkCount] = useState(0);
   const [iceMode, setIceMode] = useState<'stun_only' | 'turn_configured' | 'unknown'>('unknown');
   const sessionRef = useRef<VoiceSession | null>(null);
   const audioEls = useRef(new Map<string, HTMLAudioElement>());
@@ -65,13 +68,27 @@ export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
   useEffect(() => {
     const playRemote = (clientId: string, stream: StreamLike) => {
       let el = audioEls.current.get(clientId);
-      if (!el) { el = new Audio(); el.autoplay = true; audioEls.current.set(clientId, el); }
+      if (!el) {
+        el = new Audio();
+        el.autoplay = true;
+        // Attach to the DOM (hidden) — a detached <audio> can be unreliable on some mobile
+        // browsers; an in-document sink plays consistently once srcObject is set (Stage 25.8).
+        el.style.display = 'none';
+        if (typeof document !== 'undefined') document.body.appendChild(el);
+        audioEls.current.set(clientId, el);
+        setSinkCount(audioEls.current.size);
+      }
       (el as unknown as { srcObject: unknown }).srcObject = stream;
-      el.play().catch(() => setAudioBlocked(true)); // autoplay may be blocked → show a tap-to-enable
+      // On success clear any prior blocked flag; on failure autoplay is blocked → tap-to-enable.
+      el.play().then(() => setAudioBlocked(false)).catch(() => setAudioBlocked(true));
     };
     const dropRemote = (clientId: string) => {
       const el = audioEls.current.get(clientId);
-      if (el) { try { el.pause(); (el as unknown as { srcObject: unknown }).srcObject = null; } catch { /* ignore */ } audioEls.current.delete(clientId); }
+      if (el) {
+        try { el.pause(); (el as unknown as { srcObject: unknown }).srcObject = null; el.remove(); } catch { /* ignore */ }
+        audioEls.current.delete(clientId);
+        setSinkCount(audioEls.current.size);
+      }
     };
 
     const session = new VoiceSession({
@@ -94,8 +111,9 @@ export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
     return () => {
       unsub();
       session.leave();
-      for (const el of audioEls.current.values()) { try { el.pause(); (el as unknown as { srcObject: unknown }).srcObject = null; } catch { /* ignore */ } }
+      for (const el of audioEls.current.values()) { try { el.pause(); (el as unknown as { srcObject: unknown }).srcObject = null; el.remove(); } catch { /* ignore */ } }
       audioEls.current.clear();
+      setSinkCount(0);
       sessionRef.current = null;
     };
     // Recreate only when the identity or signaling handles change (both stable within a room).
@@ -125,6 +143,12 @@ export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
   const mic: RoomVoice['mic'] = error === 'permission' ? 'denied'
     : status === 'requesting' ? 'requesting'
       : status === 'joined' ? 'allowed' : 'idle';
+  const connection = s?.connectionSummary() ?? { peers: 0, connected: 0, connecting: false, allFailed: false, iceState: 'new' };
+  const audio: RoomVoice['audio'] = status !== 'joined' ? 'idle'
+    : audioBlocked ? 'blocked'
+      : sinkCount > 0 ? 'playing'
+        : connection.connected > 0 ? 'no-track' // peer connected but no remote audio track arrived
+          : 'idle';
   return {
     supported,
     status,
@@ -134,7 +158,8 @@ export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
     audioBlocked,
     iceMode,
     mic,
-    connection: s?.connectionSummary() ?? { peers: 0, connected: 0, connecting: false, allFailed: false },
+    connection,
+    audio,
     join, leave, toggleMute, enableAudio,
   };
 }

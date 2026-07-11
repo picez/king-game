@@ -17,6 +17,19 @@ also reported at `GET /health/diagnostics` (`version` field).
   Join/Mute/Leave, per-peer state, autoplay-blocked fallback. No audio is stored, recorded,
   or sent through the server (peer-to-peer, signaling relay only).
 
+### Fixed (Stage 25.8)
+
+- **Invite friends from the Lobby** — the room Lobby now shows an always-visible "Invite friends"
+  block (online friends first, with a clear Invite button) instead of a collapsed section; guests
+  and users with no friends get an explicit hint.
+- **Cards never render blank** — a slow, stalled, or broken card image now falls back to the
+  rank+suit text instead of a blank card (the text shows until the artwork actually paints).
+- **Last-card reveal delay** — the final card of a completed trick/bout lingers ~1 s so it can be
+  read before play advances, now including Durak (its bout lingers before the table clears).
+- **Voice diagnostics** — the Lobby voice card shows the live ICE state and a richer audio state
+  (playing / blocked / no-track); remote audio sinks are attached to the DOM for reliable
+  playback on mobile.
+
 ### Fixed (Stage 25.7)
 
 - **Friends now show live online/offline** — a signed-in user is kept "online" at the menu (an
