@@ -79,6 +79,26 @@ describe('service worker — controlled updates (no mid-game auto-refresh)', () 
     expect(sw).toContain("req.mode === 'navigate'");
     expect(sw).toMatch(/caches\.match\('\/index\.html'\)/);
   });
+
+  it('treats BOTH /api/ and /auth/ as network-only and EARLY-RETURNS (no cache, no stale auth)', () => {
+    // Each prefix is checked explicitly and the handler returns before respondWith,
+    // so a stale cached /api/me or /auth/* can never hide the live auth state.
+    expect(sw).toContain("url.pathname.startsWith('/api/')");
+    expect(sw).toContain("url.pathname.startsWith('/auth/')");
+    expect(sw).toMatch(/startsWith\('\/auth\/'\)\)\s*return/);
+  });
+
+  it('is NETWORK-FIRST so a stale client gets fresh code online (cache is only a fallback)', () => {
+    // fetch(req) is the primary path; caches.match runs ONLY inside the .catch() —
+    // this is what lets a new deploy (incl. the new auth UI) reach an old client the
+    // moment it is back online, before/independent of the "Update available" prompt.
+    expect(sw).toMatch(/respondWith\(\s*fetch\(req\)\s*\.then/);
+    const netIdx = sw.indexOf('fetch(req)');
+    const matchIdx = sw.indexOf('caches.match');
+    expect(netIdx).toBeGreaterThan(-1);
+    expect(matchIdx).toBeGreaterThan(netIdx);       // cache lookup only after the network try
+    expect(sw.indexOf('.catch(')).toBeGreaterThan(netIdx);
+  });
 });
 
 describe('registration + reload are user-controlled', () => {

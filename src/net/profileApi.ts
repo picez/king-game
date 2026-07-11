@@ -94,7 +94,13 @@ async function call<T>(
 export interface MeProbe {
   /** The identity (a 200 response), else null. */
   me: MeResponse | null;
-  /** Got ANY HTTP response (even a 503) → the origin is reachable. */
+  /**
+   * The server answered HEALTHILY — either a 200, OR a deliberate `503 db_disabled`
+   * (a no-DB deploy that is up but simply offers no sign-in). FALSE for a network/
+   * CORS failure (status 0) AND for a server error (other 5xx / proxy error), because
+   * both of those are transient/unhealthy and get the "Retry" recovery, not the calm
+   * "this server doesn't offer sign-in" message.
+   */
   serverReachable: boolean;
   /** Sign-in / account service is available here (a 200 from /api/me). */
   authAvailable: boolean;
@@ -104,15 +110,18 @@ export interface MeProbe {
 
 /**
  * GET /api/me — classified so the UI never conflates "not signed in" with "server
- * down". A 200 → reachable + auth available (identity may be a guest); a 503 (e.g.
- * `db_disabled`) → reachable but sign-in unavailable; status 0 → unreachable.
+ * down". A 200 → reachable + auth available (identity may be a guest); a deliberate
+ * `503 db_disabled` → reachable but sign-in off (calm, expected); anything else
+ * (network failure, or a 5xx/proxy error) → unreachable → the UI offers Retry.
  */
 export async function fetchMe(base: string): Promise<MeProbe> {
-  const { ok, status, data } = await call<MeResponse>(base, '/api/me');
+  const { ok, status, data } = await call<MeResponse & { error?: string }>(base, '/api/me');
   if (ok && data) return { me: data, serverReachable: true, authAvailable: true, status };
-  // status 0 = network/CORS failure (unreachable); any HTTP status (503 db_disabled,
-  // 5xx, …) means the server answered but sign-in/DB is unavailable here.
-  return { me: null, serverReachable: status > 0, authAvailable: false, status };
+  // Only a clean `503 db_disabled` counts as "up but sign-in off". A network failure
+  // (status 0) or any other error status (500/502/504 from a crashed app or proxy) is
+  // treated as UNREACHABLE so the user gets Retry rather than a misleading message.
+  const dbDisabled = status === 503 && (data as { error?: string } | null)?.error === 'db_disabled';
+  return { me: null, serverReachable: dbDisabled, authAvailable: false, status };
 }
 
 /**

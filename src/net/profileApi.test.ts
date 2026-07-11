@@ -24,13 +24,22 @@ describe('fetchMe — classified probe (server-down vs sign-in-off vs signed-in)
     expect(p.me?.provider).toBe('google');
   });
 
-  it('503 db_disabled → server REACHABLE but sign-in NOT available (not a network fault)', async () => {
+  it('503 db_disabled → server REACHABLE but sign-in NOT available (calm, not a fault)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => resp(503, { error: 'db_disabled' })));
     const p = await fetchMe('http://x');
-    expect(p.serverReachable).toBe(true);   // the origin answered
-    expect(p.authAvailable).toBe(false);    // …but sign-in is off here
+    expect(p.serverReachable).toBe(true);   // deliberate no-DB deploy → "playing locally"
+    expect(p.authAvailable).toBe(false);
     expect(p.me).toBeNull();
     expect(p.status).toBe(503);
+  });
+
+  it('a 5xx / proxy error (not db_disabled) is treated as UNREACHABLE → Retry, not a calm note', async () => {
+    for (const [status, body] of [[502, {}], [500, { error: 'internal' }], [503, { error: 'other' }]] as const) {
+      vi.stubGlobal('fetch', vi.fn(async () => resp(status, body)));
+      const p = await fetchMe('http://x');
+      expect(p.serverReachable, `status ${status}`).toBe(false); // unhealthy → offer Retry
+      expect(p.authAvailable).toBe(false);
+    }
   });
 
   it('network / CORS failure → unreachable (status 0)', async () => {
