@@ -31,6 +31,15 @@ describe('fetchMe — classified probe (server-down vs sign-in-off vs signed-in)
     expect(p.authAvailable).toBe(false);
     expect(p.me).toBeNull();
     expect(p.status).toBe(503);
+    expect(p.code).toBe('db_disabled');     // debug-safe code surfaced for diagnostics
+    expect(p.endpoint).toBe('/api/me');
+  });
+
+  it('carries a debug-safe endpoint + null code on a clean 200', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(200, { authenticated: false, user: null })));
+    const p = await fetchMe('http://x');
+    expect(p.endpoint).toBe('/api/me');
+    expect(p.code).toBeNull();
   });
 
   it('a 5xx / proxy error (not db_disabled) is treated as UNREACHABLE → Retry, not a calm note', async () => {

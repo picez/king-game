@@ -5,6 +5,7 @@ import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPr
 import { saveCustomAvatar, clearCustomAvatar, AVATAR_ACCEPT_ATTR } from '../../net/customAvatar';
 import type { AvatarUploadError } from '../../net/avatarApi';
 import { saveCustomServer, clearCustomServer } from '../../net/connection';
+import { formatAccountDiagnostics } from '../../net/accountDiagnostics';
 import { defaultServerUrl, isInsecureWsOnSecurePage } from '../../net/online';
 import { processAvatarImage } from '../components/customAvatarImage';
 import { useCustomAvatar, setCustomAvatar } from '../components/customAvatarStore';
@@ -106,6 +107,8 @@ export default function ProfilePanel({
   const [serverMode, setServerMode] = useState<'default' | 'custom'>(customServer ? 'custom' : 'default');
   const [serverDraft, setServerDraft] = useState(customServer ?? '');
   const [serverError, setServerError] = useState<string | null>(null);
+  // "Copy diagnostics" transient confirmation (connection recovery block).
+  const [diagCopied, setDiagCopied] = useState(false);
 
   // The LanguageSelector persists the language locally; mirror it to the server.
   useEffect(() => {
@@ -187,6 +190,15 @@ export default function ProfilePanel({
     onCustomServer(saved); setServerDraft(saved); setServerError(null);
   }
   function resetToDefaultServer() { switchServerMode('default'); }
+  // Copy the DEBUG-SAFE diagnostics (mode / origin / status / code — no secrets) so a
+  // stuck user can paste it into a bug report. Falls back silently if clipboard is off.
+  async function copyDiagnostics() {
+    try {
+      await navigator.clipboard?.writeText(formatAccountDiagnostics(account.diagnostics));
+      setDiagCopied(true);
+      setTimeout(() => setDiagCopied(false), 2000);
+    } catch { /* clipboard blocked — the lines are already visible on screen */ }
+  }
   function changeTimer(v: number) { onDefaultTimer(v); saveDefaultTimer(v); account.pushTimer(v); }
   // Card back is a local visual pref applied immediately (store + <html> attr),
   // persisted locally, and mirrored to the server profile when signed in.
@@ -302,6 +314,12 @@ export default function ProfilePanel({
             <span className="profile-account__note field__hint">
               {account.serverReachable ? t('account.signInUnavailable') : t('account.serverUnreachable')}
             </span>
+            {/* Debug-safe diagnostics so the exact cause is visible (and copyable):
+                default vs custom server, same/cross-origin, the /api/me status + code.
+                Contains NO cookies / tokens / session / email. */}
+            <pre className="profile-account__diag" aria-label={t('account.diagnostics')}>
+              {formatAccountDiagnostics(account.diagnostics)}
+            </pre>
             <div className="profile-account__row">
               <button type="button" className="btn btn--outline btn--small" onClick={() => account.retry()}>
                 ↻ {t('account.retry')}
@@ -311,7 +329,19 @@ export default function ProfilePanel({
                   {t('account.useDefaultServer')}
                 </button>
               )}
+              <button type="button" className="btn btn--ghost btn--small" onClick={() => void copyDiagnostics()}>
+                {diagCopied ? `✓ ${t('account.copied')}` : t('account.copyDiagnostics')}
+              </button>
             </div>
+            {/* Same-origin: /auth/google/start is a top-level navigation to THIS site, so
+                it can still work even when the fetch-based /api/me had a transient failure.
+                Only offered when the API is same-origin AND we couldn't reach it (a 503
+                db_disabled server genuinely has no sign-in, so it's not offered there). */}
+            {account.diagnostics.sameOrigin && !account.serverReachable && (
+              <a className="btn btn--outline btn--small profile-account__signin" href={account.googleUrl}>
+                {t('account.trySignIn')}
+              </a>
+            )}
           </div>
         )}
       </div>

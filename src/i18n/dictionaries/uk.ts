@@ -545,6 +545,10 @@ export const UK: Record<string, string> = {
   'account.serverUnreachable': 'Не вдається зʼєднатися з ігровим сервером.',
   'account.retry': 'Повторити',
   'account.useDefaultServer': 'Стандартний сервер',
+  'account.diagnostics': 'Діагностика зʼєднання',
+  'account.copyDiagnostics': 'Копіювати діагностику',
+  'account.copied': 'Скопійовано',
+  'account.trySignIn': 'Спробувати вхід через Google',
   'account.loginSuccess': 'Ви увійшли. Гостьовий прогрес збережено до акаунта.',
   'account.loginError': 'Не вдалося увійти. Спробуйте ще раз.',
   // ── room social (Stage 7) ──

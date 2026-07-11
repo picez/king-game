@@ -545,6 +545,10 @@ export const DE: Record<string, string> = {
   'account.serverUnreachable': 'Spielserver nicht erreichbar.',
   'account.retry': 'Erneut versuchen',
   'account.useDefaultServer': 'Standardserver verwenden',
+  'account.diagnostics': 'Verbindungsdiagnose',
+  'account.copyDiagnostics': 'Diagnose kopieren',
+  'account.copied': 'Kopiert',
+  'account.trySignIn': 'Anmeldung mit Google versuchen',
   'account.loginSuccess': 'Angemeldet. Dein Gastfortschritt wurde im Konto gespeichert.',
   'account.loginError': 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
   // ── room social (Stage 7) ──

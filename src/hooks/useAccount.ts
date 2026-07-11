@@ -5,6 +5,7 @@ import {
   logout as logoutApi, googleStartUrl, type MeResponse, type MeProbe,
 } from '../net/profileApi';
 import { uploadAvatar, deleteServerAvatar, type AvatarUploadResult } from '../net/avatarApi';
+import type { AccountDiagnostics } from '../net/accountDiagnostics';
 import { loadGuestKey, saveGuestKey } from '../net/prefs';
 import type { Lang } from '../i18n';
 import type { CardStyle, AnimationPreference, FavoriteGame, CardFaceTheme } from '../net/userSettings';
@@ -38,6 +39,8 @@ export interface Account {
   loading: boolean;
   /** Re-probe /api/me (recovery action after a transient failure). */
   retry: () => void;
+  /** Debug-safe connection diagnostics (mode / origin / status / code) — no secrets. */
+  diagnostics: AccountDiagnostics;
   hasSession: boolean;
   isGuest: boolean;
   signedIn: boolean;
@@ -72,7 +75,7 @@ export interface Account {
   pushCardFaceTheme: (v: CardFaceTheme) => void;
 }
 
-export function useAccount(serverUrl: string): Account {
+export function useAccount(serverUrl: string, customServer: string | null = null): Account {
   const base = apiBaseFromWsUrl(serverUrl);
   // The whole classified /api/me probe (identity + reachability), so the UI can tell
   // "not signed in" apart from "server unreachable" vs "sign-in disabled here".
@@ -124,11 +127,27 @@ export function useAccount(serverUrl: string): Account {
   const isGuest = hasSession && me?.user?.isGuest === true;
   const signedIn = hasSession && !!me?.provider;
 
+  // Debug-safe connection diagnostics: WHERE the API is called + WHAT it answered.
+  // Only metadata (mode / origin / status / code) — never cookies/tokens/email.
+  const pageOrigin = typeof window !== 'undefined' ? window.location.origin : null;
+  const diagnostics: AccountDiagnostics = {
+    connectionMode: customServer ? 'custom' : 'default',
+    apiBase: base,
+    pageOrigin,
+    sameOrigin: !!pageOrigin && base === pageOrigin,
+    endpoint: probe?.endpoint ?? '/api/me',
+    status: probe ? probe.status : null,
+    networkError: probe ? probe.status === 0 : false,
+    code: probe?.code ?? null,
+    serverReachable,
+    authAvailable,
+  };
+
   const logout = useCallback(async () => {
     await logoutApi(base);
     setBanner(null);
     // Stay on the reachable+auth-available server; just clear the identity.
-    setProbe({ me: { authenticated: false, user: null }, serverReachable: true, authAvailable: true, status: 200 });
+    setProbe({ me: { authenticated: false, user: null }, serverReachable: true, authAvailable: true, status: 200, code: null, endpoint: '/api/me' });
   }, [base]);
 
   const saveProgress = useCallback(async (input: SaveProgressInput) => {
@@ -174,7 +193,7 @@ export function useAccount(serverUrl: string): Account {
   const pushCardFaceTheme = useCallback((v: CardFaceTheme) => { if (hasSession) void updateSettings(base, { cardFaceTheme: v }); }, [base, hasSession]);
 
   return {
-    base, me, apiReachable, serverReachable, authAvailable, loading: !loaded, retry,
+    base, me, apiReachable, serverReachable, authAvailable, loading: !loaded, retry, diagnostics,
     hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
     avatarImageUrl: me?.avatarImageUrl ?? null,

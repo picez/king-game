@@ -87,7 +87,7 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
   function openLocal() { setGameType(favoriteGame); setPane('local'); }
   function openHost() { setGameType(favoriteGame); setPane('host'); }
 
-  const account = useAccount(url);
+  const account = useAccount(url, customServer);
   const roomList = useRoomList();
   const passwordRef = useRef<HTMLInputElement>(null);
   const [needPassword, setNeedPassword] = useState(initialError === 'BAD_PASSWORD');

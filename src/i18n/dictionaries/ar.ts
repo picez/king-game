@@ -545,6 +545,10 @@ export const AR: Record<string, string> = {
   'account.serverUnreachable': 'تعذّر الوصول إلى خادم اللعبة.',
   'account.retry': 'إعادة المحاولة',
   'account.useDefaultServer': 'استخدام الخادم الافتراضي',
+  'account.diagnostics': 'تشخيص الاتصال',
+  'account.copyDiagnostics': 'نسخ التشخيص',
+  'account.copied': 'تم النسخ',
+  'account.trySignIn': 'جرّب تسجيل الدخول عبر Google',
   'account.loginSuccess': 'تم تسجيل الدخول. تم حفظ تقدّمك كضيف في حسابك.',
   'account.loginError': 'فشل تسجيل الدخول. حاول مرة أخرى.',
   // ── room social (Stage 7) ──

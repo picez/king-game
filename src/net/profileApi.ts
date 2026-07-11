@@ -106,6 +106,10 @@ export interface MeProbe {
   authAvailable: boolean;
   /** HTTP status (0 = network / CORS failure). */
   status: number;
+  /** Debug-safe error code from the body (e.g. 'db_disabled'), or null. NEVER a secret. */
+  code: string | null;
+  /** The endpoint that was probed (path only) — for diagnostics. */
+  endpoint: string;
 }
 
 /**
@@ -113,15 +117,18 @@ export interface MeProbe {
  * down". A 200 → reachable + auth available (identity may be a guest); a deliberate
  * `503 db_disabled` → reachable but sign-in off (calm, expected); anything else
  * (network failure, or a 5xx/proxy error) → unreachable → the UI offers Retry.
+ * Carries a debug-safe `code`/`endpoint` for the connection diagnostics (no secrets).
  */
 export async function fetchMe(base: string): Promise<MeProbe> {
-  const { ok, status, data } = await call<MeResponse & { error?: string }>(base, '/api/me');
-  if (ok && data) return { me: data, serverReachable: true, authAvailable: true, status };
+  const endpoint = '/api/me';
+  const { ok, status, data } = await call<MeResponse & { error?: string }>(base, endpoint);
+  const code = (data as { error?: string } | null)?.error ?? null;
+  if (ok && data) return { me: data, serverReachable: true, authAvailable: true, status, code: null, endpoint };
   // Only a clean `503 db_disabled` counts as "up but sign-in off". A network failure
   // (status 0) or any other error status (500/502/504 from a crashed app or proxy) is
   // treated as UNREACHABLE so the user gets Retry rather than a misleading message.
-  const dbDisabled = status === 503 && (data as { error?: string } | null)?.error === 'db_disabled';
-  return { me: null, serverReachable: dbDisabled, authAvailable: false, status };
+  const dbDisabled = status === 503 && code === 'db_disabled';
+  return { me: null, serverReachable: dbDisabled, authAvailable: false, status, code, endpoint };
 }
 
 /**

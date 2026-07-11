@@ -546,6 +546,15 @@
 .profile-account__recovery { display: flex; flex-direction: column; gap: 0.5rem; }
 .profile-account__recovery .profile-account__row { gap: 0.5rem; }
 .profile-account__recovery .btn { min-height: var(--tap-min); }
+/* Debug-safe connection diagnostics: a compact monospace block that wraps (never
+   overflows at 360/390). Content is metadata only — no secrets (see accountDiagnostics). */
+.profile-account__diag {
+  margin: 0; padding: 0.5rem 0.6rem; border-radius: 10px;
+  background: var(--surface-2, #10281a); border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem; line-height: 1.5; color: var(--text-muted);
+  white-space: pre-wrap; word-break: break-word; overflow-x: auto; max-width: 100%;
+}
 
 /* Card-back style picker (Stage 13.0; 4 styles in a 2×2 grid at 360/390 — Stage
    13.5): compact swatches with a mini live preview of each back. */

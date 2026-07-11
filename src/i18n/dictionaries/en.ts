@@ -545,6 +545,10 @@ export const EN: Record<string, string> = {
   'account.serverUnreachable': 'Can’t reach the game server.',
   'account.retry': 'Retry',
   'account.useDefaultServer': 'Use default server',
+  'account.diagnostics': 'Connection diagnostics',
+  'account.copyDiagnostics': 'Copy diagnostics',
+  'account.copied': 'Copied',
+  'account.trySignIn': 'Try sign in with Google',
   'account.loginSuccess': 'Signed in. Your guest progress was saved to your account.',
   'account.loginError': 'Sign-in failed. Please try again.',
   // ── room social (Stage 7) ──

@@ -114,12 +114,33 @@ describe('Account auth controls + recovery (no dead-end)', () => {
     expect(bar).toMatch(/account\.signedIn\s*\?[\s\S]*?account\.authAvailable\s*\?[\s\S]*?!account\.serverReachable\s*\?/);
   });
 
+  it('the unavailable block shows debug-safe diagnostics + a Copy action', () => {
+    expect(panel).toContain('profile-account__diag');
+    expect(panel).toContain('formatAccountDiagnostics(account.diagnostics)');
+    expect(panel).toContain("t('account.copyDiagnostics')");
+    expect(panel).toMatch(/copyDiagnostics\(\)/);
+    // useAccount exposes the diagnostics object.
+    expect(account).toMatch(/diagnostics:\s*AccountDiagnostics/);
+    expect(account).toContain('connectionMode: customServer ? ');
+    expect(account).toContain('sameOrigin:');
+  });
+
+  it('offers a same-origin "Try sign in" only when the API is same-origin AND unreachable', () => {
+    // Safe: /auth/google/start is a top-level nav to THIS origin (not a CORS fetch).
+    expect(panel).toMatch(/account\.diagnostics\.sameOrigin && !account\.serverReachable[\s\S]*?href=\{account\.googleUrl\}/);
+    expect(panel).toContain("t('account.trySignIn')");
+  });
+
+  it('StartMenu passes the custom-server flag so diagnostics can report the mode', () => {
+    expect(read('src/ui/StartMenu.tsx')).toContain('useAccount(url, customServer)');
+  });
+
   it('the sign-in control is a real link/button, no native <select> introduced', () => {
     expect(panel).not.toMatch(/<select[\s>]/);
   });
 
   it('no cookie/token/email logging in the auth flow (debug-safe)', () => {
-    for (const src of [account, read('src/net/profileApi.ts')]) {
+    for (const src of [account, read('src/net/profileApi.ts'), read('src/net/accountDiagnostics.ts')]) {
       expect(src).not.toMatch(/console\.\w+\([^)]*(cookie|token|email|password|session)/i);
     }
   });
@@ -184,6 +205,7 @@ describe('i18n parity for the new profile keys', () => {
     'profile.localPrefsNote',
     'account.checking', 'account.signInUnavailable',
     'account.serverUnreachable', 'account.retry', 'account.useDefaultServer',
+    'account.diagnostics', 'account.copyDiagnostics', 'account.copied', 'account.trySignIn',
   ];
   for (const lang of ['en', 'uk', 'de', 'ar']) {
     it(`${lang} defines every new key`, () => {
