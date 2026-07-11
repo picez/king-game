@@ -543,6 +543,7 @@ export const EN: Record<string, string> = {
   'account.checking': 'Checking your account…',
   'account.signInUnavailable': 'This server doesn’t offer sign-in — you’re playing locally. Your profile is saved on this device.',
   'account.serverUnreachable': 'Can’t reach the game server.',
+  'account.serverBusy': 'The profile service is temporarily unavailable. Please try again in a moment.',
   'account.retry': 'Retry',
   'account.useDefaultServer': 'Use default server',
   'account.diagnostics': 'Connection diagnostics',

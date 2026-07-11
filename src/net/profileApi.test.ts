@@ -35,6 +35,14 @@ describe('fetchMe — classified probe (server-down vs sign-in-off vs signed-in)
     expect(p.endpoint).toBe('/api/me');
   });
 
+  it('503 db_error → server REACHABLE (up, DB blip) so the UI retries, not "unreachable"', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => resp(503, { error: 'db_error' })));
+    const p = await fetchMe('http://x');
+    expect(p.serverReachable).toBe(true);   // the server answered — a transient DB fault
+    expect(p.authAvailable).toBe(false);
+    expect(p.code).toBe('db_error');
+  });
+
   it('carries a debug-safe endpoint + null code on a clean 200', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => resp(200, { authenticated: false, user: null })));
     const p = await fetchMe('http://x');

@@ -125,6 +125,21 @@ describe('Account auth controls + recovery (no dead-end)', () => {
     expect(account).toContain('sameOrigin:');
   });
 
+  it('distinguishes a transient db_error (busy, retry) from unreachable / sign-in-off', () => {
+    // db_error → serverReachable is true, so a plain serverReachable check would wrongly
+    // say "no sign-in here"; the panel must branch on the code to show a "busy" message.
+    expect(panel).toMatch(/account\.diagnostics\.code === 'db_error'[\s\S]*?t\('account\.serverBusy'\)/);
+    expect(read('src/net/profileApi.ts')).toMatch(/code === 'db_disabled' \|\| code === 'db_error'/);
+  });
+
+  it('/api/me degrades to a guest on a DB error (never a hard 503 that traps the UI)', () => {
+    const api = read('server/api.ts');
+    // handleMe wraps its body and, on any DB throw, answers 200 { authenticated:false }.
+    const me = api.slice(api.indexOf('async function handleMe'), api.indexOf('async function handleMe') + 1600);
+    expect(me).toMatch(/try \{[\s\S]*\} catch \(err\) \{[\s\S]*authenticated: false[\s\S]*\}/);
+    expect(me).toContain('logDbBrief');
+  });
+
   it('offers a same-origin "Try sign in" only when the API is same-origin AND unreachable', () => {
     // Safe: /auth/google/start is a top-level nav to THIS origin (not a CORS fetch).
     expect(panel).toMatch(/account\.diagnostics\.sameOrigin && !account\.serverReachable[\s\S]*?href=\{account\.googleUrl\}/);
@@ -143,6 +158,13 @@ describe('Account auth controls + recovery (no dead-end)', () => {
     for (const src of [account, read('src/net/profileApi.ts'), read('src/net/accountDiagnostics.ts')]) {
       expect(src).not.toMatch(/console\.\w+\([^)]*(cookie|token|email|password|session)/i);
     }
+  });
+
+  it('server DB-error logging is truncated + param-safe (no raw error / driver params line)', () => {
+    const api = read('server/api.ts');
+    const fn = api.slice(api.indexOf('function logDbBrief'), api.indexOf('function logDbBrief') + 400);
+    expect(fn).toContain("split('\\n')[0]"); // first line only — drops the driver's `params:` line
+    expect(fn).toContain('slice(0, 200)');    // and truncated, so no long payload leaks
   });
 });
 
@@ -204,7 +226,7 @@ describe('i18n parity for the new profile keys', () => {
     'profile.statusSynced', 'profile.statusGuest', 'profile.statusLocal',
     'profile.localPrefsNote',
     'account.checking', 'account.signInUnavailable',
-    'account.serverUnreachable', 'account.retry', 'account.useDefaultServer',
+    'account.serverUnreachable', 'account.serverBusy', 'account.retry', 'account.useDefaultServer',
     'account.diagnostics', 'account.copyDiagnostics', 'account.copied', 'account.trySignIn',
   ];
   for (const lang of ['en', 'uk', 'de', 'ar']) {

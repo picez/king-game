@@ -543,6 +543,7 @@ export const UK: Record<string, string> = {
   'account.checking': 'Перевіряємо ваш акаунт…',
   'account.signInUnavailable': 'Цей сервер не пропонує вхід — ви граєте локально. Профіль збережено на цьому пристрої.',
   'account.serverUnreachable': 'Не вдається зʼєднатися з ігровим сервером.',
+  'account.serverBusy': 'Сервіс профілю тимчасово недоступний. Спробуйте ще раз за мить.',
   'account.retry': 'Повторити',
   'account.useDefaultServer': 'Стандартний сервер',
   'account.diagnostics': 'Діагностика зʼєднання',

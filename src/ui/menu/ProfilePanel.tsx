@@ -312,7 +312,9 @@ export default function ProfilePanel({
           // (so a bad custom URL doesn't trap the user; no Advanced scrolling needed).
           <div className="profile-account__recovery">
             <span className="profile-account__note field__hint">
-              {account.serverReachable ? t('account.signInUnavailable') : t('account.serverUnreachable')}
+              {account.diagnostics.code === 'db_error'
+                ? t('account.serverBusy')
+                : account.serverReachable ? t('account.signInUnavailable') : t('account.serverUnreachable')}
             </span>
             {/* Debug-safe diagnostics so the exact cause is visible (and copyable):
                 default vs custom server, same/cross-origin, the /api/me status + code.

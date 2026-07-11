@@ -32,11 +32,11 @@ import {
 } from '../src/net/serverCore';
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
-import { isDbEnabled } from './db/client';
+import { isDbEnabled, checkDbHealth } from './db/client';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
-import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit } from './diagnostics';
+import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
@@ -477,19 +477,25 @@ function rescheduleAdvance(room: ServerRoom): void {
 const httpServer = createServer((req, res) => {
   const path = (req.url ?? '').split('?')[0];
   if (path === '/health/diagnostics') {
-    // Aggregate-only operational snapshot (Stage 24.0). Cheap in-memory counters +
-    // the cached boot ffmpeg flag; no DB probe. See server/diagnostics.ts.
+    // Aggregate-only operational snapshot (Stage 24.0; DB state added 24.3). A cheap
+    // `select 1` probe distinguishes db enabled / disabled / error; everything else is
+    // in-memory counters + the cached boot ffmpeg flag. See server/diagnostics.ts.
     let open = 0, inGame = 0;
     for (const room of rooms.values()) { if (room.started) inGame++; else open++; }
-    handleDiagnostics(res, {
+    const emit = (db: DbState) => handleDiagnostics(res, {
       version: serverVersion(),
       commit: gitCommit(),
       uptimeSeconds: process.uptime(),
-      dbEnabled: isDbEnabled(),
+      db,
       ffmpegReady: getFfmpegReady(),
       rooms: { total: rooms.size, open, inGame },
       connections: sockets.size,
     });
+    void (async () => {
+      const db: DbState = !isDbEnabled() ? 'disabled'
+        : (await checkDbHealth()).state === 'ok' ? 'enabled' : 'error';
+      emit(db);
+    })().catch(() => emit(isDbEnabled() ? 'error' : 'disabled')); // checkDbHealth never throws
     return;
   }
   if (path === '/health') {

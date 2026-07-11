@@ -43,11 +43,15 @@ export function availableGameIds(): string[] {
   return GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available');
 }
 
+/** Resolved database state: no DATABASE_URL / a healthy probe / a failing probe. */
+export type DbState = 'enabled' | 'disabled' | 'error';
+
 export interface DiagnosticsInput {
   version: string | null;
   commit: string | null;
   uptimeSeconds: number;
-  dbEnabled: boolean;
+  /** Resolved from a cheap `select 1` probe: enabled (ok) / disabled / error. */
+  db: DbState;
   /** Cached boot probe; null = not yet known. */
   ffmpegReady: boolean | null;
   rooms: { total: number; open: number; inGame: number };
@@ -60,7 +64,7 @@ export interface DiagnosticsResponse {
   version: string | null;
   commit: string | null;
   uptime: number;
-  db: 'enabled' | 'disabled';
+  db: DbState;
   rooms: { total: number; open: number; inGame: number };
   connections: number;
   games: { count: number; ids: string[] };
@@ -78,18 +82,20 @@ export interface DiagnosticsResponse {
  * BOTH a database AND ffmpeg; the reason names whichever is missing.
  */
 export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsResponse {
+  // Avatar uploads need a HEALTHY database — 'error' or 'disabled' both mean "off".
+  const dbUsable = input.db === 'enabled';
   const ffmpeg = input.ffmpegReady;
   let avatarStatus: 'enabled' | 'disabled' | 'unknown';
   let reason: string | null = null;
   if (ffmpeg === null) {
     avatarStatus = 'unknown';
     reason = 'ffmpeg_probe_pending';
-  } else if (input.dbEnabled && ffmpeg) {
+  } else if (dbUsable && ffmpeg) {
     avatarStatus = 'enabled';
   } else {
     avatarStatus = 'disabled';
-    reason = !input.dbEnabled && !ffmpeg ? 'no_database_and_ffmpeg'
-      : !input.dbEnabled ? 'no_database'
+    reason = !dbUsable && !ffmpeg ? 'no_database_and_ffmpeg'
+      : !dbUsable ? 'no_database'
         : 'no_ffmpeg';
   }
 
@@ -99,7 +105,7 @@ export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsResponse {
     version: input.version,
     commit: input.commit,
     uptime: Math.round(input.uptimeSeconds),
-    db: input.dbEnabled ? 'enabled' : 'disabled',
+    db: input.db,
     rooms: {
       total: input.rooms.total,
       open: input.rooms.open,
@@ -111,7 +117,7 @@ export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsResponse {
       status: avatarStatus,
       reason,
       ffmpeg: ffmpeg === null ? 'unknown' : ffmpeg,
-      database: input.dbEnabled,
+      database: dbUsable,
     },
   };
 }

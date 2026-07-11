@@ -196,6 +196,28 @@ API** and **guest sessions** on the same port — no extra service. Add:
   rooms work. Migrations are idempotent — see the room-storage note above for
   running `npm run db:migrate` (a release step or one-off Job).
 
+#### Troubleshooting: Profile shows a connection error / `/api/me -> 503 (db_error)`
+
+`db_error` means the server is **up and same-origin**, but a profile/session query
+hit the database and failed — the frontend, CORS, custom server, and PWA are **not**
+the cause (the in-app **Copy diagnostics** button confirms `Origin: … (same-origin)`).
+It is usually a **transient** Render free-tier Postgres event (cold-start after idle,
+a dropped pooled connection, or connection-limit pressure).
+
+- **`GET /api/me` no longer hard-fails on this** — it degrades to `200 {"authenticated":false}`
+  (the visitor is treated as a guest, so the Profile shows **Sign in**, not a dead-end);
+  the real identity returns on the next probe once the DB is back. Session-required
+  routes (`/api/settings`, stats) still answer a safe `503 db_error` ("temporarily
+  unavailable — retry"). No SQL, params, credentials, or emails are ever logged/returned.
+- **Distinguish the cause** with `curl -s $HOST/health/diagnostics` → the `db` field is now
+  one of **`enabled`** (probe ok) / **`disabled`** (no `DATABASE_URL`) / **`error`** (probe
+  `select 1` failed). `error` → the DB is configured but unreachable/unhealthy right now.
+- **If `db` stays `error`:** check the Render **Postgres** instance is running and not
+  suspended; confirm `DATABASE_URL` is present and correct (Render's *Internal* URL for a
+  same-region service); ensure **migrations ran** (`npm run db:migrate`, idempotent) — a
+  missing `user_settings` / `sessions` / `auth_accounts` / `user_avatars` table surfaces as
+  `db_error` too. `DATABASE_POOL_MAX` (default 5) can be lowered on the free tier.
+
 ### Google sign-in (optional, Stage 6)
 
 Lets a player link their guest progress (profile / settings / **per-game stats**) to a

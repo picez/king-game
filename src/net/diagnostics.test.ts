@@ -17,7 +17,7 @@ const base: DiagnosticsInput = {
   version: '0.1.0',
   commit: 'abcdef1234',
   uptimeSeconds: 123.7,
-  dbEnabled: true,
+  db: 'enabled',
   ffmpegReady: true,
   rooms: { total: 3, open: 1, inGame: 2 },
   connections: 5,
@@ -53,13 +53,21 @@ describe('buildDiagnostics — safe field shape', () => {
 
 describe('buildDiagnostics — db + avatar readiness', () => {
   it('db disabled still reports status ok', () => {
-    const d = buildDiagnostics({ ...base, dbEnabled: false, ffmpegReady: false });
+    const d = buildDiagnostics({ ...base, db: 'disabled', ffmpegReady: false });
     expect(d.status).toBe('ok');
     expect(d.db).toBe('disabled');
   });
 
+  it('db ERROR (probe failed) passes through, and disables avatar uploads', () => {
+    const d = buildDiagnostics({ ...base, db: 'error', ffmpegReady: true });
+    expect(d.status).toBe('ok');                  // the endpoint itself never fails
+    expect(d.db).toBe('error');                   // distinct from disabled
+    expect(d.avatarUploads.status).toBe('disabled');
+    expect(d.avatarUploads.database).toBe(false); // an errored DB is not usable
+  });
+
   it('avatar uploads ENABLED only with both db AND ffmpeg', () => {
-    const d = buildDiagnostics({ ...base, dbEnabled: true, ffmpegReady: true });
+    const d = buildDiagnostics({ ...base, db: 'enabled', ffmpegReady: true });
     expect(d.avatarUploads.status).toBe('enabled');
     expect(d.avatarUploads.reason).toBeNull();
     expect(d.avatarUploads.ffmpeg).toBe(true);
@@ -67,11 +75,11 @@ describe('buildDiagnostics — db + avatar readiness', () => {
   });
 
   it('avatar uploads DISABLED with a reason naming the missing piece', () => {
-    expect(buildDiagnostics({ ...base, dbEnabled: false, ffmpegReady: true }).avatarUploads.reason)
+    expect(buildDiagnostics({ ...base, db: 'disabled', ffmpegReady: true }).avatarUploads.reason)
       .toBe('no_database');
-    expect(buildDiagnostics({ ...base, dbEnabled: true, ffmpegReady: false }).avatarUploads.reason)
+    expect(buildDiagnostics({ ...base, db: 'enabled', ffmpegReady: false }).avatarUploads.reason)
       .toBe('no_ffmpeg');
-    expect(buildDiagnostics({ ...base, dbEnabled: false, ffmpegReady: false }).avatarUploads.reason)
+    expect(buildDiagnostics({ ...base, db: 'disabled', ffmpegReady: false }).avatarUploads.reason)
       .toBe('no_database_and_ffmpeg');
   });
 

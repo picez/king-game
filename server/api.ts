@@ -199,29 +199,50 @@ export async function resolveAvatarImageUrl(userId: string | null): Promise<stri
 
 // ── route handlers ──────────────────────────────────────────────────────────
 
+/** Debug-safe DB error log: first line only, truncated — NEVER the driver's `params:`
+ *  line (which can echo input values), the SQL, or the connection string. */
+function logDbBrief(where: string, err: unknown): void {
+  const brief = String((err as Error)?.message ?? err).split('\n')[0].slice(0, 200);
+  console.error(`[King] DB error on ${where} → ${brief}`);
+}
+
+/**
+ * GET /api/me — "who am I?". Resilient by design: a TRANSIENT DB error (e.g. a Render
+ * free-tier Postgres cold-start or a dropped pooled connection) must NOT hard-fail
+ * identity. The safe answer is always "a guest", so on any DB error we degrade to
+ * `200 { authenticated:false }` rather than a 503 that would trap the whole Profile in
+ * an "unreachable" state. The client then shows Sign in and a later probe recovers the
+ * real identity once the DB is back. The error is logged debug-safely and `/health`
+ * (+ `/health/diagnostics`) still report `db:error` for ops visibility.
+ */
 async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const userId = await resolveUserId(req);
-  if (!userId) return json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
-  const { getProfile } = await import('./db/users');
-  const profile = await getProfile(userId);
-  if (!profile) return json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
-  // Linked provider (Google) + login-only basics, if any. Never expose the
-  // provider_account_id, tokens, or session id.
-  const { getAccountForUser } = await import('./db/authAccounts');
-  const account = await getAccountForUser(userId);
-  // Uploaded custom avatar (Stage 17.1), if any — a SAME-ORIGIN, versioned URL.
-  // Distinct from `avatarUrl` (the OAuth provider picture) — never conflated.
-  const { getAvatarForUser } = await import('./db/userAvatars');
-  const uploaded = await getAvatarForUser(userId);
-  json(res, 200, {
-    authenticated: true,
-    user: { ...publicUser(profile), avatar: profile.settings.avatar },
-    provider: account?.provider ?? null,
-    email: account?.email ?? null,
-    avatarUrl: account?.picture ?? null,
-    avatarImageUrl: uploaded ? avatarImageUrlPath(uploaded.id, uploaded.version) : null,
-    settings: profile.settings,
-  }, corsHeaders(req));
+  try {
+    const userId = await resolveUserId(req);
+    if (!userId) return json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
+    const { getProfile } = await import('./db/users');
+    const profile = await getProfile(userId);
+    if (!profile) return json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
+    // Linked provider (Google) + login-only basics, if any. Never expose the
+    // provider_account_id, tokens, or session id.
+    const { getAccountForUser } = await import('./db/authAccounts');
+    const account = await getAccountForUser(userId);
+    // Uploaded custom avatar (Stage 17.1), if any — a SAME-ORIGIN, versioned URL.
+    // Distinct from `avatarUrl` (the OAuth provider picture) — never conflated.
+    const { getAvatarForUser } = await import('./db/userAvatars');
+    const uploaded = await getAvatarForUser(userId);
+    json(res, 200, {
+      authenticated: true,
+      user: { ...publicUser(profile), avatar: profile.settings.avatar },
+      provider: account?.provider ?? null,
+      email: account?.email ?? null,
+      avatarUrl: account?.picture ?? null,
+      avatarImageUrl: uploaded ? avatarImageUrlPath(uploaded.id, uploaded.version) : null,
+      settings: profile.settings,
+    }, corsHeaders(req));
+  } catch (err) {
+    logDbBrief('GET /api/me', err);
+    json(res, 200, { authenticated: false, user: null }, corsHeaders(req));
+  }
 }
 
 // ── avatar upload / delete / serve (Stage 17.1; hidden backend, no UI wiring) ──
@@ -716,11 +737,11 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));
   } catch (err) {
-    // A DB hiccup (e.g. unreachable Postgres) must not crash the process or
-    // leak details. Log only the first line, truncated — the driver appends a
-    // `params:` line we must NOT print (could echo input values).
-    const brief = String((err as Error)?.message ?? err).split('\n')[0].slice(0, 200);
-    console.error('[King] /api error on', method, path, '→', brief);
+    // A DB hiccup (e.g. unreachable Postgres) must not crash the process or leak
+    // details. `/api/me` degrades to a guest above; the remaining (session-required)
+    // routes return a SAFE `db_error` code (no SQL / params / credentials) that the
+    // client shows as "temporarily unavailable — retry", not "server unreachable".
+    logDbBrief(`${method} ${path}`, err);
     json(res, 503, { error: 'db_error', message: 'The profile service is temporarily unavailable.' }, corsHeaders(req));
   }
 }
