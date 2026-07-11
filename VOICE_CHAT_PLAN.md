@@ -40,7 +40,7 @@ that same socket ONLY as a signaling channel. **No audio ever touches the server
 |------|-------|
 | 25.1–25.2 | Friends (see [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)). |
 | **25.3** ✅ **DONE** | Voice **signaling WS protocol** — `VOICE_*` messages (messages.ts), a room-scoped server **relay** `server/voiceSignaling.ts` (join/leave/relay-to-target/mute, returns targeted deliveries; NO audio, NO DB), pure `src/net/voiceSignal.ts` (SDP 16 KB / ICE 4 KB caps + glare `shouldOffer`), per-client signaling limit (`voiceRateLimit.ts`, 120/min), wired in index.ts (verify same-room + size + rate; cleanup on close/leave). Client plumbing in useNetworkGame (`sendVoice*` + `registerVoiceListener`) — **INERT, no WebRTC/media yet**. |
-| **25.4** | Voice **WebRTC UI** — `RTCPeerConnection` mesh, `getUserMedia`, Join/Leave/Mute controls in Lobby + in-game RoomSocial, remote `<audio>` elements, fallback states. |
+| **25.4** ✅ **DONE** | Voice **WebRTC UI** — `src/voice/webrtc.ts` (STUN-only adapter, the ONLY raw-WebRTC/getUserMedia site) + `VoiceSession` mesh controller (fully unit-tested with mocks) + `useRoomVoice` hook (remote `<audio>` sinks, autoplay-blocked fallback) + `VoiceControl` (Lobby **card** + in-game **compact** mic button in the RoomSocial cluster). Opt-in (mic only on Join), Mute/Unmute, unsupported / permission-denied / connecting states; leaving the room tears voice down. Glare = lower clientId offers. No audio server-side/DB. |
 | **25.5** | **Production hardening** — signaling rate limits, renegotiation/cleanup on seat changes & disconnects, permission-state UX, mobile/PWA polish, TURN decision, docs/smoke (shared with friends). |
 
 Additive and **fairness-safe**: voice never touches game state, redaction, or the reducer.

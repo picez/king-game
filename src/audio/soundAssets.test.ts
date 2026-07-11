@@ -109,14 +109,16 @@ describe('sound wiring boundary (Stage 15.2 + 15.4)', () => {
     .filter((p) => !isTest(p) && re.test(body(p)))
     .map(rel).sort();
 
-  it('the browser audio API lives ONLY inside the sound engine', () => {
+  it('the browser audio API lives ONLY inside the sound engine (+ the voice module)', () => {
     const AUDIO_API = /\bnew Audio\s*\(|\bAudioContext\b|\bwebkitAudioContext\b|\bHTMLAudioElement\b/;
     const offenders = files
       .filter((p) => !isTest(p))
       .filter((p) => AUDIO_API.test(body(p)))
-      .map(rel);
-    expect(offenders, `audio API outside the engine: ${offenders.join(', ')}`)
-      .toEqual(['audio/soundEngine.ts']);
+      .map(rel)
+      .sort();
+    // soundEngine plays SFX; the Stage 25.4 voice hook plays remote peers' audio streams.
+    expect(offenders, `audio API outside the engine/voice: ${offenders.join(', ')}`)
+      .toEqual(['audio/soundEngine.ts', 'voice/useRoomVoice.ts']);
   });
 
   it('the sound manifest is imported ONLY by the engine (+ audio tests)', () => {

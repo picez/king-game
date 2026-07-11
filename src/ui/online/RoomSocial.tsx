@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import { REACTIONS, MAX_CHAT_LEN } from '../../net/chatFilter';
 import { CHAT_MEDIA, type ChatMediaItem } from '../../net/chatMediaCatalog';
@@ -21,6 +21,8 @@ interface Props {
   /** When set (ACTIVE game only — not the lobby), shows a "Leave game" action
    *  that returns to the menu while keeping the seat reconnectable (Resume). */
   onLeaveGame?: () => void;
+  /** Optional compact voice control (Stage 25.4), rendered in the corner button row. */
+  voiceButton?: ReactNode;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -42,7 +44,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -193,6 +195,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           </div>
         )}
         <div className="social-controls__row">
+          {voiceButton}
           <button type="button" className="social-fab"
             aria-expanded={reactOpen} aria-label={t('social.reactions')}
             onClick={() => { setReactOpen((o) => !o); }}>

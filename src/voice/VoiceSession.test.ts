@@ -1,0 +1,136 @@
+import { describe, it, expect, vi } from 'vitest';
+import { VoiceSession, type PeerConnLike, type StreamLike, type TrackLike, type VoiceDeps } from './VoiceSession';
+
+function fakeTrack(kind = 'audio'): TrackLike & { stop: ReturnType<typeof vi.fn> } {
+  return { kind, enabled: true, stop: vi.fn() };
+}
+function fakeStream(): StreamLike & { tracks: TrackLike[] } {
+  const tracks = [fakeTrack('audio')];
+  return { tracks, getTracks: () => tracks, getAudioTracks: () => tracks.filter((t) => t.kind === 'audio') };
+}
+function fakePeer(): PeerConnLike & Record<string, ReturnType<typeof vi.fn>> {
+  return {
+    addTrack: vi.fn(), createOffer: vi.fn(async () => ({ type: 'offer', sdp: 'o' })),
+    createAnswer: vi.fn(async () => ({ type: 'answer', sdp: 'a' })),
+    setLocalDescription: vi.fn(async () => {}), setRemoteDescription: vi.fn(async () => {}),
+    addIceCandidate: vi.fn(async () => {}), close: vi.fn(),
+    connectionState: 'new', onicecandidate: null, ontrack: null, onconnectionstatechange: null,
+  } as unknown as PeerConnLike & Record<string, ReturnType<typeof vi.fn>>;
+}
+function makeDeps(over: Partial<VoiceDeps> = {}) {
+  const signal = { join: vi.fn(), leave: vi.fn(), offer: vi.fn(), answer: vi.fn(), ice: vi.fn(), mute: vi.fn() };
+  const mic = fakeStream();
+  const peers: ReturnType<typeof fakePeer>[] = [];
+  const getMic = vi.fn(async () => mic as StreamLike);
+  const createPeer = vi.fn(() => { const p = fakePeer(); peers.push(p); return p; });
+  const deps: VoiceDeps = {
+    myClientId: 'aaa', supported: true, getMic, createPeer, signal,
+    onChange: vi.fn(), onRemoteStream: vi.fn(), onRemoteGone: vi.fn(), ...over,
+  };
+  return { deps, signal, mic, getMic, createPeer, peers };
+}
+
+describe('VoiceSession — join / leave / mute', () => {
+  it('join requests the mic ONCE and announces VOICE_JOIN → joined', async () => {
+    const { deps, signal, getMic } = makeDeps();
+    const s = new VoiceSession(deps);
+    await s.join();
+    expect(getMic).toHaveBeenCalledTimes(1);
+    expect(signal.join).toHaveBeenCalledTimes(1);
+    expect(s.status).toBe('joined');
+    await s.join(); // idempotent — no second mic request
+    expect(getMic).toHaveBeenCalledTimes(1);
+  });
+
+  it('unsupported → error(unsupported), never touches the mic', async () => {
+    const { deps, getMic } = makeDeps({ supported: false });
+    const s = new VoiceSession(deps);
+    await s.join();
+    expect(s.status).toBe('error'); expect(s.error).toBe('unsupported');
+    expect(getMic).not.toHaveBeenCalled();
+  });
+
+  it('permission denied → error(permission)', async () => {
+    const { deps } = makeDeps({ getMic: vi.fn(async () => { throw new Error('denied'); }) });
+    const s = new VoiceSession(deps);
+    await s.join();
+    expect(s.status).toBe('error'); expect(s.error).toBe('permission');
+  });
+
+  it('leave announces, closes every PC, and stops the mic tracks', async () => {
+    const { deps, signal, mic, peers } = makeDeps();
+    const s = new VoiceSession(deps);
+    await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    s.leave();
+    expect(signal.leave).toHaveBeenCalledTimes(1);
+    expect(peers[0].close).toHaveBeenCalled();
+    expect(mic.tracks[0].stop).toHaveBeenCalled();
+    expect(s.status).toBe('idle');
+    expect(s.peerList()).toEqual([]);
+  });
+
+  it('mute toggles the local track.enabled AND broadcasts VOICE_MUTE_STATE', async () => {
+    const { deps, signal, mic } = makeDeps();
+    const s = new VoiceSession(deps);
+    await s.join();
+    s.toggleMute();
+    expect(s.muted).toBe(true);
+    expect(mic.tracks[0].enabled).toBe(false);
+    expect(signal.mute).toHaveBeenLastCalledWith(true);
+    s.toggleMute();
+    expect(mic.tracks[0].enabled).toBe(true);
+    expect(signal.mute).toHaveBeenLastCalledWith(false);
+  });
+});
+
+describe('VoiceSession — mesh signaling', () => {
+  it('the LOWER clientId offers (glare); the higher one waits', async () => {
+    // me = 'aaa' < 'bbb' → I offer.
+    const lower = makeDeps({ myClientId: 'aaa' });
+    const sLower = new VoiceSession(lower.deps); await sLower.join();
+    sLower.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await Promise.resolve(); await Promise.resolve();
+    expect(lower.signal.offer).toHaveBeenCalledWith('bbb', expect.any(String));
+
+    // me = 'zzz' > 'bbb' → I do NOT offer (I wait).
+    const higher = makeDeps({ myClientId: 'zzz' });
+    const sHigher = new VoiceSession(higher.deps); await sHigher.join();
+    sHigher.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await Promise.resolve(); await Promise.resolve();
+    expect(higher.signal.offer).not.toHaveBeenCalled();
+  });
+
+  it('an incoming OFFER → createAnswer + VOICE_SIGNAL_ANSWER; ICE is applied', async () => {
+    const { deps, signal, peers } = makeDeps({ myClientId: 'zzz' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: JSON.stringify({ type: 'offer' }) });
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(peers[0].setRemoteDescription).toHaveBeenCalled();
+    expect(peers[0].createAnswer).toHaveBeenCalled();
+    expect(signal.answer).toHaveBeenCalledWith('bbb', expect.any(String));
+    s.onMessage({ t: 'VOICE_SIGNAL_ICE', fromClientId: 'bbb', candidate: JSON.stringify({ candidate: 'c' }) });
+    await Promise.resolve();
+    expect(peers[0].addIceCandidate).toHaveBeenCalled();
+  });
+
+  it('VOICE_PEER_LEFT closes + removes that peer; a peer mute updates its view', async () => {
+    const { deps, peers } = makeDeps();
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    s.onMessage({ t: 'VOICE_MUTE_STATE', clientId: 'bbb', muted: true });
+    expect(s.peers.get('bbb')?.muted).toBe(true);
+    s.onMessage({ t: 'VOICE_PEER_LEFT', clientId: 'bbb' });
+    expect(peers[0].close).toHaveBeenCalled();
+    expect(s.peers.has('bbb')).toBe(false);
+    expect(deps.onRemoteGone).toHaveBeenCalledWith('bbb');
+  });
+
+  it('a local echo of myself is ignored (never a self peer connection)', async () => {
+    const { deps, createPeer } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'aaa', name: 'me', muted: false });
+    expect(createPeer).not.toHaveBeenCalled();
+    expect(s.peers.has('aaa')).toBe(false);
+  });
+});

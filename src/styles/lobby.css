@@ -384,6 +384,35 @@
 .friend-invite-toast__actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
 .friend-invite-toast__actions .btn { min-height: var(--tap-min); }
 
+/* ===== Voice chat (Stage 25.4) ===== */
+.lobby-voice { width: min(94vw, 32rem); margin: 0.4rem auto 0; }
+.voice-card {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 0.6rem 0.7rem; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);
+}
+.voice-card--muted { display: block; }
+.voice-card__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.voice-card__title { font-weight: 700; }
+.voice-card__off { margin: 0; }
+.voice-card__err { margin: 0; }
+.voice-card__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.5rem; }
+.voice-card__row .btn { min-height: var(--tap-min); }
+.voice-card__status { margin: 0; }
+.voice-peers { list-style: none; margin: 0.1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.voice-peer { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.85rem; }
+.voice-peer__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-peer__state { margin: 0; flex: 0 0 auto; }
+
+/* Compact in-game mic button (sits in the RoomSocial corner cluster). */
+.voice-fab { position: relative; }
+.voice-fab--on { border-color: var(--success-light, #46c95f); }
+.voice-fab--muted { opacity: 0.85; }
+.voice-fab__count {
+  position: absolute; top: -4px; inset-inline-end: -4px; min-width: 16px; height: 16px; padding: 0 3px;
+  border-radius: 999px; background: var(--success-light, #46c95f); color: #06240f;
+  font-size: 0.62rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+}
+
 .avatar-error { margin: 0.3rem 0 0; }
 /* The safe error code (e.g. server_timeout) — small, muted, so a stuck user can report
    the exact reason without it dominating the message. */

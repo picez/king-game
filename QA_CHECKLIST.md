@@ -625,18 +625,30 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
       block); total sound payload stays under budget (< 500 KB).
 
-## Manual — Voice signaling (Stage 25.3, protocol only — no audio yet)
+## Manual — Voice chat (Stage 25.4, WebRTC MVP; HTTPS + a mic required)
 
-> Signaling RELAY only; there is **no microphone, no WebRTC, no audible voice** until 25.4.
-> Verified today by the WS routing tests (`voiceSignaling.test.ts`) — a manual browser check
-> is a placeholder until the 25.4 UI exists. No Postgres needed (voice is in-memory, no DB).
+> Opt-in WebRTC mesh voice over the 25.3 signaling relay. **HTTPS is required** for
+> `getUserMedia` (localhost counts as secure). Real audio is **manual-only** — CI has no mic.
+> No Postgres needed (voice is in-memory; no server audio, no recording, no DB).
 
-- [ ] (Automated) `npm test` covers: VOICE_JOIN sends the joiner the peer roster + notifies
-      others; leave/close removes the peer (VOICE_PEER_LEFT); OFFER/ANSWER/ICE relay to the
-      **single target** only (never broadcast); reject when sender/target not in the same voice
-      room; mute broadcasts to peers; SDP/ICE size caps + per-client rate limit.
-- [ ] (Placeholder, 25.4) With two tabs in the same online room, enabling voice will grant the
-      mic, connect peer-to-peer, and let each hear the other; text chat stays as the fallback.
+- [ ] **Default off:** in an online **Lobby**, the **Voice chat** card shows **Join voice**
+      (nothing is captured until tapped). In-game, a compact 🎙️ mic button sits with the
+      reaction/chat FABs and never covers the hand/actions (check 360/390 + RTL).
+- [ ] **Join (two contexts in the same room):** both tap **Join voice** → grant the mic →
+      each hears the other; the card shows **Connected · N** and lists the peer.
+- [ ] **Mute/Unmute** toggles your mic AND the peer's row shows 🔇/🎤 (mute state propagates).
+- [ ] **Leave** (or leaving the room / closing the tab) stops your mic and drops you from the
+      others' peer list.
+- [ ] **Fallbacks:** deny the mic → **"Microphone permission denied"** (text chat still works);
+      an unsupported browser → **"Voice chat isn't supported"**; if audio autoplay is blocked →
+      a **"Tap to enable audio"** button appears.
+- [ ] **Privacy:** DevTools → the `/ws` frames carry only SDP/ICE strings + clientId/name/muted
+      — **no email/token/session, no audio bytes**; nothing is recorded or stored.
+
+> Automated coverage (`npm test`): VoiceSession mesh (join requests mic once, leave stops
+> tracks + closes PCs, mute toggles the track, glare offerer, offer/answer/ice routing,
+> peer add/remove, unsupported/permission errors) + the 25.3 relay routing + source guards
+> (WebRTC/getUserMedia confined to `src/voice/webrtc.ts`; no server audio/DB).
 
 ## Manual — Friends UI + room invites (Stage 25.2, needs Postgres + a signed-in account)
 

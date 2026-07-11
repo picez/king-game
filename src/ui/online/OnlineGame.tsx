@@ -6,6 +6,8 @@ import { getActingPlayerId } from '../../core/gameEngine';
 import { isJoinError } from '../../net/online';
 import { apiBaseFromWsUrl } from '../../net/profileApi';
 import FriendsPanel from '../components/FriendsPanel';
+import VoiceControl from '../components/VoiceControl';
+import { useRoomVoice } from '../../voice/useRoomVoice';
 import type { ErrorCode } from '../../net/messages';
 import { clearSession } from '../../net/session';
 import { isSafeAvatarImageUrl } from '../../net/avatarImage';
@@ -46,6 +48,8 @@ const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finish
 export default function OnlineGame({ url, intent, onExit, signedIn = false }: Props) {
   const net = useNetworkGame(url, intent);
   const { t } = useI18n();
+  // In-room voice (Stage 25.4) — opt-in; nothing captured until the user taps Join voice.
+  const voice = useRoomVoice(net);
   // Friends (Stage 25.2): API base is same-origin as the WS host; invited-this-session set.
   const friendsBase = apiBaseFromWsUrl(url);
   const [invited, setInvited] = useState<Set<string>>(new Set());
@@ -88,6 +92,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
         onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
         notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
         handVisible={handVisible} onLeaveGame={onLeaveGame}
+        voiceButton={<VoiceControl voice={voice} variant="compact" />}
       />
     </>
   );
@@ -162,6 +167,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
               onInvite={inviteFriend} invited={invited} refreshNonce={net.presenceNonce} />
           </details>
         )}
+        <div className="lobby-voice"><VoiceControl voice={voice} variant="card" /></div>
         {renderSocial(false)}
       </>
     );
