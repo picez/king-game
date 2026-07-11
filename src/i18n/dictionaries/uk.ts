@@ -596,6 +596,7 @@ export const UK: Record<string, string> = {
   'voice.enableAudio': 'Торкніться, щоб увімкнути звук',
   'voice.failed': 'помилка',
   'voice.reconnecting': 'перепідключення…',
+  'voice.network': 'Мережа',
   'voice.permissionHint': 'Дозвольте мікрофон у налаштуваннях сайту (біля адресного рядка) і приєднайтесь знову.',
   'account.retry': 'Повторити',
   'account.useDefaultServer': 'Стандартний сервер',

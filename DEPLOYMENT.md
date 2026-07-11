@@ -234,18 +234,29 @@ a mixed-content warning (the browser would block it).
 
 Voice chat (opt-in, in-room) uses **STUN-only** by default (Google public STUN) — free, no
 credentials. Strict/symmetric-NAT users can't establish P2P over STUN alone and fall back to
-text chat. To add a **TURN** relay for them, set the **build-time** env
-`VITE_VOICE_ICE_SERVERS` before `npm run build`:
+text chat. To add a **TURN** relay (Metered.ca, Twilio, Cloudflare, or self-hosted coturn — see
+VOICE_CHAT_PLAN.md §7 for a comparison), configure the ICE servers one of two ways:
 
-```bash
-VITE_VOICE_ICE_SERVERS='[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]' \
-  VITE_WS_URL=wss://king.example.com/ws npm run build
-```
+- **Preferred — runtime `VOICE_ICE_SERVERS` (no rebuild).** Put it in the systemd
+  `EnvironmentFile` (`.env`) the server loads. The server serves it to the browser at
+  `GET /api/voice/ice-config`; change it and restart the service:
+  ```bash
+  # /etc/king/king.env  (gitignored, root-only perms)
+  VOICE_ICE_SERVERS='[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]'
+  ```
+- **Fallback — build-time `VITE_VOICE_ICE_SERVERS`.** Baked into the bundle; used only if the
+  endpoint is unreachable. Needs a rebuild:
+  ```bash
+  VITE_VOICE_ICE_SERVERS='[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]' \
+    VITE_WS_URL=wss://king.example.com/ws npm run build
+  ```
 
-Keep the TURN credential in your **gitignored `.env`** / secret store — **never commit it**.
-The value is parsed by `src/voice/iceConfig.ts` (malformed → safe STUN fallback), and the
-credential is redacted from any diagnostics. Voice still carries **no audio server-side and
-writes no DB** — this only changes how the browsers find a P2P path.
+Keep the TURN credential in your **gitignored `.env`** / secret store — **never commit it**. The
+value is parsed by `server/voiceIce.ts` / `src/voice/iceConfig.ts` (malformed → safe STUN
+fallback). The credential is delivered to the browser (which must authenticate to TURN) but is
+**never logged and never in `/health/diagnostics`** (which shows only `voice.ice:
+stun_only|turn_configured`). Voice still carries **no audio server-side and writes no DB** — this
+only changes how the browsers find a P2P path.
 
 ## 6. Security notes (read before a public launch)
 

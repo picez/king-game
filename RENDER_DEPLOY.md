@@ -54,21 +54,30 @@ balancer, and WebSocket connections are supported on the same service.
    | `ORPHAN_ROOM_TTL_MS` | `900000` | delete orphan rooms (no connected human) after 15 min (Stage 7.2) |
    | `DISCONNECTED_SUBSTITUTE_DELAY_MS` | `120000` | AI substitute delay for a disconnected human's turn, 2 min (Stage 7.2) |
    | `VITE_WS_URL` | `wss://<your-service>.onrender.com/ws` | **optional** — see note |
-   | `VITE_VOICE_ICE_SERVERS` | _(unset)_ | **optional** — TURN for voice chat behind strict NAT (see below) |
+   | `VOICE_ICE_SERVERS` | _(unset)_ | **optional, preferred** — runtime TURN for voice; served at `/api/voice/ice-config`, no rebuild (see below) |
+   | `VITE_VOICE_ICE_SERVERS` | _(unset)_ | **optional** — build-time TURN fallback for voice (see below) |
 
    - **Do NOT set `PORT`.** Render injects it; the server reads `process.env.PORT`.
    - **`VITE_WS_URL` is optional on Render.** Same-origin hosting means the client
      auto-derives `wss://<this-domain>/ws`. Set it only if you host the client on
      a different domain. If you do set it, it is baked in at build time, so a
      **redeploy** (rebuild) is required for a change to take effect.
-   - **`VITE_VOICE_ICE_SERVERS` is optional (voice chat, Stage 25.5).** Unset → voice uses
-     **STUN-only** (Google public STUN); works for most NATs, but strict/symmetric-NAT users
-     fall back to text chat. To add a **TURN** relay for those users, set it to a JSON array,
-     e.g.
-     `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]`.
-     It is baked in at **build time**, so a redeploy is required, and the credential lives only
-     in this Render env var — **never commit it** to the repo. The client redacts it from any
-     diagnostics; a malformed value safely falls back to STUN.
+   - **Voice TURN (voice chat, Stage 25.5–25.6) — two ways, both optional.** Unset → voice uses
+     **STUN-only** (Google public STUN): works for most NATs, but strict/symmetric-NAT users fall
+     back to text chat. To add a **TURN** relay, set a JSON array, e.g.
+     `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]`
+     (get the URL/user/credential from your TURN provider — Metered.ca, Twilio, Cloudflare, or a
+     self-hosted coturn; see VOICE_CHAT_PLAN.md §7).
+     - **`VOICE_ICE_SERVERS` (preferred, runtime).** The server reads it and serves it to the
+       browser at **`GET /api/voice/ice-config`**. Change it and **restart the service — no client
+       rebuild**. The credential is delivered to the browser (which must authenticate to TURN),
+       but is **never logged and never in `/health/diagnostics`**.
+     - **`VITE_VOICE_ICE_SERVERS` (fallback, build-time).** Baked into the bundle at `npm run
+       build`; used only if the runtime endpoint is unreachable. A change needs a **redeploy**.
+     - Either way the credential lives **only** in the Render env var — **never commit it**. A
+       malformed value safely falls back to STUN. Verify with
+       `curl -s $HOST/health/diagnostics` → `voice.ice` reads `turn_configured`, and
+       `curl -s $HOST/api/voice/ice-config` returns your servers.
 
 7. **Health Check Path:**
    ```

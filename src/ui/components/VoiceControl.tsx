@@ -54,6 +54,13 @@ export default function VoiceControl({ voice, variant = 'card' }: Props) {
         {voice.status === 'idle' && <span className="voice-card__off field__hint">{t('voice.off')}</span>}
       </div>
 
+      {voice.iceMode !== 'unknown' && (
+        // Optional debug: which ICE transport is configured (STUN-only or TURN). No credentials.
+        <span className="voice-card__net field__hint">
+          🌐 {t('voice.network')}: {voice.iceMode === 'turn_configured' ? 'TURN + STUN' : 'STUN'}
+        </span>
+      )}
+
       {voice.error === 'permission' && (
         <p className="lobby-error voice-card__err">
           {t('voice.permissionDenied')}<br />

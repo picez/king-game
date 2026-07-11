@@ -41,6 +41,7 @@ that same socket ONLY as a signaling channel. **No audio ever touches the server
 | 25.1–25.2 | Friends (see [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)). |
 | **25.3** ✅ **DONE** | Voice **signaling WS protocol** — `VOICE_*` messages (messages.ts), a room-scoped server **relay** `server/voiceSignaling.ts` (join/leave/relay-to-target/mute, returns targeted deliveries; NO audio, NO DB), pure `src/net/voiceSignal.ts` (SDP 16 KB / ICE 4 KB caps + glare `shouldOffer`), per-client signaling limit (`voiceRateLimit.ts`, 120/min), wired in index.ts (verify same-room + size + rate; cleanup on close/leave). Client plumbing in useNetworkGame (`sendVoice*` + `registerVoiceListener`) — **INERT, no WebRTC/media yet**. |
 | **25.4** ✅ **DONE** | Voice **WebRTC UI** — `src/voice/webrtc.ts` (STUN-only adapter, the ONLY raw-WebRTC/getUserMedia site) + `VoiceSession` mesh controller (fully unit-tested with mocks) + `useRoomVoice` hook (remote `<audio>` sinks, autoplay-blocked fallback) + `VoiceControl` (Lobby **card** + in-game **compact** mic button in the RoomSocial cluster). Opt-in (mic only on Join), Mute/Unmute, unsupported / permission-denied / connecting states; leaving the room tears voice down. Glare = lower clientId offers. No audio server-side/DB. |
+| **25.6** ✅ **DONE** | **TURN provider setup + runtime ICE** — runtime endpoint **`GET /api/voice/ice-config`** (server env `VOICE_ICE_SERVERS`, public, no DB) so a deployment adds/rotates TURN **without a client rebuild**; client `src/voice/iceConfigClient.ts` prefers it, falling back to build-time `VITE_VOICE_ICE_SERVERS` then STUN (`useRoomVoice` resolves on mount, `createPeerConnection(iceServers)`). Diagnostics `voice:{ice:"stun_only"\|"turn_configured"}` (secret-free) + optional UI "Network: STUN/TURN" indicator. Static TURN creds are browser-visible **by design** but never logged / never in diagnostics; short-lived creds are the documented post-MVP step. Provider comparison (§7). Guards: no committed TURN url/cred, no cred in logs/diagnostics, docs cover both envs + endpoint. |
 | **25.5** ✅ **DONE** | **Production hardening** — reconnect **resync** (WS reconnect → `VoiceSession.resync()` closes stale PCs + drops audio sinks + re-JOINs with the same mic → fresh `VOICE_PEERS` rebuilds the mesh, no duplicate PCs, mute re-asserted; driven by `connectionEpoch` from useNetworkGame). ICE **config seam** `src/voice/iceConfig.ts` — `VITE_VOICE_ICE_SERVERS` (JSON array) overrides the STUN-only default; TURN credentials are **env-only, never committed**; `redactIceServers` strips secrets for logs. Permission UX: denied → message **+ browser-settings hint**; peer `disconnected` → "reconnecting…" vs `failed`. Page-hidden/PWA-background: **no auto-rejoin** (opt-in preserved). Guards: no committed TURN url/credential across `src/`+`server/`; redaction never leaks the secret. |
 
 Additive and **fairness-safe**: voice never touches game state, redaction, or the reducer.
@@ -64,11 +65,13 @@ Additive and **fairness-safe**: voice never touches game state, redaction, or th
   that are members of the **same room**. It parses none of it beyond routing, stores none of it,
   and never sees the audio (which is end-to-end DTLS-SRTP).
 - **ICE:** STUN-only by default (public STUN `stun:stun.l.google.com:19302`). A deployment MAY
-  override the ICE servers — including a **TURN** relay for strict NAT — via the build-time env
-  `VITE_VOICE_ICE_SERVERS` (a JSON array of `{ urls, username?, credential? }`; parsed by
-  `src/voice/iceConfig.ts`, which falls back to STUN on any malformed/absent value). **TURN
-  credentials are supplied by the env at build time and are NEVER committed;** `redactIceServers`
-  strips them from any diagnostics/logs.
+  override the ICE servers — including a **TURN** relay for strict NAT — either at **runtime** via
+  the server env `VOICE_ICE_SERVERS` (served at `GET /api/voice/ice-config`, no rebuild) or at
+  **build time** via `VITE_VOICE_ICE_SERVERS` (baked into the bundle). Both are a JSON array of
+  `{ urls, username?, credential? }`, parsed by `server/voiceIce.ts` / `src/voice/iceConfig.ts`,
+  which fall back to STUN on any malformed/absent value. **TURN credentials come only from the
+  host env and are NEVER committed;** they are delivered to the browser (which must authenticate
+  to TURN) but never logged and never in diagnostics (`redactIceServers`). See §7.
 
 ## 5. WS signaling protocol (`src/net/messages.ts`, additive)
 
@@ -120,15 +123,43 @@ tighter cap on ICE bursts.
 ## 7. STUN / TURN
 
 - **Default: STUN-only.** Works for most home/mobile NATs (full-cone / restricted). Free, no creds.
-- **TURN (opt-in, 25.5).** Symmetric-NAT / restrictive-firewall users can't P2P over STUN alone;
-  a TURN relay is the fix but costs bandwidth and needs credentials. A deployment enables it by
-  setting the build-time env **`VITE_VOICE_ICE_SERVERS`** to a JSON array that includes its TURN
-  server, e.g.
-  `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"…","credential":"…"}]`.
-  **Do NOT commit the credentials** — inject them through the host's env at build time (Render
-  → Environment; VPS → `.env` that is gitignored). `iceConfig.ts` parses the value, falls back to
-  STUN on anything malformed, and `redactIceServers` keeps secrets out of logs. Without the env,
-  strict-NAT users get the **text-chat fallback** (§8).
+- **TURN (opt-in, 25.5–25.6).** Symmetric-NAT / restrictive-firewall users can't P2P over STUN
+  alone; a TURN relay is the fix but costs bandwidth and needs credentials.
+
+### 7.1 How to supply ICE servers (two seams)
+
+| Seam | Env | When it applies | Change without redeploy? |
+|------|-----|-----------------|--------------------------|
+| **Runtime** (preferred) | `VOICE_ICE_SERVERS` (server) | Served at **`GET /api/voice/ice-config`**; the client fetches it on entering a room. | **Yes** — restart the service, no client rebuild. |
+| **Build-time** (fallback) | `VITE_VOICE_ICE_SERVERS` (client) | Baked into the bundle; used when the endpoint is unreachable. | No — needs a rebuild. |
+
+Both take the same JSON shape, e.g.
+`[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"…","credential":"…"}]`.
+The client resolution order is **runtime endpoint → build-time value → STUN default**; any
+malformed value safely falls back to STUN (`iceConfig.ts` / `voiceIce.ts` parsers).
+
+> **Static TURN credentials are visible to the browser by design** — the browser must
+> authenticate to the TURN server, so the credential is delivered to it (via the endpoint or the
+> bundle). That is expected and not a leak. What we DO guarantee: the credential is **never
+> logged** and **never** in `/health/diagnostics` (which reports only `voice.ice:
+> stun_only|turn_configured`). **Never commit it** — set it only in the host's env / secret store.
+> **Post-MVP hardening: short-lived credentials.** Mint per-session TURN credentials on each
+> `GET /api/voice/ice-config` (e.g. coturn REST `HMAC(secret, username=expiry)` or a provider
+> token) so a leaked credential expires in minutes. `server/voiceIce.ts` is the seam for this.
+
+### 7.2 Provider options (pick one)
+
+| Provider | Free tier | Cost model | Setup effort | Notes |
+|----------|-----------|-----------|--------------|-------|
+| **Google STUN** (default) | Unlimited STUN | Free | none | STUN only — no relay for strict NAT. |
+| **Metered.ca** | ~50 GB/mo (Open Relay has a free global TURN) | Usage ($/GB) after | Low — copy an ICE-servers JSON / call their API | Fastest path to working TURN; supports short-lived creds. |
+| **Twilio Network Traversal** | none (pay-as-you-go) | Per-GB relayed | Low — server SDK returns short-lived ICE tokens | Rock-solid, global; best fit for the post-MVP short-lived-cred endpoint. |
+| **Cloudflare Calls / TURN** | Generous (TURN pricing per-GB, free allotment) | Per-GB | Low–medium — API issues creds | Good anycast network; issue creds from `voiceIce.ts`. |
+| **self-hosted coturn** | your VM cost | fixed VM + bandwidth | Medium–high — run/secure coturn, open 3478/5349, TLS | Cheapest at scale; you own it. Use REST-auth (HMAC) for short-lived creds. |
+
+Recommendation for launch: **Metered.ca or Twilio** for a managed relay with short-lived creds
+(no infra to run); **coturn** once relay volume makes a fixed VM cheaper. Until any is configured,
+strict-NAT users get the **text-chat fallback** (§8) — voice is never a dead button.
 
 ## 8. Fallback & failure states (must be graceful — never a dead mic button)
 

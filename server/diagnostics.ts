@@ -58,6 +58,9 @@ export interface DiagnosticsInput {
   rooms: { total: number; open: number; inGame: number };
   /** Live WebSocket client count. */
   connections: number;
+  /** Voice ICE mode (Stage 25.6) — resolved by the caller from server/voiceIce.ts. NEVER a
+   *  credential: this is the secret-free MODE only. */
+  voiceIce: 'stun_only' | 'turn_configured';
 }
 
 export interface DiagnosticsResponse {
@@ -69,6 +72,8 @@ export interface DiagnosticsResponse {
   rooms: { total: number; open: number; inGame: number };
   connections: number;
   games: { count: number; ids: string[] };
+  /** Voice connectivity mode — `stun_only` (default) or `turn_configured`. No credentials. */
+  voice: { ice: 'stun_only' | 'turn_configured' };
   avatarUploads: {
     status: 'enabled' | 'disabled' | 'unknown';
     reason: string | null;
@@ -114,6 +119,7 @@ export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsResponse {
     },
     connections: input.connections,
     games: { count: games.length, ids: games },
+    voice: { ice: input.voiceIce },
     avatarUploads: {
       status: avatarStatus,
       reason,

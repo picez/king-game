@@ -649,9 +649,15 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       **Leave + Join** again to recover.
 - [ ] **No auto-rejoin in background:** background the tab / minimise the installed PWA while in
       voice → it does **not** silently re-request the mic; control stays explicit.
-- [ ] **TURN (only if `VITE_VOICE_ICE_SERVERS` is set for the build):** a client behind strict/
-      symmetric NAT (e.g. some mobile carriers) now connects P2P. Confirm **no TURN credential
-      appears** in DevTools console, network logs, or `/health/diagnostics`.
+- [ ] **ICE config indicator (25.6):** the Lobby Voice card shows a small **"Network: STUN"** or
+      **"TURN + STUN"** line; `GET /health/diagnostics` → `voice.ice` matches (`stun_only` /
+      `turn_configured`); `GET /api/voice/ice-config` returns `{ iceServers }`.
+- [ ] **TURN two-network test (only if `VOICE_ICE_SERVERS` (runtime, preferred) or
+      `VITE_VOICE_ICE_SERVERS` (build-time) is set):** join one client on Wi-Fi and one on **mobile
+      data / a hotspot** (carrier CGNAT = the strict-NAT case). They connect P2P **via the relay**
+      where STUN-only would fall back to text. Confirm **no TURN credential** appears in DevTools
+      console, network logs, or `/health/diagnostics`. Changing the runtime env + **restarting**
+      (no rebuild) takes effect on the next room entry.
 - [ ] **Privacy:** DevTools → the `/ws` frames carry only SDP/ICE strings + clientId/name/muted
       — **no email/token/session, no audio bytes, no TURN secret**; nothing is recorded or stored.
 

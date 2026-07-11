@@ -48,10 +48,11 @@ const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finish
 export default function OnlineGame({ url, intent, onExit, signedIn = false }: Props) {
   const net = useNetworkGame(url, intent);
   const { t } = useI18n();
-  // In-room voice (Stage 25.4) — opt-in; nothing captured until the user taps Join voice.
-  const voice = useRoomVoice(net);
   // Friends (Stage 25.2): API base is same-origin as the WS host; invited-this-session set.
   const friendsBase = apiBaseFromWsUrl(url);
+  // In-room voice (Stage 25.4) — opt-in; nothing captured until the user taps Join voice.
+  // ICE config (STUN/TURN) is resolved from the same API host at runtime (Stage 25.6).
+  const voice = useRoomVoice(net, friendsBase);
   const [invited, setInvited] = useState<Set<string>>(new Set());
   const inviteFriend = (uid: string) => { net.sendFriendInvite(uid); setInvited((s) => new Set(s).add(uid)); };
 

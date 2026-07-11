@@ -40,7 +40,8 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 - [ ] `curl -s $HOST/health/diagnostics` → a safe operational snapshot (Stage 24.0):
       `status`, `version` + short `commit` (if the build env sets `RENDER_GIT_COMMIT`),
       `uptime`, `db: enabled|disabled|error|migration_required`, `rooms {total,open,inGame}`,
-      `connections`, `games {count,ids}`, and `avatarUploads {status,reason,ffmpeg,database}`.
+      `connections`, `games {count,ids}`, `voice {ice}` (Stage 25.6 — `stun_only` or
+      `turn_configured`, **never a credential**), and `avatarUploads {status,reason,ffmpeg,database}`.
       Confirms the build/commit, room + socket load, and avatar readiness at a glance.
       `db:error` = a configured DB whose probe failed; `db:migration_required` = reachable but
       a required `user_settings` column is missing → **run `npm run db:migrate`** (see
@@ -149,10 +150,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       reconnect the mesh **rebuilds itself** (no duplicate peers, mute preserved); a peer that
       stays down shows **"reconnecting…"/"failed"** and you can Leave + Join again. Backgrounding
       the tab/PWA does **not** auto-rejoin. **STUN-only by default** → some strict-NAT users can't
-      connect P2P (expected — text fallback). **TURN is opt-in** via `VITE_VOICE_ICE_SERVERS` (see
-      RENDER_DEPLOY) — if set, confirm strict-NAT clients now connect. **No audio/SDP is
-      server-side, no recording, no DB, no TURN secret in any log** — the WS carries only signaling
-      strings + clientId/name/muted.
+      connect P2P (expected — text fallback). **No audio/SDP is server-side, no recording, no DB,
+      no TURN secret in any log** — the WS carries only signaling strings + clientId/name/muted.
+- [ ] **Voice ICE / TURN config (Stage 25.6):** `curl -s $HOST/health/diagnostics` → `voice.ice`
+      is `stun_only` (default) or `turn_configured` — **and carries no credential**.
+      `curl -s $HOST/api/voice/ice-config` → `{ "iceServers": [...] }` (STUN by default). In the
+      Lobby Voice card the small **"Network: STUN"/"TURN + STUN"** indicator matches.
+- [ ] **Two-network voice test (only if TURN is configured** via `VOICE_ICE_SERVERS` /
+      `VITE_VOICE_ICE_SERVERS`): join the same room from **two genuinely different networks** —
+      e.g. one on home Wi-Fi and one on a **phone's mobile data / hotspot** (mobile-carrier CGNAT
+      is exactly the strict-NAT case STUN can't traverse). Both **Join voice** → they hear each
+      other. With STUN-only this pair typically **fails to connect P2P** and falls back to text;
+      with TURN it **connects via the relay**. Confirm `voice.ice=turn_configured` and that **no
+      credential appears** in DevTools console / network logs / diagnostics.
 
 ## 10. PWA — install / update / offline / icons
 

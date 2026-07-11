@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { VoiceSession, type VoiceServerMessage, type StreamLike } from './VoiceSession';
 import { isVoiceSupported, getMicStream, createPeerConnection } from './webrtc';
+import { fetchIceServers, iceModeOf } from './iceConfigClient';
 
 /** The slice of useNetworkGame's return that voice needs (signaling + identity). */
 export interface VoiceNet {
@@ -23,6 +24,8 @@ export interface RoomVoice {
   muted: boolean;
   peers: Array<{ clientId: string; name: string; muted: boolean; connState: string }>;
   audioBlocked: boolean;
+  /** Resolved voice connectivity mode (Stage 25.6) — for the optional UI indicator. No creds. */
+  iceMode: 'stun_only' | 'turn_configured' | 'unknown';
   join: () => void;
   leave: () => void;
   toggleMute: () => void;
@@ -34,12 +37,27 @@ export interface RoomVoice {
  * is OPT-IN (nothing happens until join()); leaving the room / unmount tears everything down.
  * No audio is recorded or sent to the server — media is peer-to-peer.
  */
-export function useRoomVoice(net: VoiceNet): RoomVoice {
+export function useRoomVoice(net: VoiceNet, apiBaseUrl = ''): RoomVoice {
   const [, force] = useReducer((x: number) => x + 1, 0);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [iceMode, setIceMode] = useState<'stun_only' | 'turn_configured' | 'unknown'>('unknown');
   const sessionRef = useRef<VoiceSession | null>(null);
   const audioEls = useRef(new Map<string, HTMLAudioElement>());
+  // Runtime ICE servers (GET /api/voice/ice-config). Resolved on mount, read lazily by createPeer
+  // at Join time (which is a human tap later, so the fetch has settled). undefined → build-time default.
+  const iceServersRef = useRef<RTCIceServer[] | undefined>(undefined);
   const supported = isVoiceSupported();
+
+  // Resolve ICE config once per API host (best-effort; falls back to build-time / STUN).
+  useEffect(() => {
+    if (!supported) return;
+    const ctrl = new AbortController();
+    void fetchIceServers({ baseUrl: apiBaseUrl, signal: ctrl.signal }).then((servers) => {
+      iceServersRef.current = servers;
+      setIceMode(iceModeOf(servers));
+    });
+    return () => ctrl.abort();
+  }, [apiBaseUrl, supported]);
 
   useEffect(() => {
     const playRemote = (clientId: string, stream: StreamLike) => {
@@ -57,7 +75,8 @@ export function useRoomVoice(net: VoiceNet): RoomVoice {
       myClientId: net.myClientId ?? '',
       supported,
       getMic: getMicStream as unknown as () => Promise<StreamLike>,
-      createPeer: createPeerConnection as unknown as () => never,
+      // Lazily read the resolved runtime ICE servers (undefined → build-time default).
+      createPeer: (() => createPeerConnection(iceServersRef.current)) as unknown as () => never,
       signal: {
         join: net.sendVoiceJoin, leave: net.sendVoiceLeave,
         offer: net.sendVoiceOffer, answer: net.sendVoiceAnswer, ice: net.sendVoiceIce, mute: net.sendVoiceMute,
@@ -105,6 +124,7 @@ export function useRoomVoice(net: VoiceNet): RoomVoice {
     muted: s?.muted ?? false,
     peers: s?.peerList() ?? [],
     audioBlocked,
+    iceMode,
     join, leave, toggleMute, enableAudio,
   };
 }

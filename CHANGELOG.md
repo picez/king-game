@@ -24,6 +24,11 @@ also reported at `GET /health/diagnostics` (`version` field).
 - **ICE config seam:** `VITE_VOICE_ICE_SERVERS` optionally supplies a **TURN** relay for
   strict-NAT users; STUN-only by default. **TURN credentials are env-only, never committed**
   and are redacted from diagnostics.
+- **Runtime TURN config (Stage 25.6):** `GET /api/voice/ice-config` serves ICE servers from the
+  server env `VOICE_ICE_SERVERS` — add/rotate TURN **without a client rebuild** (build-time env
+  stays a fallback). `/health/diagnostics` reports `voice.ice: stun_only|turn_configured` (no
+  credential); the Lobby shows a small STUN/TURN indicator. Provider guidance (Metered/Twilio/
+  Cloudflare/coturn) + short-lived-credential path documented.
 - **Permission UX:** mic-denied shows a browser-settings hint; background/PWA never auto-rejoins.
 
 ## [0.2.0] — 2026-07-11 — Five-game platform release

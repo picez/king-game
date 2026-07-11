@@ -43,6 +43,7 @@ import { isValidSdp, isValidIce } from '../src/net/voiceSignal';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
 import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
+import { iceMode, configuredIceServers, iceConfigPayload } from './voiceIce';
 import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
@@ -575,6 +576,7 @@ const httpServer = createServer((req, res) => {
       ffmpegReady: getFfmpegReady(),
       rooms: { total: rooms.size, open, inGame },
       connections: sockets.size,
+      voiceIce: iceMode(configuredIceServers()), // secret-free MODE only
     });
     void (async () => {
       // Cheap, short-TTL-cached probe: select 1 + a required-columns check on
@@ -586,6 +588,14 @@ const httpServer = createServer((req, res) => {
   }
   if (path === '/health') {
     void handleHealth(res, rooms.size).catch(() => { /* handleHealth never throws */ });
+    return;
+  }
+  if (path === '/api/voice/ice-config') {
+    // Public, no DB/session: serve the runtime ICE servers to the browser (Stage 25.6). Any
+    // STATIC TURN credential is client-visible by design (the browser authenticates to TURN);
+    // it is returned here but NEVER logged and NEVER in /health/diagnostics. STUN-only by default.
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(iceConfigPayload()));
     return;
   }
   // Profiles/settings/auth API (Stage 4). Shares this port; never touches /ws,

@@ -66,12 +66,48 @@ describe('no TURN credentials are committed anywhere (STUN-only default; TURN is
     expect(offenders).toEqual([]);
   });
 
-  it('redactIceServers never exposes the credential/username value', () => {
+  it('redactIceServers never exposes the credential/username value (client + server)', () => {
     // The redaction shape is { urls, hasCredential } only — a source-level guarantee.
-    const ice = read('src/voice/iceConfig.ts');
-    const redactBody = ice.slice(ice.indexOf('export function redactIceServers'));
-    expect(redactBody).toContain('hasCredential');
-    expect(redactBody).not.toMatch(/credential:\s*s\.credential|username:\s*s\.username/);
+    for (const f of ['src/voice/iceConfig.ts', 'server/voiceIce.ts']) {
+      const ice = read(f);
+      const redactBody = ice.slice(ice.indexOf('export function redactIceServers'));
+      expect(redactBody, f).toContain('hasCredential');
+      expect(redactBody, f).not.toMatch(/credential:\s*s\.credential|username:\s*s\.username/);
+    }
+  });
+});
+
+describe('runtime ICE config endpoint (Stage 25.6) — no secrets in logs/diagnostics', () => {
+  const stripComments = (s: string) => s.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('the /health/diagnostics voice field is the MODE only (never a credential)', () => {
+    // diagnostics.ts builds `voice: { ice: input.voiceIce }` — a plain enum, no server list.
+    const diagCode = stripComments(read('server/diagnostics.ts'));
+    expect(diagCode).toMatch(/voice:\s*\{\s*ice:\s*input\.voiceIce\s*\}/);
+    expect(diagCode).not.toMatch(/credential|username/);
+    // index.ts feeds it the secret-free `iceMode(...)`, not the raw servers.
+    expect(read('server/index.ts')).toContain('voiceIce: iceMode(configuredIceServers())');
+  });
+
+  it('the ice-config endpoint / client fetch never log the credential', () => {
+    // The server route and the client fetch module must not console-log ICE bodies.
+    const server = read('server/voiceIce.ts');
+    const client = stripComments(read('src/voice/iceConfigClient.ts'));
+    expect(server).not.toMatch(/console\.[a-z]+\(/);
+    expect(client).not.toMatch(/console\.[a-z]+\(/);
+    // The client only ever hits the ice-config path (no other network side-channels).
+    const fetches = client.match(/\/api\/[a-z/-]+/g) ?? [];
+    expect(fetches).toEqual(['/api/voice/ice-config']);
+  });
+
+  it('docs cover BOTH the build-time and runtime env + the endpoint', () => {
+    const render = read('RENDER_DEPLOY.md');
+    expect(render).toContain('VOICE_ICE_SERVERS');           // runtime (server) env
+    expect(render).toContain('VITE_VOICE_ICE_SERVERS');      // build-time env
+    expect(render).toContain('/api/voice/ice-config');       // the runtime endpoint
+    const plan = read('VOICE_CHAT_PLAN.md');
+    expect(plan).toContain('/api/voice/ice-config');
+    expect(plan).toMatch(/25\.6/);
   });
 });
 
@@ -93,7 +129,7 @@ describe('voice UI is opt-in and wired into the room', () => {
   const control = read('src/ui/components/VoiceControl.tsx');
 
   it('OnlineGame renders the lobby card + a compact in-game control (via RoomSocial)', () => {
-    expect(online).toContain('useRoomVoice(net)');
+    expect(online).toMatch(/useRoomVoice\(net\b/);
     expect(online).toMatch(/<VoiceControl voice=\{voice\} variant="card"/);
     expect(online).toMatch(/voiceButton=\{<VoiceControl voice=\{voice\} variant="compact"/);
     expect(social).toContain('voiceButton');

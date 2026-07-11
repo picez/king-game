@@ -21,14 +21,20 @@ const base: DiagnosticsInput = {
   ffmpegReady: true,
   rooms: { total: 3, open: 1, inGame: 2 },
   connections: 5,
+  voiceIce: 'stun_only',
 };
 
 describe('buildDiagnostics — safe field shape', () => {
   it('returns exactly the allow-listed top-level keys (no extras can sneak in)', () => {
     const d = buildDiagnostics(base);
     expect(Object.keys(d).sort()).toEqual(
-      ['avatarUploads', 'commit', 'connections', 'db', 'games', 'rooms', 'status', 'uptime', 'version'].sort(),
+      ['avatarUploads', 'commit', 'connections', 'db', 'games', 'rooms', 'status', 'uptime', 'version', 'voice'].sort(),
     );
+  });
+
+  it('reports the voice ICE mode (secret-free) and nothing more under voice', () => {
+    expect(buildDiagnostics(base).voice).toEqual({ ice: 'stun_only' });
+    expect(buildDiagnostics({ ...base, voiceIce: 'turn_configured' }).voice).toEqual({ ice: 'turn_configured' });
   });
 
   it('reports status/version/commit/uptime/db/rooms/connections/games', () => {
@@ -133,6 +139,14 @@ describe('PRIVACY — the serialized payload leaks no private data', () => {
     ]) {
       expect(json.includes(forbidden), forbidden).toBe(false);
     }
+  });
+
+  it('the voice mode leaks no TURN credential even when TURN is configured', () => {
+    const turnJson = JSON.stringify(buildDiagnostics({ ...base, voiceIce: 'turn_configured' }));
+    for (const forbidden of ['credential', 'username', 'turn:', 'turns:']) {
+      expect(turnJson.includes(forbidden), forbidden).toBe(false);
+    }
+    expect(turnJson).toContain('"ice":"turn_configured"'); // the mode only
   });
 
   it('every leaf value is a primitive count/boolean/short-string or a game id (no PII shapes)', () => {

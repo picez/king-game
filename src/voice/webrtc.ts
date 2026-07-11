@@ -33,7 +33,10 @@ const ICE_SERVERS: RTCIceServer[] = parseIceServers(
   typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_VOICE_ICE_SERVERS as string | undefined) : undefined,
 );
 
-/** A fresh peer connection for one remote peer (mesh). */
-export function createPeerConnection(): RTCPeerConnection {
-  return new RTCPeerConnection({ iceServers: ICE_SERVERS });
+/**
+ * A fresh peer connection for one remote peer (mesh). Callers may pass ICE servers resolved at
+ * runtime (GET /api/voice/ice-config, Stage 25.6); absent → the build-time default above.
+ */
+export function createPeerConnection(iceServers: RTCIceServer[] = ICE_SERVERS): RTCPeerConnection {
+  return new RTCPeerConnection({ iceServers });
 }
