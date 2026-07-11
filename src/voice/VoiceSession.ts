@@ -90,6 +90,26 @@ export class VoiceSession {
     this.status = 'idle'; this.error = null; this.deps.onChange();
   }
 
+  /**
+   * Re-announce after a transport reconnect (Stage 25.5). The previous socket's peer
+   * connections are stale — the server dropped our voice membership when the old socket
+   * closed — so tear every PC down (removing remote audio sinks) and re-JOIN with the SAME
+   * mic. The server replies with a fresh VOICE_PEERS and the mesh rebuilds cleanly (no
+   * duplicate PCs). No-op unless we are currently joined; the mic is never re-requested.
+   */
+  resync(): void {
+    if (this.status !== 'joined') return;
+    for (const [clientId, pc] of this.pcs) {
+      try { pc.close(); } catch { /* already closed */ }
+      this.deps.onRemoteGone?.(clientId);
+    }
+    this.pcs.clear();
+    this.peers.clear();
+    this.deps.signal.join();               // server → fresh VOICE_PEERS → rebuild
+    if (this.muted) this.deps.signal.mute(true); // re-assert mute (server resets it on rejoin)
+    this.deps.onChange();
+  }
+
   /** Toggle the mic on/off (real: disables the local track) and broadcast the state. */
   toggleMute(): void {
     if (this.status !== 'joined') return;

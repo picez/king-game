@@ -54,12 +54,21 @@ balancer, and WebSocket connections are supported on the same service.
    | `ORPHAN_ROOM_TTL_MS` | `900000` | delete orphan rooms (no connected human) after 15 min (Stage 7.2) |
    | `DISCONNECTED_SUBSTITUTE_DELAY_MS` | `120000` | AI substitute delay for a disconnected human's turn, 2 min (Stage 7.2) |
    | `VITE_WS_URL` | `wss://<your-service>.onrender.com/ws` | **optional** — see note |
+   | `VITE_VOICE_ICE_SERVERS` | _(unset)_ | **optional** — TURN for voice chat behind strict NAT (see below) |
 
    - **Do NOT set `PORT`.** Render injects it; the server reads `process.env.PORT`.
    - **`VITE_WS_URL` is optional on Render.** Same-origin hosting means the client
      auto-derives `wss://<this-domain>/ws`. Set it only if you host the client on
      a different domain. If you do set it, it is baked in at build time, so a
      **redeploy** (rebuild) is required for a change to take effect.
+   - **`VITE_VOICE_ICE_SERVERS` is optional (voice chat, Stage 25.5).** Unset → voice uses
+     **STUN-only** (Google public STUN); works for most NATs, but strict/symmetric-NAT users
+     fall back to text chat. To add a **TURN** relay for those users, set it to a JSON array,
+     e.g.
+     `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]`.
+     It is baked in at **build time**, so a redeploy is required, and the credential lives only
+     in this Render env var — **never commit it** to the repo. The client redacts it from any
+     diagnostics; a malformed value safely falls back to STUN.
 
 7. **Health Check Path:**
    ```

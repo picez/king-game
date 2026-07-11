@@ -595,6 +595,8 @@ export const DE: Record<string, string> = {
   'voice.connected': 'Verbunden',
   'voice.enableAudio': 'Zum Aktivieren des Tons tippen',
   'voice.failed': 'fehlgeschlagen',
+  'voice.reconnecting': 'Neuverbindung…',
+  'voice.permissionHint': 'Erlaube das Mikrofon in den Website-Einstellungen (Adressleiste) und tritt erneut bei.',
   'account.retry': 'Erneut versuchen',
   'account.useDefaultServer': 'Standardserver verwenden',
   'account.diagnostics': 'Verbindungsdiagnose',

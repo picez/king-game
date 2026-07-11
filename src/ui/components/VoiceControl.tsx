@@ -54,7 +54,12 @@ export default function VoiceControl({ voice, variant = 'card' }: Props) {
         {voice.status === 'idle' && <span className="voice-card__off field__hint">{t('voice.off')}</span>}
       </div>
 
-      {voice.error === 'permission' && <p className="lobby-error voice-card__err">{t('voice.permissionDenied')}</p>}
+      {voice.error === 'permission' && (
+        <p className="lobby-error voice-card__err">
+          {t('voice.permissionDenied')}<br />
+          <span className="field__hint">{t('voice.permissionHint')}</span>
+        </p>
+      )}
 
       {voice.status === 'idle' || voice.status === 'error' ? (
         <button type="button" className="btn btn--primary btn--small" onClick={voice.join}>
@@ -84,7 +89,9 @@ export default function VoiceControl({ voice, variant = 'card' }: Props) {
                 <li key={p.clientId} className="voice-peer">
                   <span className="voice-peer__name">{p.name}</span>
                   <span className="voice-peer__state field__hint">
-                    {p.muted ? '🔇' : '🎤'}{p.connState === 'failed' || p.connState === 'disconnected' ? ` ${t('voice.failed')}` : ''}
+                    {p.muted ? '🔇' : '🎤'}
+                    {p.connState === 'failed' ? ` ${t('voice.failed')}`
+                      : p.connState === 'disconnected' ? ` ${t('voice.reconnecting')}` : ''}
                   </span>
                 </li>
               ))}

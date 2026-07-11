@@ -133,4 +133,59 @@ describe('VoiceSession — mesh signaling', () => {
     expect(createPeer).not.toHaveBeenCalled();
     expect(s.peers.has('aaa')).toBe(false);
   });
+
+  it('a duplicate VOICE_PEERS refresh never creates a second PC for the same peer', async () => {
+    const { deps, createPeer } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    expect(createPeer).toHaveBeenCalledTimes(1);
+    expect([...s.peers.keys()]).toEqual(['bbb']);
+  });
+});
+
+describe('VoiceSession — reconnect / resync (Stage 25.5)', () => {
+  it('resync closes stale PCs, drops audio sinks, re-JOINs, and keeps the SAME mic', async () => {
+    const { deps, signal, getMic, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    expect(peers).toHaveLength(1);
+    signal.join.mockClear();
+
+    s.resync();
+    expect(peers[0].close).toHaveBeenCalled();               // stale PC torn down
+    expect(deps.onRemoteGone).toHaveBeenCalledWith('bbb');   // audio sink removed
+    expect(s.peers.size).toBe(0);                            // fresh VOICE_PEERS will refill
+    expect(signal.join).toHaveBeenCalledTimes(1);            // re-announced
+    expect(getMic).toHaveBeenCalledTimes(1);                 // mic NOT re-requested
+    expect(s.status).toBe('joined');
+  });
+
+  it('resync rebuilds the mesh when the server replies with a fresh VOICE_PEERS', async () => {
+    const { deps, createPeer } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    s.resync();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    expect(createPeer).toHaveBeenCalledTimes(2); // one before, one after the reconnect
+    expect(s.peers.has('bbb')).toBe(true);
+  });
+
+  it('resync re-asserts mute state (the server resets it on rejoin)', async () => {
+    const { deps, signal } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.toggleMute(); // muted
+    signal.mute.mockClear();
+    s.resync();
+    expect(signal.mute).toHaveBeenCalledWith(true);
+  });
+
+  it('resync is a no-op when not joined (nothing to rebuild)', () => {
+    const { deps, signal } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps);
+    s.resync();
+    expect(signal.join).not.toHaveBeenCalled();
+    expect(s.status).toBe('idle');
+  });
 });

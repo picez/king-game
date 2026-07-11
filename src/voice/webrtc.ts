@@ -3,9 +3,13 @@
 // getUserMedia APIs. Everything else (VoiceSession, the hook, the UI) goes through these
 // thin, injectable functions so the voice logic is unit-testable without a real browser.
 //
-// STUN-only MVP (no TURN — documented in VOICE_CHAT_PLAN.md §7). No audio is ever recorded,
-// stored, or sent to the server; media flows peer-to-peer (DTLS-SRTP).
+// STUN-only by default (no TURN — documented in VOICE_CHAT_PLAN.md §7). A deployment MAY
+// supply its own ICE servers (incl. TURN for strict NAT) via `VITE_VOICE_ICE_SERVERS` — see
+// iceConfig.ts. No audio is ever recorded, stored, or sent to the server; media flows
+// peer-to-peer (DTLS-SRTP).
 // ---------------------------------------------------------------------------
+
+import { parseIceServers } from './iceConfig';
 
 /** True when the browser can do WebRTC voice (mic capture + peer connections). */
 export function isVoiceSupported(): boolean {
@@ -20,8 +24,14 @@ export function getMicStream(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ audio: true });
 }
 
-/** STUN-only ICE config (MVP). TURN is post-MVP / owner-gated (VOICE_CHAT_PLAN §7). */
-const ICE_SERVERS: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+/**
+ * ICE config: STUN-only by default, overridable at build time via `VITE_VOICE_ICE_SERVERS`
+ * (a JSON array — see iceConfig.ts). Credentials, if any, come from the env and are NEVER
+ * committed. Resolved once at module load.
+ */
+const ICE_SERVERS: RTCIceServer[] = parseIceServers(
+  typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_VOICE_ICE_SERVERS as string | undefined) : undefined,
+);
 
 /** A fresh peer connection for one remote peer (mesh). */
 export function createPeerConnection(): RTCPeerConnection {

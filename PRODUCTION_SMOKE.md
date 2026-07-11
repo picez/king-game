@@ -140,13 +140,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] In an online room, **chat** delivers to the other client.
 - [ ] **Sticker** picker + a **reaction** float both work and never cover the hand/table
       (check at a 360/390-wide window). Media is whitelist-only (no free URLs/uploads).
-- [ ] **Voice chat (Stage 25.4, opt-in):** in an online Lobby the **Voice chat** card shows
+- [ ] **Voice chat (Stage 25.4–25.5, opt-in):** in an online Lobby the **Voice chat** card shows
       **Join voice** (default off). It needs **HTTPS** for the mic (`getUserMedia` is blocked on
       plain HTTP). With two contexts in the same room, Join → grant mic → they hear each other;
-      Mute/Leave work; leaving the room drops voice. Deny the mic → a clear "permission denied"
-      note, and **text chat still works**. **STUN-only** (no TURN yet) → some strict-NAT users
-      can't connect P2P (expected — they fall back to text). **No audio/SDP is server-side, no
-      recording, no DB** — the WS carries only signaling strings + clientId/name/muted.
+      Mute/Leave work; leaving the room drops voice (**no dangling mic indicator**). Deny the mic
+      → a clear "permission denied" note **+ a browser-settings hint**, and **text chat still
+      works**. **Reconnect (25.5):** briefly drop one client's network while in voice → on
+      reconnect the mesh **rebuilds itself** (no duplicate peers, mute preserved); a peer that
+      stays down shows **"reconnecting…"/"failed"** and you can Leave + Join again. Backgrounding
+      the tab/PWA does **not** auto-rejoin. **STUN-only by default** → some strict-NAT users can't
+      connect P2P (expected — text fallback). **TURN is opt-in** via `VITE_VOICE_ICE_SERVERS` (see
+      RENDER_DEPLOY) — if set, confirm strict-NAT clients now connect. **No audio/SDP is
+      server-side, no recording, no DB, no TURN secret in any log** — the WS carries only signaling
+      strings + clientId/name/muted.
 
 ## 10. PWA — install / update / offline / icons
 

@@ -7,6 +7,25 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project uses [Semantic Versioning](https://semver.org/). The running version is
 also reported at `GET /health/diagnostics` (`version` field).
 
+## [Unreleased]
+
+### Added
+
+- **Friends & room invites** (Stage 25.1–25.2): add friends, see who's online, invite
+  them straight into your room (invite carries only a room code + display name).
+- **In-room voice chat** (Stage 25.3–25.5): opt-in WebRTC mesh voice in online rooms —
+  Join/Mute/Leave, per-peer state, autoplay-blocked fallback. No audio is stored, recorded,
+  or sent through the server (peer-to-peer, signaling relay only).
+
+### Hardened (voice, Stage 25.5)
+
+- **Reconnect resync:** a dropped/reconnected socket rebuilds the voice mesh automatically —
+  stale peer connections closed, remote audio sinks removed, mute preserved, no duplicate peers.
+- **ICE config seam:** `VITE_VOICE_ICE_SERVERS` optionally supplies a **TURN** relay for
+  strict-NAT users; STUN-only by default. **TURN credentials are env-only, never committed**
+  and are redacted from diagnostics.
+- **Permission UX:** mic-denied shows a browser-settings hint; background/PWA never auto-rejoins.
+
 ## [0.2.0] — 2026-07-11 — Five-game platform release
 
 First tagged snapshot of the rebranded **Card Majlis** card lounge — five games,

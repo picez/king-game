@@ -27,10 +27,51 @@ describe('WebRTC / mic APIs are confined to the voice adapter', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the voice adapter is STUN-only (no TURN) and never records', () => {
+  it('the voice adapter never records and the default is STUN-only', () => {
     const w = read('src/voice/webrtc.ts');
-    expect(w).toContain('stun:stun.l.google.com:19302');
-    expect(w).not.toMatch(/turn:|MediaRecorder|getDisplayMedia/i);
+    expect(w).not.toMatch(/MediaRecorder|getDisplayMedia/i);
+    // The default ICE config is the free Google STUN — no TURN, no credentials.
+    const ice = read('src/voice/iceConfig.ts');
+    expect(ice).toContain("stun:stun.l.google.com:19302");
+    expect(ice).toContain('DEFAULT_ICE_SERVERS');
+  });
+});
+
+describe('no TURN credentials are committed anywhere (STUN-only default; TURN is env-only)', () => {
+  /** Every source file under src/ and server/, excluding tests. */
+  function sourceFiles(): string[] {
+    const acc: string[] = [];
+    for (const root of ['src', 'server']) {
+      try { statSync(join(process.cwd(), root)); } catch { continue; }
+      walk(root, acc);
+    }
+    return acc;
+    function walk(dir: string, out: string[]): void {
+      for (const name of readdirSync(join(process.cwd(), dir))) {
+        const rel = `${dir}/${name}`;
+        if (statSync(join(process.cwd(), rel)).isDirectory()) walk(rel, out);
+        else if (/\.(ts|tsx|js|mjs)$/.test(name) && !/\.test\.(ts|tsx)$/.test(name)) out.push(rel);
+      }
+    }
+  }
+
+  it('no committed TURN url string literal or hardcoded credential/username value', () => {
+    const offenders: string[] = [];
+    for (const f of sourceFiles()) {
+      const src = read(f).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      // A quoted turn:/turns: URL, or a credential/username assigned a non-empty string literal.
+      if (/['"]turns?:/i.test(src)) offenders.push(`${f} (turn url)`);
+      if (/\b(credential|username)\s*[:=]\s*['"][^'"]+['"]/.test(src)) offenders.push(`${f} (secret literal)`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('redactIceServers never exposes the credential/username value', () => {
+    // The redaction shape is { urls, hasCredential } only — a source-level guarantee.
+    const ice = read('src/voice/iceConfig.ts');
+    const redactBody = ice.slice(ice.indexOf('export function redactIceServers'));
+    expect(redactBody).toContain('hasCredential');
+    expect(redactBody).not.toMatch(/credential:\s*s\.credential|username:\s*s\.username/);
   });
 });
 
@@ -72,6 +113,7 @@ describe('voice UI is opt-in and wired into the room', () => {
   it('shows unsupported + permission-denied states; text chat is untouched', () => {
     expect(control).toContain("t('voice.notSupported')");
     expect(control).toContain("t('voice.permissionDenied')");
+    expect(control).toContain("t('voice.permissionHint')"); // browser-settings hint
     expect(control).toContain("t('voice.enableAudio')"); // autoplay-blocked fallback
   });
 });

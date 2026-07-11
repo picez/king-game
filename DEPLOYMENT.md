@@ -230,6 +230,23 @@ The client picks the server URL in this order:
 If a user is on an HTTPS page but types a `ws://` address, the start menu shows
 a mixed-content warning (the browser would block it).
 
+### Voice chat ICE / TURN (optional, Stage 25.5)
+
+Voice chat (opt-in, in-room) uses **STUN-only** by default (Google public STUN) — free, no
+credentials. Strict/symmetric-NAT users can't establish P2P over STUN alone and fall back to
+text chat. To add a **TURN** relay for them, set the **build-time** env
+`VITE_VOICE_ICE_SERVERS` before `npm run build`:
+
+```bash
+VITE_VOICE_ICE_SERVERS='[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]' \
+  VITE_WS_URL=wss://king.example.com/ws npm run build
+```
+
+Keep the TURN credential in your **gitignored `.env`** / secret store — **never commit it**.
+The value is parsed by `src/voice/iceConfig.ts` (malformed → safe STUN fallback), and the
+credential is redacted from any diagnostics. Voice still carries **no audio server-side and
+writes no DB** — this only changes how the browsers find a P2P path.
+
 ## 6. Security notes (read before a public launch)
 
 - **Always use WSS in production.** Over plain `ws://`, the room password (and

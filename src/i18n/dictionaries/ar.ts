@@ -595,6 +595,8 @@ export const AR: Record<string, string> = {
   'voice.connected': 'متصل',
   'voice.enableAudio': 'اضغط لتفعيل الصوت',
   'voice.failed': 'فشل',
+  'voice.reconnecting': 'إعادة الاتصال…',
+  'voice.permissionHint': 'اسمح بالميكروفون من إعدادات الموقع بجوار شريط العنوان ثم انضم مرة أخرى.',
   'account.retry': 'إعادة المحاولة',
   'account.useDefaultServer': 'استخدام الخادم الافتراضي',
   'account.diagnostics': 'تشخيص الاتصال',

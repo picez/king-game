@@ -12,6 +12,8 @@ export interface VoiceNet {
   sendVoiceIce: (toClientId: string, candidate: string) => void;
   sendVoiceMute: (muted: boolean) => void;
   registerVoiceListener: (fn: (m: VoiceServerMessage) => void) => () => void;
+  /** Bumped on every (re)connect — voice rebuilds the mesh after a transport reconnect. */
+  connectionEpoch: number;
 }
 
 export interface RoomVoice {
@@ -77,6 +79,15 @@ export function useRoomVoice(net: VoiceNet): RoomVoice {
     // Recreate only when the identity or signaling handles change (both stable within a room).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [net.myClientId, supported]);
+
+  // After a transport reconnect the server has dropped our voice membership, so rebuild the
+  // mesh (resync is a no-op unless we were joined). Skips the very first connect (nothing to
+  // rebuild yet). Does NOT re-request the mic and does NOT auto-join.
+  const firstEpoch = useRef(true);
+  useEffect(() => {
+    if (firstEpoch.current) { firstEpoch.current = false; return; }
+    sessionRef.current?.resync();
+  }, [net.connectionEpoch]);
 
   const join = useCallback(() => { void sessionRef.current?.join(); }, []);
   const leave = useCallback(() => { sessionRef.current?.leave(); }, []);

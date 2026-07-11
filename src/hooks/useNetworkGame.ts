@@ -76,6 +76,12 @@ export interface NetworkGame {
   /** Bumped on every FRIEND_PRESENCE push so a friends list can re-fetch live. */
   presenceNonce: number;
   /**
+   * Bumped on every WELCOME (first connect + each successful reconnect). Voice uses it to
+   * re-announce after a transport reconnect: the old socket's peer connections are stale
+   * server-side, so the mesh must rebuild (Stage 25.5).
+   */
+  connectionEpoch: number;
+  /**
    * Voice signaling (Stage 25.3) — plumbing only (no WebRTC/audio yet; 25.4 wires the
    * peer connections). Send helpers + a listener that receives the relayed VOICE_* server
    * messages. INERT until a caller registers a listener.
@@ -117,6 +123,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
   const [friendInvite, setFriendInvite] = useState<FriendInvite | null>(null);
   const [presenceNonce, setPresenceNonce] = useState(0);
+  const [connectionEpoch, setConnectionEpoch] = useState(0);
   // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
   const voiceListeners = useRef(new Set<(m: VoiceServerMessage) => void>());
   const reactionKeyRef = useRef(0);
@@ -161,6 +168,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         reconnectAttemptsRef.current = 0;
         applyRoom(msg.room);
         setStatus(msg.room.started ? 'in_game' : 'lobby');
+        setConnectionEpoch((e) => e + 1); // signals voice to rebuild the mesh after a reconnect
         break;
       }
       case 'ROOM_UPDATE': {
@@ -374,6 +382,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
+    connectionEpoch,
     sendVoiceJoin, sendVoiceLeave, sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendVoiceMute, registerVoiceListener,
   };
 }

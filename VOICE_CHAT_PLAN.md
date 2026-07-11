@@ -41,7 +41,7 @@ that same socket ONLY as a signaling channel. **No audio ever touches the server
 | 25.1–25.2 | Friends (see [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)). |
 | **25.3** ✅ **DONE** | Voice **signaling WS protocol** — `VOICE_*` messages (messages.ts), a room-scoped server **relay** `server/voiceSignaling.ts` (join/leave/relay-to-target/mute, returns targeted deliveries; NO audio, NO DB), pure `src/net/voiceSignal.ts` (SDP 16 KB / ICE 4 KB caps + glare `shouldOffer`), per-client signaling limit (`voiceRateLimit.ts`, 120/min), wired in index.ts (verify same-room + size + rate; cleanup on close/leave). Client plumbing in useNetworkGame (`sendVoice*` + `registerVoiceListener`) — **INERT, no WebRTC/media yet**. |
 | **25.4** ✅ **DONE** | Voice **WebRTC UI** — `src/voice/webrtc.ts` (STUN-only adapter, the ONLY raw-WebRTC/getUserMedia site) + `VoiceSession` mesh controller (fully unit-tested with mocks) + `useRoomVoice` hook (remote `<audio>` sinks, autoplay-blocked fallback) + `VoiceControl` (Lobby **card** + in-game **compact** mic button in the RoomSocial cluster). Opt-in (mic only on Join), Mute/Unmute, unsupported / permission-denied / connecting states; leaving the room tears voice down. Glare = lower clientId offers. No audio server-side/DB. |
-| **25.5** | **Production hardening** — signaling rate limits, renegotiation/cleanup on seat changes & disconnects, permission-state UX, mobile/PWA polish, TURN decision, docs/smoke (shared with friends). |
+| **25.5** ✅ **DONE** | **Production hardening** — reconnect **resync** (WS reconnect → `VoiceSession.resync()` closes stale PCs + drops audio sinks + re-JOINs with the same mic → fresh `VOICE_PEERS` rebuilds the mesh, no duplicate PCs, mute re-asserted; driven by `connectionEpoch` from useNetworkGame). ICE **config seam** `src/voice/iceConfig.ts` — `VITE_VOICE_ICE_SERVERS` (JSON array) overrides the STUN-only default; TURN credentials are **env-only, never committed**; `redactIceServers` strips secrets for logs. Permission UX: denied → message **+ browser-settings hint**; peer `disconnected` → "reconnecting…" vs `failed`. Page-hidden/PWA-background: **no auto-rejoin** (opt-in preserved). Guards: no committed TURN url/credential across `src/`+`server/`; redaction never leaks the secret. |
 
 Additive and **fairness-safe**: voice never touches game state, redaction, or the reducer.
 
@@ -63,8 +63,12 @@ Additive and **fairness-safe**: voice never touches game state, redaction, or th
 - The **server only relays signaling** (SDP offers/answers, ICE candidates) between two clients
   that are members of the **same room**. It parses none of it beyond routing, stores none of it,
   and never sees the audio (which is end-to-end DTLS-SRTP).
-- **ICE:** STUN-only in MVP (public STUN, e.g. `stun:stun.l.google.com:19302`, configurable via
-  a build-time `VITE_STUN_URLS`). No credentials, no TURN.
+- **ICE:** STUN-only by default (public STUN `stun:stun.l.google.com:19302`). A deployment MAY
+  override the ICE servers — including a **TURN** relay for strict NAT — via the build-time env
+  `VITE_VOICE_ICE_SERVERS` (a JSON array of `{ urls, username?, credential? }`; parsed by
+  `src/voice/iceConfig.ts`, which falls back to STUN on any malformed/absent value). **TURN
+  credentials are supplied by the env at build time and are NEVER committed;** `redactIceServers`
+  strips them from any diagnostics/logs.
 
 ## 5. WS signaling protocol (`src/net/messages.ts`, additive)
 
@@ -115,11 +119,16 @@ tighter cap on ICE bursts.
 
 ## 7. STUN / TURN
 
-- **MVP: STUN-only.** Works for most home/mobile NATs (full-cone / restricted). Free, no creds.
-- **Post-MVP: TURN.** Symmetric-NAT / restrictive-firewall users can't P2P over STUN alone; a
-  TURN relay is the fix but costs bandwidth and needs credentials. Documented, **owner-gated**:
-  add a coturn (or managed TURN) with short-lived credentials issued by the server, surfaced via
-  an ICE-server config endpoint. Until then those users get the **text-chat fallback** (§8).
+- **Default: STUN-only.** Works for most home/mobile NATs (full-cone / restricted). Free, no creds.
+- **TURN (opt-in, 25.5).** Symmetric-NAT / restrictive-firewall users can't P2P over STUN alone;
+  a TURN relay is the fix but costs bandwidth and needs credentials. A deployment enables it by
+  setting the build-time env **`VITE_VOICE_ICE_SERVERS`** to a JSON array that includes its TURN
+  server, e.g.
+  `[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"…","credential":"…"}]`.
+  **Do NOT commit the credentials** — inject them through the host's env at build time (Render
+  → Environment; VPS → `.env` that is gitignored). `iceConfig.ts` parses the value, falls back to
+  STUN on anything malformed, and `redactIceServers` keeps secrets out of logs. Without the env,
+  strict-NAT users get the **text-chat fallback** (§8).
 
 ## 8. Fallback & failure states (must be graceful — never a dead mic button)
 

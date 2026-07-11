@@ -625,7 +625,7 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Fallback:** a missing/undecodable SFX silently no-ops (no error, no gameplay
       block); total sound payload stays under budget (< 500 KB).
 
-## Manual — Voice chat (Stage 25.4, WebRTC MVP; HTTPS + a mic required)
+## Manual — Voice chat (Stage 25.4–25.5, WebRTC mesh; HTTPS + a mic required)
 
 > Opt-in WebRTC mesh voice over the 25.3 signaling relay. **HTTPS is required** for
 > `getUserMedia` (localhost counts as secure). Real audio is **manual-only** — CI has no mic.
@@ -639,16 +639,28 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Mute/Unmute** toggles your mic AND the peer's row shows 🔇/🎤 (mute state propagates).
 - [ ] **Leave** (or leaving the room / closing the tab) stops your mic and drops you from the
       others' peer list.
-- [ ] **Fallbacks:** deny the mic → **"Microphone permission denied"** (text chat still works);
-      an unsupported browser → **"Voice chat isn't supported"**; if audio autoplay is blocked →
-      a **"Tap to enable audio"** button appears.
+- [ ] **Fallbacks:** deny the mic → **"Microphone permission denied"** + a **browser-settings
+      hint** (text chat still works); an unsupported browser → **"Voice chat isn't supported"**;
+      if audio autoplay is blocked → a **"Tap to enable audio"** button appears.
+- [ ] **Reconnect (25.5):** while both are in voice, drop one client's network for a few seconds
+      (DevTools → offline, or toggle Wi-Fi). On reconnect the WELCOME re-fires and voice
+      **rebuilds the mesh automatically** — no duplicate peer rows, mute state preserved, audio
+      resumes. A peer that stays down shows **"reconnecting…"** then **"failed"**; you can
+      **Leave + Join** again to recover.
+- [ ] **No auto-rejoin in background:** background the tab / minimise the installed PWA while in
+      voice → it does **not** silently re-request the mic; control stays explicit.
+- [ ] **TURN (only if `VITE_VOICE_ICE_SERVERS` is set for the build):** a client behind strict/
+      symmetric NAT (e.g. some mobile carriers) now connects P2P. Confirm **no TURN credential
+      appears** in DevTools console, network logs, or `/health/diagnostics`.
 - [ ] **Privacy:** DevTools → the `/ws` frames carry only SDP/ICE strings + clientId/name/muted
-      — **no email/token/session, no audio bytes**; nothing is recorded or stored.
+      — **no email/token/session, no audio bytes, no TURN secret**; nothing is recorded or stored.
 
 > Automated coverage (`npm test`): VoiceSession mesh (join requests mic once, leave stops
 > tracks + closes PCs, mute toggles the track, glare offerer, offer/answer/ice routing,
-> peer add/remove, unsupported/permission errors) + the 25.3 relay routing + source guards
-> (WebRTC/getUserMedia confined to `src/voice/webrtc.ts`; no server audio/DB).
+> peer add/remove, unsupported/permission errors, **reconnect resync rebuilds without dup PCs**)
+> + `iceConfig` (STUN default, env override, TURN-cred parse, **redaction never leaks the secret**)
+> + the 25.3 relay routing + source guards (WebRTC/getUserMedia confined to `src/voice/webrtc.ts`;
+> **no committed TURN url/credential** across `src/`+`server/`; no server audio/DB).
 
 ## Manual — Friends UI + room invites (Stage 25.2, needs Postgres + a signed-in account)
 
