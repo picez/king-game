@@ -443,6 +443,7 @@ export const EN: Record<string, string> = {
   'avatar.errRate': 'Too many uploads — please wait a moment.',
   'avatar.errUnavailable': 'Avatar processing is unavailable on this server.',
   'avatar.errTimeout': 'Avatar upload timed out. Try a smaller image or try again.',
+  'avatar.errServerTimeout': 'Server took too long to receive the image. Try a smaller image.',
   'avatar.errNetwork': 'Could not upload avatar. Check your connection and try again.',
   'avatar.errSignIn': 'Sign in to sync a custom avatar.',
   'err.ROOM_NOT_FOUND': 'Room not found',

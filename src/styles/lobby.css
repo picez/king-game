@@ -336,6 +336,9 @@
 .sound-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .sound-preview .field__hint { margin: 0; }
 .avatar-error { margin: 0.3rem 0 0; }
+/* The safe error code (e.g. server_timeout) — small, muted, so a stuck user can report
+   the exact reason without it dominating the message. */
+.avatar-error__code { font-size: 0.72rem; opacity: 0.7; font-family: ui-monospace, Menlo, Consolas, monospace; }
 .account-bar__meta { display: flex; flex-direction: column; min-width: 0; }
 .account-bar__name { font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-bar__sub { font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }

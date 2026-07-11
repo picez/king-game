@@ -443,6 +443,7 @@ export const AR: Record<string, string> = {
   'avatar.errRate': 'محاولات رفع كثيرة — يرجى الانتظار قليلاً.',
   'avatar.errUnavailable': 'معالجة الصورة غير متاحة على هذا الخادم.',
   'avatar.errTimeout': 'انتهت مهلة رفع الصورة. جرّب صورة أصغر أو أعد المحاولة.',
+  'avatar.errServerTimeout': 'استغرق الخادم وقتًا طويلاً لاستلام الصورة. جرّب صورة أصغر.',
   'avatar.errNetwork': 'تعذّر رفع الصورة. تحقّق من اتصالك وأعد المحاولة.',
   'avatar.errSignIn': 'سجّل الدخول لمزامنة صورة مخصّصة.',
   'err.ROOM_NOT_FOUND': 'الغرفة غير موجودة',

@@ -54,6 +54,22 @@ describe.skipIf(!hasFfmpeg)('processAvatarToWebp — decode/crop/resize/re-encod
     const r = await processAvatarToWebp(webp);
     expect(r.ok).toBe(true);
   });
+
+  it('a watchdog kill returns reason "timeout" (distinct from invalid_image), not a hang', async () => {
+    // Force the ffmpeg watchdog to fire before encoding can finish → the process is
+    // SIGKILLed and processing reports a retryable timeout (mapped to 503 by the API),
+    // never a pending promise.
+    const png = await synth('png', 'red', 400, 400);
+    const prev = process.env.AVATAR_FFMPEG_TIMEOUT_MS;
+    process.env.AVATAR_FFMPEG_TIMEOUT_MS = '1'; // 1 ms — ffmpeg cannot spawn+encode that fast
+    try {
+      const r = await processAvatarToWebp(png);
+      expect(r).toEqual({ ok: false, reason: 'timeout' });
+    } finally {
+      if (prev === undefined) delete process.env.AVATAR_FFMPEG_TIMEOUT_MS;
+      else process.env.AVATAR_FFMPEG_TIMEOUT_MS = prev;
+    }
+  });
 });
 
 // These rejections happen on magic-byte detection BEFORE ffmpeg — no binary needed.

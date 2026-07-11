@@ -301,10 +301,39 @@ switch the service to Docker unless you intend to**.
 - `status:"unknown"` → the boot ffmpeg probe hasn't resolved yet (retry in a moment).
 
 The upload never leaves the button spinning: the client aborts after 30 s
-(`AVATAR_UPLOAD_TIMEOUT_MS`) and the server has a body-read watchdog
-(`AVATAR_UPLOAD_TIMEOUT_MS`, default 20 s → `408`) plus the ffmpeg watchdog
-(`AVATAR_FFMPEG_TIMEOUT_MS`, default 8 s → SIGKILL), so a stall always surfaces a clear,
-retryable error instead of hanging.
+(`AVATAR_UPLOAD_TIMEOUT_MS`) and **every server phase is bounded BELOW that** so the client
+gets a real HTTP status, not its own timeout — body read `AVATAR_BODY_TIMEOUT_MS` (12 s →
+`408 upload_timeout`), ffmpeg `AVATAR_FFMPEG_TIMEOUT_MS` (8 s → SIGKILL → `503
+processing_unavailable`), DB write `AVATAR_DB_TIMEOUT_MS` (8 s → `503`).
+
+**Diagnosing a slow/failed upload from the logs.** `POST /api/me/avatar` emits a safe
+phase trace (no filename / bytes / email / token / session / full userId) — read it in the
+Render logs during an upload:
+
+```
+[King] avatar upload_start
+[King] avatar auth_ok
+[King] avatar content_length 84213
+[King] avatar body_read_start
+[King] avatar body_read_ok 84102     ← body received (bytes)
+[King] avatar ffmpeg_start 84102
+[King] avatar ffmpeg_ok 5820         ← processed WebP size
+[King] avatar db_write_start
+[King] avatar db_write_ok
+[King] avatar response_sent 640      ← total ms
+```
+
+Where the trace STOPS tells you the culprit and the client's error code matches:
+- stops after `body_read_start` → `body_read_timeout` (**408 upload_timeout**, client
+  "server_timeout") — the body never fully arrived (Render proxy buffering / slow client);
+- `ffmpeg_timeout` / `ffmpeg_unavailable` → **503 processing_unavailable** (ffmpeg slow or
+  missing);
+- `db_write_timeout` / `db_write_error` → **503 processing_unavailable** (Postgres write
+  slow/unhealthy — check the DB instance + `DATABASE_POOL_MAX`);
+- `magic_check_fail` → **415/400** (not a png/jpeg/webp, or corrupt).
+
+The safe error code also shows in small text under the Profile message and in **Copy
+diagnostics**, so a user can report the exact phase without guessing.
 
 #### To ENABLE uploads on Render (two independent requirements)
 

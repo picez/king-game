@@ -41,11 +41,14 @@ const MAX_FFMPEG_STDOUT = 4 * 1024 * 1024;
 
 export type ProcessResult =
   | { ok: true; mimeType: string; bytes: Buffer; byteSize: number; width: number; height: number }
-  | { ok: false; reason: 'unsupported_type' | 'invalid_image' | 'too_large' | 'unavailable' };
+  | { ok: false; reason: 'unsupported_type' | 'invalid_image' | 'too_large' | 'unavailable' | 'timeout' };
+
+type FfmpegOut = Buffer | { unavailable: true } | { timeout: true } | null;
 
 /** Runs ffmpeg with a fixed argv, feeding `input` on stdin, collecting stdout. A
- *  watchdog kills a hung process (→ null); an oversized stdout stream also kills it. */
-function runFfmpeg(args: string[], input: Buffer): Promise<Buffer | { unavailable: true } | null> {
+ *  watchdog kills a hung process (→ `{timeout:true}`, DISTINCT from a bad image so the
+ *  API can answer 503/408 not 400); an oversized stdout stream also kills it (→ null). */
+function runFfmpeg(args: string[], input: Buffer): Promise<FfmpegOut> {
   return new Promise((resolve) => {
     let child;
     try {
@@ -57,15 +60,15 @@ function runFfmpeg(args: string[], input: Buffer): Promise<Buffer | { unavailabl
     let size = 0;
     let settled = false;
     const kill = () => { try { child.kill('SIGKILL'); } catch { /* already gone */ } };
-    const done = (v: Buffer | { unavailable: true } | null) => {
+    const done = (v: FfmpegOut) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       resolve(v);
     };
     // Watchdog: a malformed/hostile input that hangs the decoder can't wedge the
-    // request — kill and fail after the timeout.
-    const timer = setTimeout(() => { kill(); done(null); }, timeoutMs());
+    // request — kill and report a TIMEOUT (retryable) after the deadline.
+    const timer = setTimeout(() => { kill(); done({ timeout: true }); }, timeoutMs());
     child.on('error', (e: NodeJS.ErrnoException) => done(e?.code === 'ENOENT' ? { unavailable: true } : null));
     child.stdout.on('data', (c: Buffer) => {
       size += c.length;
@@ -107,6 +110,7 @@ export async function processAvatarToWebp(input: Buffer): Promise<ProcessResult>
   for (const quality of [82, 60]) {
     const res = await runFfmpeg(encodeArgs(quality), input);
     if (res && 'unavailable' in res) return { ok: false, reason: 'unavailable' };
+    if (res && 'timeout' in res) return { ok: false, reason: 'timeout' };
     if (!res || res.length === 0) return { ok: false, reason: 'invalid_image' };
     const dims = readWebpDimensions(res);
     if (!dims) return { ok: false, reason: 'invalid_image' };

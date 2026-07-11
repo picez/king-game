@@ -114,10 +114,20 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
 
 **Never-stuck (any runtime):** the **"Upload synced avatar"** button must ALWAYS return to
 its normal label after an attempt — it never stays on "Uploading…". The client aborts after
-30 s (`AVATAR_UPLOAD_TIMEOUT_MS`) → an inline **timeout** message; a 503 → **unavailable**;
-an offline/network failure → **network**; and the **same file can be re-selected** to retry
-(the input is reset). Check `curl -s $HOST/health/diagnostics` → `avatarUploads.status` is
-`enabled` only when `ffmpeg:true` **and** `database:true`; otherwise uploads answer `503` fast.
+30 s (`AVATAR_UPLOAD_TIMEOUT_MS`) → an inline **timeout** message; a **408** → "server took
+too long to receive the image"; a **503** → **unavailable**; offline → **network**. The safe
+error **code** shows in small text; the **same file can be re-selected** to retry.
+
+**Tiny-image happy path (uploads ON):** sign in and upload a **known-good < 100 KB**
+png/jpeg/webp:
+- [ ] Expect **`200 {"avatarImageUrl":…}` within ~a few seconds** (not 30 s). The Render logs
+      show the phase trace ending in `db_write_ok` → `response_sent <ms>` (see RENDER_DEPLOY).
+- [ ] `curl -sI $HOST/api/avatar/<uuid>.webp` → `200 image/webp`; the avatar updates on the
+      Profile + lobby seat.
+- [ ] If it fails, it returns a **safe server error within ~20 s** (408/503) with a visible
+      message + code — **never** the client's own 30 s timeout. If you hit
+      `processing_unavailable` or `upload_timeout`, read the phase trace to see which phase
+      stalled (body read / ffmpeg / db write).
 
 ## 9. Social
 

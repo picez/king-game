@@ -112,11 +112,28 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
 type BodyRead = { ok: true; body: Buffer } | { ok: false; reason: 'too_large' | 'timeout' };
 
 /** Body-read watchdog: a stalled/slowloris upload (headers + partial body, then silence)
- *  never reaches `end` and never exceeds the cap, so WITHOUT this the request would hang
- *  forever. Env-overridable (AVATAR_UPLOAD_TIMEOUT_MS), default 20 s. */
+ *  never reaches `end` and never exceeds the cap, so WITHOUT this the request would hang.
+ *  Kept BELOW the client's 30 s so the client gets our 408, not its own AbortController
+ *  timeout. Env-overridable (AVATAR_BODY_TIMEOUT_MS), default 12 s. */
 function bodyTimeoutMs(): number {
-  const v = Number(process.env.AVATAR_UPLOAD_TIMEOUT_MS);
-  return Number.isFinite(v) && v > 0 ? v : 20_000;
+  const v = Number(process.env.AVATAR_BODY_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 12_000;
+}
+/** DB-write watchdog for the avatar upsert. Env AVATAR_DB_TIMEOUT_MS, default 8 s. */
+function dbWriteTimeoutMs(): number {
+  const v = Number(process.env.AVATAR_DB_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 8_000;
+}
+/** Resolve to the promise's value, or the sentinel `'__timeout__'` after `ms` — used to
+ *  bound a phase (DB write) that has no timeout of its own. Never leaves a pending await. */
+const PHASE_TIMEOUT = '__timeout__' as const;
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | typeof PHASE_TIMEOUT> {
+  return Promise.race([p, new Promise<typeof PHASE_TIMEOUT>((r) => setTimeout(() => r(PHASE_TIMEOUT), ms))]);
+}
+/** Safe phase-timing log for avatar upload — ONLY the phase name + a numeric/enum extra
+ *  (never a filename, bytes, email, token, session id, or the full userId). */
+function logAvatarPhase(phase: string, extra?: string | number): void {
+  console.log(`[King] avatar ${phase}${extra != null ? ` ${extra}` : ''}`);
 }
 
 async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<BodyRead> {
@@ -130,8 +147,9 @@ async function readRawBody(req: IncomingMessage, maxBytes: number): Promise<Body
       clearTimeout(timer);
       resolve(v);
     };
-    // Give up on a stalled upload so the handler always returns (never a pending request).
-    const timer = setTimeout(() => { try { req.destroy(); } catch { /* already gone */ } done({ ok: false, reason: 'timeout' }); }, bodyTimeoutMs());
+    // Stop reading and let the handler answer 408 — do NOT req.destroy() here (destroying
+    // the socket would prevent the 408 from reaching the client, causing its own timeout).
+    const timer = setTimeout(() => done({ ok: false, reason: 'timeout' }), bodyTimeoutMs());
     req.on('data', (c: Buffer) => {
       if (settled) return;
       size += c.length;
@@ -272,16 +290,32 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
 
 // ── avatar upload / delete / serve (Stage 17.1; hidden backend, no UI wiring) ──
 
-/** Maps a processing failure to an HTTP status + error code. */
-const AVATAR_ERR_STATUS: Record<string, number> = {
-  unsupported_type: 400, invalid_image: 400, too_large: 413, unavailable: 503,
+/** Maps a processing failure reason to a SAFE HTTP status + error code (no SQL/secrets).
+ *  A body-read timeout → 408 upload_timeout (server didn't receive it in time → "smaller
+ *  image"); ffmpeg/DB unavailable-or-timeout → 503 processing_unavailable. */
+const AVATAR_ERR: Record<string, { status: number; code: string }> = {
+  unsupported_type: { status: 415, code: 'unsupported_type' },
+  invalid_image:    { status: 400, code: 'invalid_image' },
+  too_large:        { status: 413, code: 'too_large' },
+  unavailable:      { status: 503, code: 'processing_unavailable' },
+  timeout:          { status: 503, code: 'processing_unavailable' }, // ffmpeg processing timed out
+};
+/** The diagnostic phase name to log for each processing-failure reason. */
+const AVATAR_FAIL_PHASE: Record<string, string> = {
+  unsupported_type: 'magic_check_fail', invalid_image: 'magic_check_fail',
+  timeout: 'ffmpeg_timeout', unavailable: 'ffmpeg_unavailable', too_large: 'output_too_large',
 };
 
 async function handlePostAvatar(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
-  // Rate limit FIRST — an in-memory, per-(authenticated)-user cap that blunts a flood
-  // with NO DB query or body read, whether the caller is a guest or signed-in.
+  // Safe phase-timing trace so a production hang can be pinpointed WITHOUT logging any
+  // filename, image bytes, email, token, session id, or the full userId. Every phase is
+  // bounded (body read < ffmpeg < DB) and every exit path returns a safe JSON status, so
+  // the request can never pend past the client's 30 s timeout.
+  const t0 = Date.now();
+  logAvatarPhase('upload_start');
   const { allowAvatarUpload } = await import('./avatarRateLimit');
   if (!allowAvatarUpload(userId)) {
+    logAvatarPhase('rate_limited');
     return json(res, 429, { error: 'rate_limited', message: 'Too many uploads. Try again later.' }, corsHeaders(req));
   }
   // Guests may not upload (local-only avatar remains theirs). Signed-in only.
@@ -290,40 +324,67 @@ async function handlePostAvatar(req: IncomingMessage, res: ServerResponse, userI
   if (!profile || profile.isGuest) {
     return json(res, 403, { error: 'guest_forbidden', message: 'Sign in to sync a custom avatar.' }, corsHeaders(req));
   }
+  logAvatarPhase('auth_ok');
   // Reject an obviously-oversized upload before reading a single byte of the body.
   const declaredLen = Number(req.headers['content-length']);
+  if (Number.isFinite(declaredLen)) logAvatarPhase('content_length', declaredLen);
   if (Number.isFinite(declaredLen) && declaredLen > MAX_AVATAR_UPLOAD_BYTES + 4096) {
     return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
   }
   const boundary = multipartBoundary(req.headers['content-type']);
   if (!boundary) {
-    return json(res, 415, { error: 'expected_multipart', message: 'Send multipart/form-data with a single image file.' }, corsHeaders(req));
+    logAvatarPhase('not_multipart');
+    return json(res, 415, { error: 'unsupported_type', message: 'Send multipart/form-data with a single image file.' }, corsHeaders(req));
   }
+  logAvatarPhase('body_read_start');
   const bodyRead = await readRawBody(req, MAX_AVATAR_UPLOAD_BYTES + 4096); // + small multipart overhead
   if (!bodyRead.ok) {
-    return bodyRead.reason === 'timeout'
-      ? json(res, 408, { error: 'timeout', message: 'Upload timed out. Please try again.' }, corsHeaders(req))
-      : json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
+    if (bodyRead.reason === 'timeout') {
+      logAvatarPhase('body_read_timeout');
+      return json(res, 408, { error: 'upload_timeout', message: 'Server took too long to receive the image. Try a smaller image.' }, corsHeaders(req));
+    }
+    logAvatarPhase('body_too_large');
+    return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
   }
+  logAvatarPhase('body_read_ok', bodyRead.body.length);
   const file = parseSingleFileMultipart(bodyRead.body, boundary);
   if (!file || file.bytes.length === 0) {
+    logAvatarPhase('no_file');
     return json(res, 400, { error: 'no_file', message: 'No image file found in the request.' }, corsHeaders(req));
   }
   if (file.bytes.length > MAX_AVATAR_UPLOAD_BYTES) {
+    logAvatarPhase('file_too_large', file.bytes.length);
     return json(res, 413, { error: 'too_large', message: 'Image exceeds the 2 MB limit.' }, corsHeaders(req));
   }
+  logAvatarPhase('ffmpeg_start', file.bytes.length);
   const { processAvatarToWebp } = await import('./avatarProcess');
   const processed = await processAvatarToWebp(Buffer.from(file.bytes));
   if (!processed.ok) {
-    const status = AVATAR_ERR_STATUS[processed.reason] ?? 400;
-    return json(res, status, { error: processed.reason }, corsHeaders(req));
+    logAvatarPhase(AVATAR_FAIL_PHASE[processed.reason] ?? `fail_${processed.reason}`);
+    const m = AVATAR_ERR[processed.reason] ?? { status: 500, code: 'upload_failed' };
+    return json(res, m.status, { error: m.code }, corsHeaders(req));
   }
+  logAvatarPhase('ffmpeg_ok', processed.byteSize);
+  // Bound the DB write too — a slow/hung Postgres write must not outlast the client.
   const { upsertAvatar } = await import('./db/userAvatars');
-  const ref = await upsertAvatar(userId, {
-    mimeType: processed.mimeType, bytes: processed.bytes, byteSize: processed.byteSize,
-    width: processed.width, height: processed.height,
-  });
-  json(res, 200, { avatarImageUrl: avatarImageUrlPath(ref.id, ref.version) }, corsHeaders(req));
+  logAvatarPhase('db_write_start');
+  try {
+    const ref = await withTimeout(upsertAvatar(userId, {
+      mimeType: processed.mimeType, bytes: processed.bytes, byteSize: processed.byteSize,
+      width: processed.width, height: processed.height,
+    }), dbWriteTimeoutMs());
+    if (ref === PHASE_TIMEOUT) {
+      logAvatarPhase('db_write_timeout');
+      return json(res, 503, { error: 'processing_unavailable', message: 'Avatar storage timed out. Please try again.' }, corsHeaders(req));
+    }
+    logAvatarPhase('db_write_ok');
+    json(res, 200, { avatarImageUrl: avatarImageUrlPath(ref.id, ref.version) }, corsHeaders(req));
+    logAvatarPhase('response_sent', Date.now() - t0);
+  } catch (err) {
+    logAvatarPhase('db_write_error');
+    logDbBrief('POST /api/me/avatar', err);
+    json(res, 503, { error: 'processing_unavailable', message: 'Avatar storage is temporarily unavailable.' }, corsHeaders(req));
+  }
 }
 
 async function handleDeleteAvatar(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {

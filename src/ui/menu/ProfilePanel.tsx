@@ -103,6 +103,9 @@ export default function ProfilePanel({
   const syncedFileRef = useRef<HTMLInputElement>(null);
   const [syncedBusy, setSyncedBusy] = useState(false);
   const [syncedError, setSyncedError] = useState<string | null>(null);
+  // The raw error code (e.g. server_timeout / unavailable) shown in small text so a stuck
+  // user can report the exact reason without guessing. Safe: an enum, never a secret.
+  const [syncedErrorCode, setSyncedErrorCode] = useState<AvatarUploadError | null>(null);
   // Connection setting (Stage 14.2): default vs custom server, device-local.
   const [serverMode, setServerMode] = useState<'default' | 'custom'>(customServer ? 'custom' : 'default');
   const [serverDraft, setServerDraft] = useState(customServer ?? '');
@@ -152,6 +155,7 @@ export default function ProfilePanel({
       case 'rate_limited': return t('avatar.errRate');
       case 'unavailable': return t('avatar.errUnavailable');
       case 'timeout': return t('avatar.errTimeout');
+      case 'server_timeout': return t('avatar.errServerTimeout');
       case 'network': return t('avatar.errNetwork');
       case 'unauthenticated': case 'forbidden': return t('avatar.errSignIn');
       default: return t('avatar.errFailed');
@@ -161,16 +165,16 @@ export default function ProfilePanel({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    setSyncedError(null); setSyncedBusy(true);
+    setSyncedError(null); setSyncedErrorCode(null); setSyncedBusy(true);
     try {
       const res = await account.uploadAvatarImage(file);
-      if (!res.ok) setSyncedError(syncedErrorMsg(res.error));
+      if (!res.ok) { setSyncedError(syncedErrorMsg(res.error)); setSyncedErrorCode(res.error); }
     } finally {
       setSyncedBusy(false);
     }
   }
   async function removeSyncedAvatar() {
-    setSyncedError(null); setSyncedBusy(true);
+    setSyncedError(null); setSyncedErrorCode(null); setSyncedBusy(true);
     try { await account.removeAvatarImage(); } finally { setSyncedBusy(false); }
   }
 
@@ -406,7 +410,12 @@ export default function ProfilePanel({
                   </button>
                 )}
               </div>
-              {syncedError && <p className="lobby-error avatar-error">{syncedError}</p>}
+              {syncedError && (
+                <p className="lobby-error avatar-error">
+                  {syncedError}
+                  {syncedErrorCode && <span className="avatar-error__code"> ({syncedErrorCode})</span>}
+                </p>
+              )}
               <p className="field__hint">{t('avatar.syncedHint')}</p>
             </>
           ) : (

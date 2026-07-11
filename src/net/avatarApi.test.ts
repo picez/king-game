@@ -124,8 +124,21 @@ describe('uploadAvatar client — always settles (no stuck "Uploading…")', () 
     vi.stubGlobal('fetch', vi.fn(async () => resp(503, { error: 'unavailable' })));
     expect((await uploadAvatar('http://x', png())).ok).toBe(false);
     expect(await uploadAvatar('http://x', png())).toEqual({ ok: false, error: 'unavailable' });
-    vi.stubGlobal('fetch', vi.fn(async () => resp(408, { error: 'timeout' })));
-    expect(await uploadAvatar('http://x', png())).toEqual({ ok: false, error: 'timeout' });
+    vi.stubGlobal('fetch', vi.fn(async () => resp(408, { error: 'upload_timeout' })));
+    expect(await uploadAvatar('http://x', png())).toEqual({ ok: false, error: 'server_timeout' });
+  });
+
+  it('a server 408 (server_timeout) is DISTINCT from the client AbortController timeout', async () => {
+    // 408 = the server gave up receiving/processing → its own message ("smaller image").
+    vi.stubGlobal('fetch', vi.fn(async () => resp(408, { error: 'upload_timeout' })));
+    const server = await uploadAvatar('http://x', png());
+    // AbortError = the CLIENT budget elapsed with no response at all.
+    vi.stubGlobal('fetch', (_u: string, o: { signal?: AbortSignal }) => new Promise((_r, rej) => {
+      o.signal?.addEventListener('abort', () => rej(Object.assign(new Error('a'), { name: 'AbortError' })));
+    }));
+    const client = await uploadAvatar('http://x', png(), 20);
+    expect(server).toEqual({ ok: false, error: 'server_timeout' });
+    expect(client).toEqual({ ok: false, error: 'timeout' });
   });
 
   it('a real fetch failure (not an abort) maps to `network`, and never throws', async () => {
@@ -152,12 +165,32 @@ describe('avatar upload never hangs — source guards', () => {
     expect(fn).toMatch(/finally \{\s*setSyncedBusy\(false\)/); // button never stuck disabled
     // timeout / network map to their own clear messages.
     expect(panel).toContain("case 'timeout': return t('avatar.errTimeout')");
+    expect(panel).toContain("case 'server_timeout': return t('avatar.errServerTimeout')");
     expect(panel).toContain("case 'network': return t('avatar.errNetwork')");
+    // The safe error code is surfaced in small text so a stuck user can report it.
+    expect(panel).toContain('syncedErrorCode');
+    expect(panel).toContain('avatar-error__code');
   });
 
   it('the server body read has a watchdog → a stalled upload returns 408, never pends forever', () => {
     expect(server).toContain('bodyTimeoutMs');
     expect(server).toMatch(/reason: 'timeout'/);
-    expect(server).toContain("error: 'timeout'");       // → 408 mapped to a client timeout
+    expect(server).toContain("error: 'upload_timeout'"); // 408 → the client maps to server_timeout
+  });
+
+  it('every avatar-upload phase is bounded < the client budget and logged safely', () => {
+    // Body read (12s) < ffmpeg (8s watchdog) < DB write (withTimeout) — all under the
+    // client's 30s, so the client gets our 408/503, not its own AbortController timeout.
+    expect(server).toContain('bodyTimeoutMs');
+    expect(server).toContain('dbWriteTimeoutMs');
+    expect(server).toMatch(/withTimeout\(upsertAvatar/);
+    expect(server).toContain("error: 'processing_unavailable'"); // ffmpeg/DB unavailable/timeout → 503
+    // Phase-timing logs exist for diagnosis and carry NO secrets (only phase + a number).
+    expect(server).toContain('logAvatarPhase');
+    for (const p of ['upload_start', 'body_read_start', 'ffmpeg_start', 'db_write_start', 'response_sent']) {
+      expect(server, p).toContain(`logAvatarPhase('${p}'`);
+    }
+    const fn = server.slice(server.indexOf('function logAvatarPhase'), server.indexOf('function logAvatarPhase') + 300);
+    expect(fn).not.toMatch(/email|token|session|filename|userId|\.bytes/i);
   });
 });

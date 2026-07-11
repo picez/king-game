@@ -140,8 +140,9 @@ describe('source hardening guards', () => {
     expect(seg.indexOf('allowAvatarUpload')).toBeLessThan(seg.indexOf("import('./db/users')"));
     expect(seg).toContain("req.headers['content-length']");
     expect(seg).toContain("error: 'guest_forbidden'");
-    expect(seg).toContain("error: 'expected_multipart'");
-    // No raw image / body logging in the upload handler.
+    expect(seg).toContain("error: 'unsupported_type'"); // non-multipart → 415 unsupported_type
+    // No raw image / body logging in the upload handler (phase logs go via logAvatarPhase,
+    // which only ever emits a phase name + a number — never body/file/bytes/image values).
     expect(seg).not.toMatch(/console\.[a-z]+\([^)]*(body|file|bytes|image)/i);
   });
 

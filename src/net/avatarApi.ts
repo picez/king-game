@@ -17,8 +17,9 @@ export type AvatarUploadError =
   | 'too_large'       // 413 — over the 2 MB / output cap
   | 'unsupported_type'// 400/415 — not a png/jpeg/webp we can process
   | 'rate_limited'    // 429 — too many uploads
-  | 'unavailable'     // 503 — DB off or ffmpeg processing unavailable
-  | 'timeout'         // client aborted after no response (server stalled / slow network)
+  | 'unavailable'     // 503 — DB off or ffmpeg/DB processing unavailable
+  | 'timeout'         // client AbortController fired — NO response within the client budget
+  | 'server_timeout'  // 408 — the SERVER gave up receiving/processing (distinct from above)
   | 'network'         // fetch failed / offline
   | 'failed';         // anything else
 
@@ -35,7 +36,7 @@ function mapError(status: number, code: unknown): AvatarUploadError {
   if (status === 0) return 'network';
   if (status === 401) return 'unauthenticated';
   if (status === 403) return 'forbidden';
-  if (status === 408) return 'timeout';   // server body-read timed out
+  if (status === 408) return 'server_timeout'; // server gave up receiving/processing
   if (status === 413) return 'too_large';
   if (status === 429) return 'rate_limited';
   if (status === 503) return 'unavailable';
