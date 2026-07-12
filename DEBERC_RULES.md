@@ -41,7 +41,8 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 - **3 players** — every player for themselves, played with a **32-card deck** (drop
   the four 6s). 3 × 9 = 27 cards used; **5 stay undealt** (the stock). The 6 is a
-  0-point card, so card totals are unchanged.
+  0-point card, so card totals are unchanged. *(This 3-player mode is Deberc's
+  individual / solo game — see `SOLO_VARIANTS_PLAN.md`; 4-player is the partnership mode.)*
 - **4 players** — two fixed **teams of 2** (partners opposite; 2×2), played with the
   full **36-card deck**. 4 × 9 = 36 — the whole deck is dealt. Partners pool trick
   points and melds.

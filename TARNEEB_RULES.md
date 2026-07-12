@@ -53,7 +53,8 @@ successive **hands** up to a target (default **41**).
 
 ## 2. Players / Teams / Seating
 
-- **4 players**, exactly. No 2/3/5-player mode.
+- **4 players**, exactly. No 2/3/5-player mode. (Solo/individual variants: see
+  [§17 Solo / individual variant status](#17-solo--individual-variant-status).)
 - **2 fixed partnerships** of 2; partners sit **opposite** each other.
   - **Team A:** seats **0 and 2**.
   - **Team B:** seats **1 and 3**.
@@ -380,3 +381,22 @@ See **[`TARNEEB_PLAN.md`](TARNEEB_PLAN.md)** for the staged plan (10.1 pure core
 10.8 release with stats). **All stages are DONE — Tarneeb is released
 (`available`)**: local + server-authoritative online, per-`game_type` stats, and
 the same redaction/reconnect guarantees as the other three games.
+
+---
+
+## 17. Solo / individual variant status
+
+**Status (Stage 27.5): the released Tarneeb is team-only and stays that way.** These MVP rules
+describe the **4-player, fixed 2×2 partnership** game — that is the only implemented mode, and the
+engine, scoring, stats and lobby all assume it. Nothing below changes any rule above.
+
+A "solo / every-player-for-self" Tarneeb was **designed and evaluated** (docs-only), not built —
+see **[`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md)**. Three shapes were considered: (A) a
+3-player solo game (needs an invented deck/deal since 52 doesn't divide by 3 — not recommended),
+(B) a 4-player cutthroat 1-vs-3 game (clean 52/13 deck — preferred *if* a solo mode is ever
+added), and (C) keeping Tarneeb team-only for now and adding solo later as a **separate variant**
+behind a `variant` flag (default `'team'`). **Decision: C.** A solo mode changes contract scoring
+(team → individual), the per-team stats schema, the partner-assuming bot AI and the lobby team-UI,
+so it must be its own tested stage that leaves the released 2×2 game — and its existing online
+stats/leaderboard — untouched. Meanwhile, players who want an every-player-for-self card game can
+use **Deberc's 3-player mode**, which is exactly that today.

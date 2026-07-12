@@ -121,6 +121,9 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Deberc, 3 players:** teams still render, plus the note "*teams of 2 at 4 players;
       3 = each for themselves*"; Start is **enabled at 3** (Deberc's each-for-self is a
       valid game — not forced to 4). At 4/4 it reads "Teams ready".
+      *(Solo-modes decision, Stage 27.5: Deberc 3p IS the individual mode; Tarneeb stays
+      team-only — a solo Tarneeb variant is designed-only, see `SOLO_VARIANTS_PLAN.md`. No
+      runtime change to verify this stage — docs-only.)*
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

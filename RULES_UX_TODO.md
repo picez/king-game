@@ -10,7 +10,10 @@ are **DONE**.
 **Update (Stage 27.2):** Part B.2 (Deberc trump exchange) is **DONE**.
 **Update (Stage 27.3):** Part C.3 (Tarneeb view team tricks) is **DONE**.
 **Update (Stage 27.4):** Part E (clockwise + table-clarity audit) is **DONE** — see
-`CLOCKWISE_AUDIT.md`. Only remaining deferred item: D solo/individual modes.
+`CLOCKWISE_AUDIT.md`.
+**Update (Stage 27.5):** Part D (solo/individual modes) is **DESIGNED / decided** (docs-only) —
+see `SOLO_VARIANTS_PLAN.md`: Deberc already covers it (3p), Tarneeb stays team-only (Variant C).
+**All original Stage 27.0 backlog items are now resolved** (implemented or decided).
 
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.
@@ -57,14 +60,19 @@ stats stay score-only. Works local + online from the same server-authoritative s
 human-vs-human online games (idempotent, privacy-safe) with its own stats + leaderboard panels
 (released). Verified against `maybeRecordFinished` + `TarneebStatsPanel`.
 
-### D. Solo / individual modes for Deberc & Tarneeb (Req 2, Part D)
-**Large variant change — deferred (team mode stays intact).** Deberc already supports **3-player
-each-for-self** (its 3p mode is individual); Tarneeb is strictly 4-player 2×2. A full "individual"
-Tarneeb variant would need: a variant flag through setup/lobby, per-player (not per-team) scoring
-and stats aggregation, seat-parity assumptions removed, lobby team-UI made conditional, and bot
-logic that doesn't assume a partner. This is a multi-file rules change touching scoring — it must
-be its own stage with tests for **both** variants, and must not regress the released team mode.
-**This stage does not touch team scoring.**
+### D. Solo / individual modes for Deberc & Tarneeb (Req 2, Part D) — ✅ DESIGNED / DECISION MADE (Stage 27.5)
+Design-first audit done (docs-only) — see `SOLO_VARIANTS_PLAN.md`. Findings:
+- **Deberc — already covered.** Its **3-player mode is genuinely every-player-for-self**
+  (`teamOf = [0,1,2]`, `teamCount = 3`); 4p is the 2×2 pair mode. Engine + stats + docs + UX
+  already say so — no change needed (only a one-line `DEBERC_RULES.md` §1 cross-reference added).
+  So the owner's "play separately" desire is met in the product today.
+- **Tarneeb — decision: keep team-only (Variant C).** Three shapes were analysed (A: 3-player
+  solo — needs an invented deck/deal, not recommended; B: 4-player cutthroat 1-vs-3 — clean 52/13
+  deck, preferred *if* built; C: keep team-only in v0.3.x and treat solo as a separate future
+  variant). **Chosen: C.** Solo Tarneeb changes contract scoring, the per-team stats schema, the
+  partner-assuming bot AI and the lobby team-UI — a multi-file rules+data change that must be its
+  own tested stage with a `variant` flag defaulting to `'team'`, never a rewrite of the released
+  2×2 game. Released Tarneeb behaviour is unchanged; team scoring is not touched.
 
 ### E. Turn direction / clockwise audit (Req 7, Part E) — ✅ DONE (Stage 27.4)
 Audited all five games (see `CLOCKWISE_AUDIT.md`). King, Durak, Deberc and Preferans already read
