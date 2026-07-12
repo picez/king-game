@@ -245,6 +245,8 @@ export const AR: Record<string, string> = {
   'deberc.declarePrompt': 'أعلن تشكيلاتك',
   'deberc.declareConfirm': 'إعلان',
   'deberc.declarePass': 'تخطٍّ',
+  'deberc.exchangeTrump': 'استبدل الحكم المنخفض',
+  'deberc.exchangedLowTrump': 'استبدل الحكم المنخفض',
   'deberc.declaredBy': 'أعلن:',
   'deberc.noMelds': 'لا توجد تشكيلات للإعلان',
   'deberc.meldTo': 'حتى',

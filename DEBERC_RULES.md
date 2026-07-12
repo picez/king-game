@@ -1,5 +1,9 @@
 # Deberc Rules (Деберц) — v1.5
 
+> **v1.5b (Stage 27.2, owner):** **trump exchange (§3a)** — before the first card, the holder of the
+> lowest trump (7 for 3p, 6 for 4p) may swap it for the face-up table trump. Hand counts preserved;
+> once per hand; optional; public swap (no hidden-hand leak). Scoring unchanged.
+>
 > **v1.5 (Stage 27.0, owner):** the 50-point run is spelled **"Палтіна" (Paltina)** in the UI,
 > not "Платіна" — a display-only slang correction across en/uk/de/ar. The internal meld id stays
 > `platina` (no data migration). Rules/scoring unchanged.
@@ -97,6 +101,25 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
     so the **ХВ risk transfers to the player who actually chose trump**.
   - **All pass both rounds (§8.1):** the **table trump is forced onto the об'яз**
     (no redeal). *(resolved in code)*
+
+### 3a. Trump exchange (козирний обмін)  ✅ (v1.5, Stage 27.2)
+
+Once trump is set and **before the first card of the hand is played**, the player holding the
+**lowest trump** may **swap it for the face-up table trump**:
+
+- **3 players:** the low trump is the **7** of trump. **4 players:** the **6** of trump.
+- Example: trump ♦, the table shows **J♦**; the holder of **7♦** (3p) may take J♦ and leave 7♦ as
+  the new face-up table trump.
+- The low trump goes to where the exposed trump was (**3p:** the top of the stock; **4p:** the
+  dealer's hand, into which the table trump was taken with the прикуп) and the exposed card enters
+  the exchanger's hand. **Hand counts are unchanged** (a straight swap; the 36-card total holds).
+- **Once per hand** — after the swap the face-up trump IS the low trump, so no further exchange is
+  possible. It is **optional**: a player may simply declare / play without exchanging.
+- **Timing / implementation:** offered on that player's **declaring turn**, before they declare
+  (so it never invalidates a meld). Only the lone holder of the low trump is ever eligible, so
+  gating it to the acting declarer matches "any player with the low trump" while staying turn-based
+  for online play. Bots exchange automatically when eligible. Action: `EXCHANGE_TRUMP`. The swap is
+  **public** (the new table trump + a "X swapped the low trump" note); no hidden hand is revealed.
 
 ---
 

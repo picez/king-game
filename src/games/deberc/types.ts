@@ -116,6 +116,10 @@ export interface DebercState {
   prykup: Card[][];
   /** Chosen trump suit; null until bidding commits one. */
   trumpSuit: Suit | null;
+  /** Trump exchange (Stage 27.2): true once the low trump has been swapped for the table trump
+   *  this hand (once per hand); `trumpExchangedBy` names the seat for the public note. */
+  trumpExchanged: boolean;
+  trumpExchangedBy: number | null;
 
   /** The current об'яз seat (obligated maker; judged for ХВ). Updated on bid interception. */
   objazSeat: number;
@@ -250,6 +254,12 @@ export type DebercAction =
    * ends the match immediately.
    */
   | { type: 'DECLARE_MELD'; melds: { kind: DebercMeldKind; topRank?: Rank; suit?: Suit }[] }
+  /**
+   * Trump exchange (Stage 27.2, §6a): the acting seat swaps its LOWEST trump (7 for 3p, 6 for
+   * 4p) for the face-up table trump, before it declares. Turn-gated to the current declarer (so
+   * only the lone holder of the low trump can do it, on their declaring turn). Once per hand.
+   */
+  | { type: 'EXCHANGE_TRUMP' }
   /** Play a card into the current trick. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */

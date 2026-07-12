@@ -789,6 +789,14 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       in the meld picker, stats, and rules — in all four languages.
 - [ ] **Deberc skip-meld is red:** on the meld-declaration step the **skip** button is red
       (destructive); the table cards are noticeably **larger**.
+- [ ] **Deberc trump exchange (Stage 27.2):** in a Deberc hand, if you hold the **lowest trump**
+      (**7** in 3-player, **6** in 4-player), on your **declaring turn** a **"🔄 Swap low trump"**
+      button appears; tapping it puts the **face-up table trump into your hand** and leaves your low
+      trump as the new table trump (your hand keeps the same number of cards). A public note **"X
+      swapped the low trump"** shows; opponents never see your other cards. The button appears
+      **only** for the eligible holder, **once** per hand, and **only before the first card** is
+      played. Skipping (declare / play) still works. Bots do the swap automatically when eligible.
+      Works local + online; no overflow at 360/390.
 
 ## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 

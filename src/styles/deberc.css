@@ -266,6 +266,12 @@
 }
 /* The skip-meld button reads as destructive (red) — sits apart from the confirm. */
 .deberc-screen .deberc-skip-meld { margin-top: 0.2rem; }
+/* Trump exchange (Stage 27.2): the swap button + the public "X swapped" note. */
+.deberc-screen .deberc-exchange-trump { align-self: center; }
+.deberc-exchange-note {
+  margin: 0.2rem auto; padding: 0.25rem 0.6rem; border-radius: 999px; text-align: center;
+  font-size: 0.82rem; background: var(--surface-2); border: 1px solid var(--border); width: fit-content;
+}
 
 /* Uniform seat boxes so the icons/labels line up regardless of how many chips a
    seat shows, and a rounded rect (not a pill) since the content is multi-line. */

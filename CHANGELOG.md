@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added (Stage 27.2 — Deberc trump exchange)
+
+- **Deberc trump exchange** — before the first card, the holder of the lowest trump (7 in
+  3-player, 6 in 4-player) can swap it for the face-up table trump ("🔄 Swap low trump" on their
+  declaring turn). The exposed card enters their hand and the low trump becomes the new table
+  trump — the hand keeps the same number of cards, once per hand, optional. A public note shows
+  the swap; no hidden hand is revealed. Bots do it automatically. Enforced in the pure reducer, so
+  online validates identically.
+
 ### Changed (Stage 27.1 — menu sections + sender-anchored reactions)
 
 - **Profile is split into clear sections** — Account, Friends, Statistics, Achievements and

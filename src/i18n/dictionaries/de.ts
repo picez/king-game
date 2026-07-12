@@ -245,6 +245,8 @@ export const DE: Record<string, string> = {
   'deberc.declarePrompt': 'Melde deine Kombinationen',
   'deberc.declareConfirm': 'Melden',
   'deberc.declarePass': 'Überspringen',
+  'deberc.exchangeTrump': 'Tiefen Trumpf tauschen',
+  'deberc.exchangedLowTrump': 'hat den tiefen Trumpf getauscht',
   'deberc.declaredBy': 'Gemeldet:',
   'deberc.noMelds': 'Keine Kombinationen zum Melden',
   'deberc.meldTo': 'bis',

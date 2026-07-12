@@ -16,7 +16,7 @@
 import type { Card, Rank, Suit } from '../../models/types';
 import type { DebercAction, DebercMeldKind, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
-import { legalPlays, resolveTrick } from './rules';
+import { legalPlays, resolveTrick, canExchangeTrump } from './rules';
 import { detectAllSequences, hasBella } from './melds';
 
 /**
@@ -187,6 +187,9 @@ function playAction(state: DebercState): DebercAction {
  */
 function declareAction(state: DebercState): DebercAction {
   const seat = state.meldTurnSeat;
+  // Trump exchange (Stage 27.2): swap the low trump for the exposed one FIRST, before declaring —
+  // it can only improve the hand. The next bot call then declares from the post-exchange hand.
+  if (canExchangeTrump(state, seat)) return { type: 'EXCHANGE_TRUMP' };
   const hand = state.dealtHands[seat];
   const melds: { kind: DebercMeldKind; topRank?: Rank; suit?: Suit }[] = [];
   // Announce EVERY held sequence (one per suit, with its real nominal + suit) — a

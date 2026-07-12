@@ -3,9 +3,39 @@
 // See DEBERC_RULES.md §5. Pure, no state mutation.
 // ---------------------------------------------------------------------------
 
-import type { Card, Suit } from '../../models/types';
+import type { Card, Suit, Rank } from '../../models/types';
 import { trickStrength } from './deck';
-import type { DebercPlay } from './types';
+import type { DebercPlay, DebercState } from './types';
+
+/** The lowest trump card's rank by table size (Stage 27.2): 3p uses a 32-card deck (low = 7),
+ *  4p a 36-card deck (low = 6). */
+export function lowTrumpRank(playerCount: number): Rank {
+  return playerCount === 4 ? '6' : '7';
+}
+
+/**
+ * Whether the CURRENT declarer (`seat`) may exchange its lowest trump for the face-up table trump
+ * right now (Stage 27.2, §6a — "the low trump"). Turn-gated to the declarer so it works over the
+ * turn-based online authorization; the low trump is held by exactly one player, who reaches their
+ * own declaring turn. Allowed once per hand, before that seat declares (and, for 4p, before the
+ * dealer — whose hand holds the exposed trump — declares, so no meld is invalidated).
+ */
+export function canExchangeTrump(state: DebercState, seat: number): boolean {
+  if (state.phase !== 'declaring' || state.trumpSuit == null || state.trumpExchanged) return false;
+  if (seat !== state.meldTurnSeat || state.meldsDone[seat]) return false;
+  const n = state.players.length;
+  const trump = state.trumpSuit;
+  const lowRank = lowTrumpRank(n);
+  const hand = state.players[seat].hand;
+  if (!hand.some((c) => c.suit === trump && c.rank === lowRank)) return false;
+  const exposed = state.tableTrumpCard;
+  if (exposed.suit === trump && exposed.rank === lowRank) return false; // already the low trump
+  if (n === 4) {
+    if (state.meldsDone[state.dealerSeat]) return false;                // dealer's melds must stay valid
+    if (hand.some((c) => cardEquals(c, exposed))) return false;         // can't swap the exposed with itself
+  }
+  return true;
+}
 
 export function isTrump(card: Card, trumpSuit: Suit | null): boolean {
   return trumpSuit != null && card.suit === trumpSuit;

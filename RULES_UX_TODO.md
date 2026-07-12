@@ -6,8 +6,9 @@ CHANGELOG). To avoid half-breaking released games in one pass, the larger items 
 is half-implemented** — current team modes / navigation / turn order are untouched.
 
 **Update (Stage 27.1):** Part A (profile section split) and Part F.4 (sender-anchored reactions)
-are now **DONE** — see their sections below. Remaining deferred: B.2 trump exchange, C.3 view
-tricks, D solo modes, E clockwise audit.
+are **DONE**.
+**Update (Stage 27.2):** Part B.2 (Deberc trump exchange) is **DONE**. Remaining deferred:
+C.3 Tarneeb view tricks, D solo/individual modes, E clockwise audit.
 
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.
@@ -31,17 +32,15 @@ cleanly at 360/390, RTL-safe. The incoming friend-request **badge** shows on the
 the Friends section header). The per-game Stats/Leaderboard selectors and the Achievements toast
 are preserved inside their sections.
 
-### B.2 Deberc trump exchange (Req 3, Part B.2)
-**Rule:** before the first trick, once trump is revealed on the table, any player holding the
-**lowest trump** may swap it for the face-up table trump: **7 of trump (3-player), 6 of trump
-(4-player)**. Example: trump ♦, table shows **J♦**, a player holding **7♦** swaps 7♦ ⇄ J♦.
-**Design:** a new pre-play window + action `EXCHANGE_TRUMP` in the Deberc reducer (pure), a
-`canExchangeTrump(state, seat)` check (eligible card by player count, before any trick, trump on
-table), hand counts preserved, a public event that leaks no other hidden cards, bot performs it if
-available, and online redaction unchanged. UI: an "Exchange" button only when eligible + the table
-trump shown clearly. **Deferred** because it adds a new phase/action to a released engine — needs
-its own stage with the full test matrix (eligible 3p/4p, ineligible reject, only-before-play,
-counts preserved, bot, no-leak).
+### B.2 Deberc trump exchange (Req 3, Part B.2) — ✅ DONE (Stage 27.2)
+Implemented for **3p (7) and 4p (6)**: action `EXCHANGE_TRUMP` + pure `canExchangeTrump(state, seat)`
+in the Deberc reducer/rules; offered on the declarer's turn before they declare (the lone low-trump
+holder reaches their own turn, so it works over the turn-based online auth). The low trump swaps for
+the face-up table trump (from the stock for 3p / the dealer's hand for 4p) — **counts preserved,
+36-card total holds**; once per hand; optional. Bots exchange automatically. Redaction is public-safe
+(new table trump + a "X swapped" note; no hidden hand leaked). See DEBERC_RULES §3a. Full test matrix
+in `trumpExchange.test.ts` (eligible 3p/4p, ineligible/second/after-play rejected, counts preserved,
+bot, redaction, UI/i18n).
 
 ### C.3 Tarneeb "view my tricks" (Req 9, Part C.3)
 Add a "My tricks" drawer/modal (like Deberc's existing `deberc-mytricks`) showing the tricks

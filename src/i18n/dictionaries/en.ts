@@ -245,6 +245,8 @@ export const EN: Record<string, string> = {
   'deberc.declarePrompt': 'Declare your melds',
   'deberc.declareConfirm': 'Declare',
   'deberc.declarePass': 'Skip',
+  'deberc.exchangeTrump': 'Swap low trump',
+  'deberc.exchangedLowTrump': 'swapped the low trump',
   'deberc.declaredBy': 'Declared:',
   'deberc.noMelds': 'No melds to declare',
   'deberc.meldTo': 'to',

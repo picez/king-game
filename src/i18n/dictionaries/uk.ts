@@ -245,6 +245,8 @@ export const UK: Record<string, string> = {
   'deberc.declarePrompt': 'Оголосіть комбінації',
   'deberc.declareConfirm': 'Оголосити',
   'deberc.declarePass': 'Пропустити',
+  'deberc.exchangeTrump': 'Обміняти низький козир',
+  'deberc.exchangedLowTrump': 'обміняв низький козир',
   'deberc.declaredBy': 'Оголосив:',
   'deberc.noMelds': 'Немає що оголошувати',
   'deberc.meldTo': 'до',

@@ -14,7 +14,7 @@
 import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercContext, DebercMeld, DebercMeldKind, DebercPlayer, DebercState } from './types';
 import { dealDeberc, seqValue, DEBERC_SUITS } from './deck';
-import { cardEquals, isLegalPlay, legalPlays, resolveTrick } from './rules';
+import { cardEquals, isLegalPlay, legalPlays, resolveTrick, canExchangeTrump, lowTrumpRank } from './rules';
 import { announcedMeld, hasBella, scoringDeclaredMelds } from './melds';
 import { BELLA_POINTS, scoreHand } from './scoring';
 
@@ -30,6 +30,12 @@ function clone(state: DebercState): DebercState {
 function removeCard(hand: Card[], card: Card): void {
   const i = hand.findIndex((c) => cardEquals(c, card));
   if (i >= 0) hand.splice(i, 1);
+}
+
+/** Replace the first card equal to `from` with `to` (in place). No-op if `from` is absent. */
+function replaceCard(list: Card[], from: Card, to: Card): void {
+  const i = list.findIndex((c) => cardEquals(c, from));
+  if (i >= 0) list[i] = { ...to };
 }
 
 /** Index of the max value; ties broken toward the lowest index (deterministic). */
@@ -94,6 +100,8 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
   s.tableTrumpCard = tableTrumpCard;
   s.stock = stock;
   s.trumpSuit = null;
+  s.trumpExchanged = false;
+  s.trumpExchangedBy = null;
   s.phase = 'bidding';
   s.bidderSeat = (dealerSeat + 1) % n;
   s.bids = [];
@@ -168,6 +176,7 @@ function startDeberc(
   const s: DebercState = {
     gameType: 'deberc', matchSize: action.matchSize, players, teamOf, teamCount,
     phase: 'bidding', tableTrumpCard, stock, prykup, trumpSuit: null,
+    trumpExchanged: false, trumpExchangedBy: null,
     objazSeat: dealerSeat, dealerSeat, bidderSeat: (dealerSeat + 1) % n, bids: [], bidRound: 1,
     currentTrick: null, turnSeat: dealerSeat,
     wonCards: Array.from({ length: n }, () => []), tricksPlayed: 0, seatsWithTricks: [], melds: [],
@@ -378,6 +387,36 @@ export function debercReducer(
       if (state.phase !== 'hand_scoring') return state;
       const s = clone(state);
       scoreAndAdvance(s, ctx);
+      return s;
+    }
+
+    case 'EXCHANGE_TRUMP': {
+      // §6a (Stage 27.2): the current declarer swaps its lowest trump for the face-up table trump,
+      // before it declares. Same card total (36) — one card moves between the hand and wherever the
+      // exposed trump lives (3p: the stock; 4p: the dealer's hand). Illegal → same ref (no-op).
+      const seat = state.meldTurnSeat;
+      if (!canExchangeTrump(state, seat)) return state;
+      const s = clone(state);
+      const trump = s.trumpSuit as Suit;
+      const lowRank = lowTrumpRank(s.players.length);
+      const exposed = { ...s.tableTrumpCard };
+      // The low trump is a REAL card in the seat's hand — copy it (keeps its `value`).
+      const lowInHand = s.players[seat].hand.find((c) => c.suit === trump && c.rank === lowRank);
+      if (!lowInHand) return state;
+      const low: Card = { ...lowInHand };
+      // 1) The player gives up its low trump and takes the exposed card.
+      replaceCard(s.players[seat].hand, low, exposed);
+      replaceCard(s.dealtHands[seat], low, exposed);       // keep the meld snapshot consistent
+      // 2) The low trump becomes the new face-up table trump, taken from where the exposed one was.
+      if (s.players.length === 3) {
+        replaceCard(s.stock, exposed, low);                // 3p: the exposed trump is the stock top
+      } else {
+        replaceCard(s.players[s.dealerSeat].hand, exposed, low); // 4p: it was in the dealer's hand
+        replaceCard(s.dealtHands[s.dealerSeat], exposed, low);
+      }
+      s.tableTrumpCard = { ...low };
+      s.trumpExchanged = true;
+      s.trumpExchangedBy = seat;
       return s;
     }
 

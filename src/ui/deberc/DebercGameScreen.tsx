@@ -4,7 +4,7 @@ import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercMeld, DebercMeldKind, DebercState } from '../../games/deberc/types';
 import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/engine';
-import { cardEquals } from '../../games/deberc/rules';
+import { cardEquals, canExchangeTrump } from '../../games/deberc/rules';
 import { detectAllSequences, hasBella } from '../../games/deberc/melds';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
@@ -94,6 +94,10 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   // hold (each with its nominal). Among equal kinds the highest nominal reveals &
   // scores; lower holders do not reveal. No bluff.
   const myDeclare = phase === 'declaring' && state.meldTurnSeat === meSeat;
+  // Trump exchange (Stage 27.2): on my declaring turn, if I hold the low trump I may swap it for
+  // the face-up table trump before declaring. A public note shows once it happened.
+  const canExchange = canExchangeTrump(state, meSeat);
+  const exchangedByName = state.trumpExchangedBy != null ? state.players[state.trumpExchangedBy]?.name : null;
   const kindLabel = (kind: DebercMeldKind) =>
     kind === 'deberc' ? t('deberc.meldDeberc')
       : kind === 'platina' ? t('deberc.meldPlatina')
@@ -323,6 +327,11 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </button>
       </div>
 
+      {/* Public trump-exchange note (Stage 27.2) — no hidden-hand detail, just the public swap. */}
+      {state.trumpExchanged && exchangedByName && (state.phase === 'declaring' || state.phase === 'playing') && (
+        <p className="deberc-exchange-note" role="status">🔄 <strong>{exchangedByName}</strong> {t('deberc.exchangedLowTrump')}</p>
+      )}
+
       {/* Bidding controls (only on my bid turn). */}
       {myBid && (
         <div className="durak-controls">
@@ -358,6 +367,12 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
             {declareSecondsLeft != null && <strong className="deberc-declare__timer" aria-live="polite">⏱ {declareSecondsLeft}s</strong>}
             {' '}{t('deberc.declareHint')}
           </span>
+          {/* Trump exchange (Stage 27.2): swap the low trump for the face-up table trump first. */}
+          {canExchange && (
+            <button type="button" className="btn btn--outline deberc-exchange-trump" onClick={() => apply({ type: 'EXCHANGE_TRUMP' })}>
+              🔄 {t('deberc.exchangeTrump')}
+            </button>
+          )}
           <div className="deberc-declare__buttons">
             {myMelds.length === 0 && <span className="deberc-declare__none">{t('deberc.noMelds')}</span>}
             {myMelds.map((m, i) => (
