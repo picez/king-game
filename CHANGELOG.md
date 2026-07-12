@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed (Stage 27.4 — clockwise & table-clarity audit)
+
+- **Play now reads clockwise in every game.** Audited all five (`CLOCKWISE_AUDIT.md`); King,
+  Durak, Deberc and Preferans were already clockwise. **Tarneeb** read counter-clockwise on
+  screen and was corrected **UI-only** — the turn now sweeps to your left, with your partner
+  still opposite at the top. Dealing, partnerships, play order and scoring are unchanged.
+- **King now flags the led card** of the current trick with the same "1" badge + ring the other
+  games use, so it's always clear who led. (The winning card already pulses when a trick is
+  taken.) Reveal delay stays a readable ~2 s across every game.
+
 ### Added (Stage 27.3 — Tarneeb team-tricks review)
 
 - **Tarneeb: view your team's taken tricks** — a "🃏 Team tricks" button opens a review of every

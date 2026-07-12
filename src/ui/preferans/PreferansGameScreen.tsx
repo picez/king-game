@@ -30,8 +30,9 @@ interface Props {
 }
 
 /** Seat slots around the felt by RELATIVE offset from the viewer (bottom). Preferans
- *  plays to the LEFT (0→1→2); with the viewer at the bottom that reads bottom → left
- *  → right, so play flows counter-clockwise and is NOT RTL-mirrored (RULES §2, §8). */
+ *  plays to the next seat by index (0→1→2, RULES §2); mapping the successor to the LEFT
+ *  slot makes the turn sweep bottom → left → right, which reads CLOCKWISE, and is NOT
+ *  RTL-mirrored (§8). See CLOCKWISE_AUDIT.md. */
 const POSITIONS = ['bottom', 'left', 'right'] as const;
 type SeatPos = (typeof POSITIONS)[number];
 function seatPosition(seat: number, viewerSeat: number): SeatPos {

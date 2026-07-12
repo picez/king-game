@@ -87,16 +87,17 @@ export default function TablePlayers({ viewerId }: Props) {
       {/* Current trick: each played card positioned in front of its player. */}
       <div className={`table__center ${collecting ? 'table__center--collecting' : ''}`}>
         {trick && trick.plays.length > 0 ? (
-          trick.plays.map((play) => {
+          trick.plays.map((play, i) => {
             const seat = players.find((p) => p.id === play.playerId)?.seatIndex ?? viewerSeat;
             const pos = relPos(seat);
             const isWinning = collecting && play.playerId === winnerId;
+            // plays[0] is the seat that led this trick (the trick is built in play order).
             return (
               <div
                 key={play.playerId}
                 className={`trick-slot trick-slot--${pos} ${isWinning ? 'trick-slot--winning' : ''}`}
               >
-                <CardView card={play.card} size="table" highlight={isWinning} />
+                <CardView card={play.card} size="table" highlight={isWinning} lead={i === 0} />
               </div>
             );
           })

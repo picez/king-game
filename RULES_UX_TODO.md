@@ -8,8 +8,9 @@ is half-implemented** — current team modes / navigation / turn order are untou
 **Update (Stage 27.1):** Part A (profile section split) and Part F.4 (sender-anchored reactions)
 are **DONE**.
 **Update (Stage 27.2):** Part B.2 (Deberc trump exchange) is **DONE**.
-**Update (Stage 27.3):** Part C.3 (Tarneeb view team tricks) is **DONE**. Remaining deferred:
-D solo/individual modes, E clockwise audit.
+**Update (Stage 27.3):** Part C.3 (Tarneeb view team tricks) is **DONE**.
+**Update (Stage 27.4):** Part E (clockwise + table-clarity audit) is **DONE** — see
+`CLOCKWISE_AUDIT.md`. Only remaining deferred item: D solo/individual modes.
 
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.
@@ -65,14 +66,17 @@ logic that doesn't assume a partner. This is a multi-file rules change touching 
 be its own stage with tests for **both** variants, and must not regress the released team mode.
 **This stage does not touch team scoring.**
 
-### E. Turn direction / clockwise audit (Req 7, Part E)
-Current engine turn order: Durak lays opponents **clockwise in play order** (UI comment); Tarneeb
-plays **counter-clockwise** (seat 0→3→2→1) per TARNEEB_RULES §2; King/Deberc/Preferans follow their
-own dealing order. The owner wants play to read **clockwise by UI seating**. **Action for a
-follow-up:** verify per game whether the *engine* next-seat order and the *screen* seat layout
-agree with a clockwise read; where they disagree, prefer fixing the **UI layout/labels** (not the
-engine, to avoid changing dealing/scoring). Add a per-game "next seat order" guard test. Deferred —
-needs a careful visual audit on device, not a blind engine flip.
+### E. Turn direction / clockwise audit (Req 7, Part E) — ✅ DONE (Stage 27.4)
+Audited all five games (see `CLOCKWISE_AUDIT.md`). King, Durak, Deberc and Preferans already read
+**clockwise** (engine advances +1 and the screen maps the successor to the left slot). **Tarneeb**
+was the only miss: its engine order is counter-clockwise *by index* (0→3→2→1, §2) and the old UI
+mapping put the successor on the **right**, so it read counter-clockwise. Fixed **UI-only** by
+mirroring the seat mapping to `(viewerSeat − seat + 4) % 4` — the successor now lands on the left
+(bottom→left→top→right = clockwise), the partner stays opposite at the top, and dealing /
+partnerships / play order / scoring are untouched. Preferans's stale "counter-clockwise" comment
+was corrected. Guard test `clockwiseAudit.test.ts` runs each engine's real successor through its
+slot mapping and asserts the clockwise invariant, plus lead/winner/pair markup and the ~2000 ms
+reveal delay.
 
 ### F.4 Reactions/emoji over the sender (Req 8, Part F.4) — ✅ DONE (Stage 27.1)
 Reactions + stickers now float **over the sender's seat** instead of top-centre. A pure helper

@@ -57,12 +57,13 @@ successive **hands** up to a target (default **41**).
 - **2 fixed partnerships** of 2; partners sit **opposite** each other.
   - **Team A:** seats **0 and 2**.
   - **Team B:** seats **1 and 3**.
-- Play and seating order is **counter-clockwise**: seat 0 → seat 3 → seat 2 →
-  seat 1 → seat 0 …
-  - (Equivalently, "the player to your right acts after you.")
-- **UI:** draw the four seats around a table in **turn order**, with the local
-  viewer's seat **at the bottom**; the viewer's partner is at the top, opponents
-  left and right. Rotate the display so the acting seat is always highlighted.
+- Play and seating order is **counter-clockwise by seat index**: seat 0 → seat 3 →
+  seat 2 → seat 1 → seat 0 … (Equivalently, "the player to your right acts after you.")
+- **UI (Stage 27.4):** the screen **mirrors** this so play *reads clockwise* for the
+  viewer — the local seat is at the **bottom**, the seat that acts next after you is on
+  your **left**, your partner is at the **top**, so the turn sweeps bottom → left → top →
+  right. This is a display mirror only: the play order, dealing and partnerships above are
+  unchanged. Rotate/highlight so the acting seat is always marked. See `CLOCKWISE_AUDIT.md`.
 
 ---
 

@@ -30,13 +30,16 @@ interface Props {
 }
 
 /** Seat positions around the felt by RELATIVE offset from the viewer (bottom).
- *  Tarneeb plays counter-clockwise (0→3→2→1); with the viewer at the bottom that
- *  reads bottom → right → top → left, so the seat offset maps directly to a slot
- *  and the partner (offset 2) always sits at the top (TARNEEB_RULES §2). */
+ *  Tarneeb's internal seat order is counter-clockwise BY INDEX (0→3→2→1, TARNEEB_RULES
+ *  §2), but the owner wants play to READ clockwise on screen. We map the *engine*
+ *  successor (seat−1) to the LEFT slot, so the turn sweeps bottom → left → top → right
+ *  (clockwise) while the partner (offset 2) still sits opposite at the top. UI-only:
+ *  dealing, partnerships, scoring and the play order itself are unchanged — only the
+ *  left/right screen placement mirrors. See CLOCKWISE_AUDIT.md. */
 const POSITIONS = ['bottom', 'left', 'top', 'right'] as const;
 type SeatPos = (typeof POSITIONS)[number];
 function seatPosition(seat: number, viewerSeat: number): SeatPos {
-  return POSITIONS[(seat - viewerSeat + 4) % 4];
+  return POSITIONS[(viewerSeat - seat + 4) % 4];
 }
 
 const SUIT_ORDER: Record<Suit, number> = { spades: 0, hearts: 1, diamonds: 2, clubs: 3 };

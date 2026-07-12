@@ -71,6 +71,20 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Round scoring matches KING_RULES.md; game ends after 27 rounds (3p) / 36 (4p).
 - [ ] 4-player game deals 13 each, no kitty.
 
+## Manual — clockwise & table clarity (Stage 27.4)
+
+- [ ] In **every** game the turn highlight moves **clockwise** (to your left first) —
+      King, Durak, Deberc, Tarneeb, Preferans. (Tarneeb was mirrored in 27.4; partner
+      still sits opposite at the top.)
+- [ ] Current trick: the **led card** shows the "1" badge/ring; each played card sits in
+      front of the player who played it; the **winning card + seat** pulse when the trick
+      is taken. King now shows the lead badge too.
+- [ ] **Durak:** each attack card is paired with its covering defense; still-open attacks
+      stand out; after a take/beat the last bout lingers ~2 s and stays readable.
+- [ ] **Tarneeb:** "🃏 Team tricks" review shows your side's tricks with the lead flagged.
+- [ ] The final card/trick lingers **~2 s** before play advances (all games, local + online).
+- [ ] 360/390 + RTL Arabic: seat labels and the lead badge don't overflow or crowd the hand.
+
 ## Manual — LAN online
 
 - [ ] `npm run server` and `npm run dev -- --host`; note the LAN IP.

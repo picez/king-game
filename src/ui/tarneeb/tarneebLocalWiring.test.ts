@@ -71,11 +71,13 @@ describe('TarneebLocalGame uses the pure core (no server state)', () => {
   });
 });
 
-describe('Seating is counter-clockwise with the viewer at the bottom', () => {
+describe('Seating reads clockwise with the viewer at the bottom (Stage 27.4)', () => {
   const screen = read('./TarneebGameScreen.tsx');
-  it('maps a seat offset to bottom/left/top/right so the partner sits on top', () => {
+  it('mirrors the seat offset so the successor sits on the left and the partner on top', () => {
     expect(screen).toContain("const POSITIONS = ['bottom', 'left', 'top', 'right']");
-    expect(screen).toContain('POSITIONS[(seat - viewerSeat + 4) % 4]');
+    // Mirrored (viewer − seat): the CCW-by-index engine order reads clockwise on screen.
+    // See clockwiseAudit.test.ts + CLOCKWISE_AUDIT.md.
+    expect(screen).toContain('POSITIONS[(viewerSeat - seat + 4) % 4]');
     // Legal cards flow from the pure rule generator (forced follow-suit).
     expect(screen).toContain('getValidPlayableCards(state, humanSeat)');
     // Bidding buttons come from the pure bid generator.
