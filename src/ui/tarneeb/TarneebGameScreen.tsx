@@ -12,6 +12,7 @@ import {
 } from '../../games/tarneeb/rules';
 import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
 import TarneebHelp from './TarneebHelp';
+import TarneebTricksReview from './TarneebTricksReview';
 
 interface Props {
   state: TarneebState;
@@ -57,6 +58,7 @@ const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
 export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
+  const [showTricks, setShowTricks] = useState(false);
 
   const myTeam = teamOfSeat(humanSeat);
   const theirTeam = myTeam === 'A' ? 'B' : 'A';
@@ -115,10 +117,16 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
   return (
     <div className={`screen tarneeb-screen ${online ? 'tarneeb-screen--online' : ''}`}>
       {showHelp && <TarneebHelp onClose={() => setShowHelp(false)} />}
+      {showTricks && <TarneebTricksReview state={state} mySeat={humanSeat} onClose={() => setShowTricks(false)} />}
 
       <div className="tarneeb-topbar">
         <button type="button" className="btn btn--ghost tarneeb-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className="tarneeb-phase">{t(`tarneeb.phase.${phaseKey(phase)}`)}</span>
+        {/* Review my team's taken tricks (Stage 27.3) — available once any trick has been won. */}
+        <button type="button" className="btn btn--ghost tarneeb-tricks-btn" onClick={() => setShowTricks(true)}
+          aria-label={t('tarneeb.reviewTricks')} title={t('tarneeb.reviewTricks')}>
+          🃏 {state.tricksByTeam[myTeam]}
+        </button>
         <button type="button" className="btn btn--ghost tarneeb-help-btn" onClick={() => setShowHelp(true)} aria-label={t('tarneeb.howToPlay')}>❓</button>
       </div>
 

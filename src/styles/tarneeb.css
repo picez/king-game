@@ -318,3 +318,16 @@
 .tarneeb-finished__score-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
 .tarneeb-finished__score-value { font-size: 1.8rem; font-weight: 900; color: var(--text); }
 .tarneeb-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* Team-tricks review (Stage 27.3): a modal listing the tricks your side has taken this hand. */
+.tarneeb-tricks-btn { min-height: 2rem; padding: 0.15rem 0.5rem; font-size: 0.85rem; }
+.durak-help.tarneeb-tricks-modal { width: min(30rem, 94vw); }
+.tarneeb-tricks__opp { margin: 0 0 0.4rem; }
+.tarneeb-tricks { display: flex; flex-direction: column; gap: 0.5rem; max-height: 60vh; overflow-y: auto; }
+.tarneeb-tricks__row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.4rem; border-radius: var(--radius-sm, 8px); background: var(--surface-2);
+}
+.tarneeb-tricks__n { min-width: 2rem; color: var(--text-dim); font-weight: 700; font-size: 0.8rem; flex: 0 0 auto; }
+.tarneeb-tricks__won { min-width: 3.5rem; max-width: 5rem; font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 0 auto; }
+.tarneeb-tricks__cards { display: flex; flex-wrap: wrap; gap: 0.25rem; }

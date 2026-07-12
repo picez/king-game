@@ -9,6 +9,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added (Stage 27.3 — Tarneeb team-tricks review)
+
+- **Tarneeb: view your team's taken tricks** — a "🃏 Team tricks" button opens a review of every
+  trick your side has won this hand (winner + the 4 cards in play order, lead card flagged);
+  opponents show as a count only. Display-only (the played cards are already public), so no rules,
+  scoring, or stats change; works local and online.
+
 ### Added (Stage 27.2 — Deberc trump exchange)
 
 - **Deberc trump exchange** — before the first card, the holder of the lowest trump (7 in

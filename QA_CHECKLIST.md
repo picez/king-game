@@ -781,6 +781,12 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 
 - [ ] **Tarneeb minimum bid = 3:** in the bidding sheet the buttons now start at **3** (3–13). A bid
       of 3 is accepted; 2 is not offered. Bots still open at 7+ (they won't bid a low contract).
+- [ ] **Tarneeb team-tricks review (Stage 27.3):** in a Tarneeb game the top bar shows a **"🃏 N"**
+      button (N = your team's tricks). Tap it → a modal lists every trick **your side** has taken
+      this hand — trick number, winner, the 4 cards in play order with the **lead card badged**;
+      opponents show as a **count** only. Before any trick it reads **"No tricks yet."** Works while
+      **playing** and at **hand-complete**, local + online; no overflow at 360/390; no opponent hand
+      is ever revealed (only already-played public cards).
 - [ ] **Tarneeb trump obligation:** when you are **void in the led suit** but **hold a trump**, only
       your **trump(s)** are playable (a non-trump discard is rejected/greyed). If you hold a card of
       the led suit you must still **follow suit** (not trump). Void in both → any card is legal. This

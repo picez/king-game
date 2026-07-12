@@ -153,6 +153,9 @@ successive **hands** up to a target (default **41**).
 - The winning side **collects** the trick (only the count matters for scoring).
 - Exactly **13 tricks** are played per hand; the 13 tricks always sum to 13
   across the two teams.
+- **UI (Stage 27.3):** a "🃏 Team tricks" review lets a player look back at every trick **their
+  side** has taken this hand (the cards are already public once played); opponents show as a count
+  only. Presentational — it changes no rules, scoring, or stats.
 
 ---
 

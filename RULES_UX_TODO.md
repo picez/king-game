@@ -7,8 +7,9 @@ is half-implemented** — current team modes / navigation / turn order are untou
 
 **Update (Stage 27.1):** Part A (profile section split) and Part F.4 (sender-anchored reactions)
 are **DONE**.
-**Update (Stage 27.2):** Part B.2 (Deberc trump exchange) is **DONE**. Remaining deferred:
-C.3 Tarneeb view tricks, D solo/individual modes, E clockwise audit.
+**Update (Stage 27.2):** Part B.2 (Deberc trump exchange) is **DONE**.
+**Update (Stage 27.3):** Part C.3 (Tarneeb view team tricks) is **DONE**. Remaining deferred:
+D solo/individual modes, E clockwise audit.
 
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.
@@ -42,11 +43,13 @@ the face-up table trump (from the stock for 3p / the dealer's hand for 4p) — *
 in `trumpExchange.test.ts` (eligible 3p/4p, ineligible/second/after-play rejected, counts preserved,
 bot, redaction, UI/i18n).
 
-### C.3 Tarneeb "view my tricks" (Req 9, Part C.3)
-Add a "My tricks" drawer/modal (like Deberc's existing `deberc-mytricks`) showing the tricks
-your team/you have taken this hand, from `completedTricks` (winner + cards). No hidden-hand leak
-(only completed, public tricks). Available during/after the hand, mobile-safe. **Deferred** — a
-bounded UI add; grouped with Part A (both are UI-navigation) for a follow-up.
+### C.3 Tarneeb "view my tricks" (Req 9, Part C.3) — ✅ DONE (Stage 27.3)
+A "🃏 Team tricks (N)" button in the Tarneeb top bar opens `TarneebTricksReview` — a modal listing
+every trick YOUR SIDE (2×2 partnership) has taken this hand, each with its hand trick number, the
+winner, the 4 cards in play order and the **lead card flagged**; the opponents show as a **count**
+only, with a "No tricks yet." empty state. UI-ONLY: the played cards already live in the PUBLIC
+`completedTricks` (redaction hides only `handsBySeat`), so no engine/redaction/protocol/DB change —
+stats stay score-only. Works local + online from the same server-authoritative state.
 
 ### C.4 Tarneeb stats (Req 13) — audit result
 **No change needed.** Tarneeb already records per-`(user, game_type='tarneeb')` stats on finished
