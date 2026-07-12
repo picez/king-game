@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.1] — 2026-07-12 — Gameplay polish & friends/voice fixes
+
+A patch release rolling up the **Stage 27.x gameplay polish** and the post-v0.3.0 **friends /
+voice / invite** fixes. Additive and fairness-safe: **no new features, no schema/migration
+changes** (0009 stays the latest), **no dependency changes**. `/health/diagnostics` `version`
+reads `0.3.1`.
+
 ### Audit (Stage 27.6 — gameplay polish audit)
 
 - **Post-27.x regression audit — no gameplay bugs found.** Verified the 27.0–27.5 changes left
@@ -73,6 +82,9 @@ also reported at `GET /health/diagnostics` (`version` field).
   joins the inviter's room instead of doing nothing — at the menu it joins directly; from inside
   another room it confirms before leaving; in the same room it dismisses. The `?room=` deep-link
   still prefills the Join sheet. The invite still carries only a room code.
+- **Tarneeb help text corrected** (Stage 27.8): the in-game "How to play" now says the auction
+  **starts at 3** (3–13, all four languages), matching the shipped rule — the old "7–13" predated
+  the Stage 27.0 minimum-bid change. Text only; no rule change.
 
 ## [0.3.0] — 2026-07-12 — Social & voice release
 

@@ -41,7 +41,7 @@ export const DE: Record<string, string> = {
   'help.tarneeb.goal': 'Das erste Team mit 41 Punkten gewinnt.',
   'help.tarneeb.players': '4 Spieler in zwei festen Teams — Partner sitzen gegenüber.',
   'help.tarneeb.deck': 'Ein Standarddeck mit 52 Karten, 13 an jeden Spieler.',
-  'help.tarneeb.turns': 'Reize 7–13 Stiche oder passe; der Höchstbietende nennt den Trumpf und spielt aus. Bediene die Farbe; jeder Trumpf schlägt Nicht-Trümpfe.',
+  'help.tarneeb.turns': 'Reize 3–13 Stiche oder passe; der Höchstbietende nennt den Trumpf und spielt aus. Bediene die Farbe; jeder Trumpf schlägt Nicht-Trümpfe.',
   'help.tarneeb.scoring': 'Erfülle dein Gebot → dein Team erhält die gemachten Stiche (GENAU getroffen → verdoppelt). Verfehlt → die Verteidiger punkten.',
   'help.tarneeb.notes': 'Gebote müssen steigen, und ein Pass ist endgültig.',
   'help.preferans.goal': 'Der erste Spieler mit der Zielpunktzahl (10) gewinnt.',

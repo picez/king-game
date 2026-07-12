@@ -5,9 +5,9 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.3.0`** (social & voice release — friends, room
-invites, online rematch, in-room WebRTC voice — on the v0.2.0 five-game platform, 2026-07-12;
-see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
+**Status: stable MVP — release `v0.3.1`** (gameplay-polish & friends/voice-fixes patch on the
+`v0.3.0` social & voice release — friends, room invites, online rematch, in-room WebRTC voice —
+over the v0.2.0 five-game platform, 2026-07-12; see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
 online play both work end-to-end. This file is the running feature list; for the concise
 "what it is / how it fits together" start at [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
 

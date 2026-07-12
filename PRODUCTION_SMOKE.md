@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.0`** (tag `v0.3.0`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.1`** (tag `v0.3.1`).
 
 Set your host once and reuse it below:
 
@@ -23,6 +23,33 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
+> **v0.3.1 adds no migrations** — 0009 is still the latest.
+
+---
+
+## 0. v0.3.1 release smoke (fast targeted pass)
+
+A quick list of what v0.3.1 (gameplay polish + friends/voice fixes) specifically touches. The
+numbered sections below cover each in depth.
+
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.1`**, `commit` matches the deploy,
+      `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.1).
+- [ ] **Auth:** Google sign-in works; signed-in `/api/me` returns the profile (not `503`).
+- [ ] **Avatar:** upload a small/compressed image on a Docker+ffmpeg deploy → appears on your
+      seat and others' seats (native `node` runtime → `503` is an expected PASS).
+- [ ] **Friends:** add by **friend code**; incoming-request **badge** shows; friends list is
+      **online-first**; the Lobby shows the **Invite friends** block; tapping **Join** on an
+      invite **actually joins the room** (not just a prefill).
+- [ ] **Rematch:** solo + bots → **Play again restarts the same online game** (stays in the room,
+      not the menu); multiple humans → it **waits until all are ready**.
+- [ ] **Voice:** two clients on the same Wi-Fi hear each other; a cross-network pair needs a
+      **TURN** relay if STUN-only fails (falls back to text — expected).
+- [ ] **Gameplay 27.x:** Tarneeb bidding **starts at 3**; Tarneeb **trump obligation** (void in
+      led + holding trump ⇒ must trump); Deberc **low-trump exchange** (7 at 3p / 6 at 4p); the
+      last card of a trick **lingers ~2 s**; **no blank cards** while art loads.
+- [ ] **Mobile:** 360/390 portrait + **Arabic RTL** quick pass on menu / profile sections /
+      lobby / one in-game table — no horizontal overflow.
 
 ---
 

@@ -41,7 +41,7 @@ export const EN: Record<string, string> = {
   'help.tarneeb.goal': 'First team to 41 points wins.',
   'help.tarneeb.players': '4 players in two fixed teams — partners sit opposite.',
   'help.tarneeb.deck': 'A standard 52-card deck, 13 cards to each player.',
-  'help.tarneeb.turns': 'Bid 7–13 tricks or pass; the top bidder names the trump suit and leads. Follow suit if you can; any trump beats non-trumps.',
+  'help.tarneeb.turns': 'Bid 3–13 tricks or pass; the top bidder names the trump suit and leads. Follow suit if you can; any trump beats non-trumps.',
   'help.tarneeb.scoring': 'Make your bid → your team scores the tricks it took (hit it EXACTLY → doubled). Miss it → the defenders score instead.',
   'help.tarneeb.notes': 'Bids must rise and a pass is final.',
   'help.preferans.goal': 'First player to the target score (10) wins.',

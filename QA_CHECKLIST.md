@@ -295,7 +295,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       Lobby header reads **"2 teams"** (not "Dealer's Choice").
 - [ ] **Select Tarneeb** → Host tile enabled; a room is exactly **4 seats**
       (fixed 2×2); starting before 4 seats is rejected.
-- [ ] **Help modal** explains: 4 players / partners opposite, bid 7–13, declarer
+- [ ] **Help modal** explains: 4 players / partners opposite, bid 3–13, declarer
       names trump + leads, follow suit, made vs set scoring, all-13 = +13, target 41.
 - [ ] **Host + Add bots + Start** → the **Tarneeb** table renders (seats around
       the felt, viewer bottom, partner top), with bidding → trump → trick play.
