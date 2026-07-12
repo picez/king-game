@@ -753,13 +753,28 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       or, if the image is slow/broken, its **rank + suit text** — **never a blank rectangle**. To
       force the fallback: DevTools → Network → block `*/cards/*` (or throttle) and re-deal — faces
       render as text, not blank. Hidden cards still show the patterned back (or CSS back on error).
-- [ ] **Trick/last-card reveal delay (~0.9–1.2 s):** the final card of a completed trick/bout stays
-      readable before play moves on, in **every** game:
-      - **King / Deberc** — the completed trick lingers on the felt (server `trick_complete` pause).
-      - **Tarneeb / Preferans** — the just-won trick freezes ~1.1 s before the next lead.
-      - **Durak** — after a bout is beaten/taken, the final attack/defense cards **linger ~1.1 s**
-        before the table clears; playing a **new** attack immediately cancels the linger (no stall).
-      Reduced-motion is respected elsewhere, but this readability delay is kept regardless.
+- [ ] **Trick/last-card reveal delay (~2 s, Stage 27.0 normalized):** the final card of a completed
+      trick/bout stays readable ~**2 seconds** before play moves on, in **every** game (King / Deberc
+      server pause, Tarneeb / Preferans review — **now online too**, Durak table-linger). Playing a
+      new card immediately cancels a linger (no stall).
+- [ ] **Lead-card badge (Stage 27.0):** in a trick game (Tarneeb / Deberc / Preferans) the card that
+      **led** the current trick shows a small **"1" corner badge + gold ring**; it's always clear
+      who led. No overflow at 360/390.
+
+## Manual — Game rules corrections (Stage 27.0)
+
+> Rule changes are enforced in the pure reducer, so online play validates identically.
+
+- [ ] **Tarneeb minimum bid = 3:** in the bidding sheet the buttons now start at **3** (3–13). A bid
+      of 3 is accepted; 2 is not offered. Bots still open at 7+ (they won't bid a low contract).
+- [ ] **Tarneeb trump obligation:** when you are **void in the led suit** but **hold a trump**, only
+      your **trump(s)** are playable (a non-trump discard is rejected/greyed). If you hold a card of
+      the led suit you must still **follow suit** (not trump). Void in both → any card is legal. This
+      holds **online** too (the server rejects an illegal discard).
+- [ ] **Deberc "Палтіна":** the 50-point run is labelled **"Палтіна" / "Paltina"** (not "Платіна")
+      in the meld picker, stats, and rules — in all four languages.
+- [ ] **Deberc skip-meld is red:** on the meld-declaration step the **skip** button is red
+      (destructive); the table cards are noticeably **larger**.
 
 ## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 

@@ -10,7 +10,7 @@ const AI_DELAY_MS = 900;
 // Hold a completed trick on the table long enough to actually read the cards
 // (post-playtest fix #2). Mirrors the server's TRICK_ADVANCE_MS default so the
 // local and online pacing feel the same.
-const TRICK_VIEW_MS = 3000;
+const TRICK_VIEW_MS = 2000;
 
 /** The human player we must hand the device to before revealing their view. */
 type PassInfo = { playerId: string; name: string; seatIndex: number };

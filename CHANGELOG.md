@@ -9,6 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed (Stage 27.0 — game rules + table clarity)
+
+- **Tarneeb:** the **minimum bid is now 3** (auction 3–13; scoring unchanged), and the **trump
+  obligation** is enforced — void in the led suit while holding a trump means you **must trump**
+  (you may discard another suit only when void in both). Enforced in the reducer (online too).
+- **Deberc:** the 50-point run is spelled **"Палтіна" (Paltina)** everywhere (display only); the
+  **skip-meld** button is red; **table cards are larger**.
+- **Every game:** the **last card of a trick/bout now lingers ~2 seconds** (normalized) before play
+  advances — including online Tarneeb/Preferans, which previously had no delay. The **card that led**
+  the current trick shows a small **"1" badge + ring** so it's always clear who led.
+- Deferred (with design notes in `RULES_UX_TODO.md`): profile/menu section split, Deberc trump
+  exchange, Tarneeb "view my tricks", solo/individual variants, clockwise audit, reactions-over-sender.
+
 ### Fixed
 
 - **Friend invite "Join" now works** (Stage 26.1): tapping **Join room** on an invite actually

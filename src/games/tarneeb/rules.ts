@@ -8,7 +8,10 @@ import { rankValue, TARNEEB_SUITS } from './deck';
 import type { TarneebPlay, TarneebState, Team } from './types';
 
 export const NUM_SEATS = 4;
-export const MIN_BID = 7;
+// Bids are a trick target (out of 13). Minimum lowered to 3 (Stage 27.0, owner rule); a pass is
+// still final and bids must strictly rise. Scoring is unchanged — a made/failed bid scores exactly
+// as before, just over a wider legal range.
+export const MIN_BID = 3;
 export const MAX_BID = 13;
 export const HAND_TRICKS = 13;
 
@@ -48,15 +51,22 @@ export function isTrump(card: Card, trumpSuit: Suit | null): boolean {
 // --- Trick play (§7) --------------------------------------------------------
 
 /**
- * The cards `hand` may legally play, given the led suit and trump (§7):
+ * The cards `hand` may legally play, given the led suit and trump (§7, Stage 27.0 owner rule):
  *  - leading (no led suit): any card;
  *  - holding the led suit: must follow it;
- *  - void in the led suit: any card (NO obligation to trump or to head the trick).
+ *  - void in the led suit but holding trump: MUST play a trump;
+ *  - void in both the led suit and trump: any card.
  */
-export function legalPlays(hand: Card[], ledSuit: Suit | null): Card[] {
-  if (ledSuit == null) return hand.slice();
+export function legalPlays(hand: Card[], ledSuit: Suit | null, trumpSuit: Suit | null): Card[] {
+  if (ledSuit == null) return hand.slice();               // leading → any card
   const ofLed = hand.filter((c) => c.suit === ledSuit);
-  return ofLed.length > 0 ? ofLed : hand.slice();
+  if (ofLed.length > 0) return ofLed;                     // must follow the led suit
+  // Void in the led suit: obliged to trump if able (unless trump IS the led suit, handled above).
+  if (trumpSuit != null && trumpSuit !== ledSuit) {
+    const ofTrump = hand.filter((c) => c.suit === trumpSuit);
+    if (ofTrump.length > 0) return ofTrump;
+  }
+  return hand.slice();                                    // void in led suit AND trump → any card
 }
 
 /**
@@ -133,7 +143,7 @@ export function getValidPlayableCards(state: TarneebState, seat: number): Card[]
   if (state.phase !== 'playing') return [];
   if (seat !== state.currentSeat) return [];
   const ledSuit = state.currentTrick ? state.currentTrick.ledSuit : null;
-  return legalPlays(state.handsBySeat[seat], ledSuit);
+  return legalPlays(state.handsBySeat[seat], ledSuit, state.trumpSuit);
 }
 
 /** Whether `seat` may play `card` right now. */

@@ -329,6 +329,17 @@
   box-shadow: 0 0 0 2px var(--accent), 0 1px 3px rgba(0,0,0,0.45);
 }
 
+/* Lead card of the current trick/bout (Stage 27.0): a small "1st" corner badge + a soft ring so
+   it's always clear who led. Distinct from the winning-card highlight. */
+.card--lead { box-shadow: 0 0 0 2px var(--gold, #d9b45a), 0 1px 3px rgba(0,0,0,0.45); }
+.card--lead::after {
+  content: '1'; position: absolute; top: -6px; inset-inline-start: -6px;
+  min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--gold, #d9b45a); color: #2a1e05;
+  font-size: 0.6rem; font-weight: 800; line-height: 1; z-index: 3;
+}
+
 /* ===== Player Hand ===== */
 /* Desktop/tablet: cards wrap and centre, with room above for the hover lift. */
 .player-hand {

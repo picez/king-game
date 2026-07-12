@@ -244,9 +244,10 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
             trick.plays.map((play) => {
               const pos = seatPosition(play.seat, humanSeat);
               const winning = reviewTrick != null && reviewTrick.winnerSeat === play.seat;
+              const lead = play.seat === trick.leadSeat; // the card that led this trick (Stage 27.0)
               return (
                 <div key={play.seat} className={`preferans-play preferans-play--${pos}`}>
-                  <CardView card={play.card} size="table" disabled highlight={winning} />
+                  <CardView card={play.card} size="table" disabled highlight={winning} lead={lead} />
                 </div>
               );
             })

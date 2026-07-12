@@ -259,6 +259,14 @@
 .deberc-screen .durak-deck { grid-column: 1; transform: scale(0.85); transform-origin: center; }
 .deberc-screen .durak-table__cards { grid-column: 2; width: 100%; }
 
+/* Larger, more readable table cards for Deberc (Stage 27.0) — the trick is the focus. */
+.deberc-screen .durak-table__cards .card--table {
+  width: calc(var(--card-w-table) * 1.35);
+  height: calc(var(--card-h-table) * 1.35);
+}
+/* The skip-meld button reads as destructive (red) — sits apart from the confirm. */
+.deberc-screen .deberc-skip-meld { margin-top: 0.2rem; }
+
 /* Uniform seat boxes so the icons/labels line up regardless of how many chips a
    seat shows, and a rounded rect (not a pill) since the content is multi-line. */
 .deberc-screen .durak-seat {

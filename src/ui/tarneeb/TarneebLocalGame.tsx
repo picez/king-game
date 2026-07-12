@@ -11,7 +11,7 @@ import TarneebFinished from './TarneebFinished';
 
 const BOT_DELAY_MS = 800;
 /** How long a just-resolved trick stays on the felt before play continues. */
-const TRICK_REVIEW_MS = 1100;
+const TRICK_REVIEW_MS = 2000;
 /** The local human always occupies seat 0; seats 1–3 are bots. */
 const HUMAN_SEAT = 0;
 

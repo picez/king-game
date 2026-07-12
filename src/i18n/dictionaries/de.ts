@@ -250,7 +250,7 @@ export const DE: Record<string, string> = {
   'deberc.meldTo': 'bis',
   'deberc.declareHint': 'Kombination ansagen — der Höchste zeigt & zählt',
   'deberc.meldTerz': 'Terz',
-  'deberc.meldPlatina': 'Platina',
+  'deberc.meldPlatina': 'Paltina',
   'deberc.meldDeberc': 'Deberc',
   'deberc.meldBella': 'Bella',
   'deberc.dealer': 'Geber',
@@ -282,7 +282,7 @@ export const DE: Record<string, string> = {
   'deberc.rule.bidding': 'Der Ansager bietet Trumpf: Runde 1 die offene Karte, Runde 2 jede Farbe. Wer Trumpf ansagt, wird Ansager.',
   'deberc.rule.play': 'Farbe bekennen, wenn möglich; sonst muss getrumpft werden. Überstechen ist nicht Pflicht.',
   'deberc.rule.points': 'Trumpf B=20, 9=14; A=11, 10=10, K=4, D=3. Letzter Stich +10.',
-  'deberc.rule.melds': 'Sequenzen: Terz 20, Platina 50; vier oder mehr in Folge (Deberz) gewinnt das Match. Bella (Trumpf K+D) = 20.',
+  'deberc.rule.melds': 'Sequenzen: Terz 20, Paltina 50; vier oder mehr in Folge (Deberz) gewinnt das Match. Bella (Trumpf K+D) = 20.',
   'deberc.rule.hv': 'Punktet der Ansager weniger als ein Gegner, gehen seine Punkte an den Besten (ХВ). Kein Stich = Beit.',
   'deberc.rule.goal': 'Die erste Seite am Ziel (510 oder 1020) gewinnt das Match.',
   // ===== Tarneeb (lokaler Prototyp — Stage 10.3) =====

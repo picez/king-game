@@ -77,7 +77,7 @@ describe('Tarneeb invariants (bot soak)', () => {
 
   it('always terminates the auction (bidding is bounded per hand)', () => {
     // From a fresh deal, no auction can exceed a small number of legal actions:
-    // bids strictly increase (≤ 7 rungs) and each pass is final (≤ 4), so the
+    // bids strictly increase (≤ 11 rungs, min 3) and each pass is final (≤ 4), so the
     // auction resolves — or a dead auction redeals — well within a tight bound.
     for (let seed = 1; seed <= 40; seed++) {
       let { state, ctx } = startBots(seed);

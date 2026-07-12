@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n';
 import TarneebGameScreen from './TarneebGameScreen';
 import TarneebFinished from './TarneebFinished';
 import type { RematchUi } from '../online/RematchControls';
+import { useTrickReview } from '../components/useTrickReview';
 import type { TarneebAction, TarneebState } from '../../games/tarneeb/types';
 
 interface Props {
@@ -29,6 +30,9 @@ interface Props {
 export default function TarneebOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
+  // 2 s reveal after each trick (Stage 27.0) — online resolves the trick inside PLAY_CARD (no
+  // server trick_complete screen), so hold the last completed trick client-side, in sync.
+  const reviewTrick = useTrickReview(state.completedTricks, state.phase === 'playing');
 
   if (!me) {
     // Spectator / unseated: minimal read-only note (Tarneeb MVP is player-only).
@@ -43,7 +47,7 @@ export default function TarneebOnlineGame({ state, myPlayerId, dispatch, onExit,
       humanSeat={me.seatIndex}
       apply={dispatch}
       onExit={onExit}
-      reviewTrick={null}
+      reviewTrick={reviewTrick}
       online
       disconnectedSeats={disconnectedSeats}
     />

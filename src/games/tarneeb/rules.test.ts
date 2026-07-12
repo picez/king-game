@@ -47,22 +47,30 @@ describe('Tarneeb seats & teams', () => {
   });
 });
 
-describe('Tarneeb legal plays (follow suit)', () => {
+describe('Tarneeb legal plays (follow suit + trump obligation, Stage 27.0)', () => {
   const hand = [card('hearts', 'A'), card('hearts', '2'), card('spades', 'K'), card('clubs', '9')];
 
   it('may lead any card', () => {
-    expect(legalPlays(hand, null)).toHaveLength(4);
+    expect(legalPlays(hand, null, 'spades')).toHaveLength(4);
   });
 
-  it('must follow the led suit when holding it', () => {
-    const legal = legalPlays(hand, 'hearts');
+  it('must follow the led suit when holding it (even when also holding trump)', () => {
+    const legal = legalPlays(hand, 'hearts', 'spades');
     expect(legal.map((c) => c.rank).sort()).toEqual(['2', 'A']);
     expect(legal.every((c) => c.suit === 'hearts')).toBe(true);
   });
 
-  it('may play anything when void in the led suit (no obligation to trump)', () => {
-    const legal = legalPlays(hand, 'diamonds');
-    expect(legal).toHaveLength(4);
+  it('MUST play trump when void in the led suit but holding trump', () => {
+    // led = diamonds (void); trump = spades (held) → only the spade is legal.
+    const legal = legalPlays(hand, 'diamonds', 'spades');
+    expect(legal).toEqual([card('spades', 'K')]);
+  });
+
+  it('may play any card only when void in BOTH the led suit and trump', () => {
+    // led = diamonds (void), trump = diamonds too → no trump to hold; any card is legal.
+    expect(legalPlays(hand, 'diamonds', 'diamonds')).toHaveLength(4);
+    // trump = clubs, but the led suit is spades which the hand HAS → follow suit, not trump.
+    expect(legalPlays(hand, 'spades', 'clubs')).toEqual([card('spades', 'K')]);
   });
 });
 

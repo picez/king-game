@@ -181,12 +181,12 @@ describe('Tarneeb START_GAME', () => {
 // --- Bidding ---------------------------------------------------------------
 
 describe('Tarneeb bidding', () => {
-  it('offers only legal bids 7–13 initially', () => {
+  it('offers only legal bids 3–13 initially (Stage 27.0: minimum lowered to 3)', () => {
     const { state } = start({ dealerSeat: 0 });
-    expect(getValidBids(state, state.currentSeat)).toEqual([7, 8, 9, 10, 11, 12, 13]);
-    expect(canBid(state, state.currentSeat, 6)).toBe(false);
+    expect(getValidBids(state, state.currentSeat)).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    expect(canBid(state, state.currentSeat, 3)).toBe(true);   // new minimum
+    expect(canBid(state, state.currentSeat, 2)).toBe(false);
     expect(canBid(state, state.currentSeat, 14)).toBe(false);
-    expect(canBid(state, state.currentSeat, 7)).toBe(true);
   });
 
   it('requires each bid to strictly exceed the current highest', () => {

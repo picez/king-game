@@ -16,7 +16,7 @@ export type Team = 'A' | 'B';
  * Phases of a Tarneeb match (TARNEEB_RULES.md §11). An optional pre-deal
  * setup/dealing phase is fine internally, but START_GAME already produces a
  * playable first hand, so the reducer never dwells in one:
- *  - 'bidding'        → the auction is in progress (integer 7–13, pass-is-final);
+ *  - 'bidding'        → the auction is in progress (integer 3–13, pass-is-final);
  *  - 'choosing_trump' → the declarer alone names the trump suit;
  *  - 'playing'        → the 13 tricks are being played;
  *  - 'hand_complete'  → the hand is scored; START_NEXT_HAND begins the next one;
@@ -165,7 +165,7 @@ export type TarneebAction =
       /** Optional explicit first dealer (for tests); random via rng otherwise. */
       dealerSeat?: number;
     }
-  /** A legal integer 7–13, strictly above the current high bid. Seat = currentSeat. */
+  /** A legal integer 3–13, strictly above the current high bid. Seat = currentSeat. */
   | { type: 'BID'; amount: number }
   /** Permanently drop out of the current auction. Seat = currentSeat. */
   | { type: 'PASS_BID' }

@@ -12,10 +12,13 @@ import {
   getValidBids,
   getValidPlayableCards,
   MAX_BID,
-  MIN_BID,
   partnerOfSeat,
 } from './rules';
 import type { TarneebAction, TarneebState } from './types';
+
+/** The lowest contract a bot will open (Stage 27.0): humans may bid down to MIN_BID (3), but a
+ *  bot only bids when it can plausibly make the traditional floor, to avoid over-committing. */
+const BOT_BID_FLOOR = 7;
 
 /** Assumed trick contribution from the unseen partner when estimating a bid (§14). */
 const PARTNER_TRICKS = 3;
@@ -176,7 +179,10 @@ export function tarneebBotAction(state: TarneebState, seat: number): TarneebActi
       // so weak hands pass instead of being forced up to 7.
       const suit = bestSuit(hand);
       const teamEstimate = Math.floor(estimateTricks(hand, suit) + PARTNER_TRICKS);
-      if (teamEstimate < MIN_BID) return { type: 'PASS_BID' };
+      // Bots stay conservative: even though HUMANS may now open at 3 (Stage 27.0), a bot only
+      // enters the auction when it plausibly makes the traditional floor of 7 — bidding a low
+      // contract just to win the auction over-commits the team. Never bids above its estimate.
+      if (teamEstimate < BOT_BID_FLOOR) return { type: 'PASS_BID' };
       const cap = Math.min(MAX_BID, teamEstimate);
       const affordable = valid.filter((b) => b <= cap);
       if (affordable.length === 0) return { type: 'PASS_BID' };

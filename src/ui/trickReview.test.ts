@@ -29,13 +29,21 @@ describe('client-review games (Tarneeb / Preferans)', () => {
     }
   });
 
-  it('the review is within the 900–1200ms target', () => {
+  it('the review is the normalized ~2s target (Stage 27.0)', () => {
     const local = read('src/ui/tarneeb/TarneebLocalGame.tsx');
     const m = local.match(/TRICK_REVIEW_MS\s*=\s*(\d+)/);
     expect(m).toBeTruthy();
     const ms = Number(m![1]);
-    expect(ms).toBeGreaterThanOrEqual(900);
-    expect(ms).toBeLessThanOrEqual(1200);
+    expect(ms).toBeGreaterThanOrEqual(1800);
+    expect(ms).toBeLessThanOrEqual(2200);
+  });
+
+  it('Tarneeb + Preferans show the reveal ONLINE too (Stage 27.0 — client review, no null)', () => {
+    for (const f of ['src/ui/tarneeb/TarneebOnlineGame.tsx', 'src/ui/preferans/PreferansOnlineGame.tsx']) {
+      const src = read(f);
+      expect(src, f).toContain('useTrickReview');
+      expect(src, f).not.toContain('reviewTrick={null}'); // online no longer skips the review
+    }
   });
 });
 
@@ -43,7 +51,7 @@ describe('Durak — table-review hold on bout clear (Stage 25.8)', () => {
   const screen = read('src/ui/durak/DurakGameScreen.tsx');
   it('lingers on the final bout when the table clears, then goes live', () => {
     expect(screen).toContain('useTableReview');
-    expect(screen).toMatch(/TABLE_REVIEW_MS\s*=\s*1100/);
+    expect(screen).toMatch(/TABLE_REVIEW_MS\s*=\s*2000/); // Stage 27.0: normalized to 2s
     // Lingers only on a clear (non-empty → empty), and a new card cancels it immediately.
     expect(screen).toMatch(/table\.length === 0 && prev\.length > 0/);
     // The felt renders the reviewed table, not the raw live one.

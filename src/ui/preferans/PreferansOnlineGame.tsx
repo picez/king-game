@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n';
 import PreferansGameScreen from './PreferansGameScreen';
 import PreferansFinished from './PreferansFinished';
 import type { RematchUi } from '../online/RematchControls';
+import { useTrickReview } from '../components/useTrickReview';
 import type { PreferansAction, PreferansState } from '../../games/preferans/types';
 
 interface Props {
@@ -29,6 +30,8 @@ interface Props {
 export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
+  // 2 s reveal after each trick (Stage 27.0) — no server trick_complete screen, so hold it client-side.
+  const reviewTrick = useTrickReview(state.completedTricks, state.phase === 'playing');
 
   if (!me) {
     // Spectator / unseated: minimal read-only note (Preferans MVP is player-only).
@@ -43,7 +46,7 @@ export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExi
       humanSeat={me.seatIndex}
       apply={dispatch}
       onExit={onExit}
-      reviewTrick={null}
+      reviewTrick={reviewTrick}
       online
       disconnectedSeats={disconnectedSeats}
     />

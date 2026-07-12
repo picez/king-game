@@ -9,7 +9,7 @@ import DebercGameScreen, { type DebercNotice } from './DebercGameScreen';
 import DebercFinished from './DebercFinished';
 
 const BOT_DELAY_MS = 850;
-const ADVANCE_MS = 1400;
+const ADVANCE_MS = 2000;
 const NOTICE_MS = 1400;
 /** Seconds the human has to declare melds before an automatic pass (§4, ~15 s). */
 const DECLARE_SECONDS = 15;

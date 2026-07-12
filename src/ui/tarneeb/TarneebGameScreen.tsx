@@ -196,9 +196,10 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
             trick.plays.map((play) => {
               const pos = seatPosition(play.seat, humanSeat);
               const winning = reviewTrick != null && reviewTrick.winnerSeat === play.seat;
+              const lead = play.seat === trick.leadSeat; // the card that led this trick (Stage 27.0)
               return (
                 <div key={play.seat} className={`tarneeb-play tarneeb-play--${pos}`}>
-                  <CardView card={play.card} size="table" disabled highlight={winning} />
+                  <CardView card={play.card} size="table" disabled highlight={winning} lead={lead} />
                 </div>
               );
             })

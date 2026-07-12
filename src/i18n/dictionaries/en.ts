@@ -250,7 +250,7 @@ export const EN: Record<string, string> = {
   'deberc.meldTo': 'to',
   'deberc.declareHint': 'Announce a meld — the highest holder shows & scores',
   'deberc.meldTerz': 'Terz',
-  'deberc.meldPlatina': 'Platina',
+  'deberc.meldPlatina': 'Paltina',
   'deberc.meldDeberc': 'Deberc',
   'deberc.meldBella': 'Bella',
   'deberc.dealer': 'Dealer',
@@ -282,7 +282,7 @@ export const EN: Record<string, string> = {
   'deberc.rule.bidding': 'The maker offers a trump: round 1 the face-up card, round 2 any suit. Committing to trump makes you the maker.',
   'deberc.rule.play': 'Follow suit if you can; if void you must trump. Over-trumping is not required.',
   'deberc.rule.points': 'Trump J=20, 9=14; A=11, 10=10, K=4, Q=3. Last trick +10.',
-  'deberc.rule.melds': 'Runs score: terz 20, platina 50; four-plus in a row (deberc) wins the match. Bella (trump K+Q) = 20.',
+  'deberc.rule.melds': 'Runs score: terz 20, paltina 50; four-plus in a row (deberc) wins the match. Bella (trump K+Q) = 20.',
   'deberc.rule.hv': 'If the maker scores less than a rival, their points go to the top scorer (ХВ). Taking no trick is beit.',
   'deberc.rule.goal': 'First side to the target (510 or 1020) wins the match.',
   // ===== Tarneeb (local prototype — Stage 10.3) =====

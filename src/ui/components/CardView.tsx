@@ -45,6 +45,8 @@ interface CardViewProps {
   size?: CardSize;
   /** Static highlight ring (no hover lift) — e.g. the player's winning card. */
   highlight?: boolean;
+  /** Marks the LEAD card of the current trick/bout (Stage 27.0) — a distinct corner badge. */
+  lead?: boolean;
 }
 
 export default function CardView({
@@ -55,6 +57,7 @@ export default function CardView({
   dimmed = false,
   size = 'hand',
   highlight = false,
+  lead = false,
 }: CardViewProps) {
   const { t } = useI18n();
   // The player's selected card-back style (Stage 13.0) — a local, visual pref.
@@ -93,6 +96,7 @@ export default function CardView({
         ` card--rank-${card.rank.toLowerCase()}` +
         (isFace ? ' card--face' : '') +
         (highlight ? ' card--highlight' : '') +
+        (lead ? ' card--lead' : '') +
         (isHidden ? ' card--back' : '') +
         (showArt ? ' card--art' : '')
       }

@@ -138,7 +138,7 @@ describe('local START_GAME + bidding flow', () => {
   it('the human on turn can BID or PASS', () => {
     const s = start(1, makeRng(7)); // seat 0 acts first
     const valid = getValidBids(s, 0);
-    expect(valid).toEqual([7, 8, 9, 10, 11, 12, 13]);
+    expect(valid).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]); // Stage 27.0: minimum bid is now 3
     const afterBid = tarneebReducer(s, { type: 'BID', amount: 7 }, { rng: makeRng(7) })!;
     expect(afterBid.highestBid).toEqual({ seat: 0, amount: 7 });
     const afterPass = tarneebReducer(s, { type: 'PASS_BID' }, { rng: makeRng(7) })!;

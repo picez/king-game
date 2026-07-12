@@ -10,7 +10,7 @@ export function clampMs(value: number, min: number, max: number, fallback: numbe
 }
 
 /** Default time a completed trick stays on the table before auto-advancing. */
-export const DEFAULT_TRICK_ADVANCE_MS = 3000;
+export const DEFAULT_TRICK_ADVANCE_MS = 2000;
 export const MIN_TRICK_ADVANCE_MS = 1000;
 export const MAX_TRICK_ADVANCE_MS = 10000;
 

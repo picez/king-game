@@ -1,5 +1,12 @@
-# Tarneeb Rules (Syrian / Levantine) — v1.2 (MVP spec)
+# Tarneeb Rules (Syrian / Levantine) — v1.3 (MVP spec)
 
+> **v1.3 (Stage 27.0, owner rules):** two corrections — (1) the **minimum bid is now 3**
+> (auction range **3–13**; scoring is unchanged, just a wider legal range; bots stay conservative
+> and only open at 7+). (2) **Trump obligation on a void (§7):** if you are **void in the led
+> suit** but **hold a trump**, you **must play a trump**; you may discard another suit only when
+> void in **both** the led suit and trump. Enforced in the pure reducer (`legalPlays`), so online
+> play validates it identically.
+>
 > **v1.2 (Stage 13.4):** exact-bid **double** added (§8) — making a contract with
 > **exactly** the bid doubles the hand score (bid 8, 8 → +16; bid 13, 13 → +26);
 > overtricks score the tricks won. The Kaboot **bonus** stays **off** in MVP (§9).
@@ -26,7 +33,7 @@
 
 Tarneeb (طرنيب, "the trump") is a **plain-trick, partnership, bid-and-trump**
 game in the Auction Whist family. Four players in two fixed partnerships play a
-standard **52-card deck**; one side bids a number of tricks (7–13), names a trump
+standard **52-card deck**; one side bids a number of tricks (3–13), names a trump
 suit, then both sides try to win tricks. A **match** accumulates the scores of
 successive **hands** up to a target (default **41**).
 
@@ -89,7 +96,7 @@ successive **hands** up to a target (default **41**).
 - The auction opens with the player to the **dealer's right** and proceeds
   **counter-clockwise**.
 - On their turn a player either:
-  - **Bids** an integer **7–13** that is **strictly higher** than the current
+  - **Bids** an integer **3–13** that is **strictly higher** than the current
     highest bid, **or**
   - **Passes**.
 - **`[MVP]`** **Once a player passes, they are out** of the auction and cannot
@@ -136,10 +143,10 @@ successive **hands** up to a target (default **41**).
 - Thereafter, the **winner of the previous trick leads** the next one.
 - Play proceeds **counter-clockwise**.
 - **Follow suit:** a player **must** play a card of the led suit if they hold one.
-- If a player **cannot follow suit**, they may play **any** card:
-  - a **trump** (to try to win), or
-  - any other suit as a **discard**.
-- **No obligation to trump or to head the trick** — a void player may discard.
+- **Trump obligation (v1.3):** if a player **cannot follow** the led suit but **holds a trump**,
+  they **must play a trump**. They may play any **other** suit as a discard **only** when void in
+  **both** the led suit and trump. (Following the led suit still takes precedence when possible; a
+  player never has to trump their own partner when they can follow.)
 - **Trick winner:**
   - if **any trump** was played, the **highest trump** wins;
   - otherwise, the **highest card of the led suit** wins.
@@ -152,7 +159,7 @@ successive **hands** up to a target (default **41**).
 ## 8. Round End / Scoring
 
 After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
-(they sum to 13). Let `bid` be the winning bid (7–13).
+(they sum to 13). Let `bid` be the winning bid (3–13).
 
 **Contract made** — `declarerTeamTricks >= bid`:
 
@@ -232,7 +239,7 @@ doubles to **+26** via §8. Only the extra flat Kaboot bonus / instant-win is of
 Reducer actions for the future pure core (names, not signatures):
 
 - `START_HAND` — deal 13 to each, set dealer/first bidder, enter `bidding`.
-- `BID` — a legal integer 7–13, strictly above the current high bid.
+- `BID` — a legal integer 3–13, strictly above the current high bid.
 - `PASS_BID` — permanently drop out of the current auction.
 - `CHOOSE_TRUMP` — declarer names the trump suit; enter `playing`.
 - `PLAY_CARD` — play one legal card into the current trick.
@@ -295,7 +302,7 @@ core (`gameType: 'tarneeb'`):
   `handsBySeat` for everyone but the viewer; replace with counts.
 - **Server validation** (authoritative; never trust the client):
   - only `currentSeat` may act (seat derived server-side, not from the payload);
-  - a `BID` is 7–13 and strictly above `highestBid`; a passed seat cannot bid;
+  - a `BID` is 3–13 and strictly above `highestBid`; a passed seat cannot bid;
   - `CHOOSE_TRUMP` is accepted **only** from the declarer, only in
     `choosing_trump`;
   - a played card is actually **in that player's hand**;
@@ -334,7 +341,7 @@ A future implementation is **not accepted** until these pass:
 1. Deck has **52 unique** cards.
 2. Deal gives **13** cards to each of the 4 players; union is the full deck.
 3. Bidding **starts to the right** of the dealer.
-4. A bid must be **7–13** and **strictly higher** than the current bid.
+4. A bid must be **3–13** and **strictly higher** than the current bid.
 5. A player who **passed cannot re-enter** the auction.
 6. **All four pass → redeal** by the **same** dealer (deal does not rotate).
 7. The **declarer chooses trump**; no other seat can.

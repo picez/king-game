@@ -21,10 +21,10 @@ describe('clampMs', () => {
 });
 
 describe('resolveTrickAdvanceMs (post-playtest delay #2)', () => {
-  it('defaults to a readable hold (2.5–3.5s window)', () => {
+  it('defaults to a readable ~2s hold (Stage 27.0)', () => {
     expect(resolveTrickAdvanceMs(undefined)).toBe(DEFAULT_TRICK_ADVANCE_MS);
-    expect(DEFAULT_TRICK_ADVANCE_MS).toBeGreaterThanOrEqual(2500);
-    expect(DEFAULT_TRICK_ADVANCE_MS).toBeLessThanOrEqual(3500);
+    expect(DEFAULT_TRICK_ADVANCE_MS).toBeGreaterThanOrEqual(1800);
+    expect(DEFAULT_TRICK_ADVANCE_MS).toBeLessThanOrEqual(2200);
   });
   it('honours a valid env override', () => {
     expect(resolveTrickAdvanceMs('3500')).toBe(3500);

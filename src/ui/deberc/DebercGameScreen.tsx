@@ -302,7 +302,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
                 const isWinner = state.currentTrick?.winnerSeat === play.seatIndex;
                 return (
                   <div className="durak-pair" key={i}>
-                    <CardView card={play.card} size="table" disabled highlight={isWinner} />
+                    <CardView card={play.card} size="table" disabled highlight={isWinner} lead={i === 0} />
                   </div>
                 );
               })}
@@ -375,7 +375,8 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
           <button type="button" className="btn btn--primary" disabled={picked.length === 0} onClick={announce}>
             {t('deberc.declareConfirm')}
           </button>
-          <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'DECLARE_MELD', melds: [] })}>
+          {/* Skip meld declaration — destructive/red so it reads clearly as "give up" (Stage 27.0). */}
+          <button type="button" className="btn btn--danger deberc-skip-meld" onClick={() => apply({ type: 'DECLARE_MELD', melds: [] })}>
             {t('deberc.declarePass')}
           </button>
         </div>

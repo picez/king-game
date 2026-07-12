@@ -1,5 +1,9 @@
-# Deberc Rules (Деберц) — v1.4
+# Deberc Rules (Деберц) — v1.5
 
+> **v1.5 (Stage 27.0, owner):** the 50-point run is spelled **"Палтіна" (Paltina)** in the UI,
+> not "Платіна" — a display-only slang correction across en/uk/de/ar. The internal meld id stays
+> `platina` (no data migration). Rules/scoring unchanged.
+>
 > **STATUS: Rules confirmed. v1.4 (owner corrections 2026-07-08): (a) a player's
 > OWN melds never cancel each other — two терці, or платіна+терц, both score; the
 > §4 contest is only between opposing sides. (b) ХВ/бейт LABELS swapped (об'яз

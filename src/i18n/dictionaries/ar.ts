@@ -250,7 +250,7 @@ export const AR: Record<string, string> = {
   'deberc.meldTo': 'حتى',
   'deberc.declareHint': 'أعلن تشكيلة — صاحب الأعلى يكشف ويسجّل',
   'deberc.meldTerz': 'تيرز',
-  'deberc.meldPlatina': 'بلاتينا',
+  'deberc.meldPlatina': 'بالتينا',
   'deberc.meldDeberc': 'ديبيرك',
   'deberc.meldBella': 'بيلا',
   'deberc.dealer': 'الموزّع',

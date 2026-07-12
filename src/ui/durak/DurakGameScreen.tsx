@@ -5,7 +5,7 @@ import type { Card, Suit } from '../../models/types';
 import type { DurakAction, DurakState, TablePair } from '../../games/durak/types';
 
 /** How long the just-cleared bout lingers on the felt so the final beat/take is readable. */
-const TABLE_REVIEW_MS = 1100;
+const TABLE_REVIEW_MS = 2000;
 
 /**
  * Keep the last bout's cards visible for a beat after the table clears (Stage 25.8). Purely
