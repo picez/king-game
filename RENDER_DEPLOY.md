@@ -124,7 +124,7 @@ readiness) without opening the Render dashboard, use the diagnostics endpoint:
 
 ```bash
 curl -s https://<your-service>.onrender.com/health/diagnostics
-# {"status":"ok","version":"0.1.0","commit":"…","uptime":42,"db":"enabled",
+# {"status":"ok","version":"0.3.1","commit":"…","uptime":42,"db":"enabled",
 #  "rooms":{"total":3,"open":1,"inGame":2},"connections":5,
 #  "games":{"count":5,"ids":["king","durak","deberc","tarneeb","preferans"]},
 #  "avatarUploads":{"status":"enabled","reason":null,"ffmpeg":true,"database":true}}

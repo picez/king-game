@@ -43,7 +43,9 @@ redaction seam, stats) is already game-agnostic and is **reused, not rebuilt**.
   a fixed-teams-only game. Reuse Deberc's 4-player team plumbing where possible.
 - **Counter-clockwise** turn order and **deal-to-the-right** rotation (King/Durak
   are clockwise). The core must not assume clockwise.
-- **A true auction** (integer 7–13, pass-is-final) followed by a **separate
+- **A true auction** (integer 7–13 as originally planned; the **minimum bid was later
+  lowered to 3** — auction **3–13** — in Stage 27.0, see [`TARNEEB_RULES.md`](TARNEEB_RULES.md))
+  followed by a **separate
   trump-choice** phase by the declarer — a two-step setup the other games lack.
 - **Team trick-count scoring** with **set/made** asymmetry (§8) + the **exact-bid
   double** (Stage 13.4: exactly the bid → `+2×bid`, overtricks → `+tricks`); the
