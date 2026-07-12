@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Audit (Stage 27.6 — gameplay polish audit)
+
+- **Post-27.x regression audit — no gameplay bugs found.** Verified the 27.0–27.5 changes left
+  the five released games stable: Tarneeb and Deberc legality share **one source of truth**
+  (`legalPlays`) between the table UI and the reducer, so the server accepts exactly what the UI
+  offers (no authority drift) and illegal plays return the same state; Deberc's trump exchange
+  stays reducer-gated; online turn-authority, friends-invite visibility, invite-accept join,
+  bot/human rematch and reconnect all hold; cards never render blank; the Tarneeb team-tricks
+  viewer reads only public data. Locked with a focused audit test; no runtime code changed.
+
 ### Changed (Stage 27.4 — clockwise & table-clarity audit)
 
 - **Play now reads clockwise in every game.** Audited all five (`CLOCKWISE_AUDIT.md`); King,

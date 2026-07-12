@@ -85,6 +85,31 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] The final card/trick lingers **~2 s** before play advances (all games, local + online).
 - [ ] 360/390 + RTL Arabic: seat labels and the lead badge don't overflow or crowd the hand.
 
+## Final 27.x gameplay audit — results (Stage 27.6)
+
+Automated + code audit after the 27.0–27.5 rules/UI pass. **No gameplay bugs found**; verify
+green (1863 tests inc. the new audit lock; build + e2e). Confirmed by evidence (file:line):
+
+- [x] **Legality single-source (no UI/server drift).** Tarneeb `canPlayCard → getValidPlayableCards
+      → legalPlays`; Deberc `currentLegalPlays` + reducer `isLegalPlay → legalPlays` — the table
+      dims exactly what the reducer accepts; illegal plays return the same state ref.
+- [x] **Rules regressions clear.** Tarneeb bid 3–13 (bot floor 7) + trump obligation + clockwise
+      mirror + team-tricks viewer; Deberc 3p-solo / 4p-pairs, trump exchange (7/6, reducer-gated),
+      larger table cards, red skip-meld, "Палтіна"; King lead badge; ~2000 ms reveal everywhere.
+- [x] **Online authority.** Non-King/Durak actions authorized only for the acting seat
+      (`getActingPlayerId === seatToPlayerId`); the 2 s reveal is display-only and never gates input
+      or desyncs online (the trick is already resolved server-side before the linger).
+- [x] **Online flow.** Friends invite renders inside the Lobby card (`inviteSlot`); invite
+      "Join room" performs a real JOIN; bot rematch restarts in-room (no leave-to-menu); multi-human
+      rematch waits for all-ready; reconnect restores game state + own hand.
+- [x] **Display safety.** Cards never render blank (`showArt = attemptArt && artLoaded`); Durak
+      attack/defense pairs group (`durak-pair` / `durak-pair__def`, unbeaten highlighted); Tarneeb
+      team-tricks viewer reads only public `completedTricks` (no hand leak).
+
+**Manual / visual — still owed a device pass (harness has no DOM):** 360/390 portrait for the
+lobby + one in-game table per game; Arabic RTL spot-check of menu / profile sections / lobby /
+friends badges; no horizontal overflow. Not automatable here — listed honestly as manual.
+
 ## Manual — LAN online
 
 - [ ] `npm run server` and `npm run dev -- --host`; note the LAN IP.
