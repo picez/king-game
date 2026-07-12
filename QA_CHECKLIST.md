@@ -707,10 +707,19 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] **Invite (25.7):** A hosts an online room → A's Lobby Friends panel shows B with a clear
       **Invite** button (online) or a **disabled Invite** (offline, "friend is offline" hint). In
       the **menu** Friends tab a hint reads **"Create or join a room to invite friends."** Tap
-      Invite → B gets an **"A invited you to a game · ABCD"** toast (Join / Dismiss) whether B is
-      **in a room OR on the menu**. **Join** opens the Join sheet **prefilled** with `ABCD` (never
-      auto-joins). Inviting an **offline** friend / a **non-friend** / **outside a room** shows a
-      small inline notice (not the fatal error surface). Rapid invites are rate-limited.
+      Invite → B gets an **"A invited you to a game · ABCD"** toast (**Join room** / Dismiss)
+      whether B is **in a room OR on the menu**. Inviting an **offline** friend / a **non-friend**
+      / **outside a room** shows a small inline notice (not the fatal error surface). Rapid invites
+      are rate-limited.
+- [ ] **Invite JOIN is actionable (Stage 26.1 — the core fix):**
+      - **B on the menu** → tap **Join room** → B **actually joins A's lobby** (`ABCD`), not just a
+        prefilled sheet. (If B has no name set, or a *different* saved resumable room, it falls back
+        to the Join sheet prefilled — the explicit Resume-vs-Join choice.)
+      - **B already in another room/game** → tap **Join room** → a **confirm** ("Leave your current
+        room to join this invite?"); OK → B leaves and joins `ABCD`; Cancel → stays put.
+      - **B already in room ABCD** (same room) → **Join room** just **dismisses** the toast.
+      - **Dismiss** always clears the toast; **`?room=ABCD` deep-link** still prefills the Join sheet.
+      - Join failures surface the normal errors (room not found / full / in-game / bad password).
 - [ ] **Guest / privacy:** a guest sees the sign-in CTA only; no request/invite/presence payload
       contains an email, token, or session; the invite works only between accepted online friends.
 - [ ] **Mobile 360/390 + RTL (Arabic):** the Friends tab (chips + badges + invite), the request

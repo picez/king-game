@@ -47,11 +47,13 @@ interface Props {
   onOnline: (url: string, intent: OnlineIntent, signedIn?: boolean) => void;
   /** A join error carried back from a failed attempt (highlights the field). */
   initialError?: ErrorCode | null;
+  /** A friend-invite room code to join once on mount (from an in-game "Join room" tap, 26.1). */
+  initialInviteCode?: string | null;
 }
 
 type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile';
 
-export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
+export default function StartMenu({ onLocal, onOnline, initialError, initialInviteCode }: Props) {
   const { t } = useI18n();
   const errText = (code: ErrorCode) =>
     t(JOIN_ERR_CODES.has(code) || code === 'KICKED_BY_HOST' ? `err.${code}` : 'err.generic');
@@ -214,6 +216,39 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     });
   }
 
+  /**
+   * Actually JOIN an invited room after an explicit "Join room" tap (Stage 26.1) — the same
+   * server JOIN the manual Join button uses. Falls back to PREFILLING the Join sheet (never a
+   * silent no-op) when the join can't proceed cleanly: no name yet, or a DIFFERENT saved
+   * resumable room (so the Resume-vs-Join banner resolves the conflict explicitly).
+   */
+  function joinRoom(targetCode: string, opts?: { forceDirect?: boolean }) {
+    const c = targetCode.trim().toUpperCase();
+    if (c.length < 4) return;
+    // Fall back to prefilling the Join sheet (never a silent no-op) when we can't join cleanly:
+    // no name yet, or a DIFFERENT saved resumable room (so the Resume-vs-Join banner resolves it).
+    // `forceDirect` skips the resumable check when the user already confirmed leaving it.
+    const conflict = !opts?.forceDirect && !!resumable && resumable.roomCode !== c;
+    if (!name.trim() || !url.trim() || conflict) {
+      setInvitedCode(c); setCode(c); setNeedPassword(false); setPane('join');
+      return;
+    }
+    saveNickname(name); saveAvatar(avatar);
+    onOnlineWithAuth(url.trim(), { kind: 'join', code: c, name: name.trim(), avatar });
+  }
+
+  // In-game "Join room" tap routes an invite code through the menu (App.inviteCode). The user
+  // already confirmed leaving their previous room, so drop that stale resumable and JOIN directly.
+  const inviteJoinedRef = useRef(false);
+  useEffect(() => {
+    if (inviteJoinedRef.current || !initialInviteCode) return;
+    inviteJoinedRef.current = true;
+    clearSession(); setResumable(null);
+    joinRoom(initialInviteCode, { forceDirect: true });
+    // joinRoom reads current name/url; run once when the code first arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialInviteCode]);
+
   function openJoin() {
     setPane('join'); setNeedPassword(false);
     setGameFilter('all'); setRoomSort('open'); // reset the browser view each open
@@ -238,8 +273,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
     <div className="screen menu-screen">
       <AccountBar account={account} name={name} avatar={avatar} />
 
-      {/* Friend room-invite received while at the menu (Stage 25.7). Join reuses the ?room=
-          prefill (never auto-join); Dismiss clears it. */}
+      {/* Friend room-invite received while at the menu (Stage 25.7/26.1). "Join room" now
+          actually JOINS via joinRoom() (the same server JOIN as the manual button) — it only
+          falls back to prefilling the Join sheet on a conflict / missing name. Dismiss clears it. */}
       {presence.invite && (
         <div className="friend-invite-toast" role="status">
           <span className="friend-invite-toast__text">
@@ -248,8 +284,9 @@ export default function StartMenu({ onLocal, onOnline, initialError }: Props) {
           <span className="friend-invite-toast__actions">
             <button type="button" className="btn btn--primary btn--small" onClick={() => {
               const c = presence.invite!.code;
-              setInvitedCode(c); setCode(c); setPane('join'); presence.dismissInvite();
-            }}>{t('friends.join')}</button>
+              presence.dismissInvite();
+              joinRoom(c);
+            }}>{t('friends.joinRoom')}</button>
             <button type="button" className="btn btn--ghost btn--small" onClick={presence.dismissInvite}>{t('friends.dismiss')}</button>
           </span>
         </div>

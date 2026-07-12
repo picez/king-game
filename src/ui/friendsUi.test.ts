@@ -39,13 +39,39 @@ describe('Room invite wiring (OnlineGame)', () => {
   it('offers Invite on online friends (in-room) and shows a received-invite toast', () => {
     expect(online).toContain('sendFriendInvite');
     expect(online).toContain('friend-invite-toast');
-    expect(online).toContain("t('friends.join')");
+    expect(online).toContain("t('friends.joinRoom')"); // 26.1: actionable "Join room"
     expect(online).toContain("t('friends.dismiss')");
-    // Join reuses the existing ?room= invite flow — never auto-joins.
-    expect(online).toMatch(/\/\?room=\$\{encodeURIComponent\(net\.friendInvite/);
     // Stage 25.9: the invite block is passed INTO the Lobby card (inviteSlot), so it is always
     // visible after the players — not a sibling that falls below the full-height lobby screen.
     expect(online).toMatch(/inviteSlot=\{[\s\S]*?variant="invite"/);
+  });
+
+  it('Join from an in-game invite is ACTIONABLE — not a dead location mutation (Stage 26.1)', () => {
+    // The in-game "Join room" must call an actual handler, never just mutate window.location.
+    expect(online).toContain('acceptInvite');
+    expect(online).toContain('onJoinInvite');
+    expect(online).not.toContain('window.location.href');   // the old dead prefill-only path is gone
+    // Same room → dismiss; a different room → confirm before leaving.
+    expect(online).toMatch(/net\.room\?\.code === code[\s\S]*dismissFriendInvite/);
+    expect(online).toContain("t('friends.leaveToJoin')");
+    // The menu-side invite toast JOINS via joinRoom() (the real server JOIN), not a bare prefill.
+    const menu = read('src/ui/StartMenu.tsx');
+    expect(menu).toMatch(/onClick=\{\(\) => \{[\s\S]*?joinRoom\(c\)/);
+    expect(menu).toMatch(/function joinRoom\(/);
+    expect(menu).toContain('kind: \'join\', code: c');
+    // App carries an in-game invite code back to the menu, which joins it once.
+    const app = read('src/App.tsx');
+    expect(app).toContain('onJoinInvite');
+    expect(app).toContain('initialInviteCode');
+  });
+
+  it('the ?room= deep-link still prefills the Join sheet, and the join carries only a room code', () => {
+    const menu = read('src/ui/StartMenu.tsx');
+    expect(menu).toContain('INVITE_ROOM_PARAM');       // deep-link handling intact
+    expect(menu).toContain('roomCodeFromQuery');
+    // joinRoom sends kind:'join' + code (+ name/avatar) — never a token/session/userId.
+    const jr = menu.slice(menu.indexOf('function joinRoom'), menu.indexOf('function joinRoom') + 500);
+    expect(jr).not.toMatch(/token|session|userId|reconnect/i);
   });
 
   it('the invite block lives INSIDE the lobby card (not a collapsed <details> or off-card sibling)', () => {

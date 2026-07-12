@@ -36,6 +36,8 @@ interface Props {
   onExit: (joinError?: ErrorCode) => void;
   /** Whether the local user is a signed-in account (enables the Friends invite panel). */
   signedIn?: boolean;
+  /** Accept a friend invite for a DIFFERENT room: leave here and join `code` via the menu (26.1). */
+  onJoinInvite?: (code: string) => void;
 }
 
 const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finished']);
@@ -46,7 +48,7 @@ const PUBLIC_STATUSES = new Set(['trick_complete', 'round_scoring', 'game_finish
  * screen only on its own turn; otherwise a read-only waiting view. Each client
  * receives only its own hand (server-side redaction).
  */
-export default function OnlineGame({ url, intent, onExit, signedIn = false }: Props) {
+export default function OnlineGame({ url, intent, onExit, signedIn = false, onJoinInvite }: Props) {
   const net = useNetworkGame(url, intent);
   const { t } = useI18n();
   // Friends (Stage 25.2): API base is same-origin as the WS host; invited-this-session set.
@@ -68,18 +70,26 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false }: Pr
     onDecline: net.sendRematchDecline,
   } : null;
 
-  // A received friend invite → a Join/Dismiss toast (never auto-join). Join reuses the
-  // existing `?room=CODE` invite flow (a same-origin navigation that lands on the Join
-  // sheet prefilled). Built once so it shows in the lobby and in-game alike.
+  // A received friend invite while already IN a room (Stage 26.1). "Join room" is now actionable:
+  //  - same room as the invite → just dismiss (already here);
+  //  - a DIFFERENT room → confirm (leaving loses the current game), then route the code through
+  //    the menu (App.onJoinInvite), which owns the name/server/JOIN flow and remounts OnlineGame.
+  const acceptInvite = () => {
+    const code = net.friendInvite?.code;
+    if (!code) return;
+    if (net.room?.code === code) { net.dismissFriendInvite(); return; }
+    if (typeof window !== 'undefined' && !window.confirm(t('friends.leaveToJoin'))) return;
+    net.dismissFriendInvite();
+    onJoinInvite?.(code);
+  };
   const inviteToast = net.friendInvite ? (
     <div className="friend-invite-toast" role="status">
       <span className="friend-invite-toast__text">
         <strong>{net.friendInvite.fromName}</strong> {t('friends.invitedYou')} · <code>{net.friendInvite.code}</code>
       </span>
       <span className="friend-invite-toast__actions">
-        <button type="button" className="btn btn--primary btn--small"
-          onClick={() => { window.location.href = `/?room=${encodeURIComponent(net.friendInvite!.code)}`; }}>
-          {t('friends.join')}
+        <button type="button" className="btn btn--primary btn--small" onClick={acceptInvite}>
+          {t('friends.joinRoom')}
         </button>
         <button type="button" className="btn btn--ghost btn--small" onClick={net.dismissFriendInvite}>
           {t('friends.dismiss')}

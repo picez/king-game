@@ -7,6 +7,15 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project uses [Semantic Versioning](https://semver.org/). The running version is
 also reported at `GET /health/diagnostics` (`version` field).
 
+## [Unreleased]
+
+### Fixed
+
+- **Friend invite "Join" now works** (Stage 26.1): tapping **Join room** on an invite actually
+  joins the inviter's room instead of doing nothing — at the menu it joins directly; from inside
+  another room it confirms before leaving; in the same room it dismisses. The `?room=` deep-link
+  still prefills the Join sheet. The invite still carries only a room code.
+
 ## [0.3.0] — 2026-07-12 — Social & voice release
 
 Adds the social layer on top of the five-game platform: **friends, room invites, online
