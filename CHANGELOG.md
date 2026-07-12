@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed (Stage 27.1 — menu sections + sender-anchored reactions)
+
+- **Profile is split into clear sections** — Account, Friends, Statistics, Achievements and
+  Leaderboards are each their own tappable section (with the incoming friend-request badge on
+  Friends) instead of one crowded tab strip that overflowed on small phones.
+- **Reactions & stickers float over the sender's seat** — an emoji/sticker now pops near the
+  player who sent it (bottom for you, others around the table) instead of always at the centre.
+  It reuses the existing public seat info — no protocol change.
+
 ### Changed (Stage 27.0 — game rules + table clarity)
 
 - **Tarneeb:** the **minimum bid is now 3** (auction 3–13; scoring unchanged), and the **trump

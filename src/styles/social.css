@@ -1,10 +1,16 @@
 /* ===== Room social: reactions + chat (Stage 7) ===== */
-/* Floating reactions — top-centre, pointer-through, never over the hand/trick. */
+/* Floating reactions — anchored over the SENDER's seat (Stage 27.1), pointer-through, never over
+   the hand/trick. The container covers the board; each `.reaction-anchor` positions its chip at the
+   matching edge (bottom = the viewer, top/left/right = the others), and the chip keeps its pop. */
 .reactions-float {
-  position: fixed; top: 60px; left: 0; right: 0;
-  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
-  pointer-events: none; z-index: 60; padding: 0 8px;
+  position: fixed; inset: 0; pointer-events: none; z-index: 60;
 }
+.reaction-anchor { position: absolute; display: flex; justify-content: center; padding: 0 8px; }
+.reaction-anchor--center,
+.reaction-anchor--top    { top: 60px;  left: 0; right: 0; }
+.reaction-anchor--bottom { bottom: 30%; left: 0; right: 0; } /* above the viewer's hand */
+.reaction-anchor--left   { top: 42%; inset-inline-start: 3%; }
+.reaction-anchor--right  { top: 42%; inset-inline-end: 3%; }
 .reaction-chip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--panel-2); border: 1px solid var(--border);

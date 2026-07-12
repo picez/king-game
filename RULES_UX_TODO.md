@@ -5,6 +5,10 @@ CHANGELOG). To avoid half-breaking released games in one pass, the larger items 
 **deferred** with a concrete design so a follow-up stage can pick them up safely. **Nothing here
 is half-implemented** — current team modes / navigation / turn order are untouched.
 
+**Update (Stage 27.1):** Part A (profile section split) and Part F.4 (sender-anchored reactions)
+are now **DONE** — see their sections below. Remaining deferred: B.2 trump exchange, C.3 view
+tricks, D solo modes, E clockwise audit.
+
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.
 - **Tarneeb trump obligation:** void in the led suit + holding trump ⇒ must trump. Pure reducer
@@ -19,12 +23,13 @@ is half-implemented** — current team modes / navigation / turn order are untou
 
 ## Deferred — design notes
 
-### A. Profile / menu navigation separation (Req 1, Part A)
-Today `ProfileMenu` packs 5 tabs (Profile / Friends / Stats / Achievements / Leaderboard) into one
-segmented row — crowded on 360 px. **Plan:** split into top-level menu tiles from the main menu
-(Profile, **Friends** — carrying the incoming-request badge, Statistics, Achievements), each opening
-its own screen; keep Leaderboard as a sub-toggle under Statistics. Preserve the 25.7 request badge
-on the Friends entry. Risk: low (UI only) but touches menu routing + several tests → its own stage.
+### A. Profile / menu navigation separation (Req 1, Part A) — ✅ DONE (Stage 27.1)
+The `ProfileMenu` horizontal tab row was replaced with a **section grid**: Account / Friends /
+Statistics / Achievements / Leaderboards are each a tappable tile (icon + label + subtitle) that
+drills into its own screen with a "← Sections" back button. No more truncated tab strip; wraps
+cleanly at 360/390, RTL-safe. The incoming friend-request **badge** shows on the Friends tile (and
+the Friends section header). The per-game Stats/Leaderboard selectors and the Achievements toast
+are preserved inside their sections.
 
 ### B.2 Deberc trump exchange (Req 3, Part B.2)
 **Rule:** before the first trick, once trump is revealed on the table, any player holding the
@@ -67,10 +72,10 @@ agree with a clockwise read; where they disagree, prefer fixing the **UI layout/
 engine, to avoid changing dealing/scoring). Add a per-game "next seat order" guard test. Deferred —
 needs a careful visual audit on device, not a blind engine flip.
 
-### F.4 Reactions/emoji over the sender (Req 8, Part F.4)
-Reactions currently float **top-centre** (`reactions-float`). To float them **over the sender's
-seat**, map `ReactionEvent.seatIndex` to that seat's on-screen position — but seat positions are
-**per-game** (each game screen lays seats out differently). **Design:** expose a seat→screen-anchor
-map from each game screen (or a shared seat-layout helper) and position the floating chip there,
-falling back to centre when the seat is unknown / in the lobby. Deferred — per-game positioning
-work best done alongside the table-layout pass.
+### F.4 Reactions/emoji over the sender (Req 8, Part F.4) — ✅ DONE (Stage 27.1)
+Reactions + stickers now float **over the sender's seat** instead of top-centre. A pure helper
+`reactionAnchorForSender(fromSeat, mySeat, seatCount)` maps the sender to a relative anchor
+(bottom = the viewer, others clockwise — mirroring the game seat layouts), and RoomSocial positions
+each chip at that edge (`reaction-anchor--bottom/left/top/right`), never over the hand/trick. It
+reuses the existing **public `seatIndex`** already in the REACTION / CHAT payloads (no protocol
+change, no new identity). Unknown seat (spectator / lobby / unsupported count) → centred, as before.

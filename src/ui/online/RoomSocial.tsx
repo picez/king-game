@@ -4,6 +4,7 @@ import { REACTIONS, MAX_CHAT_LEN } from '../../net/chatFilter';
 import { CHAT_MEDIA, type ChatMediaItem } from '../../net/chatMediaCatalog';
 import type { ChatMessage, ChatMedia } from '../../net/messages';
 import type { ReactionEvent, SocialNotice } from '../../hooks/useNetworkGame';
+import { reactionAnchorForSender } from './reactionAnchor';
 
 interface Props {
   reactions: ReactionEvent[];
@@ -23,6 +24,10 @@ interface Props {
   onLeaveGame?: () => void;
   /** Optional compact voice control (Stage 25.4), rendered in the corner button row. */
   voiceButton?: ReactNode;
+  /** The viewer's seat + the table size (Stage 27.1) — used to float a reaction over the
+   *  sender's seat. Null/0 (spectator / lobby / unknown) → the reaction stays centred. */
+  mySeatIndex?: number | null;
+  seatCount?: number;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -33,6 +38,8 @@ interface FloatSticker {
   media: ChatMedia;
   name: string;
   avatar: string;
+  /** Sender's seat (from the CHAT payload) so the sticker floats over their seat too. */
+  seatIndex: number | null;
   at: number;
 }
 
@@ -44,7 +51,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0 }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -94,7 +101,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     const nowMs = Date.now();
     const add = fresh
       .filter((m) => nowMs - m.createdAt < REACTION_TTL_MS * 2)
-      .map((m) => ({ key: m.id, media: m.media!, name: m.name, avatar: m.avatar, at: nowMs }));
+      .map((m) => ({ key: m.id, media: m.media!, name: m.name, avatar: m.avatar, seatIndex: m.seatIndex, at: nowMs }));
     if (add.length) setFloats((f) => [...f, ...add].slice(-6));
   }, [chat]);
 
@@ -141,21 +148,26 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
   return (
     <>
-      {/* Floating reactions + stickers — top-centre, never over the hand/trick. */}
+      {/* Floating reactions + stickers — anchored over the SENDER's seat (Stage 27.1), never over
+          the hand/trick. Unknown seat (spectator / lobby / unseated) → centred, as before. */}
       <div className="reactions-float" aria-live="polite">
         {activeReactions.map((r) => (
-          <span className="reaction-chip" key={r.key}>
-            <span className="reaction-chip__av" aria-hidden="true">{r.avatar}</span>
-            <span className="reaction-chip__emoji">{r.emoji}</span>
-            <span className="reaction-chip__name">{r.name}</span>
-          </span>
+          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(r.seatIndex, mySeatIndex, seatCount)}`} key={r.key}>
+            <span className="reaction-chip">
+              <span className="reaction-chip__av" aria-hidden="true">{r.avatar}</span>
+              <span className="reaction-chip__emoji">{r.emoji}</span>
+              <span className="reaction-chip__name">{r.name}</span>
+            </span>
+          </div>
         ))}
         {activeFloats.map((f) => (
-          <span className="reaction-chip reaction-chip--sticker" key={f.key}>
-            <span className="reaction-chip__av" aria-hidden="true">{f.avatar}</span>
-            <img className="reaction-chip__sticker" src={f.media.src} alt={f.media.label} loading="lazy" decoding="async" />
-            <span className="reaction-chip__name">{f.name}</span>
-          </span>
+          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(f.seatIndex, mySeatIndex, seatCount)}`} key={f.key}>
+            <span className="reaction-chip reaction-chip--sticker">
+              <span className="reaction-chip__av" aria-hidden="true">{f.avatar}</span>
+              <img className="reaction-chip__sticker" src={f.media.src} alt={f.media.label} loading="lazy" decoding="async" />
+              <span className="reaction-chip__name">{f.name}</span>
+            </span>
+          </div>
         ))}
       </div>
 

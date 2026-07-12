@@ -160,7 +160,13 @@ documented as post-MVP, not built. Spec + plan:
   (in-memory last-50 ring buffer; lost on restart), never in stats. Payloads
   carry no userId/session/token and no card data. A collapsible chat drawer +
   reaction bar overlay never cover the hand/trick and are mobile-clean (360/390,
-  RTL). See [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md) → Room social.
+  RTL). **A reaction/sticker floats over the SENDER's seat** (Stage 27.1 — from the
+  existing public `seatIndex`; centred fallback for spectators/lobby), not the table
+  centre. See [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md) → Room social.
+- **Profile navigation (Stage 27.1):** the Profile screen is a **grid of sections**
+  (Account / Friends / Statistics / Achievements / Leaderboards), each drilling into its
+  own screen — no crowded/truncated tab row; the incoming friend-request badge shows on
+  the Friends section.
 - **UI polish (Stage 7)**: card artwork is clipped to the rounded border with no
   duplicate suit/rank badge (full-image cards; Ace not cropped; face-down cards
   unchanged).

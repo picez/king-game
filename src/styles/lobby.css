@@ -579,6 +579,27 @@
   .profile-screen__tabs .segmented__tab { font-size: 0.72rem; letter-spacing: -0.01em; }
 }
 
+/* Section grid (Stage 27.1): scalable tappable tiles instead of a truncated tab row. */
+.profile-sections { display: flex; flex-direction: column; gap: 0.5rem; }
+.profile-section-tile {
+  position: relative; display: flex; align-items: center; gap: 0.7rem; width: 100%;
+  padding: 0.7rem 0.8rem; border-radius: 12px; text-align: start;
+  background: var(--panel-2); border: 1px solid var(--border); cursor: pointer;
+  min-height: var(--tap-min); color: var(--text);
+}
+.profile-section-tile:hover { border-color: var(--border-strong); }
+.profile-section-tile:active { transform: translateY(1px); }
+.profile-section-tile__icon { font-size: 1.4rem; flex: 0 0 auto; }
+.profile-section-tile__text { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
+.profile-section-tile__label { font-weight: 700; }
+.profile-section-tile__sub { font-size: 0.76rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-section-tile .notif-badge { top: 50%; transform: translateY(-50%); inset-inline-end: 10px; }
+
+/* Section header (drill-in): back button + title (+ optional refresh). */
+.profile-section-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+.profile-section-head__title { margin: 0; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 0.4rem; }
+.profile-section-head .drawer__refresh { margin-inline-start: auto; }
+
 /* Advanced connection (Stage 13.3): custom server address folded away so it never
    reads as a required step. Native <details>, styled to the premium menu look. */
 .advanced {

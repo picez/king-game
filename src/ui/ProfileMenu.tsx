@@ -74,6 +74,9 @@ export default function ProfileMenu({
 }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>('profile');
+  // Section navigation (Stage 27.1): false = the section grid; true = viewing one section.
+  const [inSection, setInSection] = useState(false);
+  const openSection = (key: Tab) => { setTab(key); setInSection(true); };
   const [statsGame, setStatsGame] = useState<GameKey>('king');
   const [boardGame, setBoardGame] = useState<GameKey>('king');
 
@@ -202,12 +205,14 @@ export default function ProfileMenu({
   const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans
     || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard || loadingPreferansBoard;
 
-  const tabs: Array<{ key: Tab; label: string }> = [
-    { key: 'profile', label: t('account.title') },
-    { key: 'friends', label: t('friends.title') },
-    { key: 'stats', label: t('stats.myStats') },
-    { key: 'achievements', label: t('profile.achievements') },
-    { key: 'leaderboard', label: t('stats.leaderboard') },
+  // Profile sections (Stage 27.1): each is its own screen reached from a section grid, instead of
+  // one horizontal tab row that overflows on narrow phones. Order + labels unchanged.
+  const tabs: Array<{ key: Tab; label: string; icon: string; sub: string }> = [
+    { key: 'profile', label: t('account.title'), icon: '⚙️', sub: t('menu.profileSub') },
+    { key: 'friends', label: t('friends.title'), icon: '👥', sub: t('profile.friendsSub') },
+    { key: 'stats', label: t('stats.myStats'), icon: '📊', sub: t('profile.statsSub') },
+    { key: 'achievements', label: t('profile.achievements'), icon: '🏆', sub: t('profile.achievementsSub') },
+    { key: 'leaderboard', label: t('stats.leaderboard'), icon: '🥇', sub: t('profile.leaderboardSub') },
   ];
 
   // Achievements are derived from the five per-game stat loadables (read-only).
@@ -245,19 +250,43 @@ export default function ProfileMenu({
     setToastQueue([]);
   }
 
+  if (!inSection) {
+    // Section grid (Stage 27.1): a scalable list of tiles, one per section — no truncated tab row.
+    return (
+      <div className="profile-screen">
+        <div className="profile-sections">
+          {tabs.map((tb) => (
+            <button key={tb.key} type="button" className="profile-section-tile" onClick={() => openSection(tb.key)}>
+              <span className="profile-section-tile__icon" aria-hidden="true">{tb.icon}</span>
+              <span className="profile-section-tile__text">
+                <span className="profile-section-tile__label">{tb.label}</span>
+                <span className="profile-section-tile__sub">{tb.sub}</span>
+              </span>
+              {tb.key === 'friends' && friendsIncoming > 0 && (
+                <span className="notif-badge" aria-label={`${friendsIncoming} ${t('friends.requests')}`}>{friendsIncoming}</span>
+              )}
+            </button>
+          ))}
+        </div>
+        {toastQueue.length > 0 && (
+          <AchievementToast achievements={toastQueue} onDismiss={dismissToast} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="profile-screen">
-      <div className="segmented profile-screen__tabs" role="tablist">
-        {tabs.map((tb) => (
-          <button key={tb.key} role="tab" aria-selected={tab === tb.key}
-            className={`segmented__tab ${tab === tb.key ? 'segmented__tab--active' : ''}`}
-            onClick={() => setTab(tb.key)}>
-            {tb.label}
-            {tb.key === 'friends' && friendsIncoming > 0 && (
-              <span className="notif-badge notif-badge--inline" aria-label={`${friendsIncoming} ${t('friends.requests')}`}>{friendsIncoming}</span>
-            )}
-          </button>
-        ))}
+      <div className="profile-section-head">
+        <button type="button" className="btn btn--ghost btn--small" onClick={() => setInSection(false)}>
+          ← {t('profile.sections')}
+        </button>
+        <h3 className="profile-section-head__title">
+          {tabs.find((tb) => tb.key === tab)?.label}
+          {tab === 'friends' && friendsIncoming > 0 && (
+            <span className="notif-badge notif-badge--inline" aria-label={`${friendsIncoming} ${t('friends.requests')}`}>{friendsIncoming}</span>
+          )}
+        </h3>
         {(tab === 'stats' || tab === 'leaderboard') && (
           <button className="drawer__refresh" onClick={refresh}
             disabled={anyLoading}

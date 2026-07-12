@@ -107,6 +107,11 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // Active-game "Leave game": return to the menu but stay reconnectable so the
   // start menu still offers Resume (does NOT remove the seat or log out).
   const leaveGameToMenu = () => { net.backToMenu(); onExit(); };
+  // The viewer's seat + table size (Stage 27.1) so RoomSocial floats a reaction over the sender's
+  // seat. Derived from the room snapshot (public); null/0 for a spectator → reactions stay centred.
+  const myMember = net.room?.members.find((m) => m.clientId === net.myClientId);
+  const mySeatIndex = myMember?.role === 'player' ? myMember.seatIndex : null;
+  const seatCount = net.room?.members.filter((m) => m.role === 'player').length ?? 0;
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
     <>
       {inviteToast}
@@ -116,6 +121,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
         handVisible={handVisible} onLeaveGame={onLeaveGame}
         voiceButton={<VoiceControl voice={voice} variant="compact" />}
+        mySeatIndex={mySeatIndex} seatCount={seatCount}
       />
     </>
   );

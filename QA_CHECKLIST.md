@@ -761,6 +761,20 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       **led** the current trick shows a small **"1" corner badge + gold ring**; it's always clear
       who led. No overflow at 360/390.
 
+## Manual — Menu sections + sender-anchored reactions (Stage 27.1)
+
+- [ ] **Profile sections:** open **Profile** → you see a **grid of sections** (Account / Friends /
+      Statistics / Achievements / Leaderboards), each a tile with an icon + subtitle — **not** a
+      crowded/truncated tab row. Tapping a tile opens that section with a **"← Sections"** back
+      button; Statistics/Leaderboards still have the per-game sub-selector, Achievements still
+      toasts new badges. With a pending friend request, the **red badge** shows on the **Friends**
+      tile. No overflow at 360/390; RTL-safe.
+- [ ] **Reactions over the sender (in-game):** in an online game, send an emoji/sticker → it floats
+      **above your own seat** (bottom). A reaction from another player (or a bot) floats near
+      **their** seat (top/left/right), **not** at the centre, and never covers the hand/trick.
+      A spectator's reaction (or the lobby, where seats aren't laid out) stays **centred**.
+      Multiple reactions don't break the layout (they clear on the ~2.6 s TTL).
+
 ## Manual — Game rules corrections (Stage 27.0)
 
 > Rule changes are enforced in the pure reducer, so online play validates identically.
