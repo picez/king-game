@@ -22,6 +22,14 @@ describe('rematch wiring — every online finish screen uses RematchControls', (
     });
   }
 
+  it('online "Play again" restarts (onReady) — it never calls exit / back-to-menu', () => {
+    const rc = read('src/ui/online/RematchControls.tsx');
+    // The primary Play-again button is wired to onReady (marks ready → server restarts).
+    expect(rc).toMatch(/onClick=\{onReady\}[^]*rematch\.playAgain/);
+    // RematchControls has no leave/exit path at all (only onReady / onDecline).
+    expect(rc).not.toMatch(/onExit|backToMenu|onPlayAgain/);
+  });
+
   it('OnlineGame passes the rematch context to every online game + the King context', () => {
     const online = read('src/ui/online/OnlineGame.tsx');
     expect((online.match(/rematch=\{rematchUi\}/g) ?? []).length).toBeGreaterThanOrEqual(4);

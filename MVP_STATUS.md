@@ -5,7 +5,8 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.2.0`** (five-game platform release, 2026-07-11;
+**Status: stable MVP — release `v0.3.0`** (social & voice release — friends, room
+invites, online rematch, in-room WebRTC voice — on the v0.2.0 five-game platform, 2026-07-12;
 see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
 online play both work end-to-end. This file is the running feature list; for the concise
 "what it is / how it fits together" start at [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
@@ -48,6 +49,20 @@ documented as post-MVP, not built. Spec + plan:
   disconnecting updates or cancels the pending rematch. Server-authoritative (`restartGame` reuses
   `startGame`); WS `REMATCH_READY` / `REMATCH_DECLINE` / `REMATCH_STATE`; in-memory only, no DB,
   no token/session/email; a fresh game records its own stats (no duplication). All 5 games.
+- **Friends & room invites (Stage 25.1–25.9, needs Postgres + migration `0009`)**: add friends
+  **by code** (never by email); an app-level presence connection keeps a signed-in user **online**
+  at the menu and drives an **incoming-request badge**; the Lobby shows an **always-visible "Invite
+  friends"** block (online first) so a host can invite a friend into the current room (WS
+  `FRIEND_INVITE` → target Join/Dismiss toast reusing `?room=`; failures — offline / not friends /
+  not in room — surface a non-fatal notice). All over `/api/friends/*` + WS; presence is
+  per-instance. Plan: [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md).
+- **In-room voice chat (Stage 25.3–25.8, opt-in)**: a room-scoped **WebRTC mesh** (≤5) over the
+  `VOICE_*` signaling relay — Join/Mute/Leave in the Lobby card + a compact in-game mic; a safe
+  debug block (Mic / Peers / ICE state / Audio). **No server audio, no recording, no DB.** STUN by
+  default; a deployment adds **TURN** via `VOICE_ICE_SERVERS` (runtime, `/api/voice/ice-config`) or
+  `VITE_VOICE_ICE_SERVERS` (build-time) — credentials env-only, redacted from diagnostics. Strict-
+  NAT users without TURN fall back to text. Reconnect rebuilds the mesh; real cross-network audio
+  is a manual check (CI has no mic). Plan: [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md).
 - **Quick-rules help hub (Stage 22.0)**: a single generic **"How to play"** sheet
   (`GameHelpModal`) that works for every game from a pure catalog
   (`src/games/gameHelp.ts`) + i18n content (`help.<game>.<section>`) — short
@@ -330,18 +345,11 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
 2. Add join/create **rate limiting** before any broader public launch.
-   - **Social roadmap (designed, Stage 25.0; staged 25.1–25.5):**
-     [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md) — **25.1 + 25.2 DONE**: migration 0009 friend_code +
-     friendships, `/api/friends/*` signed-in routes, in-memory presence; **Profile Friends tab**
-     (code/add-by-code/accept/decline/online-first) + **room invites** (WS FRIEND_INVITE →
-     FRIEND_INVITE_RECEIVED toast reusing the `?room=` Join flow, FRIEND_PRESENCE push). Add-by-
-     friend-code, no email exposure.
-     [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) — **25.3 + 25.4 DONE**: opt-in in-room **WebRTC
-     mesh voice** (STUN-only) over the `VOICE_*` signaling relay — Join/Leave/Mute in the Lobby
-     card + a compact in-game mic button; unsupported / mic-denied / autoplay-blocked fallbacks;
-     text chat unaffected. No server audio, no recording, no DB; TURN is post-MVP. And
-     [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md) (opt-in, room-scoped **WebRTC mesh** voice over
-     the existing WS as signaling; STUN-only MVP; no recording/DB; graceful text-chat fallback).
+   - **Social (Stage 25.0–25.9 — DONE, see "What works" above):** Friends + room invites +
+     presence badge ([`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)), online **rematch**, and opt-in in-room
+     **WebRTC voice** with a runtime **TURN** config seam ([`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md)).
+     Remaining post-MVP: short-lived TURN credentials, cross-instance presence (Redis), and a
+     moderation console.
 3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)
    and **online Durak** rooms (host/join with bots) are fully playable — King
    state/action are a union over the wire, hands are redacted per game, the

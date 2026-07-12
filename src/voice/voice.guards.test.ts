@@ -77,6 +77,20 @@ describe('no TURN credentials are committed anywhere (STUN-only default; TURN is
   });
 });
 
+describe('voice debug UI exposes no SDP/ICE/candidate text (Stage 26.0)', () => {
+  it('VoiceControl renders only counts + state words — never SDP / ICE candidates / identity', () => {
+    const strip = (s: string) => s.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const ui = strip(read('src/ui/components/VoiceControl.tsx'));
+    // The debug block shows connection.iceState (a state WORD) + audio state — no raw signaling.
+    expect(ui).not.toMatch(/\bsdp\b|\bcandidate\b/i);
+    expect(ui).not.toMatch(/JSON\.parse|JSON\.stringify/);      // no signaling payload handling in the UI
+    // The debug values come from the safe summary helpers (a state word), not raw peer descriptions.
+    expect(ui).toContain('connText(voice, t)');
+    expect(ui).toContain('audioText(voice, t)');
+    expect(ui).toMatch(/return c\.iceState/); // connText returns a plain ICE state word
+  });
+});
+
 describe('runtime ICE config endpoint (Stage 25.6) — no secrets in logs/diagnostics', () => {
   const stripComments = (s: string) => s.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 

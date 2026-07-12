@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.2.0`** (tag `v0.2.0`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.0`** (tag `v0.3.0`).
 
 Set your host once and reuse it below:
 
@@ -18,6 +18,11 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **Avatar upload** needs a **Docker runtime with ffmpeg** *and* Postgres. On the native
 > `runtime: node` service (the default), avatar upload is **expected to return `503`** —
 > that is a PASS for the native path, not a bug. Everything else works either way.
+
+> **Run migrations after every deploy (Postgres only).** If `DATABASE_URL` is set, run
+> **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
+> (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
+> `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
 
 ---
 
@@ -163,8 +168,9 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       `REMATCH_*` frames carry only clientIds + a count (no token/session/email).
 - [ ] **Voice chat (Stage 25.4–25.7, opt-in):** in an online Lobby the **Voice chat** card shows
       **Join voice** (default off). It needs **HTTPS** for the mic (`getUserMedia` is blocked on
-      plain HTTP). With two contexts in the same room, Join → grant mic → **they hear each other**
-      and the card's **status block** reads **Mic: allowed · Peers: 1/1 · Connection: connected ·
+      plain HTTP). With two contexts in the same room — **two tabs on one PC**, or a **phone +
+      desktop on the SAME Wi-Fi** (both connect on STUN) — Join → grant mic → **they hear each
+      other** and the card's **status block** reads **Mic: allowed · Peers: 1/1 · Connection: connected ·
       Audio: playing** (the ICE-buffering fix + the DOM-attached audio sink make the mesh connect
       and play; the ICE line shows the raw state new→checking→connected, Audio shows
       playing/blocked/no-track — Stage 25.7/25.8). If every peer is **failed**, the card shows a

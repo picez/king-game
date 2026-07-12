@@ -7,69 +7,59 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project uses [Semantic Versioning](https://semver.org/). The running version is
 also reported at `GET /health/diagnostics` (`version` field).
 
-## [Unreleased]
+## [0.3.0] — 2026-07-12 — Social & voice release
+
+Adds the social layer on top of the five-game platform: **friends, room invites, online
+rematch, and opt-in in-room voice chat** — plus a round of account/avatar production fixes
+and gameplay polish. Additive and fairness-safe: no gameplay/scoring change; friends need
+Postgres + migration `0009_friends.sql`.
 
 ### Added
 
-- **Friends & room invites** (Stage 25.1–25.2): add friends, see who's online, invite
-  them straight into your room (invite carries only a room code + display name).
-- **In-room voice chat** (Stage 25.3–25.5): opt-in WebRTC mesh voice in online rooms —
-  Join/Mute/Leave, per-peer state, autoplay-blocked fallback. No audio is stored, recorded,
-  or sent through the server (peer-to-peer, signaling relay only).
+- **Friends & presence** (Stage 25.1–25.9): add friends **by code** (never by email); an
+  app-level presence connection shows who's **online** and drives an incoming-request **badge**
+  on the Profile tile + Friends tab. Signed-in only; presence is per-instance.
+- **Room invites**: a signed-in host can invite a friend into the current room from an
+  **always-visible "Invite friends"** block in the Lobby (online friends first). The target gets
+  a **Join/Dismiss** toast that reuses the `?room=` flow (never auto-joins); failures (offline /
+  not friends / not in a room) surface a small non-fatal notice. The invite carries only a room
+  code + display name.
+- **Online rematch / Play again**: after a game finishes, Play again restarts the **same game in
+  the same room** (same options/seats) instead of leaving to the menu. One human + bots restarts
+  immediately (bots are always ready); multiple humans must **all** press Play again (no
+  auto-start) and see who wants a rematch. In-memory only; a fresh game records its own stats.
+- **In-room voice chat** (Stage 25.3–25.6, opt-in): a room-scoped **WebRTC mesh** (≤5) —
+  Join/Mute/Leave in the Lobby card + a compact in-game mic, a safe status/debug block (Mic /
+  Peers / ICE state / Audio), and reconnect that rebuilds the mesh. **No audio is stored,
+  recorded, or sent through the server** (peer-to-peer; the server only relays signaling).
+  STUN-only by default; a deployment adds a **TURN** relay via `VOICE_ICE_SERVERS` (runtime,
+  `/api/voice/ice-config`) or `VITE_VOICE_ICE_SERVERS` (build-time) — credentials are env-only,
+  never committed, and redacted from diagnostics. `/health/diagnostics` reports
+  `voice.ice: stun_only|turn_configured`.
 
-### Added (Stage 25.9)
+### Fixed
 
-- **Online rematch / Play again** — after an online game finishes, Play again restarts the same
-  game in the same room instead of leaving to the menu. Solo + bots restarts immediately; with
-  multiple humans everyone must tap Play again (no auto-start), and others see who wants a rematch.
+- **Account / auth resilience** (Stage 24.2–24.5): a transient DB blip on `/api/me` no longer
+  dead-ends the Profile (falls back to a guest view); a missing migration surfaces a clear
+  `503 migration_required` instead of masquerading as a guest; live, secret-free auth
+  diagnostics help pinpoint an unreachable/cross-origin API base.
+- **Avatar upload production** (Stage 24.6–24.8): the "Uploading…" button can no longer hang
+  (client timeout always settles); every server phase (body read / ffmpeg / DB write) is bounded
+  with a distinct safe error; the browser now **compresses the image before upload** (a multi-MB
+  photo POSTs a ~KB WebP), making a Render timeout unlikely.
+- **Cards never render blank**: a slow / stalled / broken card image now falls back to the
+  rank+suit text (shown until the artwork actually paints) instead of a blank card.
+- **Last-card reveal delay**: the final card of a trick/bout lingers ~1 s so it can be read before
+  play advances — in every game, now including Durak (its bout lingers before the table clears).
+- **Voice audio reliability**: ICE candidates that arrived before the remote description are now
+  buffered (they used to be dropped, stalling the connection); remote audio sinks are attached to
+  the DOM for reliable mobile playback; a "TURN may be required" hint shows when every peer fails.
 
-### Fixed (Stage 25.9)
+### Notes
 
-- **Lobby friend-invite is actually visible** — the invite block is now rendered inside the lobby
-  card (right after the players) instead of below the full-height screen where it was off-screen;
-  added clear loading and error+retry states.
-
-### Fixed (Stage 25.8)
-
-- **Invite friends from the Lobby** — the room Lobby now shows an always-visible "Invite friends"
-  block (online friends first, with a clear Invite button) instead of a collapsed section; guests
-  and users with no friends get an explicit hint.
-- **Cards never render blank** — a slow, stalled, or broken card image now falls back to the
-  rank+suit text instead of a blank card (the text shows until the artwork actually paints).
-- **Last-card reveal delay** — the final card of a completed trick/bout lingers ~1 s so it can be
-  read before play advances, now including Durak (its bout lingers before the table clears).
-- **Voice diagnostics** — the Lobby voice card shows the live ICE state and a richer audio state
-  (playing / blocked / no-track); remote audio sinks are attached to the DOM for reliable
-  playback on mobile.
-
-### Fixed (Stage 25.7)
-
-- **Friends now show live online/offline** — a signed-in user is kept "online" at the menu (an
-  app-level presence connection), so friends see each other and the Profile Friends tab updates
-  without opening a room. Each friend has an explicit **Online/Offline** chip.
-- **Incoming friend requests are visible** — a red badge on the Profile menu tile and the Friends
-  tab; it clears on accept/decline.
-- **Direct room invites are clearer** — an obvious Invite button beside online friends in a room;
-  a "create or join a room to invite" hint otherwise; failed invites (offline / not friends / not
-  in a room) show a small notice instead of failing silently. A received invite pops a Join toast
-  even at the menu.
-- **Voice "button works but no audio"** — ICE candidates arriving before the remote description
-  are now buffered and applied (they used to be dropped, which stalled the connection). A safe
-  status block (Mic / Peers / Connection / Audio) and a "TURN may be required" hint aid diagnosis.
-
-### Hardened (voice, Stage 25.5)
-
-- **Reconnect resync:** a dropped/reconnected socket rebuilds the voice mesh automatically —
-  stale peer connections closed, remote audio sinks removed, mute preserved, no duplicate peers.
-- **ICE config seam:** `VITE_VOICE_ICE_SERVERS` optionally supplies a **TURN** relay for
-  strict-NAT users; STUN-only by default. **TURN credentials are env-only, never committed**
-  and are redacted from diagnostics.
-- **Runtime TURN config (Stage 25.6):** `GET /api/voice/ice-config` serves ICE servers from the
-  server env `VOICE_ICE_SERVERS` — add/rotate TURN **without a client rebuild** (build-time env
-  stays a fallback). `/health/diagnostics` reports `voice.ice: stun_only|turn_configured` (no
-  credential); the Lobby shows a small STUN/TURN indicator. Provider guidance (Metered/Twilio/
-  Cloudflare/coturn) + short-lived-credential path documented.
-- **Permission UX:** mic-denied shows a browser-settings hint; background/PWA never auto-rejoins.
+- Real **cross-network voice** is a manual check (CI has no mic); strict/symmetric-NAT users need
+  a **TURN** relay to connect P2P (otherwise they fall back to text chat).
+- Production with Postgres must run **`npm run db:migrate`** after deploy (Friends need `0009`).
 
 ## [0.2.0] — 2026-07-11 — Five-game platform release
 

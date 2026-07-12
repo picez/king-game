@@ -4,7 +4,8 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.2.0** — five-game platform release (2026-07-11). See
+> **Release:** **v0.3.0** — social & voice release (friends, room invites, online rematch,
+> in-room WebRTC voice), on top of the v0.2.0 five-game platform. See
 > [`CHANGELOG.md`](CHANGELOG.md); the running version is also at `GET /health/diagnostics`.
 
 > **Naming:** the product is **Card Majlis** (Stage 14.0 rebrand). "King" now names
@@ -53,17 +54,35 @@ not built. [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PR
   auto-refresh); **invite links** `<origin>/?room=<CODE>` that prefill the Join sheet
   (never auto-join); server-side **AI bots**; reconnect/restart restore; orphan-room
   cleanup + AI substitution for a disconnected human's turn.
+- **Rematch / Play again (online):** after a game finishes, "Play again" restarts the **same
+  game in the same room** (same gameType/options/seats). One human + bots restarts immediately
+  (bots always ready); multiple humans must **all** press Play again (no auto-start). In-memory
+  only, server-authoritative (reuses the start path).
 - **Team lobby (Deberc/Tarneeb):** the lobby groups seats into Team A (0 & 2) / Team B
   (1 & 3), shows empty seats + You/Partner — presentational only.
 - **Room social:** ephemeral in-memory reactions + chat + whitelisted stickers (lost on
   restart; mediaId-only, server-validated — no uploads).
+- **Friends & presence (signed-in):** add friends **by code** (never by email); an app-level
+  presence connection shows who's **online** and drives an incoming-request badge; a signed-in
+  host can **invite a friend into the current room** (the Lobby "Invite friends" block shows
+  online friends first; the target gets a Join/Dismiss toast that reuses the `?room=` flow). All
+  over the HTTP API + WS; the invite carries only a room code + display name. Needs Postgres
+  (migration `0009_friends.sql`). Backend: [`FRIENDS_PLAN.md`](FRIENDS_PLAN.md).
+- **In-room voice chat (opt-in):** a per-room WebRTC mesh (≤5). The server is a **signaling
+  relay only** — no audio, no recording, no DB. STUN by default; a deployment may add a **TURN**
+  relay (`VOICE_ICE_SERVERS` / `VITE_VOICE_ICE_SERVERS`) for strict NAT. Design:
+  [`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md).
 
 ## Online / security model
 
 Single-service, single Node instance. WSS in production; **CSRF** = SameSite=Lax + an
 `Origin` allow-check on mutations; session token stored **hashed** (revocable); room
 passwords hashed with **scrypt**; per-connection **and** per-IP rate limits; profanity/
-URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §5.
+URL filtering on chat. Friends / invites / rematch / voice payloads carry **no email, token,
+session, or reconnect token** — only public routing ids; friends presence is per-instance
+(in-memory). Voice audio is **peer-to-peer (DTLS-SRTP)** and never touches the server; any
+TURN credential is env-only (never committed) and redacted from diagnostics/logs. See
+[`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) §5.
 
 ## Profile & personalization
 
@@ -93,14 +112,25 @@ URL filtering on chat. See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md) 
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
 - **After a deploy:** run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
   checklist (health / 5 games / rooms / stats / avatars / social / security).
+- **Migrations:** when Postgres is enabled, run **`npm run db:migrate`** after every deploy —
+  Friends need `0009_friends.sql`, and a missing column surfaces as `/api/me → 503
+  migration_required`.
+- **Voice TURN (optional):** unset → STUN-only (strict-NAT users fall back to text). Set
+  `VOICE_ICE_SERVERS` (server, runtime, served at `/api/voice/ice-config`) or the build-time
+  `VITE_VOICE_ICE_SERVERS` to add a TURN relay — credentials are env-only, never committed.
 - **Diagnostics:** `GET /health` (liveness + DB probe) and `GET /health/diagnostics`
-  (safe operational snapshot — build/commit, uptime, DB + avatar readiness, room + socket
-  counts, available game ids; aggregate-only, no private data). Handy for a quick prod
-  check without the Render dashboard.
+  (safe operational snapshot — build/commit, uptime, **DB state**, **avatar readiness + reason**,
+  **voice ICE mode** `stun_only|turn_configured`, room + socket counts, available game ids;
+  aggregate-only, no private data / no credentials). Handy for a quick prod check without the
+  Render dashboard.
 
 ## Current limitations
 
 - **Single Node instance** — horizontal scaling needs Redis/pub-sub or sticky sessions.
+  **Friends presence is per-instance** (a friend on another instance shows offline).
+- **Voice is STUN-only by default** — strict/symmetric-NAT users (e.g. some mobile carriers)
+  can't connect P2P and fall back to text unless a **TURN** relay is configured. Real
+  cross-network voice must be verified manually (CI has no mic).
 - **Ephemeral rooms** on the free tier unless `ROOM_STORAGE=pg` (Postgres); **ephemeral
   social** (chat/reactions lost on restart).
 - **Avatar upload needs ffmpeg** at runtime (native Render has none → `503`; use the
