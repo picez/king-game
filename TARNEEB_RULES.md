@@ -400,3 +400,12 @@ behind a `variant` flag (default `'team'`). **Decision: C.** A solo mode changes
 so it must be its own tested stage that leaves the released 2×2 game — and its existing online
 stats/leaderboard — untouched. Meanwhile, players who want an every-player-for-self card game can
 use **Deberc's 3-player mode**, which is exactly that today.
+
+**Update (Stage 28.0): foundation laid, still not built.** The chosen shape (Variant B, 4-player
+cutthroat) now has an **implementation-ready spec** — see
+**[`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md)** — which fixes the one open decision (the
+individual scoring model: declarer ±bid, set defenders earn defensive credit by their own tricks).
+A `soloGuard.test.ts` pins the released 4-player 2×2 pairs behaviour so the future build can add a
+`variant` flag **without** altering the shipped team game. The Deberc 3p/4p modes were, in the same
+stage, given explicit **Solo · 3 / Pairs · 4** labels in setup and lobby. **Released Tarneeb is
+unchanged and remains team-only; solo is not yet playable.**

@@ -143,12 +143,16 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       for teams"** and is disabled (360/390, no overflow).
 - [ ] **Add bots → 4/4:** seats fill in order; the AI badge shows on bots; your
       **Partner** is marked (opposite seat); Start reads **"Teams ready"** and is enabled.
-- [ ] **Deberc, 3 players:** teams still render, plus the note "*teams of 2 at 4 players;
-      3 = each for themselves*"; Start is **enabled at 3** (Deberc's each-for-self is a
-      valid game — not forced to 4). At 4/4 it reads "Teams ready".
-      *(Solo-modes decision, Stage 27.5: Deberc 3p IS the individual mode; Tarneeb stays
-      team-only — a solo Tarneeb variant is designed-only, see `SOLO_VARIANTS_PLAN.md`. No
-      runtime change to verify this stage — docs-only.)*
+- [ ] **Deberc mode labels (Stage 28.0):** the **local setup** names the two modes
+      explicitly — **"Solo · 3 players"** and **"Pairs · 4 players"** mode cards (not bare
+      3/4 tabs); picking one sets the seat count.
+- [ ] **Deberc lobby, Solo (3):** the game-line reads **"🎴 Short/Long · Solo"**; teams still
+      render, plus the note "*teams of 2 at 4 players; 3 = each for themselves*"; Start is
+      **enabled at 3** (each-for-self is a valid game — not forced to 4).
+- [ ] **Deberc lobby, Pairs (4):** the game-line reads **"🎴 Short/Long · Pairs"**; at 4/4 it
+      reads "Teams ready".
+      *(Stage 28.0: Deberc 3p Solo / 4p Pairs are the same released engine/scoring — the label is
+      the only new thing. Tarneeb stays team-only; solo is spec-only, see `TARNEEB_SOLO_PLAN.md`.)*
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

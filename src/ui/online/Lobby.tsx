@@ -162,7 +162,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {room.gameType === 'durak' ? (
               <>🃏 {t(room.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}</>
             ) : room.gameType === 'deberc' ? (
-              <>🎴 {t(room.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</>
+              // Stage 28.0: name the mode explicitly — 3 seats = Solo (each for self),
+              // 4 seats = Pairs (fixed 2×2). Engine/scoring unchanged; label only.
+              <>🎴 {t(room.matchSize === 'big' ? 'deberc.big' : 'deberc.small')} · {t(room.playerCount === 3 ? 'lobby.debercSolo' : 'lobby.debercPairs')}</>
             ) : room.gameType === 'tarneeb' ? (
               // Tarneeb has no dealer's-choice / fixed-order mode (fixed 2×2
               // partnerships, bid-and-trump); show the partnership label, not a King term.

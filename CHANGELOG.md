@@ -9,7 +9,22 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **Deberc — explicit Solo / Pairs modes (Stage 28.0).** The seat count has always *been* the
+  mode (3 = every-player-for-self, 4 = fixed 2×2 pairs); now the setup and lobby **name it**.
+  Local setup shows **"Solo · 3 players"** and **"Pairs · 4 players"** mode cards instead of bare
+  3/4 tabs, and the online lobby game-line reads **"· Solo"** or **"· Pairs"** from the room's
+  seat count. **No engine, scoring, or stats change** — label only.
+
+### Added (foundation, not yet playable)
+
+- **Tarneeb solo — implementation-ready spec.** [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md)
+  fixes the design for a future **4-player cutthroat** solo variant (Variant B), including the
+  individual scoring model (declarer ±bid; set defenders earn defensive credit by their own
+  tricks). A `soloGuard.test.ts` pins the released **4-player 2×2 pairs** behaviour so the future
+  build can add a `variant` flag without touching the shipped team game, its stats, or its
+  leaderboard. **Released Tarneeb is unchanged and remains team-only; solo is not implemented.**
 
 ## [0.3.1] — 2026-07-12 — Gameplay polish & friends/voice fixes
 

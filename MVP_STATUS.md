@@ -26,7 +26,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | **King** (default) | 3–4 | 7 modes, Dealer's Choice; source of truth [`KING_RULES.md`](KING_RULES.md) |
 | **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
-| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 3–13, target 41 (solo variant designed-only, [`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md)); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 3–13, target 41 (solo variant foundation/spec only, [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md)); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
@@ -279,11 +279,13 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- **Solo / individual modes (Stage 27.5, designed-only).** Deberc already has an
-  every-player-for-self mode — its **3-player game** (`teamOf = [0,1,2]`); 4-player is the pair
-  mode. **Tarneeb is intentionally team-only** (fixed 2×2); a solo Tarneeb was designed and
-  evaluated but **not implemented** — it stays a future variant behind a `variant` flag so the
-  released 2×2 game and its stats are untouched. Rationale + variant analysis (A/B/C) in
+- **Solo / individual modes (Stage 28.0).** Deberc's two released modes are now **named
+  explicitly** in setup and lobby — **Solo · 3 players** (each-for-self, `teamOf = [0,1,2]`) and
+  **Pairs · 4 players** (fixed 2×2). Same engine/scoring; the seat count *is* the mode. **Tarneeb
+  stays intentionally team-only** (fixed 2×2); solo now has an **implementation-ready spec**
+  ([`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md), Variant B = 4-player cutthroat, with the
+  individual scoring model fixed) plus a `soloGuard.test.ts` pinning the released pairs behaviour —
+  but **no solo gameplay is built** and it is not offered in the picker. Original A/B/C analysis in
   [`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md).
 - **Sound: ALERT-ONLY, default OFF.** The MVP SFX set exists — **12 sounds × webm+mp3
   (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`), generated

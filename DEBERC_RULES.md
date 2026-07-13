@@ -39,6 +39,14 @@ Each hand is exactly **9 tricks** (every player plays 9 cards).
 
 ## 1. Players, teams, and deck  ✅ (v1.2)
 
+**Deberc ships two released modes, chosen by seat count (Stage 28.0 names them explicitly in the
+setup and lobby UI):**
+
+- **Solo · 3 players** — every player for themselves (three one-person "teams", `teamCount = 3`).
+- **Pairs · 4 players** — two fixed teams of 2 (partners opposite, `teamCount = 2`).
+
+Both are the same engine and scoring — the seat count *is* the mode; nothing else toggles.
+
 - **3 players** — every player for themselves, played with a **32-card deck** (drop
   the four 6s). 3 × 9 = 27 cards used; **5 stay undealt** (the stock). The 6 is a
   0-point card, so card totals are unchanged. *(This 3-player mode is Deberc's

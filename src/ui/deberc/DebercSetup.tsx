@@ -20,6 +20,14 @@ export default function DebercSetup({ onStart, onExit }: Props) {
     { id: 'big', name: t('deberc.big'), desc: t('deberc.bigDesc') },
   ];
 
+  // Two released Deberc modes (Stage 28.0) — the seat count IS the mode, so we name it
+  // explicitly instead of showing bare "3 / 4" tabs. Engine/scoring are unchanged: 3p is
+  // every-player-for-self (teamCount 3), 4p is two fixed pairs 0&2 vs 1&3 (teamCount 2).
+  const modes: { count: number; name: string; desc: string }[] = [
+    { count: 3, name: t('deberc.modeSolo'), desc: t('deberc.modeSoloDesc') },
+    { count: 4, name: t('deberc.modePairs'), desc: t('deberc.modePairsDesc') },
+  ];
+
   return (
     <div className="screen menu-screen durak-setup">
       <header className="menu-header">
@@ -44,11 +52,18 @@ export default function DebercSetup({ onStart, onExit }: Props) {
           ))}
         </div>
 
-        <label className="field__label">{t('deberc.players')}</label>
-        <div className="segmented">
-          {[3, 4].map((n) => (
-            <button key={n} type="button" className={`segmented__tab ${count === n ? 'segmented__tab--active' : ''}`} onClick={() => setCount(n)}>
-              {n}
+        <label className="field__label">{t('deberc.mode')}</label>
+        <div className="durak-variant-cards">
+          {modes.map((m) => (
+            <button
+              key={m.count}
+              type="button"
+              className={`durak-variant-card ${count === m.count ? 'durak-variant-card--active' : ''}`}
+              aria-pressed={count === m.count}
+              onClick={() => setCount(m.count)}
+            >
+              <span className="durak-variant-card__name">{m.name}</span>
+              <span className="durak-variant-card__desc">{m.desc}</span>
             </button>
           ))}
         </div>
