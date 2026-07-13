@@ -203,6 +203,17 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       cards are slightly smaller** than before and the **face-up trump + stock deck are ~20% larger**
       (they read closer to the trick cards). No horizontal overflow at 360/390; the trump/deck never
       overlaps the hand, action bar, or seat boxes.
+- [ ] **Durak trump/deck sizing (Stage 29.2, owner):** on the Durak table the **face-up trump + draw
+      pile are visibly larger** (~+22%); no 360/390 overflow, no overlap with the hand/actions/pairs.
+- [ ] **Durak final-defence reveal (Stage 29.2, owner):** when the last attack is beaten (or the
+      defender takes), the completed **attack+defence pair stays on the felt ~2 s** before the table
+      clears — you can clearly see the card that beat the last attack. A new attack cancels the hold
+      immediately. Works the same in local and online.
+- [ ] **Tarneeb Solo trick counts (Stage 29.2, owner):** during a Solo game the standings strip shows
+      **each of the 4 players' current trick count (🃏 N)** (updates as tricks are won, visible at
+      hand-complete too), and a **larger dedicated "🃏 My tricks · N" button** sits under the standings
+      (not the tiny topbar badge). No Team A/B labels. Pairs still uses the compact topbar team-tricks
+      badge + team-tricks viewer (unchanged).
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —
@@ -703,8 +714,10 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       fresh crossing on a new turn fires).
 - [ ] Switch **Sound = Off** → the whole game is **silent**, including the low-time moment.
 - [ ] Confirm **no** card-play / trick-collect / trump / finish sounds anywhere (removed).
-- [ ] (Expected gaps) Local games and Durak/Deberc/Tarneeb online have no turn timer, so
-      no low-time alert there — that is by design for now.
+- [ ] **Timer now visible in ALL online games (Stage 29.2):** host an online **Durak / Deberc /
+      Tarneeb / Preferans** game with a timer (30/60/90) → a **⏱ Ns** pill shows at the top-centre and
+      counts down each turn; with the timer **off** it does not appear. Local games still show no
+      timer. The low-time alert still fires **only on your turn** (same rules as King above).
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

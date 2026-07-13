@@ -9,7 +9,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **Durak trump/deck enlarged (Stage 29.2, owner).** The face-up trump + draw pile are ~22% larger
+  and more readable, scoped to the Durak screen (Deberc's own deck sizing is untouched). CSS only.
+- **Durak — the last defended card is now visible (Stage 29.2, owner).** A bout resolves in the same
+  reducer action that places the final defence, so the table used to clear before you could see the
+  card that beat the last attack. The engine now captures the resolved pairs into a display-only
+  `lastBout` snapshot the instant the table clears, and the felt lingers on it for ~2 s (the existing
+  review hold now shows the *final* beaten pairs, not the pre-defence table). No rules/scoring change;
+  `lastBout` holds only public table cards.
+- **Per-turn timer now visible in EVERY online game (Stage 29.2, owner).** The countdown was wired
+  into King only; Durak/Deberc/Tarneeb/Preferans applied the server timeout but showed nothing. A
+  shared, game-agnostic `TurnTimerBar` (extracted from King's `TurnTimer`) is now mounted for all
+  online games as a top-centre overlay, computing the acting player via the `GameDefinition`. It
+  shows only when the host set 30/60/90; the low-time sound alert still fires **only on your turn**.
+- **Tarneeb Solo — live per-player trick counts + a bigger tricks button (Stage 29.2, owner).** The
+  solo standings strip now shows each of the 4 players' current trick count (🃏 N) during play and
+  between hands, and the "review my tricks" control moves from a tiny topbar badge to a larger,
+  dedicated button under the standings (easier to reach on mobile). Pairs keeps its compact topbar
+  team-tricks badge; no Team A/B labels appear in Solo.
 
 ## [0.3.3] — 2026-07-13 — Tarneeb scoring correction
 

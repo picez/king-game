@@ -84,7 +84,10 @@ describe('sound asset manifest', () => {
 //
 // The non-test UI modules allowed to import the sound-alert hook. Update deliberately.
 const SOUND_HOOK_CONSUMERS = [
-  'ui/components/TurnTimer.tsx',   // low-time alert (King online turn timer)
+  // Low-time alert now lives in the shared, game-agnostic TurnTimerBar (Stage 29.2);
+  // King's TurnTimer + every online game screen render it, but only this one imports
+  // the sound hook.
+  'ui/components/TurnTimerBar.tsx',
 ].sort();
 // Decorative sound ids removed from gameplay wiring in 15.4 — they may live in the
 // manifest (as available assets) but must not be referenced by any app source.

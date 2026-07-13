@@ -54,6 +54,10 @@ describe('Durak — table-review hold on bout clear (Stage 25.8)', () => {
     expect(screen).toMatch(/TABLE_REVIEW_MS\s*=\s*2000/); // Stage 27.0: normalized to 2s
     // Lingers only on a clear (non-empty → empty), and a new card cancels it immediately.
     expect(screen).toMatch(/table\.length === 0 && prev\.length > 0/);
+    // Stage 29.2: lingers on the engine's `lastBout` (the FINAL beaten pairs), so the
+    // last defence — placed in the same action that clears the table — is visible.
+    expect(screen).toContain('useTableReview(state.table, state.lastBout)');
+    expect(screen).toMatch(/lastBoutRef\.current/);
     // The felt renders the reviewed table, not the raw live one.
     expect(screen).toContain('reviewTable.map');
   });

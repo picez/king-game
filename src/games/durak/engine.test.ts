@@ -116,6 +116,9 @@ describe('successful defense (PASS_ATTACK) + draw order', () => {
     const next = durakReducer(s, { type: 'PASS_ATTACK' })!;
     expect(next.discardPile).toEqual([C('Q', 'clubs'), C('A', 'spades')]);
     expect(next.table).toEqual([]);
+    // Stage 29.2 display-only: the resolved bout (with its final defence) is captured
+    // so the UI can linger on it after the table clears in the same action.
+    expect(next.lastBout).toEqual([{ attack: C('Q', 'clubs'), defense: C('A', 'spades') }]);
     // attacker (seat 0) draws first → gets the A♣; defender (seat 1) → K♣.
     expect(next.players[0].hand.map((c) => `${c.rank}${c.suit[0]}`)).toContain('Ac');
     expect(next.players[1].hand.map((c) => `${c.rank}${c.suit[0]}`)).toContain('Kc');

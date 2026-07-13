@@ -58,6 +58,15 @@ export interface DurakState {
   table: TablePair[];
   /** Beaten cards, out of the game ("бито"). */
   discardPile: Card[];
+  /**
+   * DISPLAY-ONLY (Stage 29.2): the attack/defense pairs of the JUST-resolved bout,
+   * captured the instant the table is cleared (a successful defense or a take). The
+   * bout resolves in the same reducer action that places the final defence, so the
+   * client never otherwise sees the fully-beaten table — the UI lingers on this for
+   * ~2 s so the last beat/take is readable. Only PUBLIC table cards; no rule reads it.
+   * Absent until the first bout resolves.
+   */
+  lastBout?: TablePair[];
   status: DurakStatus;
   /** Max attacking cards this bout = min(6, defender hand size at bout start). */
   boutLimit: number;

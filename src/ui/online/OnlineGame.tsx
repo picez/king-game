@@ -3,6 +3,8 @@ import { GameContext } from '../../hooks/useGame';
 import { useNetworkGame } from '../../hooks/useNetworkGame';
 import type { OnlineIntent } from '../../hooks/useNetworkGame';
 import { getActingPlayerId } from '../../core/gameEngine';
+import { getGameDefinition } from '../../games/registry';
+import TurnTimerBar from '../components/TurnTimerBar';
 import { isJoinError } from '../../net/online';
 import { apiBaseFromWsUrl } from '../../net/profileApi';
 import FriendsPanel from '../components/FriendsPanel';
@@ -27,6 +29,37 @@ import RoomSocial from './RoomSocial';
 import type { RematchUi } from './RematchControls';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
+
+/** Cards still in play — a game-agnostic progress signal (drops on each play) used to
+ *  restart the turn timer. Works for `handsBySeat` (Tarneeb) and `players[].hand`. */
+function cardsInPlay(state: unknown): number {
+  const s = state as { handsBySeat?: unknown[][]; players?: { hand?: unknown[] }[] };
+  if (Array.isArray(s?.handsBySeat)) return s.handsBySeat.reduce((n, h) => n + (h?.length ?? 0), 0);
+  if (Array.isArray(s?.players)) return s.players.reduce((n, p) => n + (p?.hand?.length ?? 0), 0);
+  return 0;
+}
+
+/**
+ * The per-turn timer element for a NON-King online game (Stage 29.2). Computes the
+ * acting player game-agnostically via the GameDefinition and restarts the countdown
+ * whenever the actor or card-progress changes. Rendered as a fixed overlay so it is
+ * visible without threading it through every game screen. Returns null when the host
+ * left the timer off (turnTimerSec 0). King keeps its own in-banner TurnTimer.
+ */
+function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number): ReactNode {
+  if (turnTimerSec <= 0 || !gameType || !state) return null;
+  const def = getGameDefinition(gameType);
+  const actingId = def ? def.getActingPlayerId(state as never) : null;
+  const turnKey = `${gameType}:${actingId ?? ''}:${cardsInPlay(state)}`;
+  return (
+    <TurnTimerBar
+      turnTimerSec={turnTimerSec}
+      turnKey={turnKey}
+      active={actingId != null && actingId === myPlayerId}
+      className="turn-timer--overlay"
+    />
+  );
+}
 
 interface Props {
   url: string;
@@ -226,12 +259,17 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     }
   }
 
+  // Per-turn timer overlay for the non-King online games (Stage 29.2) — visible when
+  // the host set 30/60/90. King renders its own TurnTimer inside the GameRouter branch.
+  const timerEl = onlineTurnTimer(net.room?.gameType, net.state, net.myPlayerId, net.room?.turnTimerSec ?? 0);
+
   // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
   // The Durak screen itself shows the read-only table + "waiting / bot thinking /
   // offline — AI may play" when it is not this client's turn.
   if (net.room?.gameType === 'durak') {
     return (
       <>
+        {timerEl}
         <DurakOnlineGame
           state={net.state as unknown as DurakState}
           myPlayerId={net.myPlayerId}
@@ -250,6 +288,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'deberc') {
     return (
       <>
+        {timerEl}
         <DebercOnlineGame
           state={net.state as unknown as DebercState}
           myPlayerId={net.myPlayerId}
@@ -269,6 +308,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'tarneeb') {
     return (
       <>
+        {timerEl}
         <TarneebOnlineGame
           state={net.state as unknown as TarneebState}
           myPlayerId={net.myPlayerId}
@@ -291,6 +331,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'preferans') {
     return (
       <>
+        {timerEl}
         <PreferansOnlineGame
           state={net.state as unknown as PreferansState}
           myPlayerId={net.myPlayerId}

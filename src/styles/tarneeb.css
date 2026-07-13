@@ -70,7 +70,17 @@
 .tarneeb-solo-chip--me { border-color: rgba(120, 220, 160, 0.6); }
 .tarneeb-solo-chip--lead { box-shadow: 0 0 0 1px rgba(240, 200, 120, 0.7) inset; }
 .tarneeb-solo-chip__name { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); }
+/* Live per-player trick count (Stage 29.2) — sits between the name and the score. */
+.tarneeb-solo-chip__tricks { font-size: 0.82rem; font-weight: 800; color: var(--accent, #e8c078); white-space: nowrap; }
 .tarneeb-solo-chip__score { font-size: 1.05rem; font-weight: 900; color: var(--text); }
+/* Bigger, easy-to-reach "review my tricks" button for Solo (Stage 29.2). */
+.tarneeb-solo-tricks-btn {
+  align-self: center;
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
 .tarneeb-finished__scores--solo { flex-wrap: wrap; }
 .tarneeb-score__label { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
 .tarneeb-score__value { font-size: 1.35rem; font-weight: 900; color: var(--text); }

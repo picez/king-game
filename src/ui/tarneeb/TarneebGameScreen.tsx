@@ -133,11 +133,14 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
       <div className="tarneeb-topbar">
         <button type="button" className="btn btn--ghost tarneeb-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className="tarneeb-phase">{t(`tarneeb.phase.${phaseKey(phase)}`)}</span>
-        {/* Review my team's taken tricks (Stage 27.3) — available once any trick has been won. */}
-        <button type="button" className="btn btn--ghost tarneeb-tricks-btn" onClick={() => setShowTricks(true)}
-          aria-label={t('tarneeb.reviewTricks')} title={t('tarneeb.reviewTricks')}>
-          🃏 {myTricks}
-        </button>
+        {/* Review taken tricks (Stage 27.3). Pairs keeps the compact topbar badge (team
+            tricks); Solo uses a larger dedicated button under the standings (Stage 29.2). */}
+        {!solo && (
+          <button type="button" className="btn btn--ghost tarneeb-tricks-btn" onClick={() => setShowTricks(true)}
+            aria-label={t('tarneeb.reviewTricks')} title={t('tarneeb.reviewTricks')}>
+            🃏 {myTricks}
+          </button>
+        )}
         <button type="button" className="btn btn--ghost tarneeb-help-btn" onClick={() => setShowHelp(true)} aria-label={t('tarneeb.howToPlay')}>❓</button>
       </div>
 
@@ -175,6 +178,8 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
           return (
             <div className="tarneeb-scoreboard tarneeb-scoreboard--solo">
               {mid}
+              {/* Per-player standings: each seat's live TRICK count (🃏) + match score,
+                  so it's clear who has taken how many tricks during play (Stage 29.2). */}
               <div className="tarneeb-solo-standings" role="list">
                 {state.players.map((p) => {
                   const isMe = p.seatIndex === humanSeat;
@@ -183,11 +188,17 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
                     <div key={p.id} role="listitem"
                       className={`tarneeb-solo-chip ${isMe ? 'tarneeb-solo-chip--me' : ''} ${lead ? 'tarneeb-solo-chip--lead' : ''}`}>
                       <span className="tarneeb-solo-chip__name">{isMe ? t('tarneeb.you') : p.name}</span>
+                      <span className="tarneeb-solo-chip__tricks" title={t('tarneeb.tricks')}>🃏 {tricksBySeat[p.seatIndex]}</span>
                       <span className="tarneeb-solo-chip__score">{scoresBySeat[p.seatIndex]}</span>
                     </div>
                   );
                 })}
               </div>
+              {/* Bigger, easy-to-reach "review my tricks" control for Solo (Stage 29.2). */}
+              <button type="button" className="btn btn--outline tarneeb-solo-tricks-btn"
+                onClick={() => setShowTricks(true)} aria-label={t('tarneeb.reviewTricks')}>
+                🃏 {t('tarneeb.myTricks')} · {myTricks}
+              </button>
             </div>
           );
         }

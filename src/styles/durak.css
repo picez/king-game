@@ -106,6 +106,10 @@
    Vertical closed pile on the left; the face-up trump lies across it (rotated) and
    peeks out to the right, as in a real game. */
 .durak-deck { --dw: clamp(2.9rem, 10.5vw, 4rem); display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+/* Durak trump + draw pile enlarged ~22% (Stage 29.2, owner) — scoped to the Durak
+   screen so Deberc's own deck sizing (which reuses .durak-deck) is unaffected. The
+   whole deck (face-up trump + stock back + count) scales with --dw. */
+.durak-screen .durak-deck { --dw: clamp(3.55rem, 12.8vw, 4.9rem); }
 .durak-deck__stack { position: relative; width: calc(var(--dw) * 1.75); height: calc(var(--dw) * 1.45); }
 .durak-deck__trump { position: absolute; left: calc(var(--dw) * 0.5); top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: center; z-index: 0; pointer-events: none; }
 .durak-deck__trump .card--table { width: var(--dw); height: calc(var(--dw) * 1.42); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }

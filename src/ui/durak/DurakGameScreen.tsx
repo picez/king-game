@@ -8,20 +8,27 @@ import type { DurakAction, DurakState, TablePair } from '../../games/durak/types
 const TABLE_REVIEW_MS = 2000;
 
 /**
- * Keep the last bout's cards visible for a beat after the table clears (Stage 25.8). Purely
- * presentational: it lingers on the previous `table` only when it drops to empty, and switches
- * to live the instant a new card appears — so it never hides a new play or blocks input, and
- * (being a fixed local timer on the same server state) it does not desync online clients.
+ * Keep the last bout's cards visible for a beat after the table clears (Stage 25.8; fixed
+ * Stage 29.2). Purely presentational: when the table drops to empty it lingers on the resolved
+ * bout — `lastBout`, the engine's display-only snapshot of the FINAL beaten pairs (the bout
+ * resolves in the same action that places the last defence, so the raw `prev` table lacks that
+ * defence). It switches to live the instant a new card appears, so it never hides a new play or
+ * blocks input, and (being a fixed local timer over the same server state) it never desyncs online.
  */
-function useTableReview(table: TablePair[], reviewMs = TABLE_REVIEW_MS): TablePair[] {
+function useTableReview(table: TablePair[], lastBout: TablePair[] | undefined, reviewMs = TABLE_REVIEW_MS): TablePair[] {
   const [display, setDisplay] = useState<TablePair[]>(table);
   const prevRef = useRef<TablePair[]>(table);
+  const lastBoutRef = useRef<TablePair[] | undefined>(lastBout);
+  lastBoutRef.current = lastBout; // always the freshest resolved bout for the effect below
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const prev = prevRef.current;
     prevRef.current = table;
     if (table.length === 0 && prev.length > 0) {
-      setDisplay(prev); // bout cleared → linger on the final table
+      // Bout cleared → linger on the resolved pairs (with their final defences) if the engine
+      // captured them, else the last-seen table (mid-bout throw-in clears still look right).
+      const resolved = lastBoutRef.current;
+      setDisplay(resolved && resolved.length > 0 ? resolved : prev);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setDisplay([]), reviewMs);
     } else {
@@ -85,7 +92,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
   const [transferMode, setTransferMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   // Linger on the final bout after the table clears so the last beat/take is readable (25.8).
-  const reviewTable = useTableReview(state.table);
+  const reviewTable = useTableReview(state.table, state.lastBout);
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;

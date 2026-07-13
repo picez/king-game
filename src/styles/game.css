@@ -144,6 +144,21 @@
   white-space: nowrap;
 }
 .turn-timer--low { color: #ff7070; }
+/* Fixed overlay for the non-King online games (Stage 29.2): a compact pill pinned
+   to the top-centre, above the board, clear of the hand/action bars. */
+.turn-timer--overlay {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 0.4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 0.18rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+.turn-timer--overlay.turn-timer--low { background: rgba(90, 0, 0, 0.8); }
 .modal-card__timer { display: flex; justify-content: flex-end; }
 /* Header bar inside a center-screen card: score-tracker button (left) + timer. */
 .modal-card__bar {

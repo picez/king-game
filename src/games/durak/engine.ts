@@ -117,6 +117,7 @@ function continueThrowIn(s: DurakState, taking: boolean): void {
 
 /** Successful defense: discard the table, draw up, and the defender leads next. */
 function resolveDefended(s: DurakState): void {
+  s.lastBout = s.table.map((p) => ({ ...p })); // display-only snapshot before clearing
   for (const p of s.table) { s.discardPile.push(p.attack); if (p.defense) s.discardPile.push(p.defense); }
   s.table = [];
   s.passedAttackers = [];
@@ -128,6 +129,7 @@ function resolveDefended(s: DurakState): void {
 /** Defender takes ALL table cards (after the take-phase throw-ins end); the player
  *  after the defender attacks next. */
 function finalizeTake(s: DurakState): void {
+  s.lastBout = s.table.map((p) => ({ ...p })); // display-only snapshot before clearing
   const taken: Card[] = [];
   for (const p of s.table) { taken.push(p.attack); if (p.defense) taken.push(p.defense); }
   s.players[s.defenderIndex].hand.push(...taken);
