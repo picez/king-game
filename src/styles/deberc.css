@@ -256,13 +256,16 @@
   justify-items: center;
   gap: clamp(0.2rem, 1.5vw, 0.7rem);
 }
-.deberc-screen .durak-deck { grid-column: 1; transform: scale(0.85); transform-origin: center; }
+/* Trump + stock enlarged ~20% (Stage 29.0, owner) — was scale(0.85); the face-up
+   trump and the deck on it now read closer to the played trick cards. */
+.deberc-screen .durak-deck { grid-column: 1; transform: scale(1.02); transform-origin: center; }
 .deberc-screen .durak-table__cards { grid-column: 2; width: 100%; }
 
-/* Larger, more readable table cards for Deberc (Stage 27.0) — the trick is the focus. */
+/* Played trick cards for Deberc: readable but not oversized (Stage 29.0, owner —
+   shrunk from ×1.35 so the trick no longer dwarfs the trump/stock). */
 .deberc-screen .durak-table__cards .card--table {
-  width: calc(var(--card-w-table) * 1.35);
-  height: calc(var(--card-h-table) * 1.35);
+  width: calc(var(--card-w-table) * 1.15);
+  height: calc(var(--card-h-table) * 1.15);
 }
 /* The skip-meld button reads as destructive (red) — sits apart from the confirm. */
 .deberc-screen .deberc-skip-meld { margin-top: 0.2rem; }

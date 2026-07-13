@@ -9,7 +9,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **Tarneeb Solo scoring — exact-bid double + overtricks (Stage 29.0, owner clarification).** Tarneeb
+  **Solo** now scores a made contract like **Pairs** (§8): an **exact** make scores **bid×2** (e.g.
+  bid 7 → +14) and an **overtrick** scores the **tricks actually won** (e.g. bid 7, 10 tricks → +10),
+  instead of the earlier flat "+bid on any make". The **failure** model is unchanged (declarer −bid;
+  each defender banks its own tricks). Pairs scoring was already correct — this only corrects Solo, so
+  both modes now match. The solo hand-complete panel shows the "✨ exact bid double" note. Bid range
+  (3–13) and trump obligation are untouched; no stats-schema/DB/dependency change (per-seat deltas
+  flow through the existing `scoresBySeat`).
+- **Deberc table card sizing (Stage 29.0, owner).** On the Deberc table the **played trick cards are
+  slightly smaller** (×1.35 → ×1.15) and the **face-up trump + stock deck are ~20% larger**
+  (`scale(0.85)` → `scale(1.02)`), so the trump/deck no longer looks dwarfed by the trick. CSS-only —
+  no gameplay/engine change; mobile 360/390 stays overflow-safe.
 
 ## [0.3.2] — 2026-07-13 — Tarneeb Solo release & bandwidth hardening
 

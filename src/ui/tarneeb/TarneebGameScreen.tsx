@@ -418,6 +418,9 @@ function SoloHandComplete({ state, humanSeat, onNext, online }: {
         <h2 className="tarneeb-handdone__title">
           {hand.made ? `✅ ${t('tarneeb.contractMade')}` : `❌ ${t('tarneeb.contractFailed')}`}
         </h2>
+        {hand.exactBidDouble && (
+          <p className="tarneeb-handdone__double">✨ {t('tarneeb.exactBidDouble')}</p>
+        )}
         <p className="tarneeb-handdone__line">
           <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {nameOf(hand.declarerSeat)} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{SUIT_SYMBOL[hand.trumpSuit]}</strong>
         </p>

@@ -176,9 +176,9 @@ describe('solo play legality (reuses the shared legalPlays, incl. trump obligati
 
 // --- Scoring (§2) -----------------------------------------------------------
 
-describe('solo scoring (TARNEEB_SOLO_PLAN.md §2)', () => {
-  it('made contract: declarer +bid, every defender +0', () => {
-    // Declarer 0 has 2 tricks after 12; wins the final trump trick → 3 tricks = bid 3.
+describe('solo scoring (TARNEEB_SOLO_PLAN.md §2; exact-double corrected Stage 29.0)', () => {
+  it('made EXACTLY the bid → declarer +bid×2 (doubled), every defender +0', () => {
+    // Declarer 0 has 2 tricks after 12; wins the final trump trick → 3 tricks = bid 3 (exact).
     const s = craftSoloFinal({
       declarerSeat: 0, trumpSuit: 'spades', bid: 3, tricks12: [2, 4, 3, 3],
       lastCards: [card('spades', 'A'), card('hearts', '2'), card('hearts', '3'), card('hearts', '4')],
@@ -186,10 +186,24 @@ describe('solo scoring (TARNEEB_SOLO_PLAN.md §2)', () => {
     const end = playOut(s, { rng: makeRng(1) });
     expect(end.phase).toBe('hand_complete');
     expect(end.tricksBySeat).toEqual([3, 4, 3, 3]);
-    expect(end.scoresBySeat).toEqual([3, 0, 0, 0]);
+    expect(end.scoresBySeat).toEqual([6, 0, 0, 0]);        // bid 3 × 2 = 6
     expect(end.lastSoloHand?.made).toBe(true);
-    expect(end.lastSoloHand?.deltaBySeat).toEqual([3, 0, 0, 0]);
+    expect(end.lastSoloHand?.exactBidDouble).toBe(true);
+    expect(end.lastSoloHand?.deltaBySeat).toEqual([6, 0, 0, 0]);
     expect(end.soloHandHistory).toHaveLength(1);
+  });
+
+  it('made WITH OVERTRICKS → declarer +own tricks (the actual count, NOT the bid, no double)', () => {
+    // Declarer 0 has 4 tricks after 12; wins the final trump trick → 5 tricks > bid 3.
+    const s = craftSoloFinal({
+      declarerSeat: 0, trumpSuit: 'spades', bid: 3, tricks12: [4, 4, 3, 1],
+      lastCards: [card('spades', 'A'), card('hearts', '2'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOut(s, { rng: makeRng(1) });
+    expect(end.tricksBySeat).toEqual([5, 4, 3, 1]);
+    expect(end.lastSoloHand?.made).toBe(true);
+    expect(end.lastSoloHand?.exactBidDouble).toBeFalsy();
+    expect(end.scoresBySeat).toEqual([5, 0, 0, 0]);        // 5 tricks won, not the bid 3, no double
   });
 
   it('failed contract: declarer −bid, each defender +its own tricks', () => {
@@ -214,7 +228,7 @@ describe('solo scoring (TARNEEB_SOLO_PLAN.md §2)', () => {
       preScores: [39, 0, 0, 0],
     });
     const end = playOut(s, { rng: makeRng(1) });
-    expect(end.scoresBySeat![0]).toBe(42);
+    expect(end.scoresBySeat![0]).toBe(45);                 // 39 + bid 3 × 2 (exact double)
     expect(end.phase).toBe('game_finished');
     expect(end.soloWinnerSeat).toBe(0);
   });

@@ -39,9 +39,11 @@ reuses the released contract math, and needs no new tunables:
 
 Let `C` = the winning bid (3–13), `D` = tricks the declarer actually won (0–13).
 
-- **Declarer makes it (`D ≥ C`):**
-  - Declarer scores **`+C`** (exactly the released "made" value — bid, not overtricks).
+- **Declarer makes it (`D ≥ C`) — Stage 29.0 aligns this with Pairs §8:**
+  - **Exact (`D === C`):** declarer scores **`+C×2`** (doubled — the same exact-bid double as Pairs).
+  - **Overtrick (`D > C`):** declarer scores **`+D`** (the **tricks actually won**, not the bid).
   - Each of the 3 opponents scores **`0`**.
+  - *(Historical note: Stages 28.1–28.6 used a flat `+C` on any make; corrected in 29.0 per owner.)*
 - **Declarer fails (`D < C`):**
   - Declarer scores **`−C`**.
   - The 3 opponents **share defensive credit by the tricks they took**: each opponent scores

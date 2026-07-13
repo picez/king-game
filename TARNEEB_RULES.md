@@ -191,6 +191,8 @@ After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
 
 | Bid | Declarer tricks | Declarer Δ | Defender Δ |
 |-----|-----------------|-----------|-----------|
+| 7   | 7 (exact)       | **+14** (owner example, Stage 29.0) | 0 |
+| 7   | 10 (overtrick)  | **+10** (owner example — actual tricks, not the bid) | 0 |
 | 8   | 8 (exact)       | **+16**   | 0         |
 | 8   | 9 (overtrick)   | **+9**    | 0         |
 | 9   | 10              | **+10**   | 0         |
@@ -198,6 +200,11 @@ After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
 | 9   | 8               | **−9**    | **+5**    |
 | 8   | 6               | **−8**    | **+7**    |
 | 13  | 13 (exact)      | **+26** (exact ×2; kaboot bonus off, §9) | 0 |
+
+> **Solo variant (Stage 29.0):** Tarneeb **Solo** (4-player cutthroat, §17) now uses the **same**
+> contract-scoring rule as Pairs — the declarer scores **bid×2 on an exact make**, the **tricks
+> actually won on an overtrick**, and **−bid on a failure** (each defender still banks its own
+> tricks). This corrects the earlier flat "+bid on make" solo model. The failure model is unchanged.
 
 ---
 

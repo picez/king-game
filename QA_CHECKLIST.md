@@ -194,6 +194,15 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       **Achievements** grid shows **"Tarneeb Soloist" 🗡️** as earned (with the "new" toast the first
       time). A **Pairs** Tarneeb win alone does **not** earn it; a Solo win does **not** earn
       All-Rounder. Grid has no overflow at 360/390; Arabic RTL reads correctly.
+- [ ] **Tarneeb scoring — exact-bid double (Stage 29.0), BOTH modes:** in the hand-complete panel,
+      a declarer who takes **exactly** the bid scores **bid×2** (e.g. bid 7 → **+14**), shown with a
+      **"✨ exact bid double"** note; taking **more** than the bid scores the **actual tricks**
+      (e.g. bid 7, 10 tricks → **+10**); a **failed** contract is unchanged (declarer −bid, defenders
+      bank their tricks). Solo (per-seat) and Pairs (per-team) both apply this.
+- [ ] **Deberc table card sizing (Stage 29.0, owner):** on the Deberc table the **played trick
+      cards are slightly smaller** than before and the **face-up trump + stock deck are ~20% larger**
+      (they read closer to the trick cards). No horizontal overflow at 360/390; the trump/deck never
+      overlaps the hand, action bar, or seat boxes.
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

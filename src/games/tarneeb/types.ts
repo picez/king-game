@@ -122,6 +122,12 @@ export interface TarneebSoloHandResult {
   tricksBySeat: number[];
   /** Whether the declarer made the contract (declarer tricks >= bid). */
   made: boolean;
+  /**
+   * Exact-bid double (Stage 29.0, mirrors Pairs §8): the declarer made EXACTLY the
+   * bid, so their score is doubled (bid×2). Overtricks do NOT double. Optional/
+   * backward-compatible: absent (falsy) on non-exact or failed hands.
+   */
+  exactBidDouble?: boolean;
   /** Score change applied per seat this hand (length 4). */
   deltaBySeat: number[];
 }

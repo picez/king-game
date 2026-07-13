@@ -378,6 +378,30 @@ describe('Tarneeb scoring', () => {
     expect(end.scoresByTeam).toEqual({ A: 9, B: 0 }); // tricks won, not doubled
   });
 
+  it("owner example — bid 7, took EXACTLY 7 → +14 (doubled) [Stage 29.0]", () => {
+    // teamA12 = 7; seat 1 (team B) overtrumps the 13th → A stays at exactly 7.
+    const s = craftFinalTrick({
+      declarerSeat: 0, trumpSuit: 'spades', bid: 7, teamA12: 7,
+      lastCards: [card('spades', '2'), card('spades', 'A'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.tricksByTeam).toEqual({ A: 7, B: 6 });
+    expect(end.lastHand?.exactBidDouble).toBe(true);
+    expect(end.scoresByTeam).toEqual({ A: 14, B: 0 }); // 7 × 2
+  });
+
+  it("owner example — bid 7, took 10 (overtricks) → +10 (actual tricks, not the bid) [Stage 29.0]", () => {
+    // teamA12 = 9; seat 0 wins the 13th → A = 10 (> bid), scores the tricks won.
+    const s = craftFinalTrick({
+      declarerSeat: 0, trumpSuit: 'spades', bid: 7, teamA12: 9,
+      lastCards: [card('spades', 'A'), card('hearts', '2'), card('hearts', '3'), card('hearts', '4')],
+    });
+    const end = playOutHand(s, ctx);
+    expect(end.tricksByTeam).toEqual({ A: 10, B: 3 });
+    expect(end.lastHand?.exactBidDouble).toBeFalsy();
+    expect(end.scoresByTeam).toEqual({ A: 10, B: 0 }); // 10 tricks, not the bid 7
+  });
+
   it('failed contract is unchanged by the double rule: bid 8, 6 tricks → −8 / defenders +7', () => {
     const s = craftFinalTrick({
       declarerSeat: 0, // team A

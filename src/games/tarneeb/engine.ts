@@ -187,12 +187,16 @@ function enterChoosingTrump(s: TarneebState, declarer: number): TarneebState {
 // --- Scoring (§8) -----------------------------------------------------------
 
 /**
- * SOLO scoring (Stage 28.1, TARNEEB_SOLO_PLAN.md §2). Per-seat, no teams:
- *  - declarer MAKES it (declarer tricks >= bid): declarer +bid, defenders +0;
- *  - declarer FAILS: declarer −bid, and each of the 3 defenders banks +their own
- *    tricks (the defenders' tricks sum to 13 − declarerTricks, self-balancing).
- * Match ends when a UNIQUE seat is at/over target; a tie at/over target is not a
- * finish (play one more hand — mirrors the pairs tie rule §10). Negative allowed.
+ * SOLO scoring (Stage 28.1; contract model corrected Stage 29.0 to match Pairs §8).
+ * Per-seat, no teams:
+ *  - declarer MAKES it EXACTLY (declarer tricks === bid): declarer +bid×2 (doubled);
+ *  - declarer MAKES it with OVERTRICKS (declarer tricks > bid): declarer +declarer
+ *    tricks (the actual tricks won, NOT the bid);
+ *  - declarer FAILS (declarer tricks < bid): declarer −bid, and each of the 3
+ *    defenders banks +their own tricks (defenders' tricks sum to 13 − declarerTricks,
+ *    self-balancing). Failure model unchanged.
+ * Defenders score 0 on a made contract. Match ends when a UNIQUE seat is at/over
+ * target; a tie at/over target is not a finish (play one more hand). Negative allowed.
  */
 function scoreSoloHand(s: TarneebState): TarneebState {
   const bid = (s.highestBid as { amount: number }).amount;
@@ -200,10 +204,13 @@ function scoreSoloHand(s: TarneebState): TarneebState {
   const tricks = (s.tricksBySeat as number[]);
   const declTricks = tricks[declarer];
   const made = declTricks >= bid;
+  // Exact-bid double mirrors Pairs (§8): exactly the bid → bid×2; overtricks → the
+  // tricks actually won (no double). Failure is unchanged.
+  const exactBidDouble = made && declTricks === bid;
 
   const delta = [0, 0, 0, 0];
   if (made) {
-    delta[declarer] = bid; // defenders score 0
+    delta[declarer] = exactBidDouble ? bid * 2 : declTricks; // defenders score 0
   } else {
     delta[declarer] = -bid;
     for (let seat = 0; seat < NUM_SEATS; seat++) {
@@ -220,6 +227,7 @@ function scoreSoloHand(s: TarneebState): TarneebState {
     trumpSuit: s.trumpSuit as Card['suit'],
     tricksBySeat: tricks.slice(),
     made,
+    exactBidDouble,
     deltaBySeat: delta.slice(),
   };
   s.lastSoloHand = result;
