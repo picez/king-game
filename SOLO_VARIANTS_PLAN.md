@@ -1,5 +1,12 @@
 # Solo / individual game-mode design — Stage 27.5 (design-first, docs-only)
 
+> **SUPERSEDED (v0.3.2).** This is the original Stage 27.5 design pass and its **"keep Tarneeb
+> team-only (Variant C)"** recommendation. That decision was later **reversed**: Tarneeb Solo
+> (Variant B, 4-player cutthroat) was actually built and **fully released** across Stages 28.1–28.6
+> (local + online + stats + one achievement). For current status see `TARNEEB_SOLO_PLAN.md` and
+> `TARNEEB_RULES.md` §17. Deberc's Solo/Pairs modes were also made explicit (Stages 28.0/28.2).
+> Kept here for the design rationale (variant A/B/C analysis), not as current status.
+
 Backlog item D (`RULES_UX_TODO.md`): *"Deberc isn't only a partnership game — it can be played
 individually. Same for Tarneeb."* This is a **decision/design pass only** — no reducers, rules,
 scoring, UI, server, protocol or DB were touched, and released Tarneeb behaviour is unchanged.

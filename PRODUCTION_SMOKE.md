@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.1`** (tag `v0.3.1`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.2`** (tag `v0.3.2`).
 
 Set your host once and reuse it below:
 
@@ -23,18 +23,36 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.1 adds no migrations** — 0009 is still the latest.
+> **v0.3.2 adds no migrations** — 0009 is still the latest (Tarneeb Solo stats reuse the existing
+> schema under `game_type='tarneeb-solo'`).
 
 ---
 
-## 0. v0.3.1 release smoke (fast targeted pass)
+## 0. v0.3.2 release smoke (fast targeted pass)
 
-A quick list of what v0.3.1 (gameplay polish + friends/voice fixes) specifically touches. The
-numbered sections below cover each in depth.
+What v0.3.2 (Tarneeb Solo release + bandwidth hardening) specifically touches. The numbered
+sections below cover each in depth; §3a (static cache), §5a (Tarneeb Solo), §7 (stats) are the core.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.1`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.2`**, `commit` matches the deploy,
       `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.1).
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.2).
+- [ ] **Static bandwidth (§3a):** `curl -sI $HOST/cards/faces/spades-a.png` → `200 image/png` +
+      `cache-control: public, max-age=604800` + an ETag; `$HOST/cards/faces/AS.png` → **404**
+      (not the html shell); `If-None-Match` repeat → **304**.
+- [ ] **Deberc Solo/Pairs:** host a **Solo (3)** room → lobby shows 3 individual seats (no Team
+      A/B); a **Pairs (4)** room → Team A/B grid.
+- [ ] **Tarneeb Solo (§5a) — cross-device:** host a **Solo** room; the **Join room browser** lists
+      it as **"Tarneeb · Solo"**; its lobby shows **4 individual seats (no Team A/B)** + the
+      every-player-for-self hint; an **invite/join** from a second device lands in the **same Solo**
+      room; **Start** → each client sees **only its own hand**; bidding 3–13 / trump / follow-suit
+      all legal; **rematch** restarts a **Solo** room. A **Pairs** room is unchanged (Team A/B grid).
+- [ ] **Solo stats + achievement (§7):** a signed-in **Solo** finished game increments the profile
+      **Tarneeb → Solo** tab (Pairs tab unchanged) and the **Solo** leaderboard; after a Solo win the
+      **"Tarneeb Soloist" 🗡️** badge is earned; **All-Rounder** is unaffected by solo.
+- [ ] **Mobile/RTL + social sanity:** 360/390 portrait — Tarneeb host Pairs/Solo picker, solo
+      standings, stats Pairs/Solo toggle, achievements grid: no horizontal overflow; Arabic RTL
+      reads correctly. Voice/friends still work in a Tarneeb Solo room (no regression from the
+      new variant).
 - [ ] **Auth:** Google sign-in works; signed-in `/api/me` returns the profile (not `503`).
 - [ ] **Avatar:** upload a small/compressed image on a Docker+ffmpeg deploy → appears on your
       seat and others' seats (native `node` runtime → `503` is an expected PASS).

@@ -14,6 +14,10 @@ are **DONE**.
 **Update (Stage 27.5):** Part D (solo/individual modes) is **DESIGNED / decided** (docs-only) —
 see `SOLO_VARIANTS_PLAN.md`: Deberc already covers it (3p), Tarneeb stays team-only (Variant C).
 **All original Stage 27.0 backlog items are now resolved** (implemented or decided).
+**Update (Stages 28.0–28.6, SUPERSEDES the 27.5 decision):** solo modes were actually **built and
+released** — Deberc Solo/Pairs made explicit + playable online, and **Tarneeb Solo (Variant B)
+fully released** (local + online + stats + "Tarneeb Soloist" achievement). See `TARNEEB_SOLO_PLAN.md`
+/ `TARNEEB_RULES.md` §17; the "Tarneeb stays team-only" note above is historical only.
 
 ## Done in 27.0
 - **Tarneeb minimum bid → 3** (auction 3–13; bots stay conservative at 7+). Engine + tests.

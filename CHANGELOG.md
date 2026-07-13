@@ -9,6 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.2] — 2026-07-13 — Tarneeb Solo release & bandwidth hardening
+
+A feature + hardening patch on **v0.3.1**. Headline: **Tarneeb now ships two released modes —
+Pairs (2×2, default) and Solo (4-player cutthroat)** — playable local + online, with a separate
+Solo stats/leaderboard (`game_type='tarneeb-solo'`) and one achievement. Also: a **static-bandwidth
+cut** (proper Cache-Control + ETag/304 + gzip) that fixes the Render HTTP-egress overage, a
+static-routing correctness fix (missing file-like paths now 404 instead of the app shell), and
+**Deberc's Solo/Pairs modes made explicit + playable online**. **No DB migration** (0009 stays the
+latest), **no dependency changes**, no gameplay-rule changes to Tarneeb Pairs / Deberc scoring.
+`/health/diagnostics` `version` reads `0.3.2`.
+
 ### Added
 
 - **Tarneeb Soloist achievement (Stage 28.6).** One new common badge — **"Tarneeb Soloist"** 🗡️ —

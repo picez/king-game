@@ -386,9 +386,17 @@ the same redaction/reconnect guarantees as the other three games.
 
 ## 17. Solo / individual variant status
 
-**Status (Stage 27.5): the released Tarneeb is team-only and stays that way.** These MVP rules
-describe the **4-player, fixed 2×2 partnership** game — that is the only implemented mode, and the
-engine, scoring, stats and lobby all assume it. Nothing below changes any rule above.
+> **CURRENT STATUS (v0.3.2): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
+> (4-player cutthroat).** Solo is fully playable **local + online**, records **stats + a leaderboard**
+> under a separate `game_type='tarneeb-solo'` (no schema change), preserves the mode across rematch,
+> and has one achievement ("Tarneeb Soloist"). §1–§16 above describe the **Pairs** game (byte-for-byte
+> unchanged); Solo differs only in seating/scoring (per-seat; declarer ±bid, set defenders earn their
+> own tricks; first to 41). The historical decision trail below (kept for context) is **superseded** —
+> the "team-only / not playable" statements were true only at Stages 27.5–28.1.
+
+**Status (Stage 27.5, SUPERSEDED): the released Tarneeb was team-only.** These MVP rules describe the
+**4-player, fixed 2×2 partnership** game — at the time the only implemented mode, and the engine,
+scoring, stats and lobby all assumed it. Nothing below changes any rule above.
 
 A "solo / every-player-for-self" Tarneeb was **designed and evaluated** (docs-only), not built —
 see **[`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md)**. Three shapes were considered: (A) a
