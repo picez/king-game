@@ -34,6 +34,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Tarneeb Solo hardening (Stage 28.5 QA pass).** Two real drifts found after the 28.4 release,
+  both fixed: (1) the **room browser** hard-coded "· 2 teams" for every Tarneeb room, mislabelling
+  Solo rooms — it now shows the room's actual **Pairs / Solo** mode from `tarneebVariant` (which the
+  room summary already carries); (2) the **profile achievements** derived from whatever the Tarneeb
+  stats toggle last fetched, so viewing the **Solo** tab could feed solo data into achievements —
+  Pairs stats are now the canonical achievements source and Solo has its own separate state, so the
+  two never mix. Also: the game-picker subtitle for Tarneeb is now mode-neutral ("Pairs / Solo")
+  instead of "2 teams". No rules/scoring/stats-schema change; Pairs and Deberc untouched.
 - **Deberc Solo is now actually playable online (Stage 28.2).** Despite the Stage 28.0 labels,
   every hosted Deberc room was still forced to 4 seats (`server/wsHandlers.ts` hard-coded
   `playerCount = maxPlayers` and ignored the client's value), and the lobby drew the Team A/Team B

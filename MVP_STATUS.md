@@ -295,7 +295,9 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   rematch preserves the mode; stats + a leaderboard record solo under a **separate
   `game_type='tarneeb-solo'`** (Pairs/Solo toggle in the profile) — **no DB migration**, and the
   released Pairs aggregates are byte-for-byte untouched. Solo achievements deferred (post-MVP).
-  Spec + status in [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md).
+  **Stage 28.5 QA/hardening** fixed two drifts (room browser mislabelled Solo rooms; achievements
+  could read the toggled solo stats) — both resolved; Pairs unchanged. Spec + status in
+  [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md).
 - **Sound: ALERT-ONLY, default OFF.** The MVP SFX set exists — **12 sounds × webm+mp3
   (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`), generated
   dep-free by `npm run sounds` (Stage 15.1). A **sound preference** (Profile → Appearance,

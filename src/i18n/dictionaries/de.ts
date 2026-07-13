@@ -366,6 +366,7 @@ export const DE: Record<string, string> = {
   'tarneeb.mustFollow': 'Bediene die angespielte Farbe, wenn möglich',
   'tarneeb.partnerHint': 'Dein Partner sitzt gegenüber (oben).',
   'tarneeb.twoTeams': '2 Teams',
+  'tarneeb.modesShort': 'Paare / Solo',
   // ===== Preferans (lokaler Prototyp — Stage 19.3, experimentell) =====
   'preferans.setupTagline': 'Reize einen Kontrakt, nimm den Talon, hol deine Stiche — wer das Ziel zuerst erreicht, gewinnt',
   'preferans.experimentalNote': 'Experimentell — lokales Spiel gegen 2 Bots (noch kein Online)',

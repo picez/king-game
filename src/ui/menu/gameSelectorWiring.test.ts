@@ -81,12 +81,14 @@ describe('multi-game menu polish (Stage 11.2)', () => {
     expect(src).toContain('t(GAME_META_KEY[id])'); // available games keep their meta subtitle
   });
 
-  it('the room browser shows a per-game icon + name (and a Tarneeb teams hint)', () => {
+  it('the room browser shows a per-game icon + name (and the Tarneeb Pairs/Solo mode)', () => {
     // Stage 12.3: the per-game emblem is now an image (GameIcon) in the .sb-game__icon
     // slot, with an emoji fallback — replacing the bare GAME_ICON[gameType] glyph.
     expect(src).toContain('sb-game__icon');
     expect(src).toContain('<GameIcon game={gameType} size="sm" className="sb-game__icon" />');
-    expect(src).toContain("gameType === 'tarneeb' ? <span className=\"sb-variant\"> · {t('tarneeb.twoTeams')}");
+    // Stage 28.5: the browser shows the room's actual Tarneeb mode (Pairs/Solo), not a
+    // hard "2 teams" that would mislabel Solo rooms.
+    expect(src).toContain("gameType === 'tarneeb' ? <span className=\"sb-variant\"> · {t(r.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs')}");
   });
 
   it('the Host sheet renders ONLY the selected game’s settings (no cross-game leak)', () => {

@@ -625,7 +625,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                                   <span className="sb-game__name">{t(`gameType.${gameType}`)}</span>
                                   {r.variant ? <span className="sb-variant"> · {t(`durak.variant${r.variant === 'transfer' ? 'Transfer' : 'Simple'}`)}</span> : null}
                                   {r.matchSize ? <span className="sb-variant"> · {t(r.matchSize === 'big' ? 'deberc.big' : 'deberc.small')}</span> : null}
-                                  {gameType === 'tarneeb' ? <span className="sb-variant"> · {t('tarneeb.twoTeams')}</span> : null}
+                                  {gameType === 'tarneeb' ? <span className="sb-variant"> · {t(r.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs')}</span> : null}
                                   {gameType === 'preferans' ? <span className="sb-variant"> · {t('preferans.metaShort')}</span> : null}
                                 </span>
                               </span>
@@ -684,7 +684,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
 /** Per-game glyph + a short descriptor key for the picker sublabel. */
 const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
 const GAME_META_KEY: Record<GameType, string> = {
-  king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.twoTeams',
+  king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.modesShort',
   preferans: 'preferans.metaShort', // "Contract" — Preferans is a solo contract trick game (3p)
 };
 

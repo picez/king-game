@@ -110,8 +110,14 @@ export default function ProfileMenu({
   const [loadingTarneebBoard, setLoadingTarneebBoard] = useState(false);
   const [loadingPreferansBoard, setLoadingPreferansBoard] = useState(false);
   // Tarneeb has two released modes (Stage 28.4): Pairs / Solo stats are stored
-  // separately, so the Tarneeb stats + leaderboard panels get a mode toggle.
+  // separately, so the Tarneeb stats + leaderboard panels get a mode toggle. The
+  // Pairs state is the CANONICAL one that feeds achievements (Stage 28.5) — Solo has
+  // its OWN state so toggling to Solo can never leak solo data into achievements.
   const [tarneebVariant, setTarneebVariant] = useState<'pairs' | 'solo'>('pairs');
+  const [tarneebSoloStats, setTarneebSoloStats] = useState<Loadable<TarneebStats> | null>(null);
+  const [tarneebSoloBoard, setTarneebSoloBoard] = useState<Loadable<TarneebLeaderboardEntry[]> | null>(null);
+  const [loadingTarneebSolo, setLoadingTarneebSolo] = useState(false);
+  const [loadingTarneebSoloBoard, setLoadingTarneebSoloBoard] = useState(false);
 
   const statsOnce = useRef(false);
   const durakOnce = useRef(false);
@@ -138,9 +144,14 @@ export default function ProfileMenu({
     setLoadingDeberc(true);
     try { setDebercStats(await fetchDebercStats(base)); } finally { setLoadingDeberc(false); }
   }, [base]);
-  const loadTarneebStats = useCallback(async (variant: 'pairs' | 'solo' = 'pairs') => {
+  // Pairs stats are canonical (feed achievements); Solo has its own state.
+  const loadTarneebStats = useCallback(async () => {
     setLoadingTarneeb(true);
-    try { setTarneebStats(await fetchTarneebStats(base, variant)); } finally { setLoadingTarneeb(false); }
+    try { setTarneebStats(await fetchTarneebStats(base, 'pairs')); } finally { setLoadingTarneeb(false); }
+  }, [base]);
+  const loadTarneebSoloStats = useCallback(async () => {
+    setLoadingTarneebSolo(true);
+    try { setTarneebSoloStats(await fetchTarneebStats(base, 'solo')); } finally { setLoadingTarneebSolo(false); }
   }, [base]);
   const loadPreferansStats = useCallback(async () => {
     setLoadingPreferans(true);
@@ -158,9 +169,13 @@ export default function ProfileMenu({
     setLoadingDebercBoard(true);
     try { setDebercBoard(await fetchDebercLeaderboard(base)); } finally { setLoadingDebercBoard(false); }
   }, [base]);
-  const loadTarneebBoard = useCallback(async (variant: 'pairs' | 'solo' = 'pairs') => {
+  const loadTarneebBoard = useCallback(async () => {
     setLoadingTarneebBoard(true);
-    try { setTarneebBoard(await fetchTarneebLeaderboard(base, variant)); } finally { setLoadingTarneebBoard(false); }
+    try { setTarneebBoard(await fetchTarneebLeaderboard(base, 'pairs')); } finally { setLoadingTarneebBoard(false); }
+  }, [base]);
+  const loadTarneebSoloBoard = useCallback(async () => {
+    setLoadingTarneebSoloBoard(true);
+    try { setTarneebSoloBoard(await fetchTarneebLeaderboard(base, 'solo')); } finally { setLoadingTarneebSoloBoard(false); }
   }, [base]);
   const loadPreferansBoard = useCallback(async () => {
     setLoadingPreferansBoard(true);
@@ -195,22 +210,26 @@ export default function ProfileMenu({
     loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadPreferansStats,
     loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard]);
 
+  const loadTarneebStatsFor = (v: 'pairs' | 'solo') => (v === 'solo' ? loadTarneebSoloStats() : loadTarneebStats());
+  const loadTarneebBoardFor = (v: 'pairs' | 'solo') => (v === 'solo' ? loadTarneebSoloBoard() : loadTarneebBoard());
+
   function refresh() {
     if (tab === 'stats') {
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
-        : statsGame === 'tarneeb' ? loadTarneebStats(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
+        : statsGame === 'tarneeb' ? loadTarneebStatsFor(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
     } else if (tab === 'leaderboard') {
       void (boardGame === 'durak' ? loadDurakBoard() : boardGame === 'deberc' ? loadDebercBoard()
-        : boardGame === 'tarneeb' ? loadTarneebBoard(tarneebVariant) : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
+        : boardGame === 'tarneeb' ? loadTarneebBoardFor(tarneebVariant) : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
     }
   }
 
-  /** Switch the Tarneeb stats mode (Pairs/Solo) and refetch the visible panel. */
+  /** Switch the Tarneeb stats mode (Pairs/Solo) and load the visible panel's data
+   *  into its OWN state (Solo never overwrites the canonical Pairs used by achievements). */
   function switchTarneebVariant(v: 'pairs' | 'solo') {
     if (v === tarneebVariant) return;
     setTarneebVariant(v);
-    if (tab === 'leaderboard') void loadTarneebBoard(v);
-    else void loadTarneebStats(v);
+    if (tab === 'leaderboard') void loadTarneebBoardFor(v);
+    else void loadTarneebStatsFor(v);
   }
 
   const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans
@@ -334,7 +353,9 @@ export default function ProfileMenu({
                 {statsGame === 'tarneeb' && (
                   <>
                     <TarneebModeToggle value={tarneebVariant} onChange={switchTarneebVariant} t={t} />
-                    <TarneebStatsPanel result={tarneebStats} loading={loadingTarneeb} />
+                    <TarneebStatsPanel
+                      result={tarneebVariant === 'solo' ? tarneebSoloStats : tarneebStats}
+                      loading={tarneebVariant === 'solo' ? loadingTarneebSolo : loadingTarneeb} />
                   </>
                 )}
                 {statsGame === 'preferans' && <PreferansStatsPanel result={preferansStats} loading={loadingPreferans} />}
@@ -360,7 +381,9 @@ export default function ProfileMenu({
                 {boardGame === 'tarneeb' && (
                   <>
                     <TarneebModeToggle value={tarneebVariant} onChange={switchTarneebVariant} t={t} />
-                    <TarneebLeaderboardPanel result={tarneebBoard} loading={loadingTarneebBoard} />
+                    <TarneebLeaderboardPanel
+                      result={tarneebVariant === 'solo' ? tarneebSoloBoard : tarneebBoard}
+                      loading={tarneebVariant === 'solo' ? loadingTarneebSoloBoard : loadingTarneebBoard} />
                   </>
                 )}
                 {boardGame === 'preferans' && <PreferansLeaderboardPanel result={preferansBoard} loading={loadingPreferansBoard} />}

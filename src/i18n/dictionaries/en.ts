@@ -366,6 +366,7 @@ export const EN: Record<string, string> = {
   'tarneeb.mustFollow': 'Follow the led suit if you can',
   'tarneeb.partnerHint': 'Your partner sits opposite (top).',
   'tarneeb.twoTeams': '2 teams',
+  'tarneeb.modesShort': 'Pairs / Solo',
   // ===== Preferans (local prototype — Stage 19.3, experimental) =====
   'preferans.setupTagline': 'Bid a contract, take the talon, win your tricks — first to the target wins',
   'preferans.experimentalNote': 'Experimental — local play vs 2 bots (no online yet)',

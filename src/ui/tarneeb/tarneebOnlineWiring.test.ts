@@ -59,8 +59,9 @@ describe('StartMenu can host Tarneeb online (released, Stage 10.8)', () => {
   it("sends gameType 'tarneeb' on create with a plain (non-experimental) picker entry", () => {
     // Stage 28.4: host also threads the Tarneeb Pairs/Solo variant.
     expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant }");
-    // The picker subtitle for Tarneeb comes from the data-driven GAME_META_KEY map.
-    expect(menu).toContain("tarneeb: 'tarneeb.twoTeams'");
+    // The picker subtitle for Tarneeb comes from the data-driven GAME_META_KEY map;
+    // Stage 28.5 makes it mode-neutral (Pairs / Solo) now that both modes ship.
+    expect(menu).toContain("tarneeb: 'tarneeb.modesShort'");
     // No Experimental tag or beta note remains for Tarneeb.
     expect(menu).not.toContain("sublabel: t('menu.experimental')");
     expect(menu).not.toContain("t('tarneeb.onlineBeta')");

@@ -185,6 +185,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       pairs `tarneeb` untouched; no cards/tricks persisted.)
 - [ ] **Mobile/RTL:** 360/390 portrait Solo host picker, lobby individual seats, table standings,
       and the stats Pairs/Solo toggle have no horizontal overflow; Arabic RTL reads correctly.
+- [ ] **Room browser mode label (Stage 28.5 fix):** in the **Join** room list, a Tarneeb Solo room
+      reads **"Tarneeb · Solo"** and a Pairs room **"Tarneeb · Pairs"** — never a blanket "· 2 teams".
+- [ ] **Achievements are Pairs-only (Stage 28.5 fix):** open Profile → Stats → Tarneeb, toggle to
+      **Solo**, then open **Achievements** — the Tarneeb achievements reflect your **Pairs** record
+      (solo games do not leak in). Switching the stats toggle never changes achievement progress.
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

@@ -85,6 +85,44 @@ describe.skipIf(!TEST_DATABASE_URL)('tarneeb stats repository (integration, TARN
     expect(l1.gameType).toBe('tarneeb');
   });
 
+  it('SOLO records under game_type=tarneeb-solo and leaves PAIRS untouched (Stage 28.4/28.5)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const tarneeb = await import('../../server/db/tarneebStats');
+    const u0 = await users.getOrCreateGuest('it-tarneeb-solo0'); // solo winner (seat 0)
+    const u1 = await users.getOrCreateGuest('it-tarneeb-solo1');
+    const seatUsers = new Map<number, string | null>([[0, u0.id], [1, u1.id]]);
+
+    const soloState = {
+      ...finishedTarneeb('A'),
+      variant: 'solo' as const,
+      winnerTeam: null,
+      scoresByTeam: { A: 0, B: 0 },
+      handHistory: [],
+      scoresBySeat: [44, 12, 8, -5],
+      soloWinnerSeat: 0,
+      tricksBySeat: [0, 0, 0, 0],
+      soloHandHistory: [
+        { handNumber: 1, bid: 4, declarerSeat: 0, trumpSuit: 'spades' as const, tricksBySeat: [4, 3, 3, 3], made: true, deltaBySeat: [4, 0, 0, 0] },
+      ],
+    } as TarneebState;
+
+    const pairsBefore = await tarneeb.getTarneebStats(u0.id, 'pairs');
+    const soloBefore = await tarneeb.getTarneebStats(u0.id, 'solo');
+
+    const rec = await tarneeb.recordFinishedTarneebGame(`SOLO${Math.floor(Math.random() * 1e6)}`, soloState, seatUsers);
+    expect(rec.recorded).toBe(true);
+
+    const pairsAfter = await tarneeb.getTarneebStats(u0.id, 'pairs');
+    const soloAfter = await tarneeb.getTarneebStats(u0.id, 'solo');
+
+    // Solo aggregate grew for the winner; PAIRS aggregate is byte-for-byte unchanged.
+    expect(soloAfter.gamesPlayed - soloBefore.gamesPlayed).toBe(1);
+    expect(soloAfter.gamesWon - soloBefore.gamesWon).toBe(1);
+    expect(pairsAfter.gamesPlayed).toBe(pairsBefore.gamesPlayed);
+    expect(pairsAfter.gamesWon).toBe(pairsBefore.gamesWon);
+  });
+
   it('leaderboard exposes public fields + self marker, never a userId', async () => {
     process.env.DATABASE_URL = TEST_DATABASE_URL;
     const users = await import('../../server/db/users');

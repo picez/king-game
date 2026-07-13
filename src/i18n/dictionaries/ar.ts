@@ -366,6 +366,7 @@ export const AR: Record<string, string> = {
   'tarneeb.mustFollow': 'اتبع لون الافتتاح إن استطعت',
   'tarneeb.partnerHint': 'شريكك يجلس مقابلك (في الأعلى).',
   'tarneeb.twoTeams': 'فريقان',
+  'tarneeb.modesShort': 'أزواج / فردي',
   // ===== بريفيرانس (نموذج محلي — Stage 19.3، تجريبي) =====
   'preferans.setupTagline': 'ناادِ بعقد، خذ الطالون، اربح خدعك — أول من يبلغ الهدف يفوز',
   'preferans.experimentalNote': 'تجريبي — لعب محلي ضد روبوتين (لا يوجد أونلاين بعد)',

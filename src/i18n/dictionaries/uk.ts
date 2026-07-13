@@ -366,6 +366,7 @@ export const UK: Record<string, string> = {
   'tarneeb.mustFollow': 'Ходьте в масть, якщо можете',
   'tarneeb.partnerHint': 'Ваш партнер сидить навпроти (згори).',
   'tarneeb.twoTeams': '2 команди',
+  'tarneeb.modesShort': 'Пари / Соло',
   // ===== Преферанс (локальний прототип — Stage 19.3, експериментально) =====
   'preferans.setupTagline': 'Заяви контракт, візьми прикуп, набирай хабарі — перший до цілі перемагає',
   'preferans.experimentalNote': 'Експериментально — локальна гра проти 2 ботів (онлайн поки немає)',

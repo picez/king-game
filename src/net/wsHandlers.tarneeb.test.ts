@@ -66,6 +66,24 @@ describe('wsHandlers now allows hosting Tarneeb online (Stage 10.5)', () => {
     expect(room.playerCount).toBe(4); // catalog max = 4
   });
 
+  it('CREATE_ROOM honors the Tarneeb variant (Solo) and defaults to Pairs (Stage 28.4/28.5)', () => {
+    const host = (tarneebVariant?: string): ClientMessage =>
+      ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType: 'tarneeb', tarneebVariant } as ClientMessage);
+
+    const solo = makeCtx();
+    handleClientMessage(solo.ctx, socket, { value: null } as SessionRef, () => {}, host('solo'), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...solo.rooms.values()][0].tarneebVariant).toBe('solo');
+
+    const pairs = makeCtx();
+    handleClientMessage(pairs.ctx, socket, { value: null } as SessionRef, () => {}, host('pairs'), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...pairs.rooms.values()][0].tarneebVariant).toBe('pairs');
+
+    // Omitted (legacy client) → pairs.
+    const def = makeCtx();
+    handleClientMessage(def.ctx, socket, { value: null } as SessionRef, () => {}, host(undefined), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...def.rooms.values()][0].tarneebVariant).toBe('pairs');
+  });
+
   it('CREATE_ROOM with an unknown game type is still rejected', () => {
     const { ctx, rooms, errors } = makeCtx();
     const sessionRef: SessionRef = { value: null };
