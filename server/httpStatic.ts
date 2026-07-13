@@ -12,7 +12,8 @@ import { readFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { join, normalize, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ServerResponse } from 'node:http';
+import { gzipSync } from 'node:zlib';
+import type { IncomingHttpHeaders, ServerResponse } from 'node:http';
 import { isDbEnabled, checkDbHealth } from './db/client';
 import { buildDiagnostics, type DiagnosticsInput } from './diagnostics';
 
@@ -28,21 +29,113 @@ const MIME: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
   '.ico': 'image/x-icon',
+  '.mp3': 'audio/mpeg',
+  '.webm': 'audio/webm',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
   '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
   '.txt': 'text/plain; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
 };
 
-async function sendFile(res: ServerResponse, filePath: string, status = 200): Promise<void> {
-  const body = await readFile(filePath);
-  const type = MIME[extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-  // Hashed assets are immutable; HTML / sw.js / manifest must re-check each load.
-  const cache = filePath.includes(`${sep}assets${sep}`)
-    ? 'public, max-age=31536000, immutable'
-    : 'no-cache';
-  res.writeHead(status, { 'content-type': type, 'cache-control': cache });
-  res.end(body);
+// --- Cache-Control policy (Stage 28.1 — bandwidth) ---------------------------
+// Three tiers, so a repeat visit re-downloads almost nothing:
+//   • hashed Vite output (/assets/*.<hash>.js|css) — content-addressed, so it can
+//     be cached forever and never revalidated.
+//   • static media (images / audio / fonts under /cards, /visual, /icons, /sounds,
+//     /chat-media, favicon) — NOT filename-hashed, so cached for a week and then
+//     cheaply revalidated (ETag → 304). This is the big win: the ~10 MB of card
+//     faces + hero art no longer re-download every session. CAVEAT: an in-place
+//     asset change (same filename, new bytes) can take up to `max-age` to reach
+//     clients — acceptable because these files are content-stable between deploys.
+//   • app shell (index.html / sw.js / manifest / json) — `no-cache`: always
+//     revalidated so a new build is picked up immediately (a 304 when unchanged).
+const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';
+const CACHE_MEDIA = 'public, max-age=604800'; // 7 days, revalidatable (not immutable)
+const CACHE_REVALIDATE = 'no-cache';
+
+// Extensions treated as long-lived static media (get CACHE_MEDIA when not hashed).
+const MEDIA_EXT = new Set([
+  '.png', '.webp', '.jpg', '.jpeg', '.gif', '.ico', '.svg',
+  '.mp3', '.webm', '.ogg', '.wav', '.woff2', '.woff',
+]);
+// Text-ish types worth gzip'ing on the fly (images/audio/fonts are already
+// compressed — never re-compress those).
+const COMPRESSIBLE_EXT = new Set(['.html', '.js', '.css', '.json', '.svg', '.webmanifest', '.map', '.txt']);
+const GZIP_MIN_BYTES = 512;
+
+export function cacheControlFor(filePath: string, ext: string): string {
+  if (filePath.includes(`${sep}assets${sep}`)) return CACHE_IMMUTABLE; // hashed → immutable
+  if (MEDIA_EXT.has(ext)) return CACHE_MEDIA;                          // static media → week
+  return CACHE_REVALIDATE;                                            // shell → revalidate
+}
+
+/** Weak validator from size + mtime — stable per build, cheap to compute. */
+function etagFor(size: number, mtimeMs: number): string {
+  return `W/"${size.toString(16)}-${Math.floor(mtimeMs).toString(16)}"`;
+}
+
+function acceptsGzip(headers?: IncomingHttpHeaders): boolean {
+  const ae = headers?.['accept-encoding'];
+  return typeof ae === 'string' && /\bgzip\b/.test(ae);
+}
+
+export async function sendFile(
+  res: ServerResponse,
+  filePath: string,
+  status = 200,
+  reqHeaders?: IncomingHttpHeaders,
+): Promise<void> {
+  const ext = extname(filePath).toLowerCase();
+  const type = MIME[ext] ?? 'application/octet-stream';
+  const cache = cacheControlFor(filePath, ext);
+
+  const st = statSync(filePath);
+  const etag = etagFor(st.size, st.mtimeMs);
+  const lastModified = new Date(st.mtime).toUTCString();
+
+  // Conditional request → 304 (no body). Makes revalidation of `no-cache` shell
+  // files and post-expiry media essentially free. ETag is primary; If-Modified-
+  // Since (second-granular) is the fallback.
+  const inm = reqHeaders?.['if-none-match'];
+  const ims = reqHeaders?.['if-modified-since'];
+  const notModified =
+    (typeof inm === 'string' && inm === etag) ||
+    (typeof ims === 'string' && Number.isFinite(Date.parse(ims)) &&
+      Date.parse(ims) >= Math.floor(st.mtimeMs / 1000) * 1000);
+  if (status === 200 && notModified) {
+    res.writeHead(304, { 'cache-control': cache, etag, 'last-modified': lastModified });
+    res.end();
+    return;
+  }
+
+  const raw = await readFile(filePath);
+  const headers: Record<string, string> = {
+    'content-type': type,
+    'cache-control': cache,
+    etag,
+    'last-modified': lastModified,
+    vary: 'Accept-Encoding',
+  };
+
+  if (COMPRESSIBLE_EXT.has(ext) && raw.length >= GZIP_MIN_BYTES && acceptsGzip(reqHeaders)) {
+    const gz = gzipSync(raw);
+    headers['content-encoding'] = 'gzip';
+    headers['content-length'] = String(gz.length);
+    res.writeHead(status, headers);
+    res.end(gz);
+    return;
+  }
+
+  headers['content-length'] = String(raw.length);
+  res.writeHead(status, headers);
+  res.end(raw);
 }
 
 export function notFound(res: ServerResponse): void {
@@ -50,16 +143,20 @@ export function notFound(res: ServerResponse): void {
   res.end('Not found');
 }
 
-export async function serveStatic(req: { url?: string }, res: ServerResponse): Promise<void> {
+export async function serveStatic(
+  req: { url?: string; headers?: IncomingHttpHeaders },
+  res: ServerResponse,
+): Promise<void> {
   let pathname = decodeURIComponent((req.url ?? '/').split('?')[0].split('#')[0]);
   if (pathname === '/') pathname = '/index.html';
   const candidate = normalize(join(DIST, pathname));
   // Path-traversal guard: never serve outside DIST.
   if (candidate.startsWith(DIST) && existsSync(candidate) && statSync(candidate).isFile()) {
-    return sendFile(res, candidate).catch(() => sendFile(res, INDEX_HTML).catch(() => notFound(res)));
+    return sendFile(res, candidate, 200, req.headers)
+      .catch(() => sendFile(res, INDEX_HTML, 200, req.headers).catch(() => notFound(res)));
   }
   // SPA fallback: unknown route → index.html (client router/refresh-safe).
-  return sendFile(res, INDEX_HTML).catch(() => notFound(res));
+  return sendFile(res, INDEX_HTML, 200, req.headers).catch(() => notFound(res));
 }
 
 /**

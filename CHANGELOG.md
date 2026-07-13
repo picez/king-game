@@ -9,6 +9,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Performance
+
+- **Static bandwidth cut (Stage 28.1).** The server previously sent every non-hashed static
+  asset — the ~10 MB of card-face art, the menu hero, felt, icons, sounds, stickers — with
+  `no-cache` **and no validator**, so a browser re-downloaded all of it on *every* visit (the main
+  driver of Render HTTP egress). Now `server/httpStatic.ts` uses three Cache-Control tiers: hashed
+  `/assets/*` stay `immutable`; static media is `public, max-age=604800` (a week, then a cheap
+  ETag **304**); the app shell (`index.html`/`sw.js`/`manifest`) stays `no-cache`. Every response
+  also carries an **ETag + Last-Modified** (conditional `If-None-Match` → 304, empty body), text is
+  **gzip**'d on the fly, and previously-missing MIME types (`.webp`/`.webm`/`.mp3`/`.gif`/`.jpg`)
+  are now correct instead of `application/octet-stream`. **No gameplay, protocol, or dependency
+  change.** Trade-off documented in `RENDER_DEPLOY.md`: an in-place asset swap can take up to a
+  week to reach clients (rename or bump the SW cache version to force it).
+
 ### Changed
 
 - **Deberc — explicit Solo / Pairs modes (Stage 28.0).** The seat count has always *been* the

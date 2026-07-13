@@ -92,6 +92,30 @@ numbered sections below cover each in depth.
       `king, durak, deberc, tarneeb, preferans`, every one `"status":"available"` and
       `supportsLocal/supportsOnline/supportsBots: true`. No private fields (`rulesDoc` absent).
 
+### 3a. Static bandwidth / caching (Stage 28.1)
+
+> Repeat visits must re-download almost nothing — the ~10 MB of card faces + hero art
+> are cached, so only a tiny 304 revalidation goes over the wire. Verify the headers:
+
+- [ ] **Hashed bundle is immutable:** `curl -sI $HOST/assets/<the-index-*.js> | grep -i cache`
+      → `cache-control: public, max-age=31536000, immutable`.
+- [ ] **Static media is cached a week + has an ETag:**
+      `curl -sI $HOST/cards/faces/spades-a.png | grep -iE 'cache-control|etag|content-type'`
+      → `public, max-age=604800`, a `W/"…"` ETag, `content-type: image/png` (NOT
+      `application/octet-stream`). Same for `/visual/menu-hero-wide.webp` (`image/webp`) and
+      a `/sounds/*.mp3` (`audio/mpeg`).
+- [ ] **304 revalidation works (the bandwidth win):** repeat the media `curl` with
+      `-H 'If-None-Match: <the ETag>'` → **`HTTP/…​ 304`** and an **empty body**.
+- [ ] **App shell revalidates:** `curl -sI $HOST/ | grep -i cache` → `no-cache`; same for
+      `$HOST/sw.js` and `$HOST/manifest.webmanifest` (never `max-age`, so a new build is
+      picked up immediately).
+- [ ] **Text is gzipped:** `curl -sI -H 'Accept-Encoding: gzip' $HOST/assets/<index-*.js>`
+      → `content-encoding: gzip` + `vary: Accept-Encoding`. An image with the same header
+      is **NOT** gzipped (already compressed).
+- [ ] **Dynamic stays uncached:** `curl -sI $HOST/api/me | grep -i cache` → `no-store`.
+- [ ] **Render usage sanity:** after a day of normal play, Render → Metrics → Bandwidth
+      grows far slower than before (repeat sessions hit browser cache, not the origin).
+
 ## 4. Auth
 
 - [ ] Guest identity works out of the box (a name + emoji avatar appear top-left).

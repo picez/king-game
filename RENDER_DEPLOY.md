@@ -164,6 +164,37 @@ safe to poll. `commit` is populated when the build env sets `RENDER_GIT_COMMIT`.
   and the **salted password hash** — never the plaintext password. Treat the
   disk as sensitive; do not expose it publicly.
 
+## Bandwidth / egress (Stage 28.1)
+
+Render meters **outbound HTTP bandwidth** (free tier ≈ 5 GB / month). Almost all of it is the
+static client, **not** WebSocket gameplay (WS is tiny — a few MB). The `dist/` payload is ~17 MB,
+dominated by **card face art** (`/cards/faces/*.png`, ~10 MB) and the **menu hero + felt**
+(`/visual/*`, ~2 MB). If those re-download every visit, a handful of players can blow past 5 GB.
+
+**How the server keeps egress low** (`server/httpStatic.ts`) — three Cache-Control tiers so a
+repeat visit re-downloads next to nothing:
+
+| Asset | `Cache-Control` | Effect |
+|---|---|---|
+| Hashed Vite output `/assets/*.<hash>.js\|css` | `public, max-age=31536000, immutable` | fetched once per deploy, never revalidated |
+| Static media `/cards`, `/visual`, `/icons`, `/sounds`, `/chat-media`, favicon | `public, max-age=604800` (7 days) | cached a week, then a cheap **304** (ETag) |
+| App shell `index.html`, `sw.js`, `manifest.webmanifest` | `no-cache` | always revalidated → new build picked up at once |
+
+Plus: **ETag + Last-Modified** on every response (conditional `If-None-Match` → **304**, empty
+body) and **gzip** for text (`js`/`css`/`html`/`json`/`svg`) — images/audio are already compressed
+and are never re-gzipped. The service worker is network-first but its `fetch()` honours these HTTP
+cache headers, so cached media never re-hits the origin.
+
+**Caveat (deliberate trade-off):** static media is `max-age` (not content-hashed / `immutable`), so
+replacing an asset **in place** (same filename, new bytes — e.g. redrawing a card) can take up to
+**7 days** to reach clients who already cached it. Card art is content-stable between deploys, so
+this is fine. If you need an instant art swap, either rename the file or bump the service-worker
+`CACHE` version in `public/sw.js` and hard-refresh.
+
+**Manual-only checks** (can't be asserted from CI — see `PRODUCTION_SMOKE.md` §3a): confirm the
+live headers with `curl -I`, confirm a 304 on a second request, and watch Render → Metrics →
+Bandwidth flatten out across repeat sessions.
+
 ### Postgres room storage on Render (optional, Stage 2)
 
 Instead of a disk, you can persist rooms to **Render PostgreSQL** — durable
