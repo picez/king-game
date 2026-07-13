@@ -22,6 +22,7 @@ import {
   cardEquals,
   determineTrickWinner,
   HAND_TRICKS,
+  isSoloTarneeb,
   nextSeatCounterClockwise,
   NUM_SEATS,
   otherTeam,
@@ -32,7 +33,9 @@ import type {
   TarneebContext,
   TarneebOptions,
   TarneebPlayer,
+  TarneebSoloHandResult,
   TarneebState,
+  TarneebVariant,
   Team,
 } from './types';
 
@@ -52,9 +55,12 @@ const DEFAULT_OPTIONS: TarneebOptions = {
  * previous state's history is never mutated.
  */
 function clone(state: TarneebState): TarneebState {
-  const { handHistory, ...rest } = state;
+  const { handHistory, soloHandHistory, ...rest } = state;
   const copy = JSON.parse(JSON.stringify(rest)) as TarneebState;
   copy.handHistory = handHistory;
+  // soloHandHistory is append-only like handHistory (undefined in pairs → not set,
+  // so a pairs state's shape is unchanged). scoreSoloHand replaces the array.
+  if (soloHandHistory !== undefined) copy.soloHandHistory = soloHandHistory;
   return copy;
 }
 
@@ -87,10 +93,13 @@ function startGame(action: Extract<TarneebAction, { type: 'START_GAME' }>, rng: 
   };
 
   const dealerSeat = action.dealerSeat ?? Math.floor(rng() * 4);
+  // Variant (Stage 28.1): anything but exactly 'solo' → the released pairs game.
+  const variant: TarneebVariant = action.variant === 'solo' ? 'solo' : 'pairs';
 
   const base: TarneebState = {
     gameType: 'tarneeb',
     phase: 'bidding',
+    variant,
     players,
     teams: { A: [0, 2], B: [1, 3] },
     dealerSeat,
@@ -112,6 +121,16 @@ function startGame(action: Extract<TarneebAction, { type: 'START_GAME' }>, rng: 
     lastHand: null,
     handHistory: [],
     winnerTeam: null,
+    // Solo-only per-seat ledger (undefined in pairs so the shape is unchanged).
+    ...(variant === 'solo'
+      ? {
+          tricksBySeat: [0, 0, 0, 0],
+          scoresBySeat: [0, 0, 0, 0],
+          lastSoloHand: null,
+          soloHandHistory: [],
+          soloWinnerSeat: null,
+        }
+      : {}),
   };
   return dealFreshHand(base, dealerSeat, rng, false);
 }
@@ -141,6 +160,8 @@ function dealFreshHand(
   s.currentTrick = null;
   s.completedTricks = [];
   s.tricksByTeam = { A: 0, B: 0 };
+  // Solo: reset the per-seat trick tally for the new hand (scores persist).
+  if (isSoloTarneeb(s)) s.tricksBySeat = [0, 0, 0, 0];
   if (incrementHandNumber) s.handNumber += 1;
   return s;
 }
@@ -165,8 +186,66 @@ function enterChoosingTrump(s: TarneebState, declarer: number): TarneebState {
 
 // --- Scoring (§8) -----------------------------------------------------------
 
+/**
+ * SOLO scoring (Stage 28.1, TARNEEB_SOLO_PLAN.md §2). Per-seat, no teams:
+ *  - declarer MAKES it (declarer tricks >= bid): declarer +bid, defenders +0;
+ *  - declarer FAILS: declarer −bid, and each of the 3 defenders banks +their own
+ *    tricks (the defenders' tricks sum to 13 − declarerTricks, self-balancing).
+ * Match ends when a UNIQUE seat is at/over target; a tie at/over target is not a
+ * finish (play one more hand — mirrors the pairs tie rule §10). Negative allowed.
+ */
+function scoreSoloHand(s: TarneebState): TarneebState {
+  const bid = (s.highestBid as { amount: number }).amount;
+  const declarer = s.declarerSeat as number;
+  const tricks = (s.tricksBySeat as number[]);
+  const declTricks = tricks[declarer];
+  const made = declTricks >= bid;
+
+  const delta = [0, 0, 0, 0];
+  if (made) {
+    delta[declarer] = bid; // defenders score 0
+  } else {
+    delta[declarer] = -bid;
+    for (let seat = 0; seat < NUM_SEATS; seat++) {
+      if (seat !== declarer) delta[seat] = tricks[seat];
+    }
+  }
+  const scores = s.scoresBySeat as number[];
+  for (let i = 0; i < NUM_SEATS; i++) scores[i] += delta[i];
+
+  const result: TarneebSoloHandResult = {
+    handNumber: s.handNumber,
+    bid,
+    declarerSeat: declarer,
+    trumpSuit: s.trumpSuit as Card['suit'],
+    tricksBySeat: tricks.slice(),
+    made,
+    deltaBySeat: delta.slice(),
+  };
+  s.lastSoloHand = result;
+  // New array (clone shares the previous history by reference — never mutate it).
+  s.soloHandHistory = [...(s.soloHandHistory ?? []), result];
+
+  // Game end (§10, per-seat): a UNIQUE highest seat at/over target wins; a tie at
+  // the top at/over target is NOT a finish (play one more hand → safe, no null winner).
+  const t = s.targetScore;
+  const max = Math.max(...scores);
+  if (max >= t) {
+    const leaders: number[] = [];
+    for (let i = 0; i < NUM_SEATS; i++) if (scores[i] === max) leaders.push(i);
+    if (leaders.length === 1) {
+      s.soloWinnerSeat = leaders[0];
+      s.phase = 'game_finished';
+      return s;
+    }
+  }
+  s.phase = 'hand_complete';
+  return s;
+}
+
 /** After 13 tricks, apply §8 scoring and decide game end (§10). */
 function scoreHand(s: TarneebState): TarneebState {
+  if (isSoloTarneeb(s)) return scoreSoloHand(s);
   const declTeam = s.declarerTeam as Team;
   const defTeam = otherTeam(declTeam);
   const bid = (s.highestBid as { amount: number }).amount;
@@ -308,6 +387,8 @@ export function tarneebReducer(
       trick.winnerSeat = winner;
       s.completedTricks.push(trick);
       s.tricksByTeam[teamOfSeat(winner)] += 1;
+      // Solo: also tally the trick to the winning SEAT (per-player scoring).
+      if (isSoloTarneeb(s) && s.tricksBySeat) s.tricksBySeat[winner] += 1;
 
       if (s.completedTricks.length < HAND_TRICKS) {
         // Winner leads the next trick.

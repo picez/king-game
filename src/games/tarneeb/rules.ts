@@ -5,9 +5,26 @@
 
 import type { Card, Suit } from '../../models/types';
 import { rankValue, TARNEEB_SUITS } from './deck';
-import type { TarneebPlay, TarneebState, Team } from './types';
+import type { TarneebPlay, TarneebState, TarneebVariant, Team } from './types';
 
 export const NUM_SEATS = 4;
+
+// --- Variant (Stage 28.1) ---------------------------------------------------
+
+/**
+ * Backward-compatible variant read: anything that is not EXACTLY 'solo' — a
+ * legacy/restored state with no `variant` field, or `'pairs'` — is the released
+ * pairs game. This is the single fallback point, so pairs snapshots restore
+ * unchanged and every reducer branch keys off it. See TARNEEB_SOLO_PLAN.md.
+ */
+export function tarneebVariant(state: Pick<TarneebState, 'variant'>): TarneebVariant {
+  return state.variant === 'solo' ? 'solo' : 'pairs';
+}
+
+/** True only for a 4-player cutthroat (every-player-for-self) solo match. */
+export function isSoloTarneeb(state: Pick<TarneebState, 'variant'>): boolean {
+  return tarneebVariant(state) === 'solo';
+}
 // Bids are a trick target (out of 13). Minimum lowered to 3 (Stage 27.0, owner rule); a pass is
 // still final and bids must strictly rise. Scoring is unchanged — a made/failed bid scores exactly
 // as before, just over a wider legal range.

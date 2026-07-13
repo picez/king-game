@@ -13,6 +13,16 @@ export type { Card } from '../../models/types';
 export type Team = 'A' | 'B';
 
 /**
+ * Match variant (Stage 28.1). `'pairs'` is the released 4-player 2×2 partnership
+ * game and the DEFAULT for every existing caller. `'solo'` is a 4-player cutthroat
+ * game (every player for themselves) — pure core only, NOT exposed in the picker,
+ * online, or stats yet (see TARNEEB_SOLO_PLAN.md). Anything that is not exactly
+ * `'solo'` (including a legacy state with no `variant` field) is treated as pairs,
+ * so old snapshots restore unchanged.
+ */
+export type TarneebVariant = 'pairs' | 'solo';
+
+/**
  * Phases of a Tarneeb match (TARNEEB_RULES.md §11). An optional pre-deal
  * setup/dealing phase is fine internally, but START_GAME already produces a
  * playable first hand, so the reducer never dwells in one:
@@ -98,12 +108,37 @@ export interface TarneebHandResult {
   deltaByTeam: Record<Team, number>;
 }
 
+/**
+ * Summary of a SOLO hand once scored (Stage 28.1, TARNEEB_SOLO_PLAN.md §2) —
+ * per-seat, since solo has no teams. `deltaBySeat`/`tricksBySeat` are length-4,
+ * indexed by seat. Public (no cards).
+ */
+export interface TarneebSoloHandResult {
+  handNumber: number;
+  bid: number;
+  declarerSeat: number;
+  trumpSuit: Suit;
+  /** Tricks each seat won this hand (length 4). */
+  tricksBySeat: number[];
+  /** Whether the declarer made the contract (declarer tricks >= bid). */
+  made: boolean;
+  /** Score change applied per seat this hand (length 4). */
+  deltaBySeat: number[];
+}
+
 export interface TarneebState {
   gameType: 'tarneeb';
   phase: TarneebPhase;
 
+  /**
+   * Match variant (Stage 28.1). Always present on new states; DEFAULT 'pairs'.
+   * A legacy/restored state without this field is read as 'pairs' (see
+   * `tarneebVariant`), so pairs behaviour and old snapshots are unchanged.
+   */
+  variant: TarneebVariant;
+
   players: TarneebPlayer[];               // exactly 4
-  /** Fixed partnerships (§2): A = [0, 2], B = [1, 3]. */
+  /** Fixed partnerships (§2): A = [0, 2], B = [1, 3]. Unused by 'solo'. */
   teams: Record<Team, [number, number]>;
 
   /** Rotates counter-clockwise (to the right) each real hand (§4). */
@@ -154,6 +189,20 @@ export interface TarneebState {
   handHistory: TarneebHandResult[];
   /** Winning team once finished, else null. */
   winnerTeam: Team | null;
+
+  // --- Solo variant (Stage 28.1) — all OPTIONAL / undefined in pairs, so a pairs
+  // state's shape is unchanged apart from `variant`. Every field below is public
+  // (no cards), so redaction/protocol treat them like the team equivalents. ------
+  /** Tricks won per seat this hand (length 4). Solo only. */
+  tricksBySeat?: number[];
+  /** Cumulative match score per seat (length 4). Solo only. */
+  scoresBySeat?: number[];
+  /** The most recently scored solo hand (for the UI), or null. Solo only. */
+  lastSoloHand?: TarneebSoloHandResult | null;
+  /** Score-only per-seat history of scored solo hands, oldest first. Solo only. */
+  soloHandHistory?: TarneebSoloHandResult[];
+  /** Winning seat once a solo match finishes, else null. Solo only. */
+  soloWinnerSeat?: number | null;
 }
 
 export type TarneebAction =
@@ -164,6 +213,8 @@ export type TarneebAction =
       options?: Partial<TarneebOptions>;
       /** Optional explicit first dealer (for tests); random via rng otherwise. */
       dealerSeat?: number;
+      /** Match variant (Stage 28.1). Omitted/anything-but-'solo' → 'pairs'. */
+      variant?: TarneebVariant;
     }
   /** A legal integer 3–13, strictly above the current high bid. Seat = currentSeat. */
   | { type: 'BID'; amount: number }

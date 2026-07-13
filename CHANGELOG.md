@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added (foundation, not yet playable)
+
+- **Tarneeb solo — pure core (Stage 28.1).** A `variant: 'pairs' | 'solo'` flag on `TarneebState`
+  and `START_GAME`, **defaulting to `'pairs'`**, adds a 4-player cutthroat (every-player-for-self)
+  game: per-seat scoring (declarer makes it → +bid, defenders +0; declarer fails → −bid, each
+  defender +its own tricks; first to 41, ties are not a finish), a solo bot that assumes no partner,
+  and variant-agnostic redaction. Trick legality (follow-suit + trump obligation) is the **same**
+  `legalPlays` as pairs. **Not exposed anywhere yet** — no game picker entry, no online rooms, no
+  stats, and the lobby/team UI is unchanged. Released Tarneeb **pairs** is byte-for-byte unaffected
+  (a legacy state with no `variant` reads as pairs). Covered by `src/games/tarneeb/solo.test.ts`;
+  the local-only playable prototype is the next stage. See `TARNEEB_SOLO_PLAN.md`.
+
 ### Performance
 
 - **Static bandwidth cut (Stage 28.1).** The server previously sent every non-hashed static

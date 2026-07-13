@@ -409,3 +409,12 @@ A `soloGuard.test.ts` pins the released 4-player 2×2 pairs behaviour so the fut
 `variant` flag **without** altering the shipped team game. The Deberc 3p/4p modes were, in the same
 stage, given explicit **Solo · 3 / Pairs · 4** labels in setup and lobby. **Released Tarneeb is
 unchanged and remains team-only; solo is not yet playable.**
+
+**Update (Stage 28.1): solo PURE CORE now exists, still not playable in the UI.** The solo reducer,
+per-seat scoring, bots and redaction ship behind a `variant: 'pairs' | 'solo'` flag on
+`TarneebState`/`START_GAME` that **defaults to `'pairs'`** (a legacy state with no `variant` reads
+as pairs). Solo scoring is per-seat: **declarer makes it → +bid, defenders +0; declarer fails →
+−bid, each defender +its own tricks; first to 41, ties are not a finish**. It is exercised only by
+`src/games/tarneeb/solo.test.ts` — **not in the game picker, not online-enabled, records no stats,
+and the lobby/team UI is unchanged.** Everything in §1–§16 above describes the released **pairs**
+game and is byte-for-byte unaffected. A local-only setup + playable prototype is **Stage 28.2**.

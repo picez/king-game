@@ -8,10 +8,13 @@
 import type { Card, Suit } from '../../models/types';
 import { rankValueOf, TARNEEB_SUITS } from './deck';
 import {
+  activeBidders,
   determineTrickWinner,
   getValidBids,
   getValidPlayableCards,
+  isSoloTarneeb,
   MAX_BID,
+  MIN_BID,
   partnerOfSeat,
 } from './rules';
 import type { TarneebAction, TarneebState } from './types';
@@ -19,6 +22,11 @@ import type { TarneebAction, TarneebState } from './types';
 /** The lowest contract a bot will open (Stage 27.0): humans may bid down to MIN_BID (3), but a
  *  bot only bids when it can plausibly make the traditional floor, to avoid over-committing. */
 const BOT_BID_FLOOR = 7;
+
+/** Solo (Stage 28.1): a lone declarer faces 3 opponents, so a bot opens only on a
+ *  strong OWN hand (no partner contribution). Termination is still guaranteed by the
+ *  `mustOpen` fallback below, so a raised floor never dead-locks the auction. */
+const SOLO_BID_FLOOR = 6;
 
 /** Assumed trick contribution from the unseen partner when estimating a bid (§14). */
 const PARTNER_TRICKS = 3;
@@ -143,8 +151,9 @@ function chooseCard(state: TarneebState, seat: number): Card {
   }
 
   // Partner already winning → do not waste a high card, and spare a trump if a
-  // plain discard is available.
-  if (partnerWinning(state, seat)) {
+  // plain discard is available. (Solo has no partner — everyone is an opponent —
+  // so this branch is skipped and the bot tries to win / discards low below.)
+  if (!isSoloTarneeb(state) && partnerWinning(state, seat)) {
     const side = nonTrumps(legal, trump);
     return lowestCard(side.length > 0 ? side : legal);
   }
@@ -171,6 +180,23 @@ export function tarneebBotAction(state: TarneebState, seat: number): TarneebActi
     case 'bidding': {
       const valid = getValidBids(state, seat);
       const hand = state.handsBySeat[seat];
+
+      // Solo (Stage 28.1): no partner, so estimate from the OWN hand only. Open on a
+      // strong hand; otherwise pass — EXCEPT when we're the last bidder in and no one
+      // has bid (`mustOpen`), where we must open (at ≥ MIN_BID) so the auction always
+      // resolves to a declarer and a bot-only match terminates (no infinite redeal).
+      if (isSoloTarneeb(state)) {
+        if (valid.length === 0) return { type: 'PASS_BID' };
+        const soloEstimate = Math.floor(estimateTricks(hand, bestSuit(hand)));
+        const mustOpen = !state.highestBid && activeBidders(state).length === 1;
+        if (soloEstimate >= SOLO_BID_FLOOR || mustOpen) {
+          const cap = Math.max(MIN_BID, Math.min(MAX_BID, soloEstimate));
+          const affordable = valid.filter((b) => b <= cap);
+          if (affordable.length > 0) return { type: 'BID', amount: Math.max(...affordable) };
+          if (mustOpen) return { type: 'BID', amount: Math.min(...valid) };
+        }
+        return { type: 'PASS_BID' };
+      }
       // Estimate the TEAM's tricks: this hand's own strength in its best suit plus
       // a modest, fixed contribution from the (unseen) partner — a bid of 7 needs
       // more than half the tricks, so counting on the partner for a share is how a

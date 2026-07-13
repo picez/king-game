@@ -153,6 +153,13 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       reads "Teams ready".
       *(Stage 28.0: Deberc 3p Solo / 4p Pairs are the same released engine/scoring — the label is
       the only new thing. Tarneeb stays team-only; solo is spec-only, see `TARNEEB_SOLO_PLAN.md`.)*
+- [ ] **Tarneeb solo core (Stage 28.1) — NO manual UI check applies.** Solo is pure-core only
+      (`variant: 'solo'`), covered by automated tests (`src/games/tarneeb/solo.test.ts`: setup,
+      bidding, trump-obligation legality, per-seat scoring made/failed/target/tie, redaction, bot
+      soak) + `soloGuard.test.ts` (pairs unchanged, solo not exposed). It is **not** in the picker,
+      **not** online, records **no stats**, and the Tarneeb lobby/team UI is unchanged — so there is
+      nothing to click. Manual Tarneeb QA below still targets the released **pairs** game only.
+      Local solo UI arrives in Stage 28.2.
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —
