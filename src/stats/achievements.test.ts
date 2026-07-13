@@ -39,11 +39,12 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 8–12 badges with unique ids', () => {
+  it('has 8–14 badges with unique ids', () => {
     expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(8);
-    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(12);
+    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(14);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
   });
 
   it('every badge has a valid rarity, an icon, and a game scope in the catalog', () => {
@@ -102,6 +103,7 @@ describe('each badge has a positive + negative case', () => {
     { id: 'durak-survivor', earn: { ...zero(), durak: durak({ gamesWon: 1 }) }, lock: { ...zero(), durak: durak({ gamesWon: 0, foolCount: 2 }) } },
     { id: 'tarneeb-declarer', earn: { ...zero(), tarneeb: tarneeb({ handsAsDeclarer: 1 }) }, lock: { ...zero(), tarneeb: tarneeb({ handsAsDeclarer: 0, handsPlayed: 5 }) } },
     { id: 'tarneeb-contractor', earn: { ...zero(), tarneeb: tarneeb({ contractsMade: 5 }) }, lock: { ...zero(), tarneeb: tarneeb({ contractsMade: 4 }) } },
+    { id: 'tarneeb-soloist', earn: { ...zero(), tarneebSolo: tarneeb({ gamesWon: 1 }) }, lock: { ...zero(), tarneebSolo: tarneeb({ gamesWon: 0, gamesPlayed: 3 }) } },
     { id: 'preferans-declarer', earn: { ...zero(), preferans: preferans({ handsAsDeclarer: 1 }) }, lock: { ...zero(), preferans: preferans({ handsAsDeclarer: 0, handsPlayed: 5 }) } },
     { id: 'deberc-meld-maker', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 10, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 9, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) } },
     { id: 'deberc-bella', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 1, total: 1, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: zero() },
@@ -116,6 +118,41 @@ describe('each badge has a positive + negative case', () => {
     it(`${c.id}: earned on the positive case`, () => expect(earnedId(c.earn, c.id)).toBe(true));
     it(`${c.id}: locked on the negative case`, () => expect(earnedId(c.lock, c.id)).toBe(false));
   }
+});
+
+describe('Tarneeb Soloist is isolated from Pairs / All-Rounder / aggregates (Stage 28.6)', () => {
+  it('a PAIRS Tarneeb win alone does NOT earn the solo badge', () => {
+    const s: AllStats = { ...zero(), tarneeb: tarneeb({ gamesWon: 3 }) }; // no tarneebSolo
+    expect(earnedId(s, 'tarneeb-soloist')).toBe(false);
+  });
+
+  it('a SOLO win does NOT satisfy All-Rounder (still needs a win in every canonical game)', () => {
+    // Won 4 canonical games + a solo win, but NOT the 5th canonical (preferans) → locked.
+    const s: AllStats = {
+      king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }),
+      tarneeb: tarneeb({ gamesWon: 1 }), preferans: preferans({ gamesWon: 0 }),
+      tarneebSolo: tarneeb({ gamesWon: 5 }),
+    };
+    expect(earnedId(s, 'all-rounder')).toBe(false);
+    // And All-Rounder ignores solo entirely: winning every CANONICAL game earns it with NO solo.
+    const canonical: AllStats = {
+      king: king({ gamesWon: 1 }), durak: durak({ gamesWon: 1 }), deberc: deberc({ gamesWon: 1 }),
+      tarneeb: tarneeb({ gamesWon: 1 }), preferans: preferans({ gamesWon: 1 }),
+    };
+    expect(earnedId(canonical, 'all-rounder')).toBe(true);
+  });
+
+  it('solo wins/games are excluded from totalWins + totalGames', () => {
+    const s: AllStats = { ...zero(), tarneebSolo: tarneeb({ gamesWon: 4, gamesPlayed: 9 }) };
+    expect(totalWins(s)).toBe(0);
+    expect(totalGames(s)).toBe(0);
+  });
+
+  it('the solo badge earns from tarneebSolo wins, and is null-safe when solo is absent', () => {
+    expect(earnedId({ ...zero(), tarneebSolo: tarneeb({ gamesWon: 1 }) }, 'tarneeb-soloist')).toBe(true);
+    expect(earnedId(zero(), 'tarneeb-soloist')).toBe(false);           // undefined tarneebSolo
+    expect(earnedId({ king: null, durak: null, deberc: null, tarneeb: null, preferans: null }, 'tarneeb-soloist')).toBe(false);
+  });
 });
 
 describe('boundaries — derived only, no DB/network/private data', () => {
@@ -142,5 +179,16 @@ describe('boundaries — derived only, no DB/network/private data', () => {
     // No new fetch route — it reuses the four stat loaders already present.
     expect(menu).not.toContain('fetchAchievements');
     expect(menu).not.toMatch(/['"]\/api\/[a-z/]*achievements/);
+  });
+
+  it('feeds Tarneeb SOLO into achievements from its OWN state (Stage 28.6), keeping Pairs canonical', () => {
+    // allStats.tarneebSolo comes from the separate solo state — the Pairs `tarneeb`
+    // source (used by All-Rounder + pair badges) is unchanged.
+    expect(menu).toContain('tarneebSolo: dataOf(tarneebSoloStats)');
+    expect(menu).toContain('tarneeb: dataOf(tarneebStats)');
+    // The Achievements tab loads the solo dimension (once) so the badge can unlock.
+    expect(menu).toContain('void loadTarneebSoloStats()');
+    // Achievements wait for the solo load to resolve too.
+    expect(menu).toMatch(/allResolved =[^\n]*tarneebSoloStats/);
   });
 });

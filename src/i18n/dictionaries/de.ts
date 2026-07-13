@@ -547,6 +547,8 @@ export const DE: Record<string, string> = {
   'ach.tarneebDeclarer.desc': 'Sage einen Kontrakt in Tarneeb an.',
   'ach.tarneebContractor.title': 'Tarneeb-Kontraktor',
   'ach.tarneebContractor.desc': 'Erfülle 5 Kontrakte in Tarneeb.',
+  'ach.tarneebSoloist.title': 'Tarneeb-Solist',
+  'ach.tarneebSoloist.desc': 'Gewinne ein Tarneeb-Solo (jeder für sich).',
   'ach.debercMeldMaker.title': 'Meldung-Macher',
   'ach.debercMeldMaker.desc': 'Sage 10 Kombinationen in Deberc an.',
   'ach.debercBella.title': 'Bella',

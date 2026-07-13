@@ -547,6 +547,8 @@ export const AR: Record<string, string> = {
   'ach.tarneebDeclarer.desc': 'أعلن عقدًا في طرنيب.',
   'ach.tarneebContractor.title': 'مُتعهّد طرنيب',
   'ach.tarneebContractor.desc': 'حقّق 5 عقود في طرنيب.',
+  'ach.tarneebSoloist.title': 'منفرد طرنيب',
+  'ach.tarneebSoloist.desc': 'اربح مباراة طرنيب فردية (كل لاعب لنفسه).',
   'ach.debercMeldMaker.title': 'صانع التركيبات',
   'ach.debercMeldMaker.desc': 'أعلن 10 تركيبات في ديبيرتس.',
   'ach.debercBella.title': 'بيلا',

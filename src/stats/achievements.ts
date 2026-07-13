@@ -24,8 +24,17 @@ export interface AllStats {
   king: KingStats | null;
   durak: DurakStats | null;
   deberc: DebercStats | null;
+  /** Canonical Tarneeb (PAIRS) stats — the source for every existing Tarneeb badge
+   *  and for the cross-game aggregates (All-Rounder etc.). */
   tarneeb: TarneebStats | null;
   preferans: PreferansStats | null;
+  /**
+   * Tarneeb SOLO stats (Stage 28.6) — a SEPARATE, optional dimension (game_type
+   * 'tarneeb-solo'). Only the dedicated solo badge reads it; it is intentionally
+   * excluded from `totalWins` / `totalGames` / `wonEveryGame`, so Solo is never
+   * required for All-Rounder and the existing badges are unchanged. Missing → locked.
+   */
+  tarneebSolo?: TarneebStats | null;
 }
 
 export interface Achievement {
@@ -102,6 +111,12 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'tarneeb-contractor', titleKey: 'ach.tarneebContractor.title', descriptionKey: 'ach.tarneebContractor.desc',
     icon: '🤝', gameType: 'tarneeb', rarity: 'rare', evaluate: (s) => (s.tarneeb ? s.tarneeb.contractsMade : 0) >= 5,
+  },
+  {
+    // Solo cutthroat win (Stage 28.6) — reads ONLY the separate solo dimension, so it
+    // never affects the Pairs badges or All-Rounder. Locked until a solo win lands.
+    id: 'tarneeb-soloist', titleKey: 'ach.tarneebSoloist.title', descriptionKey: 'ach.tarneebSoloist.desc',
+    icon: '🗡️', gameType: 'tarneeb', rarity: 'common', evaluate: (s) => won(s.tarneebSolo ?? null) >= 1,
   },
   {
     id: 'deberc-meld-maker', titleKey: 'ach.debercMeldMaker.title', descriptionKey: 'ach.debercMeldMaker.desc',

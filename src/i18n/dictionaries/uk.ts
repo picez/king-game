@@ -547,6 +547,8 @@ export const UK: Record<string, string> = {
   'ach.tarneebDeclarer.desc': 'Оголосіть контракт у Tarneeb.',
   'ach.tarneebContractor.title': 'Контрактор Tarneeb',
   'ach.tarneebContractor.desc': 'Виконайте 5 контрактів у Tarneeb.',
+  'ach.tarneebSoloist.title': 'Соло в Тарнібі',
+  'ach.tarneebSoloist.desc': 'Виграйте матч Tarneeb Solo (кожен сам за себе).',
   'ach.debercMeldMaker.title': 'Комбінатор',
   'ach.debercMeldMaker.desc': 'Оголосіть 10 комбінацій у деберці.',
   'ach.debercBella.title': 'Бела',

@@ -11,6 +11,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Tarneeb Soloist achievement (Stage 28.6).** One new common badge — **"Tarneeb Soloist"** 🗡️ —
+  unlocked by winning a Tarneeb **Solo** (cutthroat) match. It reads a **separate** solo stats
+  dimension (`game_type='tarneeb-solo'`) that the profile loads independently, so it never mixes
+  with the Pairs Tarneeb badges and is **not** required for **All-Rounder** (which still needs a win
+  in every canonical game — Solo excluded). Purely derived from public stats (no server push, no
+  card data); the "new badge" toast + seen ledger work with the new id **without migration**.
+  No gameplay/rules/protocol/DB/dependency change; Pairs achievements + aggregates unchanged.
 - **Tarneeb Solo — full release: local + online + stats (Stage 28.4).** The 4-player cutthroat
   (every-player-for-self) mode is now a **released** Tarneeb mode alongside Pairs (still the
   default). The online **Host** sheet has a Pairs/Solo picker; a `tarneebVariant` flows through

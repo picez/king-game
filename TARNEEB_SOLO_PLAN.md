@@ -8,7 +8,9 @@ individual seats, no Team A/B grid); the table / hand-complete / finished screen
 standings, individual winner); rematch preserves the variant; and **stats + leaderboard** record
 solo under a **separate `game_type='tarneeb-solo'`** (no DB migration — the pairs `'tarneeb'`
 aggregates are byte-for-byte untouched). Backward compatible: a legacy room/state/client with no
-variant reads as Pairs. Achievements for solo are **deferred (post-MVP)**.
+variant reads as Pairs. **Stage 28.6** added one solo achievement — **"Tarneeb Soloist"** (win a
+Tarneeb Solo) — reading the separate `tarneeb-solo` stats so it never mixes with the Pairs badges
+and is not required for All-Rounder.
 
 > **28.0** spec → **28.1** pure core → **28.3** local UI → **28.4** full online + stats release.
 > The scoring model in §2 is the one that shipped.

@@ -123,6 +123,7 @@ export default function ProfileMenu({
   const durakOnce = useRef(false);
   const debercOnce = useRef(false);
   const tarneebOnce = useRef(false);
+  const tarneebSoloOnce = useRef(false);
   const preferansOnce = useRef(false);
   const boardOnce = useRef(false);
   const durakBoardOnce = useRef(false);
@@ -197,6 +198,9 @@ export default function ProfileMenu({
       if (!durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
       if (!debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (!tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
+      // Tarneeb SOLO is a separate dimension (Stage 28.6) — load it for the solo badge
+      // without touching the canonical Pairs state.
+      if (!tarneebSoloOnce.current) { tarneebSoloOnce.current = true; void loadTarneebSoloStats(); }
       if (!preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
     }
     if (tab === 'leaderboard') {
@@ -207,7 +211,7 @@ export default function ProfileMenu({
       if (boardGame === 'preferans' && !preferansBoardOnce.current) { preferansBoardOnce.current = true; void loadPreferansBoard(); }
     }
   }, [tab, statsGame, boardGame,
-    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadPreferansStats,
+    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadTarneebSoloStats, loadPreferansStats,
     loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard]);
 
   const loadTarneebStatsFor = (v: 'pairs' | 'solo') => (v === 'solo' ? loadTarneebSoloStats() : loadTarneebStats());
@@ -250,8 +254,11 @@ export default function ProfileMenu({
   const allStats: AllStats = {
     king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats),
     tarneeb: dataOf(tarneebStats), preferans: dataOf(preferansStats),
+    // Tarneeb SOLO (Stage 28.6) — its own dimension, feeds ONLY the solo badge; never
+    // overwrites the canonical `tarneeb` (Pairs) used by All-Rounder + the pair badges.
+    tarneebSolo: dataOf(tarneebSoloStats),
   };
-  const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats);
+  const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats && tarneebSoloStats);
   const achLoading = tab === 'achievements' && !allResolved;
   // Only a clean "no session" state (every set unauthenticated) shows the sign-in
   // hint; a mix (some ok, some error) still renders the grid with what we have.

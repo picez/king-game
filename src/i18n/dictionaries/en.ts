@@ -547,6 +547,8 @@ export const EN: Record<string, string> = {
   'ach.preferansDeclarer.desc': 'Win the auction and declare a contract in Preferans.',
   'ach.tarneebContractor.title': 'Tarneeb Contractor',
   'ach.tarneebContractor.desc': 'Make 5 contracts in Tarneeb.',
+  'ach.tarneebSoloist.title': 'Tarneeb Soloist',
+  'ach.tarneebSoloist.desc': 'Win a Tarneeb Solo (cutthroat) match.',
   'ach.debercMeldMaker.title': 'Meld Maker',
   'ach.debercMeldMaker.desc': 'Declare 10 combinations in Deberc.',
   'ach.debercBella.title': 'Bella',
