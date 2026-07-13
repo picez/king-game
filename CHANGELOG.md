@@ -21,6 +21,17 @@ also reported at `GET /health/diagnostics` (`version` field).
   (a legacy state with no `variant` reads as pairs). Covered by `src/games/tarneeb/solo.test.ts`;
   the local-only playable prototype is the next stage. See `TARNEEB_SOLO_PLAN.md`.
 
+### Fixed
+
+- **Static file-like 404s + HEAD (Stage 28.1b).** A missing path with a file extension
+  (`/cards/faces/AS.png`, `/assets/typo.js`) previously fell through to the SPA `index.html`, so it
+  returned `200 text/html` instead of a real **404** — which masked broken/misnamed assets and made
+  the bandwidth/cache smoke checks false positives. The static handler now 404s any missing
+  *extension-bearing* path (`text/plain`, `no-store`) while extension-less routes (`/`, `/profile`,
+  `/?room=CODE`) still fall back to the shell. `HEAD` requests now return the full headers
+  (Content-Type, Cache-Control, ETag, Last-Modified, Content-Length) with **no body**. Card faces
+  are `{suit}-{rank}.png` lower-cased (`spades-a.png`), documented with real example URLs.
+
 ### Performance
 
 - **Static bandwidth cut (Stage 28.1).** The server previously sent every non-hashed static

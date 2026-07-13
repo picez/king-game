@@ -191,9 +191,20 @@ replacing an asset **in place** (same filename, new bytes — e.g. redrawing a c
 this is fine. If you need an instant art swap, either rename the file or bump the service-worker
 `CACHE` version in `public/sw.js` and hard-refresh.
 
+**Missing file-like paths must 404 (Stage 28.1b).** The static handler serves the SPA `index.html`
+only for **extension-less** routes (`/`, `/profile`, `/?room=CODE`). A request for a path **with a
+file extension** that does not exist — `/cards/faces/NOPE.png`, `/assets/typo.js` — returns a real
+**404** (`text/plain`, `no-store`), NOT `index.html`. This matters for two reasons: (1) a broken or
+misnamed asset shows up as a 404 instead of silently returning a 200 HTML page, and (2) it stops the
+bandwidth/cache smoke checks from being **false positives** — a 200 `text/html` with `no-cache` on a
+`.png` URL previously looked "served" but was actually the app shell. Card faces are
+`{suit}-{rank}.png` lower-cased (`spades-a.png`, `clubs-10.png`), so a wrong name like `AS.png` now
+correctly 404s.
+
 **Manual-only checks** (can't be asserted from CI — see `PRODUCTION_SMOKE.md` §3a): confirm the
-live headers with `curl -I`, confirm a 304 on a second request, and watch Render → Metrics →
-Bandwidth flatten out across repeat sessions.
+live headers with `curl -I` / PowerShell `iwr -Method Head` on the **real** asset paths, confirm a
+`.png` typo returns 404 (not the shell), confirm a 304 on a second request, and watch Render →
+Metrics → Bandwidth flatten out across repeat sessions.
 
 ### Postgres room storage on Render (optional, Stage 2)
 

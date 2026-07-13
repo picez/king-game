@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { sendFile, cacheControlFor } from '../../server/httpStatic';
+import { sendFile, cacheControlFor, serveStatic, SERVE_STATIC } from '../../server/httpStatic';
 import { handleApiRequest } from '../../server/api';
 
 // ---------------------------------------------------------------------------
@@ -41,8 +41,12 @@ const files: Record<string, string> = {};
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'static-headers-'));
   mkdirSync(join(dir, 'assets'), { recursive: true });
+  mkdirSync(join(dir, 'cards', 'faces'), { recursive: true });
   files.hashedJs = join(dir, 'assets', 'index-ABC12345.js');
   files.png = join(dir, 'spades-a.png');
+  // A real card-face filename, so we exercise the exact name the app requests.
+  files.cardFace = join(dir, 'cards', 'faces', 'spades-a.png');
+  writeFileSync(files.cardFace, Buffer.from([0x89, 0x50, 0x4e, 0x47, ...new Array(600).fill(1)]));
   files.webp = join(dir, 'felt.webp');
   files.mp3 = join(dir, 'chime.mp3');
   files.html = join(dir, 'index.html');
@@ -152,20 +156,130 @@ describe('gzip for compressible text (never for images)', () => {
   });
 });
 
-describe('/api is no-store (never cached)', () => {
-  it('GET /api/me responds with cache-control: no-store', async () => {
-    delete process.env.DATABASE_URL;
-    const out: { headers: Record<string, string> } = { headers: {} };
+describe('real card face + HEAD (Stage 28.1b)', () => {
+  it('serves /cards/faces/spades-a.png as image/png with a week cache + ETag', async () => {
+    const { res, out } = mockRes();
+    await sendFile(res, files.cardFace, 200);
+    expect(out.status).toBe(200);
+    expect(out.headers['content-type']).toBe('image/png');
+    expect(out.headers['cache-control']).toBe('public, max-age=604800');
+    expect(out.headers['etag']).toMatch(/^W\/"/);
+    expect(out.headers['last-modified']).toBeTruthy();
+    expect(out.body.length).toBeGreaterThan(0);
+  });
+
+  it('HEAD returns the same headers but NO body, with a real Content-Length', async () => {
+    const get = mockRes();
+    await sendFile(get.res, files.cardFace, 200);
+    const head = mockRes();
+    await sendFile(head.res, files.cardFace, 200, undefined, true /* isHead */);
+    expect(head.out.status).toBe(200);
+    expect(head.out.body.length).toBe(0);                                   // no body
+    expect(head.out.headers['content-type']).toBe('image/png');
+    expect(head.out.headers['content-length']).toBe(get.out.headers['content-length']); // matches GET
+    expect(Number(head.out.headers['content-length'])).toBeGreaterThan(0);
+  });
+});
+
+function reqTo(url: string, method = 'GET', headers: Record<string, string> = {}) {
+  return { url, method, headers } as unknown as IncomingMessage;
+}
+
+describe('serveStatic routing: missing file-like path → 404, app route → shell (Stage 28.1b)', () => {
+  it('a MISSING .png returns 404 — NOT the html app shell', async () => {
+    const { res, out } = mockRes();
+    await serveStatic(reqTo('/cards/faces/NOPE.png'), res);
+    expect(out.status).toBe(404);
+    expect(out.headers['content-type'] ?? '').not.toContain('text/html');
+    expect(out.headers['cache-control']).toBe('no-store');
+  });
+
+  it('missing .css / .js / .mp3 all 404 (not a 200 shell)', async () => {
+    for (const url of ['/styles/nope.css', '/assets/nope.js', '/sounds/nope.mp3']) {
+      const { res, out } = mockRes();
+      await serveStatic(reqTo(url), res);
+      expect(out.status, url).toBe(404);
+      expect(out.headers['content-type'] ?? '', url).not.toContain('text/html');
+    }
+  });
+
+  it('HEAD of a missing .png → 404 with no body', async () => {
+    const { res, out } = mockRes();
+    await serveStatic(reqTo('/cards/faces/NOPE.png', 'HEAD'), res);
+    expect(out.status).toBe(404);
+    expect(out.body.length).toBe(0);
+  });
+
+  // The following need a real ../dist build (SERVE_STATIC). They run after `npm run
+  // build`; in a build-less unit pass they skip rather than assert on absent files.
+  it.skipIf(!SERVE_STATIC)('serves the real built card face PNG (GET) with image/png + week cache', async () => {
+    const { res, out } = mockRes();
+    await serveStatic(reqTo('/cards/faces/spades-a.png'), res);
+    expect(out.status).toBe(200);
+    expect(out.headers['content-type']).toBe('image/png');
+    expect(out.headers['cache-control']).toBe('public, max-age=604800');
+    expect(out.headers['etag']).toMatch(/^W\/"/);
+  });
+
+  it.skipIf(!SERVE_STATIC)('serves a real sound with audio/mpeg (GET)', async () => {
+    const { res, out } = mockRes();
+    await serveStatic(reqTo('/sounds/bid-tick.mp3'), res);
+    expect(out.status).toBe(200);
+    expect(out.headers['content-type']).toBe('audio/mpeg');
+    expect(out.headers['cache-control']).toBe('public, max-age=604800');
+  });
+
+  it.skipIf(!SERVE_STATIC)('an extensionless app route falls back to index.html (200 text/html)', async () => {
+    for (const url of ['/profile', '/some/deep/route']) {
+      const { res, out } = mockRes();
+      await serveStatic(reqTo(url), res);
+      expect(out.status, url).toBe(200);
+      expect(out.headers['content-type'], url).toContain('text/html');
+      expect(out.headers['cache-control'], url).toBe('no-cache'); // shell revalidates
+    }
+  });
+
+  it.skipIf(!SERVE_STATIC)('the root and a ?room= invite both serve the shell', async () => {
+    for (const url of ['/', '/?room=ABCD']) {
+      const { res, out } = mockRes();
+      await serveStatic(reqTo(url), res);
+      expect(out.status, url).toBe(200);
+      expect(out.headers['content-type'], url).toContain('text/html');
+    }
+  });
+});
+
+describe('/api and /auth are no-store (never cached)', () => {
+  function headersFor() {
+    const out: { headers: Record<string, string>; status: number } = { headers: {}, status: 0 };
     const res = {
       headersSent: false, setHeader: () => {},
-      writeHead(_s: number, h: Record<string, string> = {}) {
+      writeHead(s: number, h: Record<string, string> = {}) {
+        out.status = s;
         out.headers = Object.fromEntries(Object.entries(h).map(([k, v]) => [k.toLowerCase(), String(v)]));
         this.headersSent = true; return this;
       },
       end() {},
     } as unknown as ServerResponse;
-    const req = { method: 'GET', url: '/api/me', headers: {}, socket: { remoteAddress: '127.0.0.1' } } as unknown as IncomingMessage;
+    return { res, out };
+  }
+  const call = async (url: string) => {
+    delete process.env.DATABASE_URL;
+    const { res, out } = headersFor();
+    const req = { method: 'GET', url, headers: {}, socket: { remoteAddress: '127.0.0.1' } } as unknown as IncomingMessage;
     await handleApiRequest(req, res);
-    expect(out.headers['cache-control']).toBe('no-store');
+    return out;
+  };
+
+  it('GET /api/me → no-store', async () => {
+    expect((await call('/api/me')).headers['cache-control']).toBe('no-store');
+  });
+  it('GET /api/games (public) → no-store', async () => {
+    expect((await call('/api/games')).headers['cache-control']).toBe('no-store');
+  });
+  it('GET /auth/google/start → no-store (never cached)', async () => {
+    // With no OAuth/DB config this degrades to a 503 JSON — but still no-store, so a
+    // stale auth response can never be cached.
+    expect((await call('/auth/google/start')).headers['cache-control']).toBe('no-store');
   });
 });

@@ -92,27 +92,55 @@ numbered sections below cover each in depth.
       `king, durak, deberc, tarneeb, preferans`, every one `"status":"available"` and
       `supportsLocal/supportsOnline/supportsBots: true`. No private fields (`rulesDoc` absent).
 
-### 3a. Static bandwidth / caching (Stage 28.1)
+### 3a. Static bandwidth / caching (Stage 28.1 / 28.1b)
 
 > Repeat visits must re-download almost nothing — the ~10 MB of card faces + hero art
-> are cached, so only a tiny 304 revalidation goes over the wire. Verify the headers:
+> are cached, so only a tiny 304 revalidation goes over the wire. Verify the headers.
 
-- [ ] **Hashed bundle is immutable:** `curl -sI $HOST/assets/<the-index-*.js> | grep -i cache`
+**⚠️ Use the REAL asset paths.** Card faces are named `{suit}-{rank}.png` **lower-cased**
+(e.g. `spades-a`, `clubs-10`, `hearts-k`) — there is **no** `AS.png` / `10C.png`. A wrong or
+missing name now returns a real **404** (Stage 28.1b), *not* the HTML app shell — so if you see
+`content-type: text/html` on a `.png` URL, the **filename is wrong**, not the server. Three real
+URLs (basename varies per build for the hashed one):
+`/cards/faces/spades-a.png` · `/visual/icons/game-king.png` · `/sounds/bid-tick.mp3`.
+
+`curl` (Linux/macOS/Git-Bash):
+
+- [ ] **Hashed bundle is immutable:** `curl -sI $HOST/assets/<index-*.js> | grep -i cache`
       → `cache-control: public, max-age=31536000, immutable`.
-- [ ] **Static media is cached a week + has an ETag:**
-      `curl -sI $HOST/cards/faces/spades-a.png | grep -iE 'cache-control|etag|content-type'`
-      → `public, max-age=604800`, a `W/"…"` ETag, `content-type: image/png` (NOT
-      `application/octet-stream`). Same for `/visual/menu-hero-wide.webp` (`image/webp`) and
-      a `/sounds/*.mp3` (`audio/mpeg`).
-- [ ] **304 revalidation works (the bandwidth win):** repeat the media `curl` with
-      `-H 'If-None-Match: <the ETag>'` → **`HTTP/…​ 304`** and an **empty body**.
+- [ ] **Card face is cached a week + real MIME + ETag:**
+      `curl -sI $HOST/cards/faces/spades-a.png` → `HTTP/… 200`, `content-type: image/png`,
+      `cache-control: public, max-age=604800`, a `W/"…"` `etag`, `last-modified`. (Also
+      `/visual/icons/game-king.png` → `image/png`, `/sounds/bid-tick.mp3` → `audio/mpeg` — never
+      `application/octet-stream`.)
+- [ ] **Missing / wrong file-like path is a 404, NOT the shell:**
+      `curl -sI $HOST/cards/faces/NOPE.png` → `HTTP/… 404` + `content-type: text/plain`
+      (a 200 `text/html` here is the bug fixed in 28.1b).
+- [ ] **App routes still fall back to the shell:** `curl -sI $HOST/profile` and `$HOST/?room=ABCD`
+      → `HTTP/… 200`, `content-type: text/html`, `cache-control: no-cache`.
+- [ ] **304 revalidation works (the bandwidth win):**
+      `curl -sI $HOST/cards/faces/spades-a.png -H 'If-None-Match: <the ETag>'` → **`304`**, empty body.
 - [ ] **App shell revalidates:** `curl -sI $HOST/ | grep -i cache` → `no-cache`; same for
-      `$HOST/sw.js` and `$HOST/manifest.webmanifest` (never `max-age`, so a new build is
-      picked up immediately).
+      `$HOST/sw.js` and `$HOST/manifest.webmanifest`.
 - [ ] **Text is gzipped:** `curl -sI -H 'Accept-Encoding: gzip' $HOST/assets/<index-*.js>`
-      → `content-encoding: gzip` + `vary: Accept-Encoding`. An image with the same header
-      is **NOT** gzipped (already compressed).
-- [ ] **Dynamic stays uncached:** `curl -sI $HOST/api/me | grep -i cache` → `no-store`.
+      → `content-encoding: gzip` + `vary: Accept-Encoding`. A `.png` with the same header is **NOT**
+      gzipped (already compressed).
+- [ ] **Dynamic stays uncached:** `curl -sI $HOST/api/me` and `$HOST/auth/google/start` → `no-store`.
+
+PowerShell (Windows) — `Invoke-WebRequest -Method Head`:
+
+```powershell
+$H = "https://king-game-cqgd.onrender.com"
+# Real card face → 200 image/png, week cache, ETag
+(iwr "$H/cards/faces/spades-a.png" -Method Head -UseBasicParsing).Headers |
+  Format-Table Content-Type, Cache-Control, ETag, Last-Modified
+# Wrong/missing name → 404 (NOT the html shell). -SkipHttpErrorCheck on PS7+, or wrap in try/catch:
+try { iwr "$H/cards/faces/AS.png" -Method Head -UseBasicParsing } catch { $_.Exception.Response.StatusCode }  # NotFound
+# 304 revalidation
+$et = (iwr "$H/cards/faces/spades-a.png" -Method Head -UseBasicParsing).Headers.ETag
+(iwr "$H/cards/faces/spades-a.png" -Method Head -Headers @{ 'If-None-Match' = $et } -UseBasicParsing).StatusCode  # 304
+```
+
 - [ ] **Render usage sanity:** after a day of normal play, Render → Metrics → Bandwidth
       grows far slower than before (repeat sessions hit browser cache, not the origin).
 

@@ -91,6 +91,7 @@ export async function sendFile(
   filePath: string,
   status = 200,
   reqHeaders?: IncomingHttpHeaders,
+  isHead = false,
 ): Promise<void> {
   const ext = extname(filePath).toLowerCase();
   const type = MIME[ext] ?? 'application/octet-stream';
@@ -102,7 +103,7 @@ export async function sendFile(
 
   // Conditional request → 304 (no body). Makes revalidation of `no-cache` shell
   // files and post-expiry media essentially free. ETag is primary; If-Modified-
-  // Since (second-granular) is the fallback.
+  // Since (second-granular) is the fallback. Applies to GET and HEAD alike.
   const inm = reqHeaders?.['if-none-match'];
   const ims = reqHeaders?.['if-modified-since'];
   const notModified =
@@ -115,7 +116,6 @@ export async function sendFile(
     return;
   }
 
-  const raw = await readFile(filePath);
   const headers: Record<string, string> = {
     'content-type': type,
     'cache-control': cache,
@@ -124,39 +124,56 @@ export async function sendFile(
     vary: 'Accept-Encoding',
   };
 
-  if (COMPRESSIBLE_EXT.has(ext) && raw.length >= GZIP_MIN_BYTES && acceptsGzip(reqHeaders)) {
-    const gz = gzipSync(raw);
+  // gzip only compressible text (decide by uncompressed size — no read needed to
+  // decide). Images/audio/fonts are already compressed and never re-gzipped.
+  const useGzip = COMPRESSIBLE_EXT.has(ext) && st.size >= GZIP_MIN_BYTES && acceptsGzip(reqHeaders);
+
+  if (useGzip) {
+    // Must read+compress to know the encoded length so HEAD's Content-Length matches GET.
+    const gz = gzipSync(await readFile(filePath));
     headers['content-encoding'] = 'gzip';
     headers['content-length'] = String(gz.length);
     res.writeHead(status, headers);
-    res.end(gz);
+    res.end(isHead ? undefined : gz);
     return;
   }
 
-  headers['content-length'] = String(raw.length);
+  // Non-compressed path: Content-Length is the file size — a HEAD needs no read.
+  headers['content-length'] = String(st.size);
+  if (isHead) {
+    res.writeHead(status, headers);
+    res.end();
+    return;
+  }
   res.writeHead(status, headers);
-  res.end(raw);
+  res.end(await readFile(filePath));
 }
 
-export function notFound(res: ServerResponse): void {
-  res.writeHead(404, { 'content-type': 'text/plain' });
-  res.end('Not found');
+export function notFound(res: ServerResponse, isHead = false): void {
+  res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(isHead ? undefined : 'Not found');
 }
 
 export async function serveStatic(
-  req: { url?: string; headers?: IncomingHttpHeaders },
+  req: { url?: string; headers?: IncomingHttpHeaders; method?: string },
   res: ServerResponse,
 ): Promise<void> {
+  const isHead = req.method === 'HEAD';
   let pathname = decodeURIComponent((req.url ?? '/').split('?')[0].split('#')[0]);
   if (pathname === '/') pathname = '/index.html';
   const candidate = normalize(join(DIST, pathname));
   // Path-traversal guard: never serve outside DIST.
   if (candidate.startsWith(DIST) && existsSync(candidate) && statSync(candidate).isFile()) {
-    return sendFile(res, candidate, 200, req.headers)
-      .catch(() => sendFile(res, INDEX_HTML, 200, req.headers).catch(() => notFound(res)));
+    return sendFile(res, candidate, 200, req.headers, isHead)
+      .catch(() => sendFile(res, INDEX_HTML, 200, req.headers, isHead).catch(() => notFound(res, isHead)));
   }
-  // SPA fallback: unknown route → index.html (client router/refresh-safe).
-  return sendFile(res, INDEX_HTML, 200, req.headers).catch(() => notFound(res));
+  // A MISSING path that looks like a static file (has an extension — .png/.css/.js/
+  // .mp3 …) is a genuine 404, NOT the SPA shell. Returning index.html here would mask
+  // a broken/misnamed asset as a 200 (Content-Type text/html) and turn cache/bandwidth
+  // checks into false positives. Extension-less routes (/, /profile, /?room=CODE) still
+  // fall back to index.html so the client router / a refresh keep working.
+  if (extname(pathname) !== '') return notFound(res, isHead);
+  return sendFile(res, INDEX_HTML, 200, req.headers, isHead).catch(() => notFound(res, isHead));
 }
 
 /**
