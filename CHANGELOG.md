@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **Tarneeb Solo — local playable prototype (Stage 28.3).** The Tarneeb **local** setup now has a
+  **Pairs / Solo** mode picker (default **Pairs**, so the released game is unchanged). Choosing
+  **Solo** starts a 4-player cutthroat table (1 human + 3 bots) on the Stage 28.1 pure core: the
+  scoreboard shows a **4-player standings strip** instead of Us/Them teams, the tricks viewer shows
+  **your own** tricks, the between-hands panel is **per-seat**, and the finished screen names an
+  **individual** winner. Trick play (follow-suit + trump obligation) is identical to Pairs. **Online
+  Tarneeb stays Pairs-only** (the online host + lobby do not offer Solo) and Solo records **no
+  stats/leaderboard/achievements** yet. No protocol/DB/dependency change; Pairs is byte-for-byte
+  unchanged. See `TARNEEB_SOLO_PLAN.md` / `TARNEEB_RULES.md` §17.
+
 ### Fixed
 
 - **Deberc Solo is now actually playable online (Stage 28.2).** Despite the Stage 28.0 labels,

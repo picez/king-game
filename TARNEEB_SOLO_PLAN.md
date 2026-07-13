@@ -1,14 +1,16 @@
 # Tarneeb Solo — implementation-ready plan (Variant B: 4-player cutthroat)
 
-**Status: PURE CORE DONE (Stage 28.1); UI / online / stats PENDING.** The solo reducer, per-seat
-scoring (§2 below), bots, and redaction now ship in `src/games/tarneeb/` behind a
-`variant: 'pairs' | 'solo'` flag that **defaults to `'pairs'`**. Solo is exercised only by tests
-(`src/games/tarneeb/solo.test.ts`) — it is **NOT** in the game picker, **NOT** online-enabled, and
-records **no stats**. Released Tarneeb stays **4-player, fixed 2×2 pairs, the default and only
-*playable* mode**. Next stage (**28.2**) wires a local-only setup + playable prototype.
+**Status: PURE CORE (28.1) + LOCAL PLAYABLE UI (28.3) DONE; ONLINE / stats PENDING.** The solo
+reducer, per-seat scoring (§2 below), bots, and redaction ship in `src/games/tarneeb/` behind a
+`variant: 'pairs' | 'solo'` flag that **defaults to `'pairs'`**. As of **Stage 28.3** it is
+**playable locally**: the Tarneeb local setup has a **Pairs / Solo** picker (default Pairs), and the
+table / hand-complete / finished screens adapt to per-seat cutthroat (no A/B teams, 4-player
+standings, individual winner). It is still **NOT online-enabled** (the online host + lobby stay
+Pairs) and records **no stats/leaderboard/achievements**. Released Tarneeb Pairs is unchanged.
 
-> **Stage 28.0** produced this spec (design only). **Stage 28.1** implemented the pure core from it.
-> The scoring model in §2 is the one that was built.
+> **Stage 28.0** produced this spec (design only). **Stage 28.1** built the pure core. **Stage 28.3**
+> added the local-only playable UI. The scoring model in §2 is the one that was built.
+> Next: **28.4** — online Tarneeb Solo readiness OR solo stats design.
 
 See `SOLO_VARIANTS_PLAN.md` for why **Variant B (4-player cutthroat)** was chosen over 3-player
 (Variant A, needs an invented reduced deck) and over deferring indefinitely (Variant C). Variant B
@@ -77,9 +79,9 @@ This is the MVP model — a richer overtrick/kaboot variant is explicitly out of
    Deberc-solo pattern). Redaction is already variant-agnostic (still hides `handsBySeat`) ✅.
 8. ⏳ **Protocol.** Carry `variant` on room create/join; reject a solo action on a team game and vice
    versa (server-authoritative, same reducer).
-9. ⏳ **Setup UX.** Segmented Pairs / Solo control (mirrors the Deberc Solo/Pairs mode cards) —
-   **Stage 28.2, local-only first.** Solo stays hidden from the picker until the core + stats land —
-   no disabled half-feature in the UI.
+9. ✅ **Setup UX (LOCAL, Stage 28.3).** Segmented Pairs / Solo control in the Tarneeb **local** setup
+   (default Pairs). Table/hand-complete/finished screens adapt to per-seat cutthroat. Online host
+   still shows no Solo. Remaining ⏳: the online segmented control lands with online enablement.
 
 ## 4. Tests — done in 28.1 (✅) / deferred (⏳)
 

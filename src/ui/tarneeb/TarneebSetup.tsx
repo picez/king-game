@@ -1,20 +1,30 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
+import type { TarneebVariant } from '../../games/tarneeb/types';
 import { TarneebRulesList } from './TarneebHelp';
 
 interface Props {
-  onStart: () => void;
+  onStart: (variant: TarneebVariant) => void;
   onExit: () => void;
 }
 
 /**
- * Local Tarneeb setup. Tarneeb is a fixed 4-player, two-team game with a fixed
- * MVP target of 41 (TARNEEB_RULES §2, §10), so there is nothing to configure —
- * this screen just explains the teams and starts a 1-human + 3-bot table.
+ * Local Tarneeb setup. Two released modes (Stage 28.3), chosen with a segmented
+ * selector, default Pairs so existing behaviour is unchanged:
+ *  - Pairs — the classic 4-player, 2×2 partnership game (teams 0&2 vs 1&3);
+ *  - Solo  — 4-player cutthroat, every player for themselves (Stage 28.1 core).
+ * Both start a 1-human + 3-bot table to the fixed MVP target of 41. Solo is
+ * LOCAL only for now — online Tarneeb stays Pairs (see TARNEEB_SOLO_PLAN.md).
  */
 export default function TarneebSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
+  const [variant, setVariant] = useState<TarneebVariant>('pairs');
+
+  const modes: { id: TarneebVariant; name: string; desc: string }[] = [
+    { id: 'pairs', name: t('tarneeb.modePairs'), desc: t('tarneeb.modePairsDesc') },
+    { id: 'solo', name: t('tarneeb.modeSolo'), desc: t('tarneeb.modeSoloDesc') },
+  ];
 
   return (
     <div className="screen menu-screen tarneeb-setup">
@@ -24,8 +34,22 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
       </header>
 
       <div className="setup-card">
-        <p className="tarneeb-setup__teams">👥 {t('tarneeb.teamsHint')}</p>
-        <p className="tarneeb-setup__hint tarneeb-setup__hint--partner">{t('tarneeb.partnerHint')}</p>
+        <label className="field__label">{t('tarneeb.mode')}</label>
+        <div className="durak-variant-cards">
+          {modes.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className={`durak-variant-card ${variant === m.id ? 'durak-variant-card--active' : ''}`}
+              aria-pressed={variant === m.id}
+              onClick={() => setVariant(m.id)}
+            >
+              <span className="durak-variant-card__name">{m.name}</span>
+              <span className="durak-variant-card__desc">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+
         <p className="tarneeb-setup__target">
           🎯 {t('tarneeb.target')}: <strong>41</strong>
         </p>
@@ -41,7 +65,7 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
         </button>
         {showHelp && <TarneebRulesList />}
 
-        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={onStart}>
+        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={() => onStart(variant)}>
           {t('tarneeb.start')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onExit}>

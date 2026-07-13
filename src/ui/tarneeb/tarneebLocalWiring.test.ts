@@ -224,3 +224,85 @@ describe('a full local table (1 human seat + 3 bots) terminates', () => {
     expect(partnerOfSeat(1)).toBe(3);
   });
 });
+
+// --- Solo local mode (Stage 28.3) ------------------------------------------
+
+function startSolo(dealerSeat: number, rng: Rng): TarneebState {
+  const action: TarneebAction = {
+    type: 'START_GAME',
+    playerNames: ['You', 'Bot 1', 'Bot 2', 'Bot 3'],
+    playerTypes: ['human', 'ai', 'ai', 'ai'],
+    dealerSeat,
+    variant: 'solo',
+  };
+  return tarneebReducer(null, action, { rng }) as TarneebState;
+}
+
+describe('local Tarneeb setup exposes Pairs (default) + Solo', () => {
+  const setup = read('./TarneebSetup.tsx');
+  const local = read('./TarneebLocalGame.tsx');
+  it('setup offers both modes and defaults to Pairs', () => {
+    expect(setup).toContain("t('tarneeb.modePairs')");
+    expect(setup).toContain("t('tarneeb.modeSolo')");
+    expect(setup).toContain("useState<TarneebVariant>('pairs')"); // default = pairs
+    expect(setup).toContain('onStart(variant)');
+  });
+  it('the local game threads variant:solo ONLY for Solo (Pairs omits it → default)', () => {
+    expect(local).toContain("...(variant === 'solo' ? { variant } : {})");
+  });
+});
+
+describe('local Solo game (1 human + 3 bots) is playable and terminates', () => {
+  it('opens bidding 3–13, and auto-driving every actor reaches an individual winner', () => {
+    const rng = makeRng(29);
+    let s = startSolo(1, rng); // dealer 1 → first bidder seat 0
+    expect(s.variant).toBe('solo');
+    expect(s.handsBySeat.every((h) => h.length === 13)).toBe(true);
+    expect(getValidBids(s, 0)).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    let guard = 0;
+    while (guard++ < 20000 && s.phase !== 'game_finished') {
+      if (s.phase === 'hand_complete') {
+        s = tarneebReducer(s, { type: 'START_NEXT_HAND' }, { rng })!;
+        continue;
+      }
+      const seat = getActingTarneebSeat(s)!;
+      s = tarneebReducer(s, tarneebBotAction(s, seat), { rng })!;
+    }
+    expect(s.phase).toBe('game_finished');
+    // Solo finishes with a UNIQUE seat winner (no team), per-seat scores present.
+    expect(s.soloWinnerSeat).not.toBeNull();
+    expect(s.winnerTeam).toBeNull();
+    const scores = s.scoresBySeat!;
+    expect(scores[s.soloWinnerSeat!]).toBe(Math.max(...scores));
+  });
+});
+
+describe('Solo UI drops team labels; Pairs keeps them (source guards)', () => {
+  const screen = read('./TarneebGameScreen.tsx');
+  const finished = read('./TarneebFinished.tsx');
+  it('the game screen branches on isSoloTarneeb and shows a per-seat standings strip', () => {
+    expect(screen).toContain('const solo = isSoloTarneeb(state)');
+    expect(screen).toContain('tarneeb-solo-standings');
+    expect(screen).toContain('scoresBySeat[p.seatIndex]');           // per-seat scores
+    // My seat is "us" only in Pairs; Solo colours only my own seat.
+    expect(screen).toContain("solo ? p.seatIndex === humanSeat : teamOfSeat(p.seatIndex) === myTeam");
+    // Pairs still renders the two team boards.
+    expect(screen).toContain("t('tarneeb.teamUs')");
+    expect(screen).toContain("t('tarneeb.teamThem')");
+  });
+  it('finished screen has an individual Solo winner path + keeps the team path', () => {
+    expect(finished).toContain('SoloFinished');
+    expect(finished).toContain('state.soloWinnerSeat');
+    expect(finished).toContain("kind={humanWon ? 'win' : 'loss'}");   // solo = individual win
+    expect(finished).toContain("kind={humanWon ? 'teamWin' : 'loss'}"); // pairs = team win
+  });
+});
+
+describe('i18n parity — the new Solo keys exist in every language', () => {
+  const keys = ['tarneeb.mode', 'tarneeb.modePairs', 'tarneeb.modeSolo', 'tarneeb.modePairsDesc', 'tarneeb.modeSoloDesc', 'tarneeb.myTricks', 'tarneeb.playerWon'];
+  for (const dict of [EN, UK, DE, AR]) {
+    it('every language defines the sampled Solo keys (non-empty)', () => {
+      for (const k of keys) expect(dict[k]?.trim().length).toBeGreaterThan(0);
+    });
+  }
+});

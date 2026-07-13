@@ -160,13 +160,20 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       names, not "Team A/B"); a Solo win shows an individual celebration.
       *(Stage 28.2: same released engine/scoring — 3p Solo vs 4p Pairs is the seat count; only the
       online host/lobby/celebration were made mode-aware. Arabic RTL: no horizontal overflow.)*
-- [ ] **Tarneeb solo core (Stage 28.1) — NO manual UI check applies.** Solo is pure-core only
-      (`variant: 'solo'`), covered by automated tests (`src/games/tarneeb/solo.test.ts`: setup,
-      bidding, trump-obligation legality, per-seat scoring made/failed/target/tie, redaction, bot
-      soak) + `soloGuard.test.ts` (pairs unchanged, solo not exposed). It is **not** in the picker,
-      **not** online, records **no stats**, and the Tarneeb lobby/team UI is unchanged — so there is
-      nothing to click. Manual Tarneeb QA below still targets the released **pairs** game only.
-      Local solo UI arrives in Stage 28.2.
+- [ ] **Tarneeb LOCAL Pairs (default):** local Tarneeb setup shows a **Pairs / Solo** picker with
+      Pairs pre-selected; starting Pairs plays exactly as before — Us/Them team scoreboard, partner
+      opposite, team-tricks viewer, "Team {A/B} won" finish. **Unchanged from release.**
+- [ ] **Tarneeb LOCAL Solo (Stage 28.3):** pick **Solo** → a 4-player cutthroat table (1 human + 3
+      bots). Verify: **no Team A/B labels**; the scoreboard shows a **4-player standings strip**
+      (my chip + the leader highlighted); tricks button/viewer shows **MY OWN** tricks; bidding
+      3–13, declarer picks trump, follow-suit works; the **hand-complete panel lists all 4 players**
+      (declarer flagged, per-seat delta/score); at 41 the **finished screen names an individual
+      winner** (🏆 You won / "{name} won") with 4-player final standings; **Play again** works.
+      *(360/390 portrait + Arabic RTL: no horizontal overflow.)*
+- [ ] **Tarneeb ONLINE is still Pairs-only (Stage 28.3):** the online **Host** sheet has **no**
+      Solo/Pairs picker for Tarneeb; a hosted/joined Tarneeb room is the 2×2 team game; solo records
+      **no stats**. (Solo is local-only this stage — automated guards in `soloGuard.test.ts` /
+      `tarneebLocalWiring.test.ts`.)
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

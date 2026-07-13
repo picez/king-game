@@ -3,7 +3,7 @@ import { tarneebReducer } from '../../games/tarneeb/engine';
 import { tarneebBotAction } from '../../games/tarneeb/ai';
 import { getActingTarneebSeat } from '../../games/tarneeb/rules';
 import type { PlayerType } from '../../models/types';
-import type { TarneebAction, TarneebState, TarneebTrick } from '../../games/tarneeb/types';
+import type { TarneebAction, TarneebState, TarneebTrick, TarneebVariant } from '../../games/tarneeb/types';
 import { localBotNames } from '../../games/botIdentities';
 import TarneebSetup from './TarneebSetup';
 import TarneebGameScreen from './TarneebGameScreen';
@@ -55,12 +55,14 @@ export default function TarneebLocalGame({ onExit }: { onExit: () => void }) {
     return () => clearTimeout(timer);
   }, [state, reviewTrick, apply]);
 
-  function start() {
+  function start(variant: TarneebVariant) {
     const playerNames = ['You', ...localBotNames('tarneeb', 3, ['You'])];
     const playerTypes: PlayerType[] = ['human', 'ai', 'ai', 'ai'];
     setReviewTrick(null);
     prevCompleted.current = 0;
-    apply({ type: 'START_GAME', playerNames, playerTypes });
+    // Solo passes variant:'solo'; Pairs omits it so the state is the released
+    // default ('pairs') — byte-for-byte the same start as before (Stage 28.3).
+    apply({ type: 'START_GAME', playerNames, playerTypes, ...(variant === 'solo' ? { variant } : {}) });
   }
 
   function playAgain() {

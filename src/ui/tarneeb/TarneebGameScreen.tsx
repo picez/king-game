@@ -8,6 +8,7 @@ import {
   getActingTarneebSeat,
   getValidBids,
   getValidPlayableCards,
+  isSoloTarneeb,
   teamOfSeat,
 } from '../../games/tarneeb/rules';
 import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
@@ -63,8 +64,15 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
   const [showHelp, setShowHelp] = useState(false);
   const [showTricks, setShowTricks] = useState(false);
 
+  // Solo (Stage 28.3): 4-player cutthroat — every seat is its own side. Scores/tricks
+  // come from the per-seat ledgers, not the A/B team ledgers. Pairs is unchanged.
+  const solo = isSoloTarneeb(state);
+  const scoresBySeat = state.scoresBySeat ?? [0, 0, 0, 0];
+  const tricksBySeat = state.tricksBySeat ?? [0, 0, 0, 0];
   const myTeam = teamOfSeat(humanSeat);
   const theirTeam = myTeam === 'A' ? 'B' : 'A';
+  const myTricks = solo ? tricksBySeat[humanSeat] : state.tricksByTeam[myTeam];
+  const topScore = solo ? Math.max(...scoresBySeat) : 0;
   const actingSeat = getActingTarneebSeat(state);
   const blocked = reviewTrick != null || state.phase === 'hand_complete';
   const isMyTurn = actingSeat === humanSeat && !blocked;
@@ -128,50 +136,83 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
         {/* Review my team's taken tricks (Stage 27.3) — available once any trick has been won. */}
         <button type="button" className="btn btn--ghost tarneeb-tricks-btn" onClick={() => setShowTricks(true)}
           aria-label={t('tarneeb.reviewTricks')} title={t('tarneeb.reviewTricks')}>
-          🃏 {state.tricksByTeam[myTeam]}
+          🃏 {myTricks}
         </button>
         <button type="button" className="btn btn--ghost tarneeb-help-btn" onClick={() => setShowHelp(true)} aria-label={t('tarneeb.howToPlay')}>❓</button>
       </div>
 
-      {/* Scoreboard: team scores + target, trump, bid, tricks. */}
-      <div className="tarneeb-scoreboard">
-        <div className="tarneeb-score tarneeb-score--us">
-          <span className="tarneeb-score__label">{t('tarneeb.teamUs')}</span>
-          <span className="tarneeb-score__value">{state.scoresByTeam[myTeam]}</span>
-        </div>
-        <div className="tarneeb-scoreboard__mid">
-          <span className="tarneeb-target">🎯 {state.targetScore}</span>
-          <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
-            {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
-          </span>
-          <span className="tarneeb-bid">
-            {t('tarneeb.highestBid')}:{' '}
-            <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
-            {highBidderName && <span className="tarneeb-bid__by"> · {highBidderName}</span>}
-          </span>
-          {phase === 'playing' && ledSuit && (
-            <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
-              {t('tarneeb.led')} <strong>{SUIT_SYMBOL[ledSuit]}</strong>
+      {/* Scoreboard: target, trump, bid, tricks + scores. Solo shows a 4-player
+          standings strip (every player for themselves); Pairs shows the two teams. */}
+      {(() => {
+        const mid = (
+          <div className="tarneeb-scoreboard__mid">
+            <span className="tarneeb-target">🎯 {state.targetScore}</span>
+            <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
+              {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
             </span>
-          )}
-          {phase === 'playing' && (
-            <span className="tarneeb-tricks">
-              {t('tarneeb.tricks')}: <strong>{state.tricksByTeam[myTeam]}</strong> – <strong>{state.tricksByTeam[theirTeam]}</strong>
+            <span className="tarneeb-bid">
+              {t('tarneeb.highestBid')}:{' '}
+              <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
+              {highBidderName && <span className="tarneeb-bid__by"> · {highBidderName}</span>}
             </span>
-          )}
-        </div>
-        <div className="tarneeb-score tarneeb-score--them">
-          <span className="tarneeb-score__label">{t('tarneeb.teamThem')}</span>
-          <span className="tarneeb-score__value">{state.scoresByTeam[theirTeam]}</span>
-        </div>
-      </div>
+            {phase === 'playing' && ledSuit && (
+              <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
+                {t('tarneeb.led')} <strong>{SUIT_SYMBOL[ledSuit]}</strong>
+              </span>
+            )}
+            {phase === 'playing' && (
+              solo ? (
+                <span className="tarneeb-tricks">{t('tarneeb.myTricks')}: <strong>{myTricks}</strong></span>
+              ) : (
+                <span className="tarneeb-tricks">
+                  {t('tarneeb.tricks')}: <strong>{state.tricksByTeam[myTeam]}</strong> – <strong>{state.tricksByTeam[theirTeam]}</strong>
+                </span>
+              )
+            )}
+          </div>
+        );
+        if (solo) {
+          return (
+            <div className="tarneeb-scoreboard tarneeb-scoreboard--solo">
+              {mid}
+              <div className="tarneeb-solo-standings" role="list">
+                {state.players.map((p) => {
+                  const isMe = p.seatIndex === humanSeat;
+                  const lead = scoresBySeat[p.seatIndex] === topScore;
+                  return (
+                    <div key={p.id} role="listitem"
+                      className={`tarneeb-solo-chip ${isMe ? 'tarneeb-solo-chip--me' : ''} ${lead ? 'tarneeb-solo-chip--lead' : ''}`}>
+                      <span className="tarneeb-solo-chip__name">{isMe ? t('tarneeb.you') : p.name}</span>
+                      <span className="tarneeb-solo-chip__score">{scoresBySeat[p.seatIndex]}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div className="tarneeb-scoreboard">
+            <div className="tarneeb-score tarneeb-score--us">
+              <span className="tarneeb-score__label">{t('tarneeb.teamUs')}</span>
+              <span className="tarneeb-score__value">{state.scoresByTeam[myTeam]}</span>
+            </div>
+            {mid}
+            <div className="tarneeb-score tarneeb-score--them">
+              <span className="tarneeb-score__label">{t('tarneeb.teamThem')}</span>
+              <span className="tarneeb-score__value">{state.scoresByTeam[theirTeam]}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Round table: seats around the felt in play order, trick in the centre. */}
       <div className="tarneeb-board">
         <div className="tarneeb-board__felt" aria-hidden="true" />
         {state.players.map((p) => {
           const pos = seatPosition(p.seatIndex, humanSeat);
-          const sameTeam = teamOfSeat(p.seatIndex) === myTeam;
+          // Solo: only my own seat is "us" (everyone else is an independent opponent).
+          const sameTeam = solo ? p.seatIndex === humanSeat : teamOfSeat(p.seatIndex) === myTeam;
           const isActing = p.seatIndex === actingSeat && !blocked;
           const isDealer = p.seatIndex === state.dealerSeat;
           const isDeclarer = p.seatIndex === state.declarerSeat;
@@ -193,7 +234,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
                 {p.seatIndex === humanSeat ? t('tarneeb.you') : p.name}
               </span>
               <span className="tarneeb-seat__meta">
-                {p.seatIndex === humanSeat
+                {p.seatIndex === humanSeat && !solo
                   ? <span className="tarneeb-seat__team">{t('tarneeb.teamUs')}</span>
                   : <span className="tarneeb-seat__count">🂠 {state.handsBySeat[p.seatIndex].length}</span>}
               </span>
@@ -276,7 +317,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
       {/* Hand-complete summary overlay. Online: the SERVER auto-advances, so the
           button is replaced by a "starting…" note (a client START_NEXT_HAND would
           be rejected anyway — no seat acts on this screen). */}
-      {phase === 'hand_complete' && state.lastHand && (
+      {phase === 'hand_complete' && (state.lastHand || state.lastSoloHand) && (
         <HandComplete state={state} humanSeat={humanSeat} online={online} onNext={() => apply({ type: 'START_NEXT_HAND' })} />
       )}
     </div>
@@ -301,6 +342,9 @@ function HandComplete({ state, humanSeat, onNext, online }: {
   online: boolean;
 }) {
   const { t } = useI18n();
+  if (isSoloTarneeb(state) && state.lastSoloHand) {
+    return <SoloHandComplete state={state} humanSeat={humanSeat} online={online} onNext={onNext} />;
+  }
   const hand = state.lastHand!;
   const myTeam = teamOfSeat(humanSeat);
   const theirTeam = myTeam === 'A' ? 'B' : 'A';
@@ -340,6 +384,56 @@ function HandComplete({ state, humanSeat, onNext, online }: {
               <td>{fmt(hand.deltaByTeam[theirTeam])}</td>
               <td><strong>{state.scoresByTeam[theirTeam]}</strong></td>
             </tr>
+          </tbody>
+        </table>
+        {online ? (
+          <p className="tarneeb-handdone__note">{t('tarneeb.nextHandSoon')}</p>
+        ) : (
+          <button type="button" className="btn btn--primary tarneeb-handdone__next" onClick={onNext} autoFocus>
+            {t('tarneeb.nextHand')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Between-hands panel for SOLO — per-seat (no teams): declarer made/failed and
+ *  every player's tricks / hand delta / running score. */
+function SoloHandComplete({ state, humanSeat, onNext, online }: {
+  state: TarneebState;
+  humanSeat: number;
+  onNext: () => void;
+  online: boolean;
+}) {
+  const { t } = useI18n();
+  const hand = state.lastSoloHand!;
+  const scores = state.scoresBySeat ?? [0, 0, 0, 0];
+  const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
+  const nameOf = (seat: number) => (seat === humanSeat ? t('tarneeb.you') : state.players[seat].name);
+
+  return (
+    <div className="tarneeb-handdone-overlay" role="dialog" aria-modal="true">
+      <div className="tarneeb-handdone">
+        <h2 className="tarneeb-handdone__title">
+          {hand.made ? `✅ ${t('tarneeb.contractMade')}` : `❌ ${t('tarneeb.contractFailed')}`}
+        </h2>
+        <p className="tarneeb-handdone__line">
+          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {nameOf(hand.declarerSeat)} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{SUIT_SYMBOL[hand.trumpSuit]}</strong>
+        </p>
+        <table className="tarneeb-handdone__table">
+          <thead>
+            <tr><th></th><th>{t('tarneeb.tricks')}</th><th>{t('tarneeb.hand')}</th><th>{t('tarneeb.score')}</th></tr>
+          </thead>
+          <tbody>
+            {state.players.map((p) => (
+              <tr key={p.id} className={p.seatIndex === hand.declarerSeat ? 'tarneeb-handdone__declarer' : ''}>
+                <td>{nameOf(p.seatIndex)}</td>
+                <td>{hand.tricksBySeat[p.seatIndex]}</td>
+                <td>{fmt(hand.deltaBySeat[p.seatIndex])}</td>
+                <td><strong>{scores[p.seatIndex]}</strong></td>
+              </tr>
+            ))}
           </tbody>
         </table>
         {online ? (

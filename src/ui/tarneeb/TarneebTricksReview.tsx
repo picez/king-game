@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n';
 import { useEscToClose } from '../../hooks/useEscToClose';
 import CardView from '../components/CardView';
-import { teamOfSeat, otherTeam } from '../../games/tarneeb/rules';
+import { isSoloTarneeb, teamOfSeat, otherTeam } from '../../games/tarneeb/rules';
 import type { TarneebState } from '../../games/tarneeb/types';
 
 /**
@@ -13,19 +13,24 @@ import type { TarneebState } from '../../games/tarneeb/types';
 export default function TarneebTricksReview({ state, mySeat, onClose }: { state: TarneebState; mySeat: number; onClose: () => void }) {
   const { t } = useI18n();
   useEscToClose(onClose);
+  const solo = isSoloTarneeb(state);
   const myTeam = teamOfSeat(mySeat);
   const nameOf = (seat: number) => state.players[seat]?.name ?? '';
-  // My team's completed tricks, tagged with their hand trick number (1-based, when they happened).
+  // Solo: only MY OWN tricks (no partner). Pairs: my whole team's tricks.
+  const won = (winnerSeat: number) => (solo ? winnerSeat === mySeat : teamOfSeat(winnerSeat) === myTeam);
   const myTricks = state.completedTricks
     .map((trick, i) => ({ trick, no: i + 1 }))
-    .filter(({ trick }) => trick.winnerSeat != null && teamOfSeat(trick.winnerSeat) === myTeam);
-  const oppCount = state.tricksByTeam[otherTeam(myTeam)] ?? 0;
+    .filter(({ trick }) => trick.winnerSeat != null && won(trick.winnerSeat));
+  const oppCount = solo
+    ? state.completedTricks.length - myTricks.length
+    : (state.tricksByTeam[otherTeam(myTeam)] ?? 0);
+  const heading = solo ? t('tarneeb.myTricks') : t('tarneeb.teamTricks');
 
   return (
-    <div className="durak-help-overlay" role="dialog" aria-modal="true" aria-label={t('tarneeb.teamTricks')} onClick={onClose}>
+    <div className="durak-help-overlay" role="dialog" aria-modal="true" aria-label={heading} onClick={onClose}>
       <div className="durak-help tarneeb-tricks-modal" onClick={(e) => e.stopPropagation()}>
         <div className="durak-help__head">
-          <h2 className="durak-help__title">🃏 {t('tarneeb.teamTricks')} · {myTricks.length}</h2>
+          <h2 className="durak-help__title">🃏 {heading} · {myTricks.length}</h2>
           <button type="button" className="btn btn--ghost durak-help__x" onClick={onClose} aria-label={t('common.close')}>✕</button>
         </div>
         <p className="tarneeb-tricks__opp field__hint">{t('tarneeb.opponentTricks')}: {oppCount}</p>

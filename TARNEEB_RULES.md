@@ -414,7 +414,13 @@ unchanged and remains team-only; solo is not yet playable.**
 per-seat scoring, bots and redaction ship behind a `variant: 'pairs' | 'solo'` flag on
 `TarneebState`/`START_GAME` that **defaults to `'pairs'`** (a legacy state with no `variant` reads
 as pairs). Solo scoring is per-seat: **declarer makes it → +bid, defenders +0; declarer fails →
-−bid, each defender +its own tricks; first to 41, ties are not a finish**. It is exercised only by
-`src/games/tarneeb/solo.test.ts` — **not in the game picker, not online-enabled, records no stats,
-and the lobby/team UI is unchanged.** Everything in §1–§16 above describes the released **pairs**
-game and is byte-for-byte unaffected. A local-only setup + playable prototype is **Stage 28.2**.
+−bid, each defender +its own tricks; first to 41, ties are not a finish**. Everything in §1–§16
+above describes the released **pairs** game and is byte-for-byte unaffected.
+
+**Update (Stage 28.3): solo is now a LOCAL playable prototype.** The Tarneeb **local** setup has a
+**Pairs / Solo** mode picker (default Pairs = the released game). Choosing Solo starts a 4-player
+cutthroat table (1 human + 3 bots); the score panel shows **4 individual players** (no A/B teams),
+the between-hands panel is per-seat, and the finished screen names an **individual** winner. Trick
+play (follow-suit + trump obligation) is identical to Pairs. **Online Tarneeb stays Pairs-only** —
+the online host + lobby do not offer Solo — and Solo records **no stats/leaderboard/achievements**
+yet. Online enablement / solo stats are a later stage.

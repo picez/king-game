@@ -61,15 +61,19 @@ describe('viewer UI wiring (source guards)', () => {
   const screen = read('src/ui/tarneeb/TarneebGameScreen.tsx');
   const review = read('src/ui/tarneeb/TarneebTricksReview.tsx');
 
-  it('the game screen has a "team tricks" button with the live count + opens the modal', () => {
+  it('the game screen has a tricks button with the live count (my side / my seat) + opens the modal', () => {
     expect(screen).toContain('TarneebTricksReview');
     expect(screen).toContain('setShowTricks');
-    expect(screen).toMatch(/tarneeb-tricks-btn[\s\S]*state\.tricksByTeam\[myTeam\]/);
+    // Stage 28.3: the button shows `myTricks` (team tricks in Pairs, own tricks in Solo).
+    expect(screen).toMatch(/tarneeb-tricks-btn[\s\S]*🃏 \{myTricks\}/);
+    expect(screen).toContain("solo ? tricksBySeat[humanSeat] : state.tricksByTeam[myTeam]");
   });
 
-  it('the modal shows MY TEAM\'s tricks (lead flagged), an opponent count, and an empty state', () => {
-    expect(review).toMatch(/teamOfSeat\(trick\.winnerSeat\) === myTeam/); // filter to my side
-    expect(review).toContain('otherTeam');                                // opponent tally
+  it('the modal shows my tricks (Pairs=team, Solo=own seat), an opponent count + empty state', () => {
+    // Pairs filter keeps the team check; Solo filters to my own seat (no partner).
+    expect(review).toMatch(/teamOfSeat\(winnerSeat\) === myTeam/);         // pairs: my side
+    expect(review).toContain('winnerSeat === mySeat');                     // solo: my seat only
+    expect(review).toContain('otherTeam');                                 // pairs opponent tally
     expect(review).toMatch(/lead=\{p\.seat === trick\.leadSeat\}/);        // lead card highlighted
     expect(review).toContain("t('tarneeb.noTricks')");                    // empty state
     // It reads only public completedTricks — never handsBySeat (no hidden-hand leak).

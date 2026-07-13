@@ -49,6 +49,29 @@
 }
 .tarneeb-score--us { border-color: rgba(120, 220, 160, 0.5); }
 .tarneeb-score--them { border-color: rgba(240, 170, 120, 0.5); }
+
+/* Solo (Stage 28.3): a 4-player standings strip replaces the two team boards. */
+.tarneeb-scoreboard--solo { flex-direction: column; align-items: stretch; }
+.tarneeb-solo-standings {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.tarneeb-solo-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.tarneeb-solo-chip--me { border-color: rgba(120, 220, 160, 0.6); }
+.tarneeb-solo-chip--lead { box-shadow: 0 0 0 1px rgba(240, 200, 120, 0.7) inset; }
+.tarneeb-solo-chip__name { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); }
+.tarneeb-solo-chip__score { font-size: 1.05rem; font-weight: 900; color: var(--text); }
+.tarneeb-finished__scores--solo { flex-wrap: wrap; }
 .tarneeb-score__label { font-size: 0.7rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; }
 .tarneeb-score__value { font-size: 1.35rem; font-weight: 900; color: var(--text); }
 .tarneeb-scoreboard__mid {

@@ -47,7 +47,7 @@ describe('released Tarneeb pairs is unchanged (default variant)', () => {
   });
 });
 
-describe('solo is NOT exposed (core only, Stage 28.1)', () => {
+describe('solo is LOCAL-only (Stage 28.3) — not online, not stats', () => {
   it('the catalog still lists Tarneeb as a 4-only game (no solo seat counts)', () => {
     expect(GAME_CATALOG.tarneeb.minPlayers).toBe(4);
     expect(GAME_CATALOG.tarneeb.maxPlayers).toBe(4);
@@ -60,15 +60,24 @@ describe('solo is NOT exposed (core only, Stage 28.1)', () => {
     expect(def).not.toContain("variant: 'solo'");
   });
 
-  it('no UI code references a Tarneeb solo variant yet', () => {
-    // Cheap source sweep: the Tarneeb UI must not branch on solo this stage.
-    for (const f of [
-      'src/ui/tarneeb/TarneebSetup.tsx',
-      'src/ui/tarneeb/TarneebLocalGame.tsx',
-      'src/ui/online/Lobby.tsx',
-    ]) {
-      expect(read(f)).not.toMatch(/tarneeb[^\n]*solo|solo[^\n]*tarneeb/i);
-    }
+  it('the LOCAL game wires solo (setup picker → START_GAME variant)', () => {
+    // Stage 28.3: solo is playable locally — the setup offers it and the local game
+    // threads variant:'solo' into the start action.
+    expect(read('src/ui/tarneeb/TarneebSetup.tsx')).toContain("t('tarneeb.modeSolo')");
+    expect(read('src/ui/tarneeb/TarneebLocalGame.tsx')).toMatch(/variant === 'solo'/);
+  });
+
+  it('ONLINE surfaces never expose Tarneeb solo (Host + Lobby stay Pairs)', () => {
+    // The online lobby and the host sheet must not branch Tarneeb on solo.
+    expect(read('src/ui/online/Lobby.tsx')).not.toMatch(/tarneeb[^\n]*solo|solo[^\n]*tarneeb/i);
+    const startMenu = read('src/ui/StartMenu.tsx');
+    // No Tarneeb variant/playerCount picker in the host flow (Deberc has one; Tarneeb does not).
+    expect(startMenu).not.toMatch(/tarneeb[\s\S]{0,80}variant:\s*'solo'/i);
+  });
+
+  it('no solo stats/leaderboard yet (tarneebStats records the team outcome only)', () => {
+    const stats = read('src/net/tarneebStats.ts');
+    expect(stats).not.toMatch(/scoresBySeat|soloWinnerSeat|lastSoloHand/);
   });
 
   it('an implementation plan exists (Variant B cutthroat)', () => {

@@ -26,7 +26,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | **King** (default) | 3–4 | 7 modes, Dealer's Choice; source of truth [`KING_RULES.md`](KING_RULES.md) |
 | **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
-| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 3–13, target 41 (solo cutthroat **pure core** exists but hidden — no UI/online/stats, [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md)); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid 3–13, target 41. Solo cutthroat **playable LOCAL** (Stage 28.3; online stays Pairs, no solo stats), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
@@ -288,12 +288,14 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   Team A/B grid) while keeping the grid for Pairs. Score table/finished already read per-player. **Tarneeb
   solo now has a working PURE CORE (Stage 28.1)** behind a `variant: 'pairs' | 'solo'` flag
   (default `'pairs'`): 4-player cutthroat, per-seat scoring (declarer ±bid; set defenders +own
-  tricks; first to 41, ties safe), solo bots, redaction. It is **hidden** — not in the picker, not
-  online, no stats, lobby/team UI unchanged — and exercised only by `solo.test.ts`. Released Tarneeb
-  **pairs** is byte-for-byte unchanged (`soloGuard.test.ts`). Spec + status in
+  tricks; first to 41, ties safe), solo bots, redaction. **Stage 28.3** made it **playable
+  LOCALLY**: the Tarneeb local setup has a Pairs/Solo picker (default Pairs), and the table /
+  hand-complete / finished screens adapt to per-seat cutthroat (4-player standings, individual
+  winner). It is still **NOT online** (host + lobby stay Pairs) and records **no stats**. Released
+  Tarneeb **pairs** is byte-for-byte unchanged (`soloGuard.test.ts`). Spec + status in
   [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); original A/B/C analysis in
-  [`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md). **Next: Stage 28.2** — local-only solo setup +
-  playable prototype.
+  [`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md). **Next: Stage 28.4** — online Tarneeb Solo
+  readiness or solo stats design.
 - **Sound: ALERT-ONLY, default OFF.** The MVP SFX set exists — **12 sounds × webm+mp3
   (~55 KB) under `public/sounds/`** + a manifest (`src/audio/soundAssets.ts`), generated
   dep-free by `npm run sounds` (Stage 15.1). A **sound preference** (Profile → Appearance,
