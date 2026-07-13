@@ -76,6 +76,9 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
   const [durakVariant, setDurakVariant] = useState<DurakVariant>('simple');
   const [debercMatchSize, setDebercMatchSize] = useState<DebercMatchSize>('small');
+  // Deberc online mode (Stage 28.2): 3 = Solo (each for self), 4 = Pairs (2×2).
+  // Defaults to Solo — the catalog's defaultPlayerCount and the mode owners asked to surface.
+  const [debercPlayers, setDebercPlayers] = useState<3 | 4>(3);
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // Favorite game (Stage 13.3): the persisted default that pre-selects the picker.
   const [favoriteGame, setFavoriteGame] = useState<GameType>(() => loadFavoriteGame());
@@ -198,7 +201,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
     onOnlineWithAuth(url.trim(), {
       kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
-      ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize } : {}),
+      ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize, playerCount: debercPlayers } : {}),
       ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const } : {}),
       ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
@@ -454,19 +457,34 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 </div>
               )}
               {gameType === 'deberc' && (
-                <div className="field">
-                  <label className="field__label">{t('deberc.matchSize')}</label>
-                  <div className="segmented segmented--inline">
-                    {(['small', 'big'] as const).map((m) => (
-                      <button key={m} type="button"
-                        className={`segmented__tab ${debercMatchSize === m ? 'segmented__tab--active' : ''}`}
-                        onClick={() => setDebercMatchSize(m)}>
-                        {m === 'small' ? t('deberc.small') : t('deberc.big')}
-                      </button>
-                    ))}
+                <>
+                  <div className="field">
+                    <label className="field__label">{t('deberc.mode')}</label>
+                    <div className="segmented segmented--inline">
+                      {([3, 4] as const).map((n) => (
+                        <button key={n} type="button"
+                          className={`segmented__tab ${debercPlayers === n ? 'segmented__tab--active' : ''}`}
+                          onClick={() => setDebercPlayers(n)}>
+                          {n === 3 ? t('deberc.modeSolo') : t('deberc.modePairs')}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="durak-variant-desc">{debercPlayers === 3 ? t('deberc.modeSoloDesc') : t('deberc.modePairsDesc')}</p>
                   </div>
-                  <p className="durak-variant-desc">{debercMatchSize === 'small' ? t('deberc.smallDesc') : t('deberc.bigDesc')}</p>
-                </div>
+                  <div className="field">
+                    <label className="field__label">{t('deberc.matchSize')}</label>
+                    <div className="segmented segmented--inline">
+                      {(['small', 'big'] as const).map((m) => (
+                        <button key={m} type="button"
+                          className={`segmented__tab ${debercMatchSize === m ? 'segmented__tab--active' : ''}`}
+                          onClick={() => setDebercMatchSize(m)}>
+                          {m === 'small' ? t('deberc.small') : t('deberc.big')}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="durak-variant-desc">{debercMatchSize === 'small' ? t('deberc.smallDesc') : t('deberc.bigDesc')}</p>
+                  </div>
+                </>
               )}
               {gameType === 'tarneeb' && (
                 <div className="field">

@@ -830,6 +830,7 @@ export const EN: Record<string, string> = {
   'lobby.debercTeams': "Teams of 2 form with 4 players; with 3 it's every player for themselves.",
   'lobby.debercSolo': 'Solo',
   'lobby.debercPairs': 'Pairs',
+  'lobby.debercSoloHint': 'Solo — every player for themselves (no teams).',
   'invite.title': 'Invite',
   'invite.copyCode': 'Copy code',
   'invite.copyLink': 'Copy link',

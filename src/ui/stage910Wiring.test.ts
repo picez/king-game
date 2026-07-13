@@ -34,10 +34,13 @@ describe('lobby player-count UX (Stage 9.10)', () => {
     expect(startMenu).not.toContain('setPlayerCount');
     expect(startMenu).not.toContain("t('form.players')");
   });
-  it('the Lobby starts at >= minPlayers and caps at maxPlayers from the catalog', () => {
+  it('the Lobby starts at >= the needed count and caps at the room seat count', () => {
     expect(lobby).toContain('getGameCatalogEntry');
-    expect(lobby).toContain('players.length >= minPlayers');
+    // Stage 28.2: the start gate is `needed` (Deberc Solo/Pairs = full room; other
+    // games = catalog minimum), and the seat cap is the room's own playerCount.
+    expect(lobby).toContain('const enough = players.length >= needed');
     expect(lobby).toContain('players.length < maxPlayers');
+    expect(lobby).toContain('const maxPlayers = room.playerCount');
   });
   it('the server enforces capacity + the start range from the catalog', () => {
     expect(serverCore).toContain('function roomCapacity');

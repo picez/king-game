@@ -9,6 +9,21 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Deberc Solo is now actually playable online (Stage 28.2).** Despite the Stage 28.0 labels,
+  every hosted Deberc room was still forced to 4 seats (`server/wsHandlers.ts` hard-coded
+  `playerCount = maxPlayers` and ignored the client's value), and the lobby drew the Team A/Team B
+  2×2 grid for *any* Deberc room — so Solo was invisible in practice. Now: the online **Host** sheet
+  has an explicit **Solo (3) / Pairs (4)** mode picker (defaulting to Solo); the server honors an
+  in-range host `playerCount` (falling back to the catalog max, so other games and older clients are
+  unchanged); and the lobby renders **individual seats + an "every player for themselves" hint** for
+  3-seat Solo rooms while keeping the **Team A/B grid** for 4-seat Pairs. The seat cap and start
+  gate now come from the room's own player count (Solo needs 3, Pairs needs 4). The Deberc score
+  table / finished screen already showed per-player standings; the win celebration now reads as an
+  individual win in Solo. **Engine, scoring, stats data model, and 4-player Pairs are unchanged; no
+  protocol or DB change** (the `playerCount` field already existed on `CREATE_ROOM`).
+
 ### Added (foundation, not yet playable)
 
 - **Tarneeb solo — pure core (Stage 28.1).** A `variant: 'pairs' | 'solo'` flag on `TarneebState`

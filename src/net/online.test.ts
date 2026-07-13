@@ -62,6 +62,22 @@ describe('firstConnectMessage', () => {
     expect(firstConnectMessage({ kind: 'join', code: 'KQJ7', name: 'B' }))
       .toEqual({ t: 'JOIN_ROOM', code: 'KQJ7', name: 'B' });
   });
+
+  it('carries the Deberc host player-count so Solo (3) / Pairs (4) reach the server (Stage 28.2)', () => {
+    const solo = firstConnectMessage({
+      kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'deberc', matchSize: 'small', playerCount: 3,
+    });
+    expect(solo).toMatchObject({ t: 'CREATE_ROOM', gameType: 'deberc', matchSize: 'small', playerCount: 3 });
+    const pairs = firstConnectMessage({
+      kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'deberc', matchSize: 'big', playerCount: 4,
+    });
+    expect(pairs).toMatchObject({ t: 'CREATE_ROOM', playerCount: 4 });
+  });
+
+  it('omits player-count for games that never send it (server caps at catalog max)', () => {
+    expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'king' }))
+      .not.toHaveProperty('playerCount');
+  });
 });
 
 describe('humanError', () => {

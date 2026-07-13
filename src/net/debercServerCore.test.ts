@@ -10,6 +10,8 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   createRoom, addBot, startGame, applyBotTurn, applyActionRequest, autoAdvance,
   actingMember, sanitizedStateFor, type ServerRoom,
@@ -84,6 +86,39 @@ describe('deberc online seam', () => {
     const s = room.gameState as DebercState;
     expect(def.isFinished(s)).toBe(true);
     expect(s.winnerTeam).not.toBeNull();
+  });
+
+  it('a 3-seat room is Solo (teamCount 3, each seat its own team); 4-seat is Pairs (Stage 28.2)', () => {
+    const solo = startedRoom(3, 2024).gameState as DebercState;
+    expect(solo.teamCount).toBe(3);
+    expect(solo.teamOf).toEqual([0, 1, 2]);        // every player for themselves
+    const pairs = startedRoom(4, 2025).gameState as DebercState;
+    expect(pairs.teamCount).toBe(2);
+    expect(pairs.teamOf).toEqual([0, 1, 0, 1]);     // partners 0&2 vs 1&3
+  });
+});
+
+describe('CREATE_ROOM honors an in-range host player-count (Stage 28.2)', () => {
+  it('the WS handler no longer hard-forces playerCount = maxPlayers', () => {
+    const src = readFileSync(join(process.cwd(), 'server/wsHandlers.ts'), 'utf8');
+    // The old bug: `const playerCount = entry.maxPlayers ...` unconditionally.
+    expect(src).not.toMatch(/const playerCount = entry\.maxPlayers as/);
+    // The fix: an explicit in-range request is honored, else fall back to the max.
+    expect(src).toContain('const requested = msg.playerCount');
+    expect(src).toContain('requested >= entry.minPlayers && requested <= entry.maxPlayers');
+    expect(src).toContain(': entry.maxPlayers');
+  });
+
+  it('createRoom stores the requested seat count, and it caps + deals accordingly', () => {
+    const room = createRoom({
+      code: 'SOLO', gameType: 'deberc', matchSize: 'small', playerCount: 3,
+      modeSelectionType: 'fixed', host: { clientId: 'h', reconnectToken: 't', name: 'H' },
+    });
+    expect(room.playerCount).toBe(3);
+    // Fill to 3 and start → a Solo (3-seat) engine state.
+    for (let i = 1; i < 3; i++) addBot(room, 'h', { clientId: `b${i}`, reconnectToken: `t${i}` });
+    expect(startGame(room, { seed: 1 }).ok).toBe(true);
+    expect((room.gameState as DebercState).teamCount).toBe(3);
   });
 
   it('is reproducible: same start seed + same autoAdvance seeds → identical result', () => {

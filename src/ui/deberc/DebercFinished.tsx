@@ -26,8 +26,8 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit, re
   return (
     <div className="screen durak-screen durak-finished">
       <div className="durak-finished__card finish-frame">
-        {/* Celebrate the winning team; a loss renders the calm state. */}
-        <WinnerCelebration kind={won ? 'teamWin' : 'loss'} />
+        {/* Celebrate a win; 3p Solo is an individual win, 4p Pairs a team win. */}
+        <WinnerCelebration kind={won ? (state.teamCount === 2 ? 'teamWin' : 'win') : 'loss'} />
         <div className="durak-finished__emoji" aria-hidden="true">{won ? '🏆' : '🙃'}</div>
         <h1 className="durak-finished__title">{title}</h1>
         {state.jackpot && <p className="durak-finished__sub">🎴 {t('deberc.jackpot')}</p>}

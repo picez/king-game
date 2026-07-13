@@ -91,9 +91,17 @@ export function handleClientMessage(
       if (!entry.supportsOnline) {
         return sendError(socket, 'BAD_MESSAGE', 'Game is not available online');
       }
-      // No player-count picker (Stage 9.10): the room caps at the catalog max and
-      // the host starts once >= minPlayers are seated. Capacity is server-enforced.
-      const playerCount = entry.maxPlayers as 2 | 3 | 4 | 5;
+      // Room capacity (Stage 9.10; Deberc Solo/Pairs added Stage 28.2). Honor an
+      // explicit host player-count when it is within the game's catalog range — this
+      // is how a Deberc host picks Solo (3 seats) vs Pairs (4 seats). Otherwise fall
+      // back to the catalog max, so older clients that send no playerCount behave
+      // exactly as before (backward compatible). Capacity stays server-enforced.
+      const requested = msg.playerCount;
+      const playerCount = (
+        typeof requested === 'number' && requested >= entry.minPlayers && requested <= entry.maxPlayers
+          ? requested
+          : entry.maxPlayers
+      ) as 2 | 3 | 4 | 5;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       const matchSize = gameType === 'deberc' ? (msg.matchSize === 'big' ? 'big' : 'small') : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked

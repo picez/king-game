@@ -35,7 +35,7 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize }
+  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 3 | 4 }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string };
@@ -50,12 +50,14 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
     return {
       t: 'CREATE_ROOM',
       name: intent.name,
-      // No player-count is sent (Stage 9.10): the server caps the room at the
-      // game's catalog maxPlayers and starts once >= minPlayers are seated.
+      // Player-count is sent ONLY when the host explicitly chose it (Stage 28.2 —
+      // Deberc Solo 3 / Pairs 4). Omitted for every other game, so the server keeps
+      // capping the room at the game's catalog maxPlayers exactly as before.
       modeSelectionType: intent.modeSelectionType,
       ...(intent.gameType ? { gameType: intent.gameType } : {}),
       ...(intent.variant ? { variant: intent.variant } : {}),
       ...(intent.matchSize ? { matchSize: intent.matchSize } : {}),
+      ...(intent.playerCount ? { playerCount: intent.playerCount } : {}),
       ...(intent.password ? { password: intent.password } : {}),
       ...(intent.avatar ? { avatar: intent.avatar } : {}),
       ...(intent.turnTimerSec ? { turnTimerSec: intent.turnTimerSec } : {}),

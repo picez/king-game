@@ -66,10 +66,30 @@ describe('start readiness adapts, but the gate + add-bot are unchanged', () => {
 
 describe('King / Durak are NOT team games (flat member list, no team labels)', () => {
   it('the team branch is gated so King/Durak render the flat list', () => {
-    expect(lb).toContain('isTeamGame ? (');
+    expect(lb).toContain('showTeamGrid ? (');
     expect(lb).toContain('<ul className="lobby-members">'); // the non-team fallback list
     // King/Durak must never hit a team label.
     expect(lb).not.toContain("gameType === 'king' ? t('lobby.teamA')");
+  });
+});
+
+describe('Deberc Solo (3p) renders individual seats, NOT the team grid (Stage 28.2)', () => {
+  it('the team grid is disabled for a 3-seat Deberc room', () => {
+    expect(lb).toContain("const debercSolo = gameType === 'deberc' && maxPlayers === 3");
+    expect(lb).toContain('const showTeamGrid = isTeamGame && !debercSolo');
+  });
+  it('a 3p Deberc room shows the every-player-for-self hint (not the partner hint)', () => {
+    expect(lb).toContain("debercSolo && <p");
+    expect(lb).toContain("t('lobby.debercSoloHint')");
+  });
+  it('the seat cap + start-gate come from the room player count (3 Solo / 4 Pairs)', () => {
+    expect(lb).toContain('const maxPlayers = room.playerCount');
+    expect(lb).toContain("const needed = gameType === 'deberc' ? maxPlayers : minPlayers");
+  });
+  it('Pairs (4p) still uses the Team A/B grid + partner hint', () => {
+    // The 2×2 grid and partner labels are untouched for the 4-seat game.
+    expect(lb).toContain('team === 0 ? [0, 2] : [1, 3]');
+    expect(lb).toContain("t('lobby.partnerHint')");
   });
 });
 
@@ -77,6 +97,7 @@ describe('i18n parity for the new team-lobby keys', () => {
   const KEYS = [
     'lobby.teamA', 'lobby.teamB', 'lobby.yourTeam', 'lobby.partner', 'lobby.emptySeat',
     'lobby.partnerHint', 'lobby.needTeams', 'lobby.teamsReady', 'lobby.debercTeams',
+    'lobby.debercSolo', 'lobby.debercPairs', 'lobby.debercSoloHint',
   ];
   const dicts = ['en', 'uk', 'de', 'ar'].map((l) => read(join('src/i18n/dictionaries', `${l}.ts`)));
   for (const key of KEYS) {

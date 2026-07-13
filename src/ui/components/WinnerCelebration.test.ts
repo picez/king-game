@@ -56,7 +56,7 @@ describe('all four finished screens render the celebration', () => {
   const screens: [string, string][] = [
     ['src/ui/GameFinishedScreen.tsx', "kind={winners.length === 1 ? 'win' : 'draw'}"],
     ['src/ui/durak/DurakFinished.tsx', "humanIsFool ? 'fool' : 'win'"],
-    ['src/ui/deberc/DebercFinished.tsx', "won ? 'teamWin' : 'loss'"],
+    ['src/ui/deberc/DebercFinished.tsx', "won ? (state.teamCount === 2 ? 'teamWin' : 'win') : 'loss'"],
     ['src/ui/tarneeb/TarneebFinished.tsx', "humanWon ? 'teamWin' : 'loss'"],
   ];
 

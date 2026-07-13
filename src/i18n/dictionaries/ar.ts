@@ -830,6 +830,7 @@ export const AR: Record<string, string> = {
   'lobby.debercTeams': 'تتكوّن فرق من 2 عند 4 لاعبين؛ ومع 3 كل لاعب لنفسه.',
   'lobby.debercSolo': 'فردي',
   'lobby.debercPairs': 'أزواج',
+  'lobby.debercSoloHint': 'فردي — كل لاعب لنفسه (بلا فرق).',
   'invite.title': 'دعوة',
   'invite.copyCode': 'نسخ الرمز',
   'invite.copyLink': 'نسخ الرابط',

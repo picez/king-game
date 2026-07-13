@@ -39,19 +39,27 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   const gameType = room.gameType ?? DEFAULT_GAME_TYPE;
   const entry = getGameCatalogEntry(gameType);
   const minPlayers = entry?.minPlayers ?? 3;
-  const maxPlayers = entry?.maxPlayers ?? room.playerCount;
-  const enough = players.length >= minPlayers;
+  // The room's actual seat cap is its own playerCount (the host's Solo/Pairs choice
+  // for Deberc; the catalog max for every other game). Prefer it over the catalog max
+  // so a 3-seat Deberc Solo room shows "/3", not "/4" (Stage 28.2).
+  const maxPlayers = room.playerCount ?? entry?.maxPlayers ?? 4;
+  // Deberc Solo (3 seats) is every-player-for-self: it must fill all 3 seats to start;
+  // Pairs (4) needs all 4. Other games keep their catalog minimum.
+  const needed = gameType === 'deberc' ? maxPlayers : minPlayers;
+  const enough = players.length >= needed;
   const hasFreeSeat = players.length < maxPlayers;
 
-  // Team lobby (Stage 18.0): Deberc + Tarneeb are 2×2 partnership games — Team A =
-  // seats 0 & 2, Team B = seats 1 & 3 (partners sit opposite). We show all four seats
-  // grouped by team (occupied + empty) so players see who's with whom before Start.
-  // Purely presentational — seat assignment/order and the game rules are unchanged.
-  // NOTE: Tarneeb always needs 4 (fixed teams); Deberc can also start with 3 (each for
-  // themselves), so we DON'T force 4 for Deberc — only the labels/readiness adapt.
+  // Team lobby (Stage 18.0; refined 28.2): Deberc Pairs (4p) and Tarneeb are 2×2
+  // partnership games — Team A = seats 0 & 2, Team B = seats 1 & 3 (partners opposite).
+  // We show all four seats grouped by team so players see who's with whom before Start.
+  // Deberc SOLO (3p) is every-player-for-self, so it must NOT use the team grid — it
+  // falls through to the flat individual-seat list. Purely presentational; seat
+  // assignment/order and the game rules are unchanged.
+  const debercSolo = gameType === 'deberc' && maxPlayers === 3;
   const isTeamGame = gameType === 'tarneeb' || gameType === 'deberc';
+  const showTeamGrid = isTeamGame && !debercSolo;       // 3p Deberc → flat solo seats
   const strictTeams = gameType === 'tarneeb';           // must be 4 to start
-  const teamsFull = isTeamGame && players.length >= maxPlayers; // 4/4 seated
+  const teamsFull = showTeamGrid && players.length >= maxPlayers; // 4/4 seated
   const mySeat = myPlayerId ? Number(myPlayerId.split('-')[1]) : -1;
   const myTeam = mySeat >= 0 ? mySeat % 2 : -1;          // 0 = Team A, 1 = Team B
   const seatMember = (s: number) => room.members.find((m) => m.role === 'player' && m.seatIndex === s) ?? null;
@@ -182,7 +190,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
 
         <div className="field-group">
           <label>{t('lobby.players')}</label>
-          {isTeamGame ? (
+          {showTeamGrid ? (
             <>
               <div className="lobby-teams">
                 {([0, 1] as const).map((team) => {
@@ -241,6 +249,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               })}
             </ul>
           )}
+          {/* Deberc Solo (3p): make the every-player-for-self framing explicit, mirroring
+              the Pairs partner hint on the team grid above. */}
+          {debercSolo && <p className="setup-hint">🙋 {t('lobby.debercSoloHint')}</p>}
         </div>
 
         {/* Friends invite (Stage 25.9): INSIDE the lobby card, right after the players — always
@@ -276,7 +287,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             {teamsFull ? t('lobby.teamsReady')
               : !enough ? (strictTeams
                 ? t('lobby.needTeams')
-                : `${t('wait.waitingFor')} ${minPlayers - players.length} ${t('lobby.waitingMore')}`)
+                : `${t('wait.waitingFor')} ${needed - players.length} ${t('lobby.waitingMore')}`)
                 : t('btn.start')}
           </button>
         ) : (

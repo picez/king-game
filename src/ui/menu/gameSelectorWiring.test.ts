@@ -155,7 +155,8 @@ describe('Lobby shows the game + start-disabled reason (Stage 11.2)', () => {
     expect(src).toContain("t('lobby.partnerHint')");        // team layout hint (was tarneeb.teamsHint)
   });
   it('the Start button reports how many more players are needed', () => {
-    expect(src).toContain('minPlayers - players.length');
+    // Stage 28.2: counts against `needed` (Deberc Solo/Pairs = full room seats).
+    expect(src).toContain('needed - players.length');
     expect(src).toContain("t('lobby.waitingMore')");
   });
 });

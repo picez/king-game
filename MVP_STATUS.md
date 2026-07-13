@@ -279,9 +279,13 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 
 ## Known limitations
 
-- **Solo / individual modes (Stage 28.0–28.1).** Deberc's two released modes are **named
-  explicitly** in setup and lobby — **Solo · 3 players** (each-for-self, `teamOf = [0,1,2]`) and
-  **Pairs · 4 players** (fixed 2×2). Same engine/scoring; the seat count *is* the mode. **Tarneeb
+- **Solo / individual modes (Stage 28.0–28.2).** Deberc's two released modes are **named
+  explicitly and fully playable local + online** — **Solo · 3 players** (each-for-self,
+  `teamOf = [0,1,2]`) and **Pairs · 4 players** (fixed 2×2). Same engine/scoring; the seat count
+  *is* the mode. **Stage 28.2** fixed the product gap the owner reported (Deberc still felt
+  team-only): the online **Host** sheet now has a Solo/Pairs picker, the server honors the host
+  `playerCount` (was hard-forced to 4), and the lobby shows **3 individual seats for Solo** (not the
+  Team A/B grid) while keeping the grid for Pairs. Score table/finished already read per-player. **Tarneeb
   solo now has a working PURE CORE (Stage 28.1)** behind a `variant: 'pairs' | 'solo'` flag
   (default `'pairs'`): 4-player cutthroat, per-seat scoring (declarer ±bid; set defenders +own
   tricks; first to 41, ties safe), solo bots, redaction. It is **hidden** — not in the picker, not

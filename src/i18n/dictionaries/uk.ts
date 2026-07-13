@@ -830,6 +830,7 @@ export const UK: Record<string, string> = {
   'lobby.debercTeams': 'Команди по 2 утворюються при 4 гравцях; при 3 — кожен сам за себе.',
   'lobby.debercSolo': 'Соло',
   'lobby.debercPairs': 'Пари',
+  'lobby.debercSoloHint': 'Соло — кожен сам за себе (без команд).',
   'invite.title': 'Запросити',
   'invite.copyCode': 'Копіювати код',
   'invite.copyLink': 'Копіювати лінк',

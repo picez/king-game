@@ -143,16 +143,23 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       for teams"** and is disabled (360/390, no overflow).
 - [ ] **Add bots → 4/4:** seats fill in order; the AI badge shows on bots; your
       **Partner** is marked (opposite seat); Start reads **"Teams ready"** and is enabled.
-- [ ] **Deberc mode labels (Stage 28.0):** the **local setup** names the two modes
-      explicitly — **"Solo · 3 players"** and **"Pairs · 4 players"** mode cards (not bare
-      3/4 tabs); picking one sets the seat count.
-- [ ] **Deberc lobby, Solo (3):** the game-line reads **"🎴 Short/Long · Solo"**; teams still
-      render, plus the note "*teams of 2 at 4 players; 3 = each for themselves*"; Start is
-      **enabled at 3** (each-for-self is a valid game — not forced to 4).
-- [ ] **Deberc lobby, Pairs (4):** the game-line reads **"🎴 Short/Long · Pairs"**; at 4/4 it
-      reads "Teams ready".
-      *(Stage 28.0: Deberc 3p Solo / 4p Pairs are the same released engine/scoring — the label is
-      the only new thing. Tarneeb stays team-only; solo is spec-only, see `TARNEEB_SOLO_PLAN.md`.)*
+- [ ] **Deberc LOCAL setup (Stage 28.0):** names the two modes explicitly — **"Solo · 3 players"**
+      and **"Pairs · 4 players"** mode cards (not bare 3/4 tabs); picking Solo actually starts a
+      3-player game, Pairs a 4-player game.
+- [ ] **Deberc ONLINE host (Stage 28.2):** the **Host** sheet shows a **Solo / Pairs** segmented
+      picker (defaults to **Solo**) above the match-size toggle. Creating **Solo** makes a **3-seat**
+      room; **Pairs** a **4-seat** room.
+- [ ] **Deberc lobby, Solo (3):** game-line reads **"🎴 Short/Long · Solo"**; the players list is
+      **3 individual seats (NO Team A/Team B grid, no "partner" chip)** with the hint
+      **"🙋 Solo — every player for themselves (no teams)."**; **Add bot** fills to **3/3**; Start is
+      enabled at **3**.
+- [ ] **Deberc lobby, Pairs (4):** game-line reads **"🎴 Short/Long · Pairs"**; the **Team A/Team B
+      2×2 grid** (partners opposite) renders with the partner hint; **Add bot** fills to **4/4**;
+      Start reads **"Teams ready"** at 4.
+- [ ] **Deberc table/finished, Solo (3):** the score table shows **3 per-player columns** (player
+      names, not "Team A/B"); a Solo win shows an individual celebration.
+      *(Stage 28.2: same released engine/scoring — 3p Solo vs 4p Pairs is the seat count; only the
+      online host/lobby/celebration were made mode-aware. Arabic RTL: no horizontal overflow.)*
 - [ ] **Tarneeb solo core (Stage 28.1) — NO manual UI check applies.** Solo is pure-core only
       (`variant: 'solo'`), covered by automated tests (`src/games/tarneeb/solo.test.ts`: setup,
       bidding, trump-obligation legality, per-seat scoring made/failed/target/tie, redaction, bot
