@@ -5,10 +5,10 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.3.2`** (Tarneeb Solo release & bandwidth-hardening patch on
-`v0.3.1` — Tarneeb Pairs/Solo modes local+online+stats+achievement, static-bandwidth cut, Deberc
-Solo/Pairs explicit & online; on the `v0.3.0` social & voice release over the v0.2.0 five-game
-platform, 2026-07-13; see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
+**Status: stable MVP — release `v0.3.3`** (Tarneeb scoring correction — Solo aligned to Pairs §8
+(exact ×2 / overtrick = tricks) + Deberc table resize; on the `v0.3.2` Tarneeb Solo release &
+bandwidth-hardening patch, over the `v0.3.0` social & voice release and v0.2.0 five-game platform,
+2026-07-13; see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
 online play both work end-to-end. This file is the running feature list; for the concise
 "what it is / how it fits together" start at [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md).
 
@@ -290,8 +290,9 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   `playerCount` (was hard-forced to 4), and the lobby shows **3 individual seats for Solo** (not the
   Team A/B grid) while keeping the grid for Pairs. Score table/finished already read per-player. **Tarneeb
   solo now has a working PURE CORE (Stage 28.1)** behind a `variant: 'pairs' | 'solo'` flag
-  (default `'pairs'`): 4-player cutthroat, per-seat scoring (declarer ±bid; set defenders +own
-  tricks; first to 41, ties safe), solo bots, redaction. **Stage 28.3** added the local playable UI;
+  (default `'pairs'`): 4-player cutthroat, per-seat contract scoring identical to Pairs §8
+  (**Stage 29.0**: exact make → bid×2, overtrick → tricks won, fail → −bid with each defender
+  banking its own tricks; first to 41, ties safe), solo bots, redaction. **Stage 28.3** added the local playable UI;
   **Stage 28.4 fully released it — local + online + stats.** Solo is selectable in the online Host
   sheet (default Pairs); the lobby shows individual seats for Solo (no team grid); the server is
   authoritative via a `tarneebVariant` on the room (backward-compatible → legacy reads Pairs);

@@ -23,19 +23,28 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.2 adds no migrations** — 0009 is still the latest (Tarneeb Solo stats reuse the existing
+> **v0.3.3 adds no migrations** — 0009 is still the latest (Tarneeb Solo stats reuse the existing
 > schema under `game_type='tarneeb-solo'`).
 
 ---
 
-## 0. v0.3.2 release smoke (fast targeted pass)
+## 0. v0.3.3 release smoke (fast targeted pass)
 
-What v0.3.2 (Tarneeb Solo release + bandwidth hardening) specifically touches. The numbered
-sections below cover each in depth; §3a (static cache), §5a (Tarneeb Solo), §7 (stats) are the core.
+What v0.3.3 (Tarneeb scoring correction + Deberc table resize) specifically touches, plus the
+v0.3.2 platform checks it rides on. The numbered sections cover each in depth.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.2`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.3`**, `commit` matches the deploy,
       `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.2).
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.3).
+- [ ] **Tarneeb scoring (v0.3.3) — Pairs AND Solo:** in the hand-complete panel, a declarer who
+      takes **exactly** the bid scores **bid×2** (bid 7 → **+14**, with the "✨ exact bid double"
+      note); **more** than the bid scores the **actual tricks** (bid 7, 10 tricks → **+10**); a
+      **failed** contract is unchanged (declarer −bid; defenders bank their tricks). A signed-in
+      **Solo** game's per-seat delta reflects the corrected score in the **Solo** stats tab (Pairs
+      tab still separate/unchanged).
+- [ ] **Deberc table sizing (v0.3.3):** on the Deberc table the **played trick cards are slightly
+      smaller** and the **face-up trump + stock deck are ~20% larger**; no horizontal overflow at
+      360/390 and no overlap with the hand/actions/seats.
 - [ ] **Static bandwidth (§3a):** `curl -sI $HOST/cards/faces/spades-a.png` → `200 image/png` +
       `cache-control: public, max-age=604800` + an ETag; `$HOST/cards/faces/AS.png` → **404**
       (not the html shell); `If-None-Match` repeat → **304**.

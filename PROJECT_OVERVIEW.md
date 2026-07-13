@@ -4,9 +4,9 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.2** — Tarneeb Solo release & bandwidth-hardening patch on **v0.3.1**
-> (Tarneeb Pairs/Solo local+online+stats+achievement, static-bandwidth cut, Deberc Solo/Pairs
-> explicit & online), on the **v0.3.0** social & voice release, over the v0.2.0 five-game platform.
+> **Release:** **v0.3.3** — Tarneeb scoring correction (Solo aligned to Pairs §8: exact make ×2,
+> overtrick = tricks won) + Deberc table card resize, on the **v0.3.2** Tarneeb Solo release &
+> bandwidth-hardening patch, over the **v0.3.0** social & voice release and v0.2.0 five-game platform.
 > See [`CHANGELOG.md`](CHANGELOG.md); the running version is also at
 > `GET /health/diagnostics`.
 

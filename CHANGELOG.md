@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.3] — 2026-07-13 — Tarneeb scoring correction
+
+A small correctness patch on **v0.3.2**. Aligns **Tarneeb Solo** contract scoring with **Pairs**
+(exact make → bid×2, overtrick → tricks actually won, failure unchanged) per the owner's
+clarification, and resizes the **Deberc** table (smaller played trick cards, ~20% larger
+trump/stock). **No DB migration** (0009 stays the latest), **no dependency changes**, no bid-range
+or trump-obligation change. `/health/diagnostics` `version` reads `0.3.3`.
+
 ### Fixed
 
 - **Tarneeb Solo scoring — exact-bid double + overtricks (Stage 29.0, owner clarification).** Tarneeb
