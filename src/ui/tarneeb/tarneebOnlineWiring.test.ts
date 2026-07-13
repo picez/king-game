@@ -43,11 +43,12 @@ describe('TarneebOnlineGame is a thin, client-only, server-authoritative adapter
 
 describe('Lobby labels a Tarneeb room by its partnership, not a King mode (Stage 10.7/10.8)', () => {
   const lobby = read('../online/Lobby.tsx');
-  it("shows the Tarneeb team label instead of dealer's-choice/fixed-order", () => {
+  it("shows the Tarneeb mode label (Pairs/Solo) instead of dealer's-choice/fixed-order", () => {
     // A dedicated Tarneeb branch — Tarneeb has no King-style mode selection, so it
-    // must NOT fall through to the dealerChoice/fixedOrder label.
+    // must NOT fall through to the dealerChoice/fixedOrder label. Stage 28.4: the
+    // label now reflects the room's Pairs/Solo variant.
     expect(lobby).toContain("room.gameType === 'tarneeb'");
-    expect(lobby).toContain("t('tarneeb.twoTeams')");
+    expect(lobby).toContain("room.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs'");
     // The King mode label stays the final fallback (King behaviour unchanged).
     expect(lobby).toContain("room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')");
   });
@@ -56,7 +57,8 @@ describe('Lobby labels a Tarneeb room by its partnership, not a King mode (Stage
 describe('StartMenu can host Tarneeb online (released, Stage 10.8)', () => {
   const menu = read('../StartMenu.tsx');
   it("sends gameType 'tarneeb' on create with a plain (non-experimental) picker entry", () => {
-    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");
+    // Stage 28.4: host also threads the Tarneeb Pairs/Solo variant.
+    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant }");
     // The picker subtitle for Tarneeb comes from the data-driven GAME_META_KEY map.
     expect(menu).toContain("tarneeb: 'tarneeb.twoTeams'");
     // No Experimental tag or beta note remains for Tarneeb.

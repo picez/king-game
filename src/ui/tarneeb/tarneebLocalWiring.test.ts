@@ -54,7 +54,7 @@ describe('StartMenu — Tarneeb is selectable local AND online (released)', () =
     expect(menu).toContain('disabled: !usable');
   });
   it("host() sends gameType 'tarneeb' and still guards non-online games", () => {
-    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const }");
+    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant }");
     // The generic supportsOnline guard stays (defensive; passes for Tarneeb now).
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
   });

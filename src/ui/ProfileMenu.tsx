@@ -109,6 +109,9 @@ export default function ProfileMenu({
   const [loadingDebercBoard, setLoadingDebercBoard] = useState(false);
   const [loadingTarneebBoard, setLoadingTarneebBoard] = useState(false);
   const [loadingPreferansBoard, setLoadingPreferansBoard] = useState(false);
+  // Tarneeb has two released modes (Stage 28.4): Pairs / Solo stats are stored
+  // separately, so the Tarneeb stats + leaderboard panels get a mode toggle.
+  const [tarneebVariant, setTarneebVariant] = useState<'pairs' | 'solo'>('pairs');
 
   const statsOnce = useRef(false);
   const durakOnce = useRef(false);
@@ -135,9 +138,9 @@ export default function ProfileMenu({
     setLoadingDeberc(true);
     try { setDebercStats(await fetchDebercStats(base)); } finally { setLoadingDeberc(false); }
   }, [base]);
-  const loadTarneebStats = useCallback(async () => {
+  const loadTarneebStats = useCallback(async (variant: 'pairs' | 'solo' = 'pairs') => {
     setLoadingTarneeb(true);
-    try { setTarneebStats(await fetchTarneebStats(base)); } finally { setLoadingTarneeb(false); }
+    try { setTarneebStats(await fetchTarneebStats(base, variant)); } finally { setLoadingTarneeb(false); }
   }, [base]);
   const loadPreferansStats = useCallback(async () => {
     setLoadingPreferans(true);
@@ -155,9 +158,9 @@ export default function ProfileMenu({
     setLoadingDebercBoard(true);
     try { setDebercBoard(await fetchDebercLeaderboard(base)); } finally { setLoadingDebercBoard(false); }
   }, [base]);
-  const loadTarneebBoard = useCallback(async () => {
+  const loadTarneebBoard = useCallback(async (variant: 'pairs' | 'solo' = 'pairs') => {
     setLoadingTarneebBoard(true);
-    try { setTarneebBoard(await fetchTarneebLeaderboard(base)); } finally { setLoadingTarneebBoard(false); }
+    try { setTarneebBoard(await fetchTarneebLeaderboard(base, variant)); } finally { setLoadingTarneebBoard(false); }
   }, [base]);
   const loadPreferansBoard = useCallback(async () => {
     setLoadingPreferansBoard(true);
@@ -195,11 +198,19 @@ export default function ProfileMenu({
   function refresh() {
     if (tab === 'stats') {
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
-        : statsGame === 'tarneeb' ? loadTarneebStats() : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
+        : statsGame === 'tarneeb' ? loadTarneebStats(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
     } else if (tab === 'leaderboard') {
       void (boardGame === 'durak' ? loadDurakBoard() : boardGame === 'deberc' ? loadDebercBoard()
-        : boardGame === 'tarneeb' ? loadTarneebBoard() : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
+        : boardGame === 'tarneeb' ? loadTarneebBoard(tarneebVariant) : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
     }
+  }
+
+  /** Switch the Tarneeb stats mode (Pairs/Solo) and refetch the visible panel. */
+  function switchTarneebVariant(v: 'pairs' | 'solo') {
+    if (v === tarneebVariant) return;
+    setTarneebVariant(v);
+    if (tab === 'leaderboard') void loadTarneebBoard(v);
+    else void loadTarneebStats(v);
   }
 
   const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans
@@ -320,7 +331,12 @@ export default function ProfileMenu({
                 {statsGame === 'king' && <StatsPanel result={stats} loading={loadingStats} />}
                 {statsGame === 'durak' && <DurakStatsPanel result={durakStats} loading={loadingDurak} />}
                 {statsGame === 'deberc' && <DebercStatsPanel result={debercStats} loading={loadingDeberc} />}
-                {statsGame === 'tarneeb' && <TarneebStatsPanel result={tarneebStats} loading={loadingTarneeb} />}
+                {statsGame === 'tarneeb' && (
+                  <>
+                    <TarneebModeToggle value={tarneebVariant} onChange={switchTarneebVariant} t={t} />
+                    <TarneebStatsPanel result={tarneebStats} loading={loadingTarneeb} />
+                  </>
+                )}
                 {statsGame === 'preferans' && <PreferansStatsPanel result={preferansStats} loading={loadingPreferans} />}
               </>
             )}
@@ -341,7 +357,12 @@ export default function ProfileMenu({
                 {boardGame === 'king' && <LeaderboardPanel result={board} loading={loadingBoard} />}
                 {boardGame === 'durak' && <DurakLeaderboardPanel result={durakBoard} loading={loadingDurakBoard} />}
                 {boardGame === 'deberc' && <DebercLeaderboardPanel result={debercBoard} loading={loadingDebercBoard} />}
-                {boardGame === 'tarneeb' && <TarneebLeaderboardPanel result={tarneebBoard} loading={loadingTarneebBoard} />}
+                {boardGame === 'tarneeb' && (
+                  <>
+                    <TarneebModeToggle value={tarneebVariant} onChange={switchTarneebVariant} t={t} />
+                    <TarneebLeaderboardPanel result={tarneebBoard} loading={loadingTarneebBoard} />
+                  </>
+                )}
                 {boardGame === 'preferans' && <PreferansLeaderboardPanel result={preferansBoard} loading={loadingPreferansBoard} />}
               </>
             )}
@@ -350,6 +371,25 @@ export default function ProfileMenu({
       {toastQueue.length > 0 && (
         <AchievementToast achievements={toastQueue} onDismiss={dismissToast} />
       )}
+    </div>
+  );
+}
+
+/** Pairs / Solo mode toggle for the Tarneeb stats + leaderboard (Stage 28.4). */
+function TarneebModeToggle({ value, onChange, t }: {
+  value: 'pairs' | 'solo';
+  onChange: (v: 'pairs' | 'solo') => void;
+  t: ReturnType<typeof useI18n>['t'];
+}) {
+  return (
+    <div className="segmented segmented--sub" role="tablist" aria-label={t('tarneeb.mode')}>
+      {(['pairs', 'solo'] as const).map((v) => (
+        <button key={v} role="tab" aria-selected={value === v}
+          className={`segmented__tab ${value === v ? 'segmented__tab--active' : ''}`}
+          onClick={() => onChange(v)}>
+          {v === 'pairs' ? t('tarneeb.modePairs') : t('tarneeb.modeSolo')}
+        </button>
+      ))}
     </div>
   );
 }

@@ -94,8 +94,9 @@ describe('multi-game menu polish (Stage 11.2)', () => {
     expect(src).toContain("gameType === 'durak' && (");
     expect(src).toContain("gameType === 'deberc' && (");
     expect(src).toContain("gameType === 'king' && (");
-    // Tarneeb shows just its tagline — no King mode / Durak variant / Deberc match control.
-    expect(src).toMatch(/gameType === 'tarneeb' && \([^]*tarneeb\.setupTagline/);
+    // Tarneeb shows its OWN Pairs/Solo mode picker (Stage 28.4) — no King mode /
+    // Durak variant / Deberc match control leaks into it.
+    expect(src).toMatch(/gameType === 'tarneeb' && \([^]*tarneeb\.mode/);
   });
 });
 

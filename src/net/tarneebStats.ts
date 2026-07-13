@@ -15,7 +15,13 @@
 
 import type { Suit } from '../models/types';
 import type { TarneebState, Team } from '../games/tarneeb/types';
-import { teamOfSeat } from '../games/tarneeb/rules';
+import { isSoloTarneeb, teamOfSeat } from '../games/tarneeb/rules';
+
+/** Storage game_type for a finished game — solo is a SEPARATE key so it never
+ *  merges into (or corrupts) the released pairs aggregates (Stage 28.4). */
+export function tarneebStatsGameType(state: TarneebState): 'tarneeb' | 'tarneeb-solo' {
+  return isSoloTarneeb(state) ? 'tarneeb-solo' : 'tarneeb';
+}
 
 /** Single-letter suit code for a compact, word-free contract label (public). */
 const SUIT_CODE: Record<Suit, string> = { spades: 'S', hearts: 'H', diamonds: 'D', clubs: 'C' };
@@ -77,8 +83,65 @@ export function isFinishedTarneebGame(state: TarneebState | null): state is Tarn
   return !!state && state.phase === 'game_finished';
 }
 
+/**
+ * Solo summary (per-seat, no teams; Stage 28.4). Every seat is its own side:
+ * winner = `soloWinnerSeat`, "teamFinalScore" carries the SEAT's own final score,
+ * declarer/contract tallies come from the per-seat `soloHandHistory`. `winnerTeam`
+ * stays null and `finalScoresByTeam` is a placeholder (unused for solo — the
+ * per-seat totals live on each player). Reuses the same record shape so the DB /
+ * delta / view code is variant-agnostic.
+ */
+function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedSummary {
+  const scores = state.scoresBySeat ?? [0, 0, 0, 0];
+  const history = state.soloHandHistory ?? [];
+  const winnerSeat = state.soloWinnerSeat ?? -1;
+
+  const declarerCount: Record<number, number> = {};
+  const contractsMade: Record<number, number> = {};
+  const contractsFailed: Record<number, number> = {};
+  for (const h of history) {
+    declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
+    if (h.made) contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
+    else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
+  }
+
+  const players: TarneebPlayerResult[] = state.players.map((p) => ({
+    seatIndex: p.seatIndex,
+    playerId: p.id,
+    name: p.name,
+    type: p.type === 'ai' ? 'ai' : 'human',
+    avatar: (p as { avatar?: string }).avatar,
+    team: teamOfSeat(p.seatIndex), // filler — solo has no real team dimension
+    isWinner: p.seatIndex === winnerSeat,
+    teamFinalScore: scores[p.seatIndex], // the SEAT's own final score in solo
+    declarerCount: declarerCount[p.seatIndex] ?? 0,
+    contractsMade: contractsMade[p.seatIndex] ?? 0,
+    contractsFailed: contractsFailed[p.seatIndex] ?? 0,
+  }));
+
+  const seatToPlayerId = new Map(state.players.map((p) => [p.seatIndex, p.id]));
+  const rounds: TarneebRoundRecord[] = history.map((h, i) => {
+    const scoreByPlayer: Record<string, number> = {};
+    for (const p of state.players) {
+      scoreByPlayer[seatToPlayerId.get(p.seatIndex)!] = h.deltaBySeat[p.seatIndex];
+    }
+    return { roundIndex: i, modeId: `${h.bid}${SUIT_CODE[h.trumpSuit]}`, scoreByPlayer };
+  });
+
+  return {
+    playerCount: state.players.length,
+    players,
+    winners: players.filter((p) => p.isWinner).map((p) => p.playerId), // exactly 1
+    winnerTeam: null,
+    finalScoresByTeam: { A: 0, B: 0 }, // placeholder; per-seat totals are on players
+    handsPlayed: history.length,
+    rounds,
+  };
+}
+
 /** Summarises a finished Tarneeb game in engine-id space (public, score-only). */
 export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinishedSummary {
+  if (isSoloTarneeb(state)) return summarizeFinishedSoloTarneebGame(state);
   const winnerTeam = state.winnerTeam;
   const finalScoresByTeam: Record<Team, number> = {
     A: state.scoresByTeam.A,
@@ -156,9 +219,13 @@ export function computeTarneebStatDeltas(summary: TarneebFinishedSummary): Tarne
  * debercFinishSignature).
  */
 export function tarneebFinishSignature(state: TarneebState): string {
-  const winners = summarizeFinishedTarneebGame(state).winners.slice().sort().join(',');
-  const scores = `${state.scoresByTeam.A}:${state.scoresByTeam.B}`;
-  return `tarneeb|${state.players.length}|${state.winnerTeam ?? 'none'}|${scores}|${winners}`;
+  const gt = tarneebStatsGameType(state); // 'tarneeb' | 'tarneeb-solo' → keys never collide
+  const summary = summarizeFinishedTarneebGame(state);
+  const winners = summary.winners.slice().sort().join(',');
+  // Per-seat totals cover both variants (team scores are 0 in solo).
+  const scores = summary.players.map((p) => p.teamFinalScore).join(':');
+  const winMarker = state.winnerTeam ?? (state.soloWinnerSeat ?? 'none');
+  return `${gt}|${state.players.length}|${winMarker}|${scores}|${winners}`;
 }
 
 /** Full, public, derived Tarneeb stats for one user (all outcome/score-level). */

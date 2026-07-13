@@ -311,9 +311,11 @@ export function parseTarneebStats(raw: unknown): TarneebStats {
   };
 }
 
-/** GET /api/games/tarneeb/stats — the signed-in/guest user's own Tarneeb stats. */
-export async function fetchTarneebStats(base: string): Promise<Loadable<TarneebStats>> {
-  const { status, data } = await getJson(base, '/api/games/tarneeb/stats');
+/** GET /api/games/tarneeb/stats — the signed-in/guest user's own Tarneeb stats.
+ *  `variant='solo'` reads the separate cutthroat aggregates (Stage 28.4). */
+export async function fetchTarneebStats(base: string, variant: 'pairs' | 'solo' = 'pairs'): Promise<Loadable<TarneebStats>> {
+  const path = variant === 'solo' ? '/api/games/tarneeb/stats?variant=solo' : '/api/games/tarneeb/stats';
+  const { status, data } = await getJson(base, path);
   if (status === 200) return { state: 'ok', data: parseTarneebStats(data) };
   return failFor(status);
 }
@@ -508,9 +510,10 @@ function parseTarneebLeaderboardRow(e: Record<string, unknown>): TarneebLeaderbo
   };
 }
 
-/** GET /api/games/tarneeb/leaderboard — public top Tarneeb players. */
-export async function fetchTarneebLeaderboard(base: string): Promise<Loadable<TarneebLeaderboardEntry[]>> {
-  const { status, data } = await getJson(base, '/api/games/tarneeb/leaderboard');
+/** GET /api/games/tarneeb/leaderboard — public top Tarneeb players (pairs or solo). */
+export async function fetchTarneebLeaderboard(base: string, variant: 'pairs' | 'solo' = 'pairs'): Promise<Loadable<TarneebLeaderboardEntry[]>> {
+  const path = variant === 'solo' ? '/api/games/tarneeb/leaderboard?variant=solo' : '/api/games/tarneeb/leaderboard';
+  const { status, data } = await getJson(base, path);
   if (status === 200) {
     const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
       ? (data as { leaderboard: unknown[] }).leaderboard : [];

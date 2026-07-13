@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isFinishedTarneebGame, summarizeFinishedTarneebGame, computeTarneebStatDeltas,
-  tarneebFinishSignature,
+  tarneebFinishSignature, tarneebStatsGameType,
 } from './tarneebStats';
 import type { TarneebHandResult, TarneebPlayer, TarneebState, Team } from '../games/tarneeb/types';
 
@@ -41,6 +41,72 @@ function finished(over: Partial<TarneebState> = {}): TarneebState {
     ...over,
   };
 }
+
+/** A finished SOLO match (variant 'solo'): per-seat scores + soloHandHistory. */
+function finishedSolo(over: Partial<TarneebState> = {}): TarneebState {
+  const soloHand = (h: { handNumber: number; declarerSeat: number; bid: number; made: boolean; deltaBySeat: number[] }) => ({
+    handNumber: h.handNumber, bid: h.bid, declarerSeat: h.declarerSeat, trumpSuit: 'spades' as const,
+    tricksBySeat: [3, 4, 3, 3], made: h.made, deltaBySeat: h.deltaBySeat,
+  });
+  return {
+    ...finished(),
+    variant: 'solo',
+    winnerTeam: null,
+    scoresByTeam: { A: 0, B: 0 },
+    handHistory: [],
+    scoresBySeat: [45, 12, 8, -5],
+    soloWinnerSeat: 0,
+    tricksBySeat: [0, 0, 0, 0],
+    soloHandHistory: [
+      soloHand({ handNumber: 1, declarerSeat: 0, bid: 4, made: true, deltaBySeat: [4, 0, 0, 0] }),
+      soloHand({ handNumber: 2, declarerSeat: 1, bid: 6, made: false, deltaBySeat: [3, -6, 3, 4] }),
+    ],
+    ...over,
+  };
+}
+
+describe('SOLO stats — per-seat, stored under a separate game_type (Stage 28.4)', () => {
+  it('tarneebStatsGameType splits solo vs pairs', () => {
+    expect(tarneebStatsGameType(finishedSolo())).toBe('tarneeb-solo');
+    expect(tarneebStatsGameType(finished())).toBe('tarneeb');
+  });
+
+  it('summarizes per-seat: winner = soloWinnerSeat, own final score, own declarer tallies', () => {
+    const s = summarizeFinishedTarneebGame(finishedSolo());
+    const byId = Object.fromEntries(s.players.map((p) => [p.playerId, p]));
+    expect(s.winnerTeam).toBeNull();
+    expect(s.winners).toEqual(['player-0']);              // single winner (soloWinnerSeat 0)
+    expect(byId['player-0'].isWinner).toBe(true);
+    expect(byId['player-1'].isWinner).toBe(false);
+    expect(byId['player-0'].teamFinalScore).toBe(45);     // the SEAT's own final score
+    expect(byId['player-3'].teamFinalScore).toBe(-5);
+    // Declarer tallies come from soloHandHistory (seat 0 made, seat 1 failed).
+    expect(byId['player-0'].declarerCount).toBe(1);
+    expect(byId['player-0'].contractsMade).toBe(1);
+    expect(byId['player-1'].declarerCount).toBe(1);
+    expect(byId['player-1'].contractsFailed).toBe(1);
+    expect(s.handsPlayed).toBe(2);
+  });
+
+  it('per-seat deltas: exactly one winner, own final score tracked', () => {
+    const deltas = computeTarneebStatDeltas(summarizeFinishedTarneebGame(finishedSolo()));
+    expect(deltas.filter((d) => d.won)).toHaveLength(1);
+    const d0 = deltas.find((d) => d.playerId === 'player-0')!;
+    expect(d0.won).toBe(true);
+    expect(d0.teamFinalScore).toBe(45);
+  });
+
+  it('the finish signature is variant-scoped (solo ≠ pairs, no key collision)', () => {
+    expect(tarneebFinishSignature(finishedSolo())).toMatch(/^tarneeb-solo\|/);
+    expect(tarneebFinishSignature(finished())).toMatch(/^tarneeb\|/);
+  });
+
+  it('records NO card/trick/hand detail — only score-level facts', () => {
+    const s = summarizeFinishedTarneebGame(finishedSolo());
+    const json = JSON.stringify(s);
+    expect(json).not.toMatch(/handsBySeat|"rank"|"suit":/);
+  });
+});
 
 describe('isFinishedTarneebGame', () => {
   it('is true only when the phase is game_finished', () => {

@@ -76,10 +76,10 @@ describe('King / Durak are NOT team games (flat member list, no team labels)', (
 describe('Deberc Solo (3p) renders individual seats, NOT the team grid (Stage 28.2)', () => {
   it('the team grid is disabled for a 3-seat Deberc room', () => {
     expect(lb).toContain("const debercSolo = gameType === 'deberc' && maxPlayers === 3");
-    expect(lb).toContain('const showTeamGrid = isTeamGame && !debercSolo');
+    expect(lb).toContain('const showTeamGrid = isTeamGame && !soloSeating');
   });
   it('a 3p Deberc room shows the every-player-for-self hint (not the partner hint)', () => {
-    expect(lb).toContain("debercSolo && <p");
+    expect(lb).toContain("soloSeating && <p");
     expect(lb).toContain("t('lobby.debercSoloHint')");
   });
   it('the seat cap + start-gate come from the room player count (3 Solo / 4 Pairs)', () => {

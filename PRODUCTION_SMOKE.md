@@ -170,6 +170,21 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       (~1 s) before play advances in every game — King/Deberc (server pause), Tarneeb/Preferans
       (client review), Durak (bout lingers before the table clears).
 
+### 5a. Tarneeb Solo mode (Stage 28.4)
+
+- [ ] **Local:** Tarneeb setup shows a **Pairs / Solo** picker (default Pairs). Start **Solo** →
+      a 4-player cutthroat table: **no Team A/B labels**, a **4-player standings strip**, own-tricks
+      viewer, and at 41 an **individual** winner (🏆 You won / "{name} won"). **Play again** works.
+- [ ] **Online host + lobby:** Host sheet Pairs/Solo picker; a **Solo** room's lobby reads
+      **"♠️ Solo"** with **4 individual seats** (no team grid); **Pairs** reads "♠️ Pairs" with the
+      Team A/B grid. Add bots → Start works for both.
+- [ ] **Rematch:** finishing a Solo online match and rematching restarts a **Solo** room (not Pairs).
+- [ ] **Stats:** with Postgres, after a signed-in Solo game, Profile → Stats → Tarneeb → **Solo**
+      toggle shows the solo aggregates; the **Pairs** toggle is unaffected. Leaderboard → Tarneeb →
+      **Solo** ranks solo players. **No new DB migration** — solo reuses the existing schema under
+      `game_type='tarneeb-solo'` (latest migration stays **0009**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
+      responds 200 for a signed-in user).
+
 ## 6. Rooms / invite
 
 - [ ] Room browser lists your open room with the correct game icon + meta + player count.

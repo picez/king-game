@@ -29,11 +29,15 @@ function buildTarneebStartAction(room: RoomSnapshot): TarneebAction {
     .filter((m) => m.role === 'player')
     .slice()
     .sort((a, b) => (a.seatIndex ?? 0) - (b.seatIndex ?? 0));
+  // Variant (Stage 28.4): a Solo room threads variant:'solo'; anything else (incl. a
+  // legacy room with no field) omits it → the reducer's default 'pairs'.
+  const variant = room.tarneebVariant === 'solo' ? 'solo' : undefined;
   return {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
     options: { targetScore: 41, kabootMode: 'off', allowNoTrump: false },
+    ...(variant ? { variant } : {}),
   };
 }
 

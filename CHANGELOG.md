@@ -11,6 +11,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Tarneeb Solo — full release: local + online + stats (Stage 28.4).** The 4-player cutthroat
+  (every-player-for-self) mode is now a **released** Tarneeb mode alongside Pairs (still the
+  default). The online **Host** sheet has a Pairs/Solo picker; a `tarneebVariant` flows through
+  `CREATE_ROOM` → the room → snapshots → `buildTarneebStartAction` (mirroring Durak's variant), and
+  is persisted/restored (legacy rooms & clients read Pairs). The lobby shows the mode and renders
+  **individual seats for Solo** (no Team A/B grid); rematch preserves the mode; the online table /
+  finished screens use the same solo-aware UI as local. **Stats + a leaderboard** record solo under
+  a **separate `game_type='tarneeb-solo'`** with a Pairs/Solo toggle in the profile — **no DB
+  migration**, and the released Pairs aggregates (`game_type='tarneeb'`) are byte-for-byte
+  untouched. Backward compatible; no new dependency; Solo achievements deferred (post-MVP).
+  See `TARNEEB_RULES.md` §17 / `TARNEEB_SOLO_PLAN.md`.
 - **Tarneeb Solo — local playable prototype (Stage 28.3).** The Tarneeb **local** setup now has a
   **Pairs / Solo** mode picker (default **Pairs**, so the released game is unchanged). Choosing
   **Solo** starts a 4-player cutthroat table (1 human + 3 bots) on the Stage 28.1 pure core: the

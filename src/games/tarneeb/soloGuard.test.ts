@@ -47,37 +47,42 @@ describe('released Tarneeb pairs is unchanged (default variant)', () => {
   });
 });
 
-describe('solo is LOCAL-only (Stage 28.3) — not online, not stats', () => {
-  it('the catalog still lists Tarneeb as a 4-only game (no solo seat counts)', () => {
+describe('solo is fully released (Stage 28.4) — pairs stays isolated', () => {
+  it('the catalog still lists Tarneeb as a single 4-player game (variant is a mode, not a seat count)', () => {
     expect(GAME_CATALOG.tarneeb.minPlayers).toBe(4);
     expect(GAME_CATALOG.tarneeb.maxPlayers).toBe(4);
   });
 
-  it('the online start-action builder never sets the solo variant', () => {
-    // buildTarneebStartAction must not thread a variant → online rooms stay pairs.
-    const def = read('src/games/tarneeb/definition.ts');
-    expect(def).not.toMatch(/variant\s*:\s*['"]solo['"]/);
-    expect(def).not.toContain("variant: 'solo'");
-  });
-
-  it('the LOCAL game wires solo (setup picker → START_GAME variant)', () => {
-    // Stage 28.3: solo is playable locally — the setup offers it and the local game
-    // threads variant:'solo' into the start action.
-    expect(read('src/ui/tarneeb/TarneebSetup.tsx')).toContain("t('tarneeb.modeSolo')");
+  it('the LOCAL + ONLINE flows both wire solo, defaulting to Pairs', () => {
     expect(read('src/ui/tarneeb/TarneebLocalGame.tsx')).toMatch(/variant === 'solo'/);
-  });
-
-  it('ONLINE surfaces never expose Tarneeb solo (Host + Lobby stay Pairs)', () => {
-    // The online lobby and the host sheet must not branch Tarneeb on solo.
-    expect(read('src/ui/online/Lobby.tsx')).not.toMatch(/tarneeb[^\n]*solo|solo[^\n]*tarneeb/i);
+    // Online host sheet has a Pairs/Solo picker; default state is 'pairs'.
     const startMenu = read('src/ui/StartMenu.tsx');
-    // No Tarneeb variant/playerCount picker in the host flow (Deberc has one; Tarneeb does not).
-    expect(startMenu).not.toMatch(/tarneeb[\s\S]{0,80}variant:\s*'solo'/i);
+    expect(startMenu).toContain("useState<TarneebVariant>('pairs')");
+    expect(startMenu).toContain('tarneebVariant');
+    // buildStartAction threads the room's variant (a Solo room starts solo).
+    expect(read('src/games/tarneeb/definition.ts')).toContain("room.tarneebVariant === 'solo'");
   });
 
-  it('no solo stats/leaderboard yet (tarneebStats records the team outcome only)', () => {
-    const stats = read('src/net/tarneebStats.ts');
-    expect(stats).not.toMatch(/scoresBySeat|soloWinnerSeat|lastSoloHand/);
+  it('solo stats are stored under a SEPARATE game_type so pairs aggregates are never touched', () => {
+    // The pairs cache stays game_type='tarneeb'; solo uses 'tarneeb-solo'.
+    const repo = read('server/db/tarneebStats.ts');
+    expect(repo).toContain("'tarneeb-solo'");
+    expect(read('src/net/tarneebStats.ts')).toContain('tarneebStatsGameType');
+  });
+
+  it('NO DB migration was added for solo stats (game_type is free text, JSONB blob)', () => {
+    // Solo reuses the existing (user_id, game_type) key — the latest migration is still 0009.
+    const migrations = read('server/db/migrations/0009_friends.sql'); // exists
+    expect(migrations.length).toBeGreaterThan(0);
+    // 0010 must NOT exist (no schema change this stage).
+    expect(() => read('server/db/migrations/0010_tarneeb_solo.sql')).toThrow();
+  });
+
+  it('the variant payload carries no session/token/email (protocol stays clean)', () => {
+    const messages = read('src/net/messages.ts');
+    // The Tarneeb variant field is a bare 'pairs'|'solo' — no identity leaks alongside it.
+    expect(messages).toContain('tarneebVariant?: TarneebVariant');
+    expect(messages).not.toMatch(/tarneebVariant[^\n]*(token|session|email)/i);
   });
 
   it('an implementation plan exists (Variant B cutthroat)', () => {

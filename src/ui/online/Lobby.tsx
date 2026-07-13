@@ -56,10 +56,13 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   // falls through to the flat individual-seat list. Purely presentational; seat
   // assignment/order and the game rules are unchanged.
   const debercSolo = gameType === 'deberc' && maxPlayers === 3;
+  // Tarneeb Solo (Stage 28.4): 4-player cutthroat — no partnerships, so no team grid.
+  const tarneebSolo = gameType === 'tarneeb' && room.tarneebVariant === 'solo';
+  const soloSeating = debercSolo || tarneebSolo;        // shown as flat individual seats
   const isTeamGame = gameType === 'tarneeb' || gameType === 'deberc';
-  const showTeamGrid = isTeamGame && !debercSolo;       // 3p Deberc → flat solo seats
-  const strictTeams = gameType === 'tarneeb';           // must be 4 to start
-  const teamsFull = showTeamGrid && players.length >= maxPlayers; // 4/4 seated
+  const showTeamGrid = isTeamGame && !soloSeating;      // Solo → flat individual seats
+  const strictTeams = gameType === 'tarneeb';           // must be 4 to start (both variants)
+  const teamsFull = showTeamGrid && players.length >= maxPlayers; // 4/4 seated (Pairs)
   const mySeat = myPlayerId ? Number(myPlayerId.split('-')[1]) : -1;
   const myTeam = mySeat >= 0 ? mySeat % 2 : -1;          // 0 = Team A, 1 = Team B
   const seatMember = (s: number) => room.members.find((m) => m.role === 'player' && m.seatIndex === s) ?? null;
@@ -174,9 +177,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // 4 seats = Pairs (fixed 2×2). Engine/scoring unchanged; label only.
               <>🎴 {t(room.matchSize === 'big' ? 'deberc.big' : 'deberc.small')} · {t(room.playerCount === 3 ? 'lobby.debercSolo' : 'lobby.debercPairs')}</>
             ) : room.gameType === 'tarneeb' ? (
-              // Tarneeb has no dealer's-choice / fixed-order mode (fixed 2×2
-              // partnerships, bid-and-trump); show the partnership label, not a King term.
-              <>♠️ {t('tarneeb.twoTeams')}</>
+              // Tarneeb has two modes (Stage 28.4): Pairs (fixed 2×2) or Solo (cutthroat).
+              // Show the chosen mode instead of a hard "2 teams" label.
+              <>♠️ {t(room.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs')}</>
             ) : room.gameType === 'preferans' ? (
               // Preferans (3-player, each-for-self) has no King-style mode; show its
               // contract-game label rather than a dealer's-choice/fixed-order term.
@@ -249,9 +252,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               })}
             </ul>
           )}
-          {/* Deberc Solo (3p): make the every-player-for-self framing explicit, mirroring
-              the Pairs partner hint on the team grid above. */}
-          {debercSolo && <p className="setup-hint">🙋 {t('lobby.debercSoloHint')}</p>}
+          {/* Solo (Deberc 3p or Tarneeb): make the every-player-for-self framing explicit,
+              mirroring the Pairs partner hint on the team grid above. */}
+          {soloSeating && <p className="setup-hint">🙋 {t('lobby.debercSoloHint')}</p>}
         </div>
 
         {/* Friends invite (Stage 25.9): INSIDE the lobby card, right after the players — always
@@ -285,7 +288,7 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
         {isHost ? (
           <button className="btn btn--primary btn--large" disabled={!enough} onClick={onStart}>
             {teamsFull ? t('lobby.teamsReady')
-              : !enough ? (strictTeams
+              : !enough ? (strictTeams && showTeamGrid
                 ? t('lobby.needTeams')
                 : `${t('wait.waitingFor')} ${needed - players.length} ${t('lobby.waitingMore')}`)
                 : t('btn.start')}

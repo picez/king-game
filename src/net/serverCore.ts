@@ -22,6 +22,7 @@ import { getGameDefinition } from '../games/registry';
 import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize, DebercState } from '../games/deberc/types';
+import type { TarneebVariant } from '../games/tarneeb/types';
 import type { TarneebState } from '../games/tarneeb/types';
 import type { PreferansState } from '../games/preferans/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
@@ -104,6 +105,8 @@ export interface ServerRoom {
   variant?: DurakVariant;
   /** Deberc match target ('small' | 'big'); undefined for King/Durak. */
   matchSize?: DebercMatchSize;
+  /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
+  tarneebVariant?: TarneebVariant;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5;
@@ -222,6 +225,8 @@ export function createRoom(opts: {
   variant?: DurakVariant;
   /** Deberc match target ('small' | 'big'); ignored for King/Durak. */
   matchSize?: DebercMatchSize;
+  /** Tarneeb variant ('pairs' | 'solo'); ignored for other games. */
+  tarneebVariant?: TarneebVariant;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -242,6 +247,7 @@ export function createRoom(opts: {
     gameType: opts.gameType ?? DEFAULT_GAME_TYPE,
     variant: opts.variant,
     matchSize: opts.matchSize,
+    tarneebVariant: opts.tarneebVariant,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -843,6 +849,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     gameType: room.gameType ?? DEFAULT_GAME_TYPE,
     variant: room.variant,
     matchSize: room.matchSize,
+    tarneebVariant: room.tarneebVariant,
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -880,6 +887,8 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     ...(room.variant ? { variant: room.variant } : {}),
     // Only present for Deberc (match size) → King/Durak summaries are unchanged.
     ...(room.matchSize ? { matchSize: room.matchSize } : {}),
+    // Only present for Tarneeb → other games' summaries are unchanged.
+    ...(room.tarneebVariant ? { tarneebVariant: room.tarneebVariant } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -963,6 +972,8 @@ export interface PersistedRoom {
   variant?: DurakVariant;
   /** Deberc match target ('small' | 'big'); undefined for King/Durak. */
   matchSize?: DebercMatchSize;
+  /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
+  tarneebVariant?: TarneebVariant;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -986,6 +997,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     gameType: room.gameType,
     variant: room.variant,
     matchSize: room.matchSize,
+    tarneebVariant: room.tarneebVariant,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1046,6 +1058,8 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     gameType: isGameType(o.gameType) ? o.gameType : DEFAULT_GAME_TYPE,
     variant: o.variant === 'simple' || o.variant === 'transfer' ? o.variant : undefined,
     matchSize: o.matchSize === 'small' || o.matchSize === 'big' ? o.matchSize : undefined,
+    // Legacy rooms (no field) or a bad value → undefined → the reducer reads pairs.
+    tarneebVariant: o.tarneebVariant === 'solo' ? 'solo' : o.tarneebVariant === 'pairs' ? 'pairs' : undefined,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

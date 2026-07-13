@@ -104,6 +104,8 @@ export function handleClientMessage(
       ) as 2 | 3 | 4 | 5;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       const matchSize = gameType === 'deberc' ? (msg.matchSize === 'big' ? 'big' : 'small') : undefined;
+      // Tarneeb Solo/Pairs (Stage 28.4). Default Pairs; anything but 'solo' → pairs.
+      const tarneebVariant = gameType === 'tarneeb' ? (msg.tarneebVariant === 'solo' ? 'solo' : 'pairs') : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create
       // leaves the connection's existing room intact.
@@ -121,6 +123,7 @@ export function handleClientMessage(
         gameType,
         variant,
         matchSize,
+        tarneebVariant,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },

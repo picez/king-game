@@ -419,8 +419,16 @@ above describes the released **pairs** game and is byte-for-byte unaffected.
 
 **Update (Stage 28.3): solo is now a LOCAL playable prototype.** The Tarneeb **local** setup has a
 **Pairs / Solo** mode picker (default Pairs = the released game). Choosing Solo starts a 4-player
-cutthroat table (1 human + 3 bots); the score panel shows **4 individual players** (no A/B teams),
-the between-hands panel is per-seat, and the finished screen names an **individual** winner. Trick
-play (follow-suit + trump obligation) is identical to Pairs. **Online Tarneeb stays Pairs-only** —
-the online host + lobby do not offer Solo — and Solo records **no stats/leaderboard/achievements**
-yet. Online enablement / solo stats are a later stage.
+cutthroat table; the score panel shows **4 individual players** (no A/B teams), the between-hands
+panel is per-seat, and the finished screen names an **individual** winner. Trick play is identical
+to Pairs.
+
+**Update (Stage 28.4): solo is FULLY RELEASED — local + online + stats.** Tarneeb now ships two
+released modes everywhere: **Pairs** (default) and **Solo** (4-player cutthroat). Solo is selectable
+in the online **Host** sheet (default Pairs); the lobby shows the mode and — for Solo — flat
+individual seats (no Team A/B grid); the server is authoritative (variant carried on the room +
+`state.variant`, backward-compatible → legacy rooms/clients read Pairs); rematch preserves the mode;
+and **stats + a leaderboard** record solo under a **separate `game_type='tarneeb-solo'`** with a
+Pairs/Solo toggle in the profile — the released **Pairs** aggregates are byte-for-byte untouched and
+**no DB migration** was required. Solo achievements are deferred (post-MVP). Everything in §1–§16
+still describes the **Pairs** game; Solo differs only in seating/scoring per §17's plan doc.

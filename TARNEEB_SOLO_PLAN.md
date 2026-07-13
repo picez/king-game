@@ -1,16 +1,17 @@
 # Tarneeb Solo — implementation-ready plan (Variant B: 4-player cutthroat)
 
-**Status: PURE CORE (28.1) + LOCAL PLAYABLE UI (28.3) DONE; ONLINE / stats PENDING.** The solo
-reducer, per-seat scoring (§2 below), bots, and redaction ship in `src/games/tarneeb/` behind a
-`variant: 'pairs' | 'solo'` flag that **defaults to `'pairs'`**. As of **Stage 28.3** it is
-**playable locally**: the Tarneeb local setup has a **Pairs / Solo** picker (default Pairs), and the
-table / hand-complete / finished screens adapt to per-seat cutthroat (no A/B teams, 4-player
-standings, individual winner). It is still **NOT online-enabled** (the online host + lobby stay
-Pairs) and records **no stats/leaderboard/achievements**. Released Tarneeb Pairs is unchanged.
+**Status: FULLY RELEASED (Stage 28.4) — local + online + stats.** Tarneeb ships two released modes
+behind a `variant: 'pairs' | 'solo'` flag that **defaults to `'pairs'`**: **Pairs** (the classic
+4-player 2×2 partnership game) and **Solo** (4-player cutthroat, every player for self). Both are
+selectable in the **local setup** and the **online Host** sheet; the lobby shows the mode (Solo =
+individual seats, no Team A/B grid); the table / hand-complete / finished screens adapt (per-seat
+standings, individual winner); rematch preserves the variant; and **stats + leaderboard** record
+solo under a **separate `game_type='tarneeb-solo'`** (no DB migration — the pairs `'tarneeb'`
+aggregates are byte-for-byte untouched). Backward compatible: a legacy room/state/client with no
+variant reads as Pairs. Achievements for solo are **deferred (post-MVP)**.
 
-> **Stage 28.0** produced this spec (design only). **Stage 28.1** built the pure core. **Stage 28.3**
-> added the local-only playable UI. The scoring model in §2 is the one that was built.
-> Next: **28.4** — online Tarneeb Solo readiness OR solo stats design.
+> **28.0** spec → **28.1** pure core → **28.3** local UI → **28.4** full online + stats release.
+> The scoring model in §2 is the one that shipped.
 
 See `SOLO_VARIANTS_PLAN.md` for why **Variant B (4-player cutthroat)** was chosen over 3-player
 (Variant A, needs an invented reduced deck) and over deferring indefinitely (Variant C). Variant B
@@ -57,8 +58,9 @@ This is the MVP model — a richer overtrick/kaboot variant is explicitly out of
 
 1. ✅ **Variant flag.** `variant: 'pairs' | 'solo'` on `TarneebState` + `START_GAME`, **default
    `'pairs'`**. Backward-compatible read via `tarneebVariant(state)` — a legacy/restored state with
-   no `variant` field resolves to `'pairs'`. (Note: the code uses `'pairs'`, not `'team'`.) The
-   ⏳ setup → lobby → RoomSnapshot threading is deferred (solo is core-only, not online).
+   no `variant` field resolves to `'pairs'`. **28.4:** threaded end-to-end online — a dedicated
+   `tarneebVariant?` on `CREATE_ROOM` / `RoomSnapshot` / `RoomSummary` / `ServerRoom` (mirrors
+   Durak's `variant`), read by `buildTarneebStartAction`, persisted + restored (missing → pairs).
 2. ✅ **Types/state.** `variant` added; solo per-seat fields (`tricksBySeat`, `scoresBySeat`,
    `lastSoloHand`, `soloHandHistory`, `soloWinnerSeat`) are OPTIONAL — **undefined in pairs**, so a
    pairs state's shape is unchanged apart from `variant`. Team fields kept; branch, not rewrite.
@@ -70,15 +72,17 @@ This is the MVP model — a richer overtrick/kaboot variant is explicitly out of
    partner-winning branch. Team AI untouched.
 5. ✅ **`legalPlays` / server auth.** Reused verbatim — trick legality is variant-independent, so the
    UI == reducer == server single-source guarantee is preserved for free.
-6. ⏳ **Stats.** `tarneebStats`: for solo, record a per-player outcome (declarer made/failed + final
-   placement) instead of `winnerTeam` (2 ids). Team record shape unchanged; leaderboard and
-   achievements branch on `variant`. **Migration only if the persisted column shape changes** —
-   prefer an additive `variant` column over rewriting `winnerTeam`. **Not started (28.1 records no
-   solo stats).**
-7. ⏳ **Lobby.** Hide the 2×2 team grid for solo; show a flat "each for self" seating (the
-   Deberc-solo pattern). Redaction is already variant-agnostic (still hides `handsBySeat`) ✅.
-8. ⏳ **Protocol.** Carry `variant` on room create/join; reject a solo action on a team game and vice
-   versa (server-authoritative, same reducer).
+6. ✅ **Stats (28.4).** Solo records under a **separate `game_type='tarneeb-solo'`** — the pairs
+   cache (`game_type='tarneeb'`, `winnerTeam`) is byte-for-byte untouched, and **no migration** was
+   needed (`game_type` is free text; `user_stats` PK is `(user_id, game_type)`; per-player fields in
+   the existing JSONB blob). `summarizeFinishedTarneebGame` branches to per-seat for solo;
+   `getTarneebStats`/`getTarneebLeaderboard` take a `variant`; the API exposes `?variant=solo`; the
+   profile has a Pairs/Solo toggle. Solo leaderboard orders by wins then games (same index).
+7. ✅ **Lobby (28.4).** Solo shows flat individual seats + an every-player-for-self hint (no team
+   grid); Pairs keeps the 2×2 grid. Redaction is variant-agnostic (still hides `handsBySeat`).
+8. ✅ **Protocol (28.4).** `tarneebVariant` carried on `CREATE_ROOM` + snapshots; the server is
+   authoritative (same reducer + redaction). No new action types; the variant lives in room metadata
+   + `state.variant`, so no cross-variant action confusion.
 9. ✅ **Setup UX (LOCAL, Stage 28.3).** Segmented Pairs / Solo control in the Tarneeb **local** setup
    (default Pairs). Table/hand-complete/finished screens adapt to per-seat cutthroat. Online host
    still shows no Solo. Remaining ⏳: the online segmented control lands with online enablement.

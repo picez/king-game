@@ -78,6 +78,14 @@ describe('firstConnectMessage', () => {
     expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'king' }))
       .not.toHaveProperty('playerCount');
   });
+
+  it('carries the Tarneeb variant so Solo reaches the server; Pairs omits it (Stage 28.4)', () => {
+    const solo = firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'tarneeb', tarneebVariant: 'solo' });
+    expect(solo).toMatchObject({ t: 'CREATE_ROOM', gameType: 'tarneeb', tarneebVariant: 'solo' });
+    // Pairs is the default → no field sent (server defaults to pairs).
+    expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'tarneeb' }))
+      .not.toHaveProperty('tarneebVariant');
+  });
 });
 
 describe('humanError', () => {

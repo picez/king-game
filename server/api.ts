@@ -518,9 +518,16 @@ async function handleGetDebercStats(req: IncomingMessage, res: ServerResponse, u
   json(res, 200, { gameType: 'deberc', stats: await getDebercStats(userId) }, corsHeaders(req));
 }
 
+/** Tarneeb variant from `?variant=solo` (default pairs) — for solo stats/leaderboard. */
+function tarneebVariantParam(req: IncomingMessage): 'pairs' | 'solo' {
+  const q = (req.url ?? '').split('?')[1] ?? '';
+  return /(^|&)variant=solo(&|$)/.test(q) ? 'solo' : 'pairs';
+}
+
 async function handleGetTarneebStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
   const { getTarneebStats } = await import('./db/tarneebStats');
-  json(res, 200, { gameType: 'tarneeb', stats: await getTarneebStats(userId) }, corsHeaders(req));
+  const variant = tarneebVariantParam(req);
+  json(res, 200, { gameType: 'tarneeb', variant, stats: await getTarneebStats(userId, variant) }, corsHeaders(req));
 }
 
 async function handleGetPreferansStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
@@ -559,7 +566,8 @@ async function handleGetTarneebLeaderboard(req: IncomingMessage, res: ServerResp
   const { getTarneebLeaderboard } = await import('./db/tarneebStats');
   let selfUserId: string | null = null;
   try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
-  json(res, 200, { gameType: 'tarneeb', leaderboard: await getTarneebLeaderboard(20, selfUserId) }, corsHeaders(req));
+  const variant = tarneebVariantParam(req);
+  json(res, 200, { gameType: 'tarneeb', variant, leaderboard: await getTarneebLeaderboard(20, selfUserId, variant) }, corsHeaders(req));
 }
 
 async function handleGetPreferansLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {

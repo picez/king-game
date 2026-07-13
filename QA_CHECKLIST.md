@@ -170,10 +170,21 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       (declarer flagged, per-seat delta/score); at 41 the **finished screen names an individual
       winner** (🏆 You won / "{name} won") with 4-player final standings; **Play again** works.
       *(360/390 portrait + Arabic RTL: no horizontal overflow.)*
-- [ ] **Tarneeb ONLINE is still Pairs-only (Stage 28.3):** the online **Host** sheet has **no**
-      Solo/Pairs picker for Tarneeb; a hosted/joined Tarneeb room is the 2×2 team game; solo records
-      **no stats**. (Solo is local-only this stage — automated guards in `soloGuard.test.ts` /
-      `tarneebLocalWiring.test.ts`.)
+- [ ] **Tarneeb ONLINE Solo (Stage 28.4):** the online **Host** sheet shows a **Pairs / Solo**
+      picker (default Pairs). Host a **Solo** room → the lobby reads **"♠️ Solo"** and shows **4
+      individual seats (NO Team A/B grid, no partner chip)** with the solo hint; **Add bot** fills to
+      4; Start at 4 (no "Teams ready"). Playing shows the 4-player standings / individual winner
+      (same solo screens as local). A **Pairs** room is unchanged (♠️ Pairs, Team A/B grid,
+      "Teams ready").
+- [ ] **Tarneeb Solo rematch:** after a Solo match finishes, **Play again / rematch restarts the
+      same Solo room** (still 4-player cutthroat, not Pairs).
+- [ ] **Tarneeb Solo stats + leaderboard (needs Postgres):** Profile → Stats → Tarneeb shows a
+      **Pairs / Solo** toggle; after a signed-in Solo game, the **Solo** tab shows gamesPlayed/
+      winRate/contract rate/declarer hands/avg score; the **Pairs** tab is unaffected. Leaderboard →
+      Tarneeb → **Solo** ranks solo players by wins. (Solo stored under `game_type='tarneeb-solo'`;
+      pairs `tarneeb` untouched; no cards/tricks persisted.)
+- [ ] **Mobile/RTL:** 360/390 portrait Solo host picker, lobby individual seats, table standings,
+      and the stats Pairs/Solo toggle have no horizontal overflow; Arabic RTL reads correctly.
 - [ ] **Avatars:** a player with a synced avatar shows their image in the team seat;
       others show the emoji.
 - [ ] **King / Durak regression:** the lobby still shows the plain flat member list —

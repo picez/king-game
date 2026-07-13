@@ -16,7 +16,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { TarneebState } from '../../src/games/tarneeb/types';
 import {
-  isFinishedTarneebGame, summarizeFinishedTarneebGame, computeTarneebStatDeltas,
+  isFinishedTarneebGame, summarizeFinishedTarneebGame, computeTarneebStatDeltas, tarneebStatsGameType,
   type TarneebFinishedSummary, type TarneebStatDelta, type TarneebStatsView,
 } from '../../src/net/tarneebStats';
 import { games, gamePlayers, rounds, userStats, users, userSettings } from './schema';
@@ -24,8 +24,17 @@ import { getDb } from './client';
 import type { SeatUsers, RecordResult } from './stats';
 
 const TARNEEB = 'tarneeb';
+/** Solo cutthroat is stored under a SEPARATE game_type so it never merges into the
+ *  released pairs aggregates (Stage 28.4). No migration — game_type is free text. */
+const TARNEEB_SOLO = 'tarneeb-solo';
 const TARNEEB_RULESET = 'tarneeb-v1';
 const TARNEEB_STATS_VERSION = 1;
+
+/** The two Tarneeb stat variants and their storage game_type. */
+export type TarneebStatsVariant = 'pairs' | 'solo';
+function gameTypeForVariant(variant: TarneebStatsVariant): string {
+  return variant === 'solo' ? TARNEEB_SOLO : TARNEEB;
+}
 
 async function database(): Promise<PostgresJsDatabase> {
   const conn = await getDb();
@@ -33,12 +42,13 @@ async function database(): Promise<PostgresJsDatabase> {
   return conn.db as PostgresJsDatabase;
 }
 
-/** Deterministic per-game identity: room code + winning team + final scores + winners. */
-function gameKey(roomCode: string, summary: TarneebFinishedSummary): string {
-  const scores = `${summary.finalScoresByTeam.A}:${summary.finalScoresByTeam.B}`;
-  const outcome = `${summary.winnerTeam ?? 'none'}|${scores}`;
+/** Deterministic per-game identity: game_type + room + per-seat totals + winners.
+ *  Includes the game_type so a solo and a pairs game in the same room never share a key. */
+function gameKey(roomCode: string, summary: TarneebFinishedSummary, gameType: string): string {
+  const scores = summary.players.map((p) => p.teamFinalScore).join(':');
+  const outcome = `${summary.winnerTeam ?? (summary.winners.join('+') || 'none')}|${scores}`;
   const winners = [...summary.winners].sort().join(',');
-  return createHash('sha256').update(`${TARNEEB}|${roomCode}|${outcome}|${winners}`).digest('hex');
+  return createHash('sha256').update(`${gameType}|${roomCode}|${outcome}|${winners}`).digest('hex');
 }
 
 interface TarneebStatsBlob {
@@ -92,9 +102,11 @@ export async function recordFinishedTarneebGame(
   const summary = summarizeFinishedTarneebGame(state);
   if (summary.players.length === 0) return { recorded: false };
 
+  // Solo records under game_type='tarneeb-solo'; pairs stays 'tarneeb' (Stage 28.4).
+  const gameType = tarneebStatsGameType(state);
   const deltas = computeTarneebStatDeltas(summary);
   const deltaByPlayer = new Map(deltas.map((d) => [d.playerId, d]));
-  const key = gameKey(roomCode, summary);
+  const key = gameKey(roomCode, summary, gameType);
 
   // The winning "seat" for the games row is ambiguous for a pair → leave the
   // sole-winner user null (both partners are marked winners on game_players).
@@ -103,7 +115,7 @@ export async function recordFinishedTarneebGame(
     const inserted = await tx.insert(games).values({
       gameKey: key,
       roomCode,
-      gameType: TARNEEB,
+      gameType,
       rulesetId: TARNEEB_RULESET,
       playerCount: summary.playerCount,
       status: 'finished',
@@ -136,7 +148,7 @@ export async function recordFinishedTarneebGame(
     if (summary.rounds.length > 0) {
       await tx.insert(rounds).values(summary.rounds.map((r) => ({
         gameId,
-        gameType: TARNEEB,
+        gameType,
         roundIndex: r.roundIndex,
         modeId: r.modeId,
         dealerPlayerId: null,
@@ -152,7 +164,7 @@ export async function recordFinishedTarneebGame(
       const delta = deltaByPlayer.get(p.playerId);
       if (!delta) continue;
       humanPlayers++;
-      await upsertTarneebUserStats(tx, userId, delta);
+      await upsertTarneebUserStats(tx, userId, delta, gameType);
     }
 
     return { recorded: true, gameId, humanPlayers };
@@ -164,9 +176,10 @@ async function upsertTarneebUserStats(
   tx: PostgresJsDatabase,
   userId: string,
   delta: TarneebStatDelta,
+  gameType: string,
 ): Promise<void> {
   const cur = (await tx.select().from(userStats)
-    .where(and(eq(userStats.userId, userId), eq(userStats.gameType, TARNEEB)))
+    .where(and(eq(userStats.userId, userId), eq(userStats.gameType, gameType)))
     .limit(1))[0];
   const prev = readTarneebStats(cur?.stats);
 
@@ -183,7 +196,7 @@ async function upsertTarneebUserStats(
   const now = new Date();
   const values = {
     userId,
-    gameType: TARNEEB,
+    gameType,
     gamesPlayed: (cur?.gamesPlayed ?? 0) + 1,
     gamesWon: (cur?.gamesWon ?? 0) + (delta.won ? 1 : 0),
     gamesLost: (cur?.gamesLost ?? 0) + (delta.won ? 0 : 1),
@@ -221,7 +234,7 @@ function toTarneebStatsView(
   const gamesPlayed = row?.gamesPlayed ?? 0;
   const decided = blob.contractsMade + blob.contractsFailed;
   return {
-    gameType: 'tarneeb',
+    gameType: 'tarneeb', // view shape is shared across variants (the caller knows the mode)
     gamesPlayed,
     gamesWon: row?.gamesWon ?? 0,
     gamesLost: row?.gamesLost ?? 0,
@@ -239,11 +252,12 @@ function toTarneebStatsView(
   };
 }
 
-/** Reads a user's cached Tarneeb stats as a full derived view. */
-export async function getTarneebStats(userId: string): Promise<TarneebStatsView> {
+/** Reads a user's cached Tarneeb stats as a full derived view (pairs by default). */
+export async function getTarneebStats(userId: string, variant: TarneebStatsVariant = 'pairs'): Promise<TarneebStatsView> {
   const db = await database();
+  const gameType = gameTypeForVariant(variant);
   const row = (await db.select().from(userStats)
-    .where(and(eq(userStats.userId, userId), eq(userStats.gameType, TARNEEB)))
+    .where(and(eq(userStats.userId, userId), eq(userStats.gameType, gameType)))
     .limit(1))[0];
   return toTarneebStatsView(row ?? null, readTarneebStats(row?.stats));
 }
@@ -269,9 +283,10 @@ export interface TarneebLeaderboardEntry {
  * caller's own row (`self`) and is NEVER returned. Mirrors getDebercLeaderboard.
  */
 export async function getTarneebLeaderboard(
-  limit = 20, selfUserId: string | null = null,
+  limit = 20, selfUserId: string | null = null, variant: TarneebStatsVariant = 'pairs',
 ): Promise<TarneebLeaderboardEntry[]> {
   const db = await database();
+  const gameType = gameTypeForVariant(variant);
   const rows = await db.select({
     userId: userStats.userId,
     displayName: users.displayName,
@@ -283,7 +298,7 @@ export async function getTarneebLeaderboard(
   }).from(userStats)
     .innerJoin(users, eq(users.id, userStats.userId))
     .leftJoin(userSettings, eq(userSettings.userId, userStats.userId))
-    .where(eq(userStats.gameType, TARNEEB))
+    .where(eq(userStats.gameType, gameType))
     .orderBy(desc(userStats.gamesWon), desc(userStats.gamesPlayed))
     .limit(Math.min(Math.max(limit, 1), 100));
   return rows.map((r) => {

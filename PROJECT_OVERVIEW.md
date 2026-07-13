@@ -32,7 +32,7 @@ auto-refresh mid-game), and an **offline** hint.
 | **King** | 3–4 | Trick-avoidance; Dealer's-Choice or fixed order — [`KING_RULES.md`](KING_RULES.md) |
 | **Durak** | 2–5 | Simple + Transfer variants — [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | 3 = solo, 4 = 2×2 teams; melds/bella/jackpot — [`DEBERC_RULES.md`](DEBERC_RULES.md) |
-| **Tarneeb** | 4 | Fixed 2×2 partnerships, bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Tarneeb** | 4 | Two modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + 2-card talon, 32-card — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
