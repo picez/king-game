@@ -32,6 +32,28 @@ export const MIN_BID = 3;
 export const MAX_BID = 13;
 export const HAND_TRICKS = 13;
 
+// --- Match target score (§10) ----------------------------------------------
+// The score a team/seat must reach to win the match. Configurable per game (Stage 29.8);
+// scoring per hand is UNCHANGED — only the finish threshold moves. Default 41.
+export const DEFAULT_TARGET_SCORE = 41;
+export const MIN_TARGET_SCORE = 21;
+export const MAX_TARGET_SCORE = 201;
+/** Suggested lobby presets (a hand can swing a lot, so keep them meaningful). */
+export const TARGET_SCORE_PRESETS = [31, 41, 61, 101] as const;
+
+/**
+ * Normalise a requested match target into a safe integer in [MIN, MAX]. Anything invalid
+ * (undefined / NaN / non-finite / non-number) falls back to the default 41, so old rooms and
+ * malformed input keep the released behaviour. Out-of-range values clamp to the nearest bound.
+ */
+export function normalizeTargetScore(value: unknown): number {
+  // Only a genuine finite number is a real target; null / undefined / NaN / Infinity / strings
+  // (incl. Number(null)===0) all fall back to the default so bad input never yields a tiny target.
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_TARGET_SCORE;
+  const rounded = Math.round(value);
+  return Math.min(MAX_TARGET_SCORE, Math.max(MIN_TARGET_SCORE, rounded));
+}
+
 // --- Seats / teams (§2) -----------------------------------------------------
 
 /** Counter-clockwise successor — the seat that acts after `seat` (0→3→2→1→0). */

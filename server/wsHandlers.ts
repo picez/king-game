@@ -18,6 +18,7 @@ import {
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
+import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -106,6 +107,9 @@ export function handleClientMessage(
       const matchSize = gameType === 'deberc' ? (msg.matchSize === 'big' ? 'big' : 'small') : undefined;
       // Tarneeb Solo/Pairs (Stage 28.4). Default Pairs; anything but 'solo' → pairs.
       const tarneebVariant = gameType === 'tarneeb' ? (msg.tarneebVariant === 'solo' ? 'solo' : 'pairs') : undefined;
+      // Tarneeb match target (Stage 29.8): normalised to a safe integer here (a missing/invalid
+      // value → the default 41), so the room stores a sane value the lobby can display pre-start.
+      const tarneebTargetScore = gameType === 'tarneeb' ? normalizeTargetScore(msg.tarneebTargetScore) : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create
       // leaves the connection's existing room intact.
@@ -124,6 +128,7 @@ export function handleClientMessage(
         variant,
         matchSize,
         tarneebVariant,
+        tarneebTargetScore,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },

@@ -234,11 +234,15 @@ doubles to **+26** via §8. Only the extra flat Kaboot bonus / instant-win is of
 
 ## 10. Game End
 
-- **`[MVP]`** Default **target score: 41**. The first team to **reach or exceed
-  41** wins the match.
+- **`[MVP]`** Default **target score: 41**. The first team to **reach or exceed**
+  the target wins the match.
 - **Negative** running scores are allowed (a set team can go below zero).
-- **`[VARIANT]`** target **31** or **61** — documented alternatives.
-- `targetScore` is a **setup option** (default 41), configurable later; see §12.
+- **`[Stage 29.8]`** The target is **host-configurable at setup** for BOTH Pairs and
+  Solo — presets **31 / 41 / 61 / 101** (local setup + online Host sheet), default
+  **41** so existing/legacy rooms are unchanged. The value is normalised to a safe
+  integer in **[21, 201]** (invalid/missing → 41); it flows host → room → snapshot →
+  START_GAME and is preserved across rematch/restore. **Per-hand scoring is unchanged
+  — only the finish threshold moves.** The lobby shows the target (e.g. `Solo · 🎯 61`).
 - **`[MVP]`** **Tie / simultaneous crossing** (both teams ≥ target after the same
   hand — e.g. a set pushes both across): the team with the **higher score wins**.
   If the scores are **exactly equal**, the game is **not** finished — **play one

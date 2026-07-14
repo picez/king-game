@@ -54,7 +54,8 @@ describe('StartMenu — Tarneeb is selectable local AND online (released)', () =
     expect(menu).toContain('disabled: !usable');
   });
   it("host() sends gameType 'tarneeb' and still guards non-online games", () => {
-    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant }");
+    // Stage 29.8: the create spread also threads the chosen match target.
+    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore }");
     // The generic supportsOnline guard stays (defensive; passes for Tarneeb now).
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
   });
@@ -241,11 +242,14 @@ function startSolo(dealerSeat: number, rng: Rng): TarneebState {
 describe('local Tarneeb setup exposes Pairs (default) + Solo', () => {
   const setup = read('./TarneebSetup.tsx');
   const local = read('./TarneebLocalGame.tsx');
-  it('setup offers both modes and defaults to Pairs', () => {
+  it('setup offers both modes and defaults to Pairs, plus a target-score picker (Stage 29.8)', () => {
     expect(setup).toContain("t('tarneeb.modePairs')");
     expect(setup).toContain("t('tarneeb.modeSolo')");
     expect(setup).toContain("useState<TarneebVariant>('pairs')"); // default = pairs
-    expect(setup).toContain('onStart(variant)');
+    // Target score selector: presets + default 41; onStart now carries the chosen target.
+    expect(setup).toContain('TARGET_SCORE_PRESETS');
+    expect(setup).toContain('useState<number>(DEFAULT_TARGET_SCORE)');
+    expect(setup).toContain('onStart(variant, targetScore)');
   });
   it('the local game threads variant:solo ONLY for Solo (Pairs omits it → default)', () => {
     expect(local).toContain("...(variant === 'solo' ? { variant } : {})");

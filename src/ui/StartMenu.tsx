@@ -23,6 +23,7 @@ import { GAME_CATALOG, GAME_TYPES, normalizeFavoriteGame, type GameType, type Ga
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
+import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../games/tarneeb/rules';
 import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
@@ -82,6 +83,8 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   const [debercPlayers, setDebercPlayers] = useState<3 | 4>(3);
   // Tarneeb online mode (Stage 28.4): Pairs (2×2, default) or Solo (4p cutthroat).
   const [tarneebVariant, setTarneebVariant] = useState<TarneebVariant>('pairs');
+  // Tarneeb match target (Stage 29.8): the score that wins the match. Default 41 (unchanged).
+  const [tarneebTargetScore, setTarneebTargetScore] = useState<number>(DEFAULT_TARGET_SCORE);
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // Favorite game (Stage 13.3): the persisted default that pre-selects the picker.
   const [favoriteGame, setFavoriteGame] = useState<GameType>(() => loadFavoriteGame());
@@ -205,7 +208,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       kind: 'create', name: name.trim(), modeSelectionType, avatar,
       ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize, playerCount: debercPlayers } : {}),
-      ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant } : {}),
+      ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore } : {}),
       ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
@@ -502,6 +505,17 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                     ))}
                   </div>
                   <p className="durak-variant-desc">{tarneebVariant === 'pairs' ? t('tarneeb.modePairsDesc') : t('tarneeb.modeSoloDesc')}</p>
+                  <label className="field__label">🎯 {t('tarneeb.targetScore')}</label>
+                  <div className="segmented segmented--inline tarneeb-target-picker" role="group" aria-label={t('tarneeb.targetScore')}>
+                    {TARGET_SCORE_PRESETS.map((v) => (
+                      <button key={v} type="button"
+                        className={`segmented__tab ${tarneebTargetScore === v ? 'segmented__tab--active' : ''}`}
+                        aria-pressed={tarneebTargetScore === v}
+                        onClick={() => setTarneebTargetScore(v)}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {gameType === 'preferans' && (

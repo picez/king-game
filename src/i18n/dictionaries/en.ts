@@ -335,6 +335,7 @@ export const EN: Record<string, string> = {
   'tarneeb.tricks': 'Tricks',
   'tarneeb.score': 'Score',
   'tarneeb.player': 'Player',
+  'tarneeb.targetScore': 'Play to (points)',
   'tarneeb.hand': 'Hand',
   'tarneeb.nextHand': 'Next hand',
   'tarneeb.playAgain': 'Play again',

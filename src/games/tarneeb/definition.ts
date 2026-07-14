@@ -14,14 +14,15 @@ import { playerCountRange, type GameDefinition } from '../definition';
 import { tarneebReducer } from './engine';
 import { tarneebBotAction } from './ai';
 import { tarneebRedactStateFor } from './redact';
-import { getActingTarneebPlayerId, getActingTarneebSeat, isTarneebFinished } from './rules';
+import { getActingTarneebPlayerId, getActingTarneebSeat, isTarneebFinished, normalizeTargetScore } from './rules';
 import type { TarneebAction, TarneebState } from './types';
 
 const entry = GAME_CATALOG.tarneeb;
 
 /**
  * START_GAME from a room snapshot. Tarneeb is always 4 fixed-partnership seats,
- * target 41, kaboot off, no No-Trump (TARNEEB_RULES.md §2, §9, §6, §10). Invoked
+ * kaboot off, no No-Trump (TARNEEB_RULES.md §2, §9, §6). The match target is the
+ * host's choice (Stage 29.8, §10); a missing/legacy value normalises to 41. Invoked
  * by serverCore when a host starts an online Tarneeb room.
  */
 function buildTarneebStartAction(room: RoomSnapshot): TarneebAction {
@@ -32,11 +33,14 @@ function buildTarneebStartAction(room: RoomSnapshot): TarneebAction {
   // Variant (Stage 28.4): a Solo room threads variant:'solo'; anything else (incl. a
   // legacy room with no field) omits it → the reducer's default 'pairs'.
   const variant = room.tarneebVariant === 'solo' ? 'solo' : undefined;
+  // Match target (Stage 29.8): the host's chosen finish threshold. normalizeTargetScore
+  // maps a missing/legacy/invalid value to the default 41, so old rooms are unchanged.
+  const targetScore = normalizeTargetScore(room.tarneebTargetScore);
   return {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
-    options: { targetScore: 41, kabootMode: 'off', allowNoTrump: false },
+    options: { targetScore, kabootMode: 'off', allowNoTrump: false },
     ...(variant ? { variant } : {}),
   };
 }

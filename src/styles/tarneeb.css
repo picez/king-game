@@ -63,17 +63,24 @@
 }
 .tarneeb-finished__scores--solo { flex-wrap: wrap; }
 
-/* Ranked standings table: sorted by total score desc. Compact + high-contrast, fixed
-   columns so it never overflows 360/390; logical alignment so it reads in RTL too. */
+/* Ranked standings table: sorted by total score desc. COMPACT + CENTERED (Stage 29.8) — capped at
+   a small max-width and centred with margin-inline:auto so it no longer stretches the full board on
+   wide screens; fixed columns + a card so it never overflows 360/390 and reads in RTL too. */
 .tarneeb-rank {
-  width: 100%;
+  width: min(100%, 19rem);
+  max-inline-size: 19rem;
+  margin-inline: auto;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  overflow: hidden;
 }
 .tarneeb-rank thead th {
-  padding: 0.12rem 0.35rem;
-  font-size: 0.64rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.58rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -81,20 +88,20 @@
   text-align: center;
 }
 .tarneeb-rank thead th.tarneeb-rank__name { text-align: start; }
-.tarneeb-rank__place { width: 1.8rem; text-align: center; font-weight: 800; color: var(--text-dim); }
-.tarneeb-rank__name { text-align: start; }
-.tarneeb-rank__bid { width: 3.4rem; text-align: center; }
-.tarneeb-rank__tricks { width: 2.7rem; text-align: center; }
-.tarneeb-rank__score { width: 3.2rem; text-align: center; }
+.tarneeb-rank__place { width: 1.5rem; text-align: center; font-weight: 800; color: var(--text-dim); }
+.tarneeb-rank__name { width: auto; text-align: start; }
+.tarneeb-rank__bid { width: 2.9rem; text-align: center; }
+.tarneeb-rank__tricks { width: 2.1rem; text-align: center; }
+.tarneeb-rank__score { width: 2.6rem; text-align: center; }
 .tarneeb-rank tbody td {
-  padding: 0.32rem 0.35rem;
+  padding: 0.26rem 0.3rem;
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
-.tarneeb-rank__turn { color: var(--accent, #e8c078); margin-inline-end: 0.2rem; font-size: 0.72em; }
+.tarneeb-rank__turn { color: var(--accent, #e8c078); margin-inline-end: 0.18rem; font-size: 0.7em; }
 .tarneeb-rank__nametext {
   display: inline-block;
-  max-width: 8.5rem;
+  max-width: 6.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -103,7 +110,7 @@
 }
 .tarneeb-rank__bidmark { color: var(--accent-light); font-weight: 800; white-space: nowrap; }
 td.tarneeb-rank__tricks { font-weight: 800; color: var(--accent, #e8c078); font-variant-numeric: tabular-nums; }
-td.tarneeb-rank__score { font-weight: 900; font-size: 1.05rem; color: var(--text); font-variant-numeric: tabular-nums; }
+td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); font-variant-numeric: tabular-nums; }
 /* Row states: my row a green wash; the acting row an accent wash + left bar; leader score glows.
    is-turn is declared after is-me so it wins when it's my turn. */
 .tarneeb-rank__row.is-me td { background: rgba(120, 220, 160, 0.1); }

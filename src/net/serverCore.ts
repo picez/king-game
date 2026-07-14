@@ -24,6 +24,7 @@ import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize, DebercState } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
 import type { TarneebState } from '../games/tarneeb/types';
+import { normalizeTargetScore } from '../games/tarneeb/rules';
 import type { PreferansState } from '../games/preferans/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
@@ -107,6 +108,8 @@ export interface ServerRoom {
   matchSize?: DebercMatchSize;
   /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
   tarneebVariant?: TarneebVariant;
+  /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
+  tarneebTargetScore?: number;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5;
@@ -227,6 +230,8 @@ export function createRoom(opts: {
   matchSize?: DebercMatchSize;
   /** Tarneeb variant ('pairs' | 'solo'); ignored for other games. */
   tarneebVariant?: TarneebVariant;
+  /** Tarneeb match target score (Stage 29.8); ignored for other games. */
+  tarneebTargetScore?: number;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -248,6 +253,7 @@ export function createRoom(opts: {
     variant: opts.variant,
     matchSize: opts.matchSize,
     tarneebVariant: opts.tarneebVariant,
+    tarneebTargetScore: opts.tarneebTargetScore,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -850,6 +856,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     variant: room.variant,
     matchSize: room.matchSize,
     tarneebVariant: room.tarneebVariant,
+    tarneebTargetScore: room.tarneebTargetScore,
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -889,6 +896,7 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     ...(room.matchSize ? { matchSize: room.matchSize } : {}),
     // Only present for Tarneeb → other games' summaries are unchanged.
     ...(room.tarneebVariant ? { tarneebVariant: room.tarneebVariant } : {}),
+    ...(room.tarneebTargetScore ? { tarneebTargetScore: room.tarneebTargetScore } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -974,6 +982,8 @@ export interface PersistedRoom {
   matchSize?: DebercMatchSize;
   /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
   tarneebVariant?: TarneebVariant;
+  /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
+  tarneebTargetScore?: number;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -998,6 +1008,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     variant: room.variant,
     matchSize: room.matchSize,
     tarneebVariant: room.tarneebVariant,
+    tarneebTargetScore: room.tarneebTargetScore,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1060,6 +1071,9 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     matchSize: o.matchSize === 'small' || o.matchSize === 'big' ? o.matchSize : undefined,
     // Legacy rooms (no field) or a bad value → undefined → the reducer reads pairs.
     tarneebVariant: o.tarneebVariant === 'solo' ? 'solo' : o.tarneebVariant === 'pairs' ? 'pairs' : undefined,
+    // Match target (Stage 29.8): re-normalise on restore; a missing/legacy value stays undefined
+    // (buildStartAction then applies the default 41), any present value is clamped to a safe range.
+    tarneebTargetScore: o.tarneebTargetScore != null ? normalizeTargetScore(o.tarneebTargetScore) : undefined,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

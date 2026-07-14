@@ -55,14 +55,19 @@ export default function TarneebLocalGame({ onExit }: { onExit: () => void }) {
     return () => clearTimeout(timer);
   }, [state, reviewTrick, apply]);
 
-  function start(variant: TarneebVariant) {
+  function start(variant: TarneebVariant, targetScore: number) {
     const playerNames = ['You', ...localBotNames('tarneeb', 3, ['You'])];
     const playerTypes: PlayerType[] = ['human', 'ai', 'ai', 'ai'];
     setReviewTrick(null);
     prevCompleted.current = 0;
     // Solo passes variant:'solo'; Pairs omits it so the state is the released
-    // default ('pairs') — byte-for-byte the same start as before (Stage 28.3).
-    apply({ type: 'START_GAME', playerNames, playerTypes, ...(variant === 'solo' ? { variant } : {}) });
+    // default ('pairs'). The match target (Stage 29.8) rides in options; the reducer
+    // normalises it (a missing/invalid value → the default 41).
+    apply({
+      type: 'START_GAME', playerNames, playerTypes,
+      options: { targetScore },
+      ...(variant === 'solo' ? { variant } : {}),
+    });
   }
 
   function playAgain() {

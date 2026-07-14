@@ -24,6 +24,7 @@ import {
   HAND_TRICKS,
   isSoloTarneeb,
   nextSeatCounterClockwise,
+  normalizeTargetScore,
   NUM_SEATS,
   otherTeam,
   teamOfSeat,
@@ -87,6 +88,9 @@ function startGame(action: Extract<TarneebAction, { type: 'START_GAME' }>, rng: 
   const options: TarneebOptions = {
     ...DEFAULT_OPTIONS,
     ...(action.options ?? {}),
+    // Match target is configurable (Stage 29.8) but always normalised to a safe integer in range;
+    // a missing/invalid value falls back to the default 41 so old callers are unchanged.
+    targetScore: normalizeTargetScore(action.options?.targetScore),
     // MVP hard-defaults — no No-Trump, kaboot off (§6, §9).
     kabootMode: 'off',
     allowNoTrump: false,

@@ -86,6 +86,14 @@ describe('firstConnectMessage', () => {
     expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'tarneeb' }))
       .not.toHaveProperty('tarneebVariant');
   });
+
+  it('carries a chosen Tarneeb match target; omits it when the host did not set one (Stage 29.8)', () => {
+    const msg = firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'tarneeb', tarneebTargetScore: 61 });
+    expect(msg).toMatchObject({ t: 'CREATE_ROOM', gameType: 'tarneeb', tarneebTargetScore: 61 });
+    // No target chosen → no field sent (server applies the default 41).
+    expect(firstConnectMessage({ kind: 'create', name: 'A', modeSelectionType: 'fixed', gameType: 'tarneeb' }))
+      .not.toHaveProperty('tarneebTargetScore');
+  });
 });
 
 describe('humanError', () => {

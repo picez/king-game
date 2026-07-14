@@ -84,6 +84,25 @@ describe('wsHandlers now allows hosting Tarneeb online (Stage 10.5)', () => {
     expect([...def.rooms.values()][0].tarneebVariant).toBe('pairs');
   });
 
+  it('CREATE_ROOM honors + normalises the Tarneeb match target (Stage 29.8)', () => {
+    const host = (tarneebTargetScore?: number): ClientMessage =>
+      ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType: 'tarneeb', tarneebTargetScore } as ClientMessage);
+
+    const custom = makeCtx();
+    handleClientMessage(custom.ctx, socket, { value: null } as SessionRef, () => {}, host(61), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...custom.rooms.values()][0].tarneebTargetScore).toBe(61);
+
+    // Omitted (legacy client) → the default 41 (never undefined for a Tarneeb room).
+    const def = makeCtx();
+    handleClientMessage(def.ctx, socket, { value: null } as SessionRef, () => {}, host(undefined), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...def.rooms.values()][0].tarneebTargetScore).toBe(41);
+
+    // A malicious/out-of-range value is clamped, not stored verbatim.
+    const bad = makeCtx();
+    handleClientMessage(bad.ctx, socket, { value: null } as SessionRef, () => {}, host(99999), new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0));
+    expect([...bad.rooms.values()][0].tarneebTargetScore).toBe(201);
+  });
+
   it('CREATE_ROOM with an unknown game type is still rejected', () => {
     const { ctx, rooms, errors } = makeCtx();
     const sessionRef: SessionRef = { value: null };

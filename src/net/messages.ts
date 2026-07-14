@@ -64,6 +64,8 @@ export interface RoomSnapshot {
   matchSize?: DebercMatchSize;
   /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
   tarneebVariant?: TarneebVariant;
+  /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
+  tarneebTargetScore?: number;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -99,6 +101,8 @@ export interface RoomSummary {
   matchSize?: DebercMatchSize;
   /** Tarneeb variant ('pairs' | 'solo'); undefined (→ pairs) for other games. */
   tarneebVariant?: TarneebVariant;
+  /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
+  tarneebTargetScore?: number;
   playerCount: 2 | 3 | 4 | 5;
   occupiedSeats: number;
   hasPassword: boolean;
@@ -144,7 +148,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */

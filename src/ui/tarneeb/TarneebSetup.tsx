@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import type { TarneebVariant } from '../../games/tarneeb/types';
+import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../../games/tarneeb/rules';
 import { TarneebRulesList } from './TarneebHelp';
 
 interface Props {
-  onStart: (variant: TarneebVariant) => void;
+  onStart: (variant: TarneebVariant, targetScore: number) => void;
   onExit: () => void;
 }
 
@@ -20,6 +21,8 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [variant, setVariant] = useState<TarneebVariant>('pairs');
+  // Match target (Stage 29.8): choose how many points wins the match. Default 41 (unchanged).
+  const [targetScore, setTargetScore] = useState<number>(DEFAULT_TARGET_SCORE);
 
   const modes: { id: TarneebVariant; name: string; desc: string }[] = [
     { id: 'pairs', name: t('tarneeb.modePairs'), desc: t('tarneeb.modePairsDesc') },
@@ -50,9 +53,17 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
           ))}
         </div>
 
-        <p className="tarneeb-setup__target">
-          🎯 {t('tarneeb.target')}: <strong>41</strong>
-        </p>
+        <label className="field__label tarneeb-setup__target-label">🎯 {t('tarneeb.targetScore')}</label>
+        <div className="segmented segmented--inline tarneeb-target-picker" role="group" aria-label={t('tarneeb.targetScore')}>
+          {TARGET_SCORE_PRESETS.map((v) => (
+            <button key={v} type="button"
+              className={`segmented__tab ${targetScore === v ? 'segmented__tab--active' : ''}`}
+              aria-pressed={targetScore === v}
+              onClick={() => setTargetScore(v)}>
+              {v}
+            </button>
+          ))}
+        </div>
         <p className="tarneeb-setup__hint">{t('tarneeb.botsHint')}</p>
 
         <button
@@ -65,7 +76,7 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
         </button>
         {showHelp && <TarneebRulesList />}
 
-        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={() => onStart(variant)}>
+        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={() => onStart(variant, targetScore)}>
           {t('tarneeb.start')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onExit}>

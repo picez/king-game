@@ -62,11 +62,15 @@ cover each in depth.
       **bigger clock + countdown**, and **pulses when low**. It is **never over** the table cards, hand,
       or bid/trump action bars at 360/390 (a tap lands on the control/card underneath). Timer **off** →
       no pill. Low-time sound **only on your turn**.
-- [ ] **Tarneeb ranked score table (Stage 29.7, Unreleased):** the HUD is a **table sorted by total
-      score (highest first)** — columns **# · player/team · ▶bid · 🃏tricks · ★score**. The
-      declarer/high-bidder row shows **▶ + amount**; **Solo** lists 4 players by name (no Team A/B),
-      **Pairs** lists Us/Them. Your row is tinted, the acting row washed + ●, the leader shows 👑. Rows
-      do **not** reorder mid-trick; no 360/390 overflow. **Deberc** score chips unchanged (29.5 style).
+- [ ] **Tarneeb ranked score table (Stage 29.7; compact/centered 29.8, Unreleased):** the HUD is a
+      **compact, centered table** (capped width + subtle card) sorted by total score — columns
+      **# · player/team · ▶bid · 🃏tricks · ★score**. The declarer/high-bidder row shows **▶ + amount**;
+      **Solo** lists 4 players by name (no Team A/B), **Pairs** lists Us/Them. Your row is tinted, the
+      acting row washed + ●, the leader shows 👑. Rows do **not** reorder mid-trick; no 360/390 overflow.
+- [ ] **Tarneeb match target (Stage 29.8, Unreleased):** host a Tarneeb room, pick **🎯 61** in the
+      Host sheet → the room-browser/lobby line shows **`· 🎯 61`**; after Start the in-game 🎯 reads
+      **61** and the match ends at 61. Works for **Pairs and Solo**; a legacy client (no target) →
+      **41**. Rematch keeps the chosen target. Per-hand scoring unchanged.
 - [ ] **Tarneeb scoring (v0.3.3) — Pairs AND Solo:** in the hand-complete panel, a declarer who
       takes **exactly** the bid scores **bid×2** (bid 7 → **+14**, with the "✨ exact bid double"
       note); **more** than the bid scores the **actual tricks** (bid 7, 10 tricks → **+10**); a

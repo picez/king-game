@@ -9,8 +9,23 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **Tarneeb match target is now host-configurable (Stage 29.8, owner).** When creating a Tarneeb
+  room (online Host sheet) or a local Tarneeb game, you now choose how many points win the match —
+  presets **31 / 41 / 61 / 101**, for **both Pairs and Solo**. The default stays **41**, so existing
+  and legacy rooms are unchanged. The value is validated/clamped server-side (safe integer 21–201;
+  invalid/missing → 41), flows through the whole online path (create → room → snapshot → start), is
+  preserved across rematch and server restart, and the lobby shows it (e.g. `Solo · 🎯 61`). **Per-hand
+  scoring is unchanged — only the finish threshold moves.** No DB migration, no protocol break
+  (a new optional field), no new achievements.
+
 ### Changed
 
+- **Tarneeb score table made compact and centered (Stage 29.8, owner).** The ranked standings table
+  from 29.7 stretched the full board width; it is now capped to a small max-width, centered, and
+  wrapped in a subtle card — easier to read on 360/390 with no horizontal overflow. Content/behaviour
+  unchanged.
 - **Per-turn timer moved into the social control cluster (Stage 29.7, owner).** After 29.5 put the
   online timer at the bottom of the table it could still sit over the cards/bidding bars. It now rides
   **inside the bottom-right RoomSocial cluster**, next to the voice/emoji/chat buttons — a compact pill

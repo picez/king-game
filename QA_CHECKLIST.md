@@ -369,14 +369,20 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       Lobby header reads **"2 teams"** (not "Dealer's Choice").
 - [ ] **Select Tarneeb** → Host tile enabled; a room is exactly **4 seats**
       (fixed 2×2); starting before 4 seats is rejected.
+- [ ] **Match target selector (Stage 29.8):** the Host sheet shows a **🎯 Play-to** picker with
+      presets **31 / 41 / 61 / 101** (default **41**), for **both Pairs and Solo**. Pick **61** →
+      the **lobby line shows `· 🎯 61`**, and after **Start** the in-game `🎯` reads **61** and the
+      match ends at 61 (not 41). An older client that sends no target → the room defaults to **41**.
+      The **local** Tarneeb setup has the same picker; per-hand scoring is unchanged either way.
 - [ ] **Help modal** explains: 4 players / partners opposite, bid 3–13, declarer
       names trump + leads, follow suit, made vs set scoring, all-13 = +13, target 41.
 - [ ] **Host + Add bots + Start** → the **Tarneeb** table renders (seats around
       the felt, viewer bottom, partner top), with bidding → trump → trick play.
 - [ ] **Readouts:** scoreboard shows the **highest bid + bidder**, the **trump**,
       the **led suit** during play, and per-team trick counts; illegal cards dim.
-- [ ] **Ranked score table (Stage 29.7):** the HUD is a compact **table sorted by total score
-      (highest first)** with columns **# · player/team · ▶bid · 🃏tricks · ★score**. The
+- [ ] **Ranked score table (Stage 29.7; compact/centered in 29.8):** the HUD is a **compact,
+      centered table** (capped width + a subtle card, not full-board-wide) sorted by total score
+      (highest first) with columns **# · player/team · ▶bid · 🃏tricks · ★score**. The
       **declarer/highest bidder** row shows **▶ + the bid amount**; **🃏** is tricks this hand, **★** is
       the running total. **Solo** lists the **4 players by name** (no Team A/B); **Pairs** lists the two
       teams as **Us/Them** and keeps the team-tricks viewer. Your row is tinted, the **acting** row is
