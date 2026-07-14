@@ -508,15 +508,16 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
 
-## Manual — 51 (Syrian 51) — LOCAL (Stage 30.3) + ONLINE experimental (Stage 30.5), no stats yet
+## Manual — 51 (Syrian 51) — LOCAL (30.3) + ONLINE (30.5) + STATS (30.6), experimental
 
-> **51 is local AND online playable (experimental) — but NOT released.** The pure core + shared UI
-> live under `src/games/fiftyOne/` / `src/ui/fiftyOne/` ([`51_RULES.md`](51_RULES.md) ·
-> [`51_PLAN.md`](51_PLAN.md)); **both the Local and Host pickers enable it** ("Experimental"). Online
-> is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction,
-> rematch/reconnect) via the generic `ACTION_REQUEST` path — **no stats/leaderboard/favorite/
-> achievements yet** (`status: experimental`, not `available`). The standing assertion is that **the
-> five released games are unchanged**.
+> **51 is local AND online playable, and records score-only stats (experimental) — but NOT released.**
+> The pure core + shared UI live under `src/games/fiftyOne/` / `src/ui/fiftyOne/`
+> ([`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md)); **both the Local and Host pickers enable
+> it** ("Experimental"). Online is server-authoritative (create/join/start, bots, seeded round advance,
+> per-viewer redaction, rematch/reconnect). Stage 30.6 adds **score-only stats + leaderboard** under
+> `game_type='fifty-one'` (no DB migration) with a Profile sub-tab — **still no favorite/achievements**
+> (`status: experimental`, not `available`). The standing assertion is that **the five released games'
+> stats and achievements are unchanged**.
 
 - [x] *(Stage 30.1)* Pure core built: **no** catalog/registry `fiftyOne`, **no** UI, **no**
       `game_type='fifty-one'` wiring — 51 is invisible in the running app. `git grep -n fiftyOne
@@ -568,9 +569,18 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       disabled; the between-rounds summary appears and the **server** starts the next round (no
       "Next round" button online); match winner + **Play again** (rematch) works; **reconnect** after a
       reload restores own hand only. **No horizontal overflow; cards/controls do not overlap.** Arabic
-      **RTL** smoke. **No stats recorded** (experimental).
-- [ ] *(30.6–30.7)* Per-`game_type='fifty-one'` stats + leaderboard (no migration); icon +
-      achievements; help hub.
+      **RTL** smoke.
+- [x] *(30.6)* **Score-only stats + leaderboard.** Automated: `net/fiftyOneStats.test.ts` (pure
+      2p/3p/4p summaries + no-card JSON scan + stable signature), `net/fiftyOneStatsWiring.test.ts`
+      (finish-path/API wiring + **latest migration still 0009** + achievements/All-Rounder untouched),
+      `net/fiftyOneStats.integration.test.ts` (DB-gated: winner/loser deltas, bot/guest excluded,
+      idempotent, privacy sweep), API-503 + catalog/registry/platformAudit/localGating. **51 records
+      stats but stays experimental** — not favoritable, not achievement-eligible.
+- [ ] *(30.6, manual — needs Postgres)* After a **signed-in** online 51 game (2+ humans, **no bots**
+      or the game is skipped), Profile → **Stats → 51** shows games/win-rate/avg-penalty/eliminations;
+      **Leaderboard → 51** lists the player (own row highlighted). A game **with a bot** or a **guest**
+      records nothing. `curl -sI $HOST/api/games/fifty-one/stats` → 200 for a signed-in user.
+- [ ] *(30.7)* Achievements / favorite / PNG icon / help hub + flip to `available`.
 
 ## Manual — Deberc combination stats (Stage 13.8)
 

@@ -31,7 +31,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
-| **51** (Syrian 51) | 2–4 | **LOCAL + ONLINE PLAYABLE — experimental (Stage 30.5).** Pure core + shared UI; **both Local and Host pickers enabled** ("Experimental"). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect) via the generic ACTION_REQUEST path — **no stats/leaderboard/favorite yet** (not `available`). Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
+| **51** (Syrian 51) | 2–4 | **LOCAL + ONLINE + STATS — experimental (Stage 30.6).** Pure core + shared UI; **both Local and Host pickers enabled** ("Experimental"). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect). **Score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration) with a Profile sub-tab. **Still NOT `available`** — no favorite, no achievements/All-Rounder yet. Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
 
 **51 / Syrian 51** (the **6th game**) is a **local-playable experimental prototype** as of Stage
 30.3 — the **pure core** (`src/games/fiftyOne/`, Stage 30.1) plus a **local UI** (`src/ui/fiftyOne/`:
@@ -42,8 +42,11 @@ enables it (flagged "Experimental"); as of Stage 30.5 the **Host/online** picker
 51 room, `START_GAME` deals server-side, every move flows through the generic `ACTION_REQUEST`
 (acting-seat authorised, illegal moves no-op'd), the server drives bots and the public
 `round_complete` advance (seeded `START_NEXT_ROUND`), and each client is redacted to its own hand;
-rematch/reconnect reuse the shared flows. It is **still `experimental`, not `available`** — no
-stats/leaderboard (30.6), achievements or favorites yet. It is a rummy-style
+rematch/reconnect reuse the shared flows. As of Stage 30.6 it also records **score-only stats +
+leaderboard** under `game_type='fifty-one'` (no DB migration; per-seat final penalty / eliminated /
+winner, aggregated to win rate + avg/best penalty + eliminations + rounds) with a Profile sub-tab.
+It is **still `experimental`, not `available`** — no favorites and no achievements/All-Rounder yet
+(Stage 30.7). It is a rummy-style
 get-rid-of-your-hand game (form runs/sets, open with 51+ points, jokers wild, penalty scoring,
 eliminate at 510). Rules are in [`51_RULES.md`](51_RULES.md) (all §16 MVP defaults implemented
 in 30.1); the staged build (30.1 core → 30.7 release) is in [`51_PLAN.md`](51_PLAN.md).

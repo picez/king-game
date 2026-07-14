@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------------------
-// 51 (Syrian 51) GameDefinition (Stage 30.2).
+// 51 (Syrian 51) GameDefinition (Stage 30.2; online 30.5; stats 30.6).
 //
-// Registers the 51 pure core (Stage 30.1) as a GameDefinition so the platform is
-// AWARE of the game (catalog picker, registry, /api/games). 51 is **coming_soon**:
-// `supportsLocal`/`supportsOnline` are false in the catalog, so it is never
-// startable local or online yet, and `recordsStats` is false. The local prototype
-// is Stage 30.3 and online is 30.4–30.5. This wrapper moves no logic — it just
-// references the existing fiftyOne modules. Mirrors tarneeb/definition.ts.
+// Registers the 51 pure core (Stage 30.1) as a GameDefinition that plugs into the
+// catalog picker / registry / serverCore / stats seams. As of Stage 30.5 51 is
+// EXPERIMENTAL and playable **local + online** (catalog supportsLocal/Online true);
+// Stage 30.6 turns on score-only stats (`recordsStats: true` → the WS finish path
+// records under game_type='fifty-one'). It is NOT yet fully released (`status:
+// 'experimental'` — no favorite, no achievements until 30.7). This wrapper moves no
+// logic — it just references the existing fiftyOne modules. Mirrors tarneeb/definition.ts.
 // ---------------------------------------------------------------------------
 
 import type { RoomSnapshot } from '../../net/messages';
@@ -22,10 +23,8 @@ const entry = GAME_CATALOG['fifty-one'];
 
 /**
  * START_GAME from a room snapshot. 51 seats every player individually (no teams);
- * the player count comes from the seated members (2–4). NOTE: 51 is coming_soon,
- * so the server never actually reaches this path (online room creation is rejected
- * for a game with supportsOnline=false) — it exists so the definition is complete
- * and unit-testable, exactly like the released games.
+ * the player count comes from the seated members (2–4). Reached on the online host
+ * path (Stage 30.5, experimental) exactly like the released games.
  */
 function buildFiftyOneStartAction(room: RoomSnapshot): FiftyOneAction {
   const players = room.members
@@ -57,5 +56,9 @@ export const fiftyOneGameDefinition: GameDefinition<FiftyOneState, FiftyOneActio
   botAction: fiftyOneDefinitionBotAction,
   redactStateFor: fiftyOneRedactStateFor,
   isFinished: isFiftyOneFinished,
-  recordsStats: false, // Stage 30.2: coming_soon — no stats until 30.6
+  // Stage 30.6: online finished 51 games record score-only stats under
+  // game_type='fifty-one' (see server/db/fiftyOneStats.ts). 51 stays EXPERIMENTAL —
+  // stats + leaderboard exist, but it is not yet `available` / favoritable /
+  // achievement-eligible (that is Stage 30.7).
+  recordsStats: true,
 };

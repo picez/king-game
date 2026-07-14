@@ -377,6 +377,51 @@ export async function fetchPreferansStats(base: string): Promise<Loadable<Prefer
   return failFor(status);
 }
 
+/** My 51 (Syrian 51) stats — cutthroat-rummy outcome (win/loss) + penalty aggregates. */
+export interface FiftyOneStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number | null;
+  roundsPlayed: number;
+  /** Games in which the user was eliminated (penalty ≥ target). */
+  timesEliminated: number;
+  /** Cumulative sum of the user's final running penalties (lower is better). */
+  totalPenalty: number;
+  averagePenalty: number | null;
+  /** Best (lowest) final penalty across games, or null when none. */
+  bestPenalty: number | null;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into FiftyOneStats. */
+export function parseFiftyOneStats(raw: unknown): FiftyOneStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  const totalPenalty = num(s.totalPenalty);
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    roundsPlayed: num(s.roundsPlayed),
+    timesEliminated: num(s.timesEliminated),
+    totalPenalty,
+    averagePenalty: 'averagePenalty' in s ? numOrNull(s.averagePenalty) : (gamesPlayed > 0 ? Math.round(totalPenalty / gamesPlayed) : null),
+    bestPenalty: numOrNull(s.bestPenalty),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/fifty-one/stats — the signed-in/guest user's own 51 stats. */
+export async function fetchFiftyOneStats(base: string): Promise<Loadable<FiftyOneStats>> {
+  const { status, data } = await getJson(base, '/api/games/fifty-one/stats');
+  if (status === 200) return { state: 'ok', data: parseFiftyOneStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
@@ -568,6 +613,49 @@ export async function fetchPreferansLeaderboard(base: string): Promise<Loadable<
     const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
       .map(parsePreferansLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
+/** One public 51 leaderboard row — no user id; `self` marks the caller. */
+export interface FiftyOneLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  averagePenalty: number | null;
+  bestPenalty: number | null;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parseFiftyOneLeaderboardRow(e: Record<string, unknown>): FiftyOneLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    averagePenalty: numOrNull(e.averagePenalty),
+    bestPenalty: numOrNull(e.bestPenalty),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/fifty-one/leaderboard — public top 51 players. */
+export async function fetchFiftyOneLeaderboard(base: string): Promise<Loadable<FiftyOneLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/fifty-one/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parseFiftyOneLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);

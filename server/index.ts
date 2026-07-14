@@ -54,11 +54,13 @@ import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
 import { preferansFinishSignature } from '../src/net/preferansStats';
+import { fiftyOneFinishSignature } from '../src/net/fiftyOneStats';
 import type { GameState } from '../src/models/types';
 import type { DurakState } from '../src/games/durak/types';
 import type { DebercState } from '../src/games/deberc/types';
 import type { TarneebState } from '../src/games/tarneeb/types';
 import type { PreferansState } from '../src/games/preferans/types';
+import type { FiftyOneState } from '../src/games/fiftyOne/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 import { IpConnectionLimiter, DEFAULT_IP_RATE_LIMITS, type IpRateLimitConfig } from '../src/net/ipRateLimit';
 
@@ -459,7 +461,8 @@ function maybeRecordFinished(room: ServerRoom): void {
     : gt === 'deberc' ? debercFinishSignature(state as DebercState)
       : gt === 'tarneeb' ? tarneebFinishSignature(state as TarneebState)
         : gt === 'preferans' ? preferansFinishSignature(state as PreferansState)
-          : finishSignature(room);
+          : gt === 'fifty-one' ? fiftyOneFinishSignature(state as FiftyOneState)
+            : finishSignature(room);
   if (recordedFinish.get(room.code) === sig) return;
   recordedFinish.set(room.code, sig);
 
@@ -482,7 +485,9 @@ function maybeRecordFinished(room: ServerRoom): void {
             ? await (await import('./db/tarneebStats')).recordFinishedTarneebGame(room.code, state as TarneebState, seatUsers)
             : gt === 'preferans'
               ? await (await import('./db/preferansStats')).recordFinishedPreferansGame(room.code, state as PreferansState, seatUsers)
-              : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
+              : gt === 'fifty-one'
+                ? await (await import('./db/fiftyOneStats')).recordFinishedFiftyOneGame(room.code, state as FiftyOneState, seatUsers)
+                : await (await import('./db/stats')).recordFinishedGame(room.code, state as GameState, seatUsers);
       if (res.recorded) {
         console.log(`[King] room ${room.code} ${room.gameType} stats recorded (${res.humanPlayers ?? 0} player(s))`);
       }

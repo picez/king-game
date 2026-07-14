@@ -4,10 +4,10 @@
 // its declared support tier. The FIVE released games must stay uniformly
 // available (catalog, GameDefinition, stats, favorite coverage, PNG icon); a
 // not-yet-released game (51 / Syrian 51, experimental) may be startable — local +
-// online-experimental (Stage 30.5) — yet must still be gated OFF where RELEASE
-// counts (no stats, no favorite, status !== 'available', no required PNG). Per-game
-// specifics live in the catalog/registry/gameIcon tests — this asserts the
-// CROSS-CUTTING invariants.
+// online-experimental (Stage 30.5) — and may even record score-only stats (Stage
+// 30.6), yet must still be gated OFF where RELEASE counts (not favoritable, status
+// !== 'available', no achievements/All-Rounder, no required PNG). Per-game specifics
+// live in the catalog/registry/gameIcon tests — this asserts the CROSS-CUTTING invariants.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -52,15 +52,15 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
     }
   });
 
-  it('available games record stats; a not-yet-released game records none (even if online-experimental)', () => {
+  it('available games record stats; a not-yet-released game may record stats but is not "available"', () => {
     for (const id of AVAILABLE) {
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} recordsStats`).toBe(true);
     }
     for (const id of NOT_RELEASED) {
-      // The RELEASE gate is `recordsStats` (+ favorite/PNG below), NOT online support:
-      // 51 is online-experimental (Stage 30.5) yet still records no stats and is not
-      // "available". That separation is exactly what keeps it out of the released tier.
-      expect(GAME_DEFINITIONS[id].recordsStats, `${id} no stats yet`).toBe(false);
+      // The RELEASE gate is `status === 'available'` + favorite/PNG coverage (below),
+      // NOT stats or online support: 51 is online-experimental AND records score-only
+      // stats (Stage 30.6) yet stays `experimental` and non-favoritable. That is what
+      // keeps it out of the released tier (achievements/All-Rounder untouched — 30.7).
       expect(GAME_CATALOG[id].status, `${id} not available`).not.toBe('available');
     }
   });

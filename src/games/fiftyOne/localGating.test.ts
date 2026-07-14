@@ -1,9 +1,11 @@
 // ---------------------------------------------------------------------------
 // 51 is an EXPERIMENTAL game: playable LOCAL (1 human + bots, Stage 30.3) AND
-// ONLINE (server-authoritative, Stage 30.5) but still NOT released — no favorite,
-// no stats until 30.6. These guards assert that tier from data + source, so a
-// future change that accidentally promotes 51 to the released tier (stats /
-// favorite) — or leaks its pure core into another game — is caught by `npm test`.
+// ONLINE (server-authoritative, Stage 30.5), and it records score-only stats +
+// leaderboard (Stage 30.6) — but it is still NOT released: no favorite, no
+// achievements / All-Rounder eligibility (that is Stage 30.7). These guards assert
+// that tier from data + source, so a future change that accidentally promotes 51 to
+// the released tier (favorite / achievements) — or leaks its pure core into another
+// game — is caught by `npm test`.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -38,9 +40,9 @@ describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
     expect(src).toContain("import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame'");
   });
 
-  it('records no stats and is excluded from the favorite-game list (release gate, not online)', () => {
-    expect(GAME_DEFINITIONS[ID].recordsStats).toBe(false);
-    expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(ID)).toBe(false);
+  it('records score-only stats (Stage 30.6) but is still NOT favoritable (release gate)', () => {
+    expect(GAME_DEFINITIONS[ID].recordsStats).toBe(true);  // Stage 30.6: stats on
+    expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(ID)).toBe(false); // still not released
   });
 
   it('CREATE_ROOM now ACCEPTS 51 (supportsOnline true); the generic guard still gates any online:false game', () => {
@@ -49,9 +51,15 @@ describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
     expect(GAME_CATALOG[ID].supportsOnline).toBe(true);   // → an online 51 room is now allowed
   });
 
-  it('does not ship a per-game stats tab (ProfileMenu GAMES stays the 5 available)', () => {
-    const src = read('src/ui/ProfileMenu.tsx');
-    expect(src).not.toContain("'fifty-one'");
+  it('ships a 51 stats + leaderboard sub-tab (Stage 30.6) but stays OUT of achievements', () => {
+    const profile = read('src/ui/ProfileMenu.tsx');
+    // 51 is a stats/leaderboard sub-tab now…
+    expect(profile).toContain("'fifty-one'");
+    expect(profile).toContain('FiftyOneStatsPanel');
+    expect(profile).toContain('FiftyOneLeaderboardPanel');
+    // …but the achievements derivation (AllStats) must NOT gain a 51 field (Stage 30.7).
+    const ach = read('src/stats/achievements.ts');
+    expect(ach).not.toMatch(/fiftyOne|fifty-one/);
   });
 });
 

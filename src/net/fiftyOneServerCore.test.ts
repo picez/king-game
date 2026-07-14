@@ -87,10 +87,10 @@ function drive(room: ServerRoom, opts: { stopPhase?: FiftyOneState['phase']; cap
 }
 
 describe('serverCore runs 51 internally (Stage 30.4 readiness)', () => {
-  it('51 is online-experimental but records NO stats (release gate, Stage 30.5)', () => {
+  it('51 is online-experimental and records score-only stats (still not "available")', () => {
     expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);   // Stage 30.5: hostable online
     expect(GAME_CATALOG['fifty-one'].status).toBe('experimental'); // still not fully released
-    expect(def.recordsStats).toBe(false);                          // no stats until 30.6
+    expect(def.recordsStats).toBe(true);                           // Stage 30.6: score-only stats on
   });
 
   it('createRoom(gameType:fifty-one) + startGame builds a FiftyOneState (13/14 deal)', () => {

@@ -155,12 +155,30 @@
 ### 30.5b — Full online release (future)
 - Flip catalog to **`available`**; production smoke entry, cross-device QA sign-off.
 
-### 30.6 — Stats / leaderboard
-- Per-`game_type='fifty-one'` stats via the shared serverCore stats seam (**no DB
-  migration** — same pattern as `tarneeb-solo`). Candidate fields: `gamesPlayed`,
-  `gamesWon`, `roundsWon`, `eliminations`, `averagePenalty`, `bestRoundPenalty`,
-  `opensMade`, `handPenalty100Count`. Profile stats tab + leaderboard. **Not built before
-  30.6.**
+### 30.6 — Stats / leaderboard foundation (still experimental) — ✅ DONE
+- **Score-only stats + leaderboard under `game_type='fifty-one'`, NO DB migration** (the
+  free-text `game_type` column already accepts it; same pattern as `tarneeb-solo`/Preferans).
+  Pure summarizer `src/net/fiftyOneStats.ts` turns a finished `FiftyOneState` into a
+  public, score-level summary (per-seat **final running penalty**, **eliminated** flag,
+  **isWinner**, winner set, rounds played) + per-player deltas + a `fiftyOneFinishSignature`
+  — **NEVER** cards / hands / draw pile / melds / discards. DB repo
+  `server/db/fiftyOneStats.ts` (record/get/leaderboard) increments the per-(user,
+  `fifty-one`) `user_stats` cache (columns `gamesPlayed`/`gamesWon`/`gamesLost`/`roundsPlayed`
+  + JSONB `timesEliminated`/`totalPenalty`/`bestPenalty`) in ONE transaction, **idempotent via
+  `games.game_key`**, **bots/guests skipped** (existing human-vs-human owner rule). Wired into
+  the WS finish path (`recordsStats: true` + `server/index.ts` signature/recorder branches) and
+  the API (`GET /api/games/fifty-one/stats` + `/leaderboard`). Client `statsApi` types/parse/fetch
+  + a **51 stats + leaderboard sub-tab** in ProfileMenu (`FiftyOneStatsPanel` / `FiftyOneLeaderboardPanel`:
+  win rate, games, avg/best penalty, eliminations, rounds), i18n en/uk/de/ar. Derived view metrics:
+  `winRate`, `averagePenalty`, `bestPenalty` (lowest = best), `timesEliminated`, `roundsPlayed`.
+  (`roundsWon`/`opensMade`/`handPenalty100Count` are NOT tracked — the final state keeps no
+  per-seat round/open history, so they are honestly omitted, not faked.) **Still `experimental`:
+  NOT favoritable, NOT in achievements/All-Rounder** (a guard test enforces this until 30.7).
+  Tests: `fiftyOneStats.test.ts` (pure 2p/3p/4p summaries + no-card JSON scan + signature),
+  `fiftyOneStatsWiring.test.ts` (finish-path/API wiring + no migration + no achievements guard),
+  `fiftyOneStats.integration.test.ts` (DB-gated), API 503 + catalog/registry/platformAudit/localGating.
+  **No DB migration, no achievements, no favorite, no PNG, no rule change, no new dependency; the
+  five released games' stats/achievements are unchanged.**
 
 ### 30.7 — Achievements / icon / release cleanup
 - Game emblem/icon (like the other five), derived achievements (no DB write, same as the

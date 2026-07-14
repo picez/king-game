@@ -6,9 +6,11 @@ import {
   fetchKingStats, fetchKingLeaderboard, fetchDurakStats, fetchDurakLeaderboard,
   fetchDebercStats, fetchDebercLeaderboard, fetchTarneebStats, fetchTarneebLeaderboard,
   fetchPreferansStats, fetchPreferansLeaderboard,
+  fetchFiftyOneStats, fetchFiftyOneLeaderboard,
   type KingStats, type DurakStats, type DebercStats, type TarneebStats, type PreferansStats,
+  type FiftyOneStats,
   type LeaderboardEntry, type DurakLeaderboardEntry, type DebercLeaderboardEntry,
-  type TarneebLeaderboardEntry, type PreferansLeaderboardEntry, type Loadable,
+  type TarneebLeaderboardEntry, type PreferansLeaderboardEntry, type FiftyOneLeaderboardEntry, type Loadable,
 } from '../net/statsApi';
 import ProfilePanel from './menu/ProfilePanel';
 import FriendsPanel from './components/FriendsPanel';
@@ -28,6 +30,8 @@ import DurakLeaderboardPanel from './components/DurakLeaderboardPanel';
 import DebercLeaderboardPanel from './components/DebercLeaderboardPanel';
 import TarneebLeaderboardPanel from './components/TarneebLeaderboardPanel';
 import PreferansLeaderboardPanel from './components/PreferansLeaderboardPanel';
+import FiftyOneStatsPanel from './components/FiftyOneStatsPanel';
+import FiftyOneLeaderboardPanel from './components/FiftyOneLeaderboardPanel';
 
 interface Props {
   account: Account;
@@ -51,12 +55,13 @@ interface Props {
 }
 
 type Tab = 'profile' | 'friends' | 'stats' | 'achievements' | 'leaderboard';
-type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans';
+type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans' | 'fifty-one';
 
-// Preferans (Stage 19.6) has stats + leaderboard sub-tabs. It is intentionally NOT
-// part of the achievements derivation (AllStats), which stays on the four released
-// games until Preferans exits experimental (Stage 19.7).
-const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb', 'preferans'] as const;
+// 51 (Stage 30.6) is EXPERIMENTAL and, like Preferans before its release, gets
+// stats + leaderboard sub-tabs but is intentionally NOT part of the achievements
+// derivation (AllStats stays on the released games) — so 51 never affects
+// All-Rounder / totalWins / totalGames until it exits experimental (Stage 30.7).
+const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
 
 /**
  * Profile / Statistics / Leaderboard sections (Stage 13.3). Rendered inside the
@@ -93,22 +98,26 @@ export default function ProfileMenu({
   const [debercStats, setDebercStats] = useState<Loadable<DebercStats> | null>(null);
   const [tarneebStats, setTarneebStats] = useState<Loadable<TarneebStats> | null>(null);
   const [preferansStats, setPreferansStats] = useState<Loadable<PreferansStats> | null>(null);
+  const [fiftyOneStats, setFiftyOneStats] = useState<Loadable<FiftyOneStats> | null>(null);
   const [board, setBoard] = useState<Loadable<LeaderboardEntry[]> | null>(null);
   const [durakBoard, setDurakBoard] = useState<Loadable<DurakLeaderboardEntry[]> | null>(null);
   const [debercBoard, setDebercBoard] = useState<Loadable<DebercLeaderboardEntry[]> | null>(null);
   const [tarneebBoard, setTarneebBoard] = useState<Loadable<TarneebLeaderboardEntry[]> | null>(null);
   const [preferansBoard, setPreferansBoard] = useState<Loadable<PreferansLeaderboardEntry[]> | null>(null);
+  const [fiftyOneBoard, setFiftyOneBoard] = useState<Loadable<FiftyOneLeaderboardEntry[]> | null>(null);
 
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingDurak, setLoadingDurak] = useState(false);
   const [loadingDeberc, setLoadingDeberc] = useState(false);
   const [loadingTarneeb, setLoadingTarneeb] = useState(false);
   const [loadingPreferans, setLoadingPreferans] = useState(false);
+  const [loadingFiftyOne, setLoadingFiftyOne] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [loadingDurakBoard, setLoadingDurakBoard] = useState(false);
   const [loadingDebercBoard, setLoadingDebercBoard] = useState(false);
   const [loadingTarneebBoard, setLoadingTarneebBoard] = useState(false);
   const [loadingPreferansBoard, setLoadingPreferansBoard] = useState(false);
+  const [loadingFiftyOneBoard, setLoadingFiftyOneBoard] = useState(false);
   // Tarneeb has two released modes (Stage 28.4): Pairs / Solo stats are stored
   // separately, so the Tarneeb stats + leaderboard panels get a mode toggle. The
   // Pairs state is the CANONICAL one that feeds achievements (Stage 28.5) — Solo has
@@ -125,11 +134,13 @@ export default function ProfileMenu({
   const tarneebOnce = useRef(false);
   const tarneebSoloOnce = useRef(false);
   const preferansOnce = useRef(false);
+  const fiftyOneOnce = useRef(false);
   const boardOnce = useRef(false);
   const durakBoardOnce = useRef(false);
   const debercBoardOnce = useRef(false);
   const tarneebBoardOnce = useRef(false);
   const preferansBoardOnce = useRef(false);
+  const fiftyOneBoardOnce = useRef(false);
 
   const base = account.base;
 
@@ -158,6 +169,10 @@ export default function ProfileMenu({
     setLoadingPreferans(true);
     try { setPreferansStats(await fetchPreferansStats(base)); } finally { setLoadingPreferans(false); }
   }, [base]);
+  const loadFiftyOneStats = useCallback(async () => {
+    setLoadingFiftyOne(true);
+    try { setFiftyOneStats(await fetchFiftyOneStats(base)); } finally { setLoadingFiftyOne(false); }
+  }, [base]);
   const loadBoard = useCallback(async () => {
     setLoadingBoard(true);
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
@@ -182,6 +197,10 @@ export default function ProfileMenu({
     setLoadingPreferansBoard(true);
     try { setPreferansBoard(await fetchPreferansLeaderboard(base)); } finally { setLoadingPreferansBoard(false); }
   }, [base]);
+  const loadFiftyOneBoard = useCallback(async () => {
+    setLoadingFiftyOneBoard(true);
+    try { setFiftyOneBoard(await fetchFiftyOneLeaderboard(base)); } finally { setLoadingFiftyOneBoard(false); }
+  }, [base]);
 
   useEffect(() => {
     if (tab === 'stats') {
@@ -190,6 +209,9 @@ export default function ProfileMenu({
       if (statsGame === 'deberc' && !debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (statsGame === 'tarneeb' && !tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
       if (statsGame === 'preferans' && !preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
+      // 51 (Stage 30.6, experimental) — stats sub-tab only; NEVER loaded for the
+      // achievements tab below, so it can't feed All-Rounder.
+      if (statsGame === 'fifty-one' && !fiftyOneOnce.current) { fiftyOneOnce.current = true; void loadFiftyOneStats(); }
     }
     // Achievements are derived from ALL five stat sets — load each once (reusing
     // the same `once` refs, so opening the stats tab later won't refetch).
@@ -209,10 +231,11 @@ export default function ProfileMenu({
       if (boardGame === 'deberc' && !debercBoardOnce.current) { debercBoardOnce.current = true; void loadDebercBoard(); }
       if (boardGame === 'tarneeb' && !tarneebBoardOnce.current) { tarneebBoardOnce.current = true; void loadTarneebBoard(); }
       if (boardGame === 'preferans' && !preferansBoardOnce.current) { preferansBoardOnce.current = true; void loadPreferansBoard(); }
+      if (boardGame === 'fifty-one' && !fiftyOneBoardOnce.current) { fiftyOneBoardOnce.current = true; void loadFiftyOneBoard(); }
     }
   }, [tab, statsGame, boardGame,
-    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadTarneebSoloStats, loadPreferansStats,
-    loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard]);
+    loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadTarneebSoloStats, loadPreferansStats, loadFiftyOneStats,
+    loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard, loadFiftyOneBoard]);
 
   const loadTarneebStatsFor = (v: 'pairs' | 'solo') => (v === 'solo' ? loadTarneebSoloStats() : loadTarneebStats());
   const loadTarneebBoardFor = (v: 'pairs' | 'solo') => (v === 'solo' ? loadTarneebSoloBoard() : loadTarneebBoard());
@@ -220,10 +243,12 @@ export default function ProfileMenu({
   function refresh() {
     if (tab === 'stats') {
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
-        : statsGame === 'tarneeb' ? loadTarneebStatsFor(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats() : loadStats());
+        : statsGame === 'tarneeb' ? loadTarneebStatsFor(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats()
+          : statsGame === 'fifty-one' ? loadFiftyOneStats() : loadStats());
     } else if (tab === 'leaderboard') {
       void (boardGame === 'durak' ? loadDurakBoard() : boardGame === 'deberc' ? loadDebercBoard()
-        : boardGame === 'tarneeb' ? loadTarneebBoardFor(tarneebVariant) : boardGame === 'preferans' ? loadPreferansBoard() : loadBoard());
+        : boardGame === 'tarneeb' ? loadTarneebBoardFor(tarneebVariant) : boardGame === 'preferans' ? loadPreferansBoard()
+          : boardGame === 'fifty-one' ? loadFiftyOneBoard() : loadBoard());
     }
   }
 
@@ -236,8 +261,8 @@ export default function ProfileMenu({
     else void loadTarneebStatsFor(v);
   }
 
-  const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans
-    || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard || loadingPreferansBoard;
+  const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans || loadingFiftyOne
+    || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard || loadingPreferansBoard || loadingFiftyOneBoard;
 
   // Profile sections (Stage 27.1): each is its own screen reached from a section grid, instead of
   // one horizontal tab row that overflows on narrow phones. Order + labels unchanged.
@@ -366,6 +391,7 @@ export default function ProfileMenu({
                   </>
                 )}
                 {statsGame === 'preferans' && <PreferansStatsPanel result={preferansStats} loading={loadingPreferans} />}
+                {statsGame === 'fifty-one' && <FiftyOneStatsPanel result={fiftyOneStats} loading={loadingFiftyOne} />}
               </>
             )}
             {tab === 'achievements' && (
@@ -394,6 +420,7 @@ export default function ProfileMenu({
                   </>
                 )}
                 {boardGame === 'preferans' && <PreferansLeaderboardPanel result={preferansBoard} loading={loadingPreferansBoard} />}
+                {boardGame === 'fifty-one' && <FiftyOneLeaderboardPanel result={fiftyOneBoard} loading={loadingFiftyOneBoard} />}
               </>
             )}
       </div>

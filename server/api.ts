@@ -535,6 +535,11 @@ async function handleGetPreferansStats(req: IncomingMessage, res: ServerResponse
   json(res, 200, { gameType: 'preferans', stats: await getPreferansStats(userId) }, corsHeaders(req));
 }
 
+async function handleGetFiftyOneStats(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getFiftyOneStats } = await import('./db/fiftyOneStats');
+  json(res, 200, { gameType: 'fifty-one', stats: await getFiftyOneStats(userId) }, corsHeaders(req));
+}
+
 /**
  * Public per-game leaderboard (no session required — only public, score-level
  * fields). If a session cookie is present we resolve it ONLY to mark the
@@ -575,6 +580,13 @@ async function handleGetPreferansLeaderboard(req: IncomingMessage, res: ServerRe
   let selfUserId: string | null = null;
   try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
   json(res, 200, { gameType: 'preferans', leaderboard: await getPreferansLeaderboard(20, selfUserId) }, corsHeaders(req));
+}
+
+async function handleGetFiftyOneLeaderboard(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { getFiftyOneLeaderboard } = await import('./db/fiftyOneStats');
+  let selfUserId: string | null = null;
+  try { selfUserId = await resolveUserId(req); } catch { selfUserId = null; }
+  json(res, 200, { gameType: 'fifty-one', leaderboard: await getFiftyOneLeaderboard(20, selfUserId) }, corsHeaders(req));
 }
 
 // ── Google OAuth (Stage 6) ──────────────────────────────────────────────────
@@ -861,6 +873,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     if (path === '/api/games/deberc/leaderboard' && method === 'GET') return await handleGetDebercLeaderboard(req, res);
     if (path === '/api/games/tarneeb/leaderboard' && method === 'GET') return await handleGetTarneebLeaderboard(req, res);
     if (path === '/api/games/preferans/leaderboard' && method === 'GET') return await handleGetPreferansLeaderboard(req, res);
+    if (path === '/api/games/fifty-one/leaderboard' && method === 'GET') return await handleGetFiftyOneLeaderboard(req, res);
 
     // Session-required routes.
     const requireUser = async (): Promise<string | null> => {
@@ -935,6 +948,9 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/preferans/stats' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetPreferansStats(req, res, u);
+    }
+    if (path === '/api/games/fifty-one/stats' && method === 'GET') {
+      const u = await requireUser(); if (!u) return; return await handleGetFiftyOneStats(req, res, u);
     }
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));

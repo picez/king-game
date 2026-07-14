@@ -2,8 +2,9 @@
 // wsHandlers 51 hosting (Stage 30.5): 51 online is now enabled as EXPERIMENTAL
 // (GAME_CATALOG['fifty-one'].supportsOnline = true, status experimental), so the WS
 // layer must ALLOW hosting a 2–4-seat 51 room and START_GAME must build a real
-// server-authoritative FiftyOneState — while still rejecting unknown game types and
-// recording NO stats (release gate). Redaction/reconnect/bot-advance are covered by
+// server-authoritative FiftyOneState — while still rejecting unknown game types.
+// (Stage 30.6 turns score-only stats ON, but 51 stays experimental — not favoritable
+// / achievement-eligible.) Redaction/reconnect/bot-advance are covered by
 // fiftyOneRedactionOnline + fiftyOneServerCore. Drives the real handleClientMessage
 // with a minimal in-memory context (same approach as wsHandlers.preferans.test.ts).
 // ---------------------------------------------------------------------------
@@ -60,11 +61,11 @@ function fresh() {
 }
 
 describe('wsHandlers allows hosting 51 online (Stage 30.5, experimental)', () => {
-  it('the catalog enables 51 online as experimental (no stats yet)', () => {
+  it('the catalog enables 51 online as experimental (score-only stats, still not released)', () => {
     expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);
     expect(GAME_CATALOG['fifty-one'].supportsLocal).toBe(true);
     expect(GAME_CATALOG['fifty-one'].status).toBe('experimental');
-    expect(GAME_DEFINITIONS['fifty-one'].recordsStats).toBe(false); // release gate
+    expect(GAME_DEFINITIONS['fifty-one'].recordsStats).toBe(true); // Stage 30.6: stats on
   });
 
   it('CREATE_ROOM fifty-one with no player count → a 4-seat room (catalog max)', () => {

@@ -248,11 +248,12 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       `game_type='tarneeb-solo'` (latest migration stays **0009**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
       responds 200 for a signed-in user).
 
-### 5b. 51 (Syrian 51) — experimental online (Stage 30.5, NO stats)
+### 5b. 51 (Syrian 51) — experimental online + stats (Stage 30.5–30.6)
 
 > 51 is `experimental` (local **and** online), **not** `available` — so it is intentionally
-> **excluded** from the five-game smoke above, records **no stats/leaderboard**, and shows **no PNG
-> emblem** (🀄 emoji fallback is expected). This section is a light experimental check only.
+> **excluded** from the five-game smoke above, is **not favoritable / not in achievements**, and shows
+> **no PNG emblem** (🀄 emoji fallback is expected). As of Stage 30.6 it **does** record score-only
+> stats + a leaderboard under `game_type='fifty-one'` (no DB migration). Light experimental check only.
 
 - [ ] **Host picker:** both the **Local** and **Host** game pickers list **51** flagged
       **"Experimental"** (not "Coming soon", not disabled). `GET /api/games` shows `fifty-one` with
@@ -266,9 +267,13 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       starts the next round (there is **no client "Next round" button** online). At match end the last
       seat standing wins; **Play again** (rematch) restarts the room; **reconnect** after a reload
       restores own hand only.
-- [ ] **No stats:** after a signed-in online 51 game, Profile shows **no 51 stats tab** and no
-      leaderboard entry (`curl -sI $HOST/api/games/fifty-one/stats` need not exist). **Latest DB
-      migration stays 0009** (51 adds none).
+- [ ] **Stats (needs Postgres, Stage 30.6):** after a **signed-in** online 51 game with **2+ humans
+      and no bots**, Profile → **Stats → 51** shows games / win-rate / avg-penalty / eliminations, and
+      **Leaderboard → 51** lists the player (own row highlighted). A game **with a bot** or a **guest**
+      records nothing. `curl -sI $HOST/api/games/fifty-one/stats` → 200 (signed-in). **Latest DB
+      migration stays 0009** (51 stats reuse the free-text `game_type` — no migration).
+- [ ] **Still experimental:** 51 has **no favorite toggle** and **no 51 achievements**; All-Rounder /
+      the existing badges are unaffected by 51 play.
 - [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
       horizontal overflow**; Arabic RTL reads correctly.
 

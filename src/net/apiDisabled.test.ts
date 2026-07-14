@@ -82,6 +82,20 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect((out.body as { error: string }).error).toBe('db_disabled');
   });
 
+  it('returns 503 db_disabled for the 51 stats route (GET /api/games/fifty-one/stats)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/fifty-one/stats'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
+  it('returns 503 db_disabled for the 51 leaderboard route (GET /api/games/fifty-one/leaderboard)', async () => {
+    const { res, out } = mockRes();
+    await handleApiRequest(mockReq('GET', '/api/games/fifty-one/leaderboard'), res);
+    expect(out.status).toBe(503);
+    expect((out.body as { error: string }).error).toBe('db_disabled');
+  });
+
   it('answers CORS preflight (OPTIONS) with 204 even without a DB', async () => {
     const { res, out } = mockRes();
     await handleApiRequest(mockReq('OPTIONS', '/api/settings'), res);

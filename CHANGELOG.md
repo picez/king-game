@@ -31,6 +31,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **51 (Syrian 51) stats + leaderboard foundation (Stage 30.6, experimental).** Finished ONLINE
+  51 games now record **score-only** stats under `game_type='fifty-one'` — per-seat final running
+  penalty, eliminated flag and the match winner, aggregated into a per-user cache (games, wins,
+  win rate, average/best penalty, eliminations, rounds) with a public leaderboard. Added a **51
+  stats + leaderboard sub-tab** to the Profile screen (i18n en/uk/de/ar). Stats are human-vs-human
+  only (bots/guests skipped), idempotent per game, and store **no cards / hands / draw pile /
+  melds**. **No DB migration** (reuses the free-text `game_type` column) and **no new dependency**.
+  51 stays **experimental** — it is deliberately **excluded from favorites and from achievements /
+  All-Rounder** (a guard test enforces this) until the full release (Stage 30.7). The five released
+  games' stats and achievements are unchanged.
 - **51 (Syrian 51) online redaction / readiness hardened (Stage 30.4, no user-facing change).**
   Proved the 51 `GameDefinition` is server-authoritative-ready **without enabling online** —
   `supportsOnline` stays `false`, so `CREATE_ROOM` still rejects a 51 room and `GET /api/games`
