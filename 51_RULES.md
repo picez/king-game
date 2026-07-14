@@ -1,8 +1,9 @@
 # 51 (Syrian 51 / واحد وخمسين) — MVP Rules Spec
 
-> **STATUS: PLANNED — SPEC ONLY (Stage 30.0).** No runtime code, catalog entry, UI,
-> stats or migration exists yet. This document is the single source of truth for the
-> future implementation (staged in [`51_PLAN.md`](51_PLAN.md)). When code disagrees
+> **STATUS: PURE CORE BUILT (Stage 30.1).** The pure reducer/deck/meld-validator/AI/redaction
+> now exist under `src/games/fiftyOne/` with exhaustive unit tests, implementing every MVP
+> default below as recommended. **Still NO catalog entry, UI, server/ws, stats or migration** —
+> those arrive in 30.2+. This document remains the single source of truth; when code disagrees
 > with this spec, the code is wrong — or this spec is updated first, deliberately.
 >
 > **Sources.** Reconciled from the owner-supplied *Syrian 51 Card Game Rules* text and
@@ -151,9 +152,11 @@ own melds, add to other players' melds (§9), and take the discard top (§5).
   *[owner override: not a flat 15.]*
 - **A Joker left in a player's hand at round end = 25 penalty points** (§11). *[owner
   override: source says ~15.]*
-- MVP joker constraints (finalised in 30.1): at most a reasonable number of jokers per meld
-  such that the represented card stays unambiguous (recommend **≤ 1 joker per 3-card meld**;
-  exact rule is a small [open detail](#16-open-questions--confirmations-needed), non-blocking).
+- **MVP joker constraints (finalised in 30.1, implemented):** at most **ONE joker per meld**;
+  in a run, a joker may only fill an **internal** gap between two present cards (a joker at
+  either end of a run is ambiguous — it could extend up or down — and is rejected). In a set,
+  the joker takes a clear missing suit. Two-plus jokers in one meld are rejected. (This is the
+  conservative reading of [§16 Q10](#16-open-questions--confirmations-needed).)
 
 ---
 
@@ -297,3 +300,12 @@ Each has a **recommended MVP default** the build will use unless the owner says 
 - **Stage 30.0 (2026-07-14):** initial SPEC-ONLY draft — reconciled the owner's Syrian 51
   source text with the owner's authoritative corrections; recorded 10 open confirmations.
   No runtime code. Rollout staged in [`51_PLAN.md`](51_PLAN.md).
+- **Stage 30.1 (2026-07-14):** **pure core built** under `src/games/fiftyOne/` (types, deck,
+  meld validator, reducer, greedy AI, redaction, invariants) with 70 unit tests. Implemented
+  **every §16 open question on its recommended MVP default** (deck 54/106; clockwise; finish
+  by discard — a meld/lay-off may not empty the hand, you go out on the final discard; lay-off
+  to others after opening; take top discard only, no forced immediate use; eliminate at ≥510
+  after the round, continue until one remains; the 100 penalty triggers when a loser **never
+  opened**; the "Hand" all-at-once bonus stays deferred; **≤ 1 joker per meld**, run jokers
+  fill internal gaps only). Draw-pile exhaustion **reshuffles the discard except its top**
+  (§5 MVP). No catalog/UI/server/stats yet.

@@ -54,12 +54,20 @@
 
 ## Staged rollout
 
-### 30.1 — Pure core (deck, meld validator, reducer, scoring, AI)
-- Build `types/deck/rules/engine/ai` with **exhaustive unit tests**: deck composition per
-  player count, deal 13/14, run/set validation (all Ace edge cases), joker resolution,
-  51-opening totals, draw-then-discard turn flow, discard-pile gating (open-only), lay-off,
-  empty-hand win, per-hand penalties (incl. Joker=25 and never-opened=100), elimination at
-  510, continue-until-one-remains. No React/server/catalog. **`npm run verify` green.**
+### 30.1 — Pure core (deck, meld validator, reducer, scoring, AI) — ✅ DONE
+- Built `src/games/fiftyOne/` — `types.ts`, `deck.ts`, `melds.ts`, `rules.ts`, `engine.ts`,
+  `ai.ts`, `redact.ts`, `invariants.ts`, `index.ts` — with **exhaustive unit tests** (70
+  tests across `deck/melds/engine/scoring/redact/ai/invariants.test.ts`): deck composition
+  per player count (54 / 106), deal 13/14, run/set validation (all Ace edge cases: `A-2-3`=6,
+  `Q-K-A`=30, reject `K-A-2`), joker resolution (internal-gap runs, missing-suit sets),
+  51-opening totals (51 valid / 50 invalid), draw-then-discard turn flow, discard-pile gating
+  (open-only), lay-off, empty-hand win, per-round penalties (incl. Joker=25 and
+  never-opened=100), elimination at 510, continue-until-one-remains, redaction (no hand /
+  draw-pile leak), a deterministic greedy bot, and a bot-soak invariant guard
+  (`checkFiftyOneInvariants`). **No React/server/catalog/registry/stats.** All MVP defaults
+  from `51_RULES.md` §16 implemented as recommended (see the spec change log §17).
+  **MVP assumption locked in:** at most **one joker per meld** and a run joker may only fill an
+  **internal** gap (a joker at a run end is ambiguous → rejected).
 
 ### 30.2 — Catalog `coming_soon` + GameDefinition
 - Add `fiftyOne` to `GAME_CATALOG` with **`status: 'coming_soon'`** (or the platform's

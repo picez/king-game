@@ -9,6 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Internal
+
+- **51 (Syrian 51) pure core (Stage 30.1, no user-facing change).** Added `src/games/fiftyOne/`
+  — the pure TypeScript reducer for the planned 6th game: `types`, `deck` (1-deck+2J for 2p /
+  2-deck+2J for 3–4p), `melds` (run/set validator with `A-2-3`=6, `Q-K-A`=30, reject `K-A-2`,
+  ≤ 1 joker/meld, no duplicate identical card in a set), `rules`, `engine` (draw→meld→discard
+  turns, 51-opening from own melds, open-gated discard-take + lay-off, empty-hand win,
+  per-round penalties incl. Joker=25 and never-opened=100, elimination at 510,
+  continue-until-one-remains, draw-pile reshuffle), a deterministic greedy `ai`, server-side
+  `redact` (own hand + draw-pile order hidden), and `invariants` — with **70 unit tests**. **Not
+  wired into any catalog/registry, UI, server/ws, stats or migration** — 51 is still invisible
+  in the app; the five released games are untouched. No dependency or schema change.
+
 ### Docs
 
 - **51 (Syrian 51) rules spec + implementation plan (Stage 30.0, docs-only).** Added
