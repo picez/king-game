@@ -17,6 +17,8 @@ import { tarneebRedactStateFor } from './tarneeb/redact';
 import type { TarneebState } from './tarneeb/types';
 import { preferansGameDefinition } from './preferans/definition';
 import type { PreferansState } from './preferans/types';
+import { fiftyOneGameDefinition } from './fiftyOne/definition';
+import type { FiftyOneState } from './fiftyOne/types';
 
 describe('game registry', () => {
   it('returns the right definition by gameType and null for unknown input', () => {
@@ -24,6 +26,7 @@ describe('game registry', () => {
     expect(getGameDefinition('durak')).toBe(durakGameDefinition);
     expect(getGameDefinition('tarneeb')).toBe(tarneebGameDefinition);
     expect(getGameDefinition('preferans')).toBe(preferansGameDefinition);
+    expect(getGameDefinition('fifty-one')).toBe(fiftyOneGameDefinition);
     expect(getGameDefinition('poker')).toBeNull();
     expect(getGameDefinition(undefined)).toBeNull();
     expect(getGameDefinition(42)).toBeNull();
@@ -31,7 +34,65 @@ describe('game registry', () => {
     expect(GAME_DEFINITIONS.durak.id).toBe('durak');
     expect(GAME_DEFINITIONS.tarneeb.id).toBe('tarneeb');
     expect(GAME_DEFINITIONS.preferans.id).toBe('preferans');
+    expect(GAME_DEFINITIONS['fifty-one'].id).toBe('fifty-one');
     expect(DEFAULT_GAME_DEFINITION).toBe(kingGameDefinition); // King remains default
+  });
+});
+
+describe('51 game definition (registered, coming_soon — NOT playable, no stats)', () => {
+  const snap = {
+    code: 'ABCD',
+    members: [
+      { clientId: '1', name: 'A', role: 'player', seatIndex: 0, isHost: true, connected: true, type: 'human' },
+      { clientId: '2', name: 'B', role: 'player', seatIndex: 1, isHost: false, connected: true, type: 'ai' },
+      { clientId: '3', name: 'C', role: 'player', seatIndex: 2, isHost: false, connected: true, type: 'ai' },
+      { clientId: '4', name: 'D', role: 'player', seatIndex: 3, isHost: false, connected: true, type: 'ai' },
+    ],
+    playerCount: 4, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
+  } as RoomSnapshot;
+
+  it('references the 51 pure core + catalog; coming_soon, no stats, not startable', () => {
+    expect(fiftyOneGameDefinition.id).toBe('fifty-one');
+    expect(fiftyOneGameDefinition.catalog).toBe(GAME_CATALOG['fifty-one']);
+    expect(fiftyOneGameDefinition.rulesDoc).toBe('51_RULES.md');
+    expect(fiftyOneGameDefinition.supportedPlayerCounts).toEqual([2, 3, 4]);
+    expect(fiftyOneGameDefinition.recordsStats).toBe(false); // coming_soon — no stats until 30.6
+    expect(fiftyOneGameDefinition.catalog.status).toBe('coming_soon');
+    expect(fiftyOneGameDefinition.catalog.supportsLocal).toBe(false);
+    expect(fiftyOneGameDefinition.catalog.supportsOnline).toBe(false);
+  });
+
+  it('smoke: buildStartAction → reducer builds a playing state; botAction is legal', () => {
+    const start = fiftyOneGameDefinition.buildStartAction(snap);
+    expect(start.type).toBe('START_GAME');
+
+    const state = fiftyOneGameDefinition.reducer(null, start, { rng: makeRng(3) }) as FiftyOneState;
+    expect(state).not.toBeNull();
+    expect(state.gameType).toBe('fifty-one');
+    expect(state.phase).toBe('playing');
+    expect(state.players.map((p) => p.name)).toEqual(['A', 'B', 'C', 'D']);
+
+    // An actor is acting; its bot move is a legal action that advances the state.
+    expect(fiftyOneGameDefinition.getActingPlayerId(state)).toMatch(/^player-/);
+    const move = fiftyOneGameDefinition.botAction(state);
+    expect(move).not.toBeNull();
+    const next = fiftyOneGameDefinition.reducer(state, move!, { rng: makeRng(3) });
+    expect(next).not.toBe(state);
+
+    // botAction returns null on a finished game (no actor).
+    const finished = { ...state, phase: 'game_finished' as const };
+    expect(fiftyOneGameDefinition.botAction(finished)).toBeNull();
+  });
+
+  it('redaction hides opponent hands + the draw pile while keeping the viewer own hand', () => {
+    const state = fiftyOneGameDefinition.reducer(null, fiftyOneGameDefinition.buildStartAction(snap), { rng: makeRng(5) }) as FiftyOneState;
+    const view = fiftyOneGameDefinition.redactStateFor(state, 0);
+    expect(view.handsBySeat[0]).toEqual(state.handsBySeat[0]);
+    for (const seat of [1, 2, 3]) {
+      expect(view.handsBySeat[seat]).toHaveLength(state.handsBySeat[seat].length);
+      expect(view.handsBySeat[seat].every((c) => c.id === 'hidden')).toBe(true);
+    }
+    expect(view.drawPile.every((c) => c.id === 'hidden')).toBe(true);
   });
 });
 

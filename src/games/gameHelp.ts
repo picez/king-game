@@ -22,13 +22,16 @@ export interface GameHelpEntry {
 
 const ALL: HelpSection[] = ['goal', 'players', 'deck', 'turns', 'scoring', 'notes'];
 
-/** Every available game has a quick-rules entry (all five show the full section set). */
+/** Every game has a quick-rules entry (all show the full section set). 51 is a
+ *  coming_soon game but still ships help content so its sheet works from the
+ *  disabled picker option (Stage 30.2). */
 export const GAME_HELP: Record<GameType, GameHelpEntry> = {
   king: { id: 'king', sections: ALL },
   durak: { id: 'durak', sections: ALL },
   deberc: { id: 'deberc', sections: ALL },
   tarneeb: { id: 'tarneeb', sections: ALL },
   preferans: { id: 'preferans', sections: ALL },
+  'fifty-one': { id: 'fifty-one', sections: ALL },
 };
 
 /** i18n key for a section's short label (e.g. "Goal", "Players"). */

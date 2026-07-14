@@ -31,15 +31,17 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
-| **51** (Syrian 51) | 2–4 | **PLANNED — spec only (Stage 30.0), not built.** Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
+| **51** (Syrian 51) | 2–4 | **COMING SOON — registered, not yet playable (Stage 30.2).** Pure core built + wired as a `coming_soon` catalog/GameDefinition entry; picker shows it disabled. Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
 
-**51 / Syrian 51** (planned **6th game**) is **spec-only** as of Stage 30.0 — no runtime
-code, catalog entry, UI or stats. It is a rummy-style get-rid-of-your-hand game (form
-runs/sets, open with 51+ points, jokers wild, penalty scoring, eliminate at 510). Rules are
-reconciled from the owner's Syrian 51 text + authoritative corrections in
-[`51_RULES.md`](51_RULES.md); the staged build (30.1 core → 30.7 release) is in
-[`51_PLAN.md`](51_PLAN.md). Ten owner confirmations are still open (deck count, direction,
-finish rules, elimination) — the MVP proceeds on recommended defaults unless changed.
+**51 / Syrian 51** (the **6th game**) is **registered as `coming_soon`** as of Stage 30.2 —
+its **pure core is built** (`src/games/fiftyOne/`, Stage 30.1) and a `GameDefinition` is wired
+into the catalog/registry (id **`fifty-one`**), so it appears in `/api/games` and the game
+picker as **"Coming soon" (disabled)**. It is **not yet startable** (no local/online, no stats,
+no favorite) — the local prototype is Stage 30.3, online 30.4–30.5, stats 30.6. It is a
+rummy-style get-rid-of-your-hand game (form runs/sets, open with 51+ points, jokers wild,
+penalty scoring, eliminate at 510). Rules are reconciled from the owner's Syrian 51 text +
+authoritative corrections in [`51_RULES.md`](51_RULES.md) (all §16 MVP defaults implemented in
+30.1); the staged build (30.1 core → 30.7 release) is in [`51_PLAN.md`](51_PLAN.md).
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
 local + server-authoritative online + score-only stats/leaderboard, a favorite-game

@@ -94,3 +94,9 @@ export function getActingFiftyOneSeat(state: FiftyOneState): number | null {
   if (state.phase === 'playing') return state.currentSeat;
   return null;
 }
+
+/** The player id that must act now, or null (mirrors getActingTarneebPlayerId). */
+export function getActingFiftyOnePlayerId(state: FiftyOneState): string | null {
+  const seat = getActingFiftyOneSeat(state);
+  return seat == null ? null : state.players[seat].id;
+}

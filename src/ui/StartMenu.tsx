@@ -696,10 +696,11 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
 }
 
 /** Per-game glyph + a short descriptor key for the picker sublabel. */
-const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩' };
+const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄' };
 const GAME_META_KEY: Record<GameType, string> = {
   king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.modesShort',
   preferans: 'preferans.metaShort', // "Contract" — Preferans is a solo contract trick game (3p)
+  'fifty-one': 'fiftyOne.metaShort', // "Rummy · Melds" — never shown while coming_soon (picker shows "Coming soon")
 };
 
 /** "3–4" / "4" player-count range from the catalog (data-driven, all games). */

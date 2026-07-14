@@ -11,6 +11,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **51 (Syrian 51) registered as "coming soon" (Stage 30.2).** Wired the Stage-30.1 pure core
+  into the platform as a `coming_soon` game (id **`fifty-one`**): added the `GAME_CATALOG` entry
+  (`supportsLocal/Online:false`, `supportsBots:true`, 2–4 players, `rulesDoc:'51_RULES.md'`) and
+  registered `fiftyOneGameDefinition` (`recordsStats:false`). It now surfaces in `GET /api/games`
+  and the Local/Host game pickers as **"Coming soon" (disabled)** — the existing gates keep it
+  non-startable (CREATE_ROOM rejects `!supportsOnline`; picker greys out `!usable`), and it is
+  **excluded from favorites and per-game stats tabs**. Added `gameType.fifty-one` + quick-rules
+  `help.fifty-one.*` i18n in **en/uk/de/ar** and a 🀄 emoji emblem (no PNG asset). **No new
+  dependency, DB migration or stats; the five released games are unchanged.**
 - **51 (Syrian 51) pure core (Stage 30.1, no user-facing change).** Added `src/games/fiftyOne/`
   — the pure TypeScript reducer for the planned 6th game: `types`, `deck` (1-deck+2J for 2p /
   2-deck+2J for 3–4p), `melds` (run/set validator with `A-2-3`=6, `Q-K-A`=30, reject `K-A-2`,

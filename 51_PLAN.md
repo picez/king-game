@@ -69,11 +69,21 @@
   **MVP assumption locked in:** at most **one joker per meld** and a run joker may only fill an
   **internal** gap (a joker at a run end is ambiguous → rejected).
 
-### 30.2 — Catalog `coming_soon` + GameDefinition
-- Add `fiftyOne` to `GAME_CATALOG` with **`status: 'coming_soon'`** (or the platform's
-  not-yet-playable status) and register the `GameDefinition` in the registry. It appears in
-  the picker as **not yet playable** — no local/online entry point yet. Guard tests that the
-  catalog/registry wiring matches the other games; **no behaviour change to the five games.**
+### 30.2 — Catalog `coming_soon` + GameDefinition — ✅ DONE
+- Game id chosen: **`fifty-one`** (hyphenated) — URL/API-safe, unifies with the future
+  `game_type='fifty-one'` stats key, and works with the i18n template `gameType.${id}`. The
+  core folder stays `src/games/fiftyOne/`. Added the `fifty-one` entry to `GAME_CATALOG`
+  (**`status: 'coming_soon'`**, `supportsLocal:false`, `supportsOnline:false`,
+  `supportsBots:true`, min/max 2–4, default 4, `rulesDoc:'51_RULES.md'`) and registered
+  `fiftyOneGameDefinition` (`src/games/fiftyOne/definition.ts`, **`recordsStats:false`**) in the
+  registry. It surfaces in `/api/games` and the picker as **"Coming soon" (disabled in both the
+  Local and Host sheets)** — the existing data-driven `GamePicker` greys it out automatically,
+  the CREATE_ROOM guard (`!entry.supportsOnline`) rejects an online 51 room, and it is
+  **excluded from favorites and the per-game stats tabs**. Added `gameType.fifty-one` +
+  `help.fifty-one.*` + `fiftyOne.metaShort` i18n to **en/uk/de/ar** and an emoji glyph (🀄, no PNG
+  asset). Tests: catalog/registry/platformAudit updated to split available vs coming_soon; new
+  `fiftyOne/comingSoon.test.ts` (gating + favorites + source isolation guards). **No behaviour
+  change to the five games; no stats/DB/migration/dependency/asset.** `npm run verify` green.
 
 ### 30.3 — Local playable prototype
 - `FiftyOneLocalGame` (1 human + bots) + the table/hand/meld/discard UI + setup screen

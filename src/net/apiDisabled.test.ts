@@ -101,7 +101,12 @@ describe('HTTP API with no DATABASE_URL', () => {
     expect(out.status).toBe(200);
     const body = out.body as { games: { id: string; status: string; supportsLocal: boolean; supportsOnline: boolean }[] };
     expect(Array.isArray(body.games)).toBe(true);
-    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
+    expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+    // 51 is listed publicly but as coming_soon with both start modes off (Stage 30.2).
+    const fiftyOne = body.games.find((g) => g.id === 'fifty-one')!;
+    expect(fiftyOne.status).toBe('coming_soon');
+    expect(fiftyOne.supportsLocal).toBe(false);
+    expect(fiftyOne.supportsOnline).toBe(false);
     const king = body.games.find((g) => g.id === 'king')!;
     const durak = body.games.find((g) => g.id === 'durak')!;
     expect(king.status).toBe('available');

@@ -526,7 +526,12 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       draw→discard turn flow, discard-take gated on opening, lay-off, empty-hand win, penalties
       (Joker=25, never-opened=100), elimination at 510, continue-until-one-remains, redaction
       (no hand / draw-pile leak), and a bot-soak invariant guard.
-- [ ] *(30.2)* Catalog shows 51 as **coming soon** (not playable); the five games unaffected.
+- [x] *(30.2)* Catalog + registry show 51 (`fifty-one`) as **coming_soon**: it appears in the
+      Local **and** Host game pickers **disabled with "Coming soon"** (never selectable/startable),
+      is **absent from the favorite-game picker** and the per-game **stats tabs**, and `GET
+      /api/games` lists it as `status:'coming_soon'` with `supportsLocal/Online:false`. The game
+      emblem shows the 🀄 emoji fallback (no PNG). The **five released games are unaffected**.
+      Automated: `catalog/registry/platformAudit/apiDisabled` + `fiftyOne/comingSoon.test.ts`.
 - [ ] *(30.3)* Local 2–4p prototype: deal, draw-then-discard, open with 51, lay-off, empty-hand
       win, penalties; no 360/390 overflow.
 - [ ] *(30.4–30.5)* Online redaction (own hand only; draw pile + other hands hidden), no leak;

@@ -8,14 +8,15 @@
  * stats.
  */
 
-export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans'] as const;
+export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
  *  - 'available'   → fully playable (King, Durak, Deberc, Tarneeb, and Preferans);
- *  - 'coming_soon' → registered but not yet startable (none today);
+ *  - 'coming_soon' → registered but not yet startable (51 / Syrian 51 — Stage 30.2:
+ *                    pure core + GameDefinition exist, but no local/online entry yet);
  *  - 'experimental'→ playable but rough (reserved; none today).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
@@ -104,6 +105,19 @@ export const GAME_CATALOG = {
     supportsBots: true,     // pure core has a working deterministic bot (Stage 19.1)
     status: 'available',    // Stage 19.7: released — local + online + score-only stats
     rulesDoc: 'PREFERANS_RULES.md',
+  },
+  'fifty-one': {
+    id: 'fifty-one',
+    titleKey: 'gameType.fifty-one',
+    shortTitleKey: 'gameType.fifty-one',
+    minPlayers: 2,          // 2–4 players, each on their own side (51_RULES §2)
+    maxPlayers: 4,
+    defaultPlayerCount: 4,  // social table default (2–4 all supported by the core)
+    supportsLocal: false,   // Stage 30.2: NOT playable yet (local prototype is 30.3)
+    supportsOnline: false,  // Stage 30.2: NOT online yet (online is 30.4–30.5)
+    supportsBots: true,     // pure core has a deterministic greedy bot (Stage 30.1)
+    status: 'coming_soon',  // Stage 30.2: registered + GameDefinition, not startable
+    rulesDoc: '51_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;
 

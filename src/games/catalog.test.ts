@@ -12,7 +12,7 @@ import {
 describe('game catalog', () => {
   it('registers King, Durak, Deberc, Tarneeb + Preferans (all available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king'); // unchanged
-    expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
+    expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
     expect(GAME_CATALOG.king).toMatchObject({
       id: 'king', minPlayers: 3, maxPlayers: 4, supportsLocal: true,
       supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
@@ -40,6 +40,19 @@ describe('game catalog', () => {
     });
   });
 
+  it('registers 51 (Syrian 51) as coming_soon — not yet playable (Stage 30.2)', () => {
+    expect(GAME_CATALOG['fifty-one']).toMatchObject({
+      id: 'fifty-one', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
+      supportsLocal: false,   // NOT playable local yet (30.3)
+      supportsOnline: false,  // NOT online yet (30.4–30.5)
+      supportsBots: true,     // pure-core bot exists (30.1)
+      status: 'coming_soon',
+      rulesDoc: '51_RULES.md',
+    });
+    expect(isGameType('fifty-one')).toBe(true);
+    expect(getGameCatalogEntry('fifty-one')?.status).toBe('coming_soon');
+  });
+
   it('validates game types at runtime', () => {
     expect(isGameType('king')).toBe(true);
     expect(isGameType('durak')).toBe(true);
@@ -64,7 +77,14 @@ describe('game catalog', () => {
 
   it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
-    expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
+    expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+    // 51 surfaces publicly as coming_soon with both start modes off (no private fields).
+    const fiftyOne = pub.find((g) => g.id === 'fifty-one')!;
+    expect(fiftyOne).toEqual({
+      id: 'fifty-one', title: 'gameType.fifty-one', shortTitle: 'gameType.fifty-one',
+      minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
+      supportsLocal: false, supportsOnline: false, supportsBots: true, status: 'coming_soon',
+    });
     // Preferans surfaces publicly as available — startable local AND online.
     const preferans = pub.find((g) => g.id === 'preferans')!;
     expect(preferans).toEqual({

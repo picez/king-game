@@ -42,10 +42,13 @@ auto-refresh mid-game), and an **offline** hint.
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Next up (planned, not released):** **51 / Syrian 51** — a 2–4 player rummy-style
+**Next up (registered, not yet playable):** **51 / Syrian 51** — a 2–4 player rummy-style
 meld-and-discard game (form runs/sets, open with 51+ points, jokers wild, penalty scoring,
-eliminate at 510). **Spec only as of Stage 30.0** (no code/catalog/UI/stats yet); see
-[`51_RULES.md`](51_RULES.md) and the staged build in [`51_PLAN.md`](51_PLAN.md).
+eliminate at 510). **`coming_soon` as of Stage 30.2**: the pure core is built
+(`src/games/fiftyOne/`, id **`fifty-one`**) and wired as a catalog/GameDefinition entry, so it
+shows in `/api/games` and the picker as **"Coming soon" (disabled)** — no local/online/stats
+yet (local prototype 30.3, online 30.4–30.5). See [`51_RULES.md`](51_RULES.md) and the staged
+build in [`51_PLAN.md`](51_PLAN.md).
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
 local + online, score-only stats/leaderboard, a favorite-game option, and a "Preferans

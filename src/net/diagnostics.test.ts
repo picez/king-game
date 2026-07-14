@@ -9,7 +9,7 @@ import {
   buildDiagnostics, availableGameIds, setFfmpegReady, getFfmpegReady,
   serverVersion, gitCommit, type DiagnosticsInput,
 } from '../../server/diagnostics';
-import { GAME_TYPES } from '../games/catalog';
+import { GAME_TYPES, GAME_CATALOG } from '../games/catalog';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
@@ -106,10 +106,13 @@ describe('buildDiagnostics — db + avatar readiness', () => {
 });
 
 describe('availableGameIds + ffmpeg cache + env readers', () => {
-  it('lists the available game ids (all five are available today)', () => {
+  it('lists only the AVAILABLE game ids (coming_soon 51 is excluded)', () => {
     const ids = availableGameIds();
-    for (const g of GAME_TYPES) expect(ids).toContain(g);
-    expect(ids.length).toBe(GAME_TYPES.length);
+    const available = GAME_TYPES.filter((g) => GAME_CATALOG[g].status === 'available');
+    for (const g of available) expect(ids).toContain(g);
+    expect(ids.length).toBe(available.length);
+    // 51 is coming_soon → never surfaced in the diagnostics game list.
+    expect(ids).not.toContain('fifty-one');
   });
 
   it('setFfmpegReady / getFfmpegReady round-trips the cached boot flag', () => {
