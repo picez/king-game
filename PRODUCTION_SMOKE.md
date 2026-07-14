@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.7`** (tag `v0.3.7`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.8`** (tag `v0.3.8`).
 
 Set your host once and reuse it below:
 
@@ -23,23 +23,30 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.7 adds no migrations** — 0009 is still the latest. The Syrian 51 sixth-game release records
-> its stats under the free-text `game_type='fifty-one'` (no schema change), and the v0.3.6 Tarneeb
-> target-score patch's one new online field `tarneebTargetScore` is optional.
+> **v0.3.8 adds no migrations** — 0009 is still the latest. v0.3.8 is 51 rule fixes only (no schema
+> change); the v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`,
+> and the v0.3.6 Tarneeb target-score patch's one new online field `tarneebTargetScore` is optional.
 
 ---
 
-## 0. v0.3.7 release smoke (fast targeted pass)
+## 0. v0.3.8 release smoke (fast targeted pass)
 
-What v0.3.7 (**Syrian 51 sixth-game release**, Stages 30.7–30.8) specifically touches, plus the v0.3.6
-Tarneeb target-score / compact-table checks and the v0.3.5/v0.3.4/v0.3.3/v0.3.2 checks it rides on.
-v0.3.7 adds the 6th game (51) and a release audit; **no rules/scoring/schema change** to the other five
-games. The numbered sections cover each in depth — the full 51 smoke is §5b.
+What v0.3.8 (**51 meld & opening rule fixes**, Stages 30.9–30.10) specifically touches, on top of the
+v0.3.7 Syrian 51 sixth-game release and the v0.3.6/v0.3.5/… checks it rides on. v0.3.8 changes **only 51
+rule handling + the 51 meld display** — no schema change, and the other five games are untouched. The
+full 51 smoke is §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.7`**, `commit` matches the deploy,
-      `db.enabled: true`, **`games.count: 6`** with `ids` including **`fifty-one`** (51 flipped to
-      `available` in Stage 30.7), `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.3.7 — latest stays `0009`).
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.8`**, `commit` matches the deploy,
+      `db.enabled: true`, **`games.count: 6`** with `ids` including **`fifty-one`**,
+      `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
+      Then **`npm run db:migrate`** if any new migration (none in 0.3.8 — latest stays `0009`).
+- [ ] **51 meld & opening rule fixes (v0.3.8):** in a 51 game — **open once** with melds totalling ≥ 51;
+      **after opening** lay a small meld **below 51** (e.g. a 15-pt 4-5-6 run), **take the discard top**,
+      and lay off, all with **no** further 51 requirement. A **joker resolves at any run position**
+      (`7♠ 8♠ 🃏` = 7-8-9, `🃏 2♠ 3♠` = A-2-3, `Q♠ K♠ 🃏` = Q-K-A). An **Ace lays off onto a public
+      `2-3-4`** → **`A-2-3-4`** (Ace-first, value 10); **`K-A-2` stays rejected**. **Public-meld cards
+      are readable — no overlap/clip and no horizontal overflow at 360/390.** Online: 2-client
+      redaction stays clean (own hand only); signed-in **51 stats are unaffected** by the rule fix.
 - [ ] **51 (Syrian 51) is a released 6th game (v0.3.7):** `GET /api/games` lists `fifty-one` as
       `status:'available'`, `supportsLocal/Online:true`; the **Local and Host pickers** show 51 as a
       normal, selectable option with **no** "Experimental" / "Coming soon" tag and its own PNG emblem;

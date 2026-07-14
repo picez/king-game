@@ -5,10 +5,12 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.3.7`** (Syrian 51 sixth-game release — **51 (Syrian 51)** graduated
-from experimental to a fully released `available` game: local + online + stats + leaderboard + favorite
-+ a "51 Winner" achievement + emblem, making Card Majlis a **six-game** lounge, plus a six-game release
-audit + guard hardening; on the `v0.3.6` Tarneeb target score & compact table, the `v0.3.5` table HUD &
+**Status: stable MVP — release `v0.3.8`** (51 meld & opening rule fixes — jokers may sit anywhere in a
+meld, the 51 opening total is required only **once per round** (any valid meld afterwards), **Ace-low
+runs extend** so an Ace lays off onto a `2-3-4`, and the public-meld cards no longer overlap/clip; on the
+`v0.3.7` Syrian 51 sixth-game release that made **51 (Syrian 51)** a fully released `available` game
+(local + online + stats + leaderboard + favorite + a "51 Winner" achievement + emblem), making Card Majlis
+a **six-game** lounge; on the `v0.3.6` Tarneeb target score & compact table, the `v0.3.5` table HUD &
 reactions polish, the `v0.3.4` Durak final-defence reveal + online timer polish, the `v0.3.3` Tarneeb
 scoring correction + Deberc table resize, the `v0.3.2` Tarneeb Solo release & bandwidth-hardening patch,
 over the `v0.3.0` social & voice release and v0.2.0 five-game platform, 2026-07-14; see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative

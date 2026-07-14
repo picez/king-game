@@ -57,8 +57,7 @@ export const fiftyOneGameDefinition: GameDefinition<FiftyOneState, FiftyOneActio
   redactStateFor: fiftyOneRedactStateFor,
   isFinished: isFiftyOneFinished,
   // Stage 30.6: online finished 51 games record score-only stats under
-  // game_type='fifty-one' (see server/db/fiftyOneStats.ts). 51 stays EXPERIMENTAL —
-  // stats + leaderboard exist, but it is not yet `available` / favoritable /
-  // achievement-eligible (that is Stage 30.7).
+  // game_type='fifty-one' (see server/db/fiftyOneStats.ts). As of Stage 30.7 51 is
+  // fully `available` — favoritable + achievement-eligible + stats + leaderboard.
   recordsStats: true,
 };

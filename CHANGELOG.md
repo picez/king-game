@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.3.8] — 2026-07-14 — 51 meld and opening rule fixes
+
+A 51-focused patch on **v0.3.7**. Two owner rule corrections to Syrian 51 — jokers may sit
+anywhere in a meld, the 51 opening total is required only once per round, and Ace-low runs
+extend so an Ace lays off onto a `2-3-4` — plus a fix so public-meld cards no longer overlap
+or clip on phones. Fixes only; no new features, no schema/dependency change; the six-game
+release state is intact.
+
 ### Changed
 
 - **51 (Syrian 51) meld & opening rules corrected (Stage 30.9).** Two fixes, in the shared pure

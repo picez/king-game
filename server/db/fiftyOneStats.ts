@@ -10,8 +10,8 @@
 // only the per-seat outcome (final running penalty + eliminated), the match winner
 // and the round count, NEVER cards / hands / draw pile / melds / discards. NO schema
 // migration (reuses the shared games/game_players/user_stats JSONB pattern; the
-// free-text `game_type` column already accepts 'fifty-one'). 51 is EXPERIMENTAL —
-// stats exist but it is not yet `available` / favoritable / achievement-eligible.
+// free-text `game_type` column already accepts 'fifty-one'). 51 is a fully released
+// `available` game (Stage 30.7) — favoritable + achievement-eligible.
 // ---------------------------------------------------------------------------
 
 import { createHash } from 'node:crypto';

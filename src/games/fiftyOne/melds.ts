@@ -116,7 +116,7 @@ function resolveRunInternal(cards: FiftyOneCard[]): ResolvedMeld | null {
   const suit = normals[0].suit as Suit;
   if (!normals.every((c) => c.suit === suit)) return null; // runs are one suit
 
-  // Try Ace-high first, then the Ace-low special case (only A-2-3 qualifies).
+  // Try Ace-high first, then Ace-low (A at position 1: A-2-3, A-2-3-4, … up to K).
   for (const aceLow of [false, true]) {
     const positions = normals.map((c) => (aceLow ? runPositionLow(c.rank as Rank) : runPositionHigh(c.rank as Rank)));
     if (positions.some((p) => !Number.isFinite(p))) continue; // e.g. K under Ace-low

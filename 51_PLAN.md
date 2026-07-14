@@ -251,6 +251,20 @@
   CHANGELOG. **No DB migration, no dependency, no stats change; 510/joker-25/unopened-100/discard/win
   unchanged.** `npm run verify` green.
 
+### 30.11 — v0.3.8 release QA (51 rule fixes) — ✅ DONE
+- **Patch release v0.3.8 packaging the 30.9/30.10 fixes; no new code behaviour.** Drift audit fixed
+  stale current-state comments (`server/db/fiftyOneStats.ts` + `games/fiftyOne/definition.ts` still said
+  "51 is EXPERIMENTAL"; `melds.ts` "only A-2-3 qualifies") and refreshed the `help.fifty-one.turns/notes`
+  i18n (en/uk/de/ar) to state opening-51-once + joker-any-position + Ace-low `A-2-3-4`. Confirmed the full
+  release guard set exists (joker positions, Q-K-J, J-2-3, set+joker, opened low meld, unopened blocked,
+  Ace→2-3-4, K-A-2 invalid, meld CSS overlap guard, online opened-low + Ace layoff) — none missing.
+  **Release:** hand-bumped `package.json` + `package-lock.json` **0.3.7 → 0.3.8** (no `npm install`,
+  lockfile diff = version lines only, libc count 0), moved CHANGELOG "Unreleased" 30.9/30.10 entries into
+  **`[0.3.8] — 2026-07-14 — 51 meld and opening rule fixes`** + fresh empty Unreleased, updated the
+  release-line docs (`MVP_STATUS`/`PROJECT_OVERVIEW`/`RENDER_DEPLOY` diagnostics example/`PRODUCTION_SMOKE`
+  §0/`TARNEEB_RULES` banner) and tagged **`v0.3.8`**. **No DB migration, no dependency, no stats/schema/
+  gameplay change; the six-game release state is intact.** `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

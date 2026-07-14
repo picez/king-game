@@ -4,9 +4,11 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.7** — Syrian 51 sixth-game release: **51 (Syrian 51)** graduated from
-> experimental to a fully released `available` game (local + online + stats + favorite + achievement
-> + emblem), making Card Majlis a six-game lounge; plus a six-game release audit + guard hardening.
+> **Release:** **v0.3.8** — 51 meld & opening rule fixes: jokers may sit anywhere in a meld, the 51
+> opening total is required only once per round (any valid meld afterwards), Ace-low runs extend so an
+> Ace lays off onto a `2-3-4`, and public-meld cards no longer overlap/clip. On the **v0.3.7** Syrian 51
+> sixth-game release (**51 (Syrian 51)** became a fully released `available` game — local + online +
+> stats + favorite + achievement + emblem — making Card Majlis a six-game lounge).
 > On the **v0.3.6** Tarneeb target score & compact table, the **v0.3.5** table HUD & reactions polish,
 > the **v0.3.4** Durak final-defence reveal + online timer polish, the **v0.3.3** Tarneeb scoring
 > correction + Deberc table resize, the **v0.3.2** Tarneeb Solo release & bandwidth-hardening patch,
