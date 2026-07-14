@@ -9,7 +9,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Changed
+
+- **51 (Syrian 51) meld & opening rules corrected (Stage 30.9).** Two fixes, in the shared pure
+  core so **local and online behave identically**: (1) a **joker can now sit anywhere in a meld** —
+  the start, the middle, or the end of a run (the card it stands for is fixed by where you place it,
+  so `7♠ 8♠ 🃏` = 7-8-9, `🃏 8♠ 9♠` = 7-8-9, `Q♠ K♠ 🃏` = Q-K-A, `🃏 2♠ 3♠` = A-2-3; illegal wraps
+  like `K-A-🃏` are still rejected). (2) The **51 opening total is required only once per round** —
+  once you have opened, you can lay **new melds of any value**, keep laying off, and take the discard
+  top; you never have to reach 51 again. The table button now reads **"Lay meld"** after you have
+  opened (it says **"Open (n/51)"** only while you still need to open), with clearer hints. Bots also
+  lay new melds after opening. No rules changed beyond these two; no DB migration or new dependency.
 
 ## [0.3.7] — 2026-07-14 — Syrian 51 sixth-game release
 

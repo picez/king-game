@@ -218,6 +218,24 @@
   dependency, no rule/gameplay change** beyond the shared finish-frame; the five games are unchanged.
   `npm run verify` green.
 
+### 30.9 — Correct 51 meld / opening rules — ✅ DONE
+- **Two owner rule corrections in the pure core (local + online share it).** (1) **Joker at any
+  position** (§8): `melds.ts` `resolveRun` is now two-pass — pass 1 order-independent fills only
+  INTERNAL gaps (every joker-free run + lay-off resolves regardless of input order), pass 2 falls
+  back to INPUT ORDER so an END joker resolves by where the player put it (`7-8-[J]`=`7-8-9`,
+  `[J]-8-9`=`7-8-9`, `Q-K-[J]`=`Q-K-A`=30, `[J]-2-3`=`A-2-3`=6); `K-A-[J]` and the ≤1-joker cap
+  still reject. (2) **Opening 51 is once-per-round** (§7): the `OPEN_MELDS` reducer branch drops the
+  "already opened → reject" guard and only applies the 51 gate when `!opened`, so an opened seat lays
+  **any valid meld** (no minimum). **UI:** `FiftyOneGameScreen` stages/lays before AND after opening,
+  the primary button switches **"Open (n/51)" → "Lay meld"**, with distinct copy (opening-needs-51 vs
+  opened-lay-any); i18n en/uk/de/ar (`layMeld`/`meldTotal`/`openingNeeds51`/`openAnyMeld`). **Bot:**
+  after opening it lays a fresh valid meld (any value) then lays off then discards (terminating).
+  **Online:** same reducer path; a serverCore test proves an unopened sub-51 `OPEN_MELDS` is rejected
+  `ILLEGAL_ACTION` and an opened low meld is accepted over the wire; redaction unchanged. Tests: new
+  joker-position + opening-once cases in `melds.test`/`engine.test`, UI source guards, online gate.
+  **No DB migration, no dependency, no stats/schema change; deck/scoring/510/joker-25/ace-values/
+  discard-restriction/win-by-final-discard unchanged.** `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

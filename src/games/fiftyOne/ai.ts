@@ -5,7 +5,8 @@
 //      the bot has opened; otherwise draw from the pile.
 //   2. If not opened and it can assemble melds from its own hand totalling ≥ 51
 //      (leaving a card to discard), open them.
-//   3. If opened, lay off any trivially-fitting card to shrink the hand.
+//   3. If opened, lay any fresh valid meld from hand (any value — no 51 gate once
+//      opened, 30.9), then lay off any trivially-fitting card, to shrink the hand.
 //   4. Discard the highest-value "deadweight" card (one not in any candidate
 //      meld), keeping meld-useful cards. Jokers are kept unless forced.
 // It never makes an illegal move and always ends the turn on a legal discard.
@@ -132,6 +133,20 @@ function chooseOpening(hand: FiftyOneCard[]): FiftyOneCard[][] | null {
   return chosen.map((c) => c.cards);
 }
 
+/**
+ * After opening, a fresh valid meld to lay from hand (any value, §7/§9 — no 51
+ * gate once opened, 30.9), leaving ≥ 1 card to discard. The highest-value legal
+ * candidate, or null. Each lay removes ≥ 3 cards so repeated calls terminate.
+ */
+function choosePostOpenMeld(hand: FiftyOneCard[]): FiftyOneCard[] | null {
+  if (hand.length < 4) return null; // need ≥ 3 for a meld + ≥ 1 to discard
+  const cands = candidateMelds(hand).sort((x, y) => y.value - x.value);
+  for (const cand of cands) {
+    if (hand.length - cand.cards.length >= 1) return cand.cards;
+  }
+  return null;
+}
+
 /** A card that can be laid off onto an existing public meld, or null. */
 function chooseLayoff(hand: FiftyOneCard[], melds: FiftyOneMeld[]): { meldId: string; card: FiftyOneCard } | null {
   if (hand.length < 2) return null; // keep the last card to discard / go out
@@ -178,6 +193,9 @@ export function fiftyOneBotAction(state: FiftyOneState, seat: number): FiftyOneA
     const opening = chooseOpening(hand);
     if (opening) return { type: 'OPEN_MELDS', melds: opening };
   } else {
+    // Opened: lay any fresh valid meld (no 51 gate, 30.9), then lay off, then discard.
+    const meld = choosePostOpenMeld(hand);
+    if (meld) return { type: 'OPEN_MELDS', melds: [meld] };
     const layoff = chooseLayoff(hand, state.publicMelds);
     if (layoff) return { type: 'ADD_TO_MELD', meldId: layoff.meldId, cards: [layoff.card] };
   }

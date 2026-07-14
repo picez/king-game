@@ -1,10 +1,11 @@
 # 51 (Syrian 51 / واحد وخمسين) — MVP Rules Spec
 
-> **STATUS: PURE CORE BUILT (Stage 30.1).** The pure reducer/deck/meld-validator/AI/redaction
-> now exist under `src/games/fiftyOne/` with exhaustive unit tests, implementing every MVP
-> default below as recommended. **Still NO catalog entry, UI, server/ws, stats or migration** —
-> those arrive in 30.2+. This document remains the single source of truth; when code disagrees
-> with this spec, the code is wrong — or this spec is updated first, deliberately.
+> **STATUS: RELEASED (Stage 30.7); meld/opening rules corrected (Stage 30.9).** 51 is the fully
+> `available` 6th game — local + online + stats + favorite + achievement — built from
+> `src/games/fiftyOne/`. Stage 30.9 applied two owner corrections: a joker may sit at **any
+> position** in a meld (§8) and the **51 minimum is a once-per-round opening gate** — after
+> opening, any valid meld may be laid (§7). This document remains the single source of truth;
+> when code disagrees with this spec, the code is wrong — or this spec is updated first, deliberately.
 >
 > **Sources.** Reconciled from the owner-supplied *Syrian 51 Card Game Rules* text and
 > the **owner's authoritative house-rule corrections**. Where the two disagree, the
@@ -133,13 +134,16 @@ or more valid melds whose **combined point value is ≥ 51**.
 - A Joker inside an opening meld contributes **the value of the card it represents** (§8),
   not 25.
 - Opening happens **during the meld step** of a normal turn; a player is either "opened" or
-  "not opened" for the rest of the round.
+  "not opened" for the rest of the round. **The 51 minimum applies only to this first
+  lay-down — it is a once-per-player-per-round gate, never re-checked afterwards.**
 
 **Before opening:** you may only draw from the **draw pile**, you may **not** lay any meld,
 and you may **not** take from the discard pile or add to anyone's melds.
 
-**After opening:** on later turns you may lay new melds (no further 51 minimum), add to your
-own melds, add to other players' melds (§9), and take the discard top (§5).
+**After opening (§7 clarified, Stage 30.9):** on this same turn or any later turn you may
+**lay new valid melds of ANY point value** (no further 51 minimum), add to your own melds,
+add to other players' melds (§9), and take the discard top (§5). You never have to reach 51
+again — reaching it once, to open, is the only threshold.
 
 ---
 
@@ -148,15 +152,21 @@ own melds, add to other players' melds (§9), and take the discard top (§5).
 - A Joker is **wild** and may stand in for **one specific missing card** in a run or set.
   It **must represent a clear, unambiguous card** — e.g. in `7♠ [Joker] 9♠` the Joker is
   `8♠`; in `Q♥ Q♦ [Joker]` it is a third queen.
+- **A Joker may sit at ANY position in a meld** *[owner rule, Stage 30.9]* — the beginning,
+  the middle, or the end of a run, and any slot of a set. In a **run**, the card the Joker
+  represents is fixed by **its slot in the run sequence** (left = low, right = high), so the
+  arrangement removes the old ambiguity: `7♠ 8♠ [Joker]` = `7-8-9` (Joker = `9♠`),
+  `[Joker] 8♠ 9♠` = `7-8-9` (Joker = `7♠`), `Q♠ K♠ [Joker]` = `Q-K-A` (Joker = `A♠`, worth 30),
+  `[Joker] 2♠ 3♠` = `A-2-3` (Joker = `A♠`, worth 6). An arrangement that has **no** legal
+  reading — e.g. `K-A-[Joker]` (would wrap past the Ace) — is still rejected.
 - **In an opened meld, the Joker's value = the value of the card it represents** (§10).
   *[owner override: not a flat 15.]*
 - **A Joker left in a player's hand at round end = 25 penalty points** (§11). *[owner
   override: source says ~15.]*
-- **MVP joker constraints (finalised in 30.1, implemented):** at most **ONE joker per meld**;
-  in a run, a joker may only fill an **internal** gap between two present cards (a joker at
-  either end of a run is ambiguous — it could extend up or down — and is rejected). In a set,
-  the joker takes a clear missing suit. Two-plus jokers in one meld are rejected. (This is the
-  conservative reading of [§16 Q10](#16-open-questions--confirmations-needed).)
+- **Joker cap (unchanged, MVP):** at most **ONE joker per meld** — two-plus jokers in one
+  meld are rejected (keeps the represented card unambiguous). In a **set**, the joker takes a
+  clear missing suit. (The old "internal gap only" run restriction from 30.1 is **superseded**
+  by the any-position rule above.)
 
 ---
 
@@ -309,3 +319,13 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   opened**; the "Hand" all-at-once bonus stays deferred; **≤ 1 joker per meld**, run jokers
   fill internal gaps only). Draw-pile exhaustion **reshuffles the discard except its top**
   (§5 MVP). No catalog/UI/server/stats yet.
+- **Stage 30.9 (2026-07-14):** **two owner meld/opening corrections** (§7, §8). (1) A joker
+  may now sit at **any position** in a run/set — the represented card is fixed by its **slot**
+  in the sequence, so end jokers resolve (`7-8-[J]`=`7-8-9`, `[J]-8-9`=`7-8-9`, `Q-K-[J]`=`Q-K-A`,
+  `[J]-2-3`=`A-2-3`); the "internal gap only" 30.1 restriction is **superseded** (the ≤1-joker
+  cap and `K-A-2`/`K-A-[J]` rejection stay). (2) The **51 minimum is a once-per-round OPENING
+  gate**: after a player has opened, they may lay **new valid melds of any value**, lay off, and
+  take the discard top on this or later turns — the code now does this (the reducer's lay-melds
+  action no longer re-checks 51 once opened). Core two-pass run resolver + reducer branch + UI
+  ("Open 51" → "Lay meld") + bot (lays fresh melds after opening) + online/unit tests. No deck,
+  scoring, elimination, joker-hand-penalty, discard-restriction or win-by-final-discard change.

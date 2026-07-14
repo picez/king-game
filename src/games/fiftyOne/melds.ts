@@ -8,9 +8,15 @@
 //   • MVP joker cap: AT MOST ONE joker per meld (§8 / §16 Q10 — the conservative
 //     documented default; keeps the represented card unambiguous). Two or more
 //     jokers in one meld is rejected.
-//   • In a run, a joker may only fill an INTERNAL gap (between two present
-//     cards) — a joker at either END of a run is ambiguous (could extend up OR
-//     down) and is rejected, honouring the "clear, unambiguous card" rule.
+//   • In a run, a joker may sit at ANY position — the beginning, the middle, or
+//     the end (§8, owner rule 30.9). The card it represents is fixed by its slot
+//     in the run sequence, so `7♠ 8♠ [joker]` = 7-8-9, `[joker] 8♠ 9♠` = 7-8-9,
+//     `Q♠ K♠ [joker]` = Q-K-A, `[joker] 2♠ 3♠` = A-2-3. Run resolution is a two
+//     pass affair: first an ORDER-INDEPENDENT pass fills internal gaps only (so a
+//     lay-off card extending either end always resolves regardless of input
+//     order); if that fails, an INPUT-ORDER pass reads the cards left→low /
+//     right→high so an end joker's direction is taken from where the player put
+//     it (removing the old "internal gap only" ambiguity restriction).
 //
 // Ace handling (§6, §10):
 //   • Ace is HIGH by default (… Q K A). `Q-K-A` is a valid run worth 30.
@@ -90,8 +96,14 @@ function jokerCount(cards: FiftyOneCard[]): number {
   return cards.reduce((n, c) => n + (c.joker ? 1 : 0), 0);
 }
 
-/** Try to interpret `cards` as a valid RUN; null if it is not one. */
-export function resolveRun(cards: FiftyOneCard[]): ResolvedMeld | null {
+/**
+ * Pass 1 — ORDER-INDEPENDENT. The run window is exactly the normals' [min, max];
+ * jokers may only fill INTERNAL holes. This resolves every joker-free run and
+ * every internal-joker run regardless of the input order, so a lay-off card that
+ * extends either end always resolves (the reducer appends it, then re-resolves).
+ * A joker that would sit at an END is NOT handled here — pass 2 does that.
+ */
+function resolveRunInternal(cards: FiftyOneCard[]): ResolvedMeld | null {
   if (cards.length < 3) return null;
   const jokers = cards.filter((c) => c.joker);
   const normals = cards.filter((c) => !c.joker);
@@ -104,6 +116,7 @@ export function resolveRun(cards: FiftyOneCard[]): ResolvedMeld | null {
   // Try Ace-high first, then the Ace-low special case (only A-2-3 qualifies).
   for (const aceLow of [false, true]) {
     const positions = normals.map((c) => (aceLow ? runPositionLow(c.rank as Rank) : runPositionHigh(c.rank as Rank)));
+    if (positions.some((p) => !Number.isFinite(p))) continue; // e.g. K under Ace-low
     if (new Set(positions).size !== positions.length) continue; // duplicate rank ⇒ not a run
 
     const min = Math.min(...positions);
@@ -115,8 +128,7 @@ export function resolveRun(cards: FiftyOneCard[]): ResolvedMeld | null {
       if (min < 2 || max > 14) continue; // 2..A(14)
     }
 
-    // The window is exactly [min, max]; jokers fill the internal holes. This
-    // rejects jokers at the ends (ambiguous) and enforces length = card count.
+    // The window is exactly [min, max]; jokers fill the internal holes only.
     const windowLen = max - min + 1;
     if (windowLen !== cards.length) continue;
     const occupied = new Set(positions);
@@ -147,6 +159,65 @@ export function resolveRun(cards: FiftyOneCard[]): ResolvedMeld | null {
     return { type: 'run', cards: orderedCards, jokerRepresents, value };
   }
   return null;
+}
+
+/**
+ * Pass 2 — INPUT-ORDER. Reads the cards as the run sequence left→low / right→high,
+ * so a joker at either END resolves to the card its slot implies (30.9 owner rule:
+ * a joker may sit at any position). The run start is fixed by the first normal
+ * card's index, then every normal card must sit at its slot and every position
+ * must stay in range — genuinely-invalid arrangements (e.g. `K-A-2`) still fail.
+ * Kept ordered because an end joker's direction is otherwise ambiguous; the
+ * order-independent pass 1 already covers internal jokers and lay-offs.
+ */
+function resolveRunOrdered(cards: FiftyOneCard[]): ResolvedMeld | null {
+  if (cards.length < 3) return null;
+  const jokers = cards.filter((c) => c.joker);
+  const normals = cards.filter((c) => !c.joker);
+  if (jokers.length > MAX_JOKERS_PER_MELD) return null;
+  if (normals.length === 0) return null;
+
+  const suit = normals[0].suit as Suit;
+  if (!normals.every((c) => c.suit === suit)) return null;
+
+  for (const aceLow of [false, true]) {
+    const pos = (r: Rank): number => (aceLow ? runPositionLow(r) : runPositionHigh(r));
+    const firstNormalIdx = cards.findIndex((c) => !c.joker);
+    const start = pos(cards[firstNormalIdx].rank as Rank) - firstNormalIdx;
+    if (!Number.isFinite(start)) continue; // e.g. a K read Ace-low
+
+    // Every card's position is its slot; each normal must actually sit there.
+    let ok = true;
+    for (let k = 0; k < cards.length; k++) {
+      const card = cards[k];
+      if (!card.joker && pos(card.rank as Rank) !== start + k) { ok = false; break; }
+    }
+    if (!ok) continue;
+
+    const min = start;
+    const max = start + cards.length - 1;
+    if (aceLow) { if (min < 1 || max > 3) continue; } // only the A-2-3 window
+    else if (min < 2 || max > 14) continue;           // 2..A(14)
+
+    const jokerRepresents: Record<number, JokerRepresentation> = {};
+    let value = 0;
+    for (let k = 0; k < cards.length; k++) {
+      const p = start + k;
+      value += positionValue(p, aceLow);
+      if (cards[k].joker) jokerRepresents[k] = { suit, rank: rankAtPosition(p, aceLow) };
+    }
+    return { type: 'run', cards: cards.slice(), jokerRepresents, value };
+  }
+  return null;
+}
+
+/**
+ * Try to interpret `cards` as a valid RUN; null if it is not one. Pass 1 is
+ * order-independent (internal jokers / lay-offs); pass 2 falls back to the input
+ * order so an END joker resolves by where the player placed it (30.9).
+ */
+export function resolveRun(cards: FiftyOneCard[]): ResolvedMeld | null {
+  return resolveRunInternal(cards) ?? resolveRunOrdered(cards);
 }
 
 /** Try to interpret `cards` as a valid SET (group); null if it is not one. */

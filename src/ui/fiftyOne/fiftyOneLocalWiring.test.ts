@@ -38,6 +38,20 @@ describe('51 local UI wiring (no rule duplication)', () => {
     }
   });
 
+  it('the lay button switches Open 51 → Lay meld, with the 51 gate only before opening (30.9)', () => {
+    const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
+    // The button label branches on `opened`: "Lay meld" after opening, "Open (n/51)" before.
+    expect(src).toContain("t('fiftyOne.layMeld')");
+    expect(src).toMatch(/opened[\s\S]*fiftyOne\.layMeld[\s\S]*fiftyOne\.open/);
+    // The 51 minimum is the OPENING gate only — once opened it no longer applies.
+    expect(src).toContain('const meetsOpening = opened || stagedTotal >= OPENING_MINIMUM');
+    // Staging a meld is available AFTER opening too (no `!opened` gate on canStage).
+    expect(src).not.toContain('const canStage = meldStep && !opened');
+    // Distinct copy: opening-needs-51 vs opened-lay-any hints exist.
+    expect(src).toContain("t('fiftyOne.openingNeeds51')");
+    expect(src).toContain("t('fiftyOne.openAnyMeld')");
+  });
+
   it('FiftyOneSetup reads the deck rule from the core (2p vs 3–4p) and offers 2/3/4', () => {
     const src = read('src/ui/fiftyOne/FiftyOneSetup.tsx');
     expect(src).toContain('deckCountFor');

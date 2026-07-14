@@ -82,9 +82,40 @@ describe('51 runs (§6)', () => {
     expect(r?.jokerRepresents[1]).toEqual({ suit: 'clubs', rank: '2' });
   });
 
-  it('rejects a joker at the END of a run (ambiguous)', () => {
-    // 7♠ 8♠ [joker] could be 9♠ or 6♠ → not a clear card, rejected in MVP.
-    expect(resolveRun([c('7', 'spades'), c('8', 'spades'), J()])).toBeNull();
+  // ── Joker at ANY position (owner rule 30.9) — direction from the input slot. ──
+  it('accepts a joker at the END of a run: 7♠ 8♠ [joker] = 7-8-9', () => {
+    const r = resolveRun([c('7', 'spades'), c('8', 'spades'), J()]);
+    expect(r?.type).toBe('run');
+    expect(r?.value).toBe(24); // 7 + 8 + (joker=9)
+    expect(r?.jokerRepresents[2]).toEqual({ suit: 'spades', rank: '9' });
+  });
+
+  it('accepts a joker at the BEGINNING of a run: [joker] 8♠ 9♠ = 7-8-9', () => {
+    const r = resolveRun([J(), c('8', 'spades'), c('9', 'spades')]);
+    expect(r?.value).toBe(24); // (joker=7) + 8 + 9
+    expect(r?.jokerRepresents[0]).toEqual({ suit: 'spades', rank: '7' });
+  });
+
+  it('accepts Q-K-[joker] as Q-K-A worth 30', () => {
+    const r = resolveRun([c('Q', 'diamonds'), c('K', 'diamonds'), J()]);
+    expect(r?.value).toBe(30); // 10 + 10 + (joker=A) 10
+    expect(r?.jokerRepresents[2]).toEqual({ suit: 'diamonds', rank: 'A' });
+  });
+
+  it('accepts [joker]-2-3 as A-2-3 worth 6', () => {
+    const r = resolveRun([J(), c('2', 'hearts'), c('3', 'hearts')]);
+    expect(r?.value).toBe(6); // (joker=A low) 1 + 2 + 3
+    expect(r?.jokerRepresents[0]).toEqual({ suit: 'hearts', rank: 'A' });
+  });
+
+  it('reads an end joker by its slot: 8♠ 9♠ [joker] = 8-9-10 (up), not down', () => {
+    const r = resolveRun([c('8', 'spades'), c('9', 'spades'), J()]);
+    expect(r?.value).toBe(27); // 8 + 9 + (joker=10)
+    expect(r?.jokerRepresents[2]).toEqual({ suit: 'spades', rank: '10' });
+  });
+
+  it('still rejects K-A-[joker] (no wrap past the Ace)', () => {
+    expect(resolveRun([c('K', 'spades'), c('A', 'spades'), J()])).toBeNull();
   });
 
   it('rejects a meld with two jokers (MVP cap of 1)', () => {

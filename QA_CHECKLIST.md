@@ -592,6 +592,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] **Local play:** start a local 51 game (2/3/4) → deal 13/14, opener discards to start, a normal turn
       draws→melds→discards, discard-take gated on opening, empty-hand win, round summary (never-opened 100 /
       joker 25), elimination at 510, match winner. No horizontal overflow at 360/390; Arabic **RTL** smoke.
+- [ ] **Meld / opening rules (Stage 30.9):** a **joker sits at any position** — stage `7♠ 8♠ 🃏` and it
+      reads 7-8-9, `🃏 8♠ 9♠` reads 7-8-9, `Q♠ K♠ 🃏` reads Q-K-A (30), `🃏 2♠ 3♠` reads A-2-3 (6);
+      `K♠ A♠ 🃏` stays **invalid**. Before opening the primary button reads **"Open (n/51)"** and is disabled
+      under 51; after your first ≥51 lay-down it reads **"Lay meld"** and accepts **any** valid meld (e.g. a
+      15-point 4-5-6 run) with **no** 51 requirement. Lay-off + discard-take still work after opening.
 - [ ] **Online play:** host + join (2 tabs + optional bot) → each client sees **only its own hand**
       (opponents show 🂠counts, draw pile face-down); a turn applies over the wire; the **server** drives the
       between-rounds advance (no client "Next round" button); match winner + **Play again** (rematch) +

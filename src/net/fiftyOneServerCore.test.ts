@@ -23,10 +23,12 @@ import {
 import { getGameDefinition } from '../games/registry';
 import { GAME_CATALOG } from '../games/catalog';
 import type { AnyGameAction } from '../games/anyGame';
-import type { FiftyOneState } from '../games/fiftyOne/types';
+import type { FiftyOneCard, FiftyOneState } from '../games/fiftyOne/types';
+import type { Rank, Suit } from '../models/types';
 
 const def = getGameDefinition('fifty-one')!;
 const asF = (s: unknown) => s as unknown as FiftyOneState;
+const card = (rank: Rank, suit: Suit): FiftyOneCard => ({ id: `${suit}-${rank}`, joker: false, suit, rank });
 /** The 51 reducer/bot are `any`-typed at the registry boundary; wrap the bot move
  *  so it satisfies the AnyGameAction param without widening the union. */
 const bot = (s: FiftyOneState): AnyGameAction => def.botAction(s) as AnyGameAction;
@@ -301,6 +303,39 @@ describe('51 public round_complete advances server-side (Stage 30.4)', () => {
     // At least one non-winning seat has taken a running penalty by now (§11).
     expect(s.scoresBySeat.some((v) => v > 0)).toBe(true);
   }, 30_000);
+
+  it('online opening gate (30.9): unopened low meld rejected; opened low meld accepted', () => {
+    // Craft a controlled hand for the acting seat so the value is known: a 15-point
+    // run (4-5-6) + a spare to discard. The SAME low meld must be rejected before
+    // opening (opening needs ≥ 51) and accepted after opening (no 51 gate).
+    const lowRun = [card('4', 'spades'), card('5', 'spades'), card('6', 'spades')];
+    const craft = (opened: boolean): { room: ServerRoom; client: string; seat: number } => {
+      const { room, clientForSeat } = seatedRoom(2, 21);
+      const s = asF(room.gameState);
+      const seat = s.currentSeat;
+      s.turnStep = 'meld_discard';
+      s.openedBySeat[seat] = opened;
+      s.handsBySeat[seat] = [...lowRun, card('2', 'clubs')]; // 3 meld cards + a spare
+      return { room, client: clientForSeat(seat), seat };
+    };
+
+    // Unopened → the reducer rejects the sub-51 opening as a no-op (ILLEGAL_ACTION).
+    const u = craft(false);
+    const before = JSON.stringify(u.room.gameState);
+    const rejected = applyActionRequest(u.room, u.client, { type: 'OPEN_MELDS', melds: [lowRun] } as AnyGameAction);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.error).toBe('ILLEGAL_ACTION');
+    expect(JSON.stringify(u.room.gameState)).toBe(before); // state untouched
+
+    // Opened → the same 15-point meld is accepted over the wire (no 51 gate).
+    const o = craft(true);
+    const accepted = applyActionRequest(o.room, o.client, { type: 'OPEN_MELDS', melds: [lowRun] } as AnyGameAction);
+    expect(accepted.ok).toBe(true);
+    const after = asF(o.room.gameState);
+    expect(after.publicMelds).toHaveLength(1);
+    expect(after.publicMelds[0].value).toBe(15);
+    expect(after.openedBySeat[o.seat]).toBe(true);
+  });
 
   it('a finished game reports no public screen and does NOT auto-advance', () => {
     // Build a terminal state directly (a full 510-point drive is unnecessary for

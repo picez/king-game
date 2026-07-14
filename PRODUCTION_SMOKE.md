@@ -272,6 +272,10 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       **open** once your first lay-down totals **≥ 51**. At round end a **never-opened** loser scores a
       flat **100** and a **joker left in hand** scores **25**; emptying your hand wins the round (0), and
       a running penalty of **510** eliminates a player. Finish screen wears the shared ornamental frame.
+- [ ] **Meld/opening rules (Stage 30.9):** a **joker sits at any position** — `7♠ 8♠ 🃏` = 7-8-9,
+      `🃏 8♠ 9♠` = 7-8-9, `Q♠ K♠ 🃏` = Q-K-A (30), `🃏 2♠ 3♠` = A-2-3 (6); `K♠ A♠ 🃏` stays invalid. The
+      primary button reads **"Open (n/51)"** until you open, then **"Lay meld"** — after opening you can lay
+      **any** valid meld (e.g. a 15-pt 4-5-6 run) with **no** further 51 requirement, plus lay off + take discard.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A

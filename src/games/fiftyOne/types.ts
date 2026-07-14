@@ -159,9 +159,11 @@ export type FiftyOneAction =
   /** Take the top discard card into hand — only after opening (§5). Turn step 'draw'. */
   | { type: 'TAKE_DISCARD' }
   /**
-   * Open the round: lay one or more valid melds from hand totalling ≥ 51 (§7).
-   * Each inner array is one meld, referenced by card id. Only legal on the very
-   * first lay-down; must leave ≥ 1 card in hand for the discard.
+   * Lay one or more valid melds from hand. Each inner array is one meld,
+   * referenced by card id; must leave ≥ 1 card in hand for the discard. BEFORE
+   * opening, the combined value must total ≥ 51 (the §7 opening rule) and this
+   * flips the seat to "opened". AFTER opening (once per round), the SAME action
+   * lays any valid meld with no 51 minimum (§7/§9, owner rule 30.9).
    */
   | { type: 'OPEN_MELDS'; melds: FiftyOneCard[][] }
   /** Lay off card(s) onto an existing public meld — only after opening (§9). */

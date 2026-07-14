@@ -237,8 +237,12 @@ export function fiftyOneReducer(
     }
 
     case 'OPEN_MELDS': {
+      // Lays one or more valid melds. BEFORE opening, the combined value must reach
+      // 51 (the opening rule, §7); this also flips the seat to "opened". AFTER opening
+      // (once per round), the same action lays any valid meld with NO 51 gate (§7/§9,
+      // owner rule 30.9) — the seat stays opened.
       if (state.phase !== 'playing' || state.turnStep !== 'meld_discard') return state;
-      if (state.openedBySeat[seat]) return state;        // may only open once (§7)
+      const alreadyOpen = state.openedBySeat[seat];
       const melds = action.melds;
       if (!Array.isArray(melds) || melds.length === 0) return state;
 
@@ -258,7 +262,7 @@ export function fiftyOneReducer(
         resolved.push(r);
         total += r.value;
       }
-      if (total < OPENING_MINIMUM) return state;         // opening must reach 51 (§7)
+      if (!alreadyOpen && total < OPENING_MINIMUM) return state; // opening must reach 51 (§7)
       if (hand.length - usedIds.size < 1) return state;  // must keep a card to discard (§5)
 
       const s = clone(state);

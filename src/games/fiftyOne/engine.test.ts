@@ -175,11 +175,26 @@ describe('51 opening (§7)', () => {
     expect(fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [run, set] })).toBe(s);
   });
 
-  it('cannot open twice', () => {
-    const s = baseState([opener(), [c('3', 'clubs')]], { currentSeat: 0, openedBySeat: [true, false] });
-    const run = opener().slice(0, 3);
-    const set = opener().slice(3, 6);
-    expect(fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [run, set] })).toBe(s);
+  it('an already-opened seat lays a low-value meld with NO 51 gate (30.9)', () => {
+    // Opened seat holds a 15-point run (4-5-6) + a spare; laying it must be accepted
+    // even though 15 < 51 (the opening gate applies only to the FIRST lay-down).
+    const hand = [c('4', 'spades'), c('5', 'spades'), c('6', 'spades'), c('2', 'clubs')];
+    const s = baseState([hand, [c('3', 'clubs')]], { currentSeat: 0, openedBySeat: [true, false] });
+    const run = hand.slice(0, 3);
+    const o = fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [run] }) as FiftyOneState;
+    expect(o).not.toBe(s);
+    expect(o.openedBySeat[0]).toBe(true);           // stays opened
+    expect(o.publicMelds).toHaveLength(1);
+    expect(o.publicMelds[0].value).toBe(15);        // 4+5+6, below 51 — accepted
+    expect(o.handsBySeat[0]).toHaveLength(1);        // spare kept to discard
+    expect(o.turnStep).toBe('meld_discard');
+  });
+
+  it('an UNOPENED seat still cannot lay a sub-51 meld (opening gate holds)', () => {
+    const hand = [c('4', 'spades'), c('5', 'spades'), c('6', 'spades'), c('2', 'clubs')];
+    const s = baseState([hand, [c('3', 'clubs')]], { currentSeat: 0 }); // openedBySeat[0] = false
+    const run = hand.slice(0, 3);
+    expect(fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [run] })).toBe(s); // 15 < 51 → rejected
   });
 });
 

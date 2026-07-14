@@ -119,8 +119,11 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   const drawStep = isMyTurn && turnStep === 'draw';
   const meldStep = isMyTurn && turnStep === 'meld_discard';
   const canTakeDiscard = drawStep && opened && state.discardPile.length > 0;
-  const canStage = meldStep && !opened && !!selResolved && remainingAfterStage - selected.length >= 1;
-  const canOpen = meldStep && !opened && staged.length > 0 && stagedTotal >= OPENING_MINIMUM && remainingAfterStage >= 1;
+  // Staging + laying works BEFORE and AFTER opening (30.9). The 51 minimum is the
+  // opening gate only — once opened, any valid staged meld can be laid.
+  const canStage = meldStep && !!selResolved && remainingAfterStage - selected.length >= 1;
+  const meetsOpening = opened || stagedTotal >= OPENING_MINIMUM;
+  const canLay = meldStep && staged.length > 0 && meetsOpening && remainingAfterStage >= 1;
   const canDiscard = meldStep && selected.length === 1;
 
   function stageMeld() {
@@ -128,8 +131,8 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     setStaged((m) => [...m, [...selected]]);
     setSelected([]);
   }
-  function openMelds() {
-    if (!canOpen) return;
+  function layMelds() {
+    if (!canLay) return;
     apply({ type: 'OPEN_MELDS', melds: stagedMelds });
   }
   function discard() {
@@ -160,6 +163,12 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
       validation = t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet')
         .replace('{n}', String(selResolved.value));
     } else validation = t('fiftyOne.invalidMeld');
+  } else if (meldStep && staged.length > 0 && !opened && stagedTotal < OPENING_MINIMUM) {
+    // Staged something but not enough to OPEN yet — the opening 51 gate (unopened only).
+    validation = t('fiftyOne.openingNeeds51');
+  } else if (meldStep && opened && selectedCards.length === 0 && staged.length === 0) {
+    // Reassure an opened player: the 51 minimum is gone; any valid meld is layable.
+    validation = t('fiftyOne.openAnyMeld');
   }
 
   const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
@@ -243,11 +252,13 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         {validation && <span className="fiftyone-prompt__val">{validation}</span>}
       </div>
 
-      {/* Staged melds waiting to open (must total ≥ 51). */}
+      {/* Staged melds. Before opening they must total ≥ 51; after opening any value. */}
       {staged.length > 0 && (
         <div className="fiftyone-staged">
           <span className="fiftyone-staged__label">
-            {t('fiftyOne.openTotal').replace('{n}', String(stagedTotal))}
+            {opened
+              ? t('fiftyOne.meldTotal').replace('{n}', String(stagedTotal))
+              : t('fiftyOne.openTotal').replace('{n}', String(stagedTotal))}
           </span>
           <div className="fiftyone-staged__rows">
             {stagedMelds.map((cards, i) => (
@@ -278,11 +289,13 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
             <button type="button" className="btn btn--ghost" disabled={!canTakeDiscard} onClick={() => canTakeDiscard && apply({ type: 'TAKE_DISCARD' })}>{t('fiftyOne.takeDiscard')}</button>
           </>
         )}
-        {meldStep && !opened && (
+        {meldStep && (
           <>
             <button type="button" className="btn btn--ghost" disabled={!canStage} onClick={stageMeld}>{t('fiftyOne.stageMeld')}</button>
-            <button type="button" className="btn btn--primary" disabled={!canOpen} onClick={openMelds}>
-              {t('fiftyOne.open')} ({stagedTotal}/{OPENING_MINIMUM})
+            <button type="button" className="btn btn--primary" disabled={!canLay} onClick={layMelds}>
+              {opened
+                ? t('fiftyOne.layMeld')
+                : `${t('fiftyOne.open')} (${stagedTotal}/${OPENING_MINIMUM})`}
             </button>
           </>
         )}
