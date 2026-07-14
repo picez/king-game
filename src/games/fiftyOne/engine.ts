@@ -236,6 +236,58 @@ export function fiftyOneReducer(
       return s;
     }
 
+    case 'TAKE_DISCARD_AND_OPEN': {
+      // An UNOPENED seat may take the discard top ONLY to open with it in the SAME
+      // action: the top must be part of the opening melds, which must total ≥ 51 and
+      // leave ≥ 1 card to discard (§5/§7, owner rule 30.13). Never "just into hand".
+      if (state.phase !== 'playing' || state.turnStep !== 'draw') return state;
+      if (state.openedBySeat[seat]) return state;        // opened → use TAKE_DISCARD
+      if (state.discardPile.length === 0) return state;
+      const melds = action.melds;
+      if (!Array.isArray(melds) || melds.length === 0) return state;
+
+      const top = state.discardPile[state.discardPile.length - 1];
+      const hand = state.handsBySeat[seat];
+      const pool = [...hand, top];                       // the top is available to open with
+      const usedIds = new Set<string>();
+      const resolved = [] as ReturnType<typeof resolveMeld>[];
+      let total = 0;
+      for (const meldCards of melds) {
+        const picked = pickFromHand(pool, meldCards);
+        if (!picked || picked.length < 3) return state;
+        for (const c of picked) {
+          if (usedIds.has(c.id)) return state;           // a card can't be in two melds
+          usedIds.add(c.id);
+        }
+        const r = resolveMeld(picked);
+        if (!r) return state;
+        resolved.push(r);
+        total += r.value;
+      }
+      if (!usedIds.has(top.id)) return state;            // the taken card MUST be used to open
+      if (total < OPENING_MINIMUM) return state;         // opening must reach 51 (§7)
+      if (pool.length - usedIds.size < 1) return state;  // must keep a card to discard (§5)
+
+      const s = clone(state);
+      s.discardPile.pop();                               // remove the top from the discard pile
+      s.handsBySeat[seat].push(top);                     // fold it into the hand, then strip melds
+      removeByIds(s.handsBySeat[seat], usedIds);         // removes the used cards (incl. the top)
+      for (const r of resolved) {
+        const meld: FiftyOneMeld = {
+          id: `m-${s.roundNumber}-${seat}-${s.publicMelds.length}`,
+          ownerSeat: seat,
+          type: r!.type,
+          cards: r!.cards,
+          jokerRepresents: r!.jokerRepresents,
+          value: r!.value,
+        };
+        s.publicMelds.push(meld);
+      }
+      s.openedBySeat[seat] = true;
+      s.turnStep = 'meld_discard';                       // now the player must discard to end the turn
+      return s;
+    }
+
     case 'OPEN_MELDS': {
       // Lays one or more valid melds. BEFORE opening, the combined value must reach
       // 51 (the opening rule, §7); this also flips the seat to "opened". AFTER opening

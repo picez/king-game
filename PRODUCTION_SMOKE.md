@@ -295,6 +295,11 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       **`A-2-3-4`** (Ace-first, value 10); adding a King to `A-2-3` stays invalid. Public-meld cards are a
       **clean, non-overlapping, unclipped** row with the Add button below — **no horizontal overflow** at
       360/390 with 4 players and several melds.
+- [ ] **Discard-to-open + bigger meld cards (Stage 30.13):** before opening, plain **Take discard** is
+      disabled; **tap the discard top** (gold ring) + hand cards to build a **≥ 51 opening including the
+      top**, then **"Take & open 51"** opens and removes the top. You can't take the discard bare while
+      unopened. After opening, Take discard works normally. Meld cards are **bigger/clearly separated**,
+      no overlap, no 360/390 overflow (4-5-card runs, multiple blocks).
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A

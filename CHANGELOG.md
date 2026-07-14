@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **51: take the discard only to open, and clearer melds (Stage 30.13).** In 51 you may now pick up
+  the **top of the discard pile before you've opened — but only if you open with it that turn** (the
+  card must be part of your 51+ opening melds); you can't just scoop it into your hand. Tap the discard
+  top (it lights up), add your hand cards, and press **"Take & open 51"**. Once you've opened, taking
+  the discard works as before. Bots use this too. The cards in melds on the table are also **bigger and
+  clearer**, with no overlapping. No DB migration, no dependency; no change to scoring, penalties,
+  elimination, or going out by the final discard.
+
 ### Added
 
 - **Drag your hand into any order (Stage 30.12).** In every game you can now **drag a card** within

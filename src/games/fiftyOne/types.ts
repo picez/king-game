@@ -156,8 +156,16 @@ export type FiftyOneAction =
     }
   /** Draw the top of the draw pile (reshuffles from discard if empty). Turn step must be 'draw'. */
   | { type: 'DRAW_FROM_DECK' }
-  /** Take the top discard card into hand — only after opening (§5). Turn step 'draw'. */
+  /** Take the top discard card into hand — only AFTER opening (§5). Turn step 'draw'. */
   | { type: 'TAKE_DISCARD' }
+  /**
+   * Take the top discard card AND open with it in one atomic action (§5/§7, owner
+   * rule 30.13). Legal only for an UNOPENED seat at the 'draw' step: the top discard
+   * card MUST appear in `melds`, the melds must total ≥ 51 and leave ≥ 1 card to
+   * discard. This is the ONLY way an unopened seat may take the discard — you may
+   * never take it "just into hand" before opening. Advances to 'meld_discard'.
+   */
+  | { type: 'TAKE_DISCARD_AND_OPEN'; melds: FiftyOneCard[][] }
   /**
    * Lay one or more valid melds from hand. Each inner array is one meld,
    * referenced by card id; must leave ≥ 1 card in hand for the discard. BEFORE

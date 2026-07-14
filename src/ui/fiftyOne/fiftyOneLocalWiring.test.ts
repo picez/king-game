@@ -62,8 +62,24 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*overflow-x:\s*auto/);
     // Full card face (contain) so mini meld-card indices are not cover-cropped.
     expect(css).toContain('.fiftyone-meld__cards .card--mini.card--art .card__art { object-fit: contain; }');
+    // Cards are ENLARGED (30.13) via a fixed, non-shrinking box so they read clearly.
+    expect(block).toMatch(/\.fiftyone-meld__cards \.card--mini \{[^}]*flex:\s*0 0 auto[^}]*width:\s*54px/);
     // The Add button is its own element under the cards (not inside the card row).
     expect(css).toContain('.fiftyone-meld__add');
+  });
+
+  it('discard-to-open UI: the top is takeable only to open, via TAKE_DISCARD_AND_OPEN (30.13)', () => {
+    const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
+    // The atomic action is dispatched — an unopened seat never sends a plain TAKE_DISCARD.
+    expect(src).toContain("type: 'TAKE_DISCARD_AND_OPEN'");
+    expect(src).toContain('discardOpenAvailable');
+    // The discard top becomes selectable ONLY when discard-open is available.
+    expect(src).toMatch(/discardOpenAvailable[\s\S]{0,120}toggle\(topDiscard\.id\)/);
+    // "Take & open 51" is gated on including the top AND reaching 51.
+    expect(src).toContain('canTakeAndOpen');
+    expect(src).toContain('stagedIds.has(topDiscard.id)');
+    // Plain "Take discard" stays OPENED-only (never fires an unopened bare take).
+    expect(src).toContain('drawStep && opened && state.discardPile.length > 0');
   });
 
   it('FiftyOneSetup reads the deck rule from the core (2p vs 3–4p) and offers 2/3/4', () => {
@@ -100,10 +116,12 @@ describe('51 local loop completes a match (headless drive of the UI contract)', 
     return { finished: state.phase === 'game_finished', rounds, state };
   }
 
-  it('completes several rounds with no invariant break; a finished match names a valid winner', () => {
+  it('completes rounds with no invariant break; a finished match names a valid winner', () => {
     for (const [pc, seed] of [[2, 5], [3, 4]] as const) {
       const { finished, rounds, state } = drive(pc, seed);
-      expect(rounds, `pc ${pc} rounds`).toBeGreaterThanOrEqual(3);
+      // At least one full round resolves (the exact count varies with bot play — with
+      // discard-to-open, 30.13, bots may open + go out faster and finish in fewer rounds).
+      expect(rounds, `pc ${pc} rounds`).toBeGreaterThanOrEqual(1);
       if (finished) {
         expect(state.winnerSeat, `pc ${pc} winner`).not.toBeNull();
         expect(state.eliminatedSeats[state.winnerSeat as number]).toBe(false);

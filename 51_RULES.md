@@ -1,12 +1,13 @@
 # 51 (Syrian 51 / واحد وخمسين) — MVP Rules Spec
 
-> **STATUS: RELEASED (Stage 30.7); meld/opening rules corrected (Stages 30.9–30.10).** 51 is the
+> **STATUS: RELEASED (Stage 30.7); meld/opening rules corrected (Stages 30.9–30.13).** 51 is the
 > fully `available` 6th game — local + online + stats + favorite + achievement — built from
 > `src/games/fiftyOne/`. Owner corrections: a joker may sit at **any position** in a meld (§8),
 > the **51 minimum is a once-per-round opening gate** — after opening, any valid meld may be laid
-> (§7, 30.9), and **Ace-low runs extend** (`A-2-3-4`, …) so an Ace lays off onto a `2-3-4` (§6,
-> 30.10). This document remains the single source of truth; when code disagrees with this spec,
-> the code is wrong — or this spec is updated first, deliberately.
+> (§7, 30.9), **Ace-low runs extend** (`A-2-3-4`, …) so an Ace lays off onto a `2-3-4` (§6, 30.10),
+> and an unopened player may take the **discard top only to open with it** (§5a, 30.13). This
+> document remains the single source of truth; when code disagrees with this spec, the code is
+> wrong — or this spec is updated first, deliberately.
 >
 > **Sources.** Reconciled from the owner-supplied *Syrian 51 Card Game Rules* text and
 > the **owner's authoritative house-rule corrections**. Where the two disagree, the
@@ -76,19 +77,28 @@ The deck size depends on the player count. Two **Jokers** are always in play.
 
 A **normal** turn is, in order:
 
-1. **Draw one card** — from the **draw pile**, OR (only if you have already *opened*, §7)
-   the **top card of the discard pile**. *[owner override: you may take from the discard
-   pile **only after you have opened**; before opening it is **draw pile only**.]*
+1. **Draw one card** — from the **draw pile**, OR the **top card of the discard pile** subject
+   to the discard rule below (§5a).
 2. **Optionally meld** — lay down new melds (subject to the §7 opening rule), add to your
    own melds, and/or add to *other players'* melds (only after opening, §9).
 3. **Discard exactly one card** to the top of the discard pile. **A turn always ends with
    a discard** and then passes to the next player.
 
+### 5a. Taking the discard top *[owner rule, Stage 30.13]*
+
+- **Before you have opened:** you may take the discard top **only if you open with it in the
+  same turn** — the taken card **must be part of your opening melds**, and those melds must
+  total **≥ 51** (§7). You may **never** take the discard "just into your hand" before opening.
+  If you can't (or don't) open with it, you must draw from the **draw pile** instead. In the
+  code this is one atomic action (`TAKE_DISCARD_AND_OPEN`); a plain take before opening is rejected.
+- **After you have opened:** you may take the discard top **into your hand** freely and play on
+  as an opened player (lay new melds / lay off / discard). *[owner recommended MVP.]*
+
 Exceptions & clarifications:
 - **Starter's first turn:** no draw (they start with 14); they just discard (and may meld
   if they can already open — unusual but legal).
-- **Taking the discard top does not force immediate use** *[owner recommended MVP]*: the
-  taken card goes into your hand; you then meld/discard as normal. See [§16 Q6](#16-open-questions--confirmations-needed).
+- **Taking the discard top (once opened) does not force immediate use** *[owner recommended
+  MVP]*: the taken card goes into your hand; you then meld/discard as normal. See [§16 Q6](#16-open-questions--confirmations-needed).
 - **Only the single top discard card** may be taken, never the whole pile *[owner
   recommended MVP]*. See [§16 Q5](#16-open-questions--confirmations-needed).
 - **Finish is by discard** *[owner recommended MVP]*: to go out you meld your cards and
@@ -143,8 +153,10 @@ or more valid melds whose **combined point value is ≥ 51**.
   "not opened" for the rest of the round. **The 51 minimum applies only to this first
   lay-down — it is a once-per-player-per-round gate, never re-checked afterwards.**
 
-**Before opening:** you may only draw from the **draw pile**, you may **not** lay any meld,
-and you may **not** take from the discard pile or add to anyone's melds.
+**Before opening:** you normally draw from the **draw pile**, and you may **not** add to
+anyone's melds. The **only** exception is **discard-to-open** (§5a): you may take the discard
+top **if and only if** you open with it (it must be in your ≥ 51 opening melds) in the same
+turn — never "just into your hand".
 
 **After opening (§7 clarified, Stage 30.9):** on this same turn or any later turn you may
 **lay new valid melds of ANY point value** (no further 51 minimum), add to your own melds,
@@ -349,3 +361,12 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   to Ace-first (`A-2-3-4`, not `2-3-4-A`). (2) **Public-meld card layout** fixed — meld card rows
   use positive gaps + `object-fit:contain` + in-block horizontal scroll, so cards no longer
   overlap/clip and never overflow at 360/390. No deck/scoring/elimination/penalty/discard/win change.
+- **Stage 30.13 (2026-07-14):** **discard-to-open rule + bigger public-meld cards** (§5/§5a). (1)
+  An UNOPENED player may now take the discard top **only to open with it** in one atomic action
+  (`TAKE_DISCARD_AND_OPEN`): the taken card must be in the opening melds, which must total ≥ 51 and
+  leave ≥ 1 card to discard. A plain take before opening stays rejected; an OPENED player still takes
+  the discard into hand as before (§5a). Core action + reducer + bot (unopened uses it only when the
+  hand alone can't already open) + UI (select the discard top → "Take & open 51") + online/unit tests.
+  (2) **Public-meld cards enlarged** (54×84, fixed non-shrinking boxes) for readability — still no
+  overlap/clip and no 360/390 overflow. No change to joker-hand-25 / unopened-100 / 510 elimination /
+  win-by-final-discard / post-opening free-meld rules.

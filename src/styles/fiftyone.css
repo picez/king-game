@@ -54,6 +54,12 @@
 .fiftyone-pile__label { font-size: 0.72rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
 .fiftyone-drawpile--live { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7); border-radius: 6px; }
 .fiftyone-discard-empty { opacity: 0.25; border: 1px dashed rgba(255, 255, 255, 0.4); background: transparent; }
+/* Discard-to-open (30.13): the top is tappable ONLY when it can open — a gold ring
+   cue; once staged into the opening it dims so it reads as "in use". */
+.fiftyone-discard-top { display: inline-flex; border-radius: 9px; }
+.fiftyone-discard-top--usable { box-shadow: 0 0 0 2px var(--accent); border-radius: 11px; }
+.fiftyone-discard-top--staged { opacity: 0.4; }
+.fiftyone-pile__hint { font-size: 0.68rem; opacity: 0.85; text-align: center; max-width: 6rem; }
 
 /* Public melds */
 .fiftyone-melds {
@@ -67,15 +73,15 @@
 .fiftyone-meld {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.35rem;
-  border-radius: 8px;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.22);
   /* Shrink-in-row + never wider than the viewport, so several melds stay compact. */
   min-width: 0;
-  max-width: min(100%, 15rem);
+  max-width: min(100%, 18rem);
 }
-.fiftyone-meld__owner { font-size: 0.72rem; opacity: 0.85; }
+.fiftyone-meld__owner { font-size: 0.74rem; opacity: 0.85; }
 /* Card row: one line, clear positive gaps (never negative → no overlap/clipping),
    and horizontal scroll INSIDE the meld block if a run is long — so a meld can never
    overflow the screen or collide with the Add button. LTR keeps cards low→high even
@@ -83,19 +89,26 @@
 .fiftyone-meld__cards {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.3rem;
+  gap: 0.45rem;
   align-items: flex-start;
   max-width: 100%;
   overflow-x: auto;
-  padding-bottom: 0.1rem;
+  padding-bottom: 0.15rem;
   direction: ltr;
   scrollbar-width: thin;
 }
-/* Full card face (with its printed index), centred on the cream backing — no cover
-   crop of the corner rank/suit at mini size, so meld cards read cleanly. */
+/* Bigger, readable meld cards (30.13) — between mini and table size — each a fixed,
+   non-shrinking box so cards never overlap or clip; the full face shows (contain). */
+.fiftyone-meld__cards .card--mini {
+  flex: 0 0 auto;
+  width: 54px;
+  height: 84px;
+}
 .fiftyone-meld__cards .card--mini.card--art .card__art { object-fit: contain; }
-.fiftyone-meld__cards .card--mini { flex: 0 0 auto; }
-.fiftyone-meld__add { align-self: flex-start; margin-top: 0.1rem; }
+.fiftyone-meld__cards .card--mini .card__rank { font-size: 0.82rem; }
+.fiftyone-meld__cards .card--mini .card__suit { font-size: 0.8rem; }
+.fiftyone-meld__cards .card--mini .card__center { font-size: 1.4rem; }
+.fiftyone-meld__add { align-self: flex-start; margin-top: 0.15rem; }
 .fiftyone-meldcard { position: relative; display: inline-flex; flex: 0 0 auto; }
 .fiftyone-meldcard__jbadge {
   position: absolute; top: -2px; right: -2px; font-size: 0.7rem;

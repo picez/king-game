@@ -635,6 +635,13 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       reads 7-8-9 while `[8♠, 9♠, 🃏]` reads 8-9-10. The selection is **never auto-sorted**. After opening,
       lay the joker meld (any value), keep your **last card**, and **discard it to go out** — you win only
       by that final discard (melding all cards never auto-wins). Works local + online.
+- [ ] **Discard-to-open + bigger meld cards (Stage 30.13):** BEFORE you've opened, the plain **Take
+      discard** button is **disabled**. When the discard top helps you open, **tap it** (it gets a gold
+      ring), add hand cards to build opening melds totalling **≥ 51 that include the top**, then press
+      **"Take & open 51"** → you open and the top leaves the discard. Taking the discard **without** a
+      valid opening is impossible (no way to scoop it into hand unopened). **After** opening, plain Take
+      discard works as before. Public-meld cards are **noticeably bigger and clearly separated** (no
+      overlap/clip) with **no 360/390 overflow** even with 4-5-card runs and several meld blocks. Arabic RTL ok.
 - [ ] **Online play:** host + join (2 tabs + optional bot) → each client sees **only its own hand**
       (opponents show 🂠counts, draw pile face-down); a turn applies over the wire; the **server** drives the
       between-rounds advance (no client "Next round" button); match winner + **Play again** (rematch) +

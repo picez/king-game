@@ -134,6 +134,72 @@ describe('51 turn flow (§5)', () => {
   });
 });
 
+describe('51 discard-to-open (§5/§7, owner rule 30.13)', () => {
+  const top = c('7', 'spades');                                        // the discard top
+  const setPart = [c('7', 'clubs'), c('7', 'diamonds')];               // + top = set of 7s (21)
+  const run = [c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts')]; // 30
+  const spare = c('2', 'clubs');
+  const baseHand = [...setPart, ...run, spare]; // hand does NOT hold the top
+  const draw = (over: Partial<FiftyOneState> = {}) =>
+    baseState([baseHand, [c('3', 'clubs')]], {
+      currentSeat: 0, turnStep: 'draw', discardPile: [top], drawPile: [c('9', 'spades')], ...over,
+    });
+
+  it('an unopened seat cannot take the discard into hand (plain TAKE_DISCARD rejected)', () => {
+    const s = draw();
+    expect(fiftyOneReducer(s, { type: 'TAKE_DISCARD' })).toBe(s);
+  });
+
+  it('an unopened seat takes the discard AND opens with it (top in melds, total ≥ 51)', () => {
+    const s = draw();
+    const melds = [[top, ...setPart], run]; // set of 7s (incl. the top) + heart run = 51
+    const o = fiftyOneReducer(s, { type: 'TAKE_DISCARD_AND_OPEN', melds }) as FiftyOneState;
+    expect(o).not.toBe(s);
+    expect(o.openedBySeat[0]).toBe(true);
+    expect(o.discardPile).toHaveLength(0);          // the top was taken out
+    expect(o.publicMelds).toHaveLength(2);
+    expect(o.publicMelds.reduce((n, m) => n + m.value, 0)).toBe(51);
+    expect(o.handsBySeat[0].map((x) => x.id)).toEqual([spare.id]); // only the spare kept
+    expect(o.turnStep).toBe('meld_discard');        // must still discard
+    // Discarding the last card empties the hand → round win by final discard.
+    const done = fiftyOneReducer(o, { type: 'DISCARD', card: spare }) as FiftyOneState;
+    expect(done.roundWinnerSeat).toBe(0);
+  });
+
+  it('rejects take-and-open when the discard top is NOT part of the opening melds', () => {
+    // A ≥51 opening exists in-hand (30 run + 24 set) that ignores the top → must be
+    // rejected, since taking the discard is only allowed to open WITH that card.
+    const hand = [
+      c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts'),   // 30
+      c('8', 'clubs'), c('8', 'diamonds'), c('8', 'spades'),   // 24
+      c('2', 'clubs'),
+    ];
+    const s = baseState([hand, [c('3', 'clubs')]], {
+      currentSeat: 0, turnStep: 'draw', discardPile: [c('7', 'spades')], drawPile: [c('9', 'spades')],
+    });
+    const melds = [hand.slice(0, 3), hand.slice(3, 6)]; // no top
+    expect(fiftyOneReducer(s, { type: 'TAKE_DISCARD_AND_OPEN', melds })).toBe(s);
+  });
+
+  it('rejects take-and-open when the opening total is under 51 (even using the top)', () => {
+    // top 4♠ + 5♠ 6♠ = a 4-5-6 run worth 15 < 51.
+    const hand = [c('5', 'spades'), c('6', 'spades'), c('2', 'clubs')];
+    const s = baseState([hand, [c('3', 'clubs')]], {
+      currentSeat: 0, turnStep: 'draw', discardPile: [c('4', 'spades')], drawPile: [c('9', 'spades')],
+    });
+    expect(fiftyOneReducer(s, { type: 'TAKE_DISCARD_AND_OPEN', melds: [[c('4', 'spades'), c('5', 'spades'), c('6', 'spades')]] })).toBe(s);
+  });
+
+  it('an OPENED seat still takes the discard normally; take-and-open is rejected for it', () => {
+    const s = draw({ openedBySeat: [true, false] });
+    const took = fiftyOneReducer(s, { type: 'TAKE_DISCARD' }) as FiftyOneState;
+    expect(took.handsBySeat[0].map((x) => x.id)).toContain(top.id); // taken into hand
+    expect(took.turnStep).toBe('meld_discard');
+    // The atomic take-and-open is only for UNOPENED seats.
+    expect(fiftyOneReducer(s, { type: 'TAKE_DISCARD_AND_OPEN', melds: [[top, ...setPart], run] })).toBe(s);
+  });
+});
+
 describe('51 opening (§7)', () => {
   const opener = () => [
     c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts'), // run = 30

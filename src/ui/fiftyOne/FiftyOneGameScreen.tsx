@@ -96,6 +96,19 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   const opened = state.openedBySeat[humanSeat];
   const hand = state.handsBySeat[humanSeat];
   const isMyTurn = phase === 'playing' && currentSeat === humanSeat;
+  const drawStep = isMyTurn && turnStep === 'draw';
+  const meldStep = isMyTurn && turnStep === 'meld_discard';
+  const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
+  // Discard-to-open (30.13): an UNOPENED seat at the draw step may build its opening
+  // melds using the top discard card — but ONLY if it opens with it in one action;
+  // it may never take the discard "just into hand" before opening.
+  const discardOpenAvailable = drawStep && !opened && !!topDiscard;
+  // The pool you can build melds from now = your hand, plus the discard top when it's
+  // available to open with. `byId` resolves the selected/staged cards from this pool.
+  const pool = discardOpenAvailable && topDiscard ? [...hand, topDiscard] : hand;
+  // The meld-building UI (select / stage) is live at the meld step, or at the draw
+  // step for an unopened seat that can open using the discard top.
+  const meldContext = meldStep || discardOpenAvailable;
 
   // Clear any in-progress selection/staging whenever the turn/step/phase/round
   // changes, OR the hand or table melds mutate (a draw, open, lay-off or discard
@@ -107,7 +120,7 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   }, [currentSeat, turnStep, phase, roundNumber, hand.length, state.publicMelds.length]);
 
   const stagedIds = useMemo(() => new Set(staged.flat()), [staged]);
-  const byId = useMemo(() => new Map(hand.map((c) => [c.id, c])), [hand]);
+  const byId = useMemo(() => new Map(pool.map((c) => [c.id, c])), [hand, topDiscard, discardOpenAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
   // Client-only display order for the (non-staged) hand — default sort, or manual
   // once the player arranges it. Never touches the reducer hand (Stage 30.12).
   const visibleHand = useMemo(() => sortHand(hand.filter((c) => !stagedIds.has(c.id))), [hand, stagedIds]);
@@ -122,7 +135,7 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     [staged, byId],
   );
   const stagedTotal = stagedMelds.reduce((sum, cards) => sum + (resolveMeld(cards)?.value ?? 0), 0);
-  const remainingAfterStage = hand.length - stagedIds.size;
+  const remainingAfterStage = pool.length - stagedIds.size;
 
   function toggle(id: string) {
     if (stagedIds.has(id)) return; // staged cards are locked until "Open" or "Clear"
@@ -145,14 +158,16 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   }
 
   // --- Actions ---------------------------------------------------------------
-  const drawStep = isMyTurn && turnStep === 'draw';
-  const meldStep = isMyTurn && turnStep === 'meld_discard';
-  const canTakeDiscard = drawStep && opened && state.discardPile.length > 0;
-  // Staging + laying works BEFORE and AFTER opening (30.9). The 51 minimum is the
-  // opening gate only — once opened, any valid staged meld can be laid.
-  const canStage = meldStep && !!selResolved && remainingAfterStage - selected.length >= 1;
+  const canTakeDiscard = drawStep && opened && state.discardPile.length > 0; // opened: take into hand
+  // Staging works in the meld context (meld step, or draw-step discard-open).
+  const canStage = meldContext && !!selResolved && remainingAfterStage - selected.length >= 1;
   const meetsOpening = opened || stagedTotal >= OPENING_MINIMUM;
+  // Lay/open at the meld step (after drawing). The 51 minimum is the opening gate only.
   const canLay = meldStep && staged.length > 0 && meetsOpening && remainingAfterStage >= 1;
+  // Take-and-open at the draw step: the staged opening must total ≥ 51 AND include the
+  // discard top (else you'd be taking it "into hand", which is forbidden, 30.13).
+  const canTakeAndOpen = discardOpenAvailable && staged.length > 0 && stagedTotal >= OPENING_MINIMUM
+    && !!topDiscard && stagedIds.has(topDiscard.id) && remainingAfterStage >= 1;
   const canDiscard = meldStep && selected.length === 1;
 
   function stageMeld() {
@@ -163,6 +178,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   function layMelds() {
     if (!canLay) return;
     apply({ type: 'OPEN_MELDS', melds: stagedMelds });
+  }
+  function takeAndOpen() {
+    if (!canTakeAndOpen) return;
+    apply({ type: 'TAKE_DISCARD_AND_OPEN', melds: stagedMelds });
   }
   function discard() {
     if (!canDiscard) return;
@@ -186,21 +205,22 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   else prompt = actor.type === 'ai' ? t('fiftyOne.botThinking').replace('{name}', actor.name) : t('fiftyOne.waiting').replace('{name}', actor.name);
 
   let validation = '';
-  if (meldStep && selectedCards.length > 0) {
+  if (meldContext && selectedCards.length > 0) {
     if (selectedCards.length < 3) validation = t('fiftyOne.selectThree');
     else if (selResolved) {
       validation = t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet')
         .replace('{n}', String(selResolved.value));
     } else validation = t('fiftyOne.invalidMeld');
-  } else if (meldStep && staged.length > 0 && !opened && stagedTotal < OPENING_MINIMUM) {
+  } else if (discardOpenAvailable && selectedCards.length === 0 && staged.length === 0) {
+    // Draw step, unopened: explain the discard is takeable only as part of opening.
+    validation = t('fiftyOne.discardOpenOnly');
+  } else if (meldContext && staged.length > 0 && !opened && stagedTotal < OPENING_MINIMUM) {
     // Staged something but not enough to OPEN yet — the opening 51 gate (unopened only).
     validation = t('fiftyOne.openingNeeds51');
   } else if (meldStep && opened && selectedCards.length === 0 && staged.length === 0) {
     // Reassure an opened player: the 51 minimum is gone; any valid meld is layable.
     validation = t('fiftyOne.openAnyMeld');
   }
-
-  const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
 
   return (
     <div className="screen fiftyone-screen">
@@ -247,8 +267,22 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         <div className="fiftyone-pile">
           <span className="fiftyone-pile__label">{t('fiftyOne.discardPile')} · {state.discardPile.length}</span>
           {topDiscard
-            ? (topDiscard.joker ? <JokerCard size="table" disabled /> : <CardView card={toCard(topDiscard)} size="table" disabled />)
+            ? (() => {
+                // An unopened seat may SELECT the top only to open with it (30.13).
+                const isSel = selected.includes(topDiscard.id);
+                const isStaged = stagedIds.has(topDiscard.id);
+                const onPick = discardOpenAvailable && !isStaged ? () => toggle(topDiscard.id) : undefined;
+                const wrap = `fiftyone-discard-top ${discardOpenAvailable ? 'fiftyone-discard-top--usable' : ''} ${isStaged ? 'fiftyone-discard-top--staged' : ''}`.trim();
+                return (
+                  <span className={wrap}>
+                    {topDiscard.joker
+                      ? <JokerCard size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />
+                      : <CardView card={toCard(topDiscard)} size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />}
+                  </span>
+                );
+              })()
             : <div className="card card--table fiftyone-discard-empty" aria-hidden="true" />}
+          {discardOpenAvailable && <span className="fiftyone-pile__hint">{t('fiftyOne.useDiscardToOpen')}</span>}
         </div>
       </div>
 
@@ -284,7 +318,7 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
       {/* Meld builder: the SELECTED cards in their chosen order (left→right = the run
           order, which fixes a joker's position). Tap one, then ← / → to reorder — the
           selection is never auto-sorted (30.9/30.12). Shows what a joker becomes. */}
-      {meldStep && selectedCards.length >= 2 && (
+      {meldContext && selectedCards.length >= 2 && (
         <div className="fiftyone-selbuilder">
           <div className="fiftyone-selbuilder__strip" dir="ltr">
             {selectedCards.map((c, i) => (
@@ -341,11 +375,11 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         cardId={fiftyOneCardId}
         order={handOrder}
         onTap={(c) => toggle(c.id)}
-        canTap={() => meldStep}
+        canTap={() => meldContext}
         renderCard={(c) =>
           c.joker
-            ? <JokerCard selected={selected.includes(c.id)} disabled={!meldStep} />
-            : <CardView card={toCard(c)} size="hand" selected={selected.includes(c.id)} disabled={!meldStep} />
+            ? <JokerCard selected={selected.includes(c.id)} disabled={!meldContext} />
+            : <CardView card={toCard(c)} size="hand" selected={selected.includes(c.id)} disabled={!meldContext} />
         }
       />
 
@@ -354,7 +388,16 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         {drawStep && (
           <>
             <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'DRAW_FROM_DECK' })}>{t('fiftyOne.drawFromDeck')}</button>
-            <button type="button" className="btn btn--ghost" disabled={!canTakeDiscard} onClick={() => canTakeDiscard && apply({ type: 'TAKE_DISCARD' })}>{t('fiftyOne.takeDiscard')}</button>
+            {opened
+              ? <button type="button" className="btn btn--ghost" disabled={!canTakeDiscard} onClick={() => canTakeDiscard && apply({ type: 'TAKE_DISCARD' })}>{t('fiftyOne.takeDiscard')}</button>
+              : discardOpenAvailable && (
+                <>
+                  <button type="button" className="btn btn--ghost" disabled={!canStage} onClick={stageMeld}>{t('fiftyOne.stageMeld')}</button>
+                  <button type="button" className="btn btn--primary" disabled={!canTakeAndOpen} onClick={takeAndOpen}>
+                    {t('fiftyOne.takeAndOpen')} ({stagedTotal}/{OPENING_MINIMUM})
+                  </button>
+                </>
+              )}
           </>
         )}
         {meldStep && (

@@ -265,6 +265,23 @@
   §0/`TARNEEB_RULES` banner) and tagged **`v0.3.8`**. **No DB migration, no dependency, no stats/schema/
   gameplay change; the six-game release state is intact.** `npm run verify` green.
 
+### 30.13 — Discard-to-open rule + bigger public-meld cards — ✅ DONE
+- **Discard-to-open (core).** New atomic reducer action **`TAKE_DISCARD_AND_OPEN`** (`engine.ts` +
+  `types.ts`): an UNOPENED seat at the draw step may take the discard top ONLY to open with it — the
+  top must be in the submitted melds (`pool = hand + top`), which must total ≥ 51 and leave ≥ 1 card
+  to discard; then it removes the used cards, sets opened, and advances to `meld_discard`. Plain
+  `TAKE_DISCARD` stays UNOPENED-rejected / OPENED-allowed. **Bot** (`ai.ts`) uses take-and-open only
+  when the hand alone can't already open (else draws); terminating soak holds. **UI**
+  (`FiftyOneGameScreen`): a `discardOpenAvailable` context lets an unopened seat select the discard
+  **top** (gold ring) + hand cards into opening melds and press **"Take & open 51"** (gated on incl.
+  the top + ≥ 51); the plain "Take discard" is opened-only; i18n `takeAndOpen`/`useDiscardToOpen`/
+  `discardOpenOnly`/`discardMustOpen` ×4. **Online** uses the same action (serverCore test: unopened
+  bare take rejected, take-and-open accepted). **Public-meld cards enlarged** to 54×84 fixed
+  non-shrinking boxes (`fiftyone.css`) — still no overlap/clip, no 360/390 overflow. Tests: engine
+  (5 cases) + ai (2) + serverCore (1) + UI/CSS source guards. **No DB migration, no dependency, no
+  stats change; joker-25 / unopened-100 / 510 / win-by-final-discard / post-open free melds unchanged.**
+  `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

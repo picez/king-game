@@ -356,6 +356,40 @@ describe('51 public round_complete advances server-side (Stage 30.4)', () => {
     expect(after.publicMelds[0].value).toBe(10);
   });
 
+  it('online discard-to-open (30.13): unopened plain TAKE_DISCARD rejected; TAKE_DISCARD_AND_OPEN accepted', () => {
+    const top = card('7', 'spades');
+    const setPart = [card('7', 'clubs'), card('7', 'diamonds')];   // + top = set of 7s (21)
+    const run = [card('10', 'hearts'), card('J', 'hearts'), card('Q', 'hearts')]; // 30
+    const craft = () => {
+      const { room, clientForSeat } = seatedRoom(2, 21);
+      const s = asF(room.gameState);
+      const seat = s.currentSeat;
+      s.turnStep = 'draw';
+      s.openedBySeat[seat] = false;
+      s.discardPile = [top];
+      s.handsBySeat[seat] = [...setPart, ...run, card('2', 'clubs')];
+      return { room, client: clientForSeat(seat), seat };
+    };
+
+    // An unopened seat may NOT take the discard bare — rejected as a reducer no-op.
+    const u = craft();
+    const before = JSON.stringify(u.room.gameState);
+    const rejected = applyActionRequest(u.room, u.client, { type: 'TAKE_DISCARD' } as AnyGameAction);
+    expect(rejected.ok).toBe(false);
+    expect(JSON.stringify(u.room.gameState)).toBe(before);
+
+    // ...but TAKE_DISCARD_AND_OPEN using the top over the wire is accepted.
+    const o = craft();
+    const accepted = applyActionRequest(o.room, o.client,
+      { type: 'TAKE_DISCARD_AND_OPEN', melds: [[top, ...setPart], run] } as AnyGameAction);
+    expect(accepted.ok).toBe(true);
+    const after = asF(o.room.gameState);
+    expect(after.openedBySeat[o.seat]).toBe(true);
+    expect(after.discardPile).toHaveLength(0);
+    expect(after.publicMelds.reduce((n, m) => n + m.value, 0)).toBe(51);
+    expect(after.turnStep).toBe('meld_discard');
+  });
+
   it('a finished game reports no public screen and does NOT auto-advance', () => {
     // Build a terminal state directly (a full 510-point drive is unnecessary for
     // the invariant): once game_finished, the room exposes no between-rounds pause

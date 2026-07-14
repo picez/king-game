@@ -1,8 +1,10 @@
 // ---------------------------------------------------------------------------
 // 51 — deterministic, legal-first bot (no RNG in the decision, so replays are
 // stable). Greedy, not optimal (51_PLAN.md "Bot MVP"):
-//   1. Draw: take the discard top only if it extends an existing public meld and
-//      the bot has opened; otherwise draw from the pile.
+//   1. Draw: if OPENED, take the discard top only when it extends a public meld.
+//      If UNOPENED, take the discard ONLY to open with it in one atomic action
+//      (TAKE_DISCARD_AND_OPEN) — and only when the hand alone can't already open
+//      (else just draw). Otherwise draw from the pile (30.13).
 //   2. If not opened and it can assemble melds from its own hand totalling ≥ 51
 //      (leaving a card to discard), open them.
 //   3. If opened, lay any fresh valid meld from hand (any value — no 51 gate once
@@ -183,6 +185,16 @@ export function fiftyOneBotAction(state: FiftyOneState, seat: number): FiftyOneA
     if (opened && top) {
       for (const m of state.publicMelds) {
         if (resolveMeld([...m.cards, top])) return { type: 'TAKE_DISCARD' };
+      }
+    } else if (!opened && top) {
+      // Unopened: the ONLY legal way to take the discard is to open WITH it (30.13).
+      // Take-and-open only if the discard top is actually needed to reach 51 — i.e.
+      // the hand alone can't already open (else just draw and open from hand).
+      if (!chooseOpening(hand)) {
+        const opening = chooseOpening([...hand, top]);
+        if (opening && opening.some((meld) => meld.some((c) => c.id === top.id))) {
+          return { type: 'TAKE_DISCARD_AND_OPEN', melds: opening };
+        }
       }
     }
     return { type: 'DRAW_FROM_DECK' };

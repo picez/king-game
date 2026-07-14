@@ -50,6 +50,36 @@ describe('51 bot', () => {
     expect(fiftyOneBotAction(s, 0).type).toBe('DRAW_FROM_DECK');
   });
 
+  it('takes the discard AND opens with it when the top completes a ≥51 opening (30.13)', () => {
+    // Hand alone can't open (30 run + two loose 7s); with the discard 7♠ it makes a
+    // set of 7s (21) → 51, so the bot takes-and-opens (never taking the discard bare).
+    const hand = [
+      c('7', 'clubs'), c('7', 'diamonds'),
+      c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts'), c('2', 'clubs'),
+    ];
+    const s = baseState([hand, [c('3', 'clubs')]], {
+      currentSeat: 0, turnStep: 'draw', drawPile: [c('9', 'spades')], discardPile: [c('7', 'spades')],
+    });
+    const action = fiftyOneBotAction(s, 0);
+    expect(action.type).toBe('TAKE_DISCARD_AND_OPEN');
+    const applied = fiftyOneReducer(s, action) as FiftyOneState;
+    expect(applied.openedBySeat[0]).toBe(true);
+    expect(applied.discardPile).toHaveLength(0);           // the top was used to open
+    expect(applied.turnStep).toBe('meld_discard');
+  });
+
+  it('does NOT take the discard when its hand can already open on its own', () => {
+    // A full ≥51 opening is in-hand → the bot just draws (never takes the discard bare).
+    const hand = [
+      c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts'),
+      c('8', 'clubs'), c('8', 'diamonds'), c('8', 'spades'), c('2', 'clubs'),
+    ];
+    const s = baseState([hand, [c('3', 'clubs')]], {
+      currentSeat: 0, turnStep: 'draw', drawPile: [c('9', 'spades')], discardPile: [c('7', 'spades')],
+    });
+    expect(fiftyOneBotAction(s, 0).type).toBe('DRAW_FROM_DECK');
+  });
+
   it('goes out by discarding its last card when opened', () => {
     const s = baseState([[c('2', 'clubs')], [c('3', 'clubs')]], { currentSeat: 0, openedBySeat: [true, false] });
     const action = fiftyOneBotAction(s, 0);
