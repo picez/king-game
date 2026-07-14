@@ -39,7 +39,7 @@ describe('game registry', () => {
   });
 });
 
-describe('51 game definition (registered, coming_soon — NOT playable, no stats)', () => {
+describe('51 game definition (registered, experimental — local-playable, no online/stats)', () => {
   const snap = {
     code: 'ABCD',
     members: [
@@ -51,15 +51,15 @@ describe('51 game definition (registered, coming_soon — NOT playable, no stats
     playerCount: 4, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
   } as RoomSnapshot;
 
-  it('references the 51 pure core + catalog; coming_soon, no stats, not startable', () => {
+  it('references the 51 pure core + catalog; experimental, local-only, no stats', () => {
     expect(fiftyOneGameDefinition.id).toBe('fifty-one');
     expect(fiftyOneGameDefinition.catalog).toBe(GAME_CATALOG['fifty-one']);
     expect(fiftyOneGameDefinition.rulesDoc).toBe('51_RULES.md');
     expect(fiftyOneGameDefinition.supportedPlayerCounts).toEqual([2, 3, 4]);
-    expect(fiftyOneGameDefinition.recordsStats).toBe(false); // coming_soon — no stats until 30.6
-    expect(fiftyOneGameDefinition.catalog.status).toBe('coming_soon');
-    expect(fiftyOneGameDefinition.catalog.supportsLocal).toBe(false);
-    expect(fiftyOneGameDefinition.catalog.supportsOnline).toBe(false);
+    expect(fiftyOneGameDefinition.recordsStats).toBe(false); // no stats until 30.6
+    expect(fiftyOneGameDefinition.catalog.status).toBe('experimental');
+    expect(fiftyOneGameDefinition.catalog.supportsLocal).toBe(true);  // Stage 30.3: local prototype
+    expect(fiftyOneGameDefinition.catalog.supportsOnline).toBe(false); // not online yet
   });
 
   it('smoke: buildStartAction → reducer builds a playing state; botAction is legal', () => {

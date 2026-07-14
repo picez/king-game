@@ -85,10 +85,26 @@
   `fiftyOne/comingSoon.test.ts` (gating + favorites + source isolation guards). **No behaviour
   change to the five games; no stats/DB/migration/dependency/asset.** `npm run verify` green.
 
-### 30.3 — Local playable prototype
-- `FiftyOneLocalGame` (1 human + bots) + the table/hand/meld/discard UI + setup screen
-  (player count 2–4). Flip catalog to **local-playable**. Visual QA at 360/390. Bots drive
-  the other seats via `fiftyOneBotAction`. Still **offline only**.
+### 30.3 — Local playable prototype — ✅ DONE
+- Added `src/ui/fiftyOne/` — `FiftyOneLocalGame` (1 human at seat 0 + 1–3 bots, owns the pure
+  state, drives bots via `fiftyOneBotAction`), `FiftyOneSetup` (player count 2–4 + the deck rule
+  from the core: 2p = 1 deck + 2 jokers, 3–4p = 2 decks + 2 jokers), `FiftyOneGameScreen`
+  (scoreboard with running penalties / opened / eliminated / current turn+step; draw + discard
+  piles; public melds showing joker→represented value; own hand; context action bar), and
+  `FiftyOneFinished`. Wired into `App.tsx` (`mode.gameType === 'fifty-one'`). Flipped the catalog
+  to **`status: 'experimental'`, `supportsLocal: true`** (online stays false → Host picker stays
+  disabled/"Coming soon"; Local picker enables it flagged "Experimental"). **Meld UX:** select
+  hand cards → **stage** valid melds (run/set + points) → **Open** once staged total ≥ 51 →
+  discard to end the turn; after opening, **Add** selected cards to any public meld; take the
+  discard top only once opened; win a round by emptying the hand on the final discard. Joker
+  handling uses the **core inference only** (ambiguous placement → the UI shows "Not a valid
+  meld"; no joker-picker). i18n `fiftyOne.*` added for **en/uk/de/ar**; `fiftyone.css` (mobile-
+  first, `overflow-x: hidden`, safe-area). **MVP limitation:** the core has no "lay a NEW meld
+  after opening" action, so post-open you may only **add to existing** public melds (matches the
+  bot). Tests: `fiftyOne/localGating.test.ts` + `ui/fiftyOne/fiftyOneLocalWiring.test.ts`
+  (gating, source isolation, headless drive of the local loop to a finished match) + updated
+  catalog/registry/platformAudit/apiDisabled. **Still offline only; no stats.** `npm run verify`
+  green (2145 tests). Owed: manual 360/390 + Arabic-RTL visual pass (no automated pixel check).
 
 ### 30.4 — Online redaction / readiness
 - `redact.ts` + a redaction-leak test; server-authoritative wiring through serverCore

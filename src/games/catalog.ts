@@ -14,10 +14,10 @@ export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
- *  - 'available'   → fully playable (King, Durak, Deberc, Tarneeb, and Preferans);
- *  - 'coming_soon' → registered but not yet startable (51 / Syrian 51 — Stage 30.2:
- *                    pure core + GameDefinition exist, but no local/online entry yet);
- *  - 'experimental'→ playable but rough (reserved; none today).
+ *  - 'available'   → fully playable + released (King, Durak, Deberc, Tarneeb, Preferans);
+ *  - 'coming_soon' → registered but not startable in any mode (none today);
+ *  - 'experimental'→ playable but not fully released — 51 / Syrian 51 (Stage 30.3):
+ *                    local prototype only (supportsLocal, NOT supportsOnline), no stats.
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
 
@@ -113,10 +113,10 @@ export const GAME_CATALOG = {
     minPlayers: 2,          // 2–4 players, each on their own side (51_RULES §2)
     maxPlayers: 4,
     defaultPlayerCount: 4,  // social table default (2–4 all supported by the core)
-    supportsLocal: false,   // Stage 30.2: NOT playable yet (local prototype is 30.3)
-    supportsOnline: false,  // Stage 30.2: NOT online yet (online is 30.4–30.5)
+    supportsLocal: true,    // Stage 30.3: local prototype (1 human + bots)
+    supportsOnline: false,  // NOT online yet (online is 30.4–30.5) → Host picker stays disabled
     supportsBots: true,     // pure core has a deterministic greedy bot (Stage 30.1)
-    status: 'coming_soon',  // Stage 30.2: registered + GameDefinition, not startable
+    status: 'experimental', // Stage 30.3: local-playable prototype, not fully released
     rulesDoc: '51_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

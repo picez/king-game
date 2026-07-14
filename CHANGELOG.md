@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **51 (Syrian 51) is now playable locally (Stage 30.3, experimental).** The planned 6th game
+  can be played **pass-free local** (1 human + bots, 2–4 players) from the **Local** game picker
+  (flagged "Experimental"); the **Host/online** picker still shows it disabled. New `src/ui/fiftyOne/`
+  — a setup screen (player count + deck rule), a table (running-penalty scoreboard, draw/discard
+  piles, public melds showing each joker's represented value, own hand) and a context action bar
+  (draw / take discard / stage + open melds ≥ 51 / add to a meld / discard). Meld validation reuses
+  the pure core (Stage 30.1); jokers use the core's clear-card inference (ambiguous → rejected in
+  the UI). i18n for **en/uk/de/ar**. **No online, stats, favorite or DB** — those come in 30.4+;
+  the five released games are unchanged, no new dependency.
+
 ### Internal
 
 - **51 (Syrian 51) registered as "coming soon" (Stage 30.2).** Wired the Stage-30.1 pure core

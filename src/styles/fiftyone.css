@@ -1,0 +1,147 @@
+/* ---------------------------------------------------------------------------
+   51 (Syrian 51) — local prototype table (Stage 30.3). Mobile-first; never
+   overflows horizontally at 360/390. Reuses the shared .card/.btn primitives.
+   --------------------------------------------------------------------------- */
+
+.fiftyone-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem max(0.5rem, env(safe-area-inset-left)) calc(0.5rem + env(safe-area-inset-bottom));
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--felt-mid, #14532d);
+  color: #f4f7f4;
+}
+
+.fiftyone-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.fiftyone-round { font-weight: 700; letter-spacing: 0.02em; }
+
+/* Scoreboard — per-seat penalty chips, wraps on narrow screens. */
+.fiftyone-scoreboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+.fiftyone-score {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 0.82rem;
+  min-width: 0;
+}
+.fiftyone-score--me { outline: 1px solid rgba(255, 255, 255, 0.5); }
+.fiftyone-score--acting { background: rgba(250, 204, 21, 0.22); box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.6); }
+.fiftyone-score--out { opacity: 0.5; text-decoration: line-through; }
+.fiftyone-score__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 7rem; }
+.fiftyone-score__value { font-variant-numeric: tabular-nums; font-weight: 700; }
+.fiftyone-score__badges { display: inline-flex; gap: 0.2rem; align-items: center; }
+.fiftyone-badge--open { color: #86efac; }
+.fiftyone-score__count { opacity: 0.8; font-size: 0.75rem; }
+
+/* Piles */
+.fiftyone-piles { display: flex; gap: 1rem; justify-content: center; align-items: flex-end; }
+.fiftyone-pile { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.fiftyone-pile__label { font-size: 0.72rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.fiftyone-drawpile--live { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7); border-radius: 6px; }
+.fiftyone-discard-empty { opacity: 0.25; border: 1px dashed rgba(255, 255, 255, 0.4); background: transparent; }
+
+/* Public melds */
+.fiftyone-melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  max-width: 100%;
+}
+.fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.2rem 0; }
+.fiftyone-meld {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  max-width: 100%;
+}
+.fiftyone-meld__owner { font-size: 0.72rem; opacity: 0.85; }
+.fiftyone-meld__cards { display: flex; gap: 0.15rem; flex-wrap: wrap; }
+.fiftyone-meld__add { align-self: flex-start; }
+.fiftyone-meldcard { position: relative; display: inline-flex; }
+.fiftyone-meldcard__jbadge {
+  position: absolute; top: -2px; right: -2px; font-size: 0.7rem;
+  filter: drop-shadow(0 0 1px #000);
+}
+
+/* Prompt + validation */
+.fiftyone-prompt {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline;
+  justify-content: center; text-align: center; font-size: 0.9rem; min-height: 1.4rem;
+}
+.fiftyone-prompt--me { font-weight: 700; }
+.fiftyone-prompt__val { font-size: 0.8rem; opacity: 0.9; padding: 0.1rem 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); }
+
+/* Staged melds (pre-open) */
+.fiftyone-staged {
+  display: flex; flex-direction: column; gap: 0.3rem; align-items: center;
+  padding: 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.12);
+}
+.fiftyone-staged__label { font-weight: 700; font-size: 0.85rem; }
+.fiftyone-staged__rows { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.fiftyone-staged__meld { display: flex; align-items: center; gap: 0.15rem; }
+.fiftyone-staged__pts { font-weight: 700; font-size: 0.8rem; margin-inline-start: 0.2rem; }
+
+/* Hand */
+.fiftyone-hand {
+  display: flex; flex-wrap: wrap; gap: 0.25rem; justify-content: center;
+  align-content: flex-start; max-width: 100%; margin-top: auto;
+}
+
+/* Actions */
+.fiftyone-actions {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center;
+  padding-top: 0.3rem;
+}
+.fiftyone-actions .btn { flex: 0 1 auto; }
+
+/* Joker tile — a wild card face. */
+.card--joker {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #4c1d95, #7c3aed);
+  color: #fff; border: 1px solid rgba(255,255,255,0.5);
+}
+.card--joker .card__center { font-size: 1.4em; }
+
+/* Round-over + finished summary */
+.fiftyone-roundover-overlay {
+  position: fixed; inset: 0; z-index: 40; display: flex; align-items: center;
+  justify-content: center; padding: 1rem; background: rgba(0, 0, 0, 0.55);
+}
+.fiftyone-roundover {
+  background: #0f2e1c; color: #f4f7f4; border-radius: 12px; padding: 1rem;
+  max-width: min(92vw, 24rem); width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.fiftyone-roundover__title { margin: 0 0 0.6rem; font-size: 1.1rem; text-align: center; }
+.fiftyone-roundover__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.fiftyone-roundover__table th, .fiftyone-roundover__table td { padding: 0.3rem 0.4rem; text-align: start; }
+.fiftyone-roundover__table th:not(:first-child), .fiftyone-roundover__table td:not(:first-child) { text-align: end; font-variant-numeric: tabular-nums; }
+.fiftyone-roundover__out { opacity: 0.55; }
+.fiftyone-roundover__flag { color: #fca5a5; font-size: 0.8rem; }
+.fiftyone-roundover .btn { margin-top: 0.8rem; width: 100%; }
+
+/* Setup extras */
+.fiftyone-setup__note--exp { font-size: 0.82rem; opacity: 0.9; }
+.fiftyone-setup__counts { display: flex; gap: 0.5rem; margin: 0.3rem 0 0.5rem; }
+.fiftyone-setup__count { min-width: 3rem; }
+.fiftyone-setup__deck { font-size: 0.85rem; opacity: 0.9; }
+.fiftyone-howto { background: none; border: none; color: inherit; cursor: pointer; text-decoration: underline; padding: 0.3rem 0; }
+.fiftyone-setup__start { margin-top: 0.5rem; }

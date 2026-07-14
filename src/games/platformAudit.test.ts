@@ -21,21 +21,26 @@ const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const iconPath = (id: string) => join(process.cwd(), 'public', gameIconSrc(id).replace(/^\//, ''));
 
 const AVAILABLE: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available');
-const COMING_SOON: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'coming_soon');
+// Registered but not fully released — experimental (local-only) or coming_soon.
+const NOT_RELEASED: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status !== 'available');
 
-describe('platform tiers are internally consistent (Stage 20.0 / 30.2)', () => {
-  it('the five released games are all fully available; 51 is registered coming_soon', () => {
+describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
+  it('the five released games are all fully available; 51 is the lone not-yet-released game', () => {
     expect(AVAILABLE).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
-    expect(COMING_SOON).toEqual(['fifty-one']);
+    expect(NOT_RELEASED).toEqual(['fifty-one']);
     for (const id of AVAILABLE) {
       const e = GAME_CATALOG[id];
       expect(e.supportsLocal, `${id} local`).toBe(true);
       expect(e.supportsOnline, `${id} online`).toBe(true);
       expect(e.supportsBots, `${id} bots`).toBe(true);
     }
+    // 51 is experimental: local-playable (Stage 30.3) but NOT online.
+    expect(GAME_CATALOG['fifty-one'].status).toBe('experimental');
+    expect(GAME_CATALOG['fifty-one'].supportsLocal).toBe(true);
+    expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(false);
   });
 
-  it('every game (incl. coming_soon) has a registered definition + declares seat counts', () => {
+  it('every game (incl. not-yet-released) has a registered definition + declares seat counts', () => {
     for (const id of GAME_TYPES) {
       const def = GAME_DEFINITIONS[id];
       expect(def, `${id} definition`).toBeTruthy();
@@ -45,21 +50,20 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.2)', () => {
     }
   });
 
-  it('available games record stats; a coming_soon game does not (and cannot start)', () => {
+  it('available games record stats; a not-yet-released game records none and is not online', () => {
     for (const id of AVAILABLE) {
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} recordsStats`).toBe(true);
     }
-    for (const id of COMING_SOON) {
+    for (const id of NOT_RELEASED) {
       const e = GAME_CATALOG[id];
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} no stats yet`).toBe(false);
-      expect(e.supportsLocal, `${id} not local yet`).toBe(false);
       expect(e.supportsOnline, `${id} not online yet`).toBe(false);
     }
   });
 
-  it('the favorite-game list covers exactly the AVAILABLE games (coming_soon excluded)', () => {
+  it('the favorite-game list covers exactly the AVAILABLE games (not-yet-released excluded)', () => {
     expect([...SUPPORTED_FAVORITE_GAMES].sort()).toEqual([...AVAILABLE].sort());
-    for (const id of COMING_SOON) {
+    for (const id of NOT_RELEASED) {
       expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(id), `${id} not favoritable`).toBe(false);
     }
   });

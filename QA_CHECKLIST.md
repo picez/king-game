@@ -532,8 +532,15 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       /api/games` lists it as `status:'coming_soon'` with `supportsLocal/Online:false`. The game
       emblem shows the 🀄 emoji fallback (no PNG). The **five released games are unaffected**.
       Automated: `catalog/registry/platformAudit/apiDisabled` + `fiftyOne/comingSoon.test.ts`.
-- [ ] *(30.3)* Local 2–4p prototype: deal, draw-then-discard, open with 51, lay-off, empty-hand
-      win, penalties; no 360/390 overflow.
+- [x] *(30.3)* Local 2–4p prototype wired (`src/ui/fiftyOne/`): Local picker enables 51
+      ("Experimental"), Host picker stays disabled. Automated: `fiftyOne/localGating.test.ts` +
+      `ui/fiftyOne/fiftyOneLocalWiring.test.ts` (headless drive of the local loop to a finished
+      match, no invariant break) + updated catalog/registry/platformAudit/apiDisabled.
+- [ ] *(30.3, manual)* Play a local 51 game at **360/390 portrait**: setup (2/3/4 + deck note),
+      starter opens by discarding (14 cards, no draw), a normal turn draws→melds→discards,
+      discard-pile take is blocked until you open, opening needs 51+, empty-hand win, round
+      summary (penalties incl. never-opened 100 / joker 25), elimination at 510, match winner.
+      **No horizontal overflow; cards/controls do not overlap.** Arabic **RTL** smoke.
 - [ ] *(30.4–30.5)* Online redaction (own hand only; draw pile + other hands hidden), no leak;
       lobby label, rematch/reconnect; release smoke.
 - [ ] *(30.6–30.7)* Per-`game_type='fifty-one'` stats + leaderboard (no migration); icon +

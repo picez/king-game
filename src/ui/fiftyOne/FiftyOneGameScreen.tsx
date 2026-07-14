@@ -1,0 +1,324 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useI18n } from '../../i18n';
+import CardView from '../components/CardView';
+import GameHelpModal from '../components/GameHelpModal';
+import type { Card, Rank, Suit } from '../../models/types';
+import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
+import { resolveMeld } from '../../games/fiftyOne/melds';
+import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
+
+interface Props {
+  state: FiftyOneState;
+  humanSeat: number;
+  apply: (a: FiftyOneAction) => void;
+  onExit: () => void;
+}
+
+const RUN_POS: Record<Rank, number> = {
+  '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, J: 11, Q: 12, K: 13, A: 14,
+};
+
+/** A normal 51 card → the platform Card the shared CardView renders (value unused). */
+function toCard(c: FiftyOneCard): Card {
+  return { suit: c.suit as Suit, rank: c.rank as Rank, value: 0 };
+}
+
+/** Sort a hand by suit then rank; jokers last. Pure display helper. */
+function sortHand(cards: FiftyOneCard[]): FiftyOneCard[] {
+  const suitOrder: Record<string, number> = { spades: 0, clubs: 1, diamonds: 2, hearts: 3 };
+  return cards.slice().sort((a, b) => {
+    if (a.joker !== b.joker) return a.joker ? 1 : -1;
+    if (a.joker) return 0;
+    if (a.suit !== b.suit) return suitOrder[a.suit as string] - suitOrder[b.suit as string];
+    return RUN_POS[a.rank as Rank] - RUN_POS[b.rank as Rank];
+  });
+}
+
+/** A joker tile (in hand / discard). Wild — shows a 🃏 face; clickable like a card. */
+function JokerCard({ onClick, selected, disabled, size = 'hand' }: {
+  onClick?: () => void; selected?: boolean; disabled?: boolean; size?: 'hand' | 'table' | 'mini';
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      className={`card card--${size} card--joker ${selected ? 'card--selected' : ''}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled && !onClick}
+      aria-label={t('fiftyOne.joker')}
+    >
+      <span className="card__corner card__corner--tl"><span className="card__rank">🃏</span></span>
+      <span className="card__center">🃏</span>
+      <span className="card__corner card__corner--br"><span className="card__rank">🃏</span></span>
+    </button>
+  );
+}
+
+/** One card as it appears INSIDE a public meld: a joker shows the card it
+ *  represents (§8) with a small 🃏 badge — never a flat "25". */
+function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { suit: Suit; rank: Rank } }) {
+  if (card.joker && represents) {
+    return (
+      <span className="fiftyone-meldcard fiftyone-meldcard--joker">
+        <CardView card={{ suit: represents.suit, rank: represents.rank, value: 0 }} size="mini" disabled />
+        <span className="fiftyone-meldcard__jbadge" aria-hidden="true">🃏</span>
+      </span>
+    );
+  }
+  if (card.joker) return <JokerCard size="mini" disabled />;
+  return <CardView card={toCard(card)} size="mini" disabled />;
+}
+
+export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit }: Props) {
+  const { t } = useI18n();
+  const [showHelp, setShowHelp] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [staged, setStaged] = useState<string[][]>([]);
+
+  const { phase, turnStep, currentSeat, roundNumber } = state;
+  const opened = state.openedBySeat[humanSeat];
+  const hand = state.handsBySeat[humanSeat];
+  const isMyTurn = phase === 'playing' && currentSeat === humanSeat;
+
+  // Clear any in-progress selection/staging whenever the turn/step/phase/round
+  // changes, OR the hand or table melds mutate (a draw, open, lay-off or discard
+  // invalidates ids the selection/staging referenced).
+  useEffect(() => {
+    setSelected([]);
+    setStaged([]);
+  }, [currentSeat, turnStep, phase, roundNumber, hand.length, state.publicMelds.length]);
+
+  const stagedIds = useMemo(() => new Set(staged.flat()), [staged]);
+  const byId = useMemo(() => new Map(hand.map((c) => [c.id, c])), [hand]);
+  const selectedCards = useMemo(
+    () => selected.map((id) => byId.get(id)).filter((c): c is FiftyOneCard => !!c),
+    [selected, byId],
+  );
+  const selResolved = selectedCards.length >= 3 ? resolveMeld(selectedCards) : null;
+  const stagedMelds = useMemo(
+    () => staged.map((ids) => ids.map((id) => byId.get(id)).filter((c): c is FiftyOneCard => !!c)),
+    [staged, byId],
+  );
+  const stagedTotal = stagedMelds.reduce((sum, cards) => sum + (resolveMeld(cards)?.value ?? 0), 0);
+  const remainingAfterStage = hand.length - stagedIds.size;
+
+  function toggle(id: string) {
+    if (stagedIds.has(id)) return; // staged cards are locked until "Open" or "Clear"
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+
+  // --- Actions ---------------------------------------------------------------
+  const drawStep = isMyTurn && turnStep === 'draw';
+  const meldStep = isMyTurn && turnStep === 'meld_discard';
+  const canTakeDiscard = drawStep && opened && state.discardPile.length > 0;
+  const canStage = meldStep && !opened && !!selResolved && remainingAfterStage - selected.length >= 1;
+  const canOpen = meldStep && !opened && staged.length > 0 && stagedTotal >= OPENING_MINIMUM && remainingAfterStage >= 1;
+  const canDiscard = meldStep && selected.length === 1;
+
+  function stageMeld() {
+    if (!canStage) return;
+    setStaged((m) => [...m, [...selected]]);
+    setSelected([]);
+  }
+  function openMelds() {
+    if (!canOpen) return;
+    apply({ type: 'OPEN_MELDS', melds: stagedMelds });
+  }
+  function discard() {
+    if (!canDiscard) return;
+    const card = byId.get(selected[0]);
+    if (card) apply({ type: 'DISCARD', card });
+  }
+  function addToMeld(meld: FiftyOneMeld) {
+    apply({ type: 'ADD_TO_MELD', meldId: meld.id, cards: selectedCards });
+  }
+  function canAddTo(meld: FiftyOneMeld): boolean {
+    return meldStep && opened && selectedCards.length >= 1
+      && hand.length - selectedCards.length >= 1
+      && !!resolveMeld([...meld.cards, ...selectedCards]);
+  }
+
+  // --- Prompt / validation text ---------------------------------------------
+  const actor = state.players[currentSeat];
+  let prompt = '';
+  if (phase === 'round_complete') prompt = t('fiftyOne.roundOver');
+  else if (isMyTurn) prompt = turnStep === 'draw' ? t('fiftyOne.drawPrompt') : t('fiftyOne.meldPrompt');
+  else prompt = actor.type === 'ai' ? t('fiftyOne.botThinking').replace('{name}', actor.name) : t('fiftyOne.waiting').replace('{name}', actor.name);
+
+  let validation = '';
+  if (meldStep && selectedCards.length > 0) {
+    if (selectedCards.length < 3) validation = t('fiftyOne.selectThree');
+    else if (selResolved) {
+      validation = t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet')
+        .replace('{n}', String(selResolved.value));
+    } else validation = t('fiftyOne.invalidMeld');
+  }
+
+  const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
+
+  return (
+    <div className="screen fiftyone-screen">
+      {showHelp && <GameHelpModal game="fifty-one" onClose={() => setShowHelp(false)} />}
+
+      <div className="fiftyone-topbar">
+        <button type="button" className="btn btn--ghost fiftyone-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
+        <span className="fiftyone-round">{t('fiftyOne.round').replace('{n}', String(roundNumber))}</span>
+        <button type="button" className="btn btn--ghost fiftyone-help-btn" onClick={() => setShowHelp(true)} aria-label={t('help.howToPlay')}>❓</button>
+      </div>
+
+      {/* Scoreboard: per-seat running penalty + state badges. */}
+      <div className="fiftyone-scoreboard">
+        {state.players.map((p) => {
+          const seat = p.seatIndex;
+          const me = seat === humanSeat;
+          const acting = phase === 'playing' && seat === currentSeat;
+          return (
+            <div
+              key={p.id}
+              className={`fiftyone-score ${me ? 'fiftyone-score--me' : ''} ${acting ? 'fiftyone-score--acting' : ''} ${state.eliminatedSeats[seat] ? 'fiftyone-score--out' : ''}`}
+            >
+              <span className="fiftyone-score__name">
+                {acting && <span className="fiftyone-score__turn" aria-hidden="true">▶ </span>}
+                {me ? t('fiftyOne.you') : p.name}
+              </span>
+              <span className="fiftyone-score__value">{state.scoresBySeat[seat]}</span>
+              <span className="fiftyone-score__badges">
+                {state.eliminatedSeats[seat] && <span title={t('fiftyOne.eliminated')}>☠</span>}
+                {state.openedBySeat[seat] && <span className="fiftyone-badge--open" title={t('fiftyOne.opened')}>✓</span>}
+                {!me && <span className="fiftyone-score__count">🂠{state.handsBySeat[seat].length}</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Piles: face-down draw + face-up discard top. */}
+      <div className="fiftyone-piles">
+        <div className="fiftyone-pile">
+          <span className="fiftyone-pile__label">{t('fiftyOne.drawPile')} · {state.drawPile.length}</span>
+          <div className={`card card--table card--back fiftyone-drawpile ${drawStep ? 'fiftyone-drawpile--live' : ''}`} aria-hidden="true" />
+        </div>
+        <div className="fiftyone-pile">
+          <span className="fiftyone-pile__label">{t('fiftyOne.discardPile')} · {state.discardPile.length}</span>
+          {topDiscard
+            ? (topDiscard.joker ? <JokerCard size="table" disabled /> : <CardView card={toCard(topDiscard)} size="table" disabled />)
+            : <div className="card card--table fiftyone-discard-empty" aria-hidden="true" />}
+        </div>
+      </div>
+
+      {/* Public melds (all seats). Jokers show the card they represent, not 25. */}
+      <div className="fiftyone-melds">
+        {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
+        {state.publicMelds.map((meld) => {
+          const owner = meld.ownerSeat === humanSeat ? t('fiftyOne.you') : state.players[meld.ownerSeat].name;
+          const addable = canAddTo(meld);
+          return (
+            <div key={meld.id} className="fiftyone-meld">
+              <span className="fiftyone-meld__owner">{owner} · {meld.value}</span>
+              <div className="fiftyone-meld__cards">
+                {meld.cards.map((c, i) => (
+                  <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
+                ))}
+              </div>
+              {opened && (
+                <button type="button" className="btn btn--small fiftyone-meld__add" disabled={!addable} onClick={() => addToMeld(meld)}>
+                  ＋ {t('fiftyOne.addToMeld')}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
+        <span>{prompt}</span>
+        {validation && <span className="fiftyone-prompt__val">{validation}</span>}
+      </div>
+
+      {/* Staged melds waiting to open (must total ≥ 51). */}
+      {staged.length > 0 && (
+        <div className="fiftyone-staged">
+          <span className="fiftyone-staged__label">
+            {t('fiftyOne.openTotal').replace('{n}', String(stagedTotal))}
+          </span>
+          <div className="fiftyone-staged__rows">
+            {stagedMelds.map((cards, i) => (
+              <div key={i} className="fiftyone-staged__meld">
+                {cards.map((c) => (c.joker ? <JokerCard key={c.id} size="mini" disabled /> : <CardView key={c.id} card={toCard(c)} size="mini" disabled />))}
+                <span className="fiftyone-staged__pts">{resolveMeld(cards)?.value ?? 0}</span>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => setStaged([])}>{t('fiftyOne.clear')}</button>
+        </div>
+      )}
+
+      {/* The human's hand (staged cards are hidden here until Open/Clear). */}
+      <div className="fiftyone-hand">
+        {sortHand(hand.filter((c) => !stagedIds.has(c.id))).map((c) =>
+          c.joker
+            ? <JokerCard key={c.id} onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />
+            : <CardView key={c.id} card={toCard(c)} size="hand" onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />,
+        )}
+      </div>
+
+      {/* Action bar — context-sensitive per step. */}
+      <div className="fiftyone-actions">
+        {drawStep && (
+          <>
+            <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'DRAW_FROM_DECK' })}>{t('fiftyOne.drawFromDeck')}</button>
+            <button type="button" className="btn btn--ghost" disabled={!canTakeDiscard} onClick={() => canTakeDiscard && apply({ type: 'TAKE_DISCARD' })}>{t('fiftyOne.takeDiscard')}</button>
+          </>
+        )}
+        {meldStep && !opened && (
+          <>
+            <button type="button" className="btn btn--ghost" disabled={!canStage} onClick={stageMeld}>{t('fiftyOne.stageMeld')}</button>
+            <button type="button" className="btn btn--primary" disabled={!canOpen} onClick={openMelds}>
+              {t('fiftyOne.open')} ({stagedTotal}/{OPENING_MINIMUM})
+            </button>
+          </>
+        )}
+        {meldStep && (
+          <button type="button" className="btn btn--primary fiftyone-discard-btn" disabled={!canDiscard} onClick={discard}>{t('fiftyOne.discard')}</button>
+        )}
+      </div>
+
+      {phase === 'round_complete' && state.lastRound && (
+        <RoundComplete state={state} humanSeat={humanSeat} onNext={() => apply({ type: 'START_NEXT_ROUND' })} />
+      )}
+    </div>
+  );
+}
+
+/** Between-rounds summary: winner, per-seat penalty delta + totals + eliminations. */
+function RoundComplete({ state, humanSeat, onNext }: { state: FiftyOneState; humanSeat: number; onNext: () => void }) {
+  const { t } = useI18n();
+  const r = state.lastRound!;
+  const name = (seat: number) => (seat === humanSeat ? t('fiftyOne.you') : state.players[seat].name);
+  return (
+    <div className="fiftyone-roundover-overlay" role="dialog" aria-modal="true">
+      <div className="fiftyone-roundover">
+        <h2 className="fiftyone-roundover__title">🏁 {t('fiftyOne.wins').replace('{name}', name(r.winnerSeat))}</h2>
+        <table className="fiftyone-roundover__table">
+          <thead>
+            <tr><th></th><th>+{t('fiftyOne.penalty')}</th><th>{t('fiftyOne.total')}</th></tr>
+          </thead>
+          <tbody>
+            {state.players.map((p) => (
+              <tr key={p.id} className={state.eliminatedSeats[p.seatIndex] ? 'fiftyone-roundover__out' : ''}>
+                <td>
+                  {name(p.seatIndex)}
+                  {r.neverOpenedBySeat[p.seatIndex] && <span className="fiftyone-roundover__flag"> ·100</span>}
+                  {r.newlyEliminated.includes(p.seatIndex) && <span> ☠</span>}
+                </td>
+                <td>{r.penaltyBySeat[p.seatIndex] > 0 ? `+${r.penaltyBySeat[p.seatIndex]}` : '—'}</td>
+                <td><strong>{state.scoresBySeat[p.seatIndex]}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button type="button" className="btn btn--primary" onClick={onNext} autoFocus>{t('fiftyOne.nextRound')}</button>
+      </div>
+    </div>
+  );
+}
