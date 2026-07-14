@@ -20,6 +20,12 @@ also reported at `GET /health/diagnostics` (`version` field).
   top; you never have to reach 51 again. The table button now reads **"Lay meld"** after you have
   opened (it says **"Open (n/51)"** only while you still need to open), with clearer hints. Bots also
   lay new melds after opening. No rules changed beyond these two; no DB migration or new dependency.
+- **51 (Syrian 51) Ace-low lay-off + meld card layout fixed (Stage 30.10).** An **Ace now extends a
+  low run** — a `2-3-4` on the table accepts an Ace to become `A-2-3-4` (and an `A-2-3` accepts a
+  `4`); `K-A-2` and adding a King to `A-2-3` stay invalid. Ace-low runs display Ace-first
+  (`A-2-3-4`). And the **public-meld cards no longer overlap or get clipped** — each meld's cards lay
+  out in a clean, readable row (full card faces, clear gaps, scrolls within the meld if long) with no
+  horizontal overflow on 360/390 phones. No DB migration, dependency or other rule change.
 
 ## [0.3.7] — 2026-07-14 — Syrian 51 sixth-game release
 

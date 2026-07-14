@@ -236,6 +236,21 @@
   **No DB migration, no dependency, no stats/schema change; deck/scoring/510/joker-25/ace-values/
   discard-restriction/win-by-final-discard unchanged.** `npm run verify` green.
 
+### 30.10 — Ace-low layoff + public-meld card layout — ✅ DONE
+- **Ace-low run extension (core).** `melds.ts`: `runPositionLow` now defers to `runPositionHigh`
+  for non-Aces (was `Number(rank)` → NaN for 10/J/Q/K), and the aceLow window relaxed `max>3`→`max>13`
+  in both resolver passes. So Ace-low runs extend (`A-2-3-4`=10, `A-2-3-4-5`=15, …) and **laying an
+  `A` onto a public `2-3-4`** resolves (order-independent pass 1) to canonical **`A-2-3-4`** (Ace-first
+  display, Scope B free — `ADD_TO_MELD` stores `r.cards`). `K-A-2`/`A-2-3-K`/adding K to `A-2-3` stay
+  invalid; UI `canAddTo` enables Add for the Ace automatically. **Meld card layout (CSS).**
+  `.fiftyone-meld__cards` → `flex-wrap:nowrap; gap:0.3rem; overflow-x:auto; direction:ltr` +
+  `object-fit:contain` on mini meld art + `flex:0 0 auto` cards + `.fiftyone-meld{min-width:0;
+  max-width:min(100%,15rem)}` → no overlap/clip, in-block scroll for long runs, no 360/390 overflow.
+  New `scripts/fifty-one-shots.mjs` headless harness asserts 0 overlap/clip/overflow at 360/390.
+  Tests: melds/engine/serverCore Ace cases + UI CSS guard. Docs: 51_RULES §6/§10/§17, QA + SMOKE,
+  CHANGELOG. **No DB migration, no dependency, no stats change; 510/joker-25/unopened-100/discard/win
+  unchanged.** `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

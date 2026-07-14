@@ -597,6 +597,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       `K♠ A♠ 🃏` stays **invalid**. Before opening the primary button reads **"Open (n/51)"** and is disabled
       under 51; after your first ≥51 lay-down it reads **"Lay meld"** and accepts **any** valid meld (e.g. a
       15-point 4-5-6 run) with **no** 51 requirement. Lay-off + discard-take still work after opening.
+- [ ] **Ace-low lay-off + meld layout (Stage 30.10):** with a public `2♠ 3♠ 4♠` run on the table, select
+      your **A♠** → the meld's **Add** is enabled and adds it as **`A♠ 2♠ 3♠ 4♠`** (displayed Ace-first,
+      value 10); adding a **K** to an `A-2-3` run stays rejected. Public-meld cards render as a **clean,
+      readable row** — no overlap, no clipped ranks/suits, Add button below the cards — with **no horizontal
+      overflow** at 360/390 even with 4 players and several melds (long runs scroll within the meld block).
 - [ ] **Online play:** host + join (2 tabs + optional bot) → each client sees **only its own hand**
       (opponents show 🂠counts, draw pile face-down); a turn applies over the wire; the **server** drives the
       between-rounds advance (no client "Next round" button); match winner + **Play again** (rematch) +

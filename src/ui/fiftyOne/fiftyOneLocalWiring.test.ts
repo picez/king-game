@@ -52,6 +52,20 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(src).toContain("t('fiftyOne.openAnyMeld')");
   });
 
+  it('public meld cards lay out without overlap/clipping (30.10 CSS guard)', () => {
+    const css = read('src/styles/fiftyone.css');
+    const block = css.slice(css.indexOf('.fiftyone-meld__cards'));
+    // A single positive gap and no negative margins → adjacent cards never overlap.
+    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*gap:\s*0?\.\d+rem/);
+    expect(css).not.toMatch(/\.fiftyone-meld__cards[^}]*margin[^:]*:\s*-/);
+    // Long melds scroll INSIDE the block (never overflow the screen / the Add button).
+    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*overflow-x:\s*auto/);
+    // Full card face (contain) so mini meld-card indices are not cover-cropped.
+    expect(css).toContain('.fiftyone-meld__cards .card--mini.card--art .card__art { object-fit: contain; }');
+    // The Add button is its own element under the cards (not inside the card row).
+    expect(css).toContain('.fiftyone-meld__add');
+  });
+
   it('FiftyOneSetup reads the deck rule from the core (2p vs 3–4p) and offers 2/3/4', () => {
     const src = read('src/ui/fiftyOne/FiftyOneSetup.tsx');
     expect(src).toContain('deckCountFor');

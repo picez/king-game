@@ -229,4 +229,31 @@ describe('51 lay-off (§9)', () => {
     const s = baseState([[c('K', 'hearts'), c('2', 'clubs')], []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [meld] });
     expect(fiftyOneReducer(s, { type: 'ADD_TO_MELD', meldId: 'm-1-1-0', cards: [c('K', 'hearts')] })).toBe(s);
   });
+
+  it('lays an Ace onto a public 2-3-4 run → A-2-3-4, displayed Ace-first (30.10)', () => {
+    const meld = {
+      id: 'm-1-1-0', ownerSeat: 1, type: 'run' as const,
+      cards: [c('2', 'spades'), c('3', 'spades'), c('4', 'spades')], jokerRepresents: {}, value: 9,
+    };
+    const hand = [c('A', 'spades'), c('2', 'clubs')];
+    // Unopened → still illegal (lay-off is open-gated, §9).
+    const notOpened = baseState([hand, []], { currentSeat: 0, publicMelds: [meld] });
+    expect(fiftyOneReducer(notOpened, { type: 'ADD_TO_MELD', meldId: 'm-1-1-0', cards: [c('A', 'spades')] })).toBe(notOpened);
+
+    // Opened → the Ace extends the low end; the meld re-resolves to A-2-3-4.
+    const opened = baseState([hand, []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [meld] });
+    const added = fiftyOneReducer(opened, { type: 'ADD_TO_MELD', meldId: 'm-1-1-0', cards: [c('A', 'spades')] }) as FiftyOneState;
+    expect(added.publicMelds[0].cards.map((x) => x.rank)).toEqual(['A', '2', '3', '4']); // Ace-first
+    expect(added.publicMelds[0].value).toBe(10); // 1+2+3+4
+    expect(added.handsBySeat[0]).toHaveLength(1);
+  });
+
+  it('rejects laying a King onto a public A-2-3 run (A-2-3-K is not a run)', () => {
+    const meld = {
+      id: 'm-1-1-0', ownerSeat: 1, type: 'run' as const,
+      cards: [c('A', 'spades'), c('2', 'spades'), c('3', 'spades')], jokerRepresents: {}, value: 6,
+    };
+    const s = baseState([[c('K', 'spades'), c('2', 'clubs')], []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [meld] });
+    expect(fiftyOneReducer(s, { type: 'ADD_TO_MELD', meldId: 'm-1-1-0', cards: [c('K', 'spades')] })).toBe(s);
+  });
 });

@@ -337,6 +337,25 @@ describe('51 public round_complete advances server-side (Stage 30.4)', () => {
     expect(after.openedBySeat[o.seat]).toBe(true);
   });
 
+  it('online Ace-low layoff (30.10): opened seat adds A♠ to a public 2-3-4 → A-2-3-4', () => {
+    const { room, clientForSeat } = seatedRoom(2, 21);
+    const s = asF(room.gameState);
+    const seat = s.currentSeat;
+    s.turnStep = 'meld_discard';
+    s.openedBySeat[seat] = true;
+    s.handsBySeat[seat] = [card('A', 'spades'), card('2', 'clubs')]; // the Ace + a spare
+    s.publicMelds = [{
+      id: 'pm', ownerSeat: seat, type: 'run',
+      cards: [card('2', 'spades'), card('3', 'spades'), card('4', 'spades')], jokerRepresents: {}, value: 9,
+    }];
+    const res = applyActionRequest(room, clientForSeat(seat),
+      { type: 'ADD_TO_MELD', meldId: 'pm', cards: [card('A', 'spades')] } as AnyGameAction);
+    expect(res.ok).toBe(true);
+    const after = asF(room.gameState);
+    expect(after.publicMelds[0].cards.map((c) => c.rank)).toEqual(['A', '2', '3', '4']); // Ace-first
+    expect(after.publicMelds[0].value).toBe(10);
+  });
+
   it('a finished game reports no public screen and does NOT auto-advance', () => {
     // Build a terminal state directly (a full 510-point drive is unnecessary for
     // the invariant): once game_finished, the room exposes no between-rounds pause

@@ -1,11 +1,12 @@
 # 51 (Syrian 51 / واحد وخمسين) — MVP Rules Spec
 
-> **STATUS: RELEASED (Stage 30.7); meld/opening rules corrected (Stage 30.9).** 51 is the fully
-> `available` 6th game — local + online + stats + favorite + achievement — built from
-> `src/games/fiftyOne/`. Stage 30.9 applied two owner corrections: a joker may sit at **any
-> position** in a meld (§8) and the **51 minimum is a once-per-round opening gate** — after
-> opening, any valid meld may be laid (§7). This document remains the single source of truth;
-> when code disagrees with this spec, the code is wrong — or this spec is updated first, deliberately.
+> **STATUS: RELEASED (Stage 30.7); meld/opening rules corrected (Stages 30.9–30.10).** 51 is the
+> fully `available` 6th game — local + online + stats + favorite + achievement — built from
+> `src/games/fiftyOne/`. Owner corrections: a joker may sit at **any position** in a meld (§8),
+> the **51 minimum is a once-per-round opening gate** — after opening, any valid meld may be laid
+> (§7, 30.9), and **Ace-low runs extend** (`A-2-3-4`, …) so an Ace lays off onto a `2-3-4` (§6,
+> 30.10). This document remains the single source of truth; when code disagrees with this spec,
+> the code is wrong — or this spec is updated first, deliberately.
 >
 > **Sources.** Reconciled from the owner-supplied *Syrian 51 Card Game Rules* text and
 > the **owner's authoritative house-rule corrections**. Where the two disagree, the
@@ -104,11 +105,16 @@ Every meld has **at least 3 cards**. Two kinds:
 Three or more **consecutive cards of the same suit**, e.g. `7♥ 8♥ 9♥` or `10♣ J♣ Q♣ K♣`.
 
 - **Ace is high** by default (…Q K A). *[owner override / house rule]*
-  - **`A-2-3` is allowed** as the only **Ace-low** run, and its **meld value is 6** (A=1,
-    2, 3). Ace counts **1** *only inside `A-2-3`*.
-  - **`Q-K-A` is allowed**, meld value **30** (Q=10, K=10, A=10).
+  - **Ace-low runs** anchor the Ace at the **bottom** and may extend upward: `A-2-3`,
+    `A-2-3-4`, `A-2-3-4-5`, … *[owner rule 30.10 — the low Ace is no longer limited to
+    `A-2-3` alone]*. The low Ace counts **1**, so `A-2-3` = **6**, `A-2-3-4` = **10**,
+    `A-2-3-4-5` = **15**, … (§10). This matters for **lay-off** too: a public `2-3-4` run
+    accepts an `A` to become `A-2-3-4`, and a public `A-2-3` accepts a `4` to become `A-2-3-4`.
+  - **`Q-K-A` is allowed**, meld value **30** (Q=10, K=10, A=10) — the Ace is high here.
   - **`K-A-2` is NOT allowed** — a run may not "wrap" around the Ace. *[owner override.]*
-- A run may not exceed one full suit sequence (no `…K A 2…` continuation).
+    (So adding a `K` to an `A-2-3` run is also rejected — `A-2-3-K` is not a run.)
+- A run may not exceed one full suit sequence (no `…K A 2…` continuation). An Ace is
+  **either** low (position 1) **or** high (above the King) in a given run, never both.
 
 ### B. Set (group)
 Three or more cards of the **same rank**, e.g. `9♠ 9♥ 9♦` or `K♣ K♦ K♥`.
@@ -191,12 +197,13 @@ Used both for the **51 opening total** and for **end-of-round hand penalties** (
 |------|:-----:|
 | 2–9 | Face value (2…9) |
 | 10, J, Q, K | **10** |
-| **Ace** | **10** — *except* it counts **1** inside an `A-2-3` run *[owner override: Ace = 10, not 11]* |
+| **Ace** | **10** — *except* it counts **1** at the **low end** of an Ace-low run (`A-2-3`, `A-2-3-4`, …) *[owner override: Ace = 10, not 11]* |
 | Joker **in a meld** | Value of the **card it represents** |
 | Joker **in hand** (penalty) | **25** |
 
 Worked notes:
-- `A-2-3` run = **6** (1+2+3). `Q-K-A` run = **30** (10+10+10). Set `A A A` = **30**.
+- `A-2-3` run = **6** (1+2+3); `A-2-3-4` = **10**; `A-2-3-4-5` = **15**. `Q-K-A` run = **30**
+  (10+10+10). Set `A A A` = **30**.
 - An Ace **left in hand** at round end scores **10** penalty.
 
 ---
@@ -329,3 +336,11 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   action no longer re-checks 51 once opened). Core two-pass run resolver + reducer branch + UI
   ("Open 51" → "Lay meld") + bot (lays fresh melds after opening) + online/unit tests. No deck,
   scoring, elimination, joker-hand-penalty, discard-restriction or win-by-final-discard change.
+- **Stage 30.10 (2026-07-14):** **Ace-low run extension + meld display fix** (§6, §10). (1)
+  Ace-low runs are no longer limited to `A-2-3`: the low Ace anchors position 1 and the run may
+  extend up (`A-2-3-4`=10, `A-2-3-4-5`=15, …). This makes the natural **lay-off** work — a public
+  `2-3-4` accepts an `A` (→ `A-2-3-4`), a public `A-2-3` accepts a `4`; adding a `K` to `A-2-3`
+  and `K-A-2` stay invalid. The order-independent resolver pass now normalises the displayed run
+  to Ace-first (`A-2-3-4`, not `2-3-4-A`). (2) **Public-meld card layout** fixed — meld card rows
+  use positive gaps + `object-fit:contain` + in-block horizontal scroll, so cards no longer
+  overlap/clip and never overflow at 360/390. No deck/scoring/elimination/penalty/discard/win change.

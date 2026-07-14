@@ -118,6 +118,36 @@ describe('51 runs (§6)', () => {
     expect(resolveRun([c('K', 'spades'), c('A', 'spades'), J()])).toBeNull();
   });
 
+  // ── Ace-low runs longer than A-2-3 (owner rule 30.10) — layoff builds these. ──
+  it('resolves 2-3-4 + Ace (append order) as A-2-3-4 worth 10', () => {
+    // ADD_TO_MELD appends the Ace: [2,3,4,A]. The order-independent pass sorts it to
+    // the canonical low→high A-2-3-4 (Ace low = 1) → 1+2+3+4 = 10.
+    const r = resolveRun([c('2', 'spades'), c('3', 'spades'), c('4', 'spades'), c('A', 'spades')]);
+    expect(r?.type).toBe('run');
+    expect(r?.value).toBe(10);
+    expect(r?.cards.map((x) => x.rank)).toEqual(['A', '2', '3', '4']); // displayed A-first
+  });
+
+  it('resolves A-2-3 + 4 as A-2-3-4 worth 10', () => {
+    const r = resolveRun([c('A', 'clubs'), c('2', 'clubs'), c('3', 'clubs'), c('4', 'clubs')]);
+    expect(r?.value).toBe(10);
+    expect(r?.cards.map((x) => x.rank)).toEqual(['A', '2', '3', '4']);
+  });
+
+  it('resolves a longer Ace-low run A-2-3-4-5 worth 15', () => {
+    const r = resolveRun([c('A', 'hearts'), c('2', 'hearts'), c('3', 'hearts'), c('4', 'hearts'), c('5', 'hearts')]);
+    expect(r?.value).toBe(15); // 1+2+3+4+5
+    expect(r?.cards.map((x) => x.rank)).toEqual(['A', '2', '3', '4', '5']);
+  });
+
+  it('rejects adding a King to A-2-3 (A-2-3-K is not a run)', () => {
+    expect(resolveRun([c('A', 'spades'), c('2', 'spades'), c('3', 'spades'), c('K', 'spades')])).toBeNull();
+  });
+
+  it('still rejects K-A-2 (no wrap around the Ace), even with the wider Ace-low window', () => {
+    expect(resolveRun([c('K', 'spades'), c('A', 'spades'), c('2', 'spades')])).toBeNull();
+  });
+
   it('rejects a meld with two jokers (MVP cap of 1)', () => {
     expect(resolveRun([c('7', 'spades'), J(), J()])).toBeNull();
   });

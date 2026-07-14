@@ -61,9 +61,11 @@ function runPositionHigh(rank: Rank): number {
   }
 }
 
-/** Ace-LOW run position (only meaningful for A-2-3): A→1, 2→2, 3→3. */
+/** Ace-LOW run position: A→1, then every other rank keeps its high position
+ *  (2→2 … 10→10, J→11, Q→12, K→13). An Ace-low run therefore runs A(1)-2-3-… up to
+ *  K(13) — so `A-2-3`, `A-2-3-4`, … are all valid (§6, owner rule 30.10). */
 function runPositionLow(rank: Rank): number {
-  return rank === 'A' ? 1 : Number(rank);
+  return rank === 'A' ? 1 : runPositionHigh(rank);
 }
 
 /** The rank occupying a run position, under the chosen Ace mapping. */
@@ -76,9 +78,10 @@ function rankAtPosition(pos: number, aceLow: boolean): Rank {
   return String(pos) as Rank; // 2..10
 }
 
-/** The point value contributed by a run position (Ace = 1 only when aceLow). */
+/** The point value contributed by a run position (Ace = 1 only when aceLow, at the
+ *  low end of an Ace-low run — so `A-2-3` = 6, `A-2-3-4` = 10, …). */
 function positionValue(pos: number, aceLow: boolean): number {
-  if (aceLow && pos === 1) return 1; // Ace low inside A-2-3
+  if (aceLow && pos === 1) return 1; // Ace low at the bottom of an Ace-low run
   if (pos >= 2 && pos <= 9) return pos;
   return 10; // 10, J, Q, K, and Ace-high all score 10
 }
@@ -122,8 +125,9 @@ function resolveRunInternal(cards: FiftyOneCard[]): ResolvedMeld | null {
     const min = Math.min(...positions);
     const max = Math.max(...positions);
     if (aceLow) {
-      // Ace-low permits ONLY the A-2-3 window (positions within [1, 3]).
-      if (min < 1 || max > 3) continue;
+      // Ace-low anchors A at position 1 and may extend UP to K(13): A-2-3, A-2-3-4, …
+      // (30.10). The Ace is the low end, so min must be 1; K-A-2 fails the windowLen check.
+      if (min < 1 || max > 13) continue;
     } else {
       if (min < 2 || max > 14) continue; // 2..A(14)
     }
@@ -196,7 +200,7 @@ function resolveRunOrdered(cards: FiftyOneCard[]): ResolvedMeld | null {
 
     const min = start;
     const max = start + cards.length - 1;
-    if (aceLow) { if (min < 1 || max > 3) continue; } // only the A-2-3 window
+    if (aceLow) { if (min < 1 || max > 13) continue; } // Ace-low: A(1)-2-3-… up to K(13)
     else if (min < 2 || max > 14) continue;           // 2..A(14)
 
     const jokerRepresents: Record<number, JokerRepresentation> = {};

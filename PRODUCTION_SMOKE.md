@@ -276,6 +276,10 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       `🃏 8♠ 9♠` = 7-8-9, `Q♠ K♠ 🃏` = Q-K-A (30), `🃏 2♠ 3♠` = A-2-3 (6); `K♠ A♠ 🃏` stays invalid. The
       primary button reads **"Open (n/51)"** until you open, then **"Lay meld"** — after opening you can lay
       **any** valid meld (e.g. a 15-pt 4-5-6 run) with **no** further 51 requirement, plus lay off + take discard.
+- [ ] **Ace-low lay-off + meld layout (Stage 30.10):** add an **Ace to a public `2-3-4`** run → it becomes
+      **`A-2-3-4`** (Ace-first, value 10); adding a King to `A-2-3` stays invalid. Public-meld cards are a
+      **clean, non-overlapping, unclipped** row with the Add button below — **no horizontal overflow** at
+      360/390 with 4 players and several melds.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A
