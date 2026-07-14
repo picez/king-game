@@ -393,8 +393,10 @@ the same redaction/reconnect guarantees as the other three games.
 
 ## 17. Solo / individual variant status
 
-> **CURRENT STATUS (v0.3.3): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
-> (4-player cutthroat).** Solo is fully playable **local + online**, records **stats + a leaderboard**
+> **CURRENT STATUS (v0.3.4): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
+> (4-player cutthroat).** (v0.3.4 adds a display-only Solo polish: live per-player trick counts + a
+> larger "review my tricks" button; no rules/scoring change.) Solo is fully playable **local +
+> online**, records **stats + a leaderboard**
 > under a separate `game_type='tarneeb-solo'` (no schema change), preserves the mode across rematch,
 > and has one achievement ("Tarneeb Soloist"). §1–§16 above describe the **Pairs** game (byte-for-byte
 > unchanged); Solo differs only in seating/scoring (per-seat; **contract-scored exactly like Pairs §8**

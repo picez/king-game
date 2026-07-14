@@ -4,9 +4,11 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.3** — Tarneeb scoring correction (Solo aligned to Pairs §8: exact make ×2,
-> overtrick = tricks won) + Deberc table card resize, on the **v0.3.2** Tarneeb Solo release &
-> bandwidth-hardening patch, over the **v0.3.0** social & voice release and v0.2.0 five-game platform.
+> **Release:** **v0.3.4** — Durak final-defence reveal + online timer polish (display-only: enlarged
+> Durak trump/deck, ~2 s last-bout linger, per-turn timer now shown in every online game, Tarneeb
+> Solo live trick counts), on the **v0.3.3** Tarneeb scoring correction + Deberc table resize, the
+> **v0.3.2** Tarneeb Solo release & bandwidth-hardening patch, over the **v0.3.0** social & voice
+> release and v0.2.0 five-game platform.
 > See [`CHANGELOG.md`](CHANGELOG.md); the running version is also at
 > `GET /health/diagnostics`.
 

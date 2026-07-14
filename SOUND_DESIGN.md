@@ -275,14 +275,16 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
     `WinnerCelebration`. The decorative ids (card-play/trick-collect/trump-reveal/finish-*)
     remain in the manifest as available assets but are **wired nowhere** (guard-enforced).
   - **Active alert — low-time warning** (`src/audio/useSoundAlerts.ts` → `useTimerLowAlert`,
-    wired in `src/ui/components/TurnTimer.tsx`): fires the existing **`ui-error`** SFX ONCE
+    wired in `src/ui/components/TurnTimerBar.tsx`): fires the existing **`ui-error`** SFX ONCE
     when the countdown crosses from `>10s` to `≤10s` **on MY active turn**. Pure reducer
     `timerLowStep` holds the anti-spam: once per turn, resets on turn/step change, never for
     an opponent's turn, and never on mount/reconnect into an already-low timer (a crossing
     needs a previously-observed above-threshold value). "My turn" = `getActingPlayerId(state)
-    === myPlayerId` (added `myPlayerId` to the King GameContext). **Coverage:** only where a
-    per-turn countdown exists = **King online** with a host-configured turn timer; the other
-    3 games have no turn timer, so timer-low simply doesn't apply there.
+    === myPlayerId` (added `myPlayerId` to the King GameContext). **Coverage (Stage 29.2):** the
+    alert now lives in the shared, game-agnostic `TurnTimerBar`, so it applies wherever a
+    per-turn countdown exists = **every online game** (King / Durak / Deberc / Tarneeb /
+    Preferans) with a host-configured turn timer (30/60/90). Local pass-and-play has no timer,
+    so timer-low never applies there.
   - **`document.hidden`:** the engine still no-ops on hidden tabs, so alerts are **in-tab
     only** for now (not over-engineered into a background notification).
   - **New-deal / action-needed alert — DEFERRED.** No reliable, reconnect-safe "fresh own
@@ -290,7 +292,8 @@ Each stage is small, independently shippable, and keeps gameplay/server/DB uncha
   - **Guards** (`soundAssets.test.ts`): audio API only in the engine; manifest only in the
     engine; `playSound` only in `useSoundAlerts` + Profile preview; the alert hook only in
     `TurnTimer`; the removed decorative ids referenced **nowhere** outside the manifest; no
-    core/server/games/net/hooks import of audio; `messages.ts` sound-free.
+    core/server/games/net/hooks import of audio; `messages.ts` sound-free. (Stage 29.2: the
+    alert hook's sole importer is now `TurnTimerBar`, not `TurnTimer`.)
 - **15.5 — QA.** Manual matrix: iOS Safari + Android Chrome + desktop; first-gesture
   unlock; tab-hidden mute/resume; off/subtle/full; rapid-deal throttle; no double-sound
   online; budget check. Update QA_CHECKLIST.

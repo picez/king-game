@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.2`** (tag `v0.3.2`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.4`** (tag `v0.3.4`).
 
 Set your host once and reuse it below:
 
@@ -23,19 +23,34 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.3 adds no migrations** — 0009 is still the latest (Tarneeb Solo stats reuse the existing
-> schema under `game_type='tarneeb-solo'`).
+> **v0.3.4 adds no migrations** — 0009 is still the latest (the Durak reveal + online-timer polish
+> is display-only; Tarneeb Solo stats reuse the existing schema under `game_type='tarneeb-solo'`).
 
 ---
 
-## 0. v0.3.3 release smoke (fast targeted pass)
+## 0. v0.3.4 release smoke (fast targeted pass)
 
-What v0.3.3 (Tarneeb scoring correction + Deberc table resize) specifically touches, plus the
-v0.3.2 platform checks it rides on. The numbered sections cover each in depth.
+What v0.3.4 (Durak final-defence reveal + online timer polish, Stage 29.2) specifically touches,
+plus the v0.3.3 correctness checks and v0.3.2 platform checks it rides on. All v0.3.4 changes are
+**display-only** (no rules/scoring/schema change). The numbered sections cover each in depth.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.3`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.4`**, `commit` matches the deploy,
       `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.3).
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.4).
+- [ ] **Durak trump/deck + final-defence reveal (v0.3.4):** on the Durak table the **face-up trump +
+      draw pile are visibly larger** (~+22%) with no 360/390 overflow; and when the **last attack is
+      beaten** (or the defender takes), the completed **attack+defence pair stays on the felt ~2 s**
+      before the table clears — you can see the card that won the final bout (local + online).
+- [ ] **Per-turn timer in every online game (v0.3.4):** host an online **Durak / Deberc / Tarneeb /
+      Preferans** room with a **host timer set (30/60/90)** → a **⏱ Ns** pill shows at the top-centre
+      and counts down each turn; with the timer **off** it does **not** appear; local play shows none.
+      The **low-time sound** alert still fires **only on your turn**.
+- [ ] **Tarneeb Solo trick UI (v0.3.4):** during a **Solo** game the standings strip shows **all 4
+      players' live trick count (🃏 N)**, and a **larger dedicated "review my tricks" button** sits
+      under the standings (reachable on 360/390). **Pairs** is unchanged (compact topbar team badge).
+- [ ] **Arabic RTL (v0.3.4):** with the language set to Arabic, the **timer pill**, the **Tarneeb Solo
+      standings**, and the **Durak table** (larger trump/deck + lingering last bout) all mirror
+      correctly with **no horizontal overflow** at 360/390.
 - [ ] **Tarneeb scoring (v0.3.3) — Pairs AND Solo:** in the hand-complete panel, a declarer who
       takes **exactly** the bid scores **bid×2** (bid 7 → **+14**, with the "✨ exact bid double"
       note); **more** than the bid scores the **actual tricks** (bid 7, 10 tricks → **+10**); a

@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-07-14 — Durak reveal and online timer polish
+
+A display-only polish patch on **v0.3.3**. Durak's trump/draw pile is enlarged and the **final
+defended card now lingers ~2 s** so you can see what beat the last attack; the **per-turn timer is
+now visible in every online game** (not just King) when the host enables it; and **Tarneeb Solo**
+shows live per-player trick counts with a larger "review my tricks" button. **No rules/scoring
+change, no DB migration** (0009 stays the latest), **no dependency changes**. `/health/diagnostics`
+`version` reads `0.3.4`.
+
 ### Fixed
 
 - **Durak trump/deck enlarged (Stage 29.2, owner).** The face-up trump + draw pile are ~22% larger

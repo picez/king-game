@@ -683,7 +683,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       **webm + mp3**, unique, `/sounds/`-scoped, under the per-file cap, total < 500 KB,
       and the **wiring-boundary guard** holds (audio API only in the engine; the manifest
       imported only by the engine; `playSound` only in `useSoundAlerts` + `ProfilePanel`;
-      the alert hook only in `TurnTimer`; the removed decorative ids referenced nowhere
+      the alert hook only in `TurnTimerBar` (Stage 29.2); the removed decorative ids referenced nowhere
       outside the manifest; no core/server/games/net module imports the audio layer;
       `messages.ts` carries no sound field).
 - [ ] After `npm run build`, `dist/sounds/` contains the 24 files (Vite copies
