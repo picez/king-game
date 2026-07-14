@@ -14,6 +14,7 @@ import {
 import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
 import TarneebHelp from './TarneebHelp';
 import TarneebTricksReview from './TarneebTricksReview';
+import { tarneebRankRows } from './tarneebScoreTable';
 
 interface Props {
   state: TarneebState;
@@ -67,14 +68,14 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
   // Solo (Stage 28.3): 4-player cutthroat — every seat is its own side. Scores/tricks
   // come from the per-seat ledgers, not the A/B team ledgers. Pairs is unchanged.
   const solo = isSoloTarneeb(state);
-  const scoresBySeat = state.scoresBySeat ?? [0, 0, 0, 0];
   const tricksBySeat = state.tricksBySeat ?? [0, 0, 0, 0];
   const myTeam = teamOfSeat(humanSeat);
-  const theirTeam = myTeam === 'A' ? 'B' : 'A';
   const myTricks = solo ? tricksBySeat[humanSeat] : state.tricksByTeam[myTeam];
-  const topScore = solo ? Math.max(...scoresBySeat) : 0;
   const actingSeat = getActingTarneebSeat(state);
   const blocked = reviewTrick != null || state.phase === 'hand_complete';
+  // Ranked standings rows (Stage 29.7): sorted by total score desc, with the bidder marker +
+  // this-hand tricks. Pure/read-only — never recomputes scoring (see tarneebScoreTable.ts).
+  const rankRows = tarneebRankRows(state, humanSeat, actingSeat, blocked);
   const isMyTurn = actingSeat === humanSeat && !blocked;
   const phase = state.phase;
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
@@ -111,12 +112,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
   const validBids = phase === 'bidding' && isMyTurn ? getValidBids(state, humanSeat) : [];
 
-  // Extra readouts for a clearer table (Stage 10.6 polish):
-  const highBidderName = state.highestBid
-    ? state.highestBid.seat === humanSeat
-      ? t('tarneeb.you')
-      : state.players[state.highestBid.seat].name
-    : null;
+  // The bidder/declarer + bid amount now live in the ranked table's bid column (Stage 29.7).
   const ledSuit = state.currentTrick?.ledSuit ?? null;
   // The human has passed and is out of the current auction (make it obvious).
   const iPassed = phase === 'bidding' && state.passed[humanSeat] && !isMyTurn;
@@ -144,86 +140,64 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
         <button type="button" className="btn btn--ghost tarneeb-help-btn" onClick={() => setShowHelp(true)} aria-label={t('tarneeb.howToPlay')}>❓</button>
       </div>
 
-      {/* Scoreboard: target, trump, bid, tricks + scores. Solo shows a 4-player
-          standings strip (every player for themselves); Pairs shows the two teams. */}
-      {(() => {
-        const mid = (
-          <div className="tarneeb-scoreboard__mid">
-            <span className="tarneeb-target">🎯 {state.targetScore}</span>
-            <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
-              {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
+      {/* Scoreboard (Stage 29.7): the contract row (target / trump / led) above a ranked
+          standings TABLE sorted by total score. Solo lists all 4 players; Pairs the two
+          teams. Bid/declarer shows as ▶ + amount on that row; 🃏 = tricks this hand; ★ = score. */}
+      <div className={`tarneeb-scoreboard ${solo ? 'tarneeb-scoreboard--solo' : 'tarneeb-scoreboard--pairs'}`}>
+        <div className="tarneeb-scoreboard__mid">
+          <span className="tarneeb-target">🎯 {state.targetScore}</span>
+          <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
+            {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
+          </span>
+          {phase === 'playing' && ledSuit && (
+            <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
+              {t('tarneeb.led')} <strong>{SUIT_SYMBOL[ledSuit]}</strong>
             </span>
-            <span className="tarneeb-bid">
-              {t('tarneeb.highestBid')}:{' '}
-              <strong>{state.highestBid ? state.highestBid.amount : t('tarneeb.noBid')}</strong>
-              {highBidderName && <span className="tarneeb-bid__by"> · {highBidderName}</span>}
-            </span>
-            {phase === 'playing' && ledSuit && (
-              <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
-                {t('tarneeb.led')} <strong>{SUIT_SYMBOL[ledSuit]}</strong>
-              </span>
-            )}
-            {phase === 'playing' && (
-              solo ? (
-                <span className="tarneeb-tricks">{t('tarneeb.myTricks')}: <strong>{myTricks}</strong></span>
-              ) : (
-                <span className="tarneeb-tricks">
-                  {t('tarneeb.tricks')}: <strong>{state.tricksByTeam[myTeam]}</strong> – <strong>{state.tricksByTeam[theirTeam]}</strong>
-                </span>
-              )
-            )}
-          </div>
-        );
-        if (solo) {
-          return (
-            <div className="tarneeb-scoreboard tarneeb-scoreboard--solo">
-              {mid}
-              {/* Per-player standings: each seat's live TRICK count (🃏) + match score,
-                  so it's clear who has taken how many tricks during play (Stage 29.2). */}
-              <div className="tarneeb-solo-standings" role="list">
-                {state.players.map((p) => {
-                  const isMe = p.seatIndex === humanSeat;
-                  // Only mark a leader once someone is actually ahead (0–0 start ⇒ no crown).
-                  const lead = topScore > 0 && scoresBySeat[p.seatIndex] === topScore;
-                  const isTurn = p.seatIndex === actingSeat && !blocked;
-                  return (
-                    <div key={p.id} role="listitem"
-                      className={`tarneeb-solo-chip ${isMe ? 'tarneeb-solo-chip--me' : ''} ${lead ? 'tarneeb-solo-chip--lead' : ''} ${isTurn ? 'tarneeb-solo-chip--turn' : ''}`}>
-                      <span className="tarneeb-solo-chip__name">
-                        {isTurn && <span className="tarneeb-solo-chip__turn" aria-label={t('game.turn')}>▶</span>}
-                        {lead && <span className="tarneeb-solo-chip__crown" aria-hidden="true">👑</span>}
-                        {isMe ? t('tarneeb.you') : p.name}
-                      </span>
-                      <span className="tarneeb-solo-chip__stats">
-                        <span className="tarneeb-solo-chip__tricks" title={t('tarneeb.tricks')}>🃏 {tricksBySeat[p.seatIndex]}</span>
-                        <span className="tarneeb-solo-chip__score" title={t('tarneeb.score')}>{scoresBySeat[p.seatIndex]}</span>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Bigger, easy-to-reach "review my tricks" control for Solo (Stage 29.2). */}
-              <button type="button" className="btn btn--outline tarneeb-solo-tricks-btn"
-                onClick={() => setShowTricks(true)} aria-label={t('tarneeb.reviewTricks')}>
-                🃏 {t('tarneeb.myTricks')} · {myTricks}
-              </button>
-            </div>
-          );
-        }
-        return (
-          <div className="tarneeb-scoreboard">
-            <div className="tarneeb-score tarneeb-score--us">
-              <span className="tarneeb-score__label">{t('tarneeb.teamUs')}</span>
-              <span className="tarneeb-score__value">{state.scoresByTeam[myTeam]}</span>
-            </div>
-            {mid}
-            <div className="tarneeb-score tarneeb-score--them">
-              <span className="tarneeb-score__label">{t('tarneeb.teamThem')}</span>
-              <span className="tarneeb-score__value">{state.scoresByTeam[theirTeam]}</span>
-            </div>
-          </div>
-        );
-      })()}
+          )}
+        </div>
+
+        <table className={`tarneeb-rank ${solo ? 'tarneeb-rank--solo' : 'tarneeb-rank--pairs'}`}>
+          <thead>
+            <tr>
+              <th className="tarneeb-rank__place" scope="col">#</th>
+              <th className="tarneeb-rank__name" scope="col">{t('tarneeb.player')}</th>
+              <th className="tarneeb-rank__bid" scope="col" title={t('tarneeb.bid')} aria-label={t('tarneeb.bid')}>▶</th>
+              <th className="tarneeb-rank__tricks" scope="col" title={t('tarneeb.tricks')} aria-label={t('tarneeb.tricks')}>🃏</th>
+              <th className="tarneeb-rank__score" scope="col" title={t('tarneeb.score')} aria-label={t('tarneeb.score')}>★</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rankRows.map((r, i) => {
+              const name = solo
+                ? (r.isMe ? t('tarneeb.you') : state.players[r.seat as number].name)
+                : (r.isMe ? t('tarneeb.teamUs') : t('tarneeb.teamThem'));
+              return (
+                <tr key={r.key}
+                  className={`tarneeb-rank__row${r.isMe ? ' is-me' : ''}${r.isTurn ? ' is-turn' : ''}${r.isBidder ? ' is-bidder' : ''}${r.isLeader ? ' is-leader' : ''}`}>
+                  <td className="tarneeb-rank__place">{r.isLeader ? '👑' : i + 1}</td>
+                  <td className="tarneeb-rank__name">
+                    {r.isTurn && <span className="tarneeb-rank__turn" aria-label={t('game.turn')}>●</span>}
+                    <span className="tarneeb-rank__nametext">{name}</span>
+                  </td>
+                  <td className="tarneeb-rank__bid">
+                    {r.isBidder && r.bidAmount != null && <span className="tarneeb-rank__bidmark">▶ {r.bidAmount}</span>}
+                  </td>
+                  <td className="tarneeb-rank__tricks">{r.tricks}</td>
+                  <td className="tarneeb-rank__score">{r.score}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Solo keeps the bigger, easy-to-reach "review my tricks" control under the table. */}
+        {solo && (
+          <button type="button" className="btn btn--outline tarneeb-solo-tricks-btn"
+            onClick={() => setShowTricks(true)} aria-label={t('tarneeb.reviewTricks')}>
+            🃏 {t('tarneeb.myTricks')} · {myTricks}
+          </button>
+        )}
+      </div>
 
       {/* Round table: seats around the felt in play order, trick in the centre. */}
       <div className="tarneeb-board">

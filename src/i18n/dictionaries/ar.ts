@@ -334,6 +334,7 @@ export const AR: Record<string, string> = {
   'tarneeb.partner': 'الشريك',
   'tarneeb.tricks': 'الأكلات',
   'tarneeb.score': 'النقاط',
+  'tarneeb.player': 'اللاعب',
   'tarneeb.hand': 'الجولة',
   'tarneeb.nextHand': 'الجولة التالية',
   'tarneeb.playAgain': 'العب مجدداً',

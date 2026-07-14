@@ -16,7 +16,8 @@ describe('OnlineGame routes Tarneeb to its own adapter (Stage 10.5)', () => {
     expect(online).toContain("import TarneebOnlineGame from '../tarneeb/TarneebOnlineGame'");
     // Social overlay is rendered alongside the board — but WITHOUT the Leave-game
     // pill (Tarneeb's full-width action bars would collide with it; the ✕ exits).
-    expect(online).toContain('renderSocial(true)');
+    // Stage 29.7: the per-turn timer rides in the social cluster (3rd arg), no Leave pill (2nd = undefined).
+    expect(online).toContain('renderSocial(true, undefined, timerEl)');
   });
 });
 

@@ -31,6 +31,9 @@ interface Props {
   /** True when the current game mirrors seats left↔right on screen (Tarneeb) — flips the
    *  reaction anchor so it lands over the sender's actual visible seat (Stage 29.5). */
   reactionsMirrored?: boolean;
+  /** Optional per-turn timer node (Stage 29.7) — rendered inside this control cluster
+   *  (next to voice/emoji/chat) instead of over the table. Null/undefined = timer off. */
+  timerSlot?: ReactNode;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -54,7 +57,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -178,6 +181,9 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
       {/* Bottom-right controls */}
       <div className={`social-controls ${handVisible ? 'social-controls--raised' : ''}`}>
+        {/* Per-turn timer (Stage 29.7) sits at the TOP of the cluster — near voice/emoji/chat,
+            clear of the hand/table. Null when the host left the timer off. */}
+        {timerSlot}
         {onLeaveGame && (
           <button type="button" className="social-leave" onClick={leaveGame}>
             🚪 {t('online.leaveGame')}

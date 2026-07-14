@@ -9,6 +9,24 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Per-turn timer moved into the social control cluster (Stage 29.7, owner).** After 29.5 put the
+  online timer at the bottom of the table it could still sit over the cards/bidding bars. It now rides
+  **inside the bottom-right RoomSocial cluster**, next to the voice/emoji/chat buttons — a compact pill
+  with an enlarged clock that can never cover the hand, table, or action bars (`pointer-events:none`).
+  Same gating: shown only when the host set a timer, low-time sound **only on your turn**, and it works
+  for every online game that got the timer in 29.2. King keeps its in-banner timer.
+- **Tarneeb HUD is now a ranked score table (Stage 29.7, owner).** The solo chip strip and the Pairs
+  Us/Them boards are replaced by a compact, high-contrast **table sorted by total score (descending)**:
+  columns are place, player/team, the **bidder ▶ + bid amount** (declarer once the auction resolves,
+  else the current high bidder), **🃏 tricks this hand**, and **★ total score**. It highlights your
+  row, the acting row, the bidder, and the leader (crown only once someone is ahead). **Solo** lists
+  the 4 players by name (no Team A/B); **Pairs** lists the two teams as Us/Them and keeps its team-tricks
+  viewer. Sorting keys off total score only (which changes at hand end), so there is no mid-trick
+  jitter. Display-only — reads the existing public ledgers, never recomputes scoring or shows hidden
+  hands; no rules/scoring/protocol/DB change.
+
 ## [0.3.5] — 2026-07-14 — Table HUD and reactions polish
 
 A display-only polish patch on **v0.3.4**. Floating reactions/stickers now anchor over the sender's

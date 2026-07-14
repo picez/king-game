@@ -57,14 +57,16 @@ cover each in depth.
       game (Pairs or Solo), each sends a reaction → it floats over **that sender's own visible seat**
       on *both* screens (not the opposite seat). Spot-check one non-mirrored game (Durak/Deberc) as a
       control. This is the mirror-fix — the sender always saw it right; the *other* viewer was wrong.
-- [ ] **Timer bottom HUD (Stage 29.5, v0.3.5):** in an online game with a host timer, the **⏱
-      pill sits at the bottom** of the table (above the hand), with a **bigger clock + countdown**,
-      and **pulses when low**. It does **not** cover the hand cards/action buttons at 360/390 (a tap
-      lands on the card underneath), and clears the bottom safe-area on notched phones.
-- [ ] **Score/tricks HUD readability (Stage 29.5, v0.3.5):** **Tarneeb Solo** standings highlight
-      **me / leader (👑) / current turn (▶ + ring)** with bold 🃏tricks·score; **Tarneeb Pairs** Us/Them
-      boards + **Deberc** score chips show larger tabular numbers with a coloured top edge on your
-      side. No 360/390 overflow; Solo shows no Team A/B, Pairs/Deberc labels unchanged.
+- [ ] **Timer in the social cluster (Stage 29.7, Unreleased):** in an online game with a host timer,
+      the **⏱ pill sits in the bottom-right control cluster** (just above voice/emoji/chat), with a
+      **bigger clock + countdown**, and **pulses when low**. It is **never over** the table cards, hand,
+      or bid/trump action bars at 360/390 (a tap lands on the control/card underneath). Timer **off** →
+      no pill. Low-time sound **only on your turn**.
+- [ ] **Tarneeb ranked score table (Stage 29.7, Unreleased):** the HUD is a **table sorted by total
+      score (highest first)** — columns **# · player/team · ▶bid · 🃏tricks · ★score**. The
+      declarer/high-bidder row shows **▶ + amount**; **Solo** lists 4 players by name (no Team A/B),
+      **Pairs** lists Us/Them. Your row is tinted, the acting row washed + ●, the leader shows 👑. Rows
+      do **not** reorder mid-trick; no 360/390 overflow. **Deberc** score chips unchanged (29.5 style).
 - [ ] **Tarneeb scoring (v0.3.3) — Pairs AND Solo:** in the hand-complete panel, a declarer who
       takes **exactly** the bid scores **bid×2** (bid 7 → **+14**, with the "✨ exact bid double"
       note); **more** than the bid scores the **actual tricks** (bid 7, 10 tricks → **+10**); a

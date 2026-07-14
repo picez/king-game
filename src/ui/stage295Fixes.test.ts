@@ -15,26 +15,31 @@ import { join } from 'node:path';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 
-describe('Timer moved to a bottom-of-table HUD pill with a bigger icon (Scope B)', () => {
+describe('Timer lives in the social control cluster with a bigger icon (Scope B; moved in 29.7)', () => {
   const bar = read('src/ui/components/TurnTimerBar.tsx');
   const css = read('src/styles/game.css');
+  const online = read('src/ui/online/OnlineGame.tsx');
+  const social = read('src/ui/online/RoomSocial.tsx');
 
   it('TurnTimerBar splits the clock icon into its own span so it can be enlarged', () => {
     expect(bar).toContain('turn-timer__icon');
     expect(bar).toContain('turn-timer__num');
   });
 
-  it('the overlay is pinned to the BOTTOM (not the top) and never blocks taps', () => {
-    const overlay = css.match(/\.turn-timer--overlay \{[^}]*\}/)?.[0] ?? '';
-    expect(overlay).toContain('position: fixed');
-    expect(overlay).toMatch(/bottom:\s*calc\(env\(safe-area-inset-bottom/);
-    expect(overlay).not.toMatch(/\btop:\s*calc\(env\(safe-area-inset-top/);
-    expect(overlay).toContain('pointer-events: none');
+  it('the timer is a social-cluster pill (not a fixed table overlay) and never blocks taps', () => {
+    // Stage 29.7: the old bottom/top fixed overlay class is gone; the timer now uses --social.
+    expect(css).not.toContain('.turn-timer--overlay');
+    const pill = css.match(/\.turn-timer--social \{[^}]*\}/)?.[0] ?? '';
+    expect(pill).toContain('pointer-events: none');
+    expect(pill).not.toContain('position: fixed'); // it flows inside the fixed .social-controls
+    // OnlineGame tags the timer with the social class and RoomSocial renders the slot.
+    expect(online).toContain("className=\"turn-timer--social\"");
+    expect(social).toContain('timerSlot');
   });
 
-  it('the clock glyph is scaled up for the HUD placement', () => {
+  it('the clock glyph is scaled up for the cluster placement', () => {
     expect(css).toContain('.turn-timer__icon');
-    expect(css).toMatch(/\.turn-timer--overlay \.turn-timer__icon \{ font-size:/);
+    expect(css).toMatch(/\.turn-timer--social \.turn-timer__icon \{ font-size:/);
   });
 });
 
@@ -42,32 +47,22 @@ describe('Tarneeb Solo standings show the current turn + stay solo (Scope C)', (
   const screen = read('src/ui/tarneeb/TarneebGameScreen.tsx');
   const css = read('src/styles/tarneeb.css');
 
-  it('marks the acting seat in the standings strip', () => {
-    expect(screen).toContain('const isTurn = p.seatIndex === actingSeat && !blocked');
-    expect(screen).toContain('tarneeb-solo-chip--turn');
-    expect(css).toContain('.tarneeb-solo-chip--turn');
+  it('marks the acting seat via the ranked table (Stage 29.7 replaced the chip strip)', () => {
+    // The turn highlight now comes from the pure helper's isTurn flag → an .is-turn row.
+    expect(screen).toContain('is-turn');
+    expect(css).toContain('.tarneeb-rank__row.is-turn');
   });
 
   it('the leader crown only shows once someone is actually ahead (no 0–0 crown)', () => {
-    expect(screen).toContain('topScore > 0 && scoresBySeat[p.seatIndex] === topScore');
-  });
-
-  it('Solo standings never render the Us/Them team boards', () => {
-    // The team scoreboard (teamUs/teamThem) lives only in the Pairs branch.
-    expect(screen).toMatch(/if \(solo\) \{[\s\S]*tarneeb-solo-standings/);
-    expect(screen).toMatch(/tarneeb-solo-standings[\s\S]*\}[\s\S]*return \([\s\S]*tarneeb-score--us/);
+    // Enforced in the helper: isLeader requires the top score to be > 0.
+    const helper = read('src/ui/tarneeb/tarneebScoreTable.ts');
+    expect(helper).toContain('top > 0 && r.score === top');
+    expect(screen).toContain("r.isLeader ? '👑'");
   });
 });
 
-describe('Tarneeb Pairs + Deberc score chips restyled for readability (Scope C)', () => {
-  const tarneeb = read('src/styles/tarneeb.css');
+describe('Deberc score chips restyled for readability (Scope C, still active in 29.7)', () => {
   const deberc = read('src/styles/deberc.css');
-
-  it('Pairs keeps the Us/Them team boards, now with a coloured top edge', () => {
-    expect(tarneeb).toMatch(/\.tarneeb-score--us \{[^}]*border-top-color/);
-    expect(tarneeb).toMatch(/\.tarneeb-score--them \{[^}]*border-top-color/);
-    expect(tarneeb).toContain('font-variant-numeric: tabular-nums');
-  });
 
   it('Deberc match-score chips get a bigger, tabular score number for both Solo and Pairs', () => {
     expect(deberc).toContain('.deberc-scores .tag strong');

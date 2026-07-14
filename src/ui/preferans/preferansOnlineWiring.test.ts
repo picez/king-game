@@ -15,7 +15,8 @@ describe('OnlineGame routes Preferans to its own adapter (Stage 19.5)', () => {
     expect(online).toContain('<PreferansOnlineGame');
     expect(online).toContain("import PreferansOnlineGame from '../preferans/PreferansOnlineGame'");
     // Social overlay is rendered alongside the board (compact corner, no Leave pill).
-    expect(online).toContain('renderSocial(true)');
+    // Stage 29.7: the per-turn timer rides in the social cluster (3rd arg).
+    expect(online).toContain('renderSocial(true, undefined, timerEl)');
   });
 });
 

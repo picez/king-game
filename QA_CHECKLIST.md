@@ -375,11 +375,13 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       the felt, viewer bottom, partner top), with bidding → trump → trick play.
 - [ ] **Readouts:** scoreboard shows the **highest bid + bidder**, the **trump**,
       the **led suit** during play, and per-team trick counts; illegal cards dim.
-- [ ] **HUD readability (Stage 29.5):** **Pairs** — Us/Them boards have a coloured top
-      edge, large tabular scores, and the live **tricks** readout reads as a chip. **Solo** —
-      the 4-player standings stack name over **🃏 tricks · score**, highlight **me**, the
-      **leader** (👑, only once someone is ahead), and the **seat whose turn it is** (bright ring
-      + ▶). Confirm no horizontal overflow at 360/390 (chips wrap) and Solo shows **no Team A/B**.
+- [ ] **Ranked score table (Stage 29.7):** the HUD is a compact **table sorted by total score
+      (highest first)** with columns **# · player/team · ▶bid · 🃏tricks · ★score**. The
+      **declarer/highest bidder** row shows **▶ + the bid amount**; **🃏** is tricks this hand, **★** is
+      the running total. **Solo** lists the **4 players by name** (no Team A/B); **Pairs** lists the two
+      teams as **Us/Them** and keeps the team-tricks viewer. Your row is tinted, the **acting** row is
+      washed + ● marked, and the **leader** shows 👑 (only once someone is ahead). Check that rows do
+      **not** reorder mid-trick (only at hand end), and no horizontal overflow at 360/390.
 - [ ] **Redaction:** you only ever see **your own** hand — the other three show a
       face-down count, never ranks (check across several hands + after reconnect).
 - [ ] **Reconnect** mid-hand → **Resume** returns you with your hand intact and no
@@ -732,11 +734,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       Tarneeb / Preferans** game with a timer (30/60/90) → a **⏱ Ns** pill counts down each turn;
       with the timer **off** it does not appear. Local games still show no timer. The low-time alert
       still fires **only on your turn** (same rules as King above).
-- [ ] **Timer sits at the BOTTOM of the table now (Stage 29.5):** the pill is pinned bottom-centre
-      (above the hand), with a **larger clock icon + countdown**, and it **pulses** when low
-      (steady colour-only under reduced-motion). Confirm on **360/390** it does **not cover the
-      hand cards or action buttons** (pointer-events:none — a tap "through" it still hits the card),
-      and it clears the safe-area on notched phones. RTL: still centred, no horizontal overflow.
+- [ ] **Timer lives in the social control cluster now (Stage 29.7):** the pill sits **just above the
+      voice/emoji/chat buttons** (bottom-right corner), with a **larger clock icon + countdown**, and it
+      **pulses** when low (colour-only under reduced-motion). Confirm on **360/390** it is **never over
+      the table cards, hand, or bid/trump action bars** (`pointer-events:none` — a tap "through" it hits
+      the control/card underneath). RTL: the cluster flips to the left edge, no horizontal overflow.
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

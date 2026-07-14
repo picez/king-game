@@ -334,6 +334,7 @@ export const DE: Record<string, string> = {
   'tarneeb.partner': 'Partner',
   'tarneeb.tricks': 'Stiche',
   'tarneeb.score': 'Punkte',
+  'tarneeb.player': 'Spieler',
   'tarneeb.hand': 'Runde',
   'tarneeb.nextHand': 'Nächste Runde',
   'tarneeb.playAgain': 'Nochmal spielen',

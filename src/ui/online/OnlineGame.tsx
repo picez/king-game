@@ -42,9 +42,10 @@ function cardsInPlay(state: unknown): number {
 /**
  * The per-turn timer element for a NON-King online game (Stage 29.2). Computes the
  * acting player game-agnostically via the GameDefinition and restarts the countdown
- * whenever the actor or card-progress changes. Rendered as a fixed overlay so it is
- * visible without threading it through every game screen. Returns null when the host
- * left the timer off (turnTimerSec 0). King keeps its own in-banner TurnTimer.
+ * whenever the actor or card-progress changes. Rendered INSIDE the RoomSocial control
+ * cluster (Stage 29.7) — next to the voice/emoji/chat buttons, never over the table or
+ * hand. Returns null when the host left the timer off (turnTimerSec 0). King keeps its
+ * own in-banner TurnTimer.
  */
 function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number): ReactNode {
   if (turnTimerSec <= 0 || !gameType || !state) return null;
@@ -56,7 +57,7 @@ function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerI
       turnTimerSec={turnTimerSec}
       turnKey={turnKey}
       active={actingId != null && actingId === myPlayerId}
-      className="turn-timer--overlay"
+      className="turn-timer--social"
     />
   );
 }
@@ -149,7 +150,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // must be anchored with the mirrored convention or it lands on the wrong side for remote viewers
   // (Stage 29.5). Every other game seats forward, so the default (false) is correct there.
   const reactionsMirrored = net.room?.gameType === 'tarneeb';
-  const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
+  // The per-turn timer (non-King online games) rides in the social cluster (Stage 29.7),
+  // next to voice/emoji/chat — never a table overlay. `null` when the host timer is off.
+  const renderSocial = (handVisible: boolean, onLeaveGame?: () => void, timerSlot?: ReactNode) => (
     <>
       {inviteToast}
       <RoomSocial
@@ -159,6 +162,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         handVisible={handVisible} onLeaveGame={onLeaveGame}
         voiceButton={<VoiceControl voice={voice} variant="compact" />}
         mySeatIndex={mySeatIndex} seatCount={seatCount} reactionsMirrored={reactionsMirrored}
+        timerSlot={timerSlot}
       />
     </>
   );
@@ -263,8 +267,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     }
   }
 
-  // Per-turn timer overlay for the non-King online games (Stage 29.2) — visible when
-  // the host set 30/60/90. King renders its own TurnTimer inside the GameRouter branch.
+  // Per-turn timer for the non-King online games (Stage 29.2) — visible when the host set
+  // 30/60/90. Rendered inside the RoomSocial control cluster (Stage 29.7), not as a table
+  // overlay. King renders its own TurnTimer inside the GameRouter branch.
   const timerEl = onlineTurnTimer(net.room?.gameType, net.state, net.myPlayerId, net.room?.turnTimerSec ?? 0);
 
   // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
@@ -273,7 +278,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'durak') {
     return (
       <>
-        {timerEl}
         <DurakOnlineGame
           state={net.state as unknown as DurakState}
           myPlayerId={net.myPlayerId}
@@ -282,7 +286,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
-        {renderSocial(true, leaveGameToMenu)}
+        {renderSocial(true, leaveGameToMenu, timerEl)}
       </>
     );
   }
@@ -292,7 +296,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'deberc') {
     return (
       <>
-        {timerEl}
         <DebercOnlineGame
           state={net.state as unknown as DebercState}
           myPlayerId={net.myPlayerId}
@@ -301,7 +304,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
         />
-        {renderSocial(true, leaveGameToMenu)}
+        {renderSocial(true, leaveGameToMenu, timerEl)}
       </>
     );
   }
@@ -312,7 +315,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'tarneeb') {
     return (
       <>
-        {timerEl}
         <TarneebOnlineGame
           state={net.state as unknown as TarneebState}
           myPlayerId={net.myPlayerId}
@@ -323,8 +325,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         />
         {/* No Leave-game pill here: Tarneeb's full-width bid/trump action bars would
             collide with it. The board's top-left ✕ already leaves the game
-            (reconnectable). Social keeps only the compact emoji/chat corner. */}
-        {renderSocial(true)}
+            (reconnectable). Social keeps only the compact emoji/chat corner + timer. */}
+        {renderSocial(true, undefined, timerEl)}
       </>
     );
   }
@@ -335,7 +337,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'preferans') {
     return (
       <>
-        {timerEl}
         <PreferansOnlineGame
           state={net.state as unknown as PreferansState}
           myPlayerId={net.myPlayerId}
@@ -345,8 +346,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           disconnectedSeats={disconnectedSeats}
         />
         {/* Like Tarneeb: no Leave-game pill (the board ✕ leaves, reconnectable);
-            social keeps the compact emoji/chat corner. */}
-        {renderSocial(true)}
+            social keeps the compact emoji/chat corner + timer. */}
+        {renderSocial(true, undefined, timerEl)}
       </>
     );
   }

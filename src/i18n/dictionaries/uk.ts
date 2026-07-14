@@ -334,6 +334,7 @@ export const UK: Record<string, string> = {
   'tarneeb.partner': 'Партнер',
   'tarneeb.tricks': 'Хабарі',
   'tarneeb.score': 'Рахунок',
+  'tarneeb.player': 'Гравець',
   'tarneeb.hand': 'Роздача',
   'tarneeb.nextHand': 'Наступна роздача',
   'tarneeb.playAgain': 'Зіграти ще',

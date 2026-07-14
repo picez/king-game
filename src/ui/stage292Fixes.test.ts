@@ -38,32 +38,35 @@ describe('per-turn timer is game-agnostic and shown in every online game (Stage 
     // Game-agnostic acting player + a card-progress key.
     expect(online).toContain('def.getActingPlayerId(state as never)');
     expect(online).toContain('active={actingId != null && actingId === myPlayerId}');
-    // Rendered in each non-King branch.
-    const mounts = online.match(/\{timerEl\}/g) ?? [];
+    // Threaded into each non-King branch's social cluster (Stage 29.7 — no longer a
+    // standalone table overlay); passed as the last renderSocial arg in all four.
+    const mounts = online.match(/renderSocial\([^)]*timerEl\)/g) ?? [];
     expect(mounts.length).toBe(4); // durak, deberc, tarneeb, preferans
+    // No table overlay mount remains.
+    expect(online).not.toMatch(/^\s*\{timerEl\}\s*$/m);
     // Off (turnTimerSec 0) → the helper returns null.
     expect(online).toContain('if (turnTimerSec <= 0 || !gameType || !state) return null');
   });
 });
 
-describe('Tarneeb Solo in-game trick visibility (Stage 29.2)', () => {
+describe('Tarneeb Solo in-game trick visibility (Stage 29.2 → 29.7 ranked table)', () => {
   const screen = read('src/ui/tarneeb/TarneebGameScreen.tsx');
 
-  it('the solo standings show every seat’s live trick count (🃏)', () => {
-    expect(screen).toContain('tarneeb-solo-chip__tricks');
-    expect(screen).toContain('🃏 {tricksBySeat[p.seatIndex]}');
+  it('every seat’s live trick count is shown in the ranked table (🃏 column)', () => {
+    // Stage 29.7: the per-seat chips became a ranked table; tricks come from the helper row.
+    expect(screen).toContain('tarneeb-rank__tricks');
+    expect(screen).toContain('{r.tricks}');
   });
 
-  it('solo gets a bigger, dedicated "review my tricks" button (not the compact badge)', () => {
+  it('solo keeps a bigger, dedicated "review my tricks" button (not the compact badge)', () => {
     expect(screen).toContain('tarneeb-solo-tricks-btn');
-    // The compact topbar badge is Pairs-only now.
+    // The compact topbar badge is Pairs-only.
     expect(screen).toMatch(/\{!solo && \([\s\S]*tarneeb-tricks-btn/);
   });
 
-  it('Pairs is unchanged — team tricks in the topbar + the team scoreboard', () => {
-    expect(screen).toContain("state.tricksByTeam[myTeam]");
+  it('Pairs is unchanged — team tricks in the topbar + Us/Them rows in the table', () => {
     expect(screen).toContain("t('tarneeb.teamUs')");
-    // Solo never renders the Team A/B boards.
+    // Solo never renders the Team A/B labels on the felt board.
     expect(screen).toContain("solo ? p.seatIndex === humanSeat : teamOfSeat(p.seatIndex) === myTeam");
   });
 });

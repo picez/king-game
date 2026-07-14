@@ -29,93 +29,15 @@
   color: var(--accent-light);
 }
 
-/* --- Scoreboard --- */
+/* --- Scoreboard (Stage 29.7): a contract row (target / trump / led) stacked above a
+   ranked standings TABLE. Replaces the old team boards (Pairs) and solo chip strip. --- */
 .tarneeb-scoreboard {
   display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-.tarneeb-score {
-  display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 3.8rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--border);
-  border-top-width: 3px;
-  background: var(--surface-2);
-}
-/* Stage 29.5 — a coloured top edge + faint tint makes Us vs Them read instantly. */
-.tarneeb-score--us { border-color: rgba(120, 220, 160, 0.5); border-top-color: rgba(120, 220, 160, 0.85); background: rgba(120, 220, 160, 0.08); }
-.tarneeb-score--them { border-color: rgba(240, 170, 120, 0.5); border-top-color: rgba(240, 170, 120, 0.85); background: rgba(240, 170, 120, 0.08); }
-
-/* Solo (Stage 28.3): a 4-player standings strip replaces the two team boards. */
-.tarneeb-scoreboard--solo { flex-direction: column; align-items: stretch; }
-.tarneeb-solo-standings {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: stretch;
   gap: 0.35rem;
 }
-/* Stage 29.5 — readability pass: each chip stacks a name row over a bold tricks·score row,
-   with clear my-seat / leader / current-turn states so the standings read at a glance on 360/390. */
-.tarneeb-solo-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  min-width: 4.2rem;
-  padding: 0.3rem 0.55rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.tarneeb-solo-chip--me {
-  border-color: rgba(120, 220, 160, 0.6);
-  background: rgba(120, 220, 160, 0.1);
-}
-.tarneeb-solo-chip--lead { box-shadow: 0 0 0 1px rgba(240, 200, 120, 0.7) inset; }
-/* The seat acting right now gets a bright ring so "whose turn" is obvious in the standings too. */
-.tarneeb-solo-chip--turn {
-  border-color: var(--accent, #e8c078);
-  box-shadow: 0 0 0 2px rgba(232, 192, 120, 0.55);
-}
-.tarneeb-solo-chip__name {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  color: var(--text-dim);
-  max-width: 6rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tarneeb-solo-chip__turn { color: var(--accent, #e8c078); font-size: 0.7rem; }
-.tarneeb-solo-chip__crown { font-size: 0.72rem; }
-/* Tricks + score sit together on the second row, tricks first then the running match score. */
-.tarneeb-solo-chip__stats { display: inline-flex; align-items: baseline; gap: 0.45rem; }
-/* Live per-player trick count (Stage 29.2) — the accent-coloured 🃏 count. */
-.tarneeb-solo-chip__tricks { font-size: 0.9rem; font-weight: 800; color: var(--accent, #e8c078); white-space: nowrap; }
-.tarneeb-solo-chip__score { font-size: 1.2rem; font-weight: 900; color: var(--text); font-variant-numeric: tabular-nums; }
-/* Bigger, easy-to-reach "review my tricks" button for Solo (Stage 29.2). */
-.tarneeb-solo-tricks-btn {
-  align-self: center;
-  margin-top: 0.35rem;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-.tarneeb-finished__scores--solo { flex-wrap: wrap; }
-.tarneeb-score__label { font-size: 0.68rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
-.tarneeb-score__value { font-size: 1.5rem; font-weight: 900; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.05; }
 .tarneeb-scoreboard__mid {
-  flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -127,20 +49,68 @@
 .tarneeb-target { font-weight: 700; }
 .tarneeb-trump strong { font-size: 1.15rem; }
 .tarneeb-trump--red strong { color: var(--card-red); }
-/* Stage 29.5 — the live trick readout gets a subtle chip so "current tricks" stands out. */
-.tarneeb-tricks {
-  padding: 0.05rem 0.45rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  font-weight: 700;
-}
-.tarneeb-tricks strong { font-size: 1.05em; }
-.tarneeb-bid strong,
-.tarneeb-tricks strong { color: var(--accent-light); }
-.tarneeb-bid__by { color: var(--text-dim); font-weight: 700; }
 .tarneeb-led strong { font-size: 1.1rem; }
 .tarneeb-led--red strong { color: var(--card-red); }
+/* The tricks-review modal reuses .tarneeb-tricks as a plain list container (no pill). */
+.tarneeb-tricks strong { color: var(--accent-light); }
+/* Bigger, easy-to-reach "review my tricks" button for Solo (under the table). */
+.tarneeb-solo-tricks-btn {
+  align-self: center;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.tarneeb-finished__scores--solo { flex-wrap: wrap; }
+
+/* Ranked standings table: sorted by total score desc. Compact + high-contrast, fixed
+   columns so it never overflows 360/390; logical alignment so it reads in RTL too. */
+.tarneeb-rank {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.86rem;
+}
+.tarneeb-rank thead th {
+  padding: 0.12rem 0.35rem;
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  text-align: center;
+}
+.tarneeb-rank thead th.tarneeb-rank__name { text-align: start; }
+.tarneeb-rank__place { width: 1.8rem; text-align: center; font-weight: 800; color: var(--text-dim); }
+.tarneeb-rank__name { text-align: start; }
+.tarneeb-rank__bid { width: 3.4rem; text-align: center; }
+.tarneeb-rank__tricks { width: 2.7rem; text-align: center; }
+.tarneeb-rank__score { width: 3.2rem; text-align: center; }
+.tarneeb-rank tbody td {
+  padding: 0.32rem 0.35rem;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tarneeb-rank__turn { color: var(--accent, #e8c078); margin-inline-end: 0.2rem; font-size: 0.72em; }
+.tarneeb-rank__nametext {
+  display: inline-block;
+  max-width: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-weight: 700;
+}
+.tarneeb-rank__bidmark { color: var(--accent-light); font-weight: 800; white-space: nowrap; }
+td.tarneeb-rank__tricks { font-weight: 800; color: var(--accent, #e8c078); font-variant-numeric: tabular-nums; }
+td.tarneeb-rank__score { font-weight: 900; font-size: 1.05rem; color: var(--text); font-variant-numeric: tabular-nums; }
+/* Row states: my row a green wash; the acting row an accent wash + left bar; leader score glows.
+   is-turn is declared after is-me so it wins when it's my turn. */
+.tarneeb-rank__row.is-me td { background: rgba(120, 220, 160, 0.1); }
+.tarneeb-rank__row.is-me .tarneeb-rank__nametext { color: #7ddca0; }
+.tarneeb-rank__row.is-turn td { background: rgba(232, 192, 120, 0.14); }
+.tarneeb-rank__row.is-turn .tarneeb-rank__place { box-shadow: inset 3px 0 0 var(--accent, #e8c078); }
+.tarneeb-rank__row.is-leader td.tarneeb-rank__score { color: var(--accent-light); }
 
 /* --- Board --- */
 .tarneeb-board {

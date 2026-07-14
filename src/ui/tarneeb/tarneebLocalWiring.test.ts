@@ -280,13 +280,15 @@ describe('local Solo game (1 human + 3 bots) is playable and terminates', () => 
 describe('Solo UI drops team labels; Pairs keeps them (source guards)', () => {
   const screen = read('./TarneebGameScreen.tsx');
   const finished = read('./TarneebFinished.tsx');
-  it('the game screen branches on isSoloTarneeb and shows a per-seat standings strip', () => {
+  it('the game screen branches on isSoloTarneeb and shows a ranked standings table', () => {
     expect(screen).toContain('const solo = isSoloTarneeb(state)');
-    expect(screen).toContain('tarneeb-solo-standings');
-    expect(screen).toContain('scoresBySeat[p.seatIndex]');           // per-seat scores
-    // My seat is "us" only in Pairs; Solo colours only my own seat.
+    // Stage 29.7: the per-seat chip strip became a ranked table fed by the pure helper.
+    expect(screen).toContain('tarneebRankRows(state, humanSeat, actingSeat, blocked)');
+    expect(screen).toContain('tarneeb-rank--solo');
+    expect(screen).toContain('tarneeb-rank--pairs');
+    // My seat is "us" only in Pairs; Solo colours only my own seat (felt board seats).
     expect(screen).toContain("solo ? p.seatIndex === humanSeat : teamOfSeat(p.seatIndex) === myTeam");
-    // Pairs still renders the two team boards.
+    // Pairs rows are still labelled Us / Them; Solo uses player names.
     expect(screen).toContain("t('tarneeb.teamUs')");
     expect(screen).toContain("t('tarneeb.teamThem')");
   });
