@@ -1,7 +1,7 @@
 // Pure-logic tests for the manual hand-order helper (Stage 30.12). The React
 // hook is a thin wrapper over these pure functions (env is node — no renderer).
 import { describe, it, expect } from 'vitest';
-import { reconcileManualOrder, computeHandOrder, moveInOrder } from './useManualHandOrder';
+import { reconcileManualOrder, computeHandOrder, moveInOrder, moveCardBefore } from './useManualHandOrder';
 
 const idOf = (c: { id: string }) => c.id;
 const cards = (...ids: string[]) => ids.map((id) => ({ id }));
@@ -66,5 +66,28 @@ describe('moveInOrder — reorder one slot', () => {
   it('reset semantics: an empty manual order means default (computeHandOrder returns hand)', () => {
     const hand = cards('a', 'b', 'c');
     expect(computeHandOrder(hand, [], idOf)).toEqual(hand);
+  });
+});
+
+describe('moveCardBefore — drag primitive', () => {
+  it('moves a card to sit before another (drag onto a slot)', () => {
+    expect(moveCardBefore(['a', 'b', 'c', 'd'], 'd', 'b')).toEqual(['a', 'd', 'b', 'c']);
+    expect(moveCardBefore(['a', 'b', 'c'], 'a', 'c')).toEqual(['b', 'a', 'c']);
+  });
+
+  it('drops at the END when beforeId is null or missing', () => {
+    expect(moveCardBefore(['a', 'b', 'c'], 'a', null)).toEqual(['b', 'c', 'a']);
+    expect(moveCardBefore(['a', 'b', 'c'], 'a', 'zzz')).toEqual(['b', 'c', 'a']);
+  });
+
+  it('is a no-op (same reference) when the card is missing or already in place', () => {
+    const order = ['a', 'b', 'c'];
+    expect(moveCardBefore(order, 'z', 'a')).toBe(order);   // missing
+    expect(moveCardBefore(order, 'a', 'b')).toBe(order);   // already before b
+    expect(moveCardBefore(order, 'c', null)).toBe(order);  // already last
+  });
+
+  it('is safe with duplicate-looking cards distinguished by id (joker/2-deck)', () => {
+    expect(moveCardBefore(['0-9h', '1-9h', 'joker-0'], 'joker-0', '0-9h')).toEqual(['joker-0', '0-9h', '1-9h']);
   });
 });

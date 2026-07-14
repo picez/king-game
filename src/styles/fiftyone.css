@@ -115,8 +115,6 @@
 .fiftyone-selbuilder__card--picked { box-shadow: 0 0 0 3px var(--accent); background: rgba(245, 197, 24, 0.16); }
 .fiftyone-selbuilder__ctrl { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
 .fiftyone-selbuilder__info { font-size: 0.8rem; opacity: 0.92; text-align: center; }
-/* The ↔ Arrange button sits under the hand, centred. */
-.fiftyone-hand-tools { display: flex; justify-content: center; margin-top: 0.25rem; }
 
 /* Prompt + validation */
 .fiftyone-prompt {

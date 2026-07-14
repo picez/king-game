@@ -898,6 +898,7 @@ export const EN: Record<string, string> = {
   'lobby.playersWord': 'players',
   'lobby.teamA': 'Team A',
   'lobby.teamB': 'Team B',
+  'team.named': 'Team {name}',
   'lobby.yourTeam': 'Your team',
   'lobby.partner': 'partner',
   'lobby.emptySeat': 'Empty seat',

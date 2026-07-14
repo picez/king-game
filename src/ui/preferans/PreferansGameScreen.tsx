@@ -13,7 +13,7 @@ import {
 } from '../../games/preferans/rules';
 import { validBids, validDeclareContracts, bidKey } from './bids';
 import PreferansHelp from './PreferansHelp';
-import HandOrderControls from '../components/HandOrderControls';
+import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 
 interface Props {
@@ -315,21 +315,19 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
 
       {/* The human's hand. During the discard step cards toggle a selection; while
           playing they play; otherwise they are inert. */}
-      <div className="preferans-hand">
-        {handOrder.ordered.map((c) => (
-          <CardView
-            key={singleDeckCardId(c)}
-            card={c}
-            size="hand"
-            onClick={() => clickCard(c)}
+      <HandReorderTray
+        items={handOrder.ordered}
+        cardId={singleDeckCardId}
+        order={handOrder}
+        onTap={(c) => clickCard(c)}
+        canTap={(c) => discardMode || (phase === 'playing' && cardPlayable(c))}
+        renderCard={(c) => (
+          <CardView card={c} size="hand"
             selected={discardMode && discardSelected(c)}
             disabled={!discardMode && (phase !== 'playing' || !cardPlayable(c))}
-            dimmed={phase === 'playing' && isMyTurn && !cardPlayable(c)}
-          />
-        ))}
-      </div>
-      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
-        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
+            dimmed={phase === 'playing' && isMyTurn && !cardPlayable(c)} />
+        )}
+      />
 
       {phase === 'hand_complete' && state.lastHand && (
         <HandComplete state={state} humanSeat={humanSeat} online={online} onNext={() => apply({ type: 'START_NEXT_HAND' })} />

@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
 import { buildInviteLink } from '../../net/invite';
 import GameIcon from '../components/GameIcon';
+import { teamDisplayName } from '../teamName';
 import SeatAvatar from '../components/SeatAvatar';
 
 interface Props {
@@ -206,7 +207,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
                   return (
                     <div key={team} className={`lobby-team lobby-team--${team === 0 ? 'a' : 'b'}${isMine ? ' lobby-team--mine' : ''}`}>
                       <div className="lobby-team__head">
-                        <span className="lobby-team__label">{t(team === 0 ? 'lobby.teamA' : 'lobby.teamB')}</span>
+                        <span className="lobby-team__label">
+                          {teamDisplayName(seats, (s) => seatMember(s)?.name, t, team === 0 ? 'lobby.teamA' : 'lobby.teamB')}
+                        </span>
                         {isMine && <span className="lobby-team__you">{t('lobby.yourTeam')}</span>}
                       </div>
                       <ul className="lobby-team__seats">

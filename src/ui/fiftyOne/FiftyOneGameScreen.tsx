@@ -6,7 +6,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
 import { resolveMeld } from '../../games/fiftyOne/melds';
 import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
-import HandOrderControls from '../components/HandOrderControls';
+import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder } from '../../hooks/useManualHandOrder';
 
 /** 51 cards carry a real unique id (two decks + jokers), so use it directly. */
@@ -334,18 +334,20 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         </div>
       )}
 
-      {/* The human's hand (staged cards are hidden here until Open/Clear). */}
-      <div className="fiftyone-hand">
-        {handOrder.ordered.map((c) =>
+      {/* The human's hand (staged cards are hidden here until Open/Clear). Drag to
+          reorder; tap to select for a meld — the tap order fixes a joker's spot. */}
+      <HandReorderTray
+        items={handOrder.ordered}
+        cardId={fiftyOneCardId}
+        order={handOrder}
+        onTap={(c) => toggle(c.id)}
+        canTap={() => meldStep}
+        renderCard={(c) =>
           c.joker
-            ? <JokerCard key={c.id} onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />
-            : <CardView key={c.id} card={toCard(c)} size="hand" onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />,
-        )}
-      </div>
-      <div className="fiftyone-hand-tools">
-        <HandOrderControls order={handOrder} cardId={fiftyOneCardId}
-          renderMini={(c) => (c.joker ? <JokerCard size="mini" disabled /> : <CardView card={toCard(c)} size="mini" disabled />)} />
-      </div>
+            ? <JokerCard selected={selected.includes(c.id)} disabled={!meldStep} />
+            : <CardView card={toCard(c)} size="hand" selected={selected.includes(c.id)} disabled={!meldStep} />
+        }
+      />
 
       {/* Action bar — context-sensitive per step. */}
       <div className="fiftyone-actions">

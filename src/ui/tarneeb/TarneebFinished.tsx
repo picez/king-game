@@ -1,5 +1,6 @@
 import { useI18n } from '../../i18n';
 import { isSoloTarneeb, teamOfSeat } from '../../games/tarneeb/rules';
+import { teamDisplayName, pairTeamSeats } from '../teamName';
 import type { TarneebState } from '../../games/tarneeb/types';
 import WinnerCelebration from '../components/WinnerCelebration';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
@@ -23,6 +24,10 @@ export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit,
   const myTeam = teamOfSeat(humanSeat);
   const humanWon = state.winnerTeam === myTeam;
   const title = humanWon ? t('tarneeb.youWon') : t('tarneeb.youLost');
+  // Name the two pairs by their players ("Alex & Dina") — Team A = seats 0&2, B = 1&3.
+  const nameOf = (seat: number) => state.players[seat]?.name;
+  const usLabel = teamDisplayName(pairTeamSeats(myTeam === 'A' ? 0 : 1), nameOf, t, 'tarneeb.teamUs');
+  const themLabel = teamDisplayName(pairTeamSeats(myTeam === 'A' ? 1 : 0), nameOf, t, 'tarneeb.teamThem');
 
   return (
     <div className="screen tarneeb-screen tarneeb-finished">
@@ -36,11 +41,11 @@ export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit,
         </p>
         <div className="tarneeb-finished__scores">
           <div className={`tarneeb-finished__score ${humanWon ? 'tarneeb-finished__score--win' : ''}`}>
-            <span className="tarneeb-finished__score-label">{t('tarneeb.teamUs')}</span>
+            <span className="tarneeb-finished__score-label">{usLabel}</span>
             <span className="tarneeb-finished__score-value">{state.scoresByTeam[myTeam]}</span>
           </div>
           <div className={`tarneeb-finished__score ${!humanWon ? 'tarneeb-finished__score--win' : ''}`}>
-            <span className="tarneeb-finished__score-label">{t('tarneeb.teamThem')}</span>
+            <span className="tarneeb-finished__score-label">{themLabel}</span>
             <span className="tarneeb-finished__score-value">{state.scoresByTeam[myTeam === 'A' ? 'B' : 'A']}</span>
           </div>
         </div>

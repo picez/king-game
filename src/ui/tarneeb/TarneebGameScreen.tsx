@@ -15,8 +15,9 @@ import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
 import TarneebHelp from './TarneebHelp';
 import TarneebTricksReview from './TarneebTricksReview';
 import { tarneebRankRows } from './tarneebScoreTable';
-import HandOrderControls from '../components/HandOrderControls';
+import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
+import { teamDisplayName, pairTeamSeats } from '../teamName';
 
 interface Props {
   state: TarneebState;
@@ -174,7 +175,12 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
             {rankRows.map((r, i) => {
               const name = solo
                 ? (r.isMe ? t('tarneeb.you') : state.players[r.seat as number].name)
-                : (r.isMe ? t('tarneeb.teamUs') : t('tarneeb.teamThem'));
+                : teamDisplayName(
+                    pairTeamSeats(r.team === 'A' ? 0 : 1),
+                    (seat) => state.players[seat]?.name,
+                    t,
+                    r.isMe ? 'tarneeb.teamUs' : 'tarneeb.teamThem',
+                  );
               return (
                 <tr key={r.key}
                   className={`tarneeb-rank__row${r.isMe ? ' is-me' : ''}${r.isTurn ? ' is-turn' : ''}${r.isBidder ? ' is-bidder' : ''}${r.isLeader ? ' is-leader' : ''}`}>
@@ -298,20 +304,17 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
       )}
 
       {/* The human's hand. */}
-      <div className="tarneeb-hand">
-        {handOrder.ordered.map((c) => (
-          <CardView
-            key={singleDeckCardId(c)}
-            card={c}
-            size="hand"
-            onClick={() => clickCard(c)}
-            disabled={phase !== 'playing' || !cardEnabled(c)}
-            dimmed={phase === 'playing' && isMyTurn && !cardEnabled(c)}
-          />
-        ))}
-      </div>
-      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
-        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
+      <HandReorderTray
+        items={handOrder.ordered}
+        cardId={singleDeckCardId}
+        order={handOrder}
+        onTap={(c) => clickCard(c)}
+        canTap={(c) => phase === 'playing' && cardEnabled(c)}
+        renderCard={(c) => (
+          <CardView card={c} size="hand" disabled={phase !== 'playing' || !cardEnabled(c)}
+            dimmed={phase === 'playing' && isMyTurn && !cardEnabled(c)} />
+        )}
+      />
 
       {/* Hand-complete summary overlay. Online: the SERVER auto-advances, so the
           button is replaced by a "starting…" note (a client START_NEXT_HAND would

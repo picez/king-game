@@ -897,6 +897,7 @@ export const DE: Record<string, string> = {
   'lobby.waitingMore': 'weitere…',
   'lobby.playersWord': 'Spieler',
   'lobby.teamA': 'Team A',
+  'team.named': 'Team {name}',
   'lobby.teamB': 'Team B',
   'lobby.yourTeam': 'Dein Team',
   'lobby.partner': 'Partner',

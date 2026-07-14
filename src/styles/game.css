@@ -388,3 +388,42 @@
   justify-content: center;
 }
 
+/* ---- Draggable hand tray (Stage 30.12b) — shared across all six games. ----
+   A roomy, wrapping, touch-first hand row: each card sits in a slot that owns the
+   pointer gesture; a quick tap plays, a drag reorders (client-only display order). */
+.hand-reorder-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  width: 100%; padding-bottom: max(0.3rem, env(safe-area-inset-bottom));
+}
+.hand-reorder {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+  gap: 4px; width: 100%; max-width: 100%;
+  /* Comfortable min height so there is room to grab + drop, even with few cards. */
+  min-height: calc(var(--card-h) + 1.2rem);
+  padding: 0.5rem 0.15rem;
+  touch-action: pan-y; /* the SLOTS take over (touch-action:none) once a drag begins */
+}
+/* Each slot is the flex item + the drag hit-area (bigger than the card itself). */
+.hand-reorder__slot {
+  position: relative; flex: 0 0 auto; padding: 0.35rem 0.28rem; border-radius: 12px;
+  touch-action: none; cursor: grab; -webkit-tap-highlight-color: transparent;
+}
+.hand-reorder__slot:active { cursor: grabbing; }
+/* The rendered card is visual-only — the slot owns tap + drag. */
+.hand-reorder__card { pointer-events: none; line-height: 0; }
+/* Lift the card being dragged. */
+.hand-reorder__slot--dragging { z-index: 3; }
+.hand-reorder__slot--dragging .hand-reorder__card {
+  transform: translateY(-10px) scale(1.06); filter: drop-shadow(0 8px 14px rgba(0,0,0,0.55));
+  transition: transform 0.08s ease;
+}
+/* Insertion indicator: a bright bar on the LEFT edge of the drop-target slot. */
+.hand-reorder__slot--drop-before::before {
+  content: ''; position: absolute; left: -3px; top: 6%; bottom: 6%; width: 4px;
+  border-radius: 3px; background: var(--accent); box-shadow: 0 0 6px var(--accent);
+}
+.hand-reorder__reset { min-height: 32px; }
+@media (prefers-reduced-motion: reduce) {
+  .hand-reorder__slot--dragging .hand-reorder__card { transition: none; transform: translateY(-6px); }
+}
+

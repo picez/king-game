@@ -71,17 +71,32 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Round scoring matches KING_RULES.md; game ends after 27 rounds (3p) / 36 (4p).
 - [ ] 4-player game deals 13 each, no kitty.
 
-## Manual — manual hand ordering (all games, Stage 30.12)
+## Manual — drag hand ordering (all games, Stage 30.12b)
 
-- [ ] In **every** game (King / Durak / Deberc / Tarneeb / Preferans / 51), the hand shows a small
-      **↔ Arrange** button. Default order is the usual sort (unchanged) until you arrange.
-- [ ] Tap **↔ Arrange** → the sheet lists your hand (LTR); tap a card, then **← / →** move it; the live
-      hand reorders behind the sheet. **Auto-sort** returns to the default sort. Works at **360/390**,
-      no overflow, and never blocks playing a card after closing.
-- [ ] After arranging, a **newly drawn/received card appears at the far LEFT** of the hand (Durak refill,
-      51 draw). A **new deal** returns to the default sort. This is **display-only** — online opponents /
-      the server never see your order (no reducer/action change).
-- [ ] Reordering the hand does **not** change which cards are legal to play (trick games) or meldable (51).
+- [ ] In **every** game (King / Durak / Deberc / Tarneeb / Preferans / 51) you can **drag a card**
+      within your hand (touch, mouse or pen) to reorder it. The dragged card lifts, a bright insertion
+      bar shows where it will drop, and releasing commits the new order. Default order is the usual
+      sort until you drag.
+- [ ] A **quick tap still plays / selects** the card (drag starts only after a small movement), so
+      dragging never fires a play. A **↺ Auto-sort** button appears once you've reordered → back to default.
+- [ ] After reordering, a **newly drawn/received card appears at the far LEFT** (Durak refill, 51 draw).
+      A **new deal** returns to the default sort. This is **display-only** — online opponents / the
+      server never see your order (no reducer/action/`ACTION_REQUEST` change).
+- [ ] The hand tray is **roomy** (bigger drop area, wraps to fit) with **no horizontal page overflow**
+      at 360/390, action buttons stay reachable, and the 51 stage/meld area is not hidden. Dragging
+      does **not** change which cards are legal to play (trick games) or meldable (51).
+- [ ] **51 joker position by order:** select cards so a joker sits where you want (`[🃏, 8♠, 9♠]` reads
+      7-8-9, `[8♠, 9♠, 🃏]` reads 8-9-10) — the selection is never auto-sorted; use the meld-builder
+      ← / → (or pre-arrange the hand) to fix its spot, then lay + discard to go out.
+
+## Manual — team names (Tarneeb / Deberc Pairs, Stage 30.12b)
+
+- [ ] **Pairs** games label partnerships by their players, not abstract "Team A/B": the **lobby team
+      grid**, the Tarneeb **HUD** ranked table, and the Tarneeb **finished** screen read like
+      **"Alex & Dina"** vs **"Niko & Yara"** (Team = seats 0&2 vs 1&3). A partly-filled team (one bot /
+      empty seat) falls back to **"Team Alex"**, and an all-unknown team to the localized **Team A/B**.
+- [ ] **Solo** modes (Tarneeb Solo, Deberc Solo) show **individual player names** — no team labels.
+      Nothing overflows at 360/390; Arabic RTL reads correctly.
 
 ## Manual — clockwise & table clarity (Stage 27.4)
 

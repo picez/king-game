@@ -8,7 +8,7 @@ import { cardEquals, canExchangeTrump } from '../../games/deberc/rules';
 import { detectAllSequences, hasBella } from '../../games/deberc/melds';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
-import HandOrderControls from '../components/HandOrderControls';
+import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 import DebercScoreTable from './DebercScoreTable';
 import DebercTricksReview from './DebercTricksReview';
@@ -401,20 +401,17 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </div>
       )}
 
-      <div className="durak-hand">
-        {handOrder.ordered.map((c) => (
-          <CardView
-            key={singleDeckCardId(c)}
-            card={c}
-            size="hand"
-            onClick={() => clickCard(c)}
-            disabled={phase !== 'playing' || !cardEnabled(c)}
-            dimmed={isMyTurn && phase === 'playing' && !cardEnabled(c)}
-          />
-        ))}
-      </div>
-      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
-        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
+      <HandReorderTray
+        items={handOrder.ordered}
+        cardId={singleDeckCardId}
+        order={handOrder}
+        onTap={(c) => clickCard(c)}
+        canTap={(c) => phase === 'playing' && cardEnabled(c)}
+        renderCard={(c) => (
+          <CardView card={c} size="hand" disabled={phase !== 'playing' || !cardEnabled(c)}
+            dimmed={isMyTurn && phase === 'playing' && !cardEnabled(c)} />
+        )}
+      />
     </div>
   );
 }

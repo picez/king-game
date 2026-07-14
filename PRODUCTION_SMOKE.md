@@ -248,10 +248,14 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Last-card reveal delay (Stage 25.8):** the final card of a trick/bout stays readable
       (~1 s) before play advances in every game — King/Deberc (server pause), Tarneeb/Preferans
       (client review), Durak (bout lingers before the table clears).
-- [ ] **Manual hand ordering (Stage 30.12):** each game's hand has an **↔ Arrange** button →
-      the sheet lets you tap a card and **← / →** move it; **Auto-sort** resets. A newly drawn card
-      then appears at the **far left**. It is **display-only** (no reducer/action/`ACTION_REQUEST`
-      change) — online opponents never see your order. No overflow at 360/390.
+- [ ] **Drag hand ordering (Stage 30.12b):** in each game you can **drag a card** in your hand
+      (touch/mouse/pen) to reorder — the card lifts, an insertion bar shows the drop, release commits;
+      a **quick tap still plays**. **↺ Auto-sort** resets; a newly drawn card lands at the **far left**.
+      Display-only (no reducer/action/`ACTION_REQUEST` change) — opponents never see your order. No
+      overflow at 360/390.
+- [ ] **Team names (Pairs, Stage 30.12b):** Tarneeb/Deberc **Pairs** show partnerships by player name
+      (**"Alex & Dina"**) in the lobby grid, Tarneeb HUD and finished screen — not abstract "Team A/B"
+      (fallback "Team Alex" / localized Team A/B). **Solo** modes show individual names, no team labels.
 
 ### 5a. Tarneeb Solo mode (Stage 28.4)
 

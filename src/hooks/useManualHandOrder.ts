@@ -62,6 +62,21 @@ export function moveInOrder(order: string[], id: string, dir: -1 | 1): string[] 
   return next;
 }
 
+/**
+ * Move `id` so it sits immediately BEFORE `beforeId` (or to the END when
+ * `beforeId` is null / not present) — the drag-and-drop primitive. Returns the
+ * same array reference when it would be a no-op (id missing / already there).
+ */
+export function moveCardBefore(order: string[], id: string, beforeId: string | null): string[] {
+  if (!order.includes(id)) return order;
+  const without = order.filter((x) => x !== id);
+  let target = beforeId != null ? without.indexOf(beforeId) : -1;
+  if (target < 0) target = without.length; // drop at the end
+  const next = [...without.slice(0, target), id, ...without.slice(target)];
+  const same = next.length === order.length && next.every((x, i) => x === order[i]);
+  return same ? order : next;
+}
+
 export interface ManualHandOrder<T> {
   /** The hand in the order the local viewer should SEE it. */
   ordered: T[];
@@ -70,6 +85,8 @@ export interface ManualHandOrder<T> {
   /** Move a card one slot left / right (activates manual mode). */
   moveLeft: (id: string) => void;
   moveRight: (id: string) => void;
+  /** Drag primitive: place `id` before `beforeId` (null = end). Activates manual. */
+  moveCard: (id: string, beforeId: string | null) => void;
   /** Return to the game's default sort (manual mode off). */
   reset: () => void;
 }
@@ -111,9 +128,18 @@ export function useManualHandOrder<T>(hand: T[], idOf: (c: T) => string): Manual
 
   const moveLeft = useCallback((id: string) => move(id, -1), [move]);
   const moveRight = useCallback((id: string) => move(id, 1), [move]);
+
+  const moveCard = useCallback((id: string, beforeId: string | null) => {
+    setManualOrder((prev) => {
+      const seed = prev.length > 0 ? computeHandOrderIds(currentIds, prev) : currentIds.slice();
+      const next = moveCardBefore(seed, id, beforeId);
+      return next === seed && prev.length > 0 ? prev : next;
+    });
+  }, [currentKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const reset = useCallback(() => setManualOrder([]), []);
 
-  return { ordered, manual: manualOrder.length > 0, moveLeft, moveRight, reset };
+  return { ordered, manual: manualOrder.length > 0, moveLeft, moveRight, moveCard, reset };
 }
 
 /** The display id order (fresh-left) for a saved manual order — mirror of

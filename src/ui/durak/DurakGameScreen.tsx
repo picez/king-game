@@ -46,7 +46,7 @@ import {
 } from '../../games/durak/rules';
 import DurakHelp from './DurakHelp';
 import DurakDeck from './DurakDeck';
-import HandOrderControls from '../components/HandOrderControls';
+import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 
 /** Transient "what just happened" banner (a bout resolved). */
@@ -246,20 +246,16 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         {transferMode && <button type="button" className="btn btn--ghost" onClick={() => setTransferMode(false)}>✕ {t('durak.cancel')}</button>}
       </div>
 
-      <div className="durak-hand">
-        {handOrder.ordered.map((c) => (
-          <CardView
-            key={singleDeckCardId(c)}
-            card={c}
-            size="hand"
-            onClick={() => clickCard(c)}
-            disabled={!cardEnabled(c)}
-            dimmed={isMyTurn && !cardEnabled(c)}
-          />
-        ))}
-      </div>
-      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
-        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
+      <HandReorderTray
+        items={handOrder.ordered}
+        cardId={singleDeckCardId}
+        order={handOrder}
+        onTap={(c) => clickCard(c)}
+        canTap={(c) => cardEnabled(c)}
+        renderCard={(c) => (
+          <CardView card={c} size="hand" disabled={!cardEnabled(c)} dimmed={isMyTurn && !cardEnabled(c)} />
+        )}
+      />
     </div>
   );
 }

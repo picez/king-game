@@ -102,18 +102,24 @@ describe('motion is imported + hands use card-stable keys', () => {
     expect(read('src/App.css')).toContain("@import './styles/motion.css'");
   });
 
-  it('hand keys are index-free (suit+rank) so deal-in never replays on a play', () => {
-    // King PlayerHand.
-    expect(read('src/ui/components/PlayerHand.tsx')).toContain('key={`${card.suit}-${card.rank}`}');
-    // Durak / Deberc / Tarneeb hands.
-    // The hand render in each game uses the index-free key (other non-hand card
-    // lists — e.g. deberc meld reveals — may keep an index and are not animated).
+  it('hand keys are index-free (a stable card id) so a reorder/play never remounts', () => {
+    // The shared draggable tray keys each slot by the caller's stable card id, and
+    // the single-deck id is `${suit}-${rank}` (index-free) — so React never remounts
+    // a card on a reorder or a play (which would replay the deal-in animation).
+    const tray = read('src/ui/components/HandReorderTray.tsx');
+    expect(tray).toContain('const id = cardId(c);');
+    expect(tray).toContain('key={id}');
+    expect(read('src/hooks/useManualHandOrder.ts')).toContain('return `${c.suit}-${c.rank}`;');
+    // Every game feeds the tray a stable id fn (never an array index).
     for (const f of [
+      'src/ui/components/PlayerHand.tsx',
       'src/ui/durak/DurakGameScreen.tsx',
       'src/ui/deberc/DebercGameScreen.tsx',
       'src/ui/tarneeb/TarneebGameScreen.tsx',
+      'src/ui/preferans/PreferansGameScreen.tsx',
     ]) {
-      expect(read(f), f).toContain('key={`${c.rank}${c.suit}`}');
+      expect(read(f), f).toContain('cardId={singleDeckCardId}');
     }
+    expect(read('src/ui/fiftyOne/FiftyOneGameScreen.tsx')).toContain('cardId={fiftyOneCardId}');
   });
 });

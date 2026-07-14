@@ -897,6 +897,7 @@ export const AR: Record<string, string> = {
   'lobby.waitingMore': 'آخرين…',
   'lobby.playersWord': 'لاعبين',
   'lobby.teamA': 'الفريق أ',
+  'team.named': 'فريق {name}',
   'lobby.teamB': 'الفريق ب',
   'lobby.yourTeam': 'فريقك',
   'lobby.partner': 'شريك',
