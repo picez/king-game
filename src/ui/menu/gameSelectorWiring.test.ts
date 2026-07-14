@@ -35,9 +35,9 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
   });
   it('gates the picker per mode: local=supportsLocal, host=supportsOnline (Stage 19.3)', () => {
     // The picker iterates GAME_TYPES and disables a game that does not support THIS
-    // mode. Preferans (Stage 19.3) is experimental + local-only: selectable in the
-    // Local sheet, disabled in the Host sheet. An unsupported game shows "coming soon";
-    // a supported-but-experimental one shows "experimental".
+    // mode. All six games are released today (local + online), so none is disabled or
+    // flagged; the "coming soon" (unsupported) and "experimental" branches stay for
+    // forward-compat with a future not-yet-released game.
     expect(src).toContain('const usable = mode === \'host\' ? entry.supportsOnline : entry.supportsLocal');
     expect(src).toContain('disabled: !usable');
     expect(src).toContain("t('menu.comingSoon')");

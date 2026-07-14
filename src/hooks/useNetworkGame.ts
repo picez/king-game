@@ -112,7 +112,7 @@ export interface FriendInvite { fromUserId: string; fromName: string; code: stri
 /** Rematch progress for the online finish screen (Stage 25.9) — public clientIds only. */
 export interface RematchProgress { ready: string[]; needed: number; }
 
-/** Is a game state (any of the 5 games) in its terminal/finished screen? */
+/** Is a game state (any of the 6 games) in its terminal/finished screen? */
 function stateIsFinished(s: unknown): boolean {
   if (!s || typeof s !== 'object') return false;
   const o = s as { status?: string; phase?: string };

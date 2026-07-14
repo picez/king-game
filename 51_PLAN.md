@@ -199,6 +199,25 @@
   **No DB migration, no new dependency, no rule/protocol change, no version bump/tag** (changes stay
   under CHANGELOG "Unreleased"); the five released games are unchanged. `npm run verify` green.
 
+### 30.8 — Six-game release audit + v0.3.7 — ✅ DONE
+- **Release audit + guard hardening + v0.3.7 patch release.** Swept the codebase/docs for stale
+  "five games / 5 games" and "51 experimental / coming soon" references and corrected the **canonical
+  current-state** ones (`ONLINE_ARCHITECTURE`, `RENDER_DEPLOY`, `VISUAL_DIRECTION`, `PRODUCTION_SMOKE`,
+  `anyGame.ts`/`useNetworkGame.ts` comments, `games/fiftyOne/index.ts`, redaction-test header) while
+  leaving **dated stage records** (CHANGELOG/PLAN stage logs) as history. **Guards hardened** in
+  `platformAudit.test.ts`: exactly **6 available** games, each with local + online + bots + stats +
+  favorite coverage + **≥1 game-scoped achievement** + a PNG icon < 150 KB, and **All-Rounder spans
+  exactly the available set** (dropping any one game unearns it). Gave `FiftyOneFinished` the shared
+  **`finish-frame`** the other five wear (+ the `p1VisualIntegration` guard now lists all six) and
+  added a `localGating` guard that the Profile achievements loader fetches 51 stats. **Release:**
+  bumped `package.json` + `package-lock.json` **0.3.6 → 0.3.7** by hand (no `npm install`, lockfile
+  diff = version lines only, libc count 0), moved the CHANGELOG "Unreleased" 30.x entries into
+  **`[0.3.7] — 2026-07-14 — Syrian 51 sixth-game release`** with a fresh empty Unreleased, updated the
+  release-line docs (`MVP_STATUS`/`PROJECT_OVERVIEW`/`RENDER_DEPLOY` diagnostics example/
+  `PRODUCTION_SMOKE` §0 + §5b/`TARNEEB_RULES` banner) and tagged **`v0.3.7`**. **No DB migration, no
+  dependency, no rule/gameplay change** beyond the shared finish-frame; the five games are unchanged.
+  `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

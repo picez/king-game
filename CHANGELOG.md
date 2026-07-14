@@ -9,6 +9,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.3.7] — 2026-07-14 — Syrian 51 sixth-game release
+
+The **6th game — 51 (Syrian 51)** graduated from experimental to a fully released
+`available` member (Stage 30.7), and a six-game release audit (Stage 30.8) closed the
+remaining "five games" drift and hardened the platform guards. Card Majlis is now a
+**six-game** lounge (King, Durak, Deberc, Tarneeb, Preferans, 51). 51 is playable local +
+server-authoritative online, records its own score-only stats + leaderboard under
+`game_type='fifty-one'`, can be set as your favorite game, and earns a **"51 Winner"**
+achievement that also counts toward **All-Rounder** (now a win in all six games); it ships
+its own game emblem and finish-screen frame. No DB migration, no new dependency, no rule
+change; the other five games are unchanged.
+
 ### Added
 
 - **51 (Syrian 51) is released as the 6th game (Stage 30.7).** 51 is now a first-class member of
@@ -38,6 +52,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **Six-game release audit + guard hardening (Stage 30.8, no user-facing change).** Swept the
+  codebase + docs for stale "five games / 5 games" and "51 is experimental / coming soon"
+  references and corrected the canonical current-state ones (online architecture, render/QA/smoke
+  checklists, visual direction, type-union + hook comments) while leaving dated stage records as
+  history. Hardened the platform guard so it asserts **exactly six available games**, each with
+  local + online + bots + stats + favorite coverage + **a game-scoped achievement** + a PNG icon
+  under 150 KB, and that **All-Rounder spans exactly the available set** (dropping any one game
+  unearns it). Gave 51's finish screen the shared ornamental **finish frame** the other five games
+  wear, and added a source guard that the Profile achievements loader fetches 51 stats. No behaviour
+  change to the five games; no DB migration, no dependency, no rule change.
 - **51 (Syrian 51) stats + leaderboard foundation (Stage 30.6, experimental).** Finished ONLINE
   51 games now record **score-only** stats under `game_type='fifty-one'` — per-seat final running
   penalty, eliminated flag and the match winner, aggregated into a per-user cache (games, wins,

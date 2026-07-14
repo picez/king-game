@@ -56,6 +56,10 @@ describe('51 is a released game — local + online + stats + favorite (Stage 30.
     expect(profile).toContain("'fifty-one'");
     expect(profile).toContain('FiftyOneStatsPanel');
     expect(profile).toContain('FiftyOneLeaderboardPanel');
+    // …the achievements loader fetches 51 stats and threads them into AllStats so the
+    // 51 badge + All-Rounder can read them (Stage 30.7).
+    expect(profile).toContain('loadFiftyOneStats');
+    expect(profile).toMatch(/fiftyOne:\s*dataOf\(fiftyOneStats\)/);
     // …and the achievements derivation (AllStats) now includes a 51 field (Stage 30.7).
     const ach = read('src/stats/achievements.ts');
     expect(ach).toMatch(/fiftyOne/);

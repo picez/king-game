@@ -68,7 +68,7 @@ arabesque) used sparingly on card backs, frames, and the menu hero. Soft warm
 glass app shell over it. Premium, warm, readable — not a neon casino, not cartoon.
 - **Why:** it matches the existing palette (near-zero re-theming of CSS vars),
   fits Tarneeb's Syrian heritage, and the "one warm table, many games" story unifies
-  all five games. Gold-on-green already has strong contrast for AA text.
+  all six games. Gold-on-green already has strong contrast for AA text.
 
 ### Option B — "Midnight Art-Deco"
 Charcoal/ink background, teal-green felt inlay, chrome + champagne-gold deco lines,
@@ -99,7 +99,7 @@ accents later.
    zones behind text rather than lightening text.
 2. **Depth, not noise.** Texture + soft shadow + a single light source create depth;
    avoid high-frequency grain, heavy bevels, or drop-shadow soup.
-3. **One system, five games.** Shared felt/rim/card-back/motion. A game is identified
+3. **One system, six games.** Shared felt/rim/card-back/motion. A game is identified
    by its icon and a subtle accent tint — never by re-styling the whole table.
 4. **Tactile.** Buttons, cards, chips look pressable and respond to touch (≤120ms
    press feedback). Tap targets stay ≥44px.
@@ -287,7 +287,7 @@ Each stage keeps gameplay/server/protocol/DB/stats unchanged and ends green on
   everything under `public/` and served by Vite/Render.
 - UI remains readable over hero/felt; the current CSS gradient/emoji fallback still
   works if an asset 404s.
-- All five games look like one system yet stay distinguishable (icon + accent).
+- All six games look like one system yet stay distinguishable (icon + accent).
 - **RTL** unaffected: table seat/play order not mirrored; frames symmetric.
 - `npm run verify` green after each implementation stage.
 

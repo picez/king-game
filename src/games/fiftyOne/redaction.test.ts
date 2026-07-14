@@ -5,9 +5,9 @@
 // draw-pile card id, rank, or suit ever reaches the wrong viewer, plus the
 // placeholder shape, the public/hidden field split, and the spectator view.
 //
-// 51 stays gated OFF online (supportsOnline=false → CREATE_ROOM rejects it); this
-// is readiness only — the redactor is the single gate that must be leak-proof
-// BEFORE any online 51 room is ever creatable (30.5).
+// At Stage 30.4 this was readiness only (51 still gated OFF online); online 51 rooms
+// went live at Stage 30.5 and 51 was fully released at Stage 30.7. These leak guards
+// remain the single gate that keeps every online 51 room leak-proof per viewer.
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';

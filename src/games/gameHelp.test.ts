@@ -27,7 +27,7 @@ describe('game help catalog', () => {
     // Every content key across the catalog is unique.
     const keys = allHelpContentKeys();
     expect(new Set(keys).size).toBe(keys.length);
-    // 5 games × 6 sections today.
+    // 6 games × 6 sections today.
     expect(keys.length).toBe(GAME_TYPES.length * ALL_SECTIONS.length);
   });
 });

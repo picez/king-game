@@ -16,9 +16,20 @@ import { GAME_TYPES, GAME_CATALOG, type GameType } from './catalog';
 import { GAME_DEFINITIONS } from './registry';
 import { SUPPORTED_FAVORITE_GAMES } from '../net/userSettings';
 import { visualAsset, gameIconSrc } from '../visual/visualAssets';
+import { ACHIEVEMENTS, type AllStats } from '../stats/achievements';
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const iconPath = (id: string) => join(process.cwd(), 'public', gameIconSrc(id).replace(/^\//, ''));
+
+/** Map a catalog game id to its `AllStats` key (only 51 differs: `fifty-one` → `fiftyOne`). */
+const statsKey = (id: GameType): string => (id === 'fifty-one' ? 'fiftyOne' : id);
+/** Minimal AllStats where the named available games each have a single win. */
+const winsFor = (ids: readonly GameType[]): AllStats =>
+  Object.fromEntries(ids.map((id) => [statsKey(id), { gamesWon: 1, gamesPlayed: 1 }])) as unknown as AllStats;
+// Call ONLY the all-rounder evaluator (it uses the null-safe `won()` aggregate), so a
+// minimal per-game stub can't trip a nested game-specific evaluator.
+const allRounder = ACHIEVEMENTS.find((a) => a.id === 'all-rounder')!;
+const allRounderEarned = (s: AllStats): boolean => allRounder.evaluate(s);
 
 const AVAILABLE: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available');
 // Registered but not fully released — experimental or coming_soon. None today.
@@ -74,6 +85,24 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.7)', () => {
       expect(statSync(path).size, `${id} icon non-empty`).toBeGreaterThan(0);
       expect(statSync(path).size, `${id} icon < 150KB`).toBeLessThan(150 * 1024);
       expect(readFileSync(path).subarray(0, 8).equals(PNG_SIG), `${id} is a PNG`).toBe(true);
+    }
+  });
+
+  it('every AVAILABLE game has at least one game-scoped achievement', () => {
+    for (const id of AVAILABLE) {
+      const scoped = ACHIEVEMENTS.filter((a) => a.gameType === id);
+      expect(scoped.length, `${id} achievement coverage`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('All-Rounder spans exactly the AVAILABLE games (each one is required)', () => {
+    // A win in every available game earns it…
+    expect(allRounderEarned(winsFor(AVAILABLE)), 'all six earn All-Rounder').toBe(true);
+    // …and dropping any single available game unearns it (so the canonical AllStats
+    // aggregate set === the available games, incl. 51 since Stage 30.7).
+    for (const missing of AVAILABLE) {
+      const partial = winsFor(AVAILABLE.filter((id) => id !== missing));
+      expect(allRounderEarned(partial), `missing ${missing} → not earned`).toBe(false);
     }
   });
 });

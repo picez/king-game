@@ -24,7 +24,7 @@ export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit
         <h1 className="menu-title">{humanWon ? '🏆' : '🏁'} {t('fiftyOne.matchWinner').replace('{name}', name)}</h1>
       </header>
 
-      <div className="setup-card">
+      <div className="setup-card finish-frame">
         <table className="fiftyone-roundover__table">
           <thead>
             <tr><th></th><th>{t('fiftyOne.total')}</th></tr>

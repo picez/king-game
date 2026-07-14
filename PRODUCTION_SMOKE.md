@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.6`** (tag `v0.3.6`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.7`** (tag `v0.3.7`).
 
 Set your host once and reuse it below:
 
@@ -23,23 +23,31 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.6 adds no migrations** — 0009 is still the latest (the Tarneeb target-score + compact-table
-> patch has no schema change; the one new online field `tarneebTargetScore` is optional, and Tarneeb
-> Solo stats still reuse `game_type='tarneeb-solo'`).
+> **v0.3.7 adds no migrations** — 0009 is still the latest. The Syrian 51 sixth-game release records
+> its stats under the free-text `game_type='fifty-one'` (no schema change), and the v0.3.6 Tarneeb
+> target-score patch's one new online field `tarneebTargetScore` is optional.
 
 ---
 
-## 0. v0.3.6 release smoke (fast targeted pass)
+## 0. v0.3.7 release smoke (fast targeted pass)
 
-What v0.3.6 (Tarneeb target score + compact table, Stages 29.7–29.8) specifically touches, plus the
-v0.3.5 table-HUD/reactions checks and the v0.3.4/v0.3.3/v0.3.2 checks it rides on. v0.3.6 changes are
-display-only apart from the one **optional, backward-compatible** online field (`tarneebTargetScore`);
-**no rules/scoring/schema change**. The numbered sections cover each in depth.
+What v0.3.7 (**Syrian 51 sixth-game release**, Stages 30.7–30.8) specifically touches, plus the v0.3.6
+Tarneeb target-score / compact-table checks and the v0.3.5/v0.3.4/v0.3.3/v0.3.2 checks it rides on.
+v0.3.7 adds the 6th game (51) and a release audit; **no rules/scoring/schema change** to the other five
+games. The numbered sections cover each in depth — the full 51 smoke is §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.6`**, `commit` matches the deploy,
-      `db.enabled: true`, **`games.count: 6`** (51 flipped to `available` in Stage 30.7),
-      `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.6).
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.7`**, `commit` matches the deploy,
+      `db.enabled: true`, **`games.count: 6`** with `ids` including **`fifty-one`** (51 flipped to
+      `available` in Stage 30.7), `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
+      Then **`npm run db:migrate`** if any new migration (none in 0.3.7 — latest stays `0009`).
+- [ ] **51 (Syrian 51) is a released 6th game (v0.3.7):** `GET /api/games` lists `fifty-one` as
+      `status:'available'`, `supportsLocal/Online:true`; the **Local and Host pickers** show 51 as a
+      normal, selectable option with **no** "Experimental" / "Coming soon" tag and its own PNG emblem;
+      it appears in the **favorite-game** picker and the Profile **stats/leaderboard** selectors. Full
+      local + online play, stats, favorite and achievement smoke is in **§5b**.
+- [ ] **51 game emblem static asset (v0.3.7):** `curl -sI $HOST/visual/icons/game-fifty-one.png` →
+      **`200`**, `content-type: image/png`, an immutable/`max-age` cache header, and a size **< 150 KB**
+      (the two-fanned-cards emblem, ~26 KB). It renders in the picker/lobby (not the emoji fallback).
 - [ ] **Durak trump/deck + final-defence reveal (v0.3.4):** on the Durak table the **face-up trump +
       draw pile are visibly larger** (~+22%) with no 360/390 overflow; and when the **last attack is
       beaten** (or the defender takes), the completed **attack+defence pair stays on the felt ~2 s**
@@ -258,6 +266,12 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Picker (no Experimental tag):** both the **Local** and **Host** pickers list **51** as a normal,
       selectable option — **no** "Experimental" / "Coming soon" tag, not dimmed, with its own PNG emblem.
       `GET /api/games` shows `fifty-one` with `status:"available"`, `supportsLocal/supportsOnline/supportsBots: true`.
+- [ ] **Local play + core rules:** start a local **2-player** game (1 deck + 2 jokers) and a **4-player**
+      game (2 decks + 2 jokers). A turn is **draw → optionally meld → discard**; **before opening** you
+      **cannot** take from the **discard pile** (it stays locked) and cannot lay a meld — you may only
+      **open** once your first lay-down totals **≥ 51**. At round end a **never-opened** loser scores a
+      flat **100** and a **joker left in hand** scores **25**; emptying your hand wins the round (0), and
+      a running penalty of **510** eliminates a player. Finish screen wears the shared ornamental frame.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A

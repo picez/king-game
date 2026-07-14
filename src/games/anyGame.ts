@@ -5,10 +5,8 @@
 // protocol (messages.ts), the server (serverCore.ts), and persistence hold King,
 // Durak, Deberc, Tarneeb, Preferans OR 51 state/action without King's shapes
 // changing. Type-only — no runtime (no game engine is pulled into a build by
-// importing these types). Five games run online today (Preferans released — Stage
-// 19.7); 51 is in the union for online READINESS only (Stage 30.4 — serverCore can
-// hold/redact/serialize its state) while it stays gated OFF at CREATE_ROOM
-// (supportsOnline=false), so no online 51 room is actually creatable yet.
+// importing these types). All six games run online today — 51 was released as the
+// 6th `available` game at Stage 30.7 (online since Stage 30.5).
 // ---------------------------------------------------------------------------
 
 import type { GameState } from '../models/types';

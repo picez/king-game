@@ -4,12 +4,13 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.6** — Tarneeb target score & compact table (host-configurable match target,
-> presets 31/41/61/101, default 41; compact/centered ranked score table; per-turn timer moved into the
-> social control cluster), on the **v0.3.5** table HUD & reactions polish, the **v0.3.4** Durak
-> final-defence reveal + online timer polish, the **v0.3.3** Tarneeb scoring correction + Deberc table
-> resize, the **v0.3.2** Tarneeb Solo release & bandwidth-hardening patch, over the **v0.3.0** social &
-> voice release and v0.2.0 five-game platform.
+> **Release:** **v0.3.7** — Syrian 51 sixth-game release: **51 (Syrian 51)** graduated from
+> experimental to a fully released `available` game (local + online + stats + favorite + achievement
+> + emblem), making Card Majlis a six-game lounge; plus a six-game release audit + guard hardening.
+> On the **v0.3.6** Tarneeb target score & compact table, the **v0.3.5** table HUD & reactions polish,
+> the **v0.3.4** Durak final-defence reveal + online timer polish, the **v0.3.3** Tarneeb scoring
+> correction + Deberc table resize, the **v0.3.2** Tarneeb Solo release & bandwidth-hardening patch,
+> over the **v0.3.0** social & voice release and v0.2.0 five-game platform.
 > See [`CHANGELOG.md`](CHANGELOG.md); the running version is also at
 > `GET /health/diagnostics`.
 

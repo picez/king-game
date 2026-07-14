@@ -397,7 +397,7 @@ the same redaction/reconnect guarantees as the other three games.
 
 ## 17. Solo / individual variant status
 
-> **CURRENT STATUS (v0.3.6): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
+> **CURRENT STATUS (v0.3.7): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
 > (4-player cutthroat).** (v0.3.6 makes the **match target host-configurable** — presets 31/41/61/101,
 > default 41, for both modes (§10) — and makes the in-game **ranked score table compact/centered**; the
 > per-turn timer rides in the social control cluster. Per-hand scoring is unchanged.) Solo is fully
