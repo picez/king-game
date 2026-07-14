@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 // adapter, stays client-only (no server/ws/db imports, no local reducer/bot loop),
 // and drives the server-authoritative path (dispatch → ACTION_REQUEST) — the server
 // owns bots + the round_complete advance (seeded START_NEXT_ROUND). Mirrors
-// tarneebOnlineWiring.test.ts. Stage 30.5 (experimental online, no stats).
+// tarneebOnlineWiring.test.ts. Stage 30.5 (online); released 30.7.
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 describe('OnlineGame routes 51 to its own adapter (Stage 30.5)', () => {

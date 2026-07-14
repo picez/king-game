@@ -106,13 +106,14 @@ describe('buildDiagnostics — db + avatar readiness', () => {
 });
 
 describe('availableGameIds + ffmpeg cache + env readers', () => {
-  it('lists only the AVAILABLE game ids (coming_soon 51 is excluded)', () => {
+  it('lists all six AVAILABLE game ids (incl. the released 51)', () => {
     const ids = availableGameIds();
     const available = GAME_TYPES.filter((g) => GAME_CATALOG[g].status === 'available');
     for (const g of available) expect(ids).toContain(g);
     expect(ids.length).toBe(available.length);
-    // 51 is coming_soon → never surfaced in the diagnostics game list.
-    expect(ids).not.toContain('fifty-one');
+    // 51 is released (Stage 30.7) → now surfaced in the diagnostics game list.
+    expect(ids).toContain('fifty-one');
+    expect(ids.length).toBe(6);
   });
 
   it('setFfmpegReady / getFfmpegReady round-trips the cached boot flag', () => {

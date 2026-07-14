@@ -1,10 +1,11 @@
 // ---------------------------------------------------------------------------
-// 51 stats FOUNDATION source guards (Stage 30.6). Assert the cross-cutting
-// invariants that keep 51 stats correct AND keep 51 out of the released tier:
+// 51 stats source guards (Stage 30.6 foundation; Stage 30.7 release). Assert the
+// cross-cutting invariants that keep 51 stats correct AND wired into the released
+// tier:
 //   • the WS finish path is wired to the 51 recorder + signature;
-//   • recordsStats is on but the game stays experimental (no favorite/achievement);
+//   • recordsStats is on and the game is available (favoritable + achievement);
 //   • NO new DB migration was added (reuses the free-text game_type column);
-//   • the achievements derivation does NOT gain a 51 field (All-Rounder untouched);
+//   • the achievements derivation DOES count 51 (All-Rounder needs a 51 win);
 //   • no card/hand/draw vocabulary appears in the pure stats summarizer source.
 // ---------------------------------------------------------------------------
 
@@ -18,9 +19,9 @@ import { totalWins, totalGames, type AllStats } from '../stats/achievements';
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
 describe('51 stats are wired into the online finish path (Stage 30.6)', () => {
-  it('the definition records stats but the game stays experimental (not favoritable)', () => {
+  it('the definition records stats and the game is available (favoritable)', () => {
     expect(GAME_DEFINITIONS['fifty-one'].recordsStats).toBe(true);
-    expect(GAME_CATALOG['fifty-one'].status).toBe('experimental');
+    expect(GAME_CATALOG['fifty-one'].status).toBe('available');
   });
 
   it('server/index.ts routes a finished 51 game to its recorder + finish signature', () => {
@@ -39,7 +40,7 @@ describe('51 stats are wired into the online finish path (Stage 30.6)', () => {
   });
 });
 
-describe('51 stats add NO migration and NO achievements (release gate stays closed)', () => {
+describe('51 stats add NO migration but DO feed achievements (Stage 30.7 release)', () => {
   it('the latest DB migration is still 0009 (51 stats reuse the free-text game_type)', () => {
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
@@ -51,13 +52,13 @@ describe('51 stats add NO migration and NO achievements (release gate stays clos
     }
   });
 
-  it('the achievements AllStats type has NO 51 field, so All-Rounder is untouched', () => {
+  it('the achievements AllStats type has a 51 field, so All-Rounder counts 51', () => {
     const src = read('src/stats/achievements.ts');
-    expect(src).not.toMatch(/fiftyOne|fifty-one|fiftyOneStats/);
-    // The cross-game aggregates ignore any hypothetical 51 field at runtime.
+    expect(src).toMatch(/fiftyOne/);
+    // The cross-game aggregates now include the 51 field at runtime.
     const withFiftyOne = { fiftyOne: { gamesPlayed: 9, gamesWon: 9 } } as unknown as AllStats;
-    expect(totalWins(withFiftyOne)).toBe(0);
-    expect(totalGames(withFiftyOne)).toBe(0);
+    expect(totalWins(withFiftyOne)).toBe(9);
+    expect(totalGames(withFiftyOne)).toBe(9);
   });
 });
 

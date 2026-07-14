@@ -1,7 +1,7 @@
 # Card Majlis — MVP Status
 
-> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for five games:
-> **King, Durak, Deberc, Tarneeb, Preferans**. "King" now refers ONLY to the King game, not the
+> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for six games:
+> **King, Durak, Deberc, Tarneeb, Preferans, 51**. "King" now refers ONLY to the King game, not the
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
@@ -31,25 +31,25 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
-| **51** (Syrian 51) | 2–4 | **LOCAL + ONLINE + STATS — experimental (Stage 30.6).** Pure core + shared UI; **both Local and Host pickers enabled** ("Experimental"). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect). **Score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration) with a Profile sub-tab. **Still NOT `available`** — no favorite, no achievements/All-Rounder yet. Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
+| **51** (Syrian 51) | 2–4 | **RELEASED — local + online + stats + favorite + achievement (Stage 30.7).** Pure core + shared UI; **both Local and Host pickers enabled** (no "Experimental" tag). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect). **Score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration) with a Profile sub-tab; **favoritable** + `fifty-one-winner` achievement + counts toward All-Rounder; own PNG emblem. Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
 
-**51 / Syrian 51** (the **6th game**) is a **local-playable experimental prototype** as of Stage
-30.3 — the **pure core** (`src/games/fiftyOne/`, Stage 30.1) plus a **local UI** (`src/ui/fiftyOne/`:
-setup + table + hand + meld controls, 1 human + bots) run through the catalog/registry (id
-**`fifty-one`**, `status: 'experimental'`, `supportsLocal: true`). The **Local** game picker
-enables it (flagged "Experimental"); as of Stage 30.5 the **Host/online** picker enables it too
-(flagged "Experimental"). Online is **server-authoritative** — `CREATE_ROOM` accepts a 2–4-seat
-51 room, `START_GAME` deals server-side, every move flows through the generic `ACTION_REQUEST`
-(acting-seat authorised, illegal moves no-op'd), the server drives bots and the public
-`round_complete` advance (seeded `START_NEXT_ROUND`), and each client is redacted to its own hand;
-rematch/reconnect reuse the shared flows. As of Stage 30.6 it also records **score-only stats +
-leaderboard** under `game_type='fifty-one'` (no DB migration; per-seat final penalty / eliminated /
-winner, aggregated to win rate + avg/best penalty + eliminations + rounds) with a Profile sub-tab.
-It is **still `experimental`, not `available`** — no favorites and no achievements/All-Rounder yet
-(Stage 30.7). It is a rummy-style
-get-rid-of-your-hand game (form runs/sets, open with 51+ points, jokers wild, penalty scoring,
-eliminate at 510). Rules are in [`51_RULES.md`](51_RULES.md) (all §16 MVP defaults implemented
-in 30.1); the staged build (30.1 core → 30.7 release) is in [`51_PLAN.md`](51_PLAN.md).
+**51 / Syrian 51** (the **6th game**) is **released** (Stage 30.7) — the **pure core**
+(`src/games/fiftyOne/`, Stage 30.1) plus a **shared UI** (`src/ui/fiftyOne/`: setup + table + hand +
+meld controls, 1 human + bots locally; the `FiftyOneOnlineGame` adapter online) run through the
+catalog/registry (id **`fifty-one`**, `status: 'available'`, `supportsLocal` + `supportsOnline` +
+`supportsBots` true). Both the **Local** and **Host/online** pickers enable it with no "Experimental"
+tag. Online is **server-authoritative** — `CREATE_ROOM` accepts a 2–4-seat 51 room, `START_GAME`
+deals server-side, every move flows through the generic `ACTION_REQUEST` (acting-seat authorised,
+illegal moves no-op'd), the server drives bots and the public `round_complete` advance (seeded
+`START_NEXT_ROUND`), and each client is redacted to its own hand; rematch/reconnect reuse the shared
+flows. It records **score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration;
+per-seat final penalty / eliminated / winner, aggregated to win rate + avg/best penalty + eliminations
++ rounds) with a Profile sub-tab, is a **favorite-game** option, and has a **`fifty-one-winner`**
+achievement that also counts toward **All-Rounder** (now a win in all six games). It ships its own PNG
+emblem (`game-fifty-one.png`, two fanned cards). It is a rummy-style get-rid-of-your-hand game (form
+runs/sets, open with 51+ points, jokers wild, penalty scoring, eliminate at 510). Rules are in
+[`51_RULES.md`](51_RULES.md) (all §16 MVP defaults implemented in 30.1); the staged build (30.1 core →
+30.7 release) is in [`51_PLAN.md`](51_PLAN.md).
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
 local + server-authoritative online + score-only stats/leaderboard, a favorite-game
@@ -70,7 +70,7 @@ documented as post-MVP, not built. Spec + plan:
   and the server restarts only when **every connected human is ready** (no auto-start). Leaving /
   disconnecting updates or cancels the pending rematch. Server-authoritative (`restartGame` reuses
   `startGame`); WS `REMATCH_READY` / `REMATCH_DECLINE` / `REMATCH_STATE`; in-memory only, no DB,
-  no token/session/email; a fresh game records its own stats (no duplication). All 5 games.
+  no token/session/email; a fresh game records its own stats (no duplication). All 6 games.
 - **Friends & room invites (Stage 25.1–25.9, needs Postgres + migration `0009`)**: add friends
   **by code** (never by email); an app-level presence connection keeps a signed-in user **online**
   at the menu and drives an **incoming-request badge**; the Lobby shows an **always-visible "Invite
@@ -221,10 +221,11 @@ documented as post-MVP, not built. Spec + plan:
   stats** — **no new DB column, no server route, no write path, no popups**, and
   nothing from private/card-level or chat data. Missing/unloaded stats → locked;
   a clean no-session state shows the sign-in hint. Badges: First Win, Veteran (25),
-  Centurion (100), All-Rounder (win every canonical game — **Solo excluded**), King
-  Winner, Durak Survivor, Tarneeb Bidder / Contractor (5) / **Soloist (Stage 28.6 —
-  win a Tarneeb Solo; reads the separate `tarneeb-solo` stats)**, Deberc Meld Maker
-  (10) / Bella / Jackpot. i18n ×4.
+  Centurion (100), All-Rounder (win every canonical game — now all **six**, **Solo
+  excluded**), King Winner, Durak Survivor, Tarneeb Bidder / Contractor (5) /
+  **Soloist (Stage 28.6 — win a Tarneeb Solo; reads the separate `tarneeb-solo`
+  stats)**, Preferans Declarer, **51 Winner (Stage 30.7 — win a game of 51)**,
+  Deberc Meld Maker (10) / Bella / Jackpot. i18n ×4.
 - **Achievement unlock toast (Stage 16.1)**: a compact, non-blocking
   "Achievement unlocked" toast surfaced **only on the Profile screen after the
   stats resolve** — never during active gameplay, never over cards/hands. A

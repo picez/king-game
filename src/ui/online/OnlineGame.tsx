@@ -354,8 +354,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     );
   }
 
-  // Experimental online 51 (Stage 30.5): render the 51 screens (NOT King's
-  // GameRouter). The server drives bots + the public round_complete advance (seeded
+  // Online 51 (Stage 30.5): render the 51 screens (NOT King's GameRouter). The
+  // server drives bots + the public round_complete advance (seeded
   // START_NEXT_ROUND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'fifty-one') {
     return (

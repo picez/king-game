@@ -1,7 +1,7 @@
 # Card Majlis — Production smoke checklist
 
 A **10–15 minute** post-deploy pass. Run it after every production deploy (Render or
-VPS). It confirms the five-game platform, rooms/stats/social, and the optional avatar
+VPS). It confirms the six-game platform, rooms/stats/social, and the optional avatar
 upload are live — **without** reading the full deployment docs.
 
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
@@ -37,7 +37,8 @@ display-only apart from the one **optional, backward-compatible** online field (
 **no rules/scoring/schema change**. The numbered sections cover each in depth.
 
 - [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.6`**, `commit` matches the deploy,
-      `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
+      `db.enabled: true`, **`games.count: 6`** (51 flipped to `available` in Stage 30.7),
+      `voice.ice` = `stun_only`|`turn_configured`,
       `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.6).
 - [ ] **Durak trump/deck + final-defence reveal (v0.3.4):** on the Durak table the **face-up trump +
       draw pile are visibly larger** (~+22%) with no 360/390 overflow; and when the **last attack is
@@ -150,9 +151,9 @@ display-only apart from the one **optional, backward-compatible** online field (
 ## 3. Static app + game catalog
 
 - [ ] `$HOST/` loads the **Card Majlis** menu (subtitle lists King, Durak, Deberc,
-      Tarneeb & Preferans); no console errors (DevTools → Console).
-- [ ] `curl -s $HOST/api/games` → `{ "games": [ … ] }` with **5** ids
-      `king, durak, deberc, tarneeb, preferans`, every one `"status":"available"` and
+      Tarneeb, Preferans & 51); no console errors (DevTools → Console).
+- [ ] `curl -s $HOST/api/games` → `{ "games": [ … ] }` with **6** ids
+      `king, durak, deberc, tarneeb, preferans, fifty-one`, every one `"status":"available"` and
       `supportsLocal/supportsOnline/supportsBots: true`. No private fields (`rulesDoc` absent).
 
 ### 3a. Static bandwidth / caching (Stage 28.1 / 28.1b)
@@ -215,17 +216,17 @@ $et = (iwr "$H/cards/faces/spades-a.png" -Method Head -UseBasicParsing).Headers.
       persist. **If not configured:** `curl -s $HOST/auth/google/start` → `503 oauth_disabled`
       (expected) and the app still works as guest.
 
-## 5. Five-game smoke (Local + Host)
+## 5. Six-game smoke (Local + Host)
 
-For **each** of King, Durak, Deberc, Tarneeb, Preferans:
+For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 
 - [ ] **Local** sheet lists the game (icon + `👥 <players> · <meta>`), selectable — no
       "Coming soon"/"Experimental" tag.
 - [ ] **Host** sheet lists the game; **Create room** succeeds and the Lobby opens.
 - [ ] **Add bots → Start** deals a hand and the game screen renders (bidding/play as
-      appropriate). Seat counts: King 3–4, Durak 2–5, Deberc 3–4, Tarneeb 4, Preferans 3.
+      appropriate). Seat counts: King 3–4, Durak 2–5, Deberc 3–4, Tarneeb 4, Preferans 3, 51 2–4.
 - [ ] Each game shows its **own PNG emblem** (King crown / Durak / Deberc gem / Tarneeb
-      star / Preferans top hat) — not a bare emoji.
+      star / Preferans top hat / 51 two fanned cards) — not a bare emoji.
 - [ ] **Cards render, never blank (Stage 25.8):** every dealt/table card shows artwork or its
       **rank+suit text** fallback — no blank rectangles (even right after a deploy, before the
       card art is cached).
@@ -248,16 +249,15 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       `game_type='tarneeb-solo'` (latest migration stays **0009**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
       responds 200 for a signed-in user).
 
-### 5b. 51 (Syrian 51) — experimental online + stats (Stage 30.5–30.6)
+### 5b. 51 (Syrian 51) — release extras (Stage 30.7)
 
-> 51 is `experimental` (local **and** online), **not** `available` — so it is intentionally
-> **excluded** from the five-game smoke above, is **not favoritable / not in achievements**, and shows
-> **no PNG emblem** (🀄 emoji fallback is expected). As of Stage 30.6 it **does** record score-only
-> stats + a leaderboard under `game_type='fifty-one'` (no DB migration). Light experimental check only.
+> 51 is now `available` — the create/join/play/emblem basics are covered by the six-game smoke §5
+> above. This section is the 51-specific release extras: online flow, favorite, achievement,
+> All-Rounder, and score-only stats under `game_type='fifty-one'` (**no DB migration** — latest 0009).
 
-- [ ] **Host picker:** both the **Local** and **Host** game pickers list **51** flagged
-      **"Experimental"** (not "Coming soon", not disabled). `GET /api/games` shows `fifty-one` with
-      `status:"experimental"`, `supportsLocal:true`, `supportsOnline:true`.
+- [ ] **Picker (no Experimental tag):** both the **Local** and **Host** pickers list **51** as a normal,
+      selectable option — **no** "Experimental" / "Coming soon" tag, not dimmed, with its own PNG emblem.
+      `GET /api/games` shows `fifty-one` with `status:"available"`, `supportsLocal/supportsOnline/supportsBots: true`.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A
@@ -267,13 +267,14 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       starts the next round (there is **no client "Next round" button** online). At match end the last
       seat standing wins; **Play again** (rematch) restarts the room; **reconnect** after a reload
       restores own hand only.
-- [ ] **Stats (needs Postgres, Stage 30.6):** after a **signed-in** online 51 game with **2+ humans
-      and no bots**, Profile → **Stats → 51** shows games / win-rate / avg-penalty / eliminations, and
-      **Leaderboard → 51** lists the player (own row highlighted). A game **with a bot** or a **guest**
-      records nothing. `curl -sI $HOST/api/games/fifty-one/stats` → 200 (signed-in). **Latest DB
-      migration stays 0009** (51 stats reuse the free-text `game_type` — no migration).
-- [ ] **Still experimental:** 51 has **no favorite toggle** and **no 51 achievements**; All-Rounder /
-      the existing badges are unaffected by 51 play.
+- [ ] **Favorite + achievement:** Profile → **Favorite game** now offers **51** (picker defaults to it
+      next time); after a signed-in human-vs-human **51 win** the **51 Winner** badge (🀄) is earned in
+      Profile → Achievements, and **All-Rounder** now also requires a 51 win (**6 games**).
+- [ ] **Stats (needs Postgres):** after a **signed-in** online 51 game with **2+ humans and no bots**,
+      Profile → **Stats → 51** shows games / win-rate / avg-penalty / eliminations, and **Leaderboard →
+      51** lists the player (own row highlighted). A game **with a bot** or a **guest** records nothing.
+      `curl -sI $HOST/api/games/fifty-one/stats` → 200 (signed-in). **Latest DB migration stays 0009**
+      (51 stats reuse the free-text `game_type` — no migration).
 - [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
       horizontal overflow**; Arabic RTL reads correctly.
 

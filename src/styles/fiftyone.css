@@ -142,7 +142,6 @@
 .fiftyone-roundover__waiting { margin: 0.9rem 0 0.2rem; text-align: center; font-size: 0.9rem; opacity: 0.85; }
 
 /* Setup extras */
-.fiftyone-setup__note--exp { font-size: 0.82rem; opacity: 0.9; }
 .fiftyone-setup__counts { display: flex; gap: 0.5rem; margin: 0.3rem 0 0.5rem; }
 .fiftyone-setup__count { min-width: 3rem; }
 .fiftyone-setup__deck { font-size: 0.85rem; opacity: 0.9; }

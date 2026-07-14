@@ -13,7 +13,7 @@ const PLAYER_COUNTS = [2, 3, 4] as const;
 /**
  * Local 51 (Syrian 51) setup — pick 2–4 players (1 human + bots). Shows the deck
  * rule that follows from the count (§3): 2p = 1 deck + 2 jokers, 3–4p = 2 decks +
- * 2 jokers. Experimental local prototype (Stage 30.3): no online, no stats.
+ * 2 jokers. Released game (Stage 30.7): local + online + stats.
  */
 export default function FiftyOneSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
@@ -34,8 +34,6 @@ export default function FiftyOneSetup({ onStart, onExit }: Props) {
       </header>
 
       <div className="setup-card">
-        <p className="fiftyone-setup__note fiftyone-setup__note--exp">🧪 {t('fiftyOne.experimentalNote')}</p>
-
         <label className="field__label">{t('fiftyOne.players')}</label>
         <div className="fiftyone-setup__counts" role="group" aria-label={t('fiftyOne.players')}>
           {PLAYER_COUNTS.map((n) => (

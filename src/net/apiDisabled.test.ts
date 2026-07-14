@@ -116,9 +116,9 @@ describe('HTTP API with no DATABASE_URL', () => {
     const body = out.body as { games: { id: string; status: string; supportsLocal: boolean; supportsOnline: boolean }[] };
     expect(Array.isArray(body.games)).toBe(true);
     expect(body.games.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
-    // 51 is listed publicly as experimental — local + online on (Stage 30.5).
+    // 51 is listed publicly as available — local + online on (Stage 30.7).
     const fiftyOne = body.games.find((g) => g.id === 'fifty-one')!;
-    expect(fiftyOne.status).toBe('experimental');
+    expect(fiftyOne.status).toBe('available');
     expect(fiftyOne.supportsLocal).toBe(true);
     expect(fiftyOne.supportsOnline).toBe(true);
     const king = body.games.find((g) => g.id === 'king')!;

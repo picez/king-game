@@ -210,8 +210,8 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize, playerCount: debercPlayers } : {}),
       ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore } : {}),
       ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
-      // 51 (Stage 30.5, experimental online): no extra options — a 4-seat room by
-      // default; the host may start once 2–4 seats are filled (bots or humans).
+      // 51 (Stage 30.5): no extra options — a 4-seat room by default; the host may
+      // start once 2–4 seats are filled (bots or humans).
       ...(gameType === 'fifty-one' ? { gameType: 'fifty-one' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
@@ -703,7 +703,7 @@ const GAME_ICON: Record<GameType, string> = { king: '👑', durak: '🃏', deber
 const GAME_META_KEY: Record<GameType, string> = {
   king: 'king.modesShort', durak: 'durak.variantsShort', deberc: 'deberc.matchShort', tarneeb: 'tarneeb.modesShort',
   preferans: 'preferans.metaShort', // "Contract" — Preferans is a solo contract trick game (3p)
-  'fifty-one': 'fiftyOne.metaShort', // "Rummy · Melds" — never shown while coming_soon (picker shows "Coming soon")
+  'fifty-one': 'fiftyOne.metaShort', // "Rummy · Melds" (51 is released, Stage 30.7)
 };
 
 /** "3–4" / "4" player-count range from the catalog (data-driven, all games). */
@@ -720,7 +720,8 @@ export function playersRange(id: GameType): string {
  * Gating is per `mode` (Stage 19.3): a game is selectable when it supports THIS
  * mode (`supportsLocal` locally / `supportsOnline` when hosting); otherwise it is
  * shown DISABLED with a "coming soon" note. A game that IS supported but still
- * `experimental` (e.g. Preferans local) is selectable and flagged "Experimental".
+ * `experimental` is selectable and flagged "Experimental" (none today — all six
+ * games are released; the branch stays for forward-compat).
  * SelectMenu ignores clicks on a disabled option.
  */
 function GamePicker({ gameType, onPick, t, mode }: {

@@ -24,7 +24,7 @@ update `format`/`maxBytes` in `src/visual/visualAssets.ts` (the guard follows it
 
 | File | Size (px) | ~Bytes | Purpose |
 |------|-----------|--------|---------|
-| `felt-tile.png` | 1024×1024 (seamless) | ~292 KB | table felt background (all 5 games) |
+| `felt-tile.png` | 1024×1024 (seamless) | ~292 KB | table felt background (all 6 games) |
 | `menu-hero-portrait.png` | 1242×2208 | ~645 KB | mobile menu background (UI-safe: dark top/centre) |
 | `menu-hero-wide.png` | 2560×1440 | ~667 KB | desktop/wide menu background |
 | `../cards/back/back-green.png` | 750×1050 | ~212 KB | hidden-card / deck back (green + gold star) |
@@ -33,6 +33,7 @@ update `format`/`maxBytes` in `src/visual/visualAssets.ts` (the guard follows it
 | `icons/game-deberc.png` | 512×512 (α) | ~53 KB | Deberc emblem (suit gem) |
 | `icons/game-tarneeb.png` | 512×512 (α) | ~87 KB | Tarneeb emblem (8-point Levantine star) |
 | `icons/game-preferans.png` | 512×512 (α) | ~17 KB | Preferans emblem (refined top hat) — Stage 19.9 |
+| `icons/game-fifty-one.png` | 512×512 (α) | ~26 KB | 51 (Syrian 51) emblem (two fanned cards) — Stage 30.7 |
 
 ## Files (P1 — Stage 12.8)
 
@@ -41,7 +42,7 @@ Same procedural generator + palette. Ornamental finish frame + unified seat-stat
 
 | File | Size (px) | ~Bytes | Purpose |
 |------|-----------|--------|---------|
-| `finish-frame.png` | 1600×700 (α) | ~64 KB | brass frame + corner rosettes behind the winner card (all 5 games) |
+| `finish-frame.png` | 1600×700 (α) | ~64 KB | brass frame + corner rosettes behind the winner card (all 6 games) |
 | `badges/badge-host.png` | 256×256 (α) | ~15 KB | host badge (gold crown) — lobby `.tag--host` |
 | `badges/badge-bot.png` | 256×256 (α) | ~15 KB | AI badge (robot) — lobby `.tag--bot` |
 | `badges/badge-offline.png` | 256×256 (α) | ~15 KB | offline badge (power/off) — lobby `.tag--off` |

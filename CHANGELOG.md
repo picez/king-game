@@ -11,6 +11,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **51 (Syrian 51) is released as the 6th game (Stage 30.7).** 51 is now a first-class member of
+  the platform, no longer "Experimental": it appears in the **Local and Host pickers** without the
+  Experimental tag, can be set as your **favorite game**, records **stats + a leaderboard** (win
+  rate, avg/best penalty, eliminations), and earns a **"51 Winner"** achievement — which also counts
+  toward **All-Rounder** (now a win in all six games). It ships its own game emblem (two fanned
+  cards). Card Majlis is now a **six-game** lounge (King, Durak, Deberc, Tarneeb, Preferans, 51).
+  No DB migration, no new dependency, no rule change; the other five games are unchanged.
 - **51 (Syrian 51) is now playable ONLINE (Stage 30.5, experimental).** The 6th game can now be
   **hosted online** from the Host picker (flagged "Experimental"), not just locally: create a
   2–4-seat room, add bots or invite friends, and play server-authoritative 51 with the same table

@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GameType } from '../games/catalog';
-import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats } from '../net/statsApi';
+import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats } from '../net/statsApi';
 
 export type Rarity = 'common' | 'rare' | 'epic';
 
@@ -28,6 +28,9 @@ export interface AllStats {
    *  and for the cross-game aggregates (All-Rounder etc.). */
   tarneeb: TarneebStats | null;
   preferans: PreferansStats | null;
+  /** 51 / Syrian 51 stats (Stage 30.7 — the 6th released game). A canonical member
+   *  of the cross-game aggregates (totalWins / totalGames / wonEveryGame). Missing → locked. */
+  fiftyOne: FiftyOneStats | null;
   /**
    * Tarneeb SOLO stats (Stage 28.6) — a SEPARATE, optional dimension (game_type
    * 'tarneeb-solo'). Only the dedicated solo badge reads it; it is intentionally
@@ -62,19 +65,19 @@ const played = (s: { gamesPlayed: number } | null): number => (s ? s.gamesPlayed
 
 /** Total wins across every game (0 when nothing loaded). */
 export function totalWins(a: AllStats): number {
-  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans);
+  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans) + won(a.fiftyOne);
 }
 /** Total games played across every game (0 when nothing loaded). */
 export function totalGames(a: AllStats): number {
-  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb) + played(a.preferans);
+  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb) + played(a.preferans) + played(a.fiftyOne);
 }
-/** True only when the user has at least one win in EVERY game (all loaded). */
+/** True only when the user has at least one win in EVERY game (all six, all loaded). */
 function wonEveryGame(a: AllStats): boolean {
   return won(a.king) >= 1 && won(a.durak) >= 1 && won(a.deberc) >= 1
-    && won(a.tarneeb) >= 1 && won(a.preferans) >= 1;
+    && won(a.tarneeb) >= 1 && won(a.preferans) >= 1 && won(a.fiftyOne) >= 1;
 }
 
-// ── the catalog (11 badges, spread across games + rarities) ──────────────────
+// ── the catalog (14 badges, spread across games + rarities) ──────────────────
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -107,6 +110,11 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'preferans-declarer', titleKey: 'ach.preferansDeclarer.title', descriptionKey: 'ach.preferansDeclarer.desc',
     icon: '🎩', gameType: 'preferans', rarity: 'common', evaluate: (s) => (s.preferans ? s.preferans.handsAsDeclarer : 0) >= 1,
+  },
+  {
+    // 51 / Syrian 51 cutthroat-rummy win (Stage 30.7) — a win empties your hand first.
+    id: 'fifty-one-winner', titleKey: 'ach.fiftyOneWinner.title', descriptionKey: 'ach.fiftyOneWinner.desc',
+    icon: '🀄', gameType: 'fifty-one', rarity: 'common', evaluate: (s) => won(s.fiftyOne) >= 1,
   },
   {
     id: 'tarneeb-contractor', titleKey: 'ach.tarneebContractor.title', descriptionKey: 'ach.tarneebContractor.desc',

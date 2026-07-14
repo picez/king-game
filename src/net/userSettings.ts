@@ -48,7 +48,7 @@ export const DEFAULT_ANIMATION_PREF: AnimationPreference = 'system';
 // Favorite game (Stage 13.3) — pre-selects the Local/Host picker. Mirrors
 // src/games/catalog GAME_TYPES as a plain constant so server validation stays
 // engine-free. Unknown/unavailable → King (the default).
-export const SUPPORTED_FAVORITE_GAMES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans'] as const;
+export const SUPPORTED_FAVORITE_GAMES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
 export type FavoriteGame = (typeof SUPPORTED_FAVORITE_GAMES)[number];
 export const DEFAULT_FAVORITE_GAME: FavoriteGame = 'king';
 

@@ -18,9 +18,10 @@ describe('gameIconSrc helper (single source)', () => {
     }
   });
 
-  it('every AVAILABLE game (all 5) ships a real, non-empty PNG emblem on disk', () => {
-    // Stage 19.9: Preferans gained its own emblem (top hat), so every available game
-    // now has a PNG (emoji stays only as GameIcon's onError fallback).
+  it('every AVAILABLE game (all 6) ships a real, non-empty PNG emblem on disk', () => {
+    // Stage 19.9: Preferans gained its own emblem (top hat); Stage 30.7: 51 gained its
+    // own (two fanned cards). Every available game now has a PNG (emoji stays only as
+    // GameIcon's onError fallback).
     for (const g of GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available')) {
       const path = join(process.cwd(), 'public', 'visual', 'icons', `game-${g}.png`);
       expect(existsSync(path), `game-${g}.png should exist`).toBe(true);

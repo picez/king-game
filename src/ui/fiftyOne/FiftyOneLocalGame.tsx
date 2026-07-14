@@ -18,7 +18,7 @@ const HUMAN_SEAT = 0;
  * Local-only 51 (Syrian 51): one human (seat 0) + 1–3 bots (51_RULES §2). Owns the
  * pure state via `fiftyOneReducer`, drives the bots through `fiftyOneBotAction`, and
  * renders the setup → table → finished flow. Entirely separate from any server /
- * online state — experimental local prototype (Stage 30.3): no online, no stats.
+ * online state — the local mode of the released 51 game (Stage 30.3; released 30.7).
  */
 export default function FiftyOneLocalGame({ onExit }: { onExit: () => void }) {
   const [state, setState] = useState<FiftyOneState | null>(null);

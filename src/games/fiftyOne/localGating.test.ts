@@ -1,11 +1,10 @@
 // ---------------------------------------------------------------------------
-// 51 is an EXPERIMENTAL game: playable LOCAL (1 human + bots, Stage 30.3) AND
-// ONLINE (server-authoritative, Stage 30.5), and it records score-only stats +
-// leaderboard (Stage 30.6) — but it is still NOT released: no favorite, no
-// achievements / All-Rounder eligibility (that is Stage 30.7). These guards assert
-// that tier from data + source, so a future change that accidentally promotes 51 to
-// the released tier (favorite / achievements) — or leaks its pure core into another
-// game — is caught by `npm test`.
+// 51 is a fully RELEASED game (Stage 30.7): playable LOCAL (1 human + bots, Stage
+// 30.3) AND ONLINE (server-authoritative, Stage 30.5), records score-only stats +
+// leaderboard (Stage 30.6), and is a first-class member — favoritable + in the
+// achievements derivation / All-Rounder. These guards assert that tier from data +
+// source, so a regression that drops 51 out of the released tier (favorite /
+// achievements) — or leaks its pure core into another game — is caught by `npm test`.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -18,13 +17,13 @@ import { SUPPORTED_FAVORITE_GAMES } from '../../net/userSettings';
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const ID = 'fifty-one';
 
-describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
-  it('is selectable in BOTH the Local and Host pickers, flagged Experimental', () => {
+describe('51 is a released game — local + online + stats + favorite (Stage 30.7)', () => {
+  it('is selectable in BOTH the Local and Host pickers as an available game', () => {
     const e = GAME_CATALOG[ID];
-    expect(e.status).toBe('experimental');
+    expect(e.status).toBe('available');
     // GamePicker: `usable = mode==='host' ? supportsOnline : supportsLocal`.
-    expect(e.supportsLocal).toBe(true);  // Local sheet: selectable (flagged Experimental)
-    expect(e.supportsOnline).toBe(true); // Host sheet: selectable (flagged Experimental)
+    expect(e.supportsLocal).toBe(true);  // Local sheet: selectable
+    expect(e.supportsOnline).toBe(true); // Host sheet: selectable
   });
 
   it('App routes local fifty-one to FiftyOneLocalGame', () => {
@@ -40,9 +39,9 @@ describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
     expect(src).toContain("import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame'");
   });
 
-  it('records score-only stats (Stage 30.6) but is still NOT favoritable (release gate)', () => {
+  it('records score-only stats (Stage 30.6) and is favoritable (Stage 30.7)', () => {
     expect(GAME_DEFINITIONS[ID].recordsStats).toBe(true);  // Stage 30.6: stats on
-    expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(ID)).toBe(false); // still not released
+    expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(ID)).toBe(true); // Stage 30.7: released
   });
 
   it('CREATE_ROOM now ACCEPTS 51 (supportsOnline true); the generic guard still gates any online:false game', () => {
@@ -51,15 +50,16 @@ describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
     expect(GAME_CATALOG[ID].supportsOnline).toBe(true);   // → an online 51 room is now allowed
   });
 
-  it('ships a 51 stats + leaderboard sub-tab (Stage 30.6) but stays OUT of achievements', () => {
+  it('ships a 51 stats + leaderboard sub-tab AND feeds achievements (Stage 30.7)', () => {
     const profile = read('src/ui/ProfileMenu.tsx');
-    // 51 is a stats/leaderboard sub-tab now…
+    // 51 is a stats/leaderboard sub-tab…
     expect(profile).toContain("'fifty-one'");
     expect(profile).toContain('FiftyOneStatsPanel');
     expect(profile).toContain('FiftyOneLeaderboardPanel');
-    // …but the achievements derivation (AllStats) must NOT gain a 51 field (Stage 30.7).
+    // …and the achievements derivation (AllStats) now includes a 51 field (Stage 30.7).
     const ach = read('src/stats/achievements.ts');
-    expect(ach).not.toMatch(/fiftyOne|fifty-one/);
+    expect(ach).toMatch(/fiftyOne/);
+    expect(ach).toContain('fifty-one-winner');
   });
 });
 
@@ -89,7 +89,7 @@ describe('51 pure core + UI stay isolated (source guards)', () => {
     }
   });
 
-  it('the five released games do NOT import the 51 core (additive only)', () => {
+  it('the other five games do NOT import the 51 core (additive only)', () => {
     for (const game of ['king', 'durak', 'deberc', 'tarneeb', 'preferans']) {
       const dir = join('src/games', game);
       for (const file of readdirSync(join(process.cwd(), dir))) {

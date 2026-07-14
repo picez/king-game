@@ -2,12 +2,12 @@
 // 51 (Syrian 51) GameDefinition (Stage 30.2; online 30.5; stats 30.6).
 //
 // Registers the 51 pure core (Stage 30.1) as a GameDefinition that plugs into the
-// catalog picker / registry / serverCore / stats seams. As of Stage 30.5 51 is
-// EXPERIMENTAL and playable **local + online** (catalog supportsLocal/Online true);
-// Stage 30.6 turns on score-only stats (`recordsStats: true` → the WS finish path
-// records under game_type='fifty-one'). It is NOT yet fully released (`status:
-// 'experimental'` — no favorite, no achievements until 30.7). This wrapper moves no
-// logic — it just references the existing fiftyOne modules. Mirrors tarneeb/definition.ts.
+// catalog picker / registry / serverCore / stats seams. 51 is playable **local +
+// online** (catalog supportsLocal/Online true) and records score-only stats
+// (`recordsStats: true` → the WS finish path records under game_type='fifty-one').
+// As of Stage 30.7 it is FULLY RELEASED (`status: 'available'` — favorite +
+// achievement + PNG icon). This wrapper moves no logic — it just references the
+// existing fiftyOne modules. Mirrors tarneeb/definition.ts.
 // ---------------------------------------------------------------------------
 
 import type { RoomSnapshot } from '../../net/messages';
@@ -24,7 +24,7 @@ const entry = GAME_CATALOG['fifty-one'];
 /**
  * START_GAME from a room snapshot. 51 seats every player individually (no teams);
  * the player count comes from the seated members (2–4). Reached on the online host
- * path (Stage 30.5, experimental) exactly like the released games.
+ * path (Stage 30.5) exactly like the released games.
  */
 function buildFiftyOneStartAction(room: RoomSnapshot): FiftyOneAction {
   const players = room.members

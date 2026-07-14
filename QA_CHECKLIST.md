@@ -31,7 +31,7 @@ npm run verify   # runs the four checks below, SEQUENTIALLY (recommended)
 
 ```bash
 npm run typecheck:server  # server/index.ts import graph (tsc -p tsconfig.server.json)
-npm test                  # unit + pure-logic tests (all 5 games + net/UI)
+npm test                  # unit + pure-logic tests (all 6 games + net/UI)
 npm run build             # client type-check + production build
 npm run e2e               # spawns a server, plays full online rounds, restart restore
 npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
@@ -503,21 +503,20 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       human, DB on), the **Preferans Declarer** badge (🎩) appears earned in Profile →
       Achievements; the unlock toast may announce it. Locked before any declaration.
 - [ ] **All-rounder:** the cross-game "won every game" badge now also requires a Preferans
-      win (5 games).
+      win (6 games — since Stage 30.7 it also requires a 51 win).
 - [ ] **Regression:** local play, online create/join/start, redaction (no opponent-hand
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
 
-## Manual — 51 (Syrian 51) — LOCAL (30.3) + ONLINE (30.5) + STATS (30.6), experimental
+## Manual — 51 (Syrian 51) — RELEASED (available, Stage 30.7)
 
-> **51 is local AND online playable, and records score-only stats (experimental) — but NOT released.**
-> The pure core + shared UI live under `src/games/fiftyOne/` / `src/ui/fiftyOne/`
-> ([`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md)); **both the Local and Host pickers enable
-> it** ("Experimental"). Online is server-authoritative (create/join/start, bots, seeded round advance,
-> per-viewer redaction, rematch/reconnect). Stage 30.6 adds **score-only stats + leaderboard** under
-> `game_type='fifty-one'` (no DB migration) with a Profile sub-tab — **still no favorite/achievements**
-> (`status: experimental`, not `available`). The standing assertion is that **the five released games'
-> stats and achievements are unchanged**.
+> **51 is now `status: available`** — a first-class **6th** game alongside King/Durak/Deberc/Tarneeb/
+> Preferans (local + server-authoritative online + bots + score-only stats + leaderboard + favorite +
+> achievement + PNG emblem). The pure core + shared UI live under `src/games/fiftyOne/` /
+> `src/ui/fiftyOne/` ([`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md)). Stats + leaderboard
+> record under `game_type='fifty-one'` (**no DB migration** — latest stays 0009). The stage ledger below
+> tracks how it got here (30.1 → 30.7); the **Release smoke** at the end is the pass to run for the flip
+> to `available`. The other five games' stats and achievements are unchanged (51 adds its own fields).
 
 - [x] *(Stage 30.1)* Pure core built: **no** catalog/registry `fiftyOne`, **no** UI, **no**
       `game_type='fifty-one'` wiring — 51 is invisible in the running app. `git grep -n fiftyOne
@@ -580,7 +579,37 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       or the game is skipped), Profile → **Stats → 51** shows games/win-rate/avg-penalty/eliminations;
       **Leaderboard → 51** lists the player (own row highlighted). A game **with a bot** or a **guest**
       records nothing. `curl -sI $HOST/api/games/fifty-one/stats` → 200 for a signed-in user.
-- [ ] *(30.7)* Achievements / favorite / PNG icon / help hub + flip to `available`.
+### Release smoke (Stage 30.7 — flip to `available`)
+
+> 51 is now released — this section is the release smoke, mirroring the other five games' release checks.
+> Run it in place of the earlier stage smokes above (they are kept as the ledger of how each stage landed).
+
+- [ ] **Picker (no Experimental tag):** the Local **and** Host sheets list **🀄 51 · 👥 2–4 · Melds** as a
+      normal, selectable option — **no** "Experimental" / "Coming soon" tag, not dimmed. `GET /api/games`
+      shows `fifty-one` with `status:"available"` and `supportsLocal/supportsOnline/supportsBots: true`.
+- [ ] **Room browser + Lobby:** a 51 room shows its **🀄 "Rummy · Melds"** label (never "Experimental");
+      the host player-count picker offers **2–4** seats.
+- [ ] **Local play:** start a local 51 game (2/3/4) → deal 13/14, opener discards to start, a normal turn
+      draws→melds→discards, discard-take gated on opening, empty-hand win, round summary (never-opened 100 /
+      joker 25), elimination at 510, match winner. No horizontal overflow at 360/390; Arabic **RTL** smoke.
+- [ ] **Online play:** host + join (2 tabs + optional bot) → each client sees **only its own hand**
+      (opponents show 🂠counts, draw pile face-down); a turn applies over the wire; the **server** drives the
+      between-rounds advance (no client "Next round" button); match winner + **Play again** (rematch) +
+      **reconnect** restores own hand only.
+- [ ] **Favorite:** Profile → Favorite game now offers **51**; selecting it makes the Local/Host picker
+      default to 51 next time; a bad stored value still falls back to King.
+- [ ] **Achievement:** after winning at least one 51 game (online, human-vs-human, DB on), the **51 Winner**
+      badge (🀄) appears earned in Profile → Achievements; the unlock toast may announce it. Locked before
+      any 51 win. A 51 win now also counts toward **totalWins/totalGames**.
+- [ ] **All-Rounder:** the cross-game "won every game" badge now also requires a **51** win (**6 games**).
+- [ ] **PNG emblem:** the game shows its own **`game-fifty-one.png`** emblem (two fanned brass/gold cards)
+      in the pickers / room browser / lobby — **not** the 🀄 emoji fallback.
+- [ ] **Stats (needs Postgres):** a signed-in human-vs-human 51 game records under `game_type='fifty-one'`;
+      Profile → **Stats → 51** (games/win-rate/avg-penalty/best-penalty/eliminations/rounds) + **Leaderboard
+      → 51** populate; a game with a **bot** or a **guest** records nothing;
+      `curl -sI $HOST/api/games/fifty-one/stats` → 200 for a signed-in user.
+- [ ] **Regression:** local play, online create/join/start, redaction (no opponent-hand leak), reconnect,
+      and stats recording all still work (covered by `npm run verify`).
 
 ## Manual — Deberc combination stats (Stage 13.8)
 

@@ -13,7 +13,7 @@ interface Props {
  * recorded outcome is win/loss plus the player's penalty aggregates and how often
  * they were eliminated. Same soft empty/auth/unavailable/error states as the other
  * game panels, so it never blocks; guests with a session see stats too. Score-level
- * only (no cards). Experimental (Stage 30.6) — no achievements/favorite yet.
+ * only (no cards). Released game (Stage 30.7) — feeds achievements + favorite.
  */
 export default function FiftyOneStatsPanel({ result, loading }: Props) {
   const { t, lang } = useI18n();

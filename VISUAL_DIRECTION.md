@@ -10,11 +10,13 @@
 > [`SOUND_DESIGN.md`](SOUND_DESIGN.md) (Stage 15.0, planning-only) — a warm, tactile,
 > default-OFF audio layer that mirrors this felt/brass/gold aesthetic.
 
-Five games ship and are all `available`: **King, Durak, Deberc, Tarneeb, Preferans**
+Six games ship and are all `available`: **King, Durak, Deberc, Tarneeb, Preferans, 51**
 — local + server-authoritative online, with stats, chat, and sticker reactions.
-(Each of the five ships a procedural PNG emblem under `visual/icons/` — Preferans is a
-refined brass **top hat** added Stage 19.9; emoji remains only as `GameIcon`'s onError
-fallback.) The
+(Each of the six ships a procedural PNG emblem under `visual/icons/` — Preferans is a
+refined brass **top hat** added Stage 19.9, and **51 (Syrian 51)** is **two fanned
+brass/gold cards** (`game-fifty-one.png`, 512×512, ~26 KB, `scripts/gen-visual-assets.mjs`,
+matching the golden emblem coins) added Stage 30.7; emoji remains only as `GameIcon`'s
+onError fallback.) The
 **function is strong; the shell reads flat/cheap**. The palette in `base.css` is
 already the right idea (dark-green felt + brass/gold); it just needs real texture,
 depth, tactile assets, and motion instead of flat CSS gradients + emoji.

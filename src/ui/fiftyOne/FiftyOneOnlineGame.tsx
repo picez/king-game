@@ -23,7 +23,7 @@ interface Props {
 }
 
 /**
- * Online 51 adapter (Stage 30.5, experimental). Reuses the shared FiftyOneGameScreen,
+ * Online 51 adapter (Stage 30.5; released 30.7). Reuses the shared FiftyOneGameScreen,
  * but every action goes over the network (`dispatch` → ACTION_REQUEST) and the bots /
  * other players + the public `round_complete` advance (seeded START_NEXT_ROUND) are
  * driven by the SERVER — this component never dispatches them and holds no local

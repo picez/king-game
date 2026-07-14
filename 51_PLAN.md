@@ -1,10 +1,11 @@
 # 51 (Syrian 51) — Implementation Plan
 
-> **STATUS: PLANNED (Stage 30.0, docs-only).** No runtime code exists yet. Rules are
-> specified in [`51_RULES.md`](51_RULES.md); this file stages the build. 51 will be the
-> **6th game** on the Card Majlis platform, reusing the exact same seams as
+> **STATUS: RELEASED (Stage 30.7).** 51 is the fully `available` **6th game** on the Card
+> Majlis platform — local + server-authoritative online + score-only stats/leaderboard +
+> favorite + a `fifty-one-winner` achievement + PNG emblem — reusing the exact same seams as
 > King / Durak / Deberc / Tarneeb / Preferans (pure core → `GameDefinition` → serverCore
-> → UI → stats). **Nothing here is built until the [§ Open questions](51_RULES.md#16-open-questions--confirmations-needed) are confirmed** (or the recommended MVP defaults are accepted).
+> → UI → stats). Rules are in [`51_RULES.md`](51_RULES.md); every §16 open question shipped on
+> its recommended MVP default. The staged rollout (30.1 core → 30.7 release) is recorded below.
 
 ## Identifiers
 
@@ -180,10 +181,23 @@
   **No DB migration, no achievements, no favorite, no PNG, no rule change, no new dependency; the
   five released games' stats/achievements are unchanged.**
 
-### 30.7 — Achievements / icon / release cleanup
-- Game emblem/icon (like the other five), derived achievements (no DB write, same as the
-  13 existing), help hub entry, doc-drift pass, and a `v0.4.0`-style release once 51 is a
-  first-class member. Update `PROJECT_OVERVIEW`/`MVP_STATUS` from "planned" to "released".
+### 30.7 — Achievements / icon / release cleanup — ✅ DONE
+- **51 released as the 6th `available` game.** Catalog flipped to **`status: 'available'`**
+  (`supportsLocal`/`Online`/`Bots` true, 2–4 players) → both pickers show it with **no
+  "Experimental" tag**, diagnostics/`/api/games` now count **6 available games**. **Favorite:**
+  added `fifty-one` to `SUPPORTED_FAVORITE_GAMES` + the Profile favorite picker (emoji 🀄 / PNG
+  emblem). **Achievements:** new derived **`fifty-one-winner`** badge (win ≥1 game of 51, icon 🀄,
+  common) and `fiftyOne` joined the `AllStats` canonical set — `totalWins`/`totalGames` and
+  **All-Rounder now require a win in all six games**; ProfileMenu's achievements loader fetches 51
+  stats. **Icon:** procedural `game-fifty-one.png` (two fanned brass cards, ~26 KB) added to
+  `scripts/gen-visual-assets.mjs` + the `visualAssets` manifest (10 P0 assets); the generator does
+  not churn the existing assets. **Copy/docs:** removed "Experimental" language from the setup/
+  picker/lobby/profile and refreshed `MVP_STATUS`/`PROJECT_OVERVIEW`/`QA_CHECKLIST`/
+  `PRODUCTION_SMOKE`/`CHANGELOG`/visual docs to a **six-game platform**. Tests: catalog/registry/
+  platformAudit/diagnostics/apiDisabled/localGating/fiftyOneStatsWiring/achievements/visualAssets/
+  gameIconIntegration updated (6 available games, favorite + achievement coverage, PNG count).
+  **No DB migration, no new dependency, no rule/protocol change, no version bump/tag** (changes stay
+  under CHANGELOG "Unreleased"); the five released games are unchanged. `npm run verify` green.
 
 ---
 

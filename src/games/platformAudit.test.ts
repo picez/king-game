@@ -1,13 +1,12 @@
 // ---------------------------------------------------------------------------
-// Platform consistency audit (Stage 20.0; extended Stage 30.2 for coming_soon).
-// A single high-signal guard over GAME_TYPES that catches a game drifting out of
-// its declared support tier. The FIVE released games must stay uniformly
-// available (catalog, GameDefinition, stats, favorite coverage, PNG icon); a
-// not-yet-released game (51 / Syrian 51, experimental) may be startable — local +
-// online-experimental (Stage 30.5) — and may even record score-only stats (Stage
-// 30.6), yet must still be gated OFF where RELEASE counts (not favoritable, status
-// !== 'available', no achievements/All-Rounder, no required PNG). Per-game specifics
-// live in the catalog/registry/gameIcon tests — this asserts the CROSS-CUTTING invariants.
+// Platform consistency audit (Stage 20.0; extended Stage 30.2 for coming_soon,
+// Stage 30.7 for the 51 full release). A single high-signal guard over GAME_TYPES
+// that catches a game drifting out of its declared support tier. All SIX released
+// games (King, Durak, Deberc, Tarneeb, Preferans, 51) must stay uniformly
+// available: catalog (local + online + bots), GameDefinition, score-recording,
+// favorite coverage, and a real PNG icon. There is no not-yet-released game today
+// (51 graduated at Stage 30.7). Per-game specifics live in the catalog/registry/
+// gameIcon tests — this asserts the CROSS-CUTTING invariants.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -22,27 +21,27 @@ const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const iconPath = (id: string) => join(process.cwd(), 'public', gameIconSrc(id).replace(/^\//, ''));
 
 const AVAILABLE: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status === 'available');
-// Registered but not fully released — experimental (local-only) or coming_soon.
+// Registered but not fully released — experimental or coming_soon. None today.
 const NOT_RELEASED: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status !== 'available');
 
-describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
-  it('the five released games are all fully available; 51 is the lone not-yet-released game', () => {
-    expect(AVAILABLE).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans']);
-    expect(NOT_RELEASED).toEqual(['fifty-one']);
+describe('platform tiers are internally consistent (Stage 20.0 / 30.7)', () => {
+  it('all six games are fully available; there is no not-yet-released game', () => {
+    expect(AVAILABLE).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+    expect(NOT_RELEASED).toEqual([]);
     for (const id of AVAILABLE) {
       const e = GAME_CATALOG[id];
       expect(e.supportsLocal, `${id} local`).toBe(true);
       expect(e.supportsOnline, `${id} online`).toBe(true);
       expect(e.supportsBots, `${id} bots`).toBe(true);
     }
-    // 51 is experimental: local + online playable (Stage 30.5) but still NOT released
-    // (status !== 'available' → no stats/favorite/PNG requirement — see below).
-    expect(GAME_CATALOG['fifty-one'].status).toBe('experimental');
+    // 51 is a first-class released member (Stage 30.7).
+    expect(GAME_CATALOG['fifty-one'].status).toBe('available');
     expect(GAME_CATALOG['fifty-one'].supportsLocal).toBe(true);
     expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);
+    expect(GAME_CATALOG['fifty-one'].supportsBots).toBe(true);
   });
 
-  it('every game (incl. not-yet-released) has a registered definition + declares seat counts', () => {
+  it('every game has a registered definition + declares seat counts', () => {
     for (const id of GAME_TYPES) {
       const def = GAME_DEFINITIONS[id];
       expect(def, `${id} definition`).toBeTruthy();
@@ -52,20 +51,13 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
     }
   });
 
-  it('available games record stats; a not-yet-released game may record stats but is not "available"', () => {
+  it('every available game records stats', () => {
     for (const id of AVAILABLE) {
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} recordsStats`).toBe(true);
     }
-    for (const id of NOT_RELEASED) {
-      // The RELEASE gate is `status === 'available'` + favorite/PNG coverage (below),
-      // NOT stats or online support: 51 is online-experimental AND records score-only
-      // stats (Stage 30.6) yet stays `experimental` and non-favoritable. That is what
-      // keeps it out of the released tier (achievements/All-Rounder untouched — 30.7).
-      expect(GAME_CATALOG[id].status, `${id} not available`).not.toBe('available');
-    }
   });
 
-  it('the favorite-game list covers exactly the AVAILABLE games (not-yet-released excluded)', () => {
+  it('the favorite-game list covers exactly the AVAILABLE games', () => {
     expect([...SUPPORTED_FAVORITE_GAMES].sort()).toEqual([...AVAILABLE].sort());
     for (const id of NOT_RELEASED) {
       expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(id), `${id} not favoritable`).toBe(false);
@@ -83,6 +75,5 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
       expect(statSync(path).size, `${id} icon < 150KB`).toBeLessThan(150 * 1024);
       expect(readFileSync(path).subarray(0, 8).equals(PNG_SIG), `${id} is a PNG`).toBe(true);
     }
-    // A coming_soon game needs no PNG yet — GameIcon falls back to an emoji glyph.
   });
 });

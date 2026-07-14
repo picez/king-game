@@ -8,7 +8,7 @@
 // server seed, redaction leaks nothing, and the state round-trips through
 // persistence.
 //
-// Since Stage 30.5 51 IS hostable online (supportsOnline true, experimental) — the
+// Since Stage 30.5 51 IS hostable online (supportsOnline true; released 30.7) — the
 // end-to-end WS path is covered by wsHandlers.fiftyOne + fiftyOneRedactionOnline;
 // this file keeps exercising serverCore directly for the fine-grained authorization /
 // redaction / autoAdvance / persistence behaviour. Mirrors preferansServerCore.test.ts.
@@ -87,9 +87,9 @@ function drive(room: ServerRoom, opts: { stopPhase?: FiftyOneState['phase']; cap
 }
 
 describe('serverCore runs 51 internally (Stage 30.4 readiness)', () => {
-  it('51 is online-experimental and records score-only stats (still not "available")', () => {
+  it('51 is online-available and records score-only stats (released 30.7)', () => {
     expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);   // Stage 30.5: hostable online
-    expect(GAME_CATALOG['fifty-one'].status).toBe('experimental'); // still not fully released
+    expect(GAME_CATALOG['fifty-one'].status).toBe('available');    // Stage 30.7: fully released
     expect(def.recordsStats).toBe(true);                           // Stage 30.6: score-only stats on
   });
 

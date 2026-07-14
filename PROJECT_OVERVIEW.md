@@ -20,7 +20,7 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps
 
 ## What it is
 
-A mobile-first web **card lounge** for five games, playable **local pass-and-play** or
+A mobile-first web **card lounge** for six games, playable **local pass-and-play** or
 **server-authoritative online**. React + TypeScript (Vite) client; a single Node
 (`ws`) server hosts the client, the `/ws` socket, and the `/api/*` HTTP surface on one
 origin. Postgres is **optional** — with no `DATABASE_URL` the app runs fully on
@@ -29,7 +29,7 @@ Installable **PWA**: a network-first service worker (offline app shell), a
 non-intrusive **install** card, a user-controlled **"Update available"** refresh (no
 auto-refresh mid-game), and an **offline** hint.
 
-## Supported games (5 released, local + online)
+## Supported games (6 released, local + online)
 
 | Game | Players | Notes |
 |------|---------|-------|
@@ -38,17 +38,16 @@ auto-refresh mid-game), and an **offline** hint.
 | **Deberc** | 3–4 | 3 = solo, 4 = 2×2 teams; melds/bella/jackpot — [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + 2-card talon, 32-card — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
+| **51** (Syrian 51) | 2–4 | Cutthroat rummy — form runs/sets, open with 51+, jokers wild, penalty scoring, eliminate at 510 — [`51_RULES.md`](51_RULES.md) |
 
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Next up (registered, not yet playable):** **51 / Syrian 51** — a 2–4 player rummy-style
-meld-and-discard game (form runs/sets, open with 51+ points, jokers wild, penalty scoring,
-eliminate at 510). **`coming_soon` as of Stage 30.2**: the pure core is built
-(`src/games/fiftyOne/`, id **`fifty-one`**) and wired as a catalog/GameDefinition entry, so it
-shows in `/api/games` and the picker as **"Coming soon" (disabled)** — no local/online/stats
-yet (local prototype 30.3, online 30.4–30.5). See [`51_RULES.md`](51_RULES.md) and the staged
-build in [`51_PLAN.md`](51_PLAN.md).
+**51 / Syrian 51** was released as the **6th game** at Stage 30.7 (`status: available`): local +
+server-authoritative online + score-only stats/leaderboard, a favorite-game option, a
+`fifty-one-winner` achievement (counts toward All-Rounder), and its own PNG emblem — the same seams
+as the other five. Its pure core is `src/games/fiftyOne/` (id **`fifty-one`**), shared UI in
+`src/ui/fiftyOne/`. See [`51_RULES.md`](51_RULES.md) and the staged build in [`51_PLAN.md`](51_PLAN.md).
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
 local + online, score-only stats/leaderboard, a favorite-game option, and a "Preferans
@@ -124,7 +123,7 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
 - **CI toolchain:** **Node 22 / npm 10**, install with `npm ci`; the committed
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
 - **After a deploy:** run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
-  checklist (health / 5 games / rooms / stats / avatars / social / security).
+  checklist (health / 6 games / rooms / stats / avatars / social / security).
 - **Migrations:** when Postgres is enabled, run **`npm run db:migrate`** after every deploy —
   Friends need `0009_friends.sql`, and a missing column surfaces as `/api/me → 503
   migration_required`.

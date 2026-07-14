@@ -57,10 +57,9 @@ interface Props {
 type Tab = 'profile' | 'friends' | 'stats' | 'achievements' | 'leaderboard';
 type GameKey = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans' | 'fifty-one';
 
-// 51 (Stage 30.6) is EXPERIMENTAL and, like Preferans before its release, gets
-// stats + leaderboard sub-tabs but is intentionally NOT part of the achievements
-// derivation (AllStats stays on the released games) — so 51 never affects
-// All-Rounder / totalWins / totalGames until it exits experimental (Stage 30.7).
+// 51 (Stage 30.7) is a fully released game: stats + leaderboard sub-tabs AND part
+// of the achievements derivation (AllStats includes it), so it counts toward
+// All-Rounder / totalWins / totalGames like the other five.
 const GAMES: readonly GameKey[] = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
 
 /**
@@ -209,11 +208,9 @@ export default function ProfileMenu({
       if (statsGame === 'deberc' && !debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
       if (statsGame === 'tarneeb' && !tarneebOnce.current) { tarneebOnce.current = true; void loadTarneebStats(); }
       if (statsGame === 'preferans' && !preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
-      // 51 (Stage 30.6, experimental) — stats sub-tab only; NEVER loaded for the
-      // achievements tab below, so it can't feed All-Rounder.
       if (statsGame === 'fifty-one' && !fiftyOneOnce.current) { fiftyOneOnce.current = true; void loadFiftyOneStats(); }
     }
-    // Achievements are derived from ALL five stat sets — load each once (reusing
+    // Achievements are derived from ALL six stat sets — load each once (reusing
     // the same `once` refs, so opening the stats tab later won't refetch).
     if (tab === 'achievements') {
       if (!statsOnce.current) { statsOnce.current = true; void loadStats(); }
@@ -224,6 +221,8 @@ export default function ProfileMenu({
       // without touching the canonical Pairs state.
       if (!tarneebSoloOnce.current) { tarneebSoloOnce.current = true; void loadTarneebSoloStats(); }
       if (!preferansOnce.current) { preferansOnce.current = true; void loadPreferansStats(); }
+      // 51 (Stage 30.7) — released, so it feeds All-Rounder + the 51 win badge.
+      if (!fiftyOneOnce.current) { fiftyOneOnce.current = true; void loadFiftyOneStats(); }
     }
     if (tab === 'leaderboard') {
       if (boardGame === 'king' && !boardOnce.current) { boardOnce.current = true; void loadBoard(); }
@@ -278,19 +277,19 @@ export default function ProfileMenu({
   const dataOf = <T,>(l: Loadable<T> | null): T | null => (l && l.state === 'ok' ? l.data : null);
   const allStats: AllStats = {
     king: dataOf(stats), durak: dataOf(durakStats), deberc: dataOf(debercStats),
-    tarneeb: dataOf(tarneebStats), preferans: dataOf(preferansStats),
+    tarneeb: dataOf(tarneebStats), preferans: dataOf(preferansStats), fiftyOne: dataOf(fiftyOneStats),
     // Tarneeb SOLO (Stage 28.6) — its own dimension, feeds ONLY the solo badge; never
     // overwrites the canonical `tarneeb` (Pairs) used by All-Rounder + the pair badges.
     tarneebSolo: dataOf(tarneebSoloStats),
   };
-  const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats && tarneebSoloStats);
+  const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats && fiftyOneStats && tarneebSoloStats);
   const achLoading = tab === 'achievements' && !allResolved;
   // Only a clean "no session" state (every set unauthenticated) shows the sign-in
   // hint; a mix (some ok, some error) still renders the grid with what we have.
   const needsSignIn = allResolved
     && stats!.state === 'unauthenticated' && durakStats!.state === 'unauthenticated'
     && debercStats!.state === 'unauthenticated' && tarneebStats!.state === 'unauthenticated'
-    && preferansStats!.state === 'unauthenticated';
+    && preferansStats!.state === 'unauthenticated' && fiftyOneStats!.state === 'unauthenticated';
 
   // Once the four stat sets have resolved, compare earned badges against the
   // seen ledger and queue any that are new. Runs at most once per screen open;

@@ -3,9 +3,9 @@
  *
  * Every card game enters through this registry instead of scattering string
  * literals across room discovery, stats, and settings. King is the default;
- * King, Durak, Deberc, Tarneeb, and Preferans are all fully playable (`available`)
- * — local + server-authoritative online, each recording its own per-`game_type`
- * stats.
+ * King, Durak, Deberc, Tarneeb, Preferans, and 51 (Syrian 51) are all fully
+ * playable (`available`) — local + server-authoritative online, each recording
+ * its own per-`game_type` stats.
  */
 
 export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
@@ -14,10 +14,11 @@ export type GameType = typeof GAME_TYPES[number];
 
 /**
  * Playability status surfaced to the client:
- *  - 'available'   → fully playable + released (King, Durak, Deberc, Tarneeb, Preferans);
+ *  - 'available'   → fully playable + released (King, Durak, Deberc, Tarneeb,
+ *                    Preferans, 51);
  *  - 'coming_soon' → registered but not startable in any mode (none today);
- *  - 'experimental'→ playable but not fully released — 51 / Syrian 51 (Stage 30.3):
- *                    local prototype only (supportsLocal, NOT supportsOnline), no stats.
+ *  - 'experimental'→ playable but not fully released (none today — 51 graduated to
+ *                    `available` at Stage 30.7).
  */
 export type GameAvailability = 'available' | 'coming_soon' | 'experimental';
 
@@ -113,10 +114,10 @@ export const GAME_CATALOG = {
     minPlayers: 2,          // 2–4 players, each on their own side (51_RULES §2)
     maxPlayers: 4,
     defaultPlayerCount: 4,  // social table default (2–4 all supported by the core)
-    supportsLocal: true,    // Stage 30.3: local prototype (1 human + bots)
-    supportsOnline: true,   // Stage 30.5: server-authoritative online rooms (experimental, no stats)
+    supportsLocal: true,    // Stage 30.3: local play (1 human + bots)
+    supportsOnline: true,   // Stage 30.5: server-authoritative online rooms
     supportsBots: true,     // pure core has a deterministic greedy bot (Stage 30.1)
-    status: 'experimental', // Stage 30.5: local + online playable, NOT fully released (no stats/favorite)
+    status: 'available',    // Stage 30.7: released — local + online + stats + favorite + achievement
     rulesDoc: '51_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

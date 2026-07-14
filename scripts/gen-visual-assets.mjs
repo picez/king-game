@@ -238,6 +238,25 @@ function iconPreferans(nx, ny) {
   }, 0.012);
 }
 
+// two fanned playing cards (51 — a cutthroat rummy of runs & sets / melds). A
+// signed rounded-rect SDF per card (>0 inside); the max of the two unions them,
+// so the back card's edge reads as a seam where it peeks out behind the front one.
+// Distinct from crown/jester/gem/spade/top-hat and legible at 32–64 px. No text.
+function roundCard(nx, ny, cx, cy, hw, hh, rot, rad) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  const dx = nx - cx, dy = ny - cy;
+  const u = Math.abs(dx * c + dy * s) - hw + rad;
+  const v = Math.abs(-dx * s + dy * c) - hh + rad;
+  const sdf = Math.hypot(Math.max(u, 0), Math.max(v, 0)) + Math.min(Math.max(u, v), 0) - rad;
+  return -sdf; // >0 inside; magnitude ≈ distance to the (rounded) card edge
+}
+function iconFiftyOne(nx, ny) {
+  return emblem(nx, ny, (x, y) => Math.max(
+    roundCard(x, y, 0.565, 0.49, 0.140, 0.200, 0.24, 0.028),   // back card (fanned right)
+    roundCard(x, y, 0.445, 0.515, 0.140, 0.200, -0.24, 0.028), // front card (fanned left)
+  ), 0.010);
+}
+
 // ── P1: finish frame (ornamental transparent banner behind a winner summary) ──
 // Transparent interior (content shows through) + a brass double-line rounded-rect
 // border, 8-point corner rosettes, and a very faint warm interior glow. No text.
@@ -323,6 +342,7 @@ emit('visual/icons/game-durak.png', png(512, 512, 4, iconDurak));
 emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));
 emit('visual/icons/game-tarneeb.png', png(512, 512, 4, iconTarneeb));
 emit('visual/icons/game-preferans.png', png(512, 512, 4, iconPreferans));
+emit('visual/icons/game-fifty-one.png', png(512, 512, 4, iconFiftyOne));
 
 console.log('Generating P1 visual assets (finish frame + seat badges)…');
 emit('visual/finish-frame.png', png(1600, 700, 2, finishFrame));
