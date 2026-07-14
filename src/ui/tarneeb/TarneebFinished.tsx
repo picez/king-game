@@ -14,7 +14,7 @@ interface Props {
   rematch?: RematchUi | null;
 }
 
-/** End screen: did the human's team (Pairs) / self (Solo) win at target 41. */
+/** End screen: did the human's team (Pairs) / self (Solo) win at the match target (default 41). */
 export default function TarneebFinished({ state, humanSeat, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   if (isSoloTarneeb(state)) {

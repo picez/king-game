@@ -4,9 +4,9 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.5** — table HUD & reactions polish (display-only: Tarneeb mirrored
-> reaction/sticker anchors fixed, per-turn timer moved to a bottom-of-table HUD with a bigger clock,
-> Tarneeb Solo/Pairs + Deberc score/trick readouts made more readable), on the **v0.3.4** Durak
+> **Release:** **v0.3.6** — Tarneeb target score & compact table (host-configurable match target,
+> presets 31/41/61/101, default 41; compact/centered ranked score table; per-turn timer moved into the
+> social control cluster), on the **v0.3.5** table HUD & reactions polish, the **v0.3.4** Durak
 > final-defence reveal + online timer polish, the **v0.3.3** Tarneeb scoring correction + Deberc table
 > resize, the **v0.3.2** Tarneeb Solo release & bandwidth-hardening patch, over the **v0.3.0** social &
 > voice release and v0.2.0 five-game platform.

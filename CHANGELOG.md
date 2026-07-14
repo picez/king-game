@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.3.6] — 2026-07-14 — Tarneeb target score and compact table
+
+A Tarneeb-focused patch on **v0.3.5**. The match **target score is now host-configurable** (presets
+31/41/61/101, default 41, for Pairs and Solo), the in-game **ranked score table is compact and
+centered**, the per-turn **timer now rides in the social control cluster** (not over the table), and
+the Tarneeb HUD is the **ranked score table** introduced across 29.7. **No rules/scoring change, no DB
+migration** (0009 stays the latest), **no dependency changes**; the one new online field
+(`tarneebTargetScore`) is optional and backward-compatible. `/health/diagnostics` `version` reads
+`0.3.6`.
+
 ### Added
 
 - **Tarneeb match target is now host-configurable (Stage 29.8, owner).** When creating a Tarneeb

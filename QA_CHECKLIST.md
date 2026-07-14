@@ -361,8 +361,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — Tarneeb online (released `available`, Stage 10.8)
 
-> Tarneeb is a fixed **2×2 partnership** bid-and-trump game (4 players, target 41).
-> Released with stats; **no Experimental tag** anywhere.
+> Tarneeb is a **2×2 partnership** bid-and-trump game (4 players; host-configurable
+> match target, default 41). Released with stats; **no Experimental tag** anywhere.
 
 - [ ] **No Experimental tag** for Tarneeb — the game picker shows a plain
       **♠️ Tarneeb · 2 teams** entry, the Host sheet has no beta note, and the
@@ -375,7 +375,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       match ends at 61 (not 41). An older client that sends no target → the room defaults to **41**.
       The **local** Tarneeb setup has the same picker; per-hand scoring is unchanged either way.
 - [ ] **Help modal** explains: 4 players / partners opposite, bid 3–13, declarer
-      names trump + leads, follow suit, made vs set scoring, all-13 = +13, target 41.
+      names trump + leads, follow suit, made vs set scoring, all-13 = +13, target (default 41).
 - [ ] **Host + Add bots + Start** → the **Tarneeb** table renders (seats around
       the felt, viewer bottom, partner top), with bidding → trump → trick play.
 - [ ] **Readouts:** scoreboard shows the **highest bid + bidder**, the **trump**,

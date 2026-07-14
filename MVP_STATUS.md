@@ -5,9 +5,9 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.3.5`** (table HUD & reactions polish — display-only: Tarneeb
-mirrored reaction/sticker anchors fixed, per-turn timer moved to a bottom-of-table HUD with a bigger
-clock, Tarneeb Solo/Pairs + Deberc score/trick readouts made more readable; on the `v0.3.4` Durak
+**Status: stable MVP — release `v0.3.6`** (Tarneeb target score & compact table — host-configurable
+match target (presets 31/41/61/101, default 41), compact/centered ranked score table, per-turn timer
+moved into the social control cluster; on the `v0.3.5` table HUD & reactions polish, the `v0.3.4` Durak
 final-defence reveal + online timer polish, the `v0.3.3` Tarneeb scoring correction + Deberc table
 resize, the `v0.3.2` Tarneeb Solo release & bandwidth-hardening patch, over the `v0.3.0`
 social & voice release and v0.2.0 five-game platform, 2026-07-14; see [`CHANGELOG.md`](CHANGELOG.md)). Local pass-and-play and server-authoritative
@@ -29,7 +29,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | **King** (default) | 3–4 | 7 modes, Dealer's Choice; source of truth [`KING_RULES.md`](KING_RULES.md) |
 | **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
-| **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, target 41. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
+| **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,

@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.5`** (tag `v0.3.5`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.6`** (tag `v0.3.6`).
 
 Set your host once and reuse it below:
 
@@ -23,21 +23,22 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.5 adds no migrations** — 0009 is still the latest (the table HUD & reactions polish is
-> display-only; no schema change, and Tarneeb Solo stats still reuse `game_type='tarneeb-solo'`).
+> **v0.3.6 adds no migrations** — 0009 is still the latest (the Tarneeb target-score + compact-table
+> patch has no schema change; the one new online field `tarneebTargetScore` is optional, and Tarneeb
+> Solo stats still reuse `game_type='tarneeb-solo'`).
 
 ---
 
-## 0. v0.3.5 release smoke (fast targeted pass)
+## 0. v0.3.6 release smoke (fast targeted pass)
 
-What v0.3.5 (table HUD & reactions polish, Stage 29.5) specifically touches, plus the v0.3.4 Durak
-reveal + online-timer checks and the v0.3.3/v0.3.2 correctness/platform checks it rides on. All
-v0.3.5 changes are **display-only** (no rules/scoring/schema/protocol change). The numbered sections
-cover each in depth.
+What v0.3.6 (Tarneeb target score + compact table, Stages 29.7–29.8) specifically touches, plus the
+v0.3.5 table-HUD/reactions checks and the v0.3.4/v0.3.3/v0.3.2 checks it rides on. v0.3.6 changes are
+display-only apart from the one **optional, backward-compatible** online field (`tarneebTargetScore`);
+**no rules/scoring/schema change**. The numbered sections cover each in depth.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.5`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.6`**, `commit` matches the deploy,
       `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.5).
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.6).
 - [ ] **Durak trump/deck + final-defence reveal (v0.3.4):** on the Durak table the **face-up trump +
       draw pile are visibly larger** (~+22%) with no 360/390 overflow; and when the **last attack is
       beaten** (or the defender takes), the completed **attack+defence pair stays on the felt ~2 s**
@@ -57,17 +58,17 @@ cover each in depth.
       game (Pairs or Solo), each sends a reaction → it floats over **that sender's own visible seat**
       on *both* screens (not the opposite seat). Spot-check one non-mirrored game (Durak/Deberc) as a
       control. This is the mirror-fix — the sender always saw it right; the *other* viewer was wrong.
-- [ ] **Timer in the social cluster (Stage 29.7, Unreleased):** in an online game with a host timer,
+- [ ] **Timer in the social cluster (Stage 29.7, v0.3.6):** in an online game with a host timer,
       the **⏱ pill sits in the bottom-right control cluster** (just above voice/emoji/chat), with a
       **bigger clock + countdown**, and **pulses when low**. It is **never over** the table cards, hand,
       or bid/trump action bars at 360/390 (a tap lands on the control/card underneath). Timer **off** →
       no pill. Low-time sound **only on your turn**.
-- [ ] **Tarneeb ranked score table (Stage 29.7; compact/centered 29.8, Unreleased):** the HUD is a
+- [ ] **Tarneeb ranked score table (Stage 29.7; compact/centered 29.8, v0.3.6):** the HUD is a
       **compact, centered table** (capped width + subtle card) sorted by total score — columns
       **# · player/team · ▶bid · 🃏tricks · ★score**. The declarer/high-bidder row shows **▶ + amount**;
       **Solo** lists 4 players by name (no Team A/B), **Pairs** lists Us/Them. Your row is tinted, the
       acting row washed + ●, the leader shows 👑. Rows do **not** reorder mid-trick; no 360/390 overflow.
-- [ ] **Tarneeb match target (Stage 29.8, Unreleased):** host a Tarneeb room, pick **🎯 61** in the
+- [ ] **Tarneeb match target (Stage 29.8, v0.3.6):** host a Tarneeb room, pick **🎯 61** in the
       Host sheet → the room-browser/lobby line shows **`· 🎯 61`**; after Start the in-game 🎯 reads
       **61** and the match ends at 61. Works for **Pairs and Solo**; a legacy client (no target) →
       **41**. Rematch keeps the chosen target. Per-hand scoring unchanged.

@@ -14,8 +14,8 @@ interface Props {
  * selector, default Pairs so existing behaviour is unchanged:
  *  - Pairs — the classic 4-player, 2×2 partnership game (teams 0&2 vs 1&3);
  *  - Solo  — 4-player cutthroat, every player for themselves (Stage 28.1 core).
- * Both start a 1-human + 3-bot table to the fixed MVP target of 41. Solo is
- * LOCAL only for now — online Tarneeb stays Pairs (see TARNEEB_SOLO_PLAN.md).
+ * Both start a 1-human + 3-bot table; the host picks the match target (default 41,
+ * presets 31/41/61/101 — Stage 29.8). Both modes are also released online (Stage 28.4).
  */
 export default function TarneebSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();

@@ -371,7 +371,7 @@ A future implementation is **not accepted** until these pass:
     (`+2×bid`), overtricks score the tricks won (`+tricks`); defenders `+0`.
 15. **Failed contract scoring:** declarer `−bid`, defenders `+theirTricks`.
 16. **Negative** scores are allowed and tracked.
-17. Reaching **target 41** ends the game with the correct winner.
+17. Reaching the **match target** (default 41; host-configurable, §10) ends the game with the correct winner.
 18. **Redaction** hides opponents' hands (counts only) while keeping bids/trump/
     trick/scores public.
 19. An **illegal out-of-turn** action is rejected.
@@ -397,11 +397,11 @@ the same redaction/reconnect guarantees as the other three games.
 
 ## 17. Solo / individual variant status
 
-> **CURRENT STATUS (v0.3.5): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
-> (4-player cutthroat).** (v0.3.5 adds a display-only HUD polish: the Solo standings highlight the
-> current turn and read more clearly, the Pairs Us/Them boards get bigger tabular scores, and
-> reaction/sticker chips now anchor over the sender's actual seat in Tarneeb's mirrored layout; no
-> rules/scoring change.) Solo is fully playable **local + online**, records **stats + a leaderboard**
+> **CURRENT STATUS (v0.3.6): Tarneeb ships TWO released modes — Pairs (2×2, default) and Solo
+> (4-player cutthroat).** (v0.3.6 makes the **match target host-configurable** — presets 31/41/61/101,
+> default 41, for both modes (§10) — and makes the in-game **ranked score table compact/centered**; the
+> per-turn timer rides in the social control cluster. Per-hand scoring is unchanged.) Solo is fully
+> playable **local + online**, records **stats + a leaderboard**
 > under a separate `game_type='tarneeb-solo'` (no schema change), preserves the mode across rematch,
 > and has one achievement ("Tarneeb Soloist"). §1–§16 above describe the **Pairs** game (byte-for-byte
 > unchanged); Solo differs only in seating/scoring (per-seat; **contract-scored exactly like Pairs §8**
