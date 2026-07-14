@@ -36,4 +36,37 @@ describe('reactionAnchorForSender (Stage 27.1)', () => {
     expect(reactionAnchorForSender(1, 0, 0)).toBe('center');      // no seats (lobby / unknown)
     expect(reactionAnchorForSender(1, 0, 6)).toBe('center');      // unsupported count
   });
+
+  // Stage 29.5 — Tarneeb mirrors its seats left↔right on screen, so reactions must use the
+  // mirrored convention (rel = mySeat − fromSeat) or a remote viewer sees the chip on the wrong side.
+  describe('mirrored layouts (Tarneeb)', () => {
+    it('the sender still anchors to the bottom for every seat (why the sender never saw the bug)', () => {
+      for (let seat = 0; seat < 4; seat++) {
+        expect(reactionAnchorForSender(seat, seat, 4, true)).toBe('bottom');
+      }
+    });
+
+    it('4 players mirrored: left/right swap vs the forward mapping; the partner (top) is unchanged', () => {
+      // viewer = seat 0. Forward would give seat 1 → left, seat 3 → right; mirrored flips them.
+      expect(reactionAnchorForSender(1, 0, 4, true)).toBe('right');
+      expect(reactionAnchorForSender(3, 0, 4, true)).toBe('left');
+      expect(reactionAnchorForSender(2, 0, 4, true)).toBe('top'); // opposite seat is symmetric
+      // viewer = seat 2 (rotation is relative).
+      expect(reactionAnchorForSender(3, 2, 4, true)).toBe('right');
+      expect(reactionAnchorForSender(1, 2, 4, true)).toBe('left');
+      expect(reactionAnchorForSender(0, 2, 4, true)).toBe('top');
+    });
+
+    it('mirrored matches the screen seatPosition (viewerSeat − seat) for every viewer/sender pair', () => {
+      // TarneebGameScreen seats a player at POSITIONS[(viewer − seat + 4) % 4],
+      // POSITIONS = ['bottom','left','top','right']. The anchor must agree.
+      const POSITIONS = ['bottom', 'left', 'top', 'right'] as const;
+      for (let viewer = 0; viewer < 4; viewer++) {
+        for (let sender = 0; sender < 4; sender++) {
+          const screen = POSITIONS[(viewer - sender + 4) % 4];
+          expect(reactionAnchorForSender(sender, viewer, 4, true)).toBe(screen);
+        }
+      }
+    });
+  });
 });

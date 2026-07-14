@@ -160,6 +160,9 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       names, not "Team A/B"); a Solo win shows an individual celebration.
       *(Stage 28.2: same released engine/scoring — 3p Solo vs 4p Pairs is the seat count; only the
       online host/lobby/celebration were made mode-aware. Arabic RTL: no horizontal overflow.)*
+- [ ] **Deberc match-score strip readability (Stage 29.5):** the top score chips show a **larger,
+      tabular score number**, and **your own** team/seat chip has a **green top edge**. Works the same
+      for **3p Solo** (3 chips) and **4p Pairs** (2 team chips) — labels unchanged. No 360/390 overflow.
 - [ ] **Tarneeb LOCAL Pairs (default):** local Tarneeb setup shows a **Pairs / Solo** picker with
       Pairs pre-selected; starting Pairs plays exactly as before — Us/Them team scoreboard, partner
       opposite, team-tricks viewer, "Team {A/B} won" finish. **Unchanged from release.**
@@ -276,6 +279,12 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       reconnect but are **cleared on a server restart** (expected for MVP).
 - [ ] No horizontal overflow on 360/390 with the drawer open; RTL (Arabic) mirrors
       the drawer/controls to the left.
+- [ ] **Reaction anchors over the SENDER for every viewer (Stage 29.5) — cross-device.**
+      With **2+ devices** in the same game, each device sends a reaction in turn and confirms it
+      floats over **that sender's own visible seat** on *all* screens (your own always bottom; an
+      opponent's over their seat), not over the player opposite. Check **Tarneeb** specifically
+      (Pairs and Solo) — its seats are mirrored, so the left/right opponents are the case that used
+      to be wrong — plus one non-mirrored game (Durak/Deberc/Preferans/King) as a control.
 - [ ] Cards: artwork cards show the **full picture** (no duplicate suit/rank
       badge poking past the edge); table/trick cards stay readable; the Ace is not
       cropped; face-down cards are unchanged.
@@ -366,6 +375,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       the felt, viewer bottom, partner top), with bidding → trump → trick play.
 - [ ] **Readouts:** scoreboard shows the **highest bid + bidder**, the **trump**,
       the **led suit** during play, and per-team trick counts; illegal cards dim.
+- [ ] **HUD readability (Stage 29.5):** **Pairs** — Us/Them boards have a coloured top
+      edge, large tabular scores, and the live **tricks** readout reads as a chip. **Solo** —
+      the 4-player standings stack name over **🃏 tricks · score**, highlight **me**, the
+      **leader** (👑, only once someone is ahead), and the **seat whose turn it is** (bright ring
+      + ▶). Confirm no horizontal overflow at 360/390 (chips wrap) and Solo shows **no Team A/B**.
 - [ ] **Redaction:** you only ever see **your own** hand — the other three show a
       face-down count, never ranks (check across several hands + after reconnect).
 - [ ] **Reconnect** mid-hand → **Resume** returns you with your hand intact and no
@@ -715,9 +729,14 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] Switch **Sound = Off** → the whole game is **silent**, including the low-time moment.
 - [ ] Confirm **no** card-play / trick-collect / trump / finish sounds anywhere (removed).
 - [ ] **Timer now visible in ALL online games (Stage 29.2):** host an online **Durak / Deberc /
-      Tarneeb / Preferans** game with a timer (30/60/90) → a **⏱ Ns** pill shows at the top-centre and
-      counts down each turn; with the timer **off** it does not appear. Local games still show no
-      timer. The low-time alert still fires **only on your turn** (same rules as King above).
+      Tarneeb / Preferans** game with a timer (30/60/90) → a **⏱ Ns** pill counts down each turn;
+      with the timer **off** it does not appear. Local games still show no timer. The low-time alert
+      still fires **only on your turn** (same rules as King above).
+- [ ] **Timer sits at the BOTTOM of the table now (Stage 29.5):** the pill is pinned bottom-centre
+      (above the hand), with a **larger clock icon + countdown**, and it **pulses** when low
+      (steady colour-only under reduced-motion). Confirm on **360/390** it does **not cover the
+      hand cards or action buttons** (pointer-events:none — a tap "through" it still hits the card),
+      and it clears the safe-area on notched phones. RTL: still centred, no horizontal overflow.
 
 - [ ] **Default OFF:** a fresh user hears **nothing** until they opt in via
       Profile → Sound (`off | subtle | full`).

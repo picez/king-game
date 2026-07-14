@@ -34,5 +34,12 @@ export default function TurnTimerBar({ turnTimerSec, turnKey, active, className 
   useTimerLowAlert({ secondsLeft: left, active: total > 0 && active, turnKey });
 
   if (total <= 0) return null;
-  return <div className={`turn-timer ${left <= 5 ? 'turn-timer--low' : ''} ${className}`.trim()}>⏱ {left}s</div>;
+  // Icon + numeric countdown as separate spans so the clock can be enlarged for the bottom-of-table
+  // HUD placement (Stage 29.5) without scaling the whole pill. `role="timer"` for a11y.
+  return (
+    <div className={`turn-timer ${left <= 5 ? 'turn-timer--low' : ''} ${className}`.trim()} role="timer" aria-live="off">
+      <span className="turn-timer__icon" aria-hidden="true">⏱</span>
+      <span className="turn-timer__num">{left}s</span>
+    </div>
+  );
 }

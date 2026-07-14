@@ -183,13 +183,21 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
               <div className="tarneeb-solo-standings" role="list">
                 {state.players.map((p) => {
                   const isMe = p.seatIndex === humanSeat;
-                  const lead = scoresBySeat[p.seatIndex] === topScore;
+                  // Only mark a leader once someone is actually ahead (0–0 start ⇒ no crown).
+                  const lead = topScore > 0 && scoresBySeat[p.seatIndex] === topScore;
+                  const isTurn = p.seatIndex === actingSeat && !blocked;
                   return (
                     <div key={p.id} role="listitem"
-                      className={`tarneeb-solo-chip ${isMe ? 'tarneeb-solo-chip--me' : ''} ${lead ? 'tarneeb-solo-chip--lead' : ''}`}>
-                      <span className="tarneeb-solo-chip__name">{isMe ? t('tarneeb.you') : p.name}</span>
-                      <span className="tarneeb-solo-chip__tricks" title={t('tarneeb.tricks')}>🃏 {tricksBySeat[p.seatIndex]}</span>
-                      <span className="tarneeb-solo-chip__score">{scoresBySeat[p.seatIndex]}</span>
+                      className={`tarneeb-solo-chip ${isMe ? 'tarneeb-solo-chip--me' : ''} ${lead ? 'tarneeb-solo-chip--lead' : ''} ${isTurn ? 'tarneeb-solo-chip--turn' : ''}`}>
+                      <span className="tarneeb-solo-chip__name">
+                        {isTurn && <span className="tarneeb-solo-chip__turn" aria-label={t('game.turn')}>▶</span>}
+                        {lead && <span className="tarneeb-solo-chip__crown" aria-hidden="true">👑</span>}
+                        {isMe ? t('tarneeb.you') : p.name}
+                      </span>
+                      <span className="tarneeb-solo-chip__stats">
+                        <span className="tarneeb-solo-chip__tricks" title={t('tarneeb.tricks')}>🃏 {tricksBySeat[p.seatIndex]}</span>
+                        <span className="tarneeb-solo-chip__score" title={t('tarneeb.score')}>{scoresBySeat[p.seatIndex]}</span>
+                      </span>
                     </div>
                   );
                 })}

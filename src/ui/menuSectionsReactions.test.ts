@@ -70,3 +70,29 @@ describe('Sender-anchored reactions (Stage 27.1, Part B)', () => {
     expect(messages).toMatch(/REACTION'[^}]*seatIndex/);
   });
 });
+
+describe('Mirrored reaction anchor for Tarneeb (Stage 29.5, Scope A)', () => {
+  const social = read('src/ui/online/RoomSocial.tsx');
+  const online = read('src/ui/online/OnlineGame.tsx');
+
+  it('OnlineGame derives the mirror flag from the public gameType and threads it down', () => {
+    // Tarneeb (pairs + solo share the same mirrored screen) is the only mirrored layout.
+    expect(online).toMatch(/reactionsMirrored = net\.room\?\.gameType === 'tarneeb'/);
+    expect(online).toContain('reactionsMirrored={reactionsMirrored}');
+  });
+
+  it('RoomSocial forwards the mirror flag into the anchor for BOTH reactions and stickers', () => {
+    expect(social).toContain('reactionsMirrored');
+    expect((social.match(/reactionAnchorForSender\([^)]*reactionsMirrored\)/g) ?? []).length)
+      .toBeGreaterThanOrEqual(2);
+  });
+
+  it('the mirror flag is still derived from public room data only — no new identity added', () => {
+    // Same guard as above, re-checked for the 29.5 path: the flag is a plain gameType compare.
+    const anchor = read('src/ui/online/reactionAnchor.ts');
+    expect(anchor).not.toMatch(/\bemail\b|\btoken\b|session|userId/i);
+    // Outbound reaction send is unchanged — still emoji-only, server stamps the seat.
+    const net = read('src/hooks/useNetworkGame.ts');
+    expect(net).toMatch(/SEND_REACTION', emoji/);
+  });
+});

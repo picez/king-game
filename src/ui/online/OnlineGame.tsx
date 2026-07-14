@@ -145,6 +145,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   const myMember = net.room?.members.find((m) => m.clientId === net.myClientId);
   const mySeatIndex = myMember?.role === 'player' ? myMember.seatIndex : null;
   const seatCount = net.room?.members.filter((m) => m.role === 'player').length ?? 0;
+  // Tarneeb mirrors its seats left↔right on screen (TarneebGameScreen `seatPosition`), so a reaction
+  // must be anchored with the mirrored convention or it lands on the wrong side for remote viewers
+  // (Stage 29.5). Every other game seats forward, so the default (false) is correct there.
+  const reactionsMirrored = net.room?.gameType === 'tarneeb';
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void) => (
     <>
       {inviteToast}
@@ -154,7 +158,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
         handVisible={handVisible} onLeaveGame={onLeaveGame}
         voiceButton={<VoiceControl voice={voice} variant="compact" />}
-        mySeatIndex={mySeatIndex} seatCount={seatCount}
+        mySeatIndex={mySeatIndex} seatCount={seatCount} reactionsMirrored={reactionsMirrored}
       />
     </>
   );

@@ -28,6 +28,9 @@ interface Props {
    *  sender's seat. Null/0 (spectator / lobby / unknown) → the reaction stays centred. */
   mySeatIndex?: number | null;
   seatCount?: number;
+  /** True when the current game mirrors seats left↔right on screen (Tarneeb) — flips the
+   *  reaction anchor so it lands over the sender's actual visible seat (Stage 29.5). */
+  reactionsMirrored?: boolean;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -51,7 +54,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0 }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -152,7 +155,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           the hand/trick. Unknown seat (spectator / lobby / unseated) → centred, as before. */}
       <div className="reactions-float" aria-live="polite">
         {activeReactions.map((r) => (
-          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(r.seatIndex, mySeatIndex, seatCount)}`} key={r.key}>
+          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(r.seatIndex, mySeatIndex, seatCount, reactionsMirrored)}`} key={r.key}>
             <span className="reaction-chip">
               <span className="reaction-chip__av" aria-hidden="true">{r.avatar}</span>
               <span className="reaction-chip__emoji">{r.emoji}</span>
@@ -161,7 +164,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           </div>
         ))}
         {activeFloats.map((f) => (
-          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(f.seatIndex, mySeatIndex, seatCount)}`} key={f.key}>
+          <div className={`reaction-anchor reaction-anchor--${reactionAnchorForSender(f.seatIndex, mySeatIndex, seatCount, reactionsMirrored)}`} key={f.key}>
             <span className="reaction-chip reaction-chip--sticker">
               <span className="reaction-chip__av" aria-hidden="true">{f.avatar}</span>
               <img className="reaction-chip__sticker" src={f.media.src} alt={f.media.label} loading="lazy" decoding="async" />

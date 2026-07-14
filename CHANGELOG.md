@@ -9,6 +9,32 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reactions/stickers now float over the sender's ACTUAL seat in Tarneeb (Stage 29.5, owner).** The
+  floating-reaction anchor assumed every table seats players clockwise with `rel = fromSeat − mySeat`,
+  but Tarneeb deliberately **mirrors** its seats on screen (its engine order is counter-clockwise by
+  index, so the UI flips it to read clockwise). The sender always anchors to the bottom, so the sender
+  never noticed — but every *other* viewer saw the chip on the wrong side of the table. The anchor now
+  takes a `mirrored` flag (true only for Tarneeb, both Pairs and Solo) that flips the convention to
+  match the screen. No protocol/payload change: it still uses the existing public `seatIndex` and the
+  send is still emoji-only (the server stamps the seat).
+
+### Changed
+
+- **Per-turn timer moved to a bottom-of-table HUD pill with a bigger clock (Stage 29.5, owner).** The
+  online timer that arrived in every game in 29.2 was a small top-centre overlay; it now sits at the
+  **bottom of the table**, above the hand, with a larger clock icon and countdown, and pulses when
+  time is low (respecting reduced-motion). Same gating: shows only when the host enabled a timer, and
+  the low-time sound still fires **only on your turn**.
+- **Current score/tricks HUD made more readable (Stage 29.5, owner).** Tarneeb **Solo** standings now
+  stack a name row over a bold tricks·score row and **highlight the seat whose turn it is** (bright
+  ring + ▶) alongside the my-seat and leader markers; the leader crown only appears once someone is
+  actually ahead. Tarneeb **Pairs** Us/Them boards and **Deberc**'s match-score chips get larger,
+  tabular score numbers and a coloured top edge so your side and the live trick count read at a
+  glance. Display-only — no rules/scoring change; Solo shows no Team A/B labels, Pairs keeps them,
+  and Deberc's 3p-Solo / 4p-Pairs labels are unchanged.
+
 ## [0.3.4] — 2026-07-14 — Durak reveal and online timer polish
 
 A display-only polish patch on **v0.3.3**. Durak's trump/draw pile is enlarged and the **final

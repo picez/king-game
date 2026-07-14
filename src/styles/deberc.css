@@ -19,6 +19,25 @@
 }
 .deberc-mark { color: var(--text-muted); font-weight: 700; white-space: nowrap; }
 
+/* Stage 29.5 — make the running match score read at a glance: bigger, tabular score numbers
+   and a firmer chip. Works for both Solo (3 individuals) and Pairs (2 teams) — teamName() owns
+   the label text, this only restyles the chip. */
+.deberc-scores .tag {
+  padding: 0.22rem 0.6rem;
+  font-weight: 700;
+  border-color: var(--border);
+  border-top-width: 3px;
+}
+.deberc-scores .tag strong {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.15rem;
+}
+/* My own team/seat chip (tag--ok) gets a green top edge so it's obvious which score is mine. */
+.deberc-scores .tag--ok { border-top-color: rgba(120, 220, 160, 0.85); }
+
 .deberc-declared__item { font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.3rem; }
 .deberc-declared__item--jackpot {
   border-color: rgba(245, 197, 24, 0.5);
