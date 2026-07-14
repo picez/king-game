@@ -12,6 +12,14 @@ interface Props {
   humanSeat: number;
   apply: (a: FiftyOneAction) => void;
   onExit: () => void;
+  /**
+   * Online mode (Stage 30.5): actions go to the server via `apply` (ACTION_REQUEST)
+   * and the between-rounds advance is SERVER-driven (seeded START_NEXT_ROUND via
+   * autoAdvance), so the round-over overlay shows a waiting note instead of a
+   * "Next round" button — the client never dispatches START_NEXT_ROUND (it would be
+   * rejected as NOT_YOUR_TURN). Local play (default) keeps the manual button.
+   */
+  online?: boolean;
 }
 
 const RUN_POS: Record<Rank, number> = {
@@ -69,7 +77,7 @@ function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { sui
   return <CardView card={toCard(card)} size="mini" disabled />;
 }
 
-export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit }: Props) {
+export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -284,14 +292,20 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit }: 
       </div>
 
       {phase === 'round_complete' && state.lastRound && (
-        <RoundComplete state={state} humanSeat={humanSeat} onNext={() => apply({ type: 'START_NEXT_ROUND' })} />
+        <RoundComplete
+          state={state}
+          humanSeat={humanSeat}
+          // Online: the server auto-advances (seeded START_NEXT_ROUND) — no client button.
+          onNext={online ? undefined : () => apply({ type: 'START_NEXT_ROUND' })}
+        />
       )}
     </div>
   );
 }
 
-/** Between-rounds summary: winner, per-seat penalty delta + totals + eliminations. */
-function RoundComplete({ state, humanSeat, onNext }: { state: FiftyOneState; humanSeat: number; onNext: () => void }) {
+/** Between-rounds summary: winner, per-seat penalty delta + totals + eliminations.
+ *  `onNext` undefined = online (the server advances the round; show a waiting note). */
+function RoundComplete({ state, humanSeat, onNext }: { state: FiftyOneState; humanSeat: number; onNext?: () => void }) {
   const { t } = useI18n();
   const r = state.lastRound!;
   const name = (seat: number) => (seat === humanSeat ? t('fiftyOne.you') : state.players[seat].name);
@@ -317,7 +331,9 @@ function RoundComplete({ state, humanSeat, onNext }: { state: FiftyOneState; hum
             ))}
           </tbody>
         </table>
-        <button type="button" className="btn btn--primary" onClick={onNext} autoFocus>{t('fiftyOne.nextRound')}</button>
+        {onNext
+          ? <button type="button" className="btn btn--primary" onClick={onNext} autoFocus>{t('fiftyOne.nextRound')}</button>
+          : <p className="fiftyone-roundover__waiting" role="status">{t('fiftyOne.nextRoundSoon')}</p>}
       </div>
     </div>
   );

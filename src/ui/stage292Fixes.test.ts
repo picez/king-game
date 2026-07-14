@@ -34,14 +34,14 @@ describe('per-turn timer is game-agnostic and shown in every online game (Stage 
     expect(king).toContain('active={myPlayerId != null && actingId === myPlayerId}');
   });
 
-  it('OnlineGame mounts the timer for the four non-King games via the GameDefinition', () => {
+  it('OnlineGame mounts the timer for the non-King games via the GameDefinition', () => {
     // Game-agnostic acting player + a card-progress key.
     expect(online).toContain('def.getActingPlayerId(state as never)');
     expect(online).toContain('active={actingId != null && actingId === myPlayerId}');
     // Threaded into each non-King branch's social cluster (Stage 29.7 — no longer a
     // standalone table overlay); passed as the last renderSocial arg in all four.
     const mounts = online.match(/renderSocial\([^)]*timerEl\)/g) ?? [];
-    expect(mounts.length).toBe(4); // durak, deberc, tarneeb, preferans
+    expect(mounts.length).toBe(5); // durak, deberc, tarneeb, preferans, fifty-one (Stage 30.5)
     // No table overlay mount remains.
     expect(online).not.toMatch(/^\s*\{timerEl\}\s*$/m);
     // Off (turnTimerSec 0) → the helper returns null.

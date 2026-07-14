@@ -114,9 +114,9 @@ export const GAME_CATALOG = {
     maxPlayers: 4,
     defaultPlayerCount: 4,  // social table default (2–4 all supported by the core)
     supportsLocal: true,    // Stage 30.3: local prototype (1 human + bots)
-    supportsOnline: false,  // NOT online yet (online is 30.4–30.5) → Host picker stays disabled
+    supportsOnline: true,   // Stage 30.5: server-authoritative online rooms (experimental, no stats)
     supportsBots: true,     // pure core has a deterministic greedy bot (Stage 30.1)
-    status: 'experimental', // Stage 30.3: local-playable prototype, not fully released
+    status: 'experimental', // Stage 30.5: local + online playable, NOT fully released (no stats/favorite)
     rulesDoc: '51_RULES.md',
   },
 } satisfies Record<GameType, GameCatalogEntry>;

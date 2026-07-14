@@ -471,6 +471,8 @@ export const UK: Record<string, string> = {
   'fiftyOne.nextRound': 'Наступний раунд',
   'fiftyOne.matchWinner': '{name} виграє матч!',
   'fiftyOne.playAgain': 'Зіграти ще',
+  'fiftyOne.nextRoundSoon': 'Наступний раунд починається…',
+  'fiftyOne.spectating': 'Спостереження…',
   'preferans.rule.players': 'Троє гравців, кожен за себе; хід переходить ліворуч.',
   'preferans.rule.deal': 'Кожен отримує 10 карт із колоди на 32; 2 карти йдуть у закритий прикуп.',
   'preferans.rule.bidding': 'Заяви рівень (6–10) і масть (♠♣♦♥ або без козиря). Заявки мають зростати; пас остаточний. Найвищий заявник стає розігрувачем.',

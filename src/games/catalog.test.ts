@@ -40,13 +40,13 @@ describe('game catalog', () => {
     });
   });
 
-  it('registers 51 (Syrian 51) as experimental — local-playable, not online (Stage 30.3)', () => {
+  it('registers 51 (Syrian 51) as experimental — local + online playable (Stage 30.5)', () => {
     expect(GAME_CATALOG['fifty-one']).toMatchObject({
       id: 'fifty-one', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
       supportsLocal: true,    // Stage 30.3: local prototype
-      supportsOnline: false,  // NOT online yet (30.4–30.5) → Host picker disabled
+      supportsOnline: true,   // Stage 30.5: online experimental (Host picker enabled)
       supportsBots: true,     // pure-core bot exists (30.1)
-      status: 'experimental',
+      status: 'experimental', // still NOT fully released (no stats/favorite until 30.6)
       rulesDoc: '51_RULES.md',
     });
     expect(isGameType('fifty-one')).toBe(true);
@@ -78,12 +78,12 @@ describe('game catalog', () => {
   it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
     expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
-    // 51 surfaces publicly as experimental — local on, online off (no private fields).
+    // 51 surfaces publicly as experimental — local + online on (no private fields).
     const fiftyOne = pub.find((g) => g.id === 'fifty-one')!;
     expect(fiftyOne).toEqual({
       id: 'fifty-one', title: 'gameType.fifty-one', shortTitle: 'gameType.fifty-one',
       minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
-      supportsLocal: true, supportsOnline: false, supportsBots: true, status: 'experimental',
+      supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'experimental',
     });
     // Preferans surfaces publicly as available — startable local AND online.
     const preferans = pub.find((g) => g.id === 'preferans')!;

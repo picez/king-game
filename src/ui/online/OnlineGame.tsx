@@ -23,6 +23,8 @@ import TarneebOnlineGame from '../tarneeb/TarneebOnlineGame';
 import type { TarneebState } from '../../games/tarneeb/types';
 import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
 import type { PreferansState } from '../../games/preferans/types';
+import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
+import type { FiftyOneState } from '../../games/fiftyOne/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -347,6 +349,27 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         />
         {/* Like Tarneeb: no Leave-game pill (the board ✕ leaves, reconnectable);
             social keeps the compact emoji/chat corner + timer. */}
+        {renderSocial(true, undefined, timerEl)}
+      </>
+    );
+  }
+
+  // Experimental online 51 (Stage 30.5): render the 51 screens (NOT King's
+  // GameRouter). The server drives bots + the public round_complete advance (seeded
+  // START_NEXT_ROUND); the screen is read-only when it is not this client's turn.
+  if (net.room?.gameType === 'fifty-one') {
+    return (
+      <>
+        <FiftyOneOnlineGame
+          state={net.state as unknown as FiftyOneState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+          rematch={rematchUi}
+          disconnectedSeats={disconnectedSeats}
+        />
+        {/* Like Tarneeb/Preferans: no Leave-game pill (the board ✕ leaves,
+            reconnectable); social keeps the compact emoji/chat corner + timer. */}
         {renderSocial(true, undefined, timerEl)}
       </>
     );

@@ -248,6 +248,30 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans:
       `game_type='tarneeb-solo'` (latest migration stays **0009**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
       responds 200 for a signed-in user).
 
+### 5b. 51 (Syrian 51) — experimental online (Stage 30.5, NO stats)
+
+> 51 is `experimental` (local **and** online), **not** `available` — so it is intentionally
+> **excluded** from the five-game smoke above, records **no stats/leaderboard**, and shows **no PNG
+> emblem** (🀄 emoji fallback is expected). This section is a light experimental check only.
+
+- [ ] **Host picker:** both the **Local** and **Host** game pickers list **51** flagged
+      **"Experimental"** (not "Coming soon", not disabled). `GET /api/games` shows `fifty-one` with
+      `status:"experimental"`, `supportsLocal:true`, `supportsOnline:true`.
+- [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
+      **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
+      each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A
+      normal turn **draw → (open ≥51 / add) → discard** applies over the wire; the acting player's
+      buttons are enabled, the waiter's are disabled.
+- [ ] **Server-driven flow:** bots auto-play; the **between-rounds summary** appears and the **server**
+      starts the next round (there is **no client "Next round" button** online). At match end the last
+      seat standing wins; **Play again** (rematch) restarts the room; **reconnect** after a reload
+      restores own hand only.
+- [ ] **No stats:** after a signed-in online 51 game, Profile shows **no 51 stats tab** and no
+      leaderboard entry (`curl -sI $HOST/api/games/fifty-one/stats` need not exist). **Latest DB
+      migration stays 0009** (51 adds none).
+- [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
+      horizontal overflow**; Arabic RTL reads correctly.
+
 ## 6. Rooms / invite
 
 - [ ] Room browser lists your open room with the correct game icon + meta + player count.

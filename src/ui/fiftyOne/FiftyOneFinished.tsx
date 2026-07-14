@@ -1,15 +1,18 @@
 import { useI18n } from '../../i18n';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
   state: FiftyOneState;
   humanSeat: number;
   onPlayAgain: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 30.5); null/undefined for local play. */
+  rematch?: RematchUi | null;
 }
 
 /** Match-over screen: the last seat standing wins (51_RULES §12). */
-export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit }: Props) {
+export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const winner = state.winnerSeat;
   const name = winner === humanSeat ? t('fiftyOne.you') : (winner != null ? state.players[winner].name : '');
@@ -40,7 +43,9 @@ export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit
           </tbody>
         </table>
 
-        <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('fiftyOne.playAgain')}</button>
+        {rematch
+          ? <RematchControls {...rematch} />
+          : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('fiftyOne.playAgain')}</button>}
         <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
       </div>
     </div>

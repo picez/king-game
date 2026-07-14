@@ -128,9 +128,32 @@
   (readiness drive) + updated union/serverCore guards. **No release, no stats, no DB, no
   protocol/message change; the five released games are untouched.** LAN/online QA owed at 30.5.
 
-### 30.5 — Online release
-- Flip catalog to **`available`**; lobby label, room browser subtitle, rematch preserve,
-  invite/join, reconnect/resume. Cross-device QA; production smoke entry.
+### 30.5 — Online playable MVP (experimental) — ✅ DONE
+- **51 is now hostable online as `experimental`** (NOT `available` — no stats/favorite yet).
+  Catalog flipped to **`supportsOnline: true`** (status stays `experimental`), so the
+  data-driven Host picker enables it flagged "Experimental" and the CREATE_ROOM guard
+  (`!entry.supportsOnline`) now accepts a 51 room (2–4 seats; host-count honoured, else the
+  4-seat catalog max). **No new WS message types** — the generic `ACTION_REQUEST` path from
+  30.4 carries every move: the server builds the deal (`START_GAME` → seeded FiftyOneState),
+  authorises the acting seat (foreign → `NOT_YOUR_TURN`, illegal → `ILLEGAL_ACTION` no-op),
+  drives bots + the public `round_complete` advance (seeded `START_NEXT_ROUND` via the
+  game-agnostic `broadcastAndAdvance`/`publicScreenOf`), and redacts per viewer (own hand
+  only; opponents/draw pile hidden). **UI:** a thin `FiftyOneOnlineGame` adapter reuses the
+  shared `FiftyOneGameScreen` with an `online` flag (read-only off-turn; the round-over
+  overlay shows a waiting note instead of a client "Next round" — no START_NEXT_ROUND spoof),
+  wired into `OnlineGame` next to Tarneeb/Preferans; `FiftyOneFinished` gains rematch
+  controls (generic "Play again"); `StartMenu` threads `gameType:'fifty-one'` on create; the
+  Lobby labels a 51 room by its Rummy meta (not a King mode). i18n `fiftyOne.nextRoundSoon`/
+  `fiftyOne.spectating` (en/uk/de/ar). **Tests:** `wsHandlers.fiftyOne` (CREATE_ROOM 2/3/4 +
+  clamp + START_GAME deal + summary), `fiftyOneOnlineWiring` (routing/adapter/START_NEXT_ROUND
+  gating), `fiftyOneRedactionOnline` (2-human mutual non-leak + bot hidden + reconnect + no
+  draw-pile in summary), updated catalog/registry/platformAudit/apiDisabled/localGating.
+  **No DB migration, no stats/leaderboard/achievements/favorite, no PNG, no rule change, no
+  new dependency; the five released games are unchanged.** Owed: manual cross-device online
+  smoke + 360/390 portrait + Arabic RTL (no automated pixel check).
+
+### 30.5b — Full online release (future)
+- Flip catalog to **`available`**; production smoke entry, cross-device QA sign-off.
 
 ### 30.6 — Stats / leaderboard
 - Per-`game_type='fifty-one'` stats via the shared serverCore stats seam (**no DB

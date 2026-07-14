@@ -184,6 +184,10 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // Preferans (3-player, each-for-self) has no King-style mode; show its
               // contract-game label rather than a dealer's-choice/fixed-order term.
               <>🎩 {t('preferans.metaShort')}</>
+            ) : room.gameType === 'fifty-one' ? (
+              // 51 (Stage 30.5, experimental) is cutthroat rummy — no King-style mode;
+              // show its Rummy meta rather than a dealer's-choice/fixed-order term.
+              <>🀄 {t('fiftyOne.metaShort')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

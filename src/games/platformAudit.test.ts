@@ -3,10 +3,11 @@
 // A single high-signal guard over GAME_TYPES that catches a game drifting out of
 // its declared support tier. The FIVE released games must stay uniformly
 // available (catalog, GameDefinition, stats, favorite coverage, PNG icon); a
-// registered-but-not-playable game (51 / Syrian 51, coming_soon) must be present
-// in the registry yet gated OFF everywhere it counts (no stats, no favorite, no
-// startable mode, no required PNG). Per-game specifics live in the
-// catalog/registry/gameIcon tests — this asserts the CROSS-CUTTING invariants.
+// not-yet-released game (51 / Syrian 51, experimental) may be startable — local +
+// online-experimental (Stage 30.5) — yet must still be gated OFF where RELEASE
+// counts (no stats, no favorite, status !== 'available', no required PNG). Per-game
+// specifics live in the catalog/registry/gameIcon tests — this asserts the
+// CROSS-CUTTING invariants.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -34,10 +35,11 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
       expect(e.supportsOnline, `${id} online`).toBe(true);
       expect(e.supportsBots, `${id} bots`).toBe(true);
     }
-    // 51 is experimental: local-playable (Stage 30.3) but NOT online.
+    // 51 is experimental: local + online playable (Stage 30.5) but still NOT released
+    // (status !== 'available' → no stats/favorite/PNG requirement — see below).
     expect(GAME_CATALOG['fifty-one'].status).toBe('experimental');
     expect(GAME_CATALOG['fifty-one'].supportsLocal).toBe(true);
-    expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(false);
+    expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);
   });
 
   it('every game (incl. not-yet-released) has a registered definition + declares seat counts', () => {
@@ -50,14 +52,16 @@ describe('platform tiers are internally consistent (Stage 20.0 / 30.3)', () => {
     }
   });
 
-  it('available games record stats; a not-yet-released game records none and is not online', () => {
+  it('available games record stats; a not-yet-released game records none (even if online-experimental)', () => {
     for (const id of AVAILABLE) {
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} recordsStats`).toBe(true);
     }
     for (const id of NOT_RELEASED) {
-      const e = GAME_CATALOG[id];
+      // The RELEASE gate is `recordsStats` (+ favorite/PNG below), NOT online support:
+      // 51 is online-experimental (Stage 30.5) yet still records no stats and is not
+      // "available". That separation is exactly what keeps it out of the released tier.
       expect(GAME_DEFINITIONS[id].recordsStats, `${id} no stats yet`).toBe(false);
-      expect(e.supportsOnline, `${id} not online yet`).toBe(false);
+      expect(GAME_CATALOG[id].status, `${id} not available`).not.toBe('available');
     }
   });
 

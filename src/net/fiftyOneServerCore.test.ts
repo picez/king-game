@@ -8,10 +8,10 @@
 // server seed, redaction leaks nothing, and the state round-trips through
 // persistence.
 //
-// 51 is NOT hostable online: GAME_CATALOG['fifty-one'].supportsOnline = false, so
-// wsHandlers rejects CREATE_ROOM (see fiftyOne/localGating.test.ts). This file
-// exercises serverCore directly — exactly as Preferans/Tarneeb were before their
-// releases — WITHOUT enabling online 51. Mirrors preferansServerCore.test.ts.
+// Since Stage 30.5 51 IS hostable online (supportsOnline true, experimental) — the
+// end-to-end WS path is covered by wsHandlers.fiftyOne + fiftyOneRedactionOnline;
+// this file keeps exercising serverCore directly for the fine-grained authorization /
+// redaction / autoAdvance / persistence behaviour. Mirrors preferansServerCore.test.ts.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -31,8 +31,7 @@ const asF = (s: unknown) => s as unknown as FiftyOneState;
  *  so it satisfies the AnyGameAction param without widening the union. */
 const bot = (s: FiftyOneState): AnyGameAction => def.botAction(s) as AnyGameAction;
 
-/** A started N-player bot room (host seat 0 human + bots). Internal only — 51 is
- *  NOT hostable online from the UI; this exercises serverCore. */
+/** A started N-player bot room (host seat 0 human + bots) — drives serverCore. */
 function botRoom(playerCount: 2 | 3 | 4, seed: number): ServerRoom {
   const room = createRoom({
     code: '51AB', gameType: 'fifty-one', playerCount, modeSelectionType: 'fixed',
@@ -88,9 +87,10 @@ function drive(room: ServerRoom, opts: { stopPhase?: FiftyOneState['phase']; cap
 }
 
 describe('serverCore runs 51 internally (Stage 30.4 readiness)', () => {
-  it('51 stays gated OFF online — the catalog forbids hosting it', () => {
-    expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(false);
-    expect(def.recordsStats).toBe(false);
+  it('51 is online-experimental but records NO stats (release gate, Stage 30.5)', () => {
+    expect(GAME_CATALOG['fifty-one'].supportsOnline).toBe(true);   // Stage 30.5: hostable online
+    expect(GAME_CATALOG['fifty-one'].status).toBe('experimental'); // still not fully released
+    expect(def.recordsStats).toBe(false);                          // no stats until 30.6
   });
 
   it('createRoom(gameType:fifty-one) + startGame builds a FiftyOneState (13/14 deal)', () => {

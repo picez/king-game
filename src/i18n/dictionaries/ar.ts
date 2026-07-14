@@ -471,6 +471,8 @@ export const AR: Record<string, string> = {
   'fiftyOne.nextRound': 'الجولة التالية',
   'fiftyOne.matchWinner': '{name} يفوز بالمباراة!',
   'fiftyOne.playAgain': 'العب مجدداً',
+  'fiftyOne.nextRoundSoon': 'تبدأ الجولة التالية…',
+  'fiftyOne.spectating': 'مشاهدة…',
   'preferans.rule.players': 'ثلاثة لاعبين، كل لنفسه؛ ينتقل الدور إلى اليسار.',
   'preferans.rule.deal': 'يحصل كل لاعب على 10 بطاقات من مجموعة من 32؛ وتشكّل بطاقتان الطالون المغلق.',
   'preferans.rule.bidding': 'زايد بمستوى (6–10) وسلسلة (♠♣♦♥ أو بلا أتوت). يجب أن ترتفع المزايدات؛ والتمرير نهائي. صاحب أعلى مزايدة يصبح المعلن.',

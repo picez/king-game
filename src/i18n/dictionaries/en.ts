@@ -471,6 +471,8 @@ export const EN: Record<string, string> = {
   'fiftyOne.nextRound': 'Next round',
   'fiftyOne.matchWinner': '{name} wins the match!',
   'fiftyOne.playAgain': 'Play again',
+  'fiftyOne.nextRoundSoon': 'Next round starting…',
+  'fiftyOne.spectating': 'Spectating…',
   'preferans.rule.players': 'Three players, each for themselves; play passes to the left.',
   'preferans.rule.deal': 'Everyone gets 10 cards from a 32-card deck; 2 cards form the face-down talon.',
   'preferans.rule.bidding': 'Bid a level (6–10) and suit (♠♣♦♥ or No-Trump). Bids must rise; passing is final. The top bidder becomes the declarer.',

@@ -137,6 +137,9 @@
 .fiftyone-roundover__out { opacity: 0.55; }
 .fiftyone-roundover__flag { color: #fca5a5; font-size: 0.8rem; }
 .fiftyone-roundover .btn { margin-top: 0.8rem; width: 100%; }
+/* Online (Stage 30.5): the server auto-advances the round, so instead of a
+   "Next round" button the overlay shows a calm waiting note. */
+.fiftyone-roundover__waiting { margin: 0.9rem 0 0.2rem; text-align: center; font-size: 0.9rem; opacity: 0.85; }
 
 /* Setup extras */
 .fiftyone-setup__note--exp { font-size: 0.82rem; opacity: 0.9; }

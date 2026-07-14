@@ -51,7 +51,7 @@ describe('51 game definition (registered, experimental — local-playable, no on
     playerCount: 4, modeSelectionType: 'fixed', turnTimerSec: 0, started: false, hasPassword: false,
   } as RoomSnapshot;
 
-  it('references the 51 pure core + catalog; experimental, local-only, no stats', () => {
+  it('references the 51 pure core + catalog; experimental, local + online, no stats', () => {
     expect(fiftyOneGameDefinition.id).toBe('fifty-one');
     expect(fiftyOneGameDefinition.catalog).toBe(GAME_CATALOG['fifty-one']);
     expect(fiftyOneGameDefinition.rulesDoc).toBe('51_RULES.md');
@@ -59,7 +59,7 @@ describe('51 game definition (registered, experimental — local-playable, no on
     expect(fiftyOneGameDefinition.recordsStats).toBe(false); // no stats until 30.6
     expect(fiftyOneGameDefinition.catalog.status).toBe('experimental');
     expect(fiftyOneGameDefinition.catalog.supportsLocal).toBe(true);  // Stage 30.3: local prototype
-    expect(fiftyOneGameDefinition.catalog.supportsOnline).toBe(false); // not online yet
+    expect(fiftyOneGameDefinition.catalog.supportsOnline).toBe(true);  // Stage 30.5: online experimental
   });
 
   it('smoke: buildStartAction → reducer builds a playing state; botAction is legal', () => {

@@ -508,14 +508,15 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
 
-## Manual — 51 (Syrian 51) — LOCAL PLAYABLE (Stage 30.3) + online redaction-ready (Stage 30.4), online OFF
+## Manual — 51 (Syrian 51) — LOCAL (Stage 30.3) + ONLINE experimental (Stage 30.5), no stats yet
 
-> **51 is local-playable and online redaction-ready, but hosting stays disabled.** The pure core
-> + local UI live under `src/games/fiftyOne/` / `src/ui/fiftyOne/` ([`51_RULES.md`](51_RULES.md) ·
-> [`51_PLAN.md`](51_PLAN.md)); the Local picker enables it ("Experimental"), the **Host/online
-> picker stays disabled** (`supportsOnline:false` → `CREATE_ROOM` rejects 51, no stats/favorite).
-> Stage 30.4 proves the server core can build/authorise/redact/persist 51 (automated below) **without
-> enabling online**. The standing assertion is still that **the five released games are unchanged**.
+> **51 is local AND online playable (experimental) — but NOT released.** The pure core + shared UI
+> live under `src/games/fiftyOne/` / `src/ui/fiftyOne/` ([`51_RULES.md`](51_RULES.md) ·
+> [`51_PLAN.md`](51_PLAN.md)); **both the Local and Host pickers enable it** ("Experimental"). Online
+> is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction,
+> rematch/reconnect) via the generic `ACTION_REQUEST` path — **no stats/leaderboard/favorite/
+> achievements yet** (`status: experimental`, not `available`). The standing assertion is that **the
+> five released games are unchanged**.
 
 - [x] *(Stage 30.1)* Pure core built: **no** catalog/registry `fiftyOne`, **no** UI, **no**
       `game_type='fifty-one'` wiring — 51 is invisible in the running app. `git grep -n fiftyOne
@@ -550,10 +551,24 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       deal 13/14, `sanitizedStateFor` per-seat redaction, foreign-seat → `NOT_YOUR_TURN`, illegal
       → `ILLEGAL_ACTION` no-op, seeded `round_complete → START_NEXT_ROUND` redeal + determinism,
       serialize/deserialize round-trip mid-play, no draw-pile leak in `RoomSummary`/`snapshot`).
-      **Verified STILL disabled online**: `supportsOnline:false`, `CREATE_ROOM` rejects 51,
-      `recordsStats:false`, no DB/migration/protocol change. No manual online QA yet (30.5).
-- [ ] *(30.5)* Online RELEASE smoke (once `supportsOnline` flips): create/join/start, own-hand-only
-      redaction on real sockets, lobby label, rematch/reconnect.
+      (Stage 30.4 note — now superseded by 30.5, kept for the redaction leak-scan coverage.)
+- [x] *(30.5)* **Online experimental ENABLED (no stats).** Automated: `net/wsHandlers.fiftyOne.test.ts`
+      (CREATE_ROOM 51 accepts 2/3/4, clamps out-of-range to 4, ADD_BOT + START_GAME builds a
+      FiftyOneState 13/14 deal, public room summary carries 51 metadata + no game state),
+      `ui/fiftyOne/fiftyOneOnlineWiring.test.ts` (OnlineGame routes to `FiftyOneOnlineGame`, a thin
+      client-only adapter that dispatches ACTION_REQUEST and owns no reducer/bot loop; online mode
+      never dispatches `START_NEXT_ROUND`; StartMenu threads `gameType:'fifty-one'`; Lobby shows the
+      Rummy meta), `net/fiftyOneRedactionOnline.test.ts` (2-human mutual non-leak + bot hand hidden +
+      draw-pile hidden + reconnect snapshot still redacted + no hand/draw in `RoomSummary`), and
+      updated catalog/registry/platformAudit/apiDisabled/localGating.
+- [ ] *(30.5, manual)* **Online smoke** at **360/390 portrait** (two devices or two tabs + a bot):
+      Host a 51 room ("Experimental" in the Host picker), Join from the other; each player sees **only
+      their own hand** (opponents show 🂠counts, the draw pile is face-down); a normal turn
+      draws→melds→discards over the wire; the acting player's buttons are enabled and the waiter's are
+      disabled; the between-rounds summary appears and the **server** starts the next round (no
+      "Next round" button online); match winner + **Play again** (rematch) works; **reconnect** after a
+      reload restores own hand only. **No horizontal overflow; cards/controls do not overlap.** Arabic
+      **RTL** smoke. **No stats recorded** (experimental).
 - [ ] *(30.6–30.7)* Per-`game_type='fifty-one'` stats + leaderboard (no migration); icon +
       achievements; help hub.
 

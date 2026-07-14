@@ -11,6 +11,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **51 (Syrian 51) is now playable ONLINE (Stage 30.5, experimental).** The 6th game can now be
+  **hosted online** from the Host picker (flagged "Experimental"), not just locally: create a
+  2–4-seat room, add bots or invite friends, and play server-authoritative 51 with the same table
+  UI. The server owns the deal, turn order, bot moves and the between-rounds advance; each player
+  sees only their own hand (opponents + the draw pile stay hidden); "Play again" and reconnect work
+  like the other online games. **Still experimental — no stats, leaderboard, achievements or
+  favorite yet** (those arrive with the full release). No new dependency, DB migration or protocol
+  change; the five released games are unchanged.
 - **51 (Syrian 51) is now playable locally (Stage 30.3, experimental).** The planned 6th game
   can be played **pass-free local** (1 human + bots, 2–4 players) from the **Local** game picker
   (flagged "Experimental"); the **Host/online** picker still shows it disabled. New `src/ui/fiftyOne/`

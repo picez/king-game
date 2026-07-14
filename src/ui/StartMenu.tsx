@@ -210,6 +210,9 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize, playerCount: debercPlayers } : {}),
       ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore } : {}),
       ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
+      // 51 (Stage 30.5, experimental online): no extra options — a 4-seat room by
+      // default; the host may start once 2–4 seats are filled (bots or humans).
+      ...(gameType === 'fifty-one' ? { gameType: 'fifty-one' as const } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });

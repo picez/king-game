@@ -471,6 +471,8 @@ export const DE: Record<string, string> = {
   'fiftyOne.nextRound': 'Nächste Runde',
   'fiftyOne.matchWinner': '{name} gewinnt das Spiel!',
   'fiftyOne.playAgain': 'Nochmal spielen',
+  'fiftyOne.nextRoundSoon': 'Nächste Runde beginnt…',
+  'fiftyOne.spectating': 'Zuschauen…',
   'preferans.rule.players': 'Drei Spieler, jeder für sich; das Spiel geht nach links.',
   'preferans.rule.deal': 'Jeder bekommt 10 Karten aus einem 32-Karten-Deck; 2 Karten bilden den verdeckten Talon.',
   'preferans.rule.bidding': 'Reize eine Stufe (6–10) und Farbe (♠♣♦♥ oder Ohne Trumpf). Gebote müssen steigen; Passen ist endgültig. Der Höchstbietende wird Alleinspieler.',

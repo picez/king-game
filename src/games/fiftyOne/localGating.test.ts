@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
-// 51 is an EXPERIMENTAL, local-only game (Stage 30.3): playable local (1 human +
-// bots) but gated OFF online — no host room, no favorite, no stats. These guards
-// assert that gating from data + source, so a future change that accidentally
-// makes 51 online-startable (or leaks its pure core into another game) is caught
-// by `npm test`. Online arrives in 30.4–30.5.
+// 51 is an EXPERIMENTAL game: playable LOCAL (1 human + bots, Stage 30.3) AND
+// ONLINE (server-authoritative, Stage 30.5) but still NOT released — no favorite,
+// no stats until 30.6. These guards assert that tier from data + source, so a
+// future change that accidentally promotes 51 to the released tier (stats /
+// favorite) — or leaks its pure core into another game — is caught by `npm test`.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -16,13 +16,13 @@ import { SUPPORTED_FAVORITE_GAMES } from '../../net/userSettings';
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const ID = 'fifty-one';
 
-describe('51 is local-playable but gated off online (Stage 30.3)', () => {
-  it('is selectable in the LOCAL picker but DISABLED in the Host picker', () => {
+describe('51 is local + online playable but NOT released (Stage 30.5)', () => {
+  it('is selectable in BOTH the Local and Host pickers, flagged Experimental', () => {
     const e = GAME_CATALOG[ID];
     expect(e.status).toBe('experimental');
     // GamePicker: `usable = mode==='host' ? supportsOnline : supportsLocal`.
-    expect(e.supportsLocal).toBe(true);   // Local sheet: selectable (flagged Experimental)
-    expect(e.supportsOnline).toBe(false); // Host sheet: disabled + "Coming soon"
+    expect(e.supportsLocal).toBe(true);  // Local sheet: selectable (flagged Experimental)
+    expect(e.supportsOnline).toBe(true); // Host sheet: selectable (flagged Experimental)
   });
 
   it('App routes local fifty-one to FiftyOneLocalGame', () => {
@@ -31,15 +31,22 @@ describe('51 is local-playable but gated off online (Stage 30.3)', () => {
     expect(app).toContain("import FiftyOneLocalGame from './ui/fiftyOne/FiftyOneLocalGame'");
   });
 
-  it('records no stats and is excluded from the favorite-game list', () => {
+  it('OnlineGame routes online fifty-one to FiftyOneOnlineGame (not King GameRouter)', () => {
+    const src = read('src/ui/online/OnlineGame.tsx');
+    expect(src).toContain("net.room?.gameType === 'fifty-one'");
+    expect(src).toContain('<FiftyOneOnlineGame');
+    expect(src).toContain("import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame'");
+  });
+
+  it('records no stats and is excluded from the favorite-game list (release gate, not online)', () => {
     expect(GAME_DEFINITIONS[ID].recordsStats).toBe(false);
     expect((SUPPORTED_FAVORITE_GAMES as readonly string[]).includes(ID)).toBe(false);
   });
 
-  it('the server CREATE_ROOM handler rejects any game with supportsOnline=false', () => {
+  it('CREATE_ROOM now ACCEPTS 51 (supportsOnline true); the generic guard still gates any online:false game', () => {
     const src = read('server/wsHandlers.ts');
-    expect(src).toContain('if (!entry.supportsOnline)');
-    expect(GAME_CATALOG[ID].supportsOnline).toBe(false); // → an online 51 room is rejected
+    expect(src).toContain('if (!entry.supportsOnline)'); // generic gate still present
+    expect(GAME_CATALOG[ID].supportsOnline).toBe(true);   // → an online 51 room is now allowed
   });
 
   it('does not ship a per-game stats tab (ProfileMenu GAMES stays the 5 available)', () => {
@@ -64,7 +71,7 @@ describe('51 pure core + UI stay isolated (source guards)', () => {
     }
   });
 
-  it('the local UI imports no server/ws/db (client-only, offline prototype)', () => {
+  it('the UI imports no server/ws/db transport directly (client-only; dispatch is injected)', () => {
     for (const file of readdirSync(join(process.cwd(), UI_DIR))) {
       if (!file.endsWith('.tsx') && !file.endsWith('.ts')) continue;
       const src = read(join(UI_DIR, file));
