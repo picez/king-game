@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
-import CardView from '../components/CardView';
+import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import GameHelpModal from '../components/GameHelpModal';
 import type { Card, Rank, Suit } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
 import { resolveMeld } from '../../games/fiftyOne/melds';
 import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
+import HandOrderControls from '../components/HandOrderControls';
+import { useManualHandOrder } from '../../hooks/useManualHandOrder';
+
+/** 51 cards carry a real unique id (two decks + jokers), so use it directly. */
+const fiftyOneCardId = (c: FiftyOneCard): string => c.id;
 
 interface Props {
   state: FiftyOneState;
@@ -82,6 +87,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   const [showHelp, setShowHelp] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [staged, setStaged] = useState<string[][]>([]);
+  // Which selected card is picked for reordering (index into `selected`). The
+  // selection ORDER is meaningful — it fixes a joker's position in the meld (30.9)
+  // — so we NEVER auto-sort it; the player nudges it with ← / → instead (30.12).
+  const [selPicked, setSelPicked] = useState<number | null>(null);
 
   const { phase, turnStep, currentSeat, roundNumber } = state;
   const opened = state.openedBySeat[humanSeat];
@@ -94,10 +103,15 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   useEffect(() => {
     setSelected([]);
     setStaged([]);
+    setSelPicked(null);
   }, [currentSeat, turnStep, phase, roundNumber, hand.length, state.publicMelds.length]);
 
   const stagedIds = useMemo(() => new Set(staged.flat()), [staged]);
   const byId = useMemo(() => new Map(hand.map((c) => [c.id, c])), [hand]);
+  // Client-only display order for the (non-staged) hand — default sort, or manual
+  // once the player arranges it. Never touches the reducer hand (Stage 30.12).
+  const visibleHand = useMemo(() => sortHand(hand.filter((c) => !stagedIds.has(c.id))), [hand, stagedIds]);
+  const handOrder = useManualHandOrder(visibleHand, fiftyOneCardId);
   const selectedCards = useMemo(
     () => selected.map((id) => byId.get(id)).filter((c): c is FiftyOneCard => !!c),
     [selected, byId],
@@ -113,6 +127,21 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   function toggle(id: string) {
     if (stagedIds.has(id)) return; // staged cards are locked until "Open" or "Clear"
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    setSelPicked(null);
+  }
+
+  /** Nudge the picked selected card left/right — reorders the meld sequence (and
+   *  hence a joker's position) WITHOUT auto-sorting the selection (30.12). */
+  function moveSelected(dir: -1 | 1) {
+    setSelected((s) => {
+      if (selPicked == null) return s;
+      const j = selPicked + dir;
+      if (j < 0 || j >= s.length) return s;
+      const n = s.slice();
+      [n[selPicked], n[j]] = [n[j], n[selPicked]];
+      setSelPicked(j);
+      return n;
+    });
   }
 
   // --- Actions ---------------------------------------------------------------
@@ -252,6 +281,39 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         {validation && <span className="fiftyone-prompt__val">{validation}</span>}
       </div>
 
+      {/* Meld builder: the SELECTED cards in their chosen order (left→right = the run
+          order, which fixes a joker's position). Tap one, then ← / → to reorder — the
+          selection is never auto-sorted (30.9/30.12). Shows what a joker becomes. */}
+      {meldStep && selectedCards.length >= 2 && (
+        <div className="fiftyone-selbuilder">
+          <div className="fiftyone-selbuilder__strip" dir="ltr">
+            {selectedCards.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`fiftyone-selbuilder__card ${selPicked === i ? 'fiftyone-selbuilder__card--picked' : ''}`}
+                aria-pressed={selPicked === i}
+                onClick={() => setSelPicked((p) => (p === i ? null : i))}
+              >
+                {c.joker ? <JokerCard size="mini" disabled /> : <CardView card={toCard(c)} size="mini" disabled />}
+              </button>
+            ))}
+          </div>
+          <div className="fiftyone-selbuilder__ctrl">
+            <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === 0}
+              onClick={() => moveSelected(-1)} aria-label={t('hand.moveLeft')}>←</button>
+            <span className="fiftyone-selbuilder__info">
+              {selResolved
+                ? `${t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(selResolved.value))}`
+                  + Object.values(selResolved.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
+                : t('fiftyOne.selOrderHint')}
+            </span>
+            <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === selectedCards.length - 1}
+              onClick={() => moveSelected(1)} aria-label={t('hand.moveRight')}>→</button>
+          </div>
+        </div>
+      )}
+
       {/* Staged melds. Before opening they must total ≥ 51; after opening any value. */}
       {staged.length > 0 && (
         <div className="fiftyone-staged">
@@ -274,11 +336,15 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
 
       {/* The human's hand (staged cards are hidden here until Open/Clear). */}
       <div className="fiftyone-hand">
-        {sortHand(hand.filter((c) => !stagedIds.has(c.id))).map((c) =>
+        {handOrder.ordered.map((c) =>
           c.joker
             ? <JokerCard key={c.id} onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />
             : <CardView key={c.id} card={toCard(c)} size="hand" onClick={() => toggle(c.id)} selected={selected.includes(c.id)} disabled={!meldStep} />,
         )}
+      </div>
+      <div className="fiftyone-hand-tools">
+        <HandOrderControls order={handOrder} cardId={fiftyOneCardId}
+          renderMini={(c) => (c.joker ? <JokerCard size="mini" disabled /> : <CardView card={toCard(c)} size="mini" disabled />)} />
       </div>
 
       {/* Action bar — context-sensitive per step. */}

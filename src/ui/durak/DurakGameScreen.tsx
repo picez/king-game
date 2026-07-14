@@ -46,6 +46,8 @@ import {
 } from '../../games/durak/rules';
 import DurakHelp from './DurakHelp';
 import DurakDeck from './DurakDeck';
+import HandOrderControls from '../components/HandOrderControls';
+import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 
 /** Transient "what just happened" banner (a bout resolved). */
 export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
@@ -96,6 +98,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
 
   const me = state.players.find((p) => p.id === humanId)!;
   const meSeat = me.seatIndex;
+  // Client-only display order for my hand (default = sortHand; manual on reorder).
+  const handOrder = useManualHandOrder(sortHand(me.hand, state.trumpSuit), singleDeckCardId);
   const isMyTurn = getActingDurakPlayerId(state) === humanId;
   const iAmThrower = state.throwerIndex === meSeat;   // the current attacker (acts now)
   const iAmPrimary = state.attackerIndex === meSeat;  // the bout's primary attacker
@@ -243,9 +247,9 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
       </div>
 
       <div className="durak-hand">
-        {sortHand(me.hand, state.trumpSuit).map((c) => (
+        {handOrder.ordered.map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}`}
+            key={singleDeckCardId(c)}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}
@@ -254,6 +258,8 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
           />
         ))}
       </div>
+      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
+        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
     </div>
   );
 }

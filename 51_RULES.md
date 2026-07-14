@@ -165,6 +165,11 @@ again — reaching it once, to open, is the only threshold.
   `[Joker] 8♠ 9♠` = `7-8-9` (Joker = `7♠`), `Q♠ K♠ [Joker]` = `Q-K-A` (Joker = `A♠`, worth 30),
   `[Joker] 2♠ 3♠` = `A-2-3` (Joker = `A♠`, worth 6). An arrangement that has **no** legal
   reading — e.g. `K-A-[Joker]` (would wrap past the Ace) — is still rejected.
+- **The player chooses the Joker's position** *[UI, Stage 30.12]*: the ORDER in which the
+  cards are selected for the meld is the run order, so the client shows the selected cards in
+  that order (with a small ← / → reorder control) and never auto-sorts the selection — laying
+  the Joker where you put it. This is a display/interaction aid only; the core rule above is
+  unchanged, and you still go out **only by the final discard** (§5), never by melding alone.
 - **In an opened meld, the Joker's value = the value of the card it represents** (§10).
   *[owner override: not a flat 15.]*
 - **A Joker left in a player's hand at round end = 25 penalty points** (§11). *[owner

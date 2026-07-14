@@ -102,6 +102,22 @@
   filter: drop-shadow(0 0 1px #000);
 }
 
+/* Meld builder — the selected cards in chosen order + reorder controls (30.12). */
+.fiftyone-selbuilder {
+  display: flex; flex-direction: column; gap: 0.3rem; align-items: center;
+  padding: 0.35rem 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.10);
+}
+.fiftyone-selbuilder__strip {
+  display: flex; flex-wrap: nowrap; gap: 0.3rem; overflow-x: auto; max-width: 100%;
+  padding-bottom: 0.1rem; scrollbar-width: thin;
+}
+.fiftyone-selbuilder__card { flex: 0 0 auto; background: transparent; border: 0; padding: 2px; border-radius: 8px; cursor: pointer; line-height: 0; }
+.fiftyone-selbuilder__card--picked { box-shadow: 0 0 0 3px var(--accent); background: rgba(245, 197, 24, 0.16); }
+.fiftyone-selbuilder__ctrl { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+.fiftyone-selbuilder__info { font-size: 0.8rem; opacity: 0.92; text-align: center; }
+/* The ↔ Arrange button sits under the hand, centred. */
+.fiftyone-hand-tools { display: flex; justify-content: center; margin-top: 0.25rem; }
+
 /* Prompt + validation */
 .fiftyone-prompt {
   display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline;

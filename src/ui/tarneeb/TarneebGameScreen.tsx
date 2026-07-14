@@ -15,6 +15,8 @@ import { TARNEEB_SUITS } from '../../games/tarneeb/deck';
 import TarneebHelp from './TarneebHelp';
 import TarneebTricksReview from './TarneebTricksReview';
 import { tarneebRankRows } from './tarneebScoreTable';
+import HandOrderControls from '../components/HandOrderControls';
+import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 
 interface Props {
   state: TarneebState;
@@ -78,6 +80,8 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
   const rankRows = tarneebRankRows(state, humanSeat, actingSeat, blocked);
   const isMyTurn = actingSeat === humanSeat && !blocked;
   const phase = state.phase;
+  // Client-only hand display order (default = sortHand; manual on reorder, Stage 30.12).
+  const handOrder = useManualHandOrder(sortHand(state.handsBySeat[humanSeat], state.trumpSuit), singleDeckCardId);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
 
   // Last standing bid per seat (for the seat plates during the auction).
@@ -295,9 +299,9 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
       {/* The human's hand. */}
       <div className="tarneeb-hand">
-        {sortHand(state.handsBySeat[humanSeat], state.trumpSuit).map((c) => (
+        {handOrder.ordered.map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}`}
+            key={singleDeckCardId(c)}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}
@@ -306,6 +310,8 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
           />
         ))}
       </div>
+      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
+        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
 
       {/* Hand-complete summary overlay. Online: the SERVER auto-advances, so the
           button is replaced by a "starting…" note (a client START_NEXT_HAND would

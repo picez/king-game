@@ -3,7 +3,7 @@
 
 export const UK: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц, Тарніб і Преферанс',
+  'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц, Тарніб, Преферанс і 51',
   'pwa.installTitle': 'Встановити Card Majlis',
   'pwa.installBody': 'Грайте швидше з головного екрана',
   'pwa.install': 'Встановити',
@@ -110,6 +110,14 @@ export const UK: Record<string, string> = {
   'roomList.unreachable': 'Не вдається зʼєднатися із сервером.',
   'menu.wssWarning': '⚠️ Сторінка HTTPS потребує wss:// (не ws://)',
   'common.close': 'Закрити',
+  // Manual hand ordering (Stage 30.12) — shared across all games.
+  'hand.arrange': 'Упорядкувати',
+  'hand.arrangeTitle': 'Упорядкуйте руку',
+  'hand.arrangeHint': 'Торкніться карти, потім посуньте ліворуч або праворуч. Нові карти зʼявляються ліворуч.',
+  'hand.moveLeft': 'Посунути ліворуч',
+  'hand.moveRight': 'Посунути праворуч',
+  'hand.autoSort': 'Автосортування',
+  'hand.arrangeDone': 'Готово',
   'common.offline': 'Не в мережі',
   'card.label': '{rank} {suit}',
   'card.hidden': 'Прихована карта',
@@ -458,6 +466,7 @@ export const UK: Record<string, string> = {
   'fiftyOne.addToMeld': 'Додати',
   'fiftyOne.openTotal': 'Сума відкриття: {n}/51',
   'fiftyOne.meldTotal': 'Сума мелду: {n}',
+  'fiftyOne.selOrderHint': 'Торкніться карти, потім ← / → щоб задати її місце в мелді',
   'fiftyOne.openingNeeds51': 'Для відкриття потрібно 51+ у перших мелдах',
   'fiftyOne.openAnyMeld': 'Ви відкрилися — викладайте будь-який дійсний мелд',
   'fiftyOne.clear': 'Очистити',

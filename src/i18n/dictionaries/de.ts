@@ -3,7 +3,7 @@
 
 export const DE: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz, Tarneeb & Preferans',
+  'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz, Tarneeb, Preferans & 51',
   'pwa.installTitle': 'Card Majlis installieren',
   'pwa.installBody': 'Schneller vom Startbildschirm spielen',
   'pwa.install': 'Installieren',
@@ -110,6 +110,14 @@ export const DE: Record<string, string> = {
   'roomList.unreachable': 'Server nicht erreichbar.',
   'menu.wssWarning': '⚠️ HTTPS-Seite benötigt wss:// (nicht ws://)',
   'common.close': 'Schließen',
+  // Manual hand ordering (Stage 30.12) — shared across all games.
+  'hand.arrange': 'Ordnen',
+  'hand.arrangeTitle': 'Ordne dein Blatt',
+  'hand.arrangeHint': 'Tippe eine Karte an und schiebe sie nach links oder rechts. Neue Karten erscheinen links.',
+  'hand.moveLeft': 'Nach links',
+  'hand.moveRight': 'Nach rechts',
+  'hand.autoSort': 'Auto-Sortierung',
+  'hand.arrangeDone': 'Fertig',
   'common.offline': 'Offline',
   'card.label': '{rank} {suit}',
   'card.hidden': 'Verdeckte Karte',
@@ -458,6 +466,7 @@ export const DE: Record<string, string> = {
   'fiftyOne.addToMeld': 'Anlegen',
   'fiftyOne.openTotal': 'Eröffnungssumme: {n}/51',
   'fiftyOne.meldTotal': 'Meldungssumme: {n}',
+  'fiftyOne.selOrderHint': 'Tippe eine Karte an, dann ← / → für ihre Position in der Meldung',
   'fiftyOne.openingNeeds51': 'Eröffnung braucht 51+ in den ersten Meldungen',
   'fiftyOne.openAnyMeld': 'Du bist eröffnet — lege eine beliebige gültige Meldung',
   'fiftyOne.clear': 'Zurücksetzen',

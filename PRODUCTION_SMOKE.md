@@ -248,6 +248,10 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Last-card reveal delay (Stage 25.8):** the final card of a trick/bout stays readable
       (~1 s) before play advances in every game — King/Deberc (server pause), Tarneeb/Preferans
       (client review), Durak (bout lingers before the table clears).
+- [ ] **Manual hand ordering (Stage 30.12):** each game's hand has an **↔ Arrange** button →
+      the sheet lets you tap a card and **← / →** move it; **Auto-sort** resets. A newly drawn card
+      then appears at the **far left**. It is **display-only** (no reducer/action/`ACTION_REQUEST`
+      change) — online opponents never see your order. No overflow at 360/390.
 
 ### 5a. Tarneeb Solo mode (Stage 28.4)
 

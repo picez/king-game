@@ -3,7 +3,7 @@
 
 export const EN: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb & Preferans',
+  'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb, Preferans & 51',
   'pwa.installTitle': 'Install Card Majlis',
   'pwa.installBody': 'Play faster from your home screen',
   'pwa.install': 'Install',
@@ -110,6 +110,14 @@ export const EN: Record<string, string> = {
   'roomList.unreachable': 'Cannot reach the server.',
   'menu.wssWarning': '⚠️ HTTPS page needs wss:// (not ws://)',
   'common.close': 'Close',
+  // Manual hand ordering (Stage 30.12) — shared across all games.
+  'hand.arrange': 'Arrange',
+  'hand.arrangeTitle': 'Arrange your hand',
+  'hand.arrangeHint': 'Tap a card, then move it left or right. New cards arrive on the left.',
+  'hand.moveLeft': 'Move left',
+  'hand.moveRight': 'Move right',
+  'hand.autoSort': 'Auto-sort',
+  'hand.arrangeDone': 'Done',
   'common.offline': 'Offline',
   'card.label': '{rank} of {suit}',
   'card.hidden': 'Hidden card',
@@ -458,6 +466,7 @@ export const EN: Record<string, string> = {
   'fiftyOne.addToMeld': 'Add',
   'fiftyOne.openTotal': 'Opening total: {n}/51',
   'fiftyOne.meldTotal': 'Meld total: {n}',
+  'fiftyOne.selOrderHint': 'Tap a card, then ← / → to set its place in the meld',
   'fiftyOne.openingNeeds51': 'Opening needs 51+ across your first melds',
   'fiftyOne.openAnyMeld': "You're open — lay any valid meld",
   'fiftyOne.clear': 'Clear',

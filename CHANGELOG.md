@@ -9,7 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+
+- **Arrange your hand your way (Stage 30.12).** Every game now has an **↔ Arrange** button by your
+  hand: tap a card and nudge it left/right to set your own order, or **Auto-sort** back to the default.
+  Once you've arranged, any **newly drawn card lands on the left** so it's easy to spot. It's purely how
+  *you* see your hand — it never changes the cards, the rules, or what your opponents see (nothing is
+  sent to the server). In **51**, the selected cards now show as an ordered **meld builder** with
+  ← / → controls and the joker's stand-in card, so you can place a **joker exactly where you want** in a
+  run (`[🃏, 8♠, 9♠]` = 7-8-9 vs `[8♠, 9♠, 🃏]` = 8-9-10) and still keep your last card to go out on the
+  final discard. No DB migration, no dependency, no protocol change.
 
 ## [0.3.8] — 2026-07-14 — 51 meld and opening rule fixes
 

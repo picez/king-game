@@ -3,7 +3,7 @@
 
 export const AR: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب وبريفيرانس',
+  'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب وبريفيرانس و51',
   'pwa.installTitle': 'ثبّت Card Majlis',
   'pwa.installBody': 'العب أسرع من شاشتك الرئيسية',
   'pwa.install': 'تثبيت',
@@ -110,6 +110,14 @@ export const AR: Record<string, string> = {
   'roomList.unreachable': 'تعذّر الوصول إلى الخادم.',
   'menu.wssWarning': '⚠️ صفحة HTTPS تتطلب wss:// (وليس ws://)',
   'common.close': 'إغلاق',
+  // Manual hand ordering (Stage 30.12) — shared across all games.
+  'hand.arrange': 'ترتيب',
+  'hand.arrangeTitle': 'رتّب أوراقك',
+  'hand.arrangeHint': 'انقر بطاقة ثم حرّكها يميناً أو يساراً. الأوراق الجديدة تظهر على اليسار.',
+  'hand.moveLeft': 'حرّك يساراً',
+  'hand.moveRight': 'حرّك يميناً',
+  'hand.autoSort': 'فرز تلقائي',
+  'hand.arrangeDone': 'تم',
   'common.offline': 'غير متصل',
   'card.label': '{rank} {suit}',
   'card.hidden': 'بطاقة مخفية',
@@ -458,6 +466,7 @@ export const AR: Record<string, string> = {
   'fiftyOne.addToMeld': 'أضف',
   'fiftyOne.openTotal': 'مجموع الافتتاح: {n}/51',
   'fiftyOne.meldTotal': 'مجموع التشكيلة: {n}',
+  'fiftyOne.selOrderHint': 'انقر بطاقة ثم ← / → لتحديد موضعها في التشكيلة',
   'fiftyOne.openingNeeds51': 'الافتتاح يتطلب 51+ في تشكيلاتك الأولى',
   'fiftyOne.openAnyMeld': 'لقد افتتحت — انزل أي تشكيلة صالحة',
   'fiftyOne.clear': 'مسح',

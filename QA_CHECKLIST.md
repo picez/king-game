@@ -71,6 +71,18 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Round scoring matches KING_RULES.md; game ends after 27 rounds (3p) / 36 (4p).
 - [ ] 4-player game deals 13 each, no kitty.
 
+## Manual — manual hand ordering (all games, Stage 30.12)
+
+- [ ] In **every** game (King / Durak / Deberc / Tarneeb / Preferans / 51), the hand shows a small
+      **↔ Arrange** button. Default order is the usual sort (unchanged) until you arrange.
+- [ ] Tap **↔ Arrange** → the sheet lists your hand (LTR); tap a card, then **← / →** move it; the live
+      hand reorders behind the sheet. **Auto-sort** returns to the default sort. Works at **360/390**,
+      no overflow, and never blocks playing a card after closing.
+- [ ] After arranging, a **newly drawn/received card appears at the far LEFT** of the hand (Durak refill,
+      51 draw). A **new deal** returns to the default sort. This is **display-only** — online opponents /
+      the server never see your order (no reducer/action change).
+- [ ] Reordering the hand does **not** change which cards are legal to play (trick games) or meldable (51).
+
 ## Manual — clockwise & table clarity (Stage 27.4)
 
 - [ ] In **every** game the turn highlight moves **clockwise** (to your left first) —
@@ -602,6 +614,12 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       value 10); adding a **K** to an `A-2-3` run stays rejected. Public-meld cards render as a **clean,
       readable row** — no overlap, no clipped ranks/suits, Add button below the cards — with **no horizontal
       overflow** at 360/390 even with 4 players and several melds (long runs scroll within the meld block).
+- [ ] **Joker position control + final discard (Stage 30.12):** with a joker in hand, select cards for a
+      run so the joker is where you want it — the **meld builder strip** shows the selected cards in order
+      with **← / →** to reorder (tap a card, then move) and the resulting **🃏 = <card>** so `[🃏, 8♠, 9♠]`
+      reads 7-8-9 while `[8♠, 9♠, 🃏]` reads 8-9-10. The selection is **never auto-sorted**. After opening,
+      lay the joker meld (any value), keep your **last card**, and **discard it to go out** — you win only
+      by that final discard (melding all cards never auto-wins). Works local + online.
 - [ ] **Online play:** host + join (2 tabs + optional bot) → each client sees **only its own hand**
       (opponents show 🂠counts, draw pile face-down); a turn applies over the wire; the **server** drives the
       between-rounds advance (no client "Next round" button); match winner + **Play again** (rematch) +

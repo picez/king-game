@@ -13,6 +13,8 @@ import {
 } from '../../games/preferans/rules';
 import { validBids, validDeclareContracts, bidKey } from './bids';
 import PreferansHelp from './PreferansHelp';
+import HandOrderControls from '../components/HandOrderControls';
+import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 
 interface Props {
   state: PreferansState;
@@ -87,6 +89,8 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
   }, [phase, actingSeat]);
 
   const trumpSuit = state.contract ? trumpSuitOf(state.contract) : null;
+  // Client-only hand display order (default = sortHand; manual on reorder, Stage 30.12).
+  const handOrder = useManualHandOrder(sortHand(state.handsBySeat[humanSeat], trumpSuit), singleDeckCardId);
   const legalCards = phase === 'playing' && isMyTurn ? getValidPlayableCards(state, humanSeat) : [];
   const cardPlayable = (c: Card) => legalCards.some((x) => cardEquals(x, c));
 
@@ -312,9 +316,9 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
       {/* The human's hand. During the discard step cards toggle a selection; while
           playing they play; otherwise they are inert. */}
       <div className="preferans-hand">
-        {sortHand(state.handsBySeat[humanSeat], trumpSuit).map((c) => (
+        {handOrder.ordered.map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}`}
+            key={singleDeckCardId(c)}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}
@@ -324,6 +328,8 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
           />
         ))}
       </div>
+      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
+        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
 
       {phase === 'hand_complete' && state.lastHand && (
         <HandComplete state={state} humanSeat={humanSeat} online={online} onNext={() => apply({ type: 'START_NEXT_HAND' })} />

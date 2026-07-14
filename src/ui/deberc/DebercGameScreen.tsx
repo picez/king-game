@@ -8,6 +8,8 @@ import { cardEquals, canExchangeTrump } from '../../games/deberc/rules';
 import { detectAllSequences, hasBella } from '../../games/deberc/melds';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
+import HandOrderControls from '../components/HandOrderControls';
+import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 import DebercScoreTable from './DebercScoreTable';
 import DebercTricksReview from './DebercTricksReview';
 
@@ -76,6 +78,8 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const phase = state.phase;
   const trump = state.trumpSuit;
   const trumpSuit = trump ?? state.tableTrumpCard.suit;
+  // Client-only hand display order (default = sortHand; manual on reorder, Stage 30.12).
+  const handOrder = useManualHandOrder(sortHand(me.hand, trump), singleDeckCardId);
   const trumpRed = trumpSuit === 'hearts' || trumpSuit === 'diamonds';
 
   // Legal plays only matter on my playing turn (redaction keeps my hand real).
@@ -398,9 +402,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       )}
 
       <div className="durak-hand">
-        {sortHand(me.hand, trump).map((c) => (
+        {handOrder.ordered.map((c) => (
           <CardView
-            key={`${c.rank}${c.suit}`}
+            key={singleDeckCardId(c)}
             card={c}
             size="hand"
             onClick={() => clickCard(c)}
@@ -409,6 +413,8 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
           />
         ))}
       </div>
+      <HandOrderControls order={handOrder} cardId={singleDeckCardId}
+        renderMini={(c) => <CardView card={c} size="mini" disabled />} />
     </div>
   );
 }

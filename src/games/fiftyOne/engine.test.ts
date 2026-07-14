@@ -256,4 +256,21 @@ describe('51 lay-off (§9)', () => {
     const s = baseState([[c('K', 'spades'), c('2', 'clubs')], []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [meld] });
     expect(fiftyOneReducer(s, { type: 'ADD_TO_MELD', meldId: 'm-1-1-0', cards: [c('K', 'spades')] })).toBe(s);
   });
+
+  it('lays a joker meld in the chosen position, keeps one card, and wins by final discard (30.12)', () => {
+    // Opened seat holds 7♠ [joker] 9♠ (a run with the joker as the middle 8♠) + a spare.
+    const joker = J();
+    const hand = [c('7', 'spades'), joker, c('9', 'spades'), c('2', 'clubs')];
+    const s = baseState([hand, [c('3', 'clubs')]], { currentSeat: 0, openedBySeat: [true, false] });
+    // Lay the joker run in the tapped order [7, joker, 9] → 7-8-9, joker represents 8♠.
+    const laid = fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [[c('7', 'spades'), joker, c('9', 'spades')]] }) as FiftyOneState;
+    expect(laid).not.toBe(s);
+    expect(laid.publicMelds).toHaveLength(1);
+    expect(laid.publicMelds[0].jokerRepresents[1]).toEqual({ suit: 'spades', rank: '8' });
+    expect(laid.handsBySeat[0]).toHaveLength(1); // only the spare 2♣ kept
+    expect(laid.turnStep).toBe('meld_discard');  // must still discard to go out
+    // Discarding the last card empties the hand → round win by final discard.
+    const done = fiftyOneReducer(laid, { type: 'DISCARD', card: c('2', 'clubs') }) as FiftyOneState;
+    expect(done.roundWinnerSeat).toBe(0);
+  });
 });
