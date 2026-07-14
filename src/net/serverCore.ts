@@ -26,6 +26,7 @@ import type { TarneebVariant } from '../games/tarneeb/types';
 import type { TarneebState } from '../games/tarneeb/types';
 import { normalizeTargetScore } from '../games/tarneeb/rules';
 import type { PreferansState } from '../games/preferans/types';
+import type { FiftyOneState } from '../games/fiftyOne/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -587,11 +588,22 @@ export function restartGame(room: ServerRoom, deal: DealContext = {}): OpResult 
  * Applies a client's ACTION_REQUEST. Authorises the sender (right actor for the
  * action), then runs the reducer. The reducer returns the SAME reference for an
  * illegal move, which we detect and reject without mutating.
+ *
+ * `deal.seed` is threaded into the reducer ONLY when supplied — it is optional and
+ * backward-compatible, so the existing WS call (no seed) runs the reducer exactly
+ * as before for every released game (King/Durak/Deberc/Tarneeb/Preferans player
+ * actions consume no rng, so their online path is byte-identical). The seam exists
+ * for a game whose player action can invoke the rng mid-turn — 51's DRAW_FROM_DECK
+ * reshuffles the discard when the draw pile empties (§5); passing a server seed
+ * keeps that reshuffle reproducible/auditable instead of falling back to
+ * Math.random. 51 is not yet hostable online (CREATE_ROOM rejects it), so this is
+ * exercised by serverCore readiness tests only (Stage 30.4).
  */
 export function applyActionRequest(
   room: ServerRoom,
   clientId: string,
   action: AnyGameAction,
+  deal: DealContext = {},
 ): OpResult {
   const state = room.gameState;
   if (!state) return { ok: false, error: 'ILLEGAL_ACTION' };
@@ -607,7 +619,11 @@ export function applyActionRequest(
     : seat != null && def.getActingPlayerId(state) === seatToPlayerId(seat);
   if (!authorized) return { ok: false, error: 'NOT_YOUR_TURN' };
 
-  const next = def.reducer(state, action);
+  // Only pass a reducer context when a seed was supplied, so the no-seed WS path
+  // stays identical to `def.reducer(state, action)` for the released games.
+  const next = deal.seed != null
+    ? def.reducer(state, action, { rng: makeRng(deal.seed) })
+    : def.reducer(state, action);
   if (next === state) return { ok: false, error: 'ILLEGAL_ACTION' };
   room.gameState = next;
 
@@ -703,6 +719,27 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     return false;
   }
 
+  if (gameType === 'fifty-one') {
+    // 51's only server-advanced public screen is `round_complete` (no seat acts
+    // there: getActingFiftyOneSeat → null). START_NEXT_ROUND RE-DEALS the next
+    // round, so it must be threaded with a server seed — otherwise the redeal
+    // falls back to Math.random and stops being reproducible / server-authoritative.
+    // The round resolves inside DISCARD (empty hand → scoreRound, no trick_complete
+    // screen) and `game_finished` is terminal. NOTE: 51 is NOT hostable online yet
+    // (GAME_CATALOG['fifty-one'].supportsOnline = false → wsHandlers rejects
+    // CREATE_ROOM), so this branch only runs in internal serverCore readiness tests
+    // (Stage 30.4), exactly like the Preferans branch was before its release.
+    const def = getGameDefinition('fifty-one');
+    if (!def) return false;
+    const state = room.gameState as FiftyOneState;
+    if (state.phase === 'round_complete') {
+      const seed = deal.seed ?? randomSeed();
+      room.gameState = def.reducer(state, { type: 'START_NEXT_ROUND' }, { rng: makeRng(seed) });
+      return true;
+    }
+    return false;
+  }
+
   // Durak: no server-advanced public screens (bouts resolve inside the reducer).
   return false;
 }
@@ -736,6 +773,11 @@ export function publicScreenOf(room: ServerRoom): PublicScreen {
     // Like Tarneeb: `hand_complete` is the single public between-hands pause.
     // (Internal-only until Preferans online lands — see autoAdvance note.)
     return (s as PreferansState).phase === 'hand_complete' ? 'round_scoring' : null;
+  }
+  if (gt === 'fifty-one') {
+    // 51's single public between-rounds pause is `round_complete`, mapped to the
+    // generic 'round_scoring'. Internal-only until 51 online lands (Stage 30.5).
+    return (s as FiftyOneState).phase === 'round_complete' ? 'round_scoring' : null;
   }
   return null;
 }

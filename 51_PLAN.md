@@ -106,11 +106,27 @@
   catalog/registry/platformAudit/apiDisabled. **Still offline only; no stats.** `npm run verify`
   green (2145 tests). Owed: manual 360/390 + Arabic-RTL visual pass (no automated pixel check).
 
-### 30.4 — Online redaction / readiness
-- `redact.ts` + a redaction-leak test; server-authoritative wiring through serverCore
-  (`buildStartAction`, acting player, bot loop, snapshot). CREATE_ROOM/room/snapshot carry
-  the player-count option; persistence round-trips. **No release yet** — internal/LAN QA
-  that no hand/draw-pile data leaks.
+### 30.4 — Online redaction / readiness — ✅ DONE
+- **Server-authoritative wiring proven WITHOUT enabling online** (`supportsOnline` stays
+  false → `CREATE_ROOM` still rejects 51). `FiftyOneState`/`FiftyOneAction` joined the
+  `AnyGameState`/`AnyGameAction` unions (type-only). `serverCore` now drives 51 through the
+  same generic path as the released games: `startGame` (via `buildStartAction`), generic
+  turn-ownership authorization (`getActingPlayerId === seatToPlayerId(seat)`, the reducer
+  enforces the rest), `applyActionRequest` rejecting foreign-seat (`NOT_YOUR_TURN`) and
+  illegal (`ILLEGAL_ACTION` reducer no-op) actions, `applyBotTurn`/`applyTimeoutAction`, and
+  a new `autoAdvance`/`publicScreenOf` branch that seeds the public **`round_complete` →
+  `START_NEXT_ROUND`** redeal (reproducible/auditable, mirrors Tarneeb/Preferans). A minimal
+  generic seam — an **optional `deal` seed on `applyActionRequest`** — threads a server seed
+  into 51's mid-turn discard reshuffle (§5); it is off by default so the released games' WS
+  path is byte-identical. **Redaction hardened**: a JSON-payload scan proves no opponent
+  hand / draw-pile card id (or joker) ever reaches the wrong viewer; own hand real, others
+  are same-length blank placeholders, draw pile hidden (count kept), discard/melds (incl.
+  joker value)/scores/opened/eliminated/turn public, spectator sees nothing. **Persistence**
+  round-trips a 51 game mid-play (hands/draw/discard/melds/scores/phase), redaction still
+  works after restore, and the hidden draw pile never appears in a public `RoomSummary`/
+  `snapshot`. Tests: `fiftyOne/redaction.test.ts` (leak scan) + `net/fiftyOneServerCore.test.ts`
+  (readiness drive) + updated union/serverCore guards. **No release, no stats, no DB, no
+  protocol/message change; the five released games are untouched.** LAN/online QA owed at 30.5.
 
 ### 30.5 — Online release
 - Flip catalog to **`available`**; lobby label, room browser subtitle, rematch preserve,

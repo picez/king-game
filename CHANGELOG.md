@@ -23,6 +23,21 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **51 (Syrian 51) online redaction / readiness hardened (Stage 30.4, no user-facing change).**
+  Proved the 51 `GameDefinition` is server-authoritative-ready **without enabling online** —
+  `supportsOnline` stays `false`, so `CREATE_ROOM` still rejects a 51 room and `GET /api/games`
+  still lists it as local-experimental. `serverCore` now drives 51 through the same generic path
+  as the released games: `startGame`, generic turn-ownership authorization (foreign-seat →
+  `NOT_YOUR_TURN`, illegal move → `ILLEGAL_ACTION` reducer no-op), `applyBotTurn`/
+  `applyTimeoutAction`, and a seeded `autoAdvance`/`publicScreenOf` branch for the public
+  `round_complete → START_NEXT_ROUND` redeal. Added `FiftyOneState`/`FiftyOneAction` to the
+  `AnyGameState`/`AnyGameAction` type unions and an **optional `deal` seed on
+  `applyActionRequest`** (off by default — the released games' WS path is byte-identical) so 51's
+  mid-turn reshuffle stays reproducible. **Redaction hardened** with a JSON-payload leak scan
+  (no opponent hand / draw-pile card ever reaches the wrong viewer; draw pile hidden with count
+  kept; discard / melds+joker value / scores / opened / eliminated / turn public; spectator sees
+  nothing) and a persistence round-trip test. **No online release, no stats, no DB migration, no
+  protocol/message or dependency change; the five released games are untouched.**
 - **51 (Syrian 51) registered as "coming soon" (Stage 30.2).** Wired the Stage-30.1 pure core
   into the platform as a `coming_soon` game (id **`fifty-one`**): added the `GAME_CATALOG` entry
   (`supportsLocal/Online:false`, `supportsBots:true`, 2–4 players, `rulesDoc:'51_RULES.md'`) and

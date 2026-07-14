@@ -508,13 +508,14 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
 
-## Manual — 51 (Syrian 51) — PURE CORE built (Stage 30.1), not yet playable
+## Manual — 51 (Syrian 51) — LOCAL PLAYABLE (Stage 30.3) + online redaction-ready (Stage 30.4), online OFF
 
-> **Pure core exists, but 51 is still invisible in the app.** The reducer lives under
-> `src/games/fiftyOne/` with unit tests ([`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md));
-> there is **no catalog entry, UI, server/ws or stats** yet (those activate in 30.2+). The
-> Stage-30.1 assertion is still that **the five released games are unchanged** and 51 appears
-> **nowhere** in the running app — it is automated-tests-only for now.
+> **51 is local-playable and online redaction-ready, but hosting stays disabled.** The pure core
+> + local UI live under `src/games/fiftyOne/` / `src/ui/fiftyOne/` ([`51_RULES.md`](51_RULES.md) ·
+> [`51_PLAN.md`](51_PLAN.md)); the Local picker enables it ("Experimental"), the **Host/online
+> picker stays disabled** (`supportsOnline:false` → `CREATE_ROOM` rejects 51, no stats/favorite).
+> Stage 30.4 proves the server core can build/authorise/redact/persist 51 (automated below) **without
+> enabling online**. The standing assertion is still that **the five released games are unchanged**.
 
 - [x] *(Stage 30.1)* Pure core built: **no** catalog/registry `fiftyOne`, **no** UI, **no**
       `game_type='fifty-one'` wiring — 51 is invisible in the running app. `git grep -n fiftyOne
@@ -541,8 +542,18 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       discard-pile take is blocked until you open, opening needs 51+, empty-hand win, round
       summary (penalties incl. never-opened 100 / joker 25), elimination at 510, match winner.
       **No horizontal overflow; cards/controls do not overlap.** Arabic **RTL** smoke.
-- [ ] *(30.4–30.5)* Online redaction (own hand only; draw pile + other hands hidden), no leak;
-      lobby label, rematch/reconnect; release smoke.
+- [x] *(30.4)* **Online redaction / readiness — hosting stays OFF.** Automated:
+      `fiftyOne/redaction.test.ts` (JSON-payload leak scan: no opponent hand / draw-pile card id
+      or joker reaches the wrong viewer; own hand real, others blank placeholders with count kept;
+      discard / melds+joker value / scores / opened / eliminated / turn public; spectator sees
+      nothing) + `net/fiftyOneServerCore.test.ts` (serverCore drives 51 internally: `startGame`
+      deal 13/14, `sanitizedStateFor` per-seat redaction, foreign-seat → `NOT_YOUR_TURN`, illegal
+      → `ILLEGAL_ACTION` no-op, seeded `round_complete → START_NEXT_ROUND` redeal + determinism,
+      serialize/deserialize round-trip mid-play, no draw-pile leak in `RoomSummary`/`snapshot`).
+      **Verified STILL disabled online**: `supportsOnline:false`, `CREATE_ROOM` rejects 51,
+      `recordsStats:false`, no DB/migration/protocol change. No manual online QA yet (30.5).
+- [ ] *(30.5)* Online RELEASE smoke (once `supportsOnline` flips): create/join/start, own-hand-only
+      redaction on real sockets, lobby label, rematch/reconnect.
 - [ ] *(30.6–30.7)* Per-`game_type='fifty-one'` stats + leaderboard (no migration); icon +
       achievements; help hub.
 
