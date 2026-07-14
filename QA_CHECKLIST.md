@@ -508,6 +508,28 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
 
+## Manual — 51 (Syrian 51) — PLANNED, spec only (Stage 30.0)
+
+> **Placeholder — nothing to test yet.** 51 is **spec only** ([`51_RULES.md`](51_RULES.md)
+> · [`51_PLAN.md`](51_PLAN.md)); no runtime code, catalog entry, UI or stats exist. These
+> checks activate at their stage. Until then the only Stage-30.0 assertion is docs-only:
+> **the five released games are unchanged** and 51 appears **nowhere** in the running app.
+
+- [ ] *(Stage 30.0, now)* `51_RULES.md` + `51_PLAN.md` exist; **no** `src/games/fiftyOne/`,
+      no catalog/registry `fiftyOne`, no UI, no `game_type='fifty-one'` — 51 is invisible in
+      the app. `git grep -n fiftyOne src` returns nothing.
+- [ ] *(30.1)* Core unit tests: deck composition (2p 1-deck+2J / 3–4p 2-deck+2J), deal 13/14,
+      run/set validation incl. `A-2-3`=6, `Q-K-A`=30, reject `K-A-2`, no duplicate identical
+      card in a set, joker resolution, 51-opening total, penalties (Joker=25, never-opened=100),
+      elimination at 510.
+- [ ] *(30.2)* Catalog shows 51 as **coming soon** (not playable); the five games unaffected.
+- [ ] *(30.3)* Local 2–4p prototype: deal, draw-then-discard, open with 51, lay-off, empty-hand
+      win, penalties; no 360/390 overflow.
+- [ ] *(30.4–30.5)* Online redaction (own hand only; draw pile + other hands hidden), no leak;
+      lobby label, rematch/reconnect; release smoke.
+- [ ] *(30.6–30.7)* Per-`game_type='fifty-one'` stats + leaderboard (no migration); icon +
+      achievements; help hub.
+
 ## Manual — Deberc combination stats (Stage 13.8)
 
 > Deberc records the team outcome + jackpot **and** an aggregate combination

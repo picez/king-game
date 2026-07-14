@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Docs
+
+- **51 (Syrian 51) rules spec + implementation plan (Stage 30.0, docs-only).** Added
+  [`51_RULES.md`](51_RULES.md) (MVP rules, reconciling the owner's Syrian 51 source with
+  authoritative house-rule corrections; 10 open confirmations recorded) and
+  [`51_PLAN.md`](51_PLAN.md) (staged rollout 30.1 core → 30.7 release, `src/games/fiftyOne/`,
+  redaction/bot/stats guidance). Marked 51 as the **planned 6th game** in `MVP_STATUS.md` /
+  `PROJECT_OVERVIEW.md` and added a `QA_CHECKLIST.md` placeholder. **No runtime code, catalog,
+  UI, stats, dependency or schema change** — the five released games are untouched.
+
 ## [0.3.6] — 2026-07-14 — Tarneeb target score and compact table
 
 A Tarneeb-focused patch on **v0.3.5**. The match **target score is now host-configurable** (presets
