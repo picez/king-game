@@ -980,8 +980,9 @@ present; prints `PASS/FAIL`, exit non-zero on any fail):
 - [ ] `game-3-float-sticker` — a floating sticker over the table.
 
 Acceptance: **16/16 PASS** (8 states × 2 viewports), no overflow, hand/actions never
-covered. Note: a floating chip is top-centre and may briefly overlap the top seat /
-lobby title — transient (~2.6 s), opaque, and by design never over the hand/trick.
+covered. Note: a floating chip anchors **over the sender's seat** (Stage 27.1; Tarneeb's
+mirrored layout corrected in 29.5) and may briefly overlap that seat / the lobby title —
+transient (~2.6 s), opaque, and by design never over the hand/trick.
 
 ## Known limitations
 

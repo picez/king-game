@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.4`** (tag `v0.3.4`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.5`** (tag `v0.3.5`).
 
 Set your host once and reuse it below:
 
@@ -23,43 +23,45 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.4 adds no migrations** — 0009 is still the latest (the Durak reveal + online-timer polish
-> is display-only; Tarneeb Solo stats reuse the existing schema under `game_type='tarneeb-solo'`).
+> **v0.3.5 adds no migrations** — 0009 is still the latest (the table HUD & reactions polish is
+> display-only; no schema change, and Tarneeb Solo stats still reuse `game_type='tarneeb-solo'`).
 
 ---
 
-## 0. v0.3.4 release smoke (fast targeted pass)
+## 0. v0.3.5 release smoke (fast targeted pass)
 
-What v0.3.4 (Durak final-defence reveal + online timer polish, Stage 29.2) specifically touches,
-plus the v0.3.3 correctness checks and v0.3.2 platform checks it rides on. All v0.3.4 changes are
-**display-only** (no rules/scoring/schema change). The numbered sections cover each in depth.
+What v0.3.5 (table HUD & reactions polish, Stage 29.5) specifically touches, plus the v0.3.4 Durak
+reveal + online-timer checks and the v0.3.3/v0.3.2 correctness/platform checks it rides on. All
+v0.3.5 changes are **display-only** (no rules/scoring/schema/protocol change). The numbered sections
+cover each in depth.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.4`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.5`**, `commit` matches the deploy,
       `db.enabled: true`, **`games.count: 5`**, `voice.ice` = `stun_only`|`turn_configured`,
-      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.4).
+      `avatarUploads` present. Then **`npm run db:migrate`** if any new migration (none in 0.3.5).
 - [ ] **Durak trump/deck + final-defence reveal (v0.3.4):** on the Durak table the **face-up trump +
       draw pile are visibly larger** (~+22%) with no 360/390 overflow; and when the **last attack is
       beaten** (or the defender takes), the completed **attack+defence pair stays on the felt ~2 s**
       before the table clears — you can see the card that won the final bout (local + online).
-- [ ] **Per-turn timer in every online game (v0.3.4):** host an online **Durak / Deberc / Tarneeb /
-      Preferans** room with a **host timer set (30/60/90)** → a **⏱ Ns** pill shows at the top-centre
-      and counts down each turn; with the timer **off** it does **not** appear; local play shows none.
-      The **low-time sound** alert still fires **only on your turn**.
+- [ ] **Per-turn timer in every online game (v0.3.4, repositioned in 29.5):** host an online **Durak /
+      Deberc / Tarneeb / Preferans** room with a **host timer set (30/60/90)** → a **⏱ Ns** pill shows
+      at the **bottom of the table** (moved from top-centre in Stage 29.5) and counts down each turn;
+      with the timer **off** it does **not** appear; local play shows none. The **low-time sound**
+      alert still fires **only on your turn**.
 - [ ] **Tarneeb Solo trick UI (v0.3.4):** during a **Solo** game the standings strip shows **all 4
       players' live trick count (🃏 N)**, and a **larger dedicated "review my tricks" button** sits
       under the standings (reachable on 360/390). **Pairs** is unchanged (compact topbar team badge).
 - [ ] **Arabic RTL (v0.3.4):** with the language set to Arabic, the **timer pill**, the **Tarneeb Solo
       standings**, and the **Durak table** (larger trump/deck + lingering last bout) all mirror
       correctly with **no horizontal overflow** at 360/390.
-- [ ] **Reaction anchor cross-device (Stage 29.5, Unreleased):** with **2 devices** in a **Tarneeb**
+- [ ] **Reaction anchor cross-device (Stage 29.5, v0.3.5):** with **2 devices** in a **Tarneeb**
       game (Pairs or Solo), each sends a reaction → it floats over **that sender's own visible seat**
       on *both* screens (not the opposite seat). Spot-check one non-mirrored game (Durak/Deberc) as a
       control. This is the mirror-fix — the sender always saw it right; the *other* viewer was wrong.
-- [ ] **Timer bottom HUD (Stage 29.5, Unreleased):** in an online game with a host timer, the **⏱
+- [ ] **Timer bottom HUD (Stage 29.5, v0.3.5):** in an online game with a host timer, the **⏱
       pill sits at the bottom** of the table (above the hand), with a **bigger clock + countdown**,
       and **pulses when low**. It does **not** cover the hand cards/action buttons at 360/390 (a tap
       lands on the card underneath), and clears the bottom safe-area on notched phones.
-- [ ] **Score/tricks HUD readability (Stage 29.5, Unreleased):** **Tarneeb Solo** standings highlight
+- [ ] **Score/tricks HUD readability (Stage 29.5, v0.3.5):** **Tarneeb Solo** standings highlight
       **me / leader (👑) / current turn (▶ + ring)** with bold 🃏tricks·score; **Tarneeb Pairs** Us/Them
       boards + **Deberc** score chips show larger tabular numbers with a coloured top edge on your
       side. No 360/390 overflow; Solo shows no Team A/B, Pairs/Deberc labels unchanged.

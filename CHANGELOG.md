@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-07-14 — Table HUD and reactions polish
+
+A display-only polish patch on **v0.3.4**. Floating reactions/stickers now anchor over the sender's
+**actual** seat in **Tarneeb** (whose on-screen seats are mirrored), the per-turn online timer moves
+to a **bottom-of-table HUD** pill with a larger clock, and the in-game **score/tricks readouts** for
+Tarneeb (Solo + Pairs) and Deberc are easier to read. **No rules/scoring change, no DB migration**
+(0009 stays the latest), **no dependency changes, no protocol/payload change**. `/health/diagnostics`
+`version` reads `0.3.5`.
+
 ### Fixed
 
 - **Reactions/stickers now float over the sender's ACTUAL seat in Tarneeb (Stage 29.5, owner).** The
