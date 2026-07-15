@@ -390,6 +390,51 @@ describe('51 public round_complete advances server-side (Stage 30.4)', () => {
     expect(after.turnStep).toBe('meld_discard');
   });
 
+  it('online joker replacement (30.14): opened seat swaps the exact card in, joker out; unopened + mismatched rejected', () => {
+    const joker: FiftyOneCard = { id: 'joker-0', joker: true, suit: null, rank: null };
+    // A public set J♣ J♦ [joker = J♥]; the acting seat holds the real J♥ + a spare.
+    const craft = (opened: boolean): { room: ServerRoom; client: string; seat: number } => {
+      const { room, clientForSeat } = seatedRoom(2, 21);
+      const s = asF(room.gameState);
+      const seat = s.currentSeat;
+      s.turnStep = 'meld_discard';
+      s.openedBySeat[seat] = opened;
+      s.handsBySeat[seat] = [card('J', 'hearts'), card('J', 'spades'), card('2', 'clubs')];
+      s.publicMelds = [{
+        id: 'pm', ownerSeat: seat, type: 'set',
+        cards: [card('J', 'clubs'), card('J', 'diamonds'), joker],
+        jokerRepresents: { 2: { suit: 'hearts', rank: 'J' } }, value: 30,
+      }];
+      return { room, client: clientForSeat(seat), seat };
+    };
+
+    // Unopened → the reducer refuses to hand a public joker over (ILLEGAL_ACTION).
+    const u = craft(false);
+    const before = JSON.stringify(u.room.gameState);
+    const rejected = applyActionRequest(u.room, u.client,
+      { type: 'REPLACE_JOKER', meldId: 'pm', jokerCardId: 'joker-0', card: card('J', 'hearts') } as AnyGameAction);
+    expect(rejected.ok).toBe(false);
+    expect(rejected.error).toBe('ILLEGAL_ACTION');
+    expect(JSON.stringify(u.room.gameState)).toBe(before);
+
+    // Opened but the WRONG card (J♠ ≠ the represented J♥) → still rejected.
+    const w = craft(true);
+    const wrong = applyActionRequest(w.room, w.client,
+      { type: 'REPLACE_JOKER', meldId: 'pm', jokerCardId: 'joker-0', card: card('J', 'spades') } as AnyGameAction);
+    expect(wrong.ok).toBe(false);
+
+    // Opened + the exact J♥ → accepted over the wire.
+    const o = craft(true);
+    const accepted = applyActionRequest(o.room, o.client,
+      { type: 'REPLACE_JOKER', meldId: 'pm', jokerCardId: 'joker-0', card: card('J', 'hearts') } as AnyGameAction);
+    expect(accepted.ok).toBe(true);
+    const after = asF(o.room.gameState);
+    expect(after.publicMelds[0].cards.some((c) => c.joker)).toBe(false);
+    expect(after.publicMelds[0].value).toBe(30);
+    expect(after.handsBySeat[o.seat].filter((c) => c.joker)).toHaveLength(1);
+    expect(after.turnStep).toBe('meld_discard'); // the seat still owes a discard
+  });
+
   it('a finished game reports no public screen and does NOT auto-advance', () => {
     // Build a terminal state directly (a full 510-point drive is unnecessary for
     // the invariant): once game_finished, the room exposes no between-rounds pause

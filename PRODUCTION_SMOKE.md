@@ -300,6 +300,15 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       top**, then **"Take & open 51"** opens and removes the top. You can't take the discard bare while
       unopened. After opening, Take discard works normally. Meld cards are **bigger/clearly separated**,
       no overlap, no 360/390 overflow (4-5-card runs, multiple blocks).
+- [ ] **Joker replacement + readable melds + help (Stage 30.14):** as an **opened** player holding the
+      exact card a table joker stands in for (`J♥` vs a joker representing `J♥`), the meld shows
+      **"🃏 Replace joker"** → pressing it puts your card in the joker's slot and the **joker lands in
+      your hand**; the meld's value is unchanged. It is **absent** when unopened, when it isn't your
+      turn, at the draw step, or with a merely near-miss card (`J♠` / `10♥`) — and you must still
+      **discard** to end the turn. Public-meld cards are **large, gapped, never overlapping/cropped**
+      at 360/390 with **Add / Replace joker in a row under** them; the ❓ **help sheet** shows **Card
+      values** + **Melds** (`A-2-3` = 6, `Q-K-A` = 30, `K-A-2` invalid, joker in hand 25) in all 4
+      languages. Online: the meld change is public to both tabs, the taken joker stays private.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
       **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A

@@ -282,6 +282,40 @@
   stats change; joker-25 / unopened-100 / 510 / win-by-final-discard / post-open free melds unchanged.**
   `npm run verify` green.
 
+### 30.14 — Joker replacement + meld readability + help detail — ✅ DONE
+- **Joker replacement (core, §9a).** New reducer action **`REPLACE_JOKER`** (`engine.ts` + `types.ts`):
+  an OPENED seat, at its own `meld_discard` step, may put the card a public meld's Joker represents
+  into that Joker's slot and take the **Joker into hand**. Validated in the core, never the UI: opened
+  ✓, target must BE a joker with a `jokerRepresents` entry ✓, replacement must be **in hand** and match
+  the represented **rank AND suit exactly** ✓, joker-for-joker rejected ✓, meld re-resolved after the
+  swap ✓. Because the match is exact the meld's value never moves, and because the swap is **hand-size
+  neutral** it can never empty a hand — going out stays the final discard. Unopened seats are refused
+  (they may not touch a public meld at all). **Bot: deliberately NOT taught this** — buying a 25-point
+  joker into a bot hand is a losing trade its greedy discard heuristic can't reason about, and the win
+  is human-only anyway; documented rather than half-built. **Online**: same action over
+  `ACTION_REQUEST` (serverCore test: unopened rejected, wrong card rejected, exact card accepted).
+  **Redaction**: the meld change is public, the taken joker is private to its new owner (test).
+- **Public-meld layout, for real.** Cards enlarged to **64×100** and sized from ONE CSS variable
+  (`--f51-meld-card-w/h`) driving both the slot and the card, so the two can never disagree; every row
+  child is forced in-flow (`flex: 0 0 var(...)`, `margin: 0`, `transform: none`, no absolute stacking)
+  so no shared `.card` rule can push two together; the joker badge moved inside the card box. Add /
+  **Replace joker** moved into their own `.fiftyone-meld__ctrls` row UNDER the cards.
+- **The harness was blind.** `scripts/fifty-one-shots.mjs` still drove `.fiftyone-hand`, which **30.12b
+  deleted** (the hand is `HandReorderTray`, whose `[data-card-id]` slot owns the tap via pointer
+  events, and whose card is inert to `.click()`). It therefore never took a turn, never reached a
+  public meld, and **passed vacuously** — which is how a meld-layout regression could reach the owner
+  while CI stayed green. It now taps the slot with real pointer events, probes overlap/clip/controls-
+  over-cards per meld row, and **FAILS when it reaches no meld at all**. Verified live at 360/390:
+  `melds=2–4 maxCards=4–5 minCardW=64 overlaps=0 clipped=0 covered=0`, no page overflow.
+- **Help.** `gameHelp.ts` gained two OPT-IN sections (`values`, `melds`) that only 51 uses; the sheet
+  now states card values (2–10 face, J/Q/K 10, A 10 except `A-2-3`=6, joker-in-meld = represented card,
+  joker-in-hand 25), meld examples (`A-2-3`, `Q-K-A`, `K-A-2` invalid, sets without duplicate suits,
+  ≤ 1 joker anywhere), the discard-to-open exception, and joker replacement. i18n en/uk/de/ar.
+- Tests: engine (9 cases) + serverCore (1) + online redaction (1) + help content/parity (4) + UI/CSS
+  source guards (2). **No DB migration, no dependency, no stats/schema change; joker-25 /
+  unopened-100 / 510 / win-by-final-discard / post-open free melds / discard-to-open unchanged.**
+  `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

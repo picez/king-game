@@ -8,8 +8,13 @@
 
 import { GAME_TYPES, type GameType } from './catalog';
 
-/** The compact sections a quick-rules sheet can show, in display order. */
-export type HelpSection = 'goal' | 'players' | 'deck' | 'turns' | 'scoring' | 'notes';
+/**
+ * The compact sections a quick-rules sheet can show, in display order.
+ * `values` + `melds` are OPT-IN extras (Stage 30.14): only a game whose scoring is
+ * card-value driven and whose legal combinations need spelling out asks for them —
+ * today that is 51 alone. A game omits them and nothing changes for it.
+ */
+export type HelpSection = 'goal' | 'players' | 'deck' | 'values' | 'melds' | 'turns' | 'scoring' | 'notes';
 
 /** Sections every game MUST cover (notes is optional flavour). */
 export const REQUIRED_HELP_SECTIONS: readonly HelpSection[] = ['goal', 'players', 'deck', 'turns', 'scoring'];
@@ -22,6 +27,10 @@ export interface GameHelpEntry {
 
 const ALL: HelpSection[] = ['goal', 'players', 'deck', 'turns', 'scoring', 'notes'];
 
+/** 51 also spells out card values + legal melds — its opening gate and its
+ *  penalties are both point sums, so the sheet is useless without them (30.14). */
+const FIFTY_ONE: HelpSection[] = ['goal', 'players', 'deck', 'values', 'melds', 'turns', 'scoring', 'notes'];
+
 /** Every game has a quick-rules entry (all show the full section set). 51 is a
  *  coming_soon game but still ships help content so its sheet works from the
  *  disabled picker option (Stage 30.2). */
@@ -31,7 +40,7 @@ export const GAME_HELP: Record<GameType, GameHelpEntry> = {
   deberc: { id: 'deberc', sections: ALL },
   tarneeb: { id: 'tarneeb', sections: ALL },
   preferans: { id: 'preferans', sections: ALL },
-  'fifty-one': { id: 'fifty-one', sections: ALL },
+  'fifty-one': { id: 'fifty-one', sections: FIFTY_ONE },
 };
 
 /** i18n key for a section's short label (e.g. "Goal", "Players"). */

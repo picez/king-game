@@ -5,9 +5,10 @@
 > `src/games/fiftyOne/`. Owner corrections: a joker may sit at **any position** in a meld (§8),
 > the **51 minimum is a once-per-round opening gate** — after opening, any valid meld may be laid
 > (§7, 30.9), **Ace-low runs extend** (`A-2-3-4`, …) so an Ace lays off onto a `2-3-4` (§6, 30.10),
-> and an unopened player may take the **discard top only to open with it** (§5a, 30.13). This
-> document remains the single source of truth; when code disagrees with this spec, the code is
-> wrong — or this spec is updated first, deliberately.
+> an unopened player may take the **discard top only to open with it** (§5a, 30.13), and an opened
+> player may **swap a real card for a Joker in a public meld** and take that Joker into hand
+> (§9a, 30.14). This document remains the single source of truth; when code disagrees with this
+> spec, the code is wrong — or this spec is updated first, deliberately.
 >
 > **Sources.** Reconciled from the owner-supplied *Syrian 51 Card Game Rules* text and
 > the **owner's authoritative house-rule corrections**. Where the two disagree, the
@@ -185,7 +186,8 @@ again — reaching it once, to open, is the only threshold.
 - **In an opened meld, the Joker's value = the value of the card it represents** (§10).
   *[owner override: not a flat 15.]*
 - **A Joker left in a player's hand at round end = 25 penalty points** (§11). *[owner
-  override: source says ~15.]*
+  override: source says ~15.]* An opened player may **swap a real card for a Joker in a
+  public meld** and take that Joker back into hand (§9a, Stage 30.14).
 - **Joker cap (unchanged, MVP):** at most **ONE joker per meld** — two-plus jokers in one
   meld are rejected (keeps the represented card unambiguous). In a **set**, the joker takes a
   clear missing suit. (The old "internal gap only" run restriction from 30.1 is **superseded**
@@ -203,6 +205,27 @@ After you have opened:
 - Added cards must keep the target meld valid (still a legal run/set, joker still clear).
 
 Before opening you may **never** add to any meld (yours or others').
+
+### 9a. Replacing a joker *[owner rule, Stage 30.14]*
+
+Once you have opened, you may **buy a joker back off the table**: if a public meld
+contains a Joker, and you hold **exactly the card that Joker represents** (§8), you may
+put your real card into the meld **at the Joker's position** and take the **Joker into
+your hand**.
+
+- Example: the table shows the set `J♣ J♦ [Joker = J♥]`. You hold `J♥`. You put `J♥`
+  into the meld and take the Joker. The meld now reads `J♣ J♦ J♥` — same value (30),
+  no joker left in it.
+- The match must be **exact — rank AND suit**. A `J♠` may not replace a Joker standing
+  in as `J♥`, and a `10♥` may not either. Because the match is exact, the meld's value
+  and validity never change.
+- This works on **any** public meld — your own or another player's — exactly like a
+  lay-off (§9), and only **during the meld step of your own turn**.
+- **Unopened players may never do this** (they may not touch a public meld at all).
+- The Joker you take is a normal Joker in your hand: **25 penalty** if you are still
+  holding it when the round ends (§11), or wild in a meld you lay later (§8).
+- The swap is **hand-size neutral** (one card out, the Joker in), so it can never empty
+  your hand. You still go out **only on your final discard** (§5) — never on this action.
 
 ---
 
@@ -291,7 +314,7 @@ as Tarneeb/Deberc redaction.)
 **In MVP:** 2–4 players, the deck split (§3), 13/14 deal, draw-then-discard turns, the 51
 opening from own melds, runs (incl. `A-2-3`=6 and `Q-K-A`=30, no `K-A-2`), sets (no
 duplicate identical card), jokers (wild, meld-value / 25-in-hand), open-gated discard-pile
-take + lay-off to others, empty-hand win, hand-value penalties, 100 for never-opened,
+take + lay-off to others + joker replacement (§9a), empty-hand win, hand-value penalties, 100 for never-opened,
 Joker-in-hand 25, elimination at 510, continue-until-one-remains, clockwise.
 
 **Deferred / NOT in MVP:** the "Hand" all-at-once win bonus (§16 Q9); configurable target
@@ -370,3 +393,15 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   (2) **Public-meld cards enlarged** (54×84, fixed non-shrinking boxes) for readability — still no
   overlap/clip and no 360/390 overflow. No change to joker-hand-25 / unopened-100 / 510 elimination /
   win-by-final-discard / post-opening free-meld rules.
+- **Stage 30.14 (2026-07-15):** **joker replacement + meld readability + help detail.** (1) New §9a:
+  an OPENED player may swap the exact card a public meld's Joker represents (rank AND suit) into that
+  Joker's slot and take the Joker into hand (`REPLACE_JOKER`) — open-gated, meld-step only, exact-match
+  only, hand-size neutral so it can never end a round. Unopened players are refused. (2) Public-meld
+  cards enlarged again to **64×100**, sized from ONE CSS variable that drives both the slot and the
+  card, with every row child forced in-flow (`margin: 0`, `transform: none`) so no shared `.card` rule
+  can make two touch; Add / Replace joker moved into their own row UNDER the cards. The visual harness
+  had gone **blind** since 30.12b (it drove the deleted `.fiftyone-hand` and so never reached a meld —
+  a vacuous pass); it now taps the `HandReorderTray` slot via pointer events and FAILS when it reaches
+  no meld. (3) The help sheet gained **Card values** + **Melds** sections (§6/§10 examples), and states
+  the discard-to-open exception (§5a) and joker replacement (§9a). No change to joker-hand-25 /
+  unopened-100 / 510 elimination / win-by-final-discard / post-opening free-meld / discard-to-open.

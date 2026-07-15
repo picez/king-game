@@ -9,7 +9,27 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **51: take a joker back off the table (Stage 30.14).** Once you've opened, if a meld on the table
+  uses a **joker** and you hold the exact card it stands in for, you can swap them: press
+  **"🃏 Replace joker"** on that meld to put your real card in and take the **joker into your hand**.
+  It works on anyone's meld — your `J♥` replaces a joker standing in as `J♥`, and the joker is then
+  yours to use in a meld of your own (or costs the usual 25 if you're still holding it at the end).
+  The card has to match **exactly** — same rank *and* suit. Players who haven't opened can't do this,
+  and you still go out on your final discard. No DB migration, no dependency.
+
 ### Changed
+
+- **51: meld cards on the table are bigger and never overlap (Stage 30.14).** The cards in melds are
+  larger and fully readable, with **Add** and **Replace joker** moved to their own row **under** the
+  cards instead of sitting over them; long melds scroll inside their own block, so nothing spills off
+  the screen at 360/390.
+- **51: "How to play" now explains scoring and melds (Stage 30.14).** The help sheet gained **Card
+  values** and **Melds** sections — what each card is worth (2–10 face value, J/Q/K 10, A 10 but
+  `A-2-3` = 6, joker 25 in your hand), which combinations are legal (`A-2-3`, `Q-K-A`, why `K-A-2`
+  isn't, sets without a repeated suit, one joker per meld) — plus the discard-to-open exception and
+  the new joker replacement rule. Available in English, Ukrainian, German and Arabic.
 
 - **51: take the discard only to open, and clearer melds (Stage 30.13).** In 51 you may now pick up
   the **top of the discard pile before you've opened — but only if you open with it that turn** (the

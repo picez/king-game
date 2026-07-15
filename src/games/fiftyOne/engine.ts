@@ -355,6 +355,47 @@ export function fiftyOneReducer(
       return s;
     }
 
+    case 'REPLACE_JOKER': {
+      // Swap a real card from hand for a joker in a PUBLIC meld and take that joker
+      // into hand (§9a, owner rule 30.14). Open-gated exactly like the lay-off: an
+      // unopened seat may never touch a public meld. The replacement must match the
+      // joker's represented rank+suit EXACTLY, so the meld's cards/value are
+      // unchanged in every respect but the physical card — it stays valid by
+      // construction, and we re-resolve to prove it rather than assume it.
+      if (state.phase !== 'playing' || state.turnStep !== 'meld_discard') return state;
+      if (!state.openedBySeat[seat]) return state;       // joker take-back is open-gated (§9a)
+      const meldIdx = state.publicMelds.findIndex((m) => m.id === action.meldId);
+      if (meldIdx < 0) return state;
+      const meld = state.publicMelds[meldIdx];
+
+      const jokerIdx = meld.cards.findIndex((cd) => cd.id === action.jokerCardId);
+      if (jokerIdx < 0) return state;
+      const joker = meld.cards[jokerIdx];
+      if (!joker.joker) return state;                    // the target must BE a joker
+      const represents = meld.jokerRepresents[jokerIdx];
+      if (!represents) return state;                     // no represented card ⇒ nothing to match
+
+      const hand = state.handsBySeat[seat];
+      const picked = pickFromHand(hand, [action.card]);
+      if (!picked) return state;                         // the card must be in your hand
+      const replacement = picked[0];
+      if (replacement.joker) return state;               // a joker may not replace a joker
+      if (replacement.suit !== represents.suit || replacement.rank !== represents.rank) return state;
+
+      const cards = meld.cards.slice();
+      cards[jokerIdx] = replacement;                     // the joker's slot, same position
+      const r = resolveMeld(cards);
+      if (!r) return state;                              // must stay a legal meld (§9)
+
+      const s = clone(state);
+      removeByIds(s.handsBySeat[seat], new Set([replacement.id]));
+      s.handsBySeat[seat].push(joker);                   // the joker goes to your hand (25 if left there, §11)
+      s.publicMelds[meldIdx] = { ...meld, type: r.type, cards: r.cards, jokerRepresents: r.jokerRepresents, value: r.value };
+      // The swap is hand-size neutral (one card out, the joker in), so it can never
+      // empty a hand — the turn still ends on a discard (§5), never on this action.
+      return s;
+    }
+
     case 'DISCARD': {
       if (state.phase !== 'playing' || state.turnStep !== 'meld_discard') return state;
       const hand = state.handsBySeat[seat];

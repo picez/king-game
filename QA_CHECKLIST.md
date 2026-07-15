@@ -89,6 +89,36 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       7-8-9, `[8♠, 9♠, 🃏]` reads 8-9-10) — the selection is never auto-sorted; use the meld-builder
       ← / → (or pre-arrange the hand) to fix its spot, then lay + discard to go out.
 
+## Manual — 51 meld table, help + joker replacement (Stage 30.14)
+
+> `node scripts/fifty-one-shots.mjs http://localhost:4173/ .shots/fifty-one` covers the layout
+> automatically (it FAILS if it reaches no public meld — a silent pass used to hide regressions).
+> These are the things it cannot see.
+
+- [ ] **Public melds read cleanly:** on the 51 table at **360 and 390**, the cards in every meld are
+      **large and fully visible with a clear gap** — no card sits on top of another, none is cropped,
+      and the page never scrolls sideways. Check a **3-card set**, a **4-card set**, a long run
+      (`A-2-3-4-5`), a `Q-K-A` run, and a meld **with a joker** (the joker shows the card it stands
+      in for + a small 🃏 badge). A long meld scrolls **inside its own block**.
+- [ ] **Controls never cover cards:** the **＋ Add** and **🃏 Replace joker** buttons sit in a row
+      **under** the cards on every meld, at both widths, and in **Arabic (RTL)** the cards still read
+      low→high left→right.
+- [ ] **Help sheet (❓ in-game, all 4 languages):** the sheet shows **Card values** (2–10 face value,
+      J/Q/K = 10, A = 10 but `A-2-3` = 6, `Q-K-A` = 30, joker in a meld = the card it represents,
+      joker in hand = 25) and **Melds** (`A-2-3`, `Q-K-A`, `K-A-2` invalid, sets with no repeated
+      suit, ≤ 1 joker at any position). **Turns** states you can take the discard before opening
+      **only if you open with it**; **Notes** states joker replacement.
+- [ ] **Joker replacement:** as an **opened** player holding the exact card a table joker represents
+      (e.g. `J♥` vs a joker standing in as `J♥`), the meld shows **🃏 Replace joker**; pressing it puts
+      your card into the meld **at the joker's slot** and the **joker lands in your hand**. The meld's
+      point value is unchanged and no joker remains in it.
+- [ ] **Joker replacement is properly gated:** the button is **absent** when you haven't opened, when
+      it isn't your turn, before you've drawn (draw step), and when you don't hold the exact matching
+      card (a `J♠` or `10♥` must NOT enable it against a joker representing `J♥`).
+- [ ] **The round still ends on a discard:** after replacing, you must still **discard** to end the
+      turn — replacing never ends the round, even from a one-card hand. If you keep the bought joker
+      to the end of a lost round it costs the usual **25**.
+
 ## Manual — team names (Tarneeb / Deberc Pairs, Stage 30.12b)
 
 - [ ] **Pairs** games label partnerships by their players, not abstract "Team A/B": the **lobby team

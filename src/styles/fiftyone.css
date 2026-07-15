@@ -61,8 +61,13 @@
 .fiftyone-discard-top--staged { opacity: 0.4; }
 .fiftyone-pile__hint { font-size: 0.68rem; opacity: 0.85; text-align: center; max-width: 6rem; }
 
-/* Public melds */
+/* Public melds. The card size is a variable so the whole block (slot, card, joker
+   badge) is sized from ONE number — they can never disagree and overlap (30.14).
+   64×100 keeps the 74×118 card aspect, so `contain` letterboxes almost nothing. */
 .fiftyone-melds {
+  --f51-meld-card-w: 64px;
+  --f51-meld-card-h: 100px;
+  --f51-meld-gap: 0.4rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -84,12 +89,12 @@
 .fiftyone-meld__owner { font-size: 0.74rem; opacity: 0.85; }
 /* Card row: one line, clear positive gaps (never negative → no overlap/clipping),
    and horizontal scroll INSIDE the meld block if a run is long — so a meld can never
-   overflow the screen or collide with the Add button. LTR keeps cards low→high even
+   overflow the screen or collide with the controls. LTR keeps cards low→high even
    under RTL (the card artwork itself is not mirrored). */
 .fiftyone-meld__cards {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.45rem;
+  gap: var(--f51-meld-gap);
   align-items: flex-start;
   max-width: 100%;
   overflow-x: auto;
@@ -97,21 +102,35 @@
   direction: ltr;
   scrollbar-width: thin;
 }
-/* Bigger, readable meld cards (30.13) — between mini and table size — each a fixed,
-   non-shrinking box so cards never overlap or clip; the full face shows (contain). */
-.fiftyone-meld__cards .card--mini {
-  flex: 0 0 auto;
-  width: 54px;
-  height: 84px;
+/* Every direct child of the row is a fixed, non-shrinking, in-flow box: no
+   negative margins, no absolute stacking, no transform — so adjacent cards can
+   never touch, let alone overlap, whatever a shared .card rule tries to do. */
+.fiftyone-meld__cards > * {
+  flex: 0 0 var(--f51-meld-card-w);
+  width: var(--f51-meld-card-w);
+  height: var(--f51-meld-card-h);
+  margin: 0;
+  position: relative;
+  transform: none;
 }
-.fiftyone-meld__cards .card--mini.card--art .card__art { object-fit: contain; }
-.fiftyone-meld__cards .card--mini .card__rank { font-size: 0.82rem; }
-.fiftyone-meld__cards .card--mini .card__suit { font-size: 0.8rem; }
-.fiftyone-meld__cards .card--mini .card__center { font-size: 1.4rem; }
-.fiftyone-meld__add { align-self: flex-start; margin-top: 0.15rem; }
-.fiftyone-meldcard { position: relative; display: inline-flex; flex: 0 0 auto; }
+/* Bigger, readable meld cards (30.14) — the whole face shows (contain), and the
+   card fills its slot exactly, so the slot size IS the card size. */
+.fiftyone-meld__cards .card {
+  flex: 0 0 auto;
+  width: var(--f51-meld-card-w);
+  height: var(--f51-meld-card-h);
+  transform: none;
+}
+.fiftyone-meld__cards .card--art .card__art { object-fit: contain; }
+.fiftyone-meld__cards .card .card__rank { font-size: 0.9rem; }
+.fiftyone-meld__cards .card .card__suit { font-size: 0.88rem; }
+.fiftyone-meld__cards .card .card__center { font-size: 1.6rem; }
+/* Add / Replace joker sit in their own row UNDER the cards — never over them. */
+.fiftyone-meld__ctrls { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+.fiftyone-meldcard { display: inline-flex; }
+/* Kept INSIDE the card box (never negative offsets) so it can't reach a neighbour. */
 .fiftyone-meldcard__jbadge {
-  position: absolute; top: -2px; right: -2px; font-size: 0.7rem;
+  position: absolute; top: 1px; right: 1px; font-size: 0.72rem; line-height: 1;
   filter: drop-shadow(0 0 1px #000);
 }
 

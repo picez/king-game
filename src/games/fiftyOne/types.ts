@@ -176,6 +176,14 @@ export type FiftyOneAction =
   | { type: 'OPEN_MELDS'; melds: FiftyOneCard[][] }
   /** Lay off card(s) onto an existing public meld — only after opening (§9). */
   | { type: 'ADD_TO_MELD'; meldId: string; cards: FiftyOneCard[] }
+  /**
+   * Swap a real card from hand for a joker sitting in a PUBLIC meld, taking the
+   * joker into hand (§9a, owner rule 30.14). Legal only for an OPENED seat at its
+   * own 'meld_discard' step: `card` must exactly match the rank+suit the joker
+   * represents, the meld must stay valid, and the seat must keep ≥ 1 card to
+   * discard — the turn still ends on a discard (§5).
+   */
+  | { type: 'REPLACE_JOKER'; meldId: string; jokerCardId: string; card: FiftyOneCard }
   /** Discard exactly one card to end the turn; empties hand ⇒ round win (§5). */
   | { type: 'DISCARD'; card: FiftyOneCard }
   /** Advance from round_complete to the next round (skips eliminated seats). */

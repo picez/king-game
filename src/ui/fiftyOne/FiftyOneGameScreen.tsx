@@ -197,6 +197,28 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
       && !!resolveMeld([...meld.cards, ...selectedCards]);
   }
 
+  /**
+   * A joker in `meld` this player can buy back right now (30.14): opened, on their
+   * own meld step, holding the EXACT card the joker represents. The rank+suit must
+   * match exactly, so there is never a choice to offer — the swap is unambiguous
+   * and the button just does it. Returns the joker + the matching hand card.
+   */
+  function jokerSwap(meld: FiftyOneMeld): { jokerCardId: string; card: FiftyOneCard } | null {
+    if (!meldStep || !opened) return null;
+    for (let i = 0; i < meld.cards.length; i++) {
+      const jc = meld.cards[i];
+      const rep = meld.jokerRepresents[i];
+      if (!jc.joker || !rep) continue;
+      const match = hand.find((h) => !h.joker && h.suit === rep.suit && h.rank === rep.rank);
+      if (match) return { jokerCardId: jc.id, card: match };
+    }
+    return null;
+  }
+  function replaceJoker(meld: FiftyOneMeld) {
+    const swap = jokerSwap(meld);
+    if (swap) apply({ type: 'REPLACE_JOKER', meldId: meld.id, jokerCardId: swap.jokerCardId, card: swap.card });
+  }
+
   // --- Prompt / validation text ---------------------------------------------
   const actor = state.players[currentSeat];
   let prompt = '';
@@ -292,18 +314,28 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         {state.publicMelds.map((meld) => {
           const owner = meld.ownerSeat === humanSeat ? t('fiftyOne.you') : state.players[meld.ownerSeat].name;
           const addable = canAddTo(meld);
+          // Only an OPENED player on their own meld step ever sees table controls.
+          const swap = jokerSwap(meld);
           return (
             <div key={meld.id} className="fiftyone-meld">
               <span className="fiftyone-meld__owner">{owner} · {meld.value}</span>
-              <div className="fiftyone-meld__cards">
+              <div className="fiftyone-meld__cards" dir="ltr">
                 {meld.cards.map((c, i) => (
                   <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
                 ))}
               </div>
+              {/* Controls live in their OWN row UNDER the cards — never over them. */}
               {opened && (
-                <button type="button" className="btn btn--small fiftyone-meld__add" disabled={!addable} onClick={() => addToMeld(meld)}>
-                  ＋ {t('fiftyOne.addToMeld')}
-                </button>
+                <div className="fiftyone-meld__ctrls">
+                  <button type="button" className="btn btn--small fiftyone-meld__add" disabled={!addable} onClick={() => addToMeld(meld)}>
+                    ＋ {t('fiftyOne.addToMeld')}
+                  </button>
+                  {swap && (
+                    <button type="button" className="btn btn--small fiftyone-meld__swap" onClick={() => replaceJoker(meld)}>
+                      🃏 {t('fiftyOne.replaceJoker')}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );

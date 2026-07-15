@@ -70,35 +70,57 @@ const CLICK = (...texts) => `(()=>{const b=[...document.querySelectorAll('button
 
 // One human action: draw from the deck at the draw step, else select a hand card and
 // discard to end the turn (which lets the bots take their meld/open turns).
+//
+// Selecting a hand card needs a POINTER gesture, not .click(): since 30.12b the hand
+// is HandReorderTray, where the `[data-card-id]` slot owns pointerdown/pointerup (a
+// press under the drag threshold = a tap) and the card inside it is inert. A plain
+// .click() on the card silently does nothing — which is exactly how this harness went
+// blind and stopped reaching any public meld at all. Always drive the slot.
 const HUMAN_STEP = `(()=>{
   const draw=[...document.querySelectorAll('.fiftyone-actions button')].find(b=>/Draw from deck|Взяти з колоди|Vom Stapel|اسحب/.test(b.textContent));
   if(draw && !draw.disabled){draw.click();return 'draw'}
-  const hand=document.querySelector('.fiftyone-hand .card:not(:disabled)');
-  if(hand){hand.click();
+  const slot=document.querySelector('.hand-reorder__slot');
+  if(slot){
+    const r=slot.getBoundingClientRect();
+    const at={clientX:r.left+r.width/2, clientY:r.top+r.height/2, pointerId:1, isPrimary:true, button:0, bubbles:true};
+    slot.dispatchEvent(new PointerEvent('pointerdown', at));
+    slot.dispatchEvent(new PointerEvent('pointerup', at));   // no movement ⇒ a tap, not a drag
     const disc=document.querySelector('.fiftyone-discard-btn');
     if(disc && !disc.disabled){disc.click();return 'discard'}
+    return 'selected';
   }
   const next=[...document.querySelectorAll('button')].find(x=>/Next round|Наступний раунд|Nächste Runde|الجولة/.test(x.textContent));
   if(next){next.click();return 'next'}
   return 'wait';
 })()`;
 
-// Per-meld overlap probe: for every .fiftyone-meld__cards, compare adjacent card rects.
+// Per-meld layout probe. For every .fiftyone-meld__cards row:
+//   • overlaps — an adjacent pair whose rects intersect horizontally (ZERO allowed);
+//   • clipped  — a card whose own box collapsed below a readable width;
+//   • covered  — a control (Add / Replace joker) whose rect intersects a card's rect,
+//     i.e. a button sitting ON the cards instead of under them.
+// Every element child counts, so a future non-.card child can't slip past the check.
+const MIN_CARD_W = 48; // the CSS asks for 64px; below this a card has been squeezed
 const OVERLAP_PROBE = `JSON.stringify((()=>{
+  const intersects=(a,b)=> a.left < b.right-0.5 && b.left < a.right-0.5 && a.top < b.bottom-0.5 && b.top < a.bottom-0.5;
   const rows=[...document.querySelectorAll('.fiftyone-meld__cards')];
-  let melds=0, maxCards=0, overlaps=0, clipped=0;
+  let melds=0, maxCards=0, overlaps=0, clipped=0, covered=0, minW=999;
   for(const row of rows){
-    const cards=[...row.children].filter(c=>c.classList.contains('card')||c.classList.contains('fiftyone-meldcard'));
+    const cards=[...row.children];
     melds++; maxCards=Math.max(maxCards, cards.length);
-    for(let i=1;i<cards.length;i++){
-      const a=cards[i-1].getBoundingClientRect(), b=cards[i].getBoundingClientRect();
-      if(b.left < a.right - 1) overlaps++;      // next card starts before prev ends → overlap
+    const rects=cards.map(c=>c.getBoundingClientRect());
+    for(let i=1;i<rects.length;i++){
+      if(rects[i].left < rects[i-1].right - 0.5) overlaps++;   // next card starts before prev ends
     }
-    // a card wider than its visible slot inside the scroller is fine; clipping we flag
-    // is when a card's own width collapsed below a readable minimum.
-    for(const c of cards){ if(c.getBoundingClientRect().width < 20) clipped++; }
+    for(const r of rects){ if(r.width < ${MIN_CARD_W}) clipped++; minW=Math.min(minW, Math.round(r.width)); }
+    const meld=row.closest('.fiftyone-meld');
+    // Cards are themselves <button>s — only the CONTROLS row may be checked here.
+    for(const btn of meld ? meld.querySelectorAll('.fiftyone-meld__ctrls button') : []){
+      const br=btn.getBoundingClientRect();
+      if(rects.some(r=>intersects(br,r))) covered++;
+    }
   }
-  return { melds, maxCards, overlaps, clipped };
+  return { melds, maxCards, overlaps, clipped, covered, minCardW: melds?minW:0 };
 })())`;
 
 async function shot(cdp, name, boardSel = '.fiftyone-screen') {
@@ -111,7 +133,8 @@ async function shot(cdp, name, boardSel = '.fiftyone-screen') {
   })`));
   const ov = JSON.parse(await cdp.evaluate(OVERLAP_PROBE));
   findings.push({ name, ...m, ...ov });
-  console.log(`  ${name}: ${m.overflowX ? `OVERFLOW(${m.scrollW}>${m.innerW})` : 'ok'} · melds=${ov.melds} maxCards=${ov.maxCards} overlaps=${ov.overlaps} clipped=${ov.clipped}`);
+  console.log(`  ${name}: ${m.overflowX ? `OVERFLOW(${m.scrollW}>${m.innerW})` : 'ok'} · melds=${ov.melds} maxCards=${ov.maxCards}`
+    + ` minCardW=${ov.minCardW} overlaps=${ov.overlaps} clipped=${ov.clipped} covered=${ov.covered}`);
 }
 
 async function pickLocal(cdp) {
@@ -177,11 +200,18 @@ async function run() {
     chrome.kill();
   }
 
+  const names = (list) => (list.length ? 'FAIL ' + list.map((b) => b.name).join(',') : 'none');
   const badOverflow = findings.filter((f) => f.overflowX);
   const badOverlap = findings.filter((f) => f.overlaps > 0);
   const badClip = findings.filter((f) => f.clipped > 0);
-  console.log(`\n=== overflow: ${badOverflow.length ? 'FAIL ' + badOverflow.map((b) => b.name).join(',') : 'none'} · overlap: ${badOverlap.length ? 'FAIL ' + badOverlap.map((b) => b.name).join(',') : 'none'} · clipped: ${badClip.length ? 'FAIL ' + badClip.map((b) => b.name).join(',') : 'none'} ===`);
-  process.exit(badOverflow.length || badOverlap.length || badClip.length ? 1 : 0);
+  const badCover = findings.filter((f) => f.covered > 0);
+  // A run that never reached a public meld proves NOTHING about meld layout. Treat it
+  // as a failure, not a pass — a silently blind harness is how 30.13/30.14 regressions
+  // reached the owner (the 30.12b hand rewrite broke the drive and nobody noticed).
+  const sawMelds = findings.some((f) => f.melds > 0);
+  console.log(`\n=== overflow: ${names(badOverflow)} · overlap: ${names(badOverlap)} · clipped: ${names(badClip)}`
+    + ` · covered: ${names(badCover)} · reached melds: ${sawMelds ? 'yes' : 'NO — nothing was verified'} ===`);
+  process.exit(!sawMelds || badOverflow.length || badOverlap.length || badClip.length || badCover.length ? 1 : 0);
 }
 
 run().catch((e) => { console.error('fifty-one-shots crashed:', e); process.exit(1); });

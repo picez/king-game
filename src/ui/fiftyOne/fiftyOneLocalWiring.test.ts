@@ -52,20 +52,44 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(src).toContain("t('fiftyOne.openAnyMeld')");
   });
 
-  it('public meld cards lay out without overlap/clipping (30.10 CSS guard)', () => {
+  it('public meld cards lay out without overlap/clipping (30.14 CSS guard)', () => {
     const css = read('src/styles/fiftyone.css');
     const block = css.slice(css.indexOf('.fiftyone-meld__cards'));
     // A single positive gap and no negative margins → adjacent cards never overlap.
-    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*gap:\s*0?\.\d+rem/);
+    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*gap:\s*var\(--f51-meld-gap\)/);
+    expect(css).toMatch(/--f51-meld-gap:\s*0?\.\d+rem/);
     expect(css).not.toMatch(/\.fiftyone-meld__cards[^}]*margin[^:]*:\s*-/);
-    // Long melds scroll INSIDE the block (never overflow the screen / the Add button).
+    // Long melds scroll INSIDE the block (never overflow the screen / the controls).
     expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*overflow-x:\s*auto/);
-    // Full card face (contain) so mini meld-card indices are not cover-cropped.
-    expect(css).toContain('.fiftyone-meld__cards .card--mini.card--art .card__art { object-fit: contain; }');
-    // Cards are ENLARGED (30.13) via a fixed, non-shrinking box so they read clearly.
-    expect(block).toMatch(/\.fiftyone-meld__cards \.card--mini \{[^}]*flex:\s*0 0 auto[^}]*width:\s*54px/);
-    // The Add button is its own element under the cards (not inside the card row).
-    expect(css).toContain('.fiftyone-meld__add');
+    // Full card face (contain) so meld-card indices are not cover-cropped.
+    expect(css).toContain('.fiftyone-meld__cards .card--art .card__art { object-fit: contain; }');
+    // EVERY row child is a fixed, non-shrinking, in-flow box — no negative margin, no
+    // absolute stacking, no transform — so no shared .card rule can make two touch.
+    expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*flex:\s*0 0 var\(--f51-meld-card-w\)[^}]*\}/);
+    expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*margin:\s*0[^}]*\}/);
+    expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*transform:\s*none[^}]*\}/);
+    // Cards are ENLARGED (30.14) — one variable sizes the slot AND the card, so the
+    // two can never disagree; 64px keeps 4 cards readable at 360 without page overflow.
+    expect(css).toMatch(/--f51-meld-card-w:\s*64px/);
+    expect(block).toMatch(/\.fiftyone-meld__cards \.card\s*\{[^}]*width:\s*var\(--f51-meld-card-w\)/);
+    // Add / Replace joker live in their OWN row under the cards, never over them —
+    // the row is a plain flex sibling of the card row, so it cannot overlay it.
+    expect(css).toMatch(/\.fiftyone-meld__ctrls\s*\{[^}]*display:\s*flex[^}]*\}/);
+    expect(css).not.toMatch(/\.fiftyone-meld__ctrls\s*\{[^}]*position:\s*absolute/);
+  });
+
+  it('joker replacement is offered only to an opened player on their meld step (30.14)', () => {
+    const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
+    // The core action is dispatched with the exact joker + the exact matching card.
+    expect(src).toContain("type: 'REPLACE_JOKER'");
+    expect(src).toContain("t('fiftyOne.replaceJoker')");
+    // The affordance is gated on meldStep && opened — an unopened or waiting player
+    // never gets one (the reducer refuses too; this keeps the UI from lying).
+    expect(src).toMatch(/function jokerSwap[\s\S]{0,160}if \(!meldStep \|\| !opened\) return null/);
+    // The swap must match rank AND suit exactly, so there is never a choice to offer.
+    expect(src).toMatch(/h\.suit === rep\.suit && h\.rank === rep\.rank/);
+    // The button sits in the controls row, not among the cards.
+    expect(src).toMatch(/fiftyone-meld__ctrls[\s\S]{0,400}fiftyone-meld__swap/);
   });
 
   it('discard-to-open UI: the top is takeable only to open, via TAKE_DISCARD_AND_OPEN (30.13)', () => {

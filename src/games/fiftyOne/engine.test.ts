@@ -340,3 +340,126 @@ describe('51 lay-off (§9)', () => {
     expect(done.roundWinnerSeat).toBe(0);
   });
 });
+
+describe('51 joker replacement (§9a, owner rule 30.14)', () => {
+  /** A public set J♣ J♦ [joker=J♥] owned by seat 1 — the canonical example. */
+  const jokerSet = (joker: FiftyOneCard) => ({
+    id: 'm-1-1-0',
+    ownerSeat: 1,
+    type: 'set' as const,
+    cards: [c('J', 'clubs'), c('J', 'diamonds'), joker],
+    jokerRepresents: { 2: { suit: 'hearts' as Suit, rank: 'J' as Rank } },
+    value: 30,
+  });
+
+  it('an opened player swaps J♥ for the joker representing J♥ and takes it into hand', () => {
+    const joker = J();
+    const s = baseState([[c('J', 'hearts'), c('2', 'clubs')], []], {
+      currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)],
+    });
+    const r = fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') }) as FiftyOneState;
+    expect(r).not.toBe(s);
+    // The meld now holds the REAL J♥ at the joker's slot, with no joker left in it.
+    expect(r.publicMelds[0].cards.map((x) => x.id)).toEqual(['0-clubs-J', '0-diamonds-J', '0-hearts-J']);
+    expect(r.publicMelds[0].cards.some((x) => x.joker)).toBe(false);
+    expect(r.publicMelds[0].jokerRepresents).toEqual({});
+    expect(r.publicMelds[0].value).toBe(30); // unchanged — the swap is value-neutral
+    // The joker is now in the player's hand (worth 25 there, §11), and the 2♣ remains.
+    expect(r.handsBySeat[0].map((x) => x.id).sort()).toEqual([joker.id, '0-clubs-2'].sort());
+    expect(r.turnStep).toBe('meld_discard'); // the turn still ends on a discard (§5)
+  });
+
+  it('swaps the 9 for a joker representing 9♠ inside a run 7-8-[joker]', () => {
+    const joker = J();
+    const meld = {
+      id: 'm-1-1-0', ownerSeat: 1, type: 'run' as const,
+      cards: [c('7', 'spades'), c('8', 'spades'), joker],
+      jokerRepresents: { 2: { suit: 'spades' as Suit, rank: '9' as Rank } }, value: 24,
+    };
+    const s = baseState([[c('9', 'spades'), c('2', 'clubs')], []], {
+      currentSeat: 0, openedBySeat: [true, false], publicMelds: [meld],
+    });
+    const r = fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('9', 'spades') }) as FiftyOneState;
+    expect(r.publicMelds[0].cards.map((x) => x.rank)).toEqual(['7', '8', '9']);
+    expect(r.publicMelds[0].value).toBe(24);
+    expect(r.handsBySeat[0].filter((x) => x.joker)).toHaveLength(1);
+  });
+
+  it('rejects an unopened player — they may never take a joker off the table', () => {
+    const joker = J();
+    const s = baseState([[c('J', 'hearts'), c('2', 'clubs')], []], {
+      currentSeat: 0, openedBySeat: [false, false], publicMelds: [jokerSet(joker)],
+    });
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') })).toBe(s);
+  });
+
+  it('rejects a card that is not EXACTLY the represented rank+suit', () => {
+    const joker = J();
+    const hand = [c('J', 'spades'), c('10', 'hearts'), c('2', 'clubs')];
+    const s = baseState([hand, []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)] });
+    // Right rank, wrong suit (J♠ ≠ J♥).
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'spades') })).toBe(s);
+    // Right suit, wrong rank (10♥ ≠ J♥).
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('10', 'hearts') })).toBe(s);
+  });
+
+  it('rejects targeting a non-joker card, and rejects a joker replacing a joker', () => {
+    const joker = J();
+    const spare = J();
+    const s = baseState([[c('J', 'hearts'), spare, c('2', 'clubs')], []], {
+      currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)],
+    });
+    // The target J♣ is a real card, not a joker.
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: '0-clubs-J', card: c('J', 'hearts') })).toBe(s);
+    // A second joker may not buy back the first.
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: spare })).toBe(s);
+  });
+
+  it('rejects a replacement card the player does not hold, and an unknown meld', () => {
+    const joker = J();
+    const s = baseState([[c('2', 'clubs')], []], { currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)] });
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') })).toBe(s);
+    const holder = baseState([[c('J', 'hearts'), c('2', 'clubs')], []], {
+      currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)],
+    });
+    expect(fiftyOneReducer(holder, { type: 'REPLACE_JOKER', meldId: 'nope', jokerCardId: joker.id, card: c('J', 'hearts') })).toBe(holder);
+  });
+
+  it('is only legal on your own meld step, never at the draw step', () => {
+    const joker = J();
+    const s = baseState([[c('J', 'hearts'), c('2', 'clubs')], []], {
+      currentSeat: 0, turnStep: 'draw', openedBySeat: [true, false], publicMelds: [jokerSet(joker)],
+    });
+    expect(fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') })).toBe(s);
+  });
+
+  it('never empties the hand — the swap is size-neutral, so you still discard to go out', () => {
+    const joker = J();
+    // A single-card hand: the replacement is the ONLY card held.
+    const s = baseState([[c('J', 'hearts')], [c('3', 'clubs')]], {
+      currentSeat: 0, openedBySeat: [true, false], publicMelds: [jokerSet(joker)],
+    });
+    const r = fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') }) as FiftyOneState;
+    expect(r).not.toBe(s);
+    expect(r.handsBySeat[0]).toEqual([joker]); // hand size unchanged: the joker replaced it
+    expect(r.phase).toBe('playing');           // no win — the action can never end a round
+    // Going out still happens on the discard, which now sheds the joker itself.
+    const done = fiftyOneReducer(r, { type: 'DISCARD', card: joker }) as FiftyOneState;
+    expect(done.roundWinnerSeat).toBe(0);
+  });
+
+  it('keeps the joker-in-hand penalty at 25 when the taker loses with it (§11)', () => {
+    const joker = J();
+    // Seat 0 buys the joker back, discards, then seat 1 goes out → seat 0 still holds it.
+    const s = baseState([[c('J', 'hearts'), c('2', 'clubs')], [c('4', 'clubs')]], {
+      currentSeat: 0, openedBySeat: [true, true], publicMelds: [jokerSet(joker)],
+    });
+    const swapped = fiftyOneReducer(s, { type: 'REPLACE_JOKER', meldId: 'm-1-1-0', jokerCardId: joker.id, card: c('J', 'hearts') }) as FiftyOneState;
+    const discarded = fiftyOneReducer(swapped, { type: 'DISCARD', card: c('2', 'clubs') }) as FiftyOneState;
+    expect(discarded.currentSeat).toBe(1);
+    const drawn = { ...discarded, turnStep: 'meld_discard' as const };
+    const out = fiftyOneReducer(drawn, { type: 'DISCARD', card: c('4', 'clubs') }) as FiftyOneState;
+    expect(out.roundWinnerSeat).toBe(1);
+    expect(out.lastRound?.penaltyBySeat[0]).toBe(25); // the bought-back joker alone
+  });
+});
