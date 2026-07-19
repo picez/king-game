@@ -451,6 +451,8 @@ export const AR: Record<string, string> = {
   'fiftyOne.deckNote2': 'مجموعة واحدة + جوكران = {total} ورقة',
   'fiftyOne.deckNote34': 'مجموعتان + جوكران = {total} ورقة',
   'fiftyOne.start': 'ابدأ اللعبة',
+  'fiftyOne.eliminationScore': 'نقاط الإقصاء',
+  'fiftyOne.eliminationScoreHint': 'يخرج اللاعب عندما تبلغ نقاط الجزاء هذا الحد (أقل = مباراة أقصر).',
   'fiftyOne.round': 'الجولة {n}',
   'fiftyOne.you': 'أنت',
   'fiftyOne.roundOver': 'انتهت الجولة',

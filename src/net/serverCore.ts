@@ -25,6 +25,7 @@ import type { DebercMatchSize, DebercState } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
 import type { TarneebState } from '../games/tarneeb/types';
 import { normalizeTargetScore } from '../games/tarneeb/rules';
+import { normalizeEliminationScore } from '../games/fiftyOne/rules';
 import type { PreferansState } from '../games/preferans/types';
 import type { FiftyOneState } from '../games/fiftyOne/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
@@ -111,6 +112,8 @@ export interface ServerRoom {
   tarneebVariant?: TarneebVariant;
   /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
   tarneebTargetScore?: number;
+  /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
+  fiftyOneEliminationScore?: number;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5;
@@ -233,6 +236,8 @@ export function createRoom(opts: {
   tarneebVariant?: TarneebVariant;
   /** Tarneeb match target score (Stage 29.8); ignored for other games. */
   tarneebTargetScore?: number;
+  /** 51 elimination score (Stage 30.15); ignored for other games. */
+  fiftyOneEliminationScore?: number;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -255,6 +260,7 @@ export function createRoom(opts: {
     matchSize: opts.matchSize,
     tarneebVariant: opts.tarneebVariant,
     tarneebTargetScore: opts.tarneebTargetScore,
+    fiftyOneEliminationScore: opts.fiftyOneEliminationScore,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -899,6 +905,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     matchSize: room.matchSize,
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
+    fiftyOneEliminationScore: room.fiftyOneEliminationScore,
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -939,6 +946,8 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     // Only present for Tarneeb → other games' summaries are unchanged.
     ...(room.tarneebVariant ? { tarneebVariant: room.tarneebVariant } : {}),
     ...(room.tarneebTargetScore ? { tarneebTargetScore: room.tarneebTargetScore } : {}),
+    // Only present for 51 → other games' summaries are unchanged.
+    ...(room.fiftyOneEliminationScore ? { fiftyOneEliminationScore: room.fiftyOneEliminationScore } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -1026,6 +1035,8 @@ export interface PersistedRoom {
   tarneebVariant?: TarneebVariant;
   /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
   tarneebTargetScore?: number;
+  /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
+  fiftyOneEliminationScore?: number;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1051,6 +1062,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     matchSize: room.matchSize,
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
+    fiftyOneEliminationScore: room.fiftyOneEliminationScore,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1116,6 +1128,9 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     // Match target (Stage 29.8): re-normalise on restore; a missing/legacy value stays undefined
     // (buildStartAction then applies the default 41), any present value is clamped to a safe range.
     tarneebTargetScore: o.tarneebTargetScore != null ? normalizeTargetScore(o.tarneebTargetScore) : undefined,
+    // 51 elimination score (Stage 30.15): re-normalise on restore; a missing/legacy value stays
+    // undefined (buildStartAction then applies the default 510), a bad value snaps to a preset.
+    fiftyOneEliminationScore: o.fiftyOneEliminationScore != null ? normalizeEliminationScore(o.fiftyOneEliminationScore as number) : undefined,
     members,
     playerCount: o.playerCount,
     modeSelectionType: o.modeSelectionType,

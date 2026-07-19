@@ -36,7 +36,7 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 3 | 4; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number }
+  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 3 | 4; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string };
@@ -61,6 +61,7 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
       ...(intent.playerCount ? { playerCount: intent.playerCount } : {}),
       ...(intent.tarneebVariant ? { tarneebVariant: intent.tarneebVariant } : {}),
       ...(intent.tarneebTargetScore ? { tarneebTargetScore: intent.tarneebTargetScore } : {}),
+      ...(intent.fiftyOneEliminationScore ? { fiftyOneEliminationScore: intent.fiftyOneEliminationScore } : {}),
       ...(intent.password ? { password: intent.password } : {}),
       ...(intent.avatar ? { avatar: intent.avatar } : {}),
       ...(intent.turnTimerSec ? { turnTimerSec: intent.turnTimerSec } : {}),

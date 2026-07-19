@@ -8,7 +8,14 @@ import { rankValue } from './melds';
 
 /** MVP opening threshold (§7). */
 export const OPENING_MINIMUM = 51;
-/** MVP elimination threshold (§12). */
+/**
+ * Host-selectable elimination thresholds (§12, Stage 30.15). A seat is out once
+ * its running penalty reaches the chosen score; 510 is the default and the only
+ * value legacy rooms/states ever used, so behaviour is unchanged unless the host
+ * lowers it. Ordered low→high for the setup selectors.
+ */
+export const ELIMINATION_SCORE_PRESETS = [210, 310, 410, 510] as const;
+/** MVP / default elimination threshold (§12). */
 export const DEFAULT_TARGET_PENALTY = 510;
 /** MVP flat penalty for a loser who never opened (§11). */
 export const NEVER_OPENED_PENALTY = 100;
@@ -33,13 +40,20 @@ function clampPlayers(n: number): number {
   return Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n));
 }
 
-/** Clamp/validate the elimination target; a missing/invalid value → 510. */
-export function normalizeTargetPenalty(n: number | undefined): number {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return DEFAULT_TARGET_PENALTY;
-  const v = Math.floor(n);
-  // Keep it a sane positive integer; the MVP only ever uses the default.
-  return Math.max(100, Math.min(5000, v));
+/**
+ * Normalise a host-selected elimination score to one of the allowed presets
+ * (§12, Stage 30.15). Anything missing / invalid / legacy / off-preset → the
+ * default 510, so old rooms and states are unchanged and no bad value can reach
+ * the reducer or the scoring threshold.
+ */
+export function normalizeEliminationScore(n: number | undefined): number {
+  return (ELIMINATION_SCORE_PRESETS as readonly number[]).includes(n as number)
+    ? (n as number)
+    : DEFAULT_TARGET_PENALTY;
 }
+
+/** @deprecated Back-compat alias — use {@link normalizeEliminationScore}. */
+export const normalizeTargetPenalty = normalizeEliminationScore;
 
 /** Seats still in the match (not eliminated), ascending. */
 export function activeSeats(state: FiftyOneState): number[] {

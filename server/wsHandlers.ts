@@ -19,6 +19,7 @@ import {
 } from '../src/net/serverCore';
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { normalizeTargetScore } from '../src/games/tarneeb/rules';
+import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -110,6 +111,9 @@ export function handleClientMessage(
       // Tarneeb match target (Stage 29.8): normalised to a safe integer here (a missing/invalid
       // value → the default 41), so the room stores a sane value the lobby can display pre-start.
       const tarneebTargetScore = gameType === 'tarneeb' ? normalizeTargetScore(msg.tarneebTargetScore) : undefined;
+      // 51 elimination score (Stage 30.15): normalised to an allowed preset here (a missing/invalid
+      // value → the default 510), so the room stores a sane value the lobby can display pre-start.
+      const fiftyOneEliminationScore = gameType === 'fifty-one' ? normalizeEliminationScore(msg.fiftyOneEliminationScore) : undefined;
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create
       // leaves the connection's existing room intact.
@@ -129,6 +133,7 @@ export function handleClientMessage(
         matchSize,
         tarneebVariant,
         tarneebTargetScore,
+        fiftyOneEliminationScore,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },

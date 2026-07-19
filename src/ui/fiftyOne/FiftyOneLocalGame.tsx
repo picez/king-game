@@ -37,11 +37,11 @@ export default function FiftyOneLocalGame({ onExit }: { onExit: () => void }) {
     return () => { if (botTimer.current) clearTimeout(botTimer.current); };
   }, [state, apply]);
 
-  function start(playerCount: number) {
+  function start(playerCount: number, eliminationScore: number) {
     const botCount = playerCount - 1;
     const playerNames = ['You', ...localBotNames('fifty-one', botCount, ['You'])];
     const playerTypes: PlayerType[] = ['human', ...Array<PlayerType>(botCount).fill('ai')];
-    apply({ type: 'START_GAME', playerNames, playerTypes, playerCount });
+    apply({ type: 'START_GAME', playerNames, playerTypes, playerCount, options: { targetPenalty: eliminationScore } });
   }
 
   function playAgain() {

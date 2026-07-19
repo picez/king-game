@@ -316,6 +316,32 @@
   unopened-100 / 510 / win-by-final-discard / post-open free melds / discard-to-open unchanged.**
   `npm run verify` green.
 
+### 30.15 — Configurable elimination score — ✅ DONE
+- **Core (§12).** The reducer already read the threshold from `state.options.targetPenalty` (never
+  a hardcoded 510), so only the entry normaliser changed: `rules.ts` gains
+  **`ELIMINATION_SCORE_PRESETS = [210, 310, 410, 510]`** and **`normalizeEliminationScore`**, which
+  snaps anything missing / invalid / legacy / off-preset to the default **510** (the old
+  `normalizeTargetPenalty` is now a back-compat alias). `START_GAME` normalises `options.targetPenalty`
+  through it. **No scoring-formula change** — the per-round penalties (§10, §11) are identical at every
+  setting; only the finish line moves.
+- **Local.** `FiftyOneSetup` gained a four-button score picker (default 510); `FiftyOneLocalGame.start`
+  threads the choice into `START_GAME` options.
+- **Online.** New wire field **`fiftyOneEliminationScore?`** on `CREATE_ROOM` / `RoomSnapshot` /
+  `RoomSummary` / the create intent; `wsHandlers` normalises it at create; `serverCore` stores it on
+  the room and echoes it through snapshot, summary, serialize and **re-normalises on deserialize**;
+  `definition.buildFiftyOneStartAction` reads `room.fiftyOneEliminationScore` into the START options.
+  StartMenu host setup shows the same picker; the Lobby meta shows `☠ 310`. **Rematch** reuses the room
+  (which keeps the field) → the score is preserved automatically.
+- **Legacy safety.** Pre-30.15 rooms/saves/states have no field → normalise to 510 everywhere, so
+  behaviour is byte-identical unless a host lowers the score. i18n en/uk/de/ar for the label + hint.
+- Tests: a dedicated `src/net/fiftyOneEliminationScore.test.ts` covers the normaliser (presets kept,
+  everything else → 510), core elimination at 210 vs survival at 510 for the same hand, buildStartAction
+  threading, room metadata + snapshot/summary, persistence round-trip (legacy → undefined, garbage →
+  510), server start applying the score, and rematch preservation; plus updated 51 online-wiring source
+  guards. **No DB migration, no dependency, no stats/schema change; deck / opening-51 / joker-25 /
+  unopened-100 / discard-to-open / joker-replacement / win-by-final-discard unchanged.**
+  `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

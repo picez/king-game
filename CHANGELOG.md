@@ -11,6 +11,12 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **51: choose how long a match runs (Stage 30.15).** When you set up a 51 game — local or as an
+  online host — you can now pick the **elimination score**: **210 / 310 / 410 / 510**, with **510**
+  still the default. A player is knocked out once their running penalty reaches the chosen score, so a
+  lower value makes for a shorter match. The pick shows in the online lobby (`☠ 310`) and carries over
+  when you play again. Nothing else about scoring changes, and existing rooms keep the classic 510. No
+  DB migration, no dependency.
 - **51: take a joker back off the table (Stage 30.14).** Once you've opened, if a meld on the table
   uses a **joker** and you hold the exact card it stands in for, you can swap them: press
   **"🃏 Replace joker"** on that meld to put your real card in and take the **joker into your hand**.

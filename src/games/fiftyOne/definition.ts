@@ -16,7 +16,7 @@ import { playerCountRange, type GameDefinition } from '../definition';
 import { fiftyOneReducer } from './engine';
 import { fiftyOneBotAction } from './ai';
 import { fiftyOneRedactStateFor } from './redact';
-import { getActingFiftyOnePlayerId, getActingFiftyOneSeat, isFiftyOneFinished } from './rules';
+import { getActingFiftyOnePlayerId, getActingFiftyOneSeat, isFiftyOneFinished, normalizeEliminationScore } from './rules';
 import type { FiftyOneAction, FiftyOneState } from './types';
 
 const entry = GAME_CATALOG['fifty-one'];
@@ -24,18 +24,21 @@ const entry = GAME_CATALOG['fifty-one'];
 /**
  * START_GAME from a room snapshot. 51 seats every player individually (no teams);
  * the player count comes from the seated members (2–4). Reached on the online host
- * path (Stage 30.5) exactly like the released games.
+ * path (Stage 30.5) exactly like the released games. The elimination score is the
+ * host's choice (Stage 30.15); a missing/legacy value normalises to the default 510.
  */
 function buildFiftyOneStartAction(room: RoomSnapshot): FiftyOneAction {
   const players = room.members
     .filter((m) => m.role === 'player')
     .slice()
     .sort((a, b) => (a.seatIndex ?? 0) - (b.seatIndex ?? 0));
+  const targetPenalty = normalizeEliminationScore(room.fiftyOneEliminationScore);
   return {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
     playerCount: players.length,
+    options: { targetPenalty },
   };
 }
 

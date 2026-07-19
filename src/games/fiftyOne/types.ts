@@ -82,7 +82,11 @@ export interface FiftyOnePlayer {
 }
 
 export interface FiftyOneOptions {
-  /** Running-penalty elimination threshold (§12). MVP fixed default 510. */
+  /**
+   * Running-penalty elimination threshold (§12). Host-selectable among
+   * 210/310/410/510 (Stage 30.15); default 510. A missing/invalid value
+   * normalises to 510, so legacy states are unchanged.
+   */
   targetPenalty: number;
 }
 

@@ -267,12 +267,17 @@ Worked notes:
 
 ## 12. Elimination & match end
 
-- A player whose **running penalty reaches 510 (at or above)** is **eliminated**,
-  immediately **after the round** in which they crossed it. *[owner override / decision.]*
+- A player whose **running penalty reaches the elimination score (at or above)** is
+  **eliminated**, immediately **after the round** in which they crossed it. *[owner override / decision.]*
+- The **elimination score is a host/setup option** (Stage 30.15): **210 / 310 / 410 / 510**,
+  **default 510**. It is chosen per match in local setup and the online host lobby, shown in the
+  lobby meta (`☠ 310`), and preserved on rematch. A missing/legacy/invalid value normalises to 510,
+  so pre-30.15 rooms and saves are unchanged. Only the finish threshold moves — the per-round
+  scoring formula (§10, §11) is identical at every setting.
 - **Recommended MVP:** the match **continues until one player remains** — that player wins.
-  *(Alternative "stop at first 510, lowest score wins" is explicitly NOT preferred, because
+  *(Alternative "stop at first threshold, lowest score wins" is explicitly NOT preferred, because
   the owner said "eliminated".)* See [§16 Q7](#16-open-questions--confirmations-needed).
-- With 2 players, one crossing 510 ends the match (the other wins).
+- With 2 players, one crossing the elimination score ends the match (the other wins).
 
 ---
 
@@ -315,12 +320,13 @@ as Tarneeb/Deberc redaction.)
 opening from own melds, runs (incl. `A-2-3`=6 and `Q-K-A`=30, no `K-A-2`), sets (no
 duplicate identical card), jokers (wild, meld-value / 25-in-hand), open-gated discard-pile
 take + lay-off to others + joker replacement (§9a), empty-hand win, hand-value penalties, 100 for never-opened,
-Joker-in-hand 25, elimination at 510, continue-until-one-remains, clockwise.
+Joker-in-hand 25, elimination at the host-chosen score (210/310/410/510, default 510),
+continue-until-one-remains, clockwise.
 
-**Deferred / NOT in MVP:** the "Hand" all-at-once win bonus (§16 Q9); configurable target
-(fixed 510 for MVP; a lobby option can come later like Tarneeb's target score); Kaboot-style
-variants; any partnership mode; taking more than the top discard card; forced-immediate-use
-of a taken discard card.
+**Deferred / NOT in MVP:** the "Hand" all-at-once win bonus (§16 Q9); Kaboot-style variants;
+any partnership mode; taking more than the top discard card; forced-immediate-use of a taken
+discard card. *(The configurable elimination score, once deferred here, shipped in Stage
+30.15 — see §12.)*
 
 ---
 

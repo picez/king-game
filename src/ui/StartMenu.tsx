@@ -24,6 +24,7 @@ import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
 import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../games/tarneeb/rules';
+import { DEFAULT_TARGET_PENALTY, ELIMINATION_SCORE_PRESETS } from '../games/fiftyOne/rules';
 import AccountBar from './menu/AccountBar';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
@@ -85,6 +86,9 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   const [tarneebVariant, setTarneebVariant] = useState<TarneebVariant>('pairs');
   // Tarneeb match target (Stage 29.8): the score that wins the match. Default 41 (unchanged).
   const [tarneebTargetScore, setTarneebTargetScore] = useState<number>(DEFAULT_TARGET_SCORE);
+  // 51 elimination score (Stage 30.15): the running-penalty threshold a seat is out at.
+  // Default 510 (unchanged); the host may lower it to 410/310/210 for shorter matches.
+  const [fiftyOneEliminationScore, setFiftyOneEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // Favorite game (Stage 13.3): the persisted default that pre-selects the picker.
   const [favoriteGame, setFavoriteGame] = useState<GameType>(() => loadFavoriteGame());
@@ -212,7 +216,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
       // 51 (Stage 30.5): no extra options — a 4-seat room by default; the host may
       // start once 2–4 seats are filled (bots or humans).
-      ...(gameType === 'fifty-one' ? { gameType: 'fifty-one' as const } : {}),
+      ...(gameType === 'fifty-one' ? { gameType: 'fifty-one' as const, fiftyOneEliminationScore } : {}),
       ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
       ...(pw ? { password: pw } : {}),
     });
@@ -524,6 +528,22 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
               {gameType === 'preferans' && (
                 <div className="field">
                   <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
+                </div>
+              )}
+              {gameType === 'fifty-one' && (
+                <div className="field">
+                  <label className="field__label">☠️ {t('fiftyOne.eliminationScore')}</label>
+                  <div className="segmented segmented--inline fiftyone-elim-picker" role="group" aria-label={t('fiftyOne.eliminationScore')}>
+                    {ELIMINATION_SCORE_PRESETS.map((v) => (
+                      <button key={v} type="button"
+                        className={`segmented__tab ${fiftyOneEliminationScore === v ? 'segmented__tab--active' : ''}`}
+                        aria-pressed={fiftyOneEliminationScore === v}
+                        onClick={() => setFiftyOneEliminationScore(v)}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="durak-variant-desc">{t('fiftyOne.eliminationScoreHint')}</p>
                 </div>
               )}
               {gameType === 'king' && (

@@ -54,13 +54,15 @@ describe('FiftyOneGameScreen defers the round advance to the server when online'
 });
 
 describe('StartMenu + Lobby host + label a 51 room (Stage 30.5)', () => {
-  it("StartMenu sends gameType 'fifty-one' on create (else it would default to King)", () => {
+  it("StartMenu sends gameType 'fifty-one' + the elimination score on create (else it would default to King)", () => {
     const menu = read('../StartMenu.tsx');
-    expect(menu).toContain("gameType === 'fifty-one' ? { gameType: 'fifty-one' as const }");
+    expect(menu).toContain("gameType === 'fifty-one' ? { gameType: 'fifty-one' as const, fiftyOneEliminationScore }");
   });
-  it('Lobby labels a 51 room by its Rummy meta, not a King dealer-choice/fixed-order term', () => {
+  it('Lobby labels a 51 room by its Rummy meta + elimination score, not a King mode term', () => {
     const lobby = read('../online/Lobby.tsx');
     expect(lobby).toContain("room.gameType === 'fifty-one'");
     expect(lobby).toContain("t('fiftyOne.metaShort')");
+    // The elimination score (Stage 30.15) rides alongside the meta; legacy rooms show 510.
+    expect(lobby).toContain('room.fiftyOneEliminationScore ?? 510');
   });
 });

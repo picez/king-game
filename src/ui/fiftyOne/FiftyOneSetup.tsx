@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import GameHelpModal from '../components/GameHelpModal';
 import { deckCountFor, totalDeckSize } from '../../games/fiftyOne/deck';
+import { DEFAULT_TARGET_PENALTY, ELIMINATION_SCORE_PRESETS } from '../../games/fiftyOne/rules';
 
 interface Props {
-  onStart: (playerCount: number) => void;
+  onStart: (playerCount: number, eliminationScore: number) => void;
   onExit: () => void;
 }
 
@@ -18,6 +19,8 @@ const PLAYER_COUNTS = [2, 3, 4] as const;
 export default function FiftyOneSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
   const [count, setCount] = useState<number>(4);
+  // Elimination score (Stage 30.15): default 510; the player may pick a shorter match.
+  const [eliminationScore, setEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
   const [showHelp, setShowHelp] = useState(false);
 
   const decks = deckCountFor(count);
@@ -51,6 +54,21 @@ export default function FiftyOneSetup({ onStart, onExit }: Props) {
         <p className="fiftyone-setup__players">👥 {t('fiftyOne.playersHint').replace('{n}', String(count))}</p>
         <p className="fiftyone-setup__deck">🂠 {deckNote}</p>
 
+        <label className="field__label">☠️ {t('fiftyOne.eliminationScore')}</label>
+        <div className="fiftyone-setup__counts fiftyone-elim-picker" role="group" aria-label={t('fiftyOne.eliminationScore')}>
+          {ELIMINATION_SCORE_PRESETS.map((v) => (
+            <button
+              key={v}
+              type="button"
+              className={`btn ${v === eliminationScore ? 'btn--primary' : 'btn--ghost'} fiftyone-setup__count`}
+              aria-pressed={v === eliminationScore}
+              onClick={() => setEliminationScore(v)}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           className="fiftyone-howto"
@@ -60,7 +78,7 @@ export default function FiftyOneSetup({ onStart, onExit }: Props) {
           ❓ {t('help.howToPlay')}
         </button>
 
-        <button type="button" className="btn btn--primary fiftyone-setup__start" onClick={() => onStart(count)}>
+        <button type="button" className="btn btn--primary fiftyone-setup__start" onClick={() => onStart(count, eliminationScore)}>
           {t('fiftyOne.start')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onExit}>

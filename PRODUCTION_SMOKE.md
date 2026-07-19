@@ -309,8 +309,13 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       at 360/390 with **Add / Replace joker in a row under** them; the ❓ **help sheet** shows **Card
       values** + **Melds** (`A-2-3` = 6, `Q-K-A` = 30, `K-A-2` invalid, joker in hand 25) in all 4
       languages. Online: the meld change is public to both tabs, the taken joker stays private.
+- [ ] **Elimination score (Stage 30.15):** the **Local** and **Host** 51 setup sheets show a score
+      picker **210 / 310 / 410 / 510** (default **510**). Start a local match at **210** → a player is
+      eliminated once their penalty reaches **210**, not 510. Host an online room at **310** → the lobby
+      meta reads `🀄 Rummy · Melds · ☠ 310` for the host and joiners; **Play again** keeps the same score.
+      A room created before this change still shows **☠ 510** and plays as before.
 - [ ] **Online create/join/play (2 tabs + optional bot):** Host a 51 room → the lobby reads
-      **"🀄 Rummy · Melds"** (not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
+      **"🀄 Rummy · Melds"** (plus **☠ <score>**, not a King "Fixed order" label) with 2–4 seats. Join from a second tab;
       each client sees **only its own hand** (opponents show 🂠counts, the draw pile is face-down). A
       normal turn **draw → (open ≥51 / add) → discard** applies over the wire; the acting player's
       buttons are enabled, the waiter's are disabled.

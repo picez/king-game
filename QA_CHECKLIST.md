@@ -89,6 +89,16 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       7-8-9, `[8♠, 9♠, 🃏]` reads 8-9-10) — the selection is never auto-sorted; use the meld-builder
       ← / → (or pre-arrange the hand) to fix its spot, then lay + discard to go out.
 
+## Manual — 51 elimination score (Stage 30.15)
+
+- [ ] **Local setup:** the 51 setup sheet shows an **elimination-score picker** with **210 / 310 /
+      410 / 510**, default **510** highlighted. Pick **210**, play a short match — a player is knocked
+      out as soon as their running penalty reaches **210** (not 510).
+- [ ] **Online host:** the Host sheet for 51 shows the same picker. Create a room at **310**; the
+      **lobby meta** reads `🀄 … · ☠ 310`. Joiners see the same score before Start.
+- [ ] **Rematch / legacy:** after a finished online match, **Play again** deals the next match at the
+      **same** score. An old room opened from before this change shows **☠ 510** (nothing breaks).
+
 ## Manual — 51 meld table, help + joker replacement (Stage 30.14)
 
 > `node scripts/fifty-one-shots.mjs http://localhost:4173/ .shots/fifty-one` covers the layout

@@ -20,7 +20,7 @@ import {
   MIN_PLAYERS,
   nextActiveSeat,
   normalizePlayerCount,
-  normalizeTargetPenalty,
+  normalizeEliminationScore,
   OPENING_MINIMUM,
 } from './rules';
 import type {
@@ -98,7 +98,7 @@ function startGame(action: Extract<FiftyOneAction, { type: 'START_GAME' }>, rng:
     roundWinnerSeat: null,
     winnerSeat: null,
     lastRound: null,
-    options: { targetPenalty: normalizeTargetPenalty(action.options?.targetPenalty) },
+    options: { targetPenalty: normalizeEliminationScore(action.options?.targetPenalty) },
   };
   return dealRound(base, dealerSeat, rng, false);
 }
