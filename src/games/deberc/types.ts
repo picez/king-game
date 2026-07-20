@@ -120,6 +120,14 @@ export interface DebercState {
    *  this hand (once per hand); `trumpExchangedBy` names the seat for the public note. */
   trumpExchanged: boolean;
   trumpExchangedBy: number | null;
+  /**
+   * Trump-exchange origin gate (Stage 30.16, §3a): whether each seat's low trump
+   * (7 for 3p, 6 for 4p, of the chosen trump suit) was in its ORIGINALLY DEALT
+   * 6-card hand — NOT drawn from the 3-card прикуп. Computed at trump commit from
+   * the pre-talon hand; a low trump from the прикуп leaves this false and can never
+   * be exchanged. A per-seat boolean only — it leaks no card (safe to be public).
+   */
+  lowTrumpFromHand: boolean[];
 
   /** The current об'яз seat (obligated maker; judged for ХВ). Updated on bid interception. */
   objazSeat: number;
@@ -164,10 +172,22 @@ export interface DebercState {
    * evaluated from these (the live `players[].hand` empties as cards are played).
    */
   dealtHands: Card[][];
-  /** Seats holding the bella (trump K+Q) at play start — eligible to earn it. */
+  /** Seats holding the bella (trump K+Q) at play start — eligible to DECLARE it (§4). */
   bellaEligible: number[];
-  /** Seats that actually earned the bella (won a trick with a trump K or Q). */
+  /**
+   * Seats that actually EARNED the bella this hand: declared it while playing a
+   * trump K/Q (§4, v1.6) AND won that trick. At most one seat (one declaration per
+   * hand). Populated when the declared trick finalizes.
+   */
   bellaEarned: number[];
+  /**
+   * Bella declaration (Stage 30.16, §4): the seat that declared бела this hand as
+   * it played a trump K/Q, or null if none yet. Once set it blocks a second
+   * declaration this hand. `bellaDeclaredCard` is the exact honor card played with
+   * the declaration (already public — it is on the table in the trick).
+   */
+  bellaDeclaredBy: number | null;
+  bellaDeclaredCard: Card | null;
 
   /** Running match score per team. */
   matchScore: number[];
@@ -260,8 +280,14 @@ export type DebercAction =
    * only the lone holder of the low trump can do it, on their declaring turn). Once per hand.
    */
   | { type: 'EXCHANGE_TRUMP' }
-  /** Play a card into the current trick. */
-  | { type: 'PLAY_CARD'; card: Card }
+  /**
+   * Play a card into the current trick. `declareBela` (Stage 30.16, §4) declares
+   * бела with this play — legal only when the card is a trump K or Q, the seat is
+   * bella-eligible (holds trump K+Q), and no бела was declared yet this hand; the
+   * 20 points are earned only if the seat then WINS this trick. Playing a trump K/Q
+   * without the flag scores no бела.
+   */
+  | { type: 'PLAY_CARD'; card: Card; declareBela?: boolean }
   /** Acknowledge a resolved trick (advance from 'trick_complete'). */
   | { type: 'NEXT_TRICK' }
   /** Advance from 'hand_scoring' to the next deal. */

@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { makeRng } from '../../core/rng';
 import { debercReducer, currentLegalPlays, getActingDebercPlayerId } from './engine';
 import { debercBotAction } from './ai';
-import { detectAllSequences, hasBella } from './melds';
+import { detectAllSequences } from './melds';
 import { debercRedactStateFor } from './redact';
 import type { DebercAction, DebercMeld, DebercState } from './types';
 
@@ -28,14 +28,11 @@ function choiceRng(seed: number): () => number {
   };
 }
 
-/** The melds the DebercGameScreen would offer the human this declaring turn. */
+/** The melds the DebercGameScreen would offer the human this declaring turn (v1.6:
+ *  sequences only — bella is no longer declared in this phase). */
 function offeredMelds(state: DebercState, seat: number): DebercMeld[] {
   const hand = state.dealtHands[seat] ?? state.players[seat].hand;
-  const melds = [...detectAllSequences(hand, seat, state.trumpSuit)];
-  if (hasBella(hand, state.trumpSuit)) {
-    melds.push({ seatIndex: seat, kind: 'bella', points: 20, cards: [], topValue: 0, isTrump: true, revealed: false });
-  }
-  return melds;
+  return detectAllSequences(hand, seat, state.trumpSuit);
 }
 
 /**
@@ -55,14 +52,20 @@ function humanAction(state: DebercState, pick: () => number): DebercAction {
     if (chosen.length === 0) chosen = [melds[Math.floor(pick() * melds.length) % melds.length]];
     return {
       type: 'DECLARE_MELD',
-      melds: chosen.map((m) => (m.kind === 'bella'
-        ? { kind: 'bella' as const }
-        : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank })),
+      melds: chosen.map((m) => ({ kind: m.kind, topRank: m.cards[m.cards.length - 1].rank, suit: m.cards[0].suit })),
     };
   }
   if (state.phase === 'playing') {
+    const seat = state.turnSeat;
     const legal = currentLegalPlays(state);
-    return { type: 'PLAY_CARD', card: legal[Math.floor(pick() * legal.length) % legal.length] };
+    const card = legal[Math.floor(pick() * legal.length) % legal.length];
+    // v1.6 bella at play time: ~50% of the time, when eligible + undeclared and the
+    // random card is a trump K/Q, arm бела (exercises the declareBela reducer path).
+    const isHonor = state.trumpSuit != null && card.suit === state.trumpSuit && (card.rank === 'K' || card.rank === 'Q');
+    if (isHonor && state.bellaEligible.includes(seat) && state.bellaDeclaredBy == null && pick() < 0.5) {
+      return { type: 'PLAY_CARD', card, declareBela: true };
+    }
+    return { type: 'PLAY_CARD', card };
   }
   return debercBotAction(state)!; // bidding
 }

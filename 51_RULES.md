@@ -45,12 +45,14 @@ The deck size depends on the player count. Two **Jokers** are always in play.
 
 | Players | Cards | Jokers | Total |
 |--------:|-------|:------:|:-----:|
-| **2**   | 1 standard 52-card deck | 2 | **54** |
-| **3–4** | 2 standard 52-card decks (104) | 2 | **106** |
+| **2**   | 1 standard 52-card deck | 2 | **54** (52 + 2) |
+| **3–4** | 2 standard 52-card decks (104) | 2 | **106** (104 + 2) |
 
-- *[owner decision / recommended MVP]* This 1-deck-for-2 / 2-decks-for-3–4 split is the
-  **owner's recommended interpretation** of an ambiguous source ("1 deck for 2–3, 2 decks
-  for 4–5; usually 2 jokers"). **Confirm before 30.1** — see [§16 Q1](#16-open-questions--confirmations-needed).
+- **Exactly:** 2 players use **1 deck + 2 jokers = 54** cards; **3 or 4** players use **2 decks +
+  2 jokers = 106** cards. There is no other size — a 3-player and a 4-player game use the identical
+  106-card deck. (Confirmed & regression-guarded in Stage 30.16, `src/games/fiftyOne/deck.test.ts`.)
+- *[owner decision]* This 1-deck-for-2 / 2-decks-for-3–4 split is the **owner's confirmed
+  interpretation** of an ambiguous source ("1 deck for 2–3, 2 decks for 4–5; usually 2 jokers").
 - Jokers are **wild** (§8). No other wild cards.
 - With two decks, the same physical card (e.g. two 9♥) can appear twice across the game;
   meld-duplication rules are in §6.

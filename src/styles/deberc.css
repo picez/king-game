@@ -281,10 +281,11 @@
 .deberc-screen .durak-table__cards { grid-column: 2; width: 100%; }
 
 /* Played trick cards for Deberc: readable but not oversized (Stage 29.0, owner —
-   shrunk from ×1.35 so the trick no longer dwarfs the trump/stock). */
+   shrunk from ×1.35). Stage 30.16 (owner): reduced a further ~10% (×1.15 → ×1.035)
+   so the table cards sit lower/smaller; the trump + stock pile are left unchanged. */
 .deberc-screen .durak-table__cards .card--table {
-  width: calc(var(--card-w-table) * 1.15);
-  height: calc(var(--card-h-table) * 1.15);
+  width: calc(var(--card-w-table) * 1.035);
+  height: calc(var(--card-h-table) * 1.035);
 }
 /* The skip-meld button reads as destructive (red) — sits apart from the confirm. */
 .deberc-screen .deberc-skip-meld { margin-top: 0.2rem; }
@@ -294,6 +295,15 @@
   margin: 0.2rem auto; padding: 0.25rem 0.6rem; border-radius: 999px; text-align: center;
   font-size: 0.82rem; background: var(--surface-2); border: 1px solid var(--border); width: fit-content;
 }
+/* Bella at play time (Stage 30.16): the public "X declared Bela" note + the arm toggle. */
+.deberc-bela-note {
+  margin: 0.2rem auto; padding: 0.25rem 0.6rem; border-radius: 999px; text-align: center;
+  font-size: 0.82rem; background: var(--surface-2); border: 1px solid var(--border); width: fit-content;
+}
+.deberc-bela-note__ok { color: var(--ok, #3ca55c); font-weight: 700; }
+.deberc-screen .deberc-bela-controls { align-items: center; gap: 0.4rem; }
+.deberc-screen .deberc-bela-toggle { align-self: center; }
+.deberc-bela-hint { font-size: 0.78rem; opacity: 0.85; }
 
 /* Uniform seat boxes so the icons/labels line up regardless of how many chips a
    seat shows, and a rounded rect (not a pill) since the content is multi-line. */

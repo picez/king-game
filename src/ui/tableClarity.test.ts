@@ -34,8 +34,8 @@ describe('Deberc UI corrections (Stage 27.0)', () => {
   it('the skip-meld button is destructive/red (btn--danger)', () => {
     expect(screen).toMatch(/btn--danger deberc-skip-meld[\s\S]*?DECLARE_MELD', melds: \[\]/);
   });
-  it('table cards are sized for readability without dwarfing the trump (Stage 29.0: ×1.15)', () => {
-    expect(css).toMatch(/\.deberc-screen \.durak-table__cards \.card--table[\s\S]*?1\.15/);
+  it('table cards are sized for readability without dwarfing the trump (Stage 30.16: ×1.035, −10% from ×1.15)', () => {
+    expect(css).toMatch(/\.deberc-screen \.durak-table__cards \.card--table[\s\S]*?1\.035/);
   });
   it('the trump + stock deck is enlarged ~20% (Stage 29.0: scale 1.02, was 0.85)', () => {
     expect(css).toMatch(/\.deberc-screen \.durak-deck \{[^}]*transform: scale\(1\.02\)/);

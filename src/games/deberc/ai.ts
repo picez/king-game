@@ -17,7 +17,7 @@ import type { Card, Rank, Suit } from '../../models/types';
 import type { DebercAction, DebercMeldKind, DebercState } from './types';
 import { DEBERC_SUITS, cardPoints, trickStrength } from './deck';
 import { legalPlays, resolveTrick, canExchangeTrump } from './rules';
-import { detectAllSequences, hasBella } from './melds';
+import { detectAllSequences } from './melds';
 
 /**
  * Minimum hand score (see suitScore) at which a bot commits to a trump. Bidding
@@ -173,7 +173,14 @@ function playAction(state: DebercState): DebercAction {
   // captured trick banks its points and averts a бейт). Prefer a non-trump winner
   // and the cheapest trump when we must ruff; winCost keeps the J/9 маніла back.
   if (winners.length > 0) {
-    return { type: 'PLAY_CARD', card: pickBy(winners, trump, winCost) };
+    const card = pickBy(winners, trump, winCost);
+    // Bella (v1.6, §4): if we are LAST to play (so this winning card takes the trick
+    // for sure) and it is our trump K/Q while eligible + undeclared, declare бела now.
+    const isHonor = trump != null && card.suit === trump && (card.rank === 'K' || card.rank === 'Q');
+    if (isLastToPlay && isHonor && state.bellaEligible.includes(seat) && state.bellaDeclaredBy == null) {
+      return { type: 'PLAY_CARD', card, declareBela: true };
+    }
+    return { type: 'PLAY_CARD', card };
   }
   // Cannot win: shed the least useful card, keeping high cards and trumps.
   return { type: 'PLAY_CARD', card: pickBy(legal, trump, dumpValue) };
@@ -198,7 +205,8 @@ function declareAction(state: DebercState): DebercAction {
   for (const seq of detectAllSequences(hand, seat, state.trumpSuit)) {
     melds.push({ kind: seq.kind, topRank: seq.cards[seq.cards.length - 1].rank, suit: seq.cards[0].suit });
   }
-  if (hasBella(hand, state.trumpSuit)) melds.push({ kind: 'bella' });
+  // Bella is NO LONGER declared here (v1.6, §4) — the bot declares it at play time
+  // when it plays a trump K/Q (see playAction).
   return { type: 'DECLARE_MELD', melds };
 }
 

@@ -72,15 +72,16 @@ export function detectBestSequence(
 const BAND_RANK: Record<DebercMeldKind, number> = { bella: 0, terz: 1, platina: 2, deberc: 3 };
 
 /**
- * Compare two sequence melds by the hierarchy (DEBERC_RULES.md §4, v1.2):
- * higher BAND wins (деберц > платіна > терц); then higher top card; then trump
- * beats non-trump. Comparison is by band, NOT raw run length — so two платіни of
- * different lengths (both worth 50) are ranked by top card, per §8.2. Returns
- * >0 if `a` is stronger, <0 if `b`, 0 if equal (same band + top, both non-trump)
- * — in which case both score.
+ * Compare two sequence melds by the hierarchy (DEBERC_RULES.md §4, v1.6):
+ * higher BAND wins (деберц > платіна > терц); then, WITHIN a band, the LONGER run
+ * wins (owner rule Stage 30.16 — a 5-card палтіна beats any 4-card палтіна); then
+ * higher top card; then trump beats non-trump. Терці are always length 3, so
+ * терц-vs-терц still reduces to top card. Returns >0 if `a` is stronger, <0 if
+ * `b`, 0 if equal (same band + length + top, both non-trump) — both then score.
  */
 export function compareSequences(a: DebercMeld, b: DebercMeld): number {
   if (BAND_RANK[a.kind] !== BAND_RANK[b.kind]) return BAND_RANK[a.kind] - BAND_RANK[b.kind];
+  if (a.cards.length !== b.cards.length) return a.cards.length - b.cards.length; // longer run wins (v1.6)
   if (a.topValue !== b.topValue) return a.topValue - b.topValue;
   if (a.isTrump !== b.isTrump) return a.isTrump ? 1 : -1;
   return 0;

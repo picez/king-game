@@ -29,6 +29,13 @@ export function canExchangeTrump(state: DebercState, seat: number): boolean {
   const hand = state.players[seat].hand;
   if (!hand.some((c) => c.suit === trump && c.rank === lowRank)) return false;
   const exposed = state.tableTrumpCard;
+  // v1.6 (§3a): the exposed table card must itself be a TRUMP — i.e. the trump was
+  // taken from the table (round 1), not declared as a free suit (round 2). Swapping
+  // the low trump for an off-suit exposed card is not allowed.
+  if (exposed.suit !== trump) return false;
+  // v1.6 (§3a): the low trump must have been in the seat's ORIGINAL 6-card hand — a
+  // low trump drawn from the прикуп (talon) can never be exchanged.
+  if (!(state.lowTrumpFromHand?.[seat] ?? false)) return false;
   if (exposed.suit === trump && exposed.rank === lowRank) return false; // already the low trump
   if (n === 4) {
     if (state.meldsDone[state.dealerSeat]) return false;                // dealer's melds must stay valid

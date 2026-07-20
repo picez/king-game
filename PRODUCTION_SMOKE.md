@@ -94,9 +94,16 @@ full 51 smoke is §5b.
       **failed** contract is unchanged (declarer −bid; defenders bank their tricks). A signed-in
       **Solo** game's per-seat delta reflects the corrected score in the **Solo** stats tab (Pairs
       tab still separate/unchanged).
-- [ ] **Deberc table sizing (v0.3.3):** on the Deberc table the **played trick cards are slightly
-      smaller** and the **face-up trump + stock deck are ~20% larger**; no horizontal overflow at
-      360/390 and no overlap with the hand/actions/seats.
+- [ ] **Deberc table sizing (v0.3.3 + Stage 30.16):** on the Deberc table the **played trick cards are
+      slightly smaller** (Stage 30.16 shaved a further ~10%) and the **face-up trump + stock deck are
+      ~20% larger**; no horizontal overflow at 360/390 and no overlap with the hand/actions/seats.
+- [ ] **Deberc rule corrections (Stage 30.16):** (a) the **🔄 Swap low trump** button shows **only**
+      when the exposed table card is a **trump** and your 7/6 was **dealt to hand** (not from the
+      прикуп) — otherwise absent, and the online server rejects the swap; (b) a **5-card Палтіна beats a
+      4-card Палтіна** regardless of top card; (c) **Бела** is declared **at play time** via the **🔔
+      Declare Bela** toggle on a trump **K/Q** and scores **20 only if that trick is won** (no
+      declaring in the meld phase). Play a full local hand exercising all three, then a 2-tab online
+      hand to confirm the server accepts the same declareBela play and shows the public бела note.
 - [ ] **Static bandwidth (§3a):** `curl -sI $HOST/cards/faces/spades-a.png` → `200 image/png` +
       `cache-control: public, max-age=604800` + an ETag; `$HOST/cards/faces/AS.png` → **404**
       (not the html shell); `If-None-Match` repeat → **304**.

@@ -102,6 +102,7 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
   s.trumpSuit = null;
   s.trumpExchanged = false;
   s.trumpExchangedBy = null;
+  s.lowTrumpFromHand = Array<boolean>(n).fill(false);
   s.phase = 'bidding';
   s.bidderSeat = (dealerSeat + 1) % n;
   s.bids = [];
@@ -115,6 +116,8 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
   s.dealtHands = [];
   s.bellaEligible = [];
   s.bellaEarned = [];
+  s.bellaDeclaredBy = null;
+  s.bellaDeclaredCard = null;
   s.meldTurnSeat = dealerSeat;
   s.declaredMelds = [];
   s.meldsDone = Array<boolean>(n).fill(false);
@@ -129,6 +132,13 @@ function dealNextHand(s: DebercState, dealerSeat: number, ctx?: DebercContext): 
 function commitTrump(s: DebercState, seat: number, trump: Suit): void {
   s.trumpSuit = trump;
   s.objazSeat = seat;
+  // Trump-exchange origin gate (Stage 30.16, §3a): record — from the PRE-talon 6-card
+  // hand — whether each seat's low trump was actually dealt to hand (vs arriving in the
+  // прикуп). Computed here, before the merge below, so a low trump drawn from the прикуп
+  // can never be exchanged. Single deck → the low trump is unique, so this is exact.
+  const lowRank = lowTrumpRank(s.players.length);
+  s.lowTrumpFromHand = s.players.map((p) =>
+    p.hand.some((c) => c.suit === trump && c.rank === lowRank));
   // Take прикуп: merge each seat's 3-card packet into its hand, then empty it.
   s.players.forEach((p, i) => {
     p.hand = [...p.hand, ...s.prykup[i]];
@@ -140,6 +150,8 @@ function commitTrump(s: DebercState, seat: number, trump: Suit): void {
     if (hasBella(s.players[i].hand, trump)) s.bellaEligible.push(i);
   }
   s.bellaEarned = [];
+  s.bellaDeclaredBy = null;
+  s.bellaDeclaredCard = null;
   s.wonCards = Array.from({ length: s.players.length }, () => []);
   s.seatsWithTricks = [];
   s.tricksPlayed = 0;
@@ -176,12 +188,12 @@ function startDeberc(
   const s: DebercState = {
     gameType: 'deberc', matchSize: action.matchSize, players, teamOf, teamCount,
     phase: 'bidding', tableTrumpCard, stock, prykup, trumpSuit: null,
-    trumpExchanged: false, trumpExchangedBy: null,
+    trumpExchanged: false, trumpExchangedBy: null, lowTrumpFromHand: Array<boolean>(n).fill(false),
     objazSeat: dealerSeat, dealerSeat, bidderSeat: (dealerSeat + 1) % n, bids: [], bidRound: 1,
     currentTrick: null, turnSeat: dealerSeat,
     wonCards: Array.from({ length: n }, () => []), tricksPlayed: 0, seatsWithTricks: [], melds: [],
     meldTurnSeat: dealerSeat, declaredMelds: [], meldsDone: Array<boolean>(n).fill(false),
-    dealtHands: [], bellaEligible: [], bellaEarned: [],
+    dealtHands: [], bellaEligible: [], bellaEarned: [], bellaDeclaredBy: null, bellaDeclaredCard: null,
     matchScore: Array<number>(teamCount).fill(0),
     hvMarks: Array<number>(teamCount).fill(0),
     beitMarks: Array<number>(teamCount).fill(0),
@@ -202,26 +214,38 @@ function finalizeTrick(s: DebercState): void {
   for (const p of trick.plays) s.wonCards[winner].push(p.card);
   s.tricksPlayed += 1;
   if (!s.seatsWithTricks.includes(winner)) s.seatsWithTricks.push(winner);
-  // Bella: earned if an eligible holder wins a trick playing their trump K or Q.
-  if (s.bellaEligible.includes(winner) && !s.bellaEarned.includes(winner)) {
-    const played = trick.plays.find((p) => p.seatIndex === winner)!.card;
-    if (played.suit === s.trumpSuit && (played.rank === 'K' || played.rank === 'Q')) {
-      s.bellaEarned.push(winner);
-    }
+  // Bella (v1.6, §4): earned only if the declarer WON the trick that contains the
+  // trump K/Q they declared on. Declaring without winning, or playing a trump K/Q
+  // with no declaration, scores nothing. One declaration per hand.
+  if (
+    s.bellaDeclaredBy != null &&
+    s.bellaDeclaredCard != null &&
+    s.bellaEarned.length === 0 &&
+    winner === s.bellaDeclaredBy &&
+    trick.plays.some((p) => p.seatIndex === s.bellaDeclaredBy && cardEquals(p.card, s.bellaDeclaredCard!))
+  ) {
+    s.bellaEarned.push(s.bellaDeclaredBy);
   }
   s.turnSeat = winner; // the winner leads next
   s.phase = 'trick_complete';
 }
 
-/** The DECLARED melds that score this hand (§4 winners + earned bella), for display. */
+/** The DECLARED melds that score this hand (§4 sequence winners + earned bella), for display. */
 function collectScoringMelds(s: DebercState): DebercMeld[] {
   // The §4 winner(s) among announced sequences are the ones marked revealed.
   const melds: DebercMeld[] = s.declaredMelds.filter(
     (m) => (m.kind === 'terz' || m.kind === 'platina') && m.revealed,
   );
-  // Bella scores only if it was DECLARED and EARNED (won a trick with a trump K/Q).
-  for (const m of s.declaredMelds) {
-    if (m.kind === 'bella' && s.bellaEarned.includes(m.seatIndex)) melds.push({ ...m });
+  // Bella (v1.6, §4): declared at play time and earned by winning that trick — build
+  // the meld from the earned seat's dealt trump K+Q (no longer a declaredMeld entry).
+  const trump = s.trumpSuit;
+  for (const seat of s.bellaEarned) {
+    const k = s.dealtHands[seat]?.find((c) => c.suit === trump && c.rank === 'K');
+    const q = s.dealtHands[seat]?.find((c) => c.suit === trump && c.rank === 'Q');
+    melds.push({
+      seatIndex: seat, kind: 'bella', points: BELLA_POINTS,
+      cards: [k, q].filter(Boolean) as Card[], topValue: seqValue('K'), isTrump: true, revealed: true,
+    });
   }
   return melds;
 }
@@ -350,8 +374,19 @@ export function debercReducer(
       const hand = state.players[seat].hand;
       const ledSuit = state.currentTrick ? state.currentTrick.ledSuit : null;
       if (!isLegalPlay(action.card, hand, ledSuit, state.trumpSuit)) return state;
+      // Bella declaration (v1.6, §4): only alongside a trump K/Q, by a bella-eligible
+      // seat (holds trump K+Q), and only once per hand. An invalid declaration flag
+      // rejects the whole play (the UI only offers it when legal).
+      if (action.declareBela) {
+        const isHonor = action.card.suit === state.trumpSuit && (action.card.rank === 'K' || action.card.rank === 'Q');
+        if (!isHonor || !state.bellaEligible.includes(seat) || state.bellaDeclaredBy != null) return state;
+      }
       const s = clone(state);
       removeCard(s.players[seat].hand, action.card);
+      if (action.declareBela) {
+        s.bellaDeclaredBy = seat;
+        s.bellaDeclaredCard = { ...action.card };
+      }
       if (s.currentTrick == null) {
         s.currentTrick = {
           leadSeat: seat, ledSuit: action.card.suit,
@@ -433,23 +468,19 @@ export function debercReducer(
       // can truthfully announce TWO терці (different suits) or a платіна + терц.
       const seen = new Set<string>();
       for (const decl of action.melds) {
+        // Bella is NO LONGER declared here (v1.6, §4) — it is declared at play time
+        // with the trump K/Q. A bella announcement in the declaring phase is illegal.
+        if (decl.kind === 'bella') return state;
         const key = `${decl.kind}:${decl.suit ?? ''}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        if (decl.kind === 'bella') {
-          if (!hasBella(hand, trump)) return state;
-          const k = hand.find((c) => c.suit === trump && c.rank === 'K')!;
-          const q = hand.find((c) => c.suit === trump && c.rank === 'Q')!;
-          built.push({ seatIndex: seat, kind: 'bella', points: BELLA_POINTS, cards: [k, q], topValue: seqValue('K'), isTrump: true, revealed: false });
-        } else {
-          if (decl.topRank == null) return state;
-          const m = announcedMeld(hand, seat, decl.kind, decl.topRank, trump, decl.suit);
-          if (!m) return state;
-          // Guard against two entries resolving to the SAME run (e.g. same kind +
-          // nominal, no suit given twice) — never count one physical run twice.
-          if (built.some((b) => b.cards.length > 0 && b.cards[0].suit === m.cards[0].suit && b.kind === m.kind)) continue;
-          built.push(m);
-        }
+        if (decl.topRank == null) return state;
+        const m = announcedMeld(hand, seat, decl.kind, decl.topRank, trump, decl.suit);
+        if (!m) return state;
+        // Guard against two entries resolving to the SAME run (e.g. same kind +
+        // nominal, no suit given twice) — never count one physical run twice.
+        if (built.some((b) => b.cards.length > 0 && b.cards[0].suit === m.cards[0].suit && b.kind === m.kind)) continue;
+        built.push(m);
       }
       const s = clone(state);
       s.declaredMelds.push(...built);

@@ -1,5 +1,19 @@
-# Deberc Rules (Деберц) — v1.5
+# Deberc Rules (Деберц) — v1.6
 
+> **v1.6 (Stage 30.16, owner corrections):** three rule fixes.
+> 1. **Trump exchange is restricted (§3a).** The low trump (7 for 3p, 6 for 4p) may be swapped for the
+>    face-up table card **only** when (a) the exposed table card is itself of the **trump suit** (i.e.
+>    the trump was TAKEN from the table in round 1, not declared as a free suit in round 2), and (b)
+>    the low trump was in the player's **originally dealt 6-card hand** — **never** a low trump that
+>    arrived in the 3-card прикуп (talon). A low trump from the прикуп can NOT be exchanged.
+> 2. **Палтіна ranks by LENGTH first (§4, §8.2).** A **longer** run beats a shorter one regardless of
+>    top card — a **5-card палтіна beats any 4-card палтіна**. Only when the lengths are **equal** is
+>    the higher top card (then trump) used. (This reverses the old "compare by top card" for палтіни.)
+> 3. **Бела is declared at PLAY time, not at the start (§4).** Бела is no longer announced in the
+>    declaring phase. Instead the holder of trump **K+Q** declares it **as they play a trump K or Q**,
+>    and it scores **20 only if that same trick is won** by the declarer (their team in 4p). Playing a
+>    trump K/Q with no declaration, or declaring but losing the trick, scores **0**.
+>
 > **v1.5b (Stage 27.2, owner):** **trump exchange (§3a)** — before the first card, the holder of the
 > lowest trump (7 for 3p, 6 for 4p) may swap it for the face-up table trump. Hand counts preserved;
 > once per hand; optional; public swap (no hidden-hand leak). Scoring unchanged.
@@ -111,14 +125,19 @@ Both are the same engine and scoring — the seat count *is* the mode; nothing e
   - **All pass both rounds (§8.1):** the **table trump is forced onto the об'яз**
     (no redeal). *(resolved in code)*
 
-### 3a. Trump exchange (козирний обмін)  ✅ (v1.5, Stage 27.2)
+### 3a. Trump exchange (козирний обмін)  ✅ (v1.6, Stage 30.16 restriction; v1.5 base)
 
 Once trump is set and **before the first card of the hand is played**, the player holding the
-**lowest trump** may **swap it for the face-up table trump**:
+**lowest trump** may **swap it for the face-up table trump** — but only under the v1.6 restrictions:
 
 - **3 players:** the low trump is the **7** of trump. **4 players:** the **6** of trump.
-- Example: trump ♦, the table shows **J♦**; the holder of **7♦** (3p) may take J♦ and leave 7♦ as
-  the new face-up table trump.
+- Example: trump ♣, the table shows **10♣**; the holder of **7♣** (3p) may take 10♣ and leave 7♦… no —
+  the exchange is **only allowed because the table card 10♣ is itself of the trump suit ♣**. If the
+  trump had been chosen as a **free suit** in round 2 (so the exposed table card is NOT of the trump
+  suit), the exchange is **forbidden**.
+- **Origin restriction (v1.6):** the low trump must come from the player's **originally dealt 6-card
+  hand**. If the **7/6 arrived in the 3-card прикуп (talon)**, the exchange is **forbidden** — you may
+  only exchange a low trump you were actually dealt to hand, not one you drew from the prykup.
 - The low trump goes to where the exposed trump was (**3p:** the top of the stock; **4p:** the
   dealer's hand, into which the table trump was taken with the прикуп) and the exposed card enters
   the exchanger's hand. **Hand counts are unchanged** (a straight swap; the 36-card total holds).
@@ -128,7 +147,8 @@ Once trump is set and **before the first card of the hand is played**, the playe
   (so it never invalidates a meld). Only the lone holder of the low trump is ever eligible, so
   gating it to the acting declarer matches "any player with the low trump" while staying turn-based
   for online play. Bots exchange automatically when eligible. Action: `EXCHANGE_TRUMP`. The swap is
-  **public** (the new table trump + a "X swapped the low trump" note); no hidden hand is revealed.
+  **public** (the new table trump + a "X swapped the low trump" note); no hidden hand is revealed —
+  and the origin check reads a per-seat boolean computed at trump commit, so it leaks no card either.
 
 ---
 
@@ -146,11 +166,14 @@ the real hand; you **cannot** announce a meld you do not hold.
   score **0**. This is the classic belote "highest shows" rule.
 - There is **no penalty** (no −50) — bluffing is impossible.
 - A **Деберц** (run ≥ 8) ends the match immediately (jackpot) when announced.
-- **Бела (bella)** — trump **K + Q** — is also announced: if the seat **holds**
-  trump K+Q and **wins a trick with one**, it scores **20**; held but never won
-  with → 0. Bella is independent of the sequence hierarchy (no contest — each
-  bella is its own).
-- **4-player:** announcements and scores are pooled per team.
+- **Бела (bella)** — trump **K + Q** — is **NOT announced in the declaring phase** (v1.6). It is
+  declared **at play time**: the holder of trump K+Q declares бела **as it plays a trump K or Q**
+  (the `PLAY_CARD` action carries a `declareBela` flag), and scores **20 only if the same trick is
+  won** by the declarer (their team in 4p). No declaration when playing the honor, or declaring but
+  **losing** that trick → **0**. Бела is independent of the sequence hierarchy (no contest — each
+  bella is its own). A player may declare бела **once per hand**.
+- **4-player:** sequence announcements and scores are pooled per team; a бела is earned by the seat
+  that both holds the trump K+Q and wins the declared trick, and its 20 points go to that team.
 
 Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 
@@ -163,12 +186,18 @@ Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 Ranking: **деберц > платіна > терц**. A **деберц** (8–9 same-suit run) ends the
 whole **match** immediately — the holder wins outright, regardless of score. ✅
 
+**Within the same band, LENGTH wins first (v1.6, Stage 30.16).** A **longer** run beats a shorter one
+regardless of top card — a **5-card палтіна beats any 4-card палтіна**. Only when two runs are the
+**same length** is the higher **top card** compared, and only then does **trump** break a remaining
+tie. (Терці are always length 3, so терц-vs-терц is decided by top card exactly as before.)
+
 - Hierarchy is judged **among declared melds only**, and **only between DIFFERENT
   SIDES** (owner clarification 2026-07-08). A declared **терц** does **not** score
-  if **another side declared** a платіна/деберц, or a **higher терц** (compared by
-  top card; run-to-10 loses to run-to-Q). Two **equal non-trump** declared терці
-  (different sides) both score; an equal **trump** терц beats an equal non-trump
-  one. The same "highest declared holder only" rule extends across платіна.
+  if **another side declared** a платіна/деберц, or a **higher терц** (same length 3,
+  so compared by top card; run-to-10 loses to run-to-Q). Two **equal** declared melds
+  (same band, same length, same top, both non-trump) from different sides both score;
+  an equal **trump** meld beats an equal non-trump one. The **length-first** rule
+  above governs платіна-vs-платіна.
 - **A player's OWN melds never cancel each other** — one seat holding **two терці**,
   or a **платіна and a терц**, scores **BOTH**. (A seat may truthfully announce a
   sequence in each suit it holds one in.)
@@ -227,8 +256,11 @@ Tallies kept in the score table (**per player** in 3p; **per team** in 4p):
 
 1. **§3 — RESOLVED:** all pass both rounds → the table trump is forced onto the
    об'яз (no redeal).
-2. **§4 — RESOLVED:** "highest **declared** holder only" extends across платіна;
-   equal платіни compare by top card with trump breaking ties (like терці).
+2. **§4 — RESOLVED (v1.6, Stage 30.16):** "highest **declared** holder only" extends across платіна.
+   Within a band, comparison is **LENGTH first** (a longer run wins), then top card, then trump —
+   so a 5-card палтіна beats a 4-card палтіна regardless of top card; equal-length runs compare by
+   top card with trump breaking ties (like терці). *(Supersedes the old "equal платіни compare by
+   top card" wording.)*
 3. **§7 — RESOLVED (owner rule 2026-07-08):** in 4p the zero-tricks mark
    (displayed «ХВ») is **per team** — recorded only when the **whole team** takes
    zero tricks in a hand. A single partner taking zero tricks while the other

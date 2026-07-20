@@ -60,6 +60,32 @@ describe('compareSequences', () => {
   });
 });
 
+describe('compareSequences — палтіна LENGTH-first (v1.6, Stage 30.16)', () => {
+  // A 5-card палтіна topping at J vs a 4-card палтіна topping at A. Old rule ranked
+  // by top card (A wins); v1.6 ranks by LENGTH first, so the 5-run wins despite lower top.
+  const platina5toJ = detectBestSequence(run('spades', ['7', '8', '9', '10', 'J']), 0, 'hearts')!;
+  const platina4toA = detectBestSequence(run('clubs', ['J', 'Q', 'K', 'A']), 1, 'hearts')!;
+  const platina4toQ = detectBestSequence(run('diamonds', ['9', '10', 'J', 'Q']), 2, 'hearts')!;
+  const platina4toK = detectBestSequence(run('spades', ['10', 'J', 'Q', 'K']), 3, 'hearts')!;
+
+  it('a longer палтіна beats a shorter one regardless of top card', () => {
+    expect(platina5toJ.cards).toHaveLength(5);
+    expect(platina4toA.cards).toHaveLength(4);
+    expect(compareSequences(platina5toJ, platina4toA)).toBeGreaterThan(0); // 5-run > 4-run (even A)
+    expect(compareSequences(platina4toA, platina5toJ)).toBeLessThan(0);
+  });
+
+  it('equal-length палтіни fall back to the higher top card', () => {
+    expect(compareSequences(platina4toK, platina4toQ)).toBeGreaterThan(0); // both length 4 → K > Q
+    expect(compareSequences(platina4toA, platina4toK)).toBeGreaterThan(0); // A > K
+  });
+
+  it('a терц never outranks a палтіна (band still dominates length)', () => {
+    const terzToA = detectBestSequence(run('clubs', ['Q', 'K', 'A']), 0, 'hearts')!;
+    expect(compareSequences(platina4toQ, terzToA)).toBeGreaterThan(0); // платіна band > терц band
+  });
+});
+
 describe('announcedMeld (§4, v1.3 truthful)', () => {
   const trump: Suit = 'hearts';
 

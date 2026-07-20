@@ -129,6 +129,23 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
       turn — replacing never ends the round, even from a one-card hand. If you keep the bought joker
       to the end of a lost round it costs the usual **25**.
 
+## Manual — Deberc rule corrections (Stage 30.16)
+
+- [ ] **Trump exchange restricted:** on your declaring turn, the **🔄 Swap low trump** button appears
+      **only** when (a) the face-up table card is of the **trump suit** (i.e. the trump was taken from
+      the table, not declared as a free suit in round 2), **and** (b) your 7/6-of-trump was **dealt to
+      your hand**, not drawn from the прикуп. When the low trump came from the прикуп, or the trump is a
+      free suit, the button is **absent** (and the online server rejects the swap too).
+- [ ] **Палтіна length-first:** a **5-card палтіна beats a 4-card палтіна** even if the 4-run tops
+      higher (e.g. a run to J beats a run to A). Two equal-length палтіни still compare by high card.
+      The scoring table still says **"Палтіна"**.
+- [ ] **Бела at play time:** бела is **no longer offered in the declaring phase**. During play, when
+      you hold the trump **K+Q**, a **🔔 Declare Bela** toggle appears; arm it and play a trump **K or
+      Q** to declare. You score **20 only if you win that trick** — declaring then losing, or playing the
+      honor without arming, scores **0**. A public "X declared Bela" note shows to everyone.
+- [ ] **Smaller table cards:** the played trick cards are **~10% smaller** than before; the trump +
+      stock pile are unchanged; no overlap with seats/buttons/hand at **360/390** portrait.
+
 ## Manual — team names (Tarneeb / Deberc Pairs, Stage 30.12b)
 
 - [ ] **Pairs** games label partnerships by their players, not abstract "Team A/B": the **lobby team

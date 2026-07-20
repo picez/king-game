@@ -9,6 +9,22 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Deberc rule corrections (Stage 30.16).** Three owner rule fixes, plus smaller table cards:
+  - **Trump exchange is restricted.** You can only swap your low trump (7 for 3p, 6 for 4p) for the
+    face-up card when that exposed card is itself of the **trump suit**, and only if your low trump was
+    in your **originally dealt hand** — a low trump you picked up in the прикуп (talon) can no longer be
+    exchanged.
+  - **Палтіна ranks by length first.** A **longer** run now beats a shorter one regardless of top card
+    (a 5-card палтіна beats any 4-card палтіна); equal-length runs still compare by high card.
+  - **Бела is declared when you play it, not at the start.** Instead of announcing бела up front, you
+    now **declare it as you play a trump K or Q** (a "Declare Bela" toggle), and it scores **20 only if
+    you win that trick**. Playing the honor without declaring, or declaring but losing the trick, scores
+    nothing.
+  - **Table cards are ~10% smaller** in Deberc so the played trick sits more comfortably; the trump and
+    stock pile are unchanged.
+
 ### Added
 
 - **51: choose how long a match runs (Stage 30.15).** When you set up a 51 game — local or as an

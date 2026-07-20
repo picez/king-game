@@ -14,26 +14,32 @@ import { makeRng } from '../../core/rng';
 import { debercReducer, getActingDebercPlayerId, currentLegalPlays } from './engine';
 import { debercBotAction } from './ai';
 import { isLegalPlay } from './rules';
-import { detectAllSequences, hasBella } from './melds';
+import { detectAllSequences } from './melds';
 import type { DebercAction, DebercState } from './types';
 
 /** Seat 0's action, built EXACTLY as the DebercGameScreen UI builds it. */
 function uiAction(state: DebercState, playIndex: number): DebercAction {
   if (state.phase === 'declaring') {
+    // v1.6: bella is NO LONGER declared here — only truthfully-held sequences.
     const seat = state.meldTurnSeat;
     const hand = state.dealtHands[seat] ?? state.players[seat].hand;
-    const melds = [...detectAllSequences(hand, seat, state.trumpSuit)];
-    if (hasBella(hand, state.trumpSuit)) melds.push({ seatIndex: seat, kind: 'bella', points: 20, cards: [], topValue: 0, isTrump: true, revealed: false });
+    const melds = detectAllSequences(hand, seat, state.trumpSuit);
     return {
       type: 'DECLARE_MELD',
-      melds: melds.map((m) => (m.kind === 'bella'
-        ? { kind: 'bella' as const }
-        : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank })),
+      melds: melds.map((m) => ({ kind: m.kind, topRank: m.cards[m.cards.length - 1].rank, suit: m.cards[0].suit })),
     };
   }
   if (state.phase === 'playing') {
+    const seat = state.turnSeat;
     const legal = currentLegalPlays(state);
-    return { type: 'PLAY_CARD', card: legal[playIndex % legal.length] };
+    const card = legal[playIndex % legal.length];
+    // v1.6 bella at play time: arm бела exactly as the UI would when playing a trump
+    // K/Q while eligible + undeclared (exercises the declareBela reducer path).
+    const isHonor = state.trumpSuit != null && card.suit === state.trumpSuit && (card.rank === 'K' || card.rank === 'Q');
+    if (isHonor && state.bellaEligible.includes(seat) && state.bellaDeclaredBy == null) {
+      return { type: 'PLAY_CARD', card, declareBela: true };
+    }
+    return { type: 'PLAY_CARD', card };
   }
   return debercBotAction(state)!; // bidding — always accepted
 }

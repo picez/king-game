@@ -5,7 +5,7 @@ import type { Card, Suit } from '../../models/types';
 import type { DebercAction, DebercMeld, DebercMeldKind, DebercState } from '../../games/deberc/types';
 import { currentLegalPlays, getActingDebercPlayerId } from '../../games/deberc/engine';
 import { cardEquals, canExchangeTrump } from '../../games/deberc/rules';
-import { detectAllSequences, hasBella } from '../../games/deberc/melds';
+import { detectAllSequences } from '../../games/deberc/melds';
 import DebercDeck from './DebercDeck';
 import DebercHelp from './DebercHelp';
 import HandReorderTray from '../components/HandReorderTray';
@@ -88,7 +88,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
 
   function clickCard(c: Card) {
     if (!isMyTurn || phase !== 'playing' || !cardEnabled(c)) return;
-    apply({ type: 'PLAY_CARD', card: c });
+    // Declare бела with this play only when armed AND the card is a trump K/Q (v1.6, §4).
+    const declareBela = belaArmed && isTrumpHonor(c) && canDeclareBela;
+    apply(declareBela ? { type: 'PLAY_CARD', card: c, declareBela: true } : { type: 'PLAY_CARD', card: c });
   }
 
   const myBid = phase === 'bidding' && state.bidderSeat === meSeat;
@@ -111,16 +113,10 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
     m.cards.length ? m.cards[m.cards.length - 1].rank : (VALUE_TO_RANK[m.topValue] ?? '');
   const meldLabel = (m: DebercMeld) =>
     m.kind === 'bella' ? kindLabel(m.kind) : `${kindLabel(m.kind)} ${t('deberc.meldTo')} ${meldNominal(m)}`;
-  // The real melds I can announce this turn (sequences + bella), from my own hand.
+  // The real SEQUENCE melds I can announce this turn, from my own hand. Bella is no
+  // longer declared here (v1.6, §4) — it is declared at play time with a trump K/Q.
   const myHand = state.dealtHands[meSeat] ?? me.hand;
-  const myMelds: DebercMeld[] = myDeclare
-    ? [
-      ...detectAllSequences(myHand, meSeat, trump),
-      ...(hasBella(myHand, trump)
-        ? [{ seatIndex: meSeat, kind: 'bella' as const, points: 20, cards: [] as Card[], topValue: 0, isTrump: true, revealed: false }]
-        : []),
-    ]
-    : [];
+  const myMelds: DebercMeld[] = myDeclare ? detectAllSequences(myHand, meSeat, trump) : [];
   // Which of my held melds I've toggled to announce; reset when the turn changes.
   const [picked, setPicked] = useState<number[]>([]);
   useEffect(() => { setPicked([]); }, [phase, state.meldTurnSeat]);
@@ -128,15 +124,25 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
     setPicked((p) => (p.includes(i) ? p.filter((x) => x !== i) : [...p, i]));
   const announce = () => apply({
     type: 'DECLARE_MELD',
+    // Pass the run's suit so two same-kind sequences (e.g. two терці) are both
+    // declarable and never collapse into one (owner rule 2026-07-08).
     melds: picked.map((i) => {
       const m = myMelds[i];
-      // Pass the run's suit so two same-kind sequences (e.g. two терці) are both
-      // declarable and never collapse into one (owner rule 2026-07-08).
-      return m.kind === 'bella'
-        ? { kind: 'bella' as const }
-        : { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank, suit: m.cards[0].suit };
+      return { kind: m.kind, topRank: m.cards[m.cards.length - 1].rank, suit: m.cards[0].suit };
     }),
   });
+
+  // Bella declaration at play time (v1.6, §4): on my playing turn, if I hold the
+  // trump K+Q and haven't declared yet, I can ARM бела and then play a trump K/Q to
+  // declare it — it scores 20 only if I win that trick.
+  const canDeclareBela = phase === 'playing' && isMyTurn
+    && state.bellaEligible.includes(meSeat) && state.bellaDeclaredBy == null;
+  const [belaArmed, setBelaArmed] = useState(false);
+  useEffect(() => { if (!canDeclareBela) setBelaArmed(false); }, [canDeclareBela]);
+  const isTrumpHonor = (c: Card) => trump != null && c.suit === trump && (c.rank === 'K' || c.rank === 'Q');
+  // A legal trump honor is in hand right now → the arm toggle is worth showing.
+  const hasLegalHonor = legal.some(isTrumpHonor);
+  const belaDeclaredName = state.bellaDeclaredBy != null ? state.players[state.bellaDeclaredBy]?.name : null;
 
   /** A seat's latest bid this hand as a tag (during bidding): passed / took trump. */
   function seatBidTag(seat: number) {
@@ -334,6 +340,29 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       {/* Public trump-exchange note (Stage 27.2) — no hidden-hand detail, just the public swap. */}
       {state.trumpExchanged && exchangedByName && (state.phase === 'declaring' || state.phase === 'playing') && (
         <p className="deberc-exchange-note" role="status">🔄 <strong>{exchangedByName}</strong> {t('deberc.exchangedLowTrump')}</p>
+      )}
+
+      {/* Public бела note (Stage 30.16) — someone declared бела with a trump K/Q. */}
+      {state.bellaDeclaredBy != null && belaDeclaredName && (state.phase === 'playing' || state.phase === 'trick_complete') && (
+        <p className="deberc-bela-note" role="status">
+          🔔 <strong>{belaDeclaredName}</strong> {t('deberc.belaDeclared')}
+          {state.bellaEarned.includes(state.bellaDeclaredBy) && <span className="deberc-bela-note__ok"> ✓ +20</span>}
+        </p>
+      )}
+
+      {/* Bela arm toggle (Stage 30.16): on my playing turn, arm бела then play a trump K/Q. */}
+      {canDeclareBela && hasLegalHonor && (
+        <div className="durak-controls deberc-bela-controls">
+          <button
+            type="button"
+            className={`btn ${belaArmed ? 'btn--primary' : 'btn--outline'} deberc-bela-toggle`}
+            aria-pressed={belaArmed}
+            onClick={() => setBelaArmed((v) => !v)}
+          >
+            🔔 {t('deberc.declareBela')}
+          </button>
+          <span className="deberc-bela-hint">{t(belaArmed ? 'deberc.belaArmedHint' : 'deberc.belaHint')}</span>
+        </div>
       )}
 
       {/* Bidding controls (only on my bid turn). */}

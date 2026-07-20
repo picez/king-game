@@ -49,6 +49,9 @@ function withScenario(s: DebercState): { state: DebercState; seat: number; trump
   st.tableTrumpCard = { ...exposed };
   // Re-snapshot dealtHands from the (now-arranged) hands — valid since no card has been played.
   st.dealtHands = st.players.map((p) => p.hand.map((c) => ({ ...c })));
+  // v1.6 (§3a): this synthetic scenario places the low trump in the seat's HAND (as if dealt),
+  // so mark its origin flag accordingly (the real deal's flag no longer matches the arrangement).
+  st.lowTrumpFromHand = st.players.map((_, i) => i === seat);
   return { state: st, seat, trump, low, exposed };
 }
 
@@ -68,6 +71,37 @@ describe('canExchangeTrump — eligibility', () => {
     expect(canExchangeTrump({ ...state, phase: 'playing' }, seat)).toBe(false);                 // play started
     expect(canExchangeTrump({ ...state, trumpExchanged: true }, seat)).toBe(false);              // once per hand
     expect(canExchangeTrump(state, (seat + 1) % state.players.length)).toBe(false);              // not the declarer's turn
+  });
+
+  // --- v1.6 restrictions (Stage 30.16, §3a) ---------------------------------
+  it('rejected when the low trump came from the прикуп (not the original hand)', () => {
+    const { state, seat } = withScenario(declaring(3));
+    // 3p 7♣ present + trump ♣ + table 10♣-of-trump ⇒ allowed baseline…
+    expect(canExchangeTrump(state, seat)).toBe(true);
+    // …but if that 7 arrived in the talon (origin flag false), the exchange is forbidden.
+    const fromTalon = { ...state, lowTrumpFromHand: state.lowTrumpFromHand.map(() => false) };
+    expect(canExchangeTrump(fromTalon, seat)).toBe(false);
+  });
+
+  it('rejected when the exposed table card is NOT of the trump suit (free-suit round-2 trump)', () => {
+    const { state, seat, trump } = withScenario(declaring(3));
+    const offSuit: Suit = trump === 'spades' ? 'hearts' : 'spades';
+    const nonTrumpTable = { ...state, tableTrumpCard: { ...state.tableTrumpCard, suit: offSuit } };
+    expect(canExchangeTrump(nonTrumpTable, seat)).toBe(false);
+  });
+
+  it('rejected when the seat holds a low card of a NON-trump suit (7♣ but trump ≠ ♣)', () => {
+    const s = declaring(3);
+    const seat = s.meldTurnSeat;
+    const trump = s.trumpSuit as Suit;
+    const offSuit: Suit = trump === 'clubs' ? 'spades' : 'clubs';
+    // Give the seat the 7 of an off-suit; it is NOT the low trump, so no exchange.
+    const st: DebercState = JSON.parse(JSON.stringify(s));
+    st.lowTrumpFromHand = st.players.map((_, i) => i === seat);
+    st.tableTrumpCard = { suit: trump, rank: 'A', value: seqValue('A') };
+    // Ensure the seat holds NO low trump of the trump suit.
+    st.players[seat].hand = st.players[seat].hand.filter((c) => !(c.suit === trump && c.rank === lowTrumpRank(3)));
+    expect(canExchangeTrump(st, seat)).toBe(false);
   });
 });
 
@@ -151,6 +185,9 @@ describe('redaction — the exchange leaks no hidden hand (only the public swap)
     expect(view.players[seat].hand.every((c) => (c.rank as string) === '?')).toBe(true);
     expect(view.players[seat].hand.some((c) => cardEquals(c, exposed))).toBe(false);
     expect(view.stock.every((c) => (c.rank as string) === '?')).toBe(true);
+    // The origin gate is a per-seat BOOLEAN — it carries no card, so it leaks nothing (v1.6).
+    expect(Array.isArray(view.lowTrumpFromHand)).toBe(true);
+    expect(view.lowTrumpFromHand.every((v) => typeof v === 'boolean')).toBe(true);
   });
 });
 
