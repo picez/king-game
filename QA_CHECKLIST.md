@@ -651,8 +651,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] *(30.3, manual)* Play a local 51 game at **360/390 portrait**: setup (2/3/4 + deck note),
       starter opens by discarding (14 cards, no draw), a normal turn draws→melds→discards,
       discard-pile take is blocked until you open, opening needs 51+, empty-hand win, round
-      summary (penalties incl. never-opened 100 / joker 25), elimination at 510, match winner.
-      **No horizontal overflow; cards/controls do not overlap.** Arabic **RTL** smoke.
+      summary (penalties incl. never-opened 100 / joker 25), elimination at the host-set score
+      (default 510). **No horizontal overflow; cards/controls do not overlap.** Arabic **RTL** smoke.
 - [x] *(30.4)* **Online redaction / readiness — hosting stays OFF.** Automated:
       `fiftyOne/redaction.test.ts` (JSON-payload leak scan: no opponent hand / draw-pile card id
       or joker reaches the wrong viewer; own hand real, others blank placeholders with count kept;
@@ -701,7 +701,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       the host player-count picker offers **2–4** seats.
 - [ ] **Local play:** start a local 51 game (2/3/4) → deal 13/14, opener discards to start, a normal turn
       draws→melds→discards, discard-take gated on opening, empty-hand win, round summary (never-opened 100 /
-      joker 25), elimination at 510, match winner. No horizontal overflow at 360/390; Arabic **RTL** smoke.
+      joker 25), elimination at the host-set score (default 510), match winner. No horizontal overflow at
+      360/390; Arabic **RTL** smoke.
 - [ ] **Meld / opening rules (Stage 30.9):** a **joker sits at any position** — stage `7♠ 8♠ 🃏` and it
       reads 7-8-9, `🃏 8♠ 9♠` reads 7-8-9, `Q♠ K♠ 🃏` reads Q-K-A (30), `🃏 2♠ 3♠` reads A-2-3 (6);
       `K♠ A♠ 🃏` stays **invalid**. Before opening the primary button reads **"Open (n/51)"** and is disabled

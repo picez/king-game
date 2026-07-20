@@ -9,10 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.0] — 2026-07-20 — Tutorials and final rule polish
+
+> A minor release: the headline is **Tutorials for all six games** (Stages 31.1–31.2). It rides on the
+> **v0.3.9** rule polish it builds on — the **51 configurable elimination score (210/310/410/510)** and
+> the **Deberc rule corrections** (restricted trump exchange, length-first Палтіна, бела-declared-on-play,
+> −10% table cards) — see the **[0.3.9]** notes below for that detail.
+
 ### Added
 
 - **Tutorials — learn a game in 2 minutes (Stages 31.1–31.2).** A new **🎓 Tutorials** item on the main
-  menu opens a hub listing all six games — and now **all six** (King, Durak, Deberc, Tarneeb, Preferans,
+  menu opens a hub listing all six games — and **all six** (King, Durak, Deberc, Tarneeb, Preferans,
   51) have a full **step-by-step tutorial**: a short, guided walk-through with a little demo table,
   highlighted cards, and plain-language captions (Back / Next / Skip, or ← / → / Esc). Each is under two
   minutes and needs **no account and no internet** — nothing you do in a tutorial affects your stats or a

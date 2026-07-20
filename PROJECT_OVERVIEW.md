@@ -4,7 +4,9 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.9** — hand drag, 51 polish, and Deberc rule fixes: **drag-to-order hands** in all
+> **Release:** **v0.4.0** — tutorials and final rule polish: a **🎓 Tutorials** menu with **scripted
+> step-by-step tutorials for all six games** (client-only, ≤2 min, mobile/RTL-safe, no reducer/server/
+> stats). On the **v0.3.9** hand drag, 51 polish, and Deberc rule fixes: **drag-to-order hands** in all
 > six games (roomier tray, new cards land left, tap still plays) + **pair-name team labels**; 51 gains
 > **discard-to-open**, **joker replacement**, and a **configurable elimination score (210/310/410/510,
 > default 510)**; Deberc gets the **restricted trump exchange**, **length-first Палтіна**, **Бела

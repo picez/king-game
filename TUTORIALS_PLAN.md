@@ -1,8 +1,9 @@
 # Tutorials — Design Plan (Stage 31.0)
 
-> **STATUS: SHIPPED for all 6 games (Stages 31.1–31.2).** The framework + hub + player are implemented
-> (`src/tutorials/`, `src/ui/tutorials/`, the `'tutorials'` StartMenu pane), and **every game now has a
-> full scripted tutorial** — 51 + Durak (31.1), King + Deberc + Tarneeb + Preferans (31.2). No
+> **STATUS: SHIPPED for all 6 games (Stages 31.1–31.2); RELEASED in v0.4.0 (Stage 31.3).** The framework
+> + hub + player are implemented (`src/tutorials/`, `src/ui/tutorials/`, the `'tutorials'` StartMenu
+> pane), and **every game has a full scripted tutorial** — 51 + Durak (31.1), King + Deberc + Tarneeb +
+> Preferans (31.2) — shipped as the headline of the **v0.4.0** minor release (Stage 31.3 QA/bump). No
 > “Coming next” placeholders remain. This document stays the source of truth for the design; if code and
 > doc disagree, update this doc first.
 

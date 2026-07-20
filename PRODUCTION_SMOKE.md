@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.9`** (tag `v0.3.9`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.0`** (tag `v0.4.0`).
 
 Set your host once and reuse it below:
 
@@ -23,24 +23,30 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.9 adds no migrations** — 0009 is still the latest. v0.3.9 is hand-drag + 51 polish + Deberc
-> rule fixes only (no schema change). Its one new online field `fiftyOneEliminationScore` (Stage 30.15)
-> is optional and legacy-safe (missing → 510), like the v0.3.6 `tarneebTargetScore`; the v0.3.7 Syrian
-> 51 release records its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.0 adds no migrations** — 0009 is still the latest. v0.4.0 is the **Tutorials** feature (all 6
+> games) on top of the v0.3.9 rule polish, all client-side (no schema change). Tutorials are 100%
+> client-side scripted demos (no server/stats/account). The v0.3.9 `fiftyOneEliminationScore` field
+> (Stage 30.15) stays optional and legacy-safe (missing → 510); the v0.3.7 Syrian 51 release records its
+> stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.3.9 release smoke (fast targeted pass)
+## 0. v0.4.0 release smoke (fast targeted pass)
 
-What v0.3.9 (**hand drag + 51 polish + Deberc rule fixes**, Stages 30.12–30.16) specifically touches,
-on top of the v0.3.8/v0.3.7 51 release and the v0.3.6/… checks it rides on. v0.3.9 changes **only 51
-setup/UI polish, Deberc rule handling, and the shared hand tray** — no schema change, and the released
-six-game state is intact. The full 51 smoke is §5b; the Deberc rule-fix detail is in the §0 item below.
+What v0.4.0 headlines — **Tutorials for all 6 games** (Stages 31.1–31.2) — plus the v0.3.9 rule polish it
+rides on (hand drag, 51 configurable elimination, Deberc rule fixes; Stages 30.12–30.16). Everything is
+client-side; **no schema change**, and the released six-game state is intact. Full tutorial smoke is
+§5c; the full 51 smoke is §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.9`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.0`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.3.9 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.0 — latest stays `0009`).
+- [ ] **Tutorials (all 6):** the main menu shows a **🎓 Tutorials** tile → a hub listing **all 6 games**,
+      **every** row **Start**-able (no "Coming next"). Open **each** tutorial and step to **Done** — King,
+      Durak, Deberc, Tarneeb, Preferans, 51 — highlighted cards + short captions; Back/Next/Skip/←→/Esc
+      work; Done/Skip return to the hub (never a live game). **No network call** fires (DevTools quiet).
+      **360/390 no horizontal overflow**; **Arabic RTL** mirrors and card runs still read low→high. (§5c.)
 - [ ] **Hand drag (all 6 games):** in each game **drag a card** within your hand (touch/mouse/pen) to
       reorder; a quick **tap still plays/selects**. After a manual reorder a **newly drawn card lands on
       the LEFT**; **↺ Auto-sort** resets. It is **display-only** — nothing is sent to the server and
