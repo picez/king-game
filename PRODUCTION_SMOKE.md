@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.0`** (tag `v0.4.0`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.1`** (tag `v0.4.1`).
 
 Set your host once and reuse it below:
 
@@ -23,25 +23,31 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.0 adds no migrations** — 0009 is still the latest. v0.4.0 is the **Tutorials** feature (all 6
-> games) on top of the v0.3.9 rule polish, all client-side (no schema change). Tutorials are 100%
-> client-side scripted demos (no server/stats/account). The v0.3.9 `fiftyOneEliminationScore` field
-> (Stage 30.15) stays optional and legacy-safe (missing → 510); the v0.3.7 Syrian 51 release records its
-> stats under the free-text `game_type='fifty-one'`.
+> **v0.4.1 adds no migrations** — 0009 is still the latest. v0.4.1 is the **Achievements expansion**
+> (14→29 badges, Stage 32.1) on top of the v0.4.0 Tutorials feature — all client-side, **no schema
+> change**. Badges are **derived purely from the existing per-game stats** (no new column, no write path,
+> no server push). The full *populated* achievements grid needs a **DB-backed environment** (auth +
+> stats) to render — see §7. The v0.3.7 Syrian 51 release records its stats under the free-text
+> `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.0 release smoke (fast targeted pass)
+## 0. v0.4.1 release smoke (fast targeted pass)
 
-What v0.4.0 headlines — **Tutorials for all 6 games** (Stages 31.1–31.2) — plus the v0.3.9 rule polish it
-rides on (hand drag, 51 configurable elimination, Deberc rule fixes; Stages 30.12–30.16). Everything is
-client-side; **no schema change**, and the released six-game state is intact. Full tutorial smoke is
-§5c; the full 51 smoke is §5b.
+What v0.4.1 headlines — the **Achievements expansion** (14→29 badges, Stage 32.1) — plus the v0.4.0
+Tutorials feature and the v0.3.x rule polish it rides on. Everything is client-side; **no schema change**,
+and the released six-game state is intact. Full achievements smoke is §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.0`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.1`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.0 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.1 — latest stays `0009`).
+- [ ] **Achievements expansion (Stage 32.1, DB-backed):** signed in with real/seeded stats, Profile →
+      **Achievements** shows **29** badges (dynamic `n/29`) at **360/390** with no horizontal overflow
+      (Arabic RTL mirrors). A first win in **Deberc / Tarneeb Pairs / Preferans / 51** flips that game's
+      new **winner** badge; **Six-Game Regular** unlocks after playing every game; **All-Rounder** still
+      needs a win in all six; **Tarneeb Soloist** stays separate from Pairs; **Uncommon** badges show a
+      green accent. (Full detail §7.)
 - [ ] **Tutorials (all 6):** the main menu shows a **🎓 Tutorials** tile → a hub listing **all 6 games**,
       **every** row **Start**-able (no "Coming next"). Open **each** tutorial and step to **Done** — King,
       Durak, Deberc, Tarneeb, Preferans, 51 — highlighted cards + short captions; Back/Next/Skip/←→/Esc

@@ -1,9 +1,10 @@
 # Achievements Expansion — Design Plan (Stage 32.0)
 
-> **STATUS: FIRST WAVE SHIPPED (Stage 32.1).** The §4 subset — **15 new derived badges** (catalog
-> **14 → 29**) — is implemented in `src/stats/achievements.ts` with i18n ×4 and tests. This doc stays
-> the source of truth for the design; if code and doc disagree, update this doc first. The remaining
-> ✅ badges (§3, held) and ❌ badges (need a new stat field) stay for later waves.
+> **STATUS: FIRST WAVE SHIPPED (Stage 32.1); RELEASED in v0.4.1 (Stage 32.2).** The §4 subset — **15 new
+> derived badges** (catalog **14 → 29**) — is implemented in `src/stats/achievements.ts` with i18n ×4 and
+> tests, and shipped as the **v0.4.1** patch release (Stage 32.2 QA/bump). This doc stays the source of
+> truth for the design; if code and doc disagree, update this doc first. The remaining ✅ badges (§3,
+> held) and ❌ badges (need a new stat field) stay for later waves.
 
 The achievement system is a **pure, derived-from-stats** catalog (`src/stats/achievements.ts`): every
 badge is a **null-safe boolean predicate over the read-only aggregate stats** the Profile already

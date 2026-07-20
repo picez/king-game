@@ -57,6 +57,24 @@ describe('AchievementsPanel — "New" marker for unseen earned badges', () => {
   });
 });
 
+describe('AchievementsPanel — dynamic count + responsive grid (Stage 32.1 scale-safe)', () => {
+  const css = read('src/styles/stats.css');
+  it('renders a DYNAMIC earned/total count (no hard-coded badge number)', () => {
+    expect(panel).toContain('{earned}/{rows.length}');   // never a literal like "/14" or "/29"
+    expect(panel).not.toMatch(/\/\s*(?:11|13|14|29)\b/);
+    // The grid maps the full catalog, so it grows with the catalog automatically.
+    expect(panel).toContain('rows.map(');
+  });
+  it('the badge grid is a responsive auto-fill grid (cannot overflow horizontally)', () => {
+    expect(css).toMatch(/\.ach-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(/);
+    expect(css).toMatch(/\.ach-badge\s*\{[^}]*min-width:\s*0/);
+  });
+  it('the new `uncommon` rarity has badge + toast styling', () => {
+    expect(css).toContain('.ach-badge--uncommon');
+    expect(css).toContain('.ach-toast__rarity--uncommon');
+  });
+});
+
 describe('ProfileMenu — post-stats-load trigger, local seen ledger', () => {
   it('detects unlocks only after all stats resolve and never when logged out', () => {
     expect(menu).toContain('!allResolved || needsSignIn');

@@ -9,6 +9,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.1] — 2026-07-20 — Achievements expansion
+
 ### Added
 
 - **More achievements (Stage 32.1).** The Profile **Achievements** grid grows from **14 to 29** badges —
