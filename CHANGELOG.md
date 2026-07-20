@@ -9,7 +9,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Docs
+
+- **Achievements expansion designed (Stage 32.0, design-only).** Added
+  [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) — an implementation-ready plan to grow the badge set
+  across all 6 games (a first wave of ~15 new badges, 14→29) still **derived from existing stats only**,
+  with no DB migration, no new stats field, and no server/social/private data. No runtime change ships
+  in this stage.
 
 ## [0.4.0] — 2026-07-20 — Tutorials and final rule polish
 

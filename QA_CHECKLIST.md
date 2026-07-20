@@ -762,16 +762,20 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — Achievements / badges (Stage 16.0)
 
-> A Profile **Achievements** tab shows 11 badges derived **purely from the existing
+> A Profile **Achievements** tab shows **14** badges derived **purely from the existing
 > per-game stats** — no DB writes, no server route, no popups. Earned = gold coin,
-> locked = muted padlock (goal still shown).
+> locked = muted padlock (goal still shown). **Expansion planned** (Stage 32.0 design →
+> [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md); ~15 more stats-derived badges land in Stage 32.1).
 
 - [ ] **Profile → Achievements:** the badge grid renders at **360/390** with no
       horizontal overflow; **RTL (Arabic)** mirrors cleanly.
 - [ ] **Locked state:** a fresh account (no games) shows every badge locked (padlocks)
       + the "Play games to unlock badges." hint; signed-out shows the sign-in hint.
 - [ ] **Earned state (DB configured):** after winning a game, **First Win** (and the
-      relevant per-game badge) flip to gold; the `n/11 unlocked` counter updates.
+      relevant per-game badge) flip to gold; the `n/total unlocked` counter updates.
+- [ ] **(Stage 32.1 placeholder — not built yet)** when the expansion ships, re-verify the grid still
+      fits 360/390 + RTL with the larger badge count, and that each game's new **win** badge unlocks on
+      a first win.
 
 ## Manual — Achievement unlock toast (Stage 16.1)
 

@@ -123,7 +123,9 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** 11 badges derived purely from stats + a post-game "unlocked" toast.
+- **Achievements:** 14 badges derived purely from stats + a post-game "unlocked" toast. An
+  **expansion is designed** (Stage 32.0, design-only — [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md)):
+  ~15 more stats-derived badges (14→29) for Stage 32.1, no DB migration / no new stats field.
 - **Preferences** sync to the profile when signed in, else stay device-local.
 
 ## Deployment
