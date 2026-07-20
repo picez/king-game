@@ -180,7 +180,7 @@ Sequences are runs of one suit in rank order (7-8-9-10-J-Q-K-A, plus 6 at 4p):
 | Meld | Length | Points |
 |------|--------|--------|
 | **Терц** | 3 in a row | **20** |
-| **Платіна / п'ятдесят** | **4–7** in a row | **50** |
+| **Палтіна / п'ятдесят** | **4–7** in a row | **50** |
 | **Деберц** | **8–9** in a row | **INSTANT MATCH WIN** (jackpot) |
 
 Ranking: **деберц > платіна > терц**. A **деберц** (8–9 same-suit run) ends the

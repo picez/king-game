@@ -9,6 +9,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.9] — 2026-07-20 — Hand drag, 51 polish, and Deberc rule fixes
+
 ### Changed
 
 - **Deberc rule corrections (Stage 30.16).** Three owner rule fixes, plus smaller table cards:

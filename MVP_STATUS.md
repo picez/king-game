@@ -5,9 +5,11 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.3.8`** (51 meld & opening rule fixes — jokers may sit anywhere in a
-meld, the 51 opening total is required only **once per round** (any valid meld afterwards), **Ace-low
-runs extend** so an Ace lays off onto a `2-3-4`, and the public-meld cards no longer overlap/clip; on the
+**Status: stable MVP — release `v0.3.9`** (hand drag, 51 polish, and Deberc rule fixes — **drag-to-order
+hands** in all six games with a roomier tray and **pair-name team labels**; 51 gains **discard-to-open**,
+**joker replacement**, and a **configurable elimination score 210/310/410/510**; Deberc gets the
+**restricted trump exchange**, **length-first Палтіна**, **Бела declared on play** (scored only if the
+trick is won), and **~10% smaller table cards**; on the `v0.3.8` 51 meld & opening rule fixes, and the
 `v0.3.7` Syrian 51 sixth-game release that made **51 (Syrian 51)** a fully released `available` game
 (local + online + stats + leaderboard + favorite + a "51 Winner" achievement + emblem), making Card Majlis
 a **six-game** lounge; on the `v0.3.6` Tarneeb target score & compact table, the `v0.3.5` table HUD &
@@ -34,7 +36,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
-| **51** (Syrian 51) | 2–4 | **RELEASED — local + online + stats + favorite + achievement (Stage 30.7).** Pure core + shared UI; **both Local and Host pickers enabled** (no "Experimental" tag). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect). **Score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration) with a Profile sub-tab; **favoritable** + `fifty-one-winner` achievement + counts toward All-Rounder; own PNG emblem. Rummy-style meld/discard; 51-point opening; elimination at 510. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
+| **51** (Syrian 51) | 2–4 | **RELEASED — local + online + stats + favorite + achievement (Stage 30.7).** Pure core + shared UI; **both Local and Host pickers enabled** (no "Experimental" tag). Online is server-authoritative (create/join/start, bots, seeded round advance, per-viewer redaction, rematch/reconnect). **Score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration) with a Profile sub-tab; **favoritable** + `fifty-one-winner` achievement + counts toward All-Rounder; own PNG emblem. Rummy-style meld/discard; 51-point opening (once per round, then any meld); **discard-to-open** + **joker replacement**; **configurable elimination score 210/310/410/510 (default 510)**. [`51_RULES.md`](51_RULES.md) · [`51_PLAN.md`](51_PLAN.md) |
 
 **51 / Syrian 51** (the **6th game**) is **released** (Stage 30.7) — the **pure core**
 (`src/games/fiftyOne/`, Stage 30.1) plus a **shared UI** (`src/ui/fiftyOne/`: setup + table + hand +
@@ -50,7 +52,8 @@ per-seat final penalty / eliminated / winner, aggregated to win rate + avg/best 
 + rounds) with a Profile sub-tab, is a **favorite-game** option, and has a **`fifty-one-winner`**
 achievement that also counts toward **All-Rounder** (now a win in all six games). It ships its own PNG
 emblem (`game-fifty-one.png`, two fanned cards). It is a rummy-style get-rid-of-your-hand game (form
-runs/sets, open with 51+ points, jokers wild, penalty scoring, eliminate at 510). Rules are in
+runs/sets, open with 51+ points, jokers wild, penalty scoring, host-configurable elimination score
+210/310/410/510 default 510). Rules are in
 [`51_RULES.md`](51_RULES.md) (all §16 MVP defaults implemented in 30.1); the staged build (30.1 core →
 30.7 release) is in [`51_PLAN.md`](51_PLAN.md).
 

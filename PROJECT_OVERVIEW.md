@@ -4,10 +4,13 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.3.8** — 51 meld & opening rule fixes: jokers may sit anywhere in a meld, the 51
-> opening total is required only once per round (any valid meld afterwards), Ace-low runs extend so an
-> Ace lays off onto a `2-3-4`, and public-meld cards no longer overlap/clip. On the **v0.3.7** Syrian 51
-> sixth-game release (**51 (Syrian 51)** became a fully released `available` game — local + online +
+> **Release:** **v0.3.9** — hand drag, 51 polish, and Deberc rule fixes: **drag-to-order hands** in all
+> six games (roomier tray, new cards land left, tap still plays) + **pair-name team labels**; 51 gains
+> **discard-to-open**, **joker replacement**, and a **configurable elimination score (210/310/410/510,
+> default 510)**; Deberc gets the **restricted trump exchange**, **length-first Палтіна**, **Бела
+> declared on play** (scored only if the trick is won), and **~10% smaller table cards**. On the
+> **v0.3.8** 51 meld & opening rule fixes, and the **v0.3.7** Syrian 51 sixth-game release
+> (**51 (Syrian 51)** became a fully released `available` game — local + online +
 > stats + favorite + achievement + emblem — making Card Majlis a six-game lounge).
 > On the **v0.3.6** Tarneeb target score & compact table, the **v0.3.5** table HUD & reactions polish,
 > the **v0.3.4** Durak final-defence reveal + online timer polish, the **v0.3.3** Tarneeb scoring
@@ -41,7 +44,7 @@ auto-refresh mid-game), and an **offline** hint.
 | **Deberc** | 3–4 | 3 = solo, 4 = 2×2 teams; melds/bella/jackpot — [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + 2-card talon, 32-card — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
-| **51** (Syrian 51) | 2–4 | Cutthroat rummy — form runs/sets, open with 51+, jokers wild, penalty scoring, eliminate at 510 — [`51_RULES.md`](51_RULES.md) |
+| **51** (Syrian 51) | 2–4 | Cutthroat rummy — form runs/sets, open with 51+, jokers wild, penalty scoring, host-configurable elimination score 210/310/410/510 (default 510) — [`51_RULES.md`](51_RULES.md) |
 
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.

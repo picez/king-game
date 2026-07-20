@@ -1140,15 +1140,16 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] **Deberc "Палтіна":** the 50-point run is labelled **"Палтіна" / "Paltina"** (not "Платіна")
       in the meld picker, stats, and rules — in all four languages.
 - [ ] **Deberc skip-meld is red:** on the meld-declaration step the **skip** button is red
-      (destructive); the table cards are noticeably **larger**.
-- [ ] **Deberc trump exchange (Stage 27.2):** in a Deberc hand, if you hold the **lowest trump**
-      (**7** in 3-player, **6** in 4-player), on your **declaring turn** a **"🔄 Swap low trump"**
-      button appears; tapping it puts the **face-up table trump into your hand** and leaves your low
-      trump as the new table trump (your hand keeps the same number of cards). A public note **"X
-      swapped the low trump"** shows; opponents never see your other cards. The button appears
-      **only** for the eligible holder, **once** per hand, and **only before the first card** is
-      played. Skipping (declare / play) still works. Bots do the swap automatically when eligible.
-      Works local + online; no overflow at 360/390.
+      (destructive); the table cards are **readable but not oversized** (trimmed ~10% in Stage 30.16).
+- [ ] **Deberc trump exchange (Stage 27.2, restricted in 30.16):** in a Deberc hand, if you hold the
+      **lowest trump** (**7** in 3-player, **6** in 4-player), on your **declaring turn** a **"🔄 Swap
+      low trump"** button appears; tapping it puts the **face-up table trump into your hand** and leaves
+      your low trump as the new table trump (your hand keeps the same number of cards). A public note
+      **"X swapped the low trump"** shows; opponents never see your other cards. The button appears
+      **only** for the eligible holder, **once** per hand, **only before the first card** is played,
+      and (Stage 30.16) **only when the exposed table card is a real trump AND your low trump was
+      dealt to hand** (not drawn from the прикуп). Skipping (declare / play) still works. Bots do the
+      swap automatically when eligible. Works local + online; no overflow at 360/390.
 
 ## Manual — Friends backend (Stage 25.1, needs Postgres; API-level)
 

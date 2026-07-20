@@ -342,6 +342,30 @@
   unopened-100 / discard-to-open / joker-replacement / win-by-final-discard unchanged.**
   `npm run verify` green.
 
+### 30.17 — v0.3.9 release QA (hand drag, 51 polish, Deberc rule fixes) — ✅ DONE
+- **Patch release v0.3.9 packaging Stages 30.12–30.16; no new code behaviour.** Drift audit fixed stale
+  **current-state** references: `MVP_STATUS`/`PROJECT_OVERVIEW` 51 rows said "elimination at 510" →
+  configurable 210/310/410/510; `DEBERC_RULES.md` meld table still spelled "**Платіна**" → "Палтіна";
+  `help.fifty-one.scoring` (×4 langs) "Reach 510" → host-set score; `help.deberc.scoring` (×4 langs)
+  bundled бела with declared melds → now "declared at play, scored only if the trick is won";
+  `QA_CHECKLIST` Deberc smoke "table cards larger" → ~10% smaller + trump-exchange restriction note.
+  Historical stage/changelog records left intact.
+- **Guard audit — none missing.** Confirmed coverage exists for: 51 deck 54/106 + unique ids
+  (`deck.test.ts`), discard-to-open (plain `TAKE_DISCARD` rejected / valid `TAKE_DISCARD_AND_OPEN` /
+  top-not-in-melds & <51 rejected / opened take allowed — `engine.test.ts` + `fiftyOneServerCore`),
+  joker replacement (opened accept / unopened & wrong-card reject / redaction — engine + serverCore +
+  redaction), configurable elimination (`fiftyOneEliminationScore.test.ts`), public-meld CSS/harness
+  (`fiftyOneLocalWiring` + `scripts/fifty-one-shots.mjs`), help/i18n (`gameHelp.test.ts`); Deberc trump
+  exchange / Палтіна length-first / бела-at-play (`trumpExchange` / `melds` / `bela.test.ts`), table-card
+  −10% (`tableClarity.test.ts`); hand drag all-6 + client-only + prepend-left + team names
+  (`handOrderWiring` / `useManualHandOrder` / `teamName`).
+- **Release.** Hand-bumped `package.json` + `package-lock.json` **0.3.8 → 0.3.9** (no `npm install`,
+  lockfile diff = version lines only, `libc` count 0), moved CHANGELOG "Unreleased" 30.12–30.16 entries
+  into **`[0.3.9] — 2026-07-20 — Hand drag, 51 polish, and Deberc rule fixes`** + fresh empty Unreleased,
+  updated release-line docs (`MVP_STATUS`/`PROJECT_OVERVIEW`/`RENDER_DEPLOY` diagnostics example/
+  `PRODUCTION_SMOKE` §0 + expected version) and tagged **`v0.3.9`**. **No DB migration, no dependency,
+  no stats/schema/gameplay change; the six-game release state is intact.** `npm run verify` green.
+
 ---
 
 ## Boundaries carried through every stage

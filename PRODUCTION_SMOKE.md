@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.8`** (tag `v0.3.8`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.3.9`** (tag `v0.3.9`).
 
 Set your host once and reuse it below:
 
@@ -23,30 +23,45 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.3.8 adds no migrations** — 0009 is still the latest. v0.3.8 is 51 rule fixes only (no schema
-> change); the v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`,
-> and the v0.3.6 Tarneeb target-score patch's one new online field `tarneebTargetScore` is optional.
+> **v0.3.9 adds no migrations** — 0009 is still the latest. v0.3.9 is hand-drag + 51 polish + Deberc
+> rule fixes only (no schema change). Its one new online field `fiftyOneEliminationScore` (Stage 30.15)
+> is optional and legacy-safe (missing → 510), like the v0.3.6 `tarneebTargetScore`; the v0.3.7 Syrian
+> 51 release records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.3.8 release smoke (fast targeted pass)
+## 0. v0.3.9 release smoke (fast targeted pass)
 
-What v0.3.8 (**51 meld & opening rule fixes**, Stages 30.9–30.10) specifically touches, on top of the
-v0.3.7 Syrian 51 sixth-game release and the v0.3.6/v0.3.5/… checks it rides on. v0.3.8 changes **only 51
-rule handling + the 51 meld display** — no schema change, and the other five games are untouched. The
-full 51 smoke is §5b.
+What v0.3.9 (**hand drag + 51 polish + Deberc rule fixes**, Stages 30.12–30.16) specifically touches,
+on top of the v0.3.8/v0.3.7 51 release and the v0.3.6/… checks it rides on. v0.3.9 changes **only 51
+setup/UI polish, Deberc rule handling, and the shared hand tray** — no schema change, and the released
+six-game state is intact. The full 51 smoke is §5b; the Deberc rule-fix detail is in the §0 item below.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.8`**, `commit` matches the deploy,
-      `db.enabled: true`, **`games.count: 6`** with `ids` including **`fifty-one`**,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.3.9`**, `commit` matches the deploy,
+      `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.3.8 — latest stays `0009`).
-- [ ] **51 meld & opening rule fixes (v0.3.8):** in a 51 game — **open once** with melds totalling ≥ 51;
-      **after opening** lay a small meld **below 51** (e.g. a 15-pt 4-5-6 run), **take the discard top**,
-      and lay off, all with **no** further 51 requirement. A **joker resolves at any run position**
-      (`7♠ 8♠ 🃏` = 7-8-9, `🃏 2♠ 3♠` = A-2-3, `Q♠ K♠ 🃏` = Q-K-A). An **Ace lays off onto a public
-      `2-3-4`** → **`A-2-3-4`** (Ace-first, value 10); **`K-A-2` stays rejected**. **Public-meld cards
-      are readable — no overlap/clip and no horizontal overflow at 360/390.** Online: 2-client
-      redaction stays clean (own hand only); signed-in **51 stats are unaffected** by the rule fix.
+      Then **`npm run db:migrate`** if any new migration (none in 0.3.9 — latest stays `0009`).
+- [ ] **Hand drag (all 6 games):** in each game **drag a card** within your hand (touch/mouse/pen) to
+      reorder; a quick **tap still plays/selects**. After a manual reorder a **newly drawn card lands on
+      the LEFT**; **↺ Auto-sort** resets. It is **display-only** — nothing is sent to the server and
+      opponents' views never change. No horizontal overflow at 360/390; on a **touch device** the drag
+      works and **Arabic (RTL)** reads correctly.
+- [ ] **Team names (Tarneeb / Deberc Pairs):** the two teams read like **"Alex & Dina"** vs
+      **"Niko & Yara"** in the lobby, HUD and finished screens (fallback **"Team Alex"** while a seat is
+      empty). **Solo** modes show individual names.
+- [ ] **51 polish (Stages 30.13–30.15):** before opening, **plain take-discard is blocked** — you can
+      only take the discard top via **"Take & open 51"** (it must be in your ≥51 opening). After
+      opening, an **opened player can Replace a table joker** with the exact card it stands in for
+      (wrong rank/suit or unopened is refused). The setup/host sheets offer the **elimination score
+      210/310/410/510** (default 510), the lobby shows **`☠ <score>`**, and it survives **rematch**.
+      Public-meld cards are **readable — no overlap/clip, no 360/390 overflow**; signed-in **51 stats**
+      still record. (Full detail §5b.)
+- [ ] **Deberc rule fixes (Stage 30.16):** the **🔄 Swap low trump** button appears **only** when the
+      exposed table card is a **real trump** and your 7/6 was **dealt to hand** (not from the прикуп);
+      a **5-card Палтіна beats a 4-card Палтіна** regardless of top card; **Бела** is declared **at play
+      time** (🔔 toggle + a trump **K/Q**) and scores **20 only if that trick is won**; the played
+      **table cards are ~10% smaller** (trump/stock unchanged). (More detail in the Deberc rule-fix
+      item further down §0, and the six-game smoke §5.)
 - [ ] **51 (Syrian 51) is a released 6th game (v0.3.7):** `GET /api/games` lists `fifty-one` as
       `status:'available'`, `supportsLocal/Online:true`; the **Local and Host pickers** show 51 as a
       normal, selectable option with **no** "Experimental" / "Coming soon" tag and its own PNG emblem;
