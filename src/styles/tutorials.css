@@ -1,0 +1,184 @@
+/* ---------------------------------------------------------------------------
+   Tutorials (Stage 31.1) — hub + player + scripted board. Mobile-first (360/390
+   portrait), theme-aware via the shared CSS vars, RTL-safe (card rows use
+   dir="ltr" in the markup). No decorative hero — this is an app tool screen.
+   --------------------------------------------------------------------------- */
+
+/* --- Hub ------------------------------------------------------------------- */
+.tutorial-hub__sub {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+.tutorial-hub__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tutorial-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+}
+.tutorial-row--soon { opacity: 0.6; }
+.tutorial-row__icon { flex: 0 0 auto; }
+.tutorial-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;      /* allow the learn line to ellipsize instead of pushing the CTA off-screen */
+  flex: 1 1 auto;
+}
+.tutorial-row__name { font-weight: 700; }
+.tutorial-row__learn {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  line-height: 1.25;
+}
+.tutorial-row__dur { font-size: 0.72rem; opacity: 0.7; }
+.tutorial-row__cta { flex: 0 0 auto; min-height: 44px; }
+.tutorial-row__soon {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface, rgba(0, 0, 0, 0.2));
+  border: 1px dashed var(--border);
+  white-space: nowrap;
+}
+
+/* --- Player --------------------------------------------------------------- */
+.tutorial-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 0;
+  padding-bottom: max(0.5rem, var(--safe-bottom, 0px));
+}
+.tutorial-player__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tutorial-player__title { font-size: 1.05rem; margin: 0; flex: 1 1 auto; }
+.tutorial-player__progress { font-size: 0.8rem; opacity: 0.8; white-space: nowrap; }
+.tutorial-x { min-height: 44px; min-width: 44px; }
+
+/* --- Board ---------------------------------------------------------------- */
+.tutorial-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  min-height: 8rem;
+}
+.tutorial-board__top {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.tutorial-seats { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.tutorial-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.5rem;
+  background: var(--surface, rgba(0, 0, 0, 0.18));
+}
+.tutorial-seat__name { font-weight: 700; }
+.tutorial-seat__role { opacity: 0.85; }
+.tutorial-seat__count { opacity: 0.7; }
+.tutorial-topinfo { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.tutorial-trump, .tutorial-pile {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface, rgba(0, 0, 0, 0.18));
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.tutorial-pile--discard { padding: 0.15rem; }
+
+.tutorial-pairs { display: flex; gap: 0.7rem; flex-wrap: wrap; justify-content: center; overflow-x: auto; max-width: 100%; }
+.tutorial-pair { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.tutorial-pair__def { margin-top: -1.6rem; margin-inline-start: 0.9rem; } /* defense overlaps the attack */
+.tutorial-pair--beaten { opacity: 0.95; }
+
+.tutorial-melds { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; align-items: center; }
+.tutorial-meld { display: flex; gap: 0.25rem; padding: 0.2rem; border-radius: 0.5rem; overflow-x: auto; max-width: 100%; }
+
+.tutorial-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
+.tutorial-chip {
+  font-size: 0.76rem;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface, rgba(0, 0, 0, 0.18));
+  white-space: nowrap;
+}
+.tutorial-chip--good { color: var(--ok, #3ca55c); border-color: var(--ok, #3ca55c); }
+.tutorial-chip--bad  { color: #e2574c; border-color: #e2574c; }
+.tutorial-chip--gold { color: var(--accent, #f5c518); border-color: var(--accent, #f5c518); }
+
+.tutorial-hand { display: flex; gap: 0.3rem; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-top: 0.1rem; }
+
+/* A tutorial card slot (wraps CardView or a joker). */
+.tutorial-card { display: inline-flex; flex: 0 0 auto; border-radius: 6px; }
+.tutorial-card--joker {
+  width: var(--card-w-mini, 42px);
+  height: var(--card-h-mini, 67px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  background: linear-gradient(145deg, #2a2f45, #1a1d2b);
+  border: 1px solid var(--border);
+  color: #fff;
+}
+.tutorial-joker__glyph { font-size: 1.2rem; }
+.tutorial-joker__rep { font-size: 0.7rem; opacity: 0.9; }
+
+/* Highlight ring (never an overlay that covers neighbours). */
+.tutorial-hl { outline: 2px solid var(--accent, #f5c518); outline-offset: 1px; border-radius: 6px; }
+.tutorial-hl--pulse { animation: tutorial-pulse 1.4s ease-in-out infinite; }
+@keyframes tutorial-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(245, 197, 24, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-hl--pulse { animation: none; }
+}
+
+/* --- Caption + controls --------------------------------------------------- */
+.tutorial-caption {
+  padding: 0.5rem 0.2rem;
+}
+.tutorial-caption__title { margin: 0 0 0.25rem; font-size: 1rem; }
+.tutorial-caption__body { margin: 0; font-size: 0.9rem; line-height: 1.35; }
+.tutorial-caption__hint { margin: 0.35rem 0 0; font-size: 0.85rem; opacity: 0.9; }
+
+.tutorial-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tutorial-btn { min-height: 44px; flex: 1 1 0; }
+.tutorial-btn--skip { flex: 0 0 auto; }

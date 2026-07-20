@@ -30,6 +30,7 @@ import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
 import GameIcon from './components/GameIcon';
 import GameHelpModal from './components/GameHelpModal';
+import TutorialHub from './tutorials/TutorialHub';
 import { gameIconSrc } from '../visual/visualAssets';
 import { setCardBackStyle } from './components/cardBackStore';
 import { setCardFaceTheme } from './components/cardFaceStore';
@@ -54,7 +55,7 @@ interface Props {
   initialInviteCode?: string | null;
 }
 
-type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile';
+type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile' | 'tutorials';
 
 export default function StartMenu({ onLocal, onOnline, initialError, initialInviteCode }: Props) {
   const { t } = useI18n();
@@ -337,6 +338,13 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 <span className="tile__sub">{t('menu.localSub')}</span>
               </span>
             </button>
+            <button className="tile" onClick={() => setPane('tutorials')}>
+              <span className="tile__icon" aria-hidden="true">🎓</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('menu.tutorialsTitle')}</span>
+                <span className="tile__sub">{t('menu.tutorialsSub')}</span>
+              </span>
+            </button>
             <button className="tile" onClick={openHost}>
               <span className="tile__icon" aria-hidden="true">🌐</span>
               <span className="tile__text">
@@ -365,6 +373,10 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
             </button>
           </div>
         </div>
+      )}
+
+      {pane === 'tutorials' && (
+        <TutorialHub onExit={() => setPane('menu')} />
       )}
 
       {pane === 'profile' && (

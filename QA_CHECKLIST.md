@@ -71,6 +71,24 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Round scoring matches KING_RULES.md; game ends after 27 rounds (3p) / 36 (4p).
 - [ ] 4-player game deals 13 each, no kitty.
 
+## Manual — Tutorials (Stage 31.1)
+
+- [ ] **Menu entry:** the main menu shows a **🎓 Tutorials** tile → opens a hub listing **all 6 games**
+      with icon, name, a one-line "what you'll learn", and (for enabled ones) a **⏱ ≈ Ns** duration.
+- [ ] **Enabled vs coming-next:** **51** and **Durak** show a **Start** button; **King / Deberc /
+      Tarneeb / Preferans** show a dimmed **"Coming next"** (not startable). **Back to menu** returns.
+- [ ] **51 tutorial (7 steps):** Start 51 → **Step 1/7** … **7/7**. Each step shows a small demo table
+      (melds / discard / hand), **highlighted** cards/areas, and a short caption. Confirm the visual
+      moments: **A-2-3 / Q-K-A** runs + a red **K-A-2 ✗** note; **Take & open 51** from the discard; a
+      **joker** in a meld with its stand-in card. **Back / Next / Skip** work; **←/→/Esc** work; **Done**
+      (last step) returns to the hub. Nothing is sent to the server; no stats change.
+- [ ] **Durak tutorial (6 steps):** Start Durak → attack/defense **pairs** on the table, the **Trump ♥**
+      badge, a **trump beats non-trump** moment, and the **Take vs Defended** contrast.
+- [ ] **Mobile 360/390:** no horizontal page overflow on the hub or any step; caption never hides the
+      cards; buttons are comfortably tappable (≥44px). Automated: `node scripts/tutorial-shots.mjs`.
+- [ ] **Arabic (RTL):** captions/controls mirror correctly; **card runs still read low→high**
+      (A-2-3, Q-K-A) because card rows are `dir="ltr"`. Reduced-motion: the highlight pulse stops.
+
 ## Manual — drag hand ordering (all games, Stage 30.12b)
 
 - [ ] In **every** game (King / Durak / Deberc / Tarneeb / Preferans / 51) you can **drag a card**

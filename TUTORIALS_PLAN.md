@@ -1,9 +1,9 @@
 # Tutorials — Design Plan (Stage 31.0)
 
-> **STATUS: DESIGN ONLY.** This document is an implementation-ready plan for a new **Tutorials /
-> Навчання** menu section with short interactive tutorials for all **6 games**. It ships **no runtime
-> code, no UI, and no new dependencies** — it is the blueprint the build stages (31.1+) follow. When the
-> build starts, code follows this doc; if the two disagree, update this doc first (deliberately).
+> **STATUS: MVP SHIPPED (Stage 31.1).** The framework + hub + player + **51 & Durak** tutorials are
+> implemented (`src/tutorials/`, `src/ui/tutorials/`, the `'tutorials'` StartMenu pane). The other four
+> games are **“Coming next”** hub placeholders — see the rollout table (§9) for what remains. This
+> document stays the source of truth for the design; if code and doc disagree, update this doc first.
 
 Owner requirement (Stage 31.0):
 
@@ -386,8 +386,13 @@ intact.
 | Stage | Deliverable |
 |---|---|
 | **31.0** | This plan (design only). ✅ |
-| **31.1** | Scaffolding: `types.ts`, `catalog.ts`, empty-but-typed 6 scripts, menu tile + hub + player + board shells, i18n keys, guard tests. Two games fully scripted (recommend **King** + **51** — simplest trick game + the richest new game). |
-| **31.2** | Remaining four scripts (Durak, Deberc, Tarneeb, Preferans) + visual polish + 360/390 + RTL screenshot pass. |
+| **31.1** | **✅ DONE.** Framework shipped: `src/tutorials/` (`types.ts`, `catalog.ts`, `fiftyOneTutorial.ts`, `durakTutorial.ts`), UI (`TutorialHub` / `TutorialPlayer` / `TutorialBoard`), `styles/tutorials.css`, the `'tutorials'` StartMenu pane + tile, i18n ×4, and guard tests. **51 (7 steps)** + **Durak (6 steps)** fully scripted; the other four are **“Coming next”** hub placeholders. Visual smoke (`scripts/tutorial-shots.mjs`) confirms **0 horizontal overflow** at 360/390 for the hub + both tutorials. |
+| **31.2** | Remaining four scripts (King, Deberc, Tarneeb, Preferans) + Arabic RTL screenshot pass. |
 | **31.3+** | (Optional/future) Practice mode, progress ticks. |
+
+> **Implementation note (31.1):** the scene model landed slightly leaner than §5 — a flat
+> `TutorialScene` (`layout` + `seats` / `pairs` / `melds` / `discardTop` / `drawCount` / `chips` /
+> `hand`) with flat-id `TutorialHighlight { targetId }`, which was enough for 51 + Durak and keeps the
+> renderer simple. The §5 tagged-union highlight can return if a later game needs it.
 
 Each build stage keeps to the boundaries in §8 and runs the guards in §7 + `npm run verify`.

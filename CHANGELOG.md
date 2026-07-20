@@ -9,7 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Tutorials — learn a game in 2 minutes (Stage 31.1).** A new **🎓 Tutorials** item on the main menu
+  opens a hub listing all six games. **51** and **Durak** now have full **step-by-step tutorials** — a
+  short, guided walk-through with a little demo table, highlighted cards, and plain-language captions
+  (Back / Next / Skip, or ← / → / Esc). Each is under two minutes and needs **no account and no
+  internet** — nothing you do in a tutorial affects your stats or a real game. The other four games show
+  **“Coming next”** for now. Available in English, Ukrainian, German and Arabic. No DB migration, no
+  dependency.
 
 ## [0.3.9] — 2026-07-20 — Hand drag, 51 polish, and Deberc rule fixes
 

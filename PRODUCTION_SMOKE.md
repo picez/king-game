@@ -356,6 +356,20 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
       horizontal overflow**; Arabic RTL reads correctly.
 
+### 5c. Tutorials (Stage 31.1, unreleased — client-only)
+
+> No backend — tutorials are 100% client-side scripted demos (no server/stats/account). This smoke just
+> confirms the deployed bundle serves the menu section and both tutorials render.
+
+- [ ] **Menu → 🎓 Tutorials** opens the hub listing **all 6 games**; **51** and **Durak** show **Start**
+      (with a **⏱ ≈ Ns** chip), the other four show a dimmed **"Coming next"**. No network call fires
+      opening a tutorial (DevTools → Network stays quiet).
+- [ ] **51 tutorial** runs **Step 1/7 → 7/7** with highlighted cards + captions (A-2-3/Q-K-A, K-A-2 ✗,
+      Take & open 51, joker); **Durak tutorial** runs **1/6 → 6/6** (attack/defense pairs, Trump ♥).
+      **Back/Next/Skip/Done** + **←/→/Esc** work; **Done/Skip** return to the hub (never a live game).
+- [ ] **Mobile 360/390:** no horizontal overflow on the hub or any step; Arabic RTL mirrors, card runs
+      still read low→high. (Automated: `node scripts/tutorial-shots.mjs <preview-url>`.)
+
 ## 6. Rooms / invite
 
 - [ ] Room browser lists your open room with the correct game icon + meta + player count.

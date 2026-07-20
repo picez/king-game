@@ -96,6 +96,12 @@ documented as post-MVP, not built. Spec + plan:
   (`src/games/gameHelp.ts`) + i18n content (`help.<game>.<section>`) — short
   Goal / Players / Deck / Turns / Scoring / Notes lines, opened from a ❓ button in
   the Local/Host game picker for the selected game. i18n ×4; no gameplay/server change.
+- **Tutorials (Stage 31.1, MVP)**: a **🎓 Tutorials** menu section — a hub of all 6 games with a
+  shared, data-driven `TutorialPlayer` (scripted deterministic scenes via the shared `CardView`; Back /
+  Next / Skip / ←→ / Esc). **51 (7 steps)** and **Durak (6 steps)** are fully scripted (≤2 min each);
+  the other four show **"Coming next"**. Pure `src/tutorials/` catalog + `src/ui/tutorials/` UI —
+  **client-only: no reducers, network, account, stats or achievements**. i18n ×4; guard-tested + a
+  360/390 overflow smoke (`scripts/tutorial-shots.mjs`). Plan: [`TUTORIALS_PLAN.md`](TUTORIALS_PLAN.md).
 - **Game rules** (3p/4p): 32/52 decks, dealing, follow-suit, trick resolution
   with/without trump, all 7 modes, Dealer's Choice with per-dealer mode sets
   (9 games/dealer → 27 rounds 3p, 36 rounds 4p), kitty take + legal discard,
