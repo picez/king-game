@@ -71,23 +71,31 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 - [ ] Round scoring matches KING_RULES.md; game ends after 27 rounds (3p) / 36 (4p).
 - [ ] 4-player game deals 13 each, no kitty.
 
-## Manual — Tutorials (Stage 31.1)
+## Manual — Tutorials (Stages 31.1–31.2)
 
 - [ ] **Menu entry:** the main menu shows a **🎓 Tutorials** tile → opens a hub listing **all 6 games**
-      with icon, name, a one-line "what you'll learn", and (for enabled ones) a **⏱ ≈ Ns** duration.
-- [ ] **Enabled vs coming-next:** **51** and **Durak** show a **Start** button; **King / Deberc /
-      Tarneeb / Preferans** show a dimmed **"Coming next"** (not startable). **Back to menu** returns.
-- [ ] **51 tutorial (7 steps):** Start 51 → **Step 1/7** … **7/7**. Each step shows a small demo table
-      (melds / discard / hand), **highlighted** cards/areas, and a short caption. Confirm the visual
-      moments: **A-2-3 / Q-K-A** runs + a red **K-A-2 ✗** note; **Take & open 51** from the discard; a
-      **joker** in a meld with its stand-in card. **Back / Next / Skip** work; **←/→/Esc** work; **Done**
-      (last step) returns to the hub. Nothing is sent to the server; no stats change.
-- [ ] **Durak tutorial (6 steps):** Start Durak → attack/defense **pairs** on the table, the **Trump ♥**
-      badge, a **trump beats non-trump** moment, and the **Take vs Defended** contrast.
+      with icon, name, a one-line "what you'll learn", and a **⏱ ≈ Ns** duration.
+- [ ] **All six enabled (31.2):** every row — King, Durak, Deberc, Tarneeb, Preferans, 51 — shows a
+      **Start** button (no "Coming next" left). **Back to menu** returns.
+- [ ] **51 tutorial (7 steps):** demo table (melds / discard / hand), highlighted cards, short captions.
+      Visual moments: **A-2-3 / Q-K-A** runs + a red **K-A-2 ✗** note; **Take & open 51**; a **joker**
+      with its stand-in card. **Back / Next / Skip** + **←/→/Esc** work; **Done** returns to the hub.
+- [ ] **Durak (6):** attack/defense **pairs**, **Trump ♥** badge, **trump beats non-trump**, **Take vs
+      Defended** contrast.
+- [ ] **King (6):** a standard trick with a **① lead** badge + a **winner** ring; "follow suit"; a
+      **modes** step (avoid hearts/queens…, Trump round scores +); "lowest total wins".
+- [ ] **Deberc (7):** Solo/Pairs; **Terce + Палтіна** (never "Платіна"); the **5-card Палтіна beats a
+      4-card** step; the **7/6 trump exchange**; **Bela** on a trump K/Q.
+- [ ] **Tarneeb (6):** teams; **bid 3–13**; **Trump ♠**; follow-suit; **void → trump wins**; scoring
+      (**exact = ×2**, over = tricks, miss = penalty, target 41).
+- [ ] **Preferans (6, light):** declarer vs 2 defenders; contract; **talon**; 10 tricks; winner leads;
+      the last step notes advanced variants are **not in the app yet** (no over-promise).
+- [ ] **Client-only:** nothing is sent to the server on any tutorial (DevTools → Network quiet); no
+      stats/achievements change.
 - [ ] **Mobile 360/390:** no horizontal page overflow on the hub or any step; caption never hides the
-      cards; buttons are comfortably tappable (≥44px). Automated: `node scripts/tutorial-shots.mjs`.
-- [ ] **Arabic (RTL):** captions/controls mirror correctly; **card runs still read low→high**
-      (A-2-3, Q-K-A) because card rows are `dir="ltr"`. Reduced-motion: the highlight pulse stops.
+      cards; buttons ≥44px. Automated: `node scripts/tutorial-shots.mjs <preview-url>`.
+- [ ] **Arabic (RTL):** captions/controls mirror correctly; **card runs still read low→high** because
+      card rows are `dir="ltr"`. Reduced-motion: the highlight pulse stops.
 
 ## Manual — drag hand ordering (all games, Stage 30.12b)
 

@@ -122,6 +122,14 @@
 .tutorial-pair__def { margin-top: -1.6rem; margin-inline-start: 0.9rem; } /* defense overlaps the attack */
 .tutorial-pair--beaten { opacity: 0.95; }
 
+.tutorial-trick { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; overflow-x: auto; max-width: 100%; }
+.tutorial-trickcard { position: relative; display: inline-flex; }
+.tutorial-trickcard--win { border-radius: 8px; box-shadow: 0 0 0 2px var(--ok, #3ca55c); }
+.tutorial-trickcard__lead {
+  position: absolute; top: -6px; inset-inline-start: -6px;
+  font-size: 0.7rem; line-height: 1; padding: 0.05rem 0.2rem; border-radius: 999px;
+  background: var(--accent, #f5c518); color: #1a1d2b; font-weight: 700;
+}
 .tutorial-melds { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; align-items: center; }
 .tutorial-meld { display: flex; gap: 0.25rem; padding: 0.2rem; border-radius: 0.5rem; overflow-x: auto; max-width: 100%; }
 

@@ -1,25 +1,24 @@
 // ---------------------------------------------------------------------------
-// Tutorial catalog (Stage 31.1). One entry per GameType. 51 + Durak ship full
-// scripted tutorials; the other four are "coming next" hub placeholders (enabled:
-// false, no steps). Pure — mirrors src/games/gameHelp.ts. No engine/net imports.
+// Tutorial catalog. One entry per GameType. As of Stage 31.2 ALL SIX games ship a
+// full scripted tutorial (Stage 31.1 shipped 51 + Durak; 31.2 added King, Deberc,
+// Tarneeb, Preferans). Pure — mirrors src/games/gameHelp.ts. No engine/net imports.
 // ---------------------------------------------------------------------------
 
 import { GAME_TYPES, type GameType } from '../games/catalog';
 import { DEFAULT_STEP_SECONDS, type Tutorial, type TutorialCatalog } from './types';
 import { fiftyOneTutorial } from './fiftyOneTutorial';
 import { durakTutorial } from './durakTutorial';
-
-/** A disabled hub placeholder for a game whose tutorial is not authored yet. */
-function comingNext(id: GameType): Tutorial {
-  return { id, enabled: false, learnKey: `tutorial.${id}.learn`, steps: [] };
-}
+import { kingTutorial } from './kingTutorial';
+import { debercTutorial } from './debercTutorial';
+import { tarneebTutorial } from './tarneebTutorial';
+import { preferansTutorial } from './preferansTutorial';
 
 export const TUTORIALS: TutorialCatalog = {
-  king: comingNext('king'),
+  king: kingTutorial,
   durak: durakTutorial,
-  deberc: comingNext('deberc'),
-  tarneeb: comingNext('tarneeb'),
-  preferans: comingNext('preferans'),
+  deberc: debercTutorial,
+  tarneeb: tarneebTutorial,
+  preferans: preferansTutorial,
   'fifty-one': fiftyOneTutorial,
 };
 

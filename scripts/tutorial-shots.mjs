@@ -42,11 +42,16 @@ try {
     const shot = async (name) => { const r = await cdp.send('Page.captureScreenshot', { format: 'png' }); writeFileSync(`${OUT}/${cfg.tag}-${name}.png`, Buffer.from(r.data, 'base64')); const ov = await cdp.eval(overflow); console.log(`${cfg.tag} ${name}: overflow=${ov}px`); if (ov > 1) { console.error(`  ✗ HORIZONTAL OVERFLOW ${ov}px`); fails++; } };
     await cdp.eval(clickText('Tutorials')) || console.warn('no Tutorials tile'); await sleep(500);
     await shot('hub');
-    await cdp.eval(clickRowStart('51')); await sleep(500); await shot('51-step1');
-    for (let i = 0; i < 4; i++) { await cdp.eval(clickText('Next')); await sleep(300); } await shot('51-step5');
-    await cdp.eval(clickText('Skip')); await sleep(300);
-    await cdp.eval(clickRowStart('Durak')); await sleep(500); await shot('durak-step1');
-    await cdp.eval(clickText('Next')); await cdp.eval(clickText('Next')); await sleep(400); await shot('durak-step3');
+    // One representative step per game: open its tutorial, capture step 1 + a mid step, then back.
+    const GAMES = [['King', 'king'], ['Durak', 'durak'], ['Deberc', 'deberc'], ['Tarneeb', 'tarneeb'], ['Preferans', 'preferans'], ['51', 'fifty-one']];
+    for (const [name, key] of GAMES) {
+      const opened = await cdp.eval(clickRowStart(name)); await sleep(500);
+      if (!opened) { console.warn(`could not open ${name}`); continue; }
+      await shot(`${key}-step1`);
+      await cdp.eval(clickText('Next')); await cdp.eval(clickText('Next')); await sleep(350);
+      await shot(`${key}-mid`);
+      await cdp.eval(clickText('Skip')); await sleep(350); // back to the hub
+    }
     cdp.ws.close();
   }
 } finally { chrome.kill(); }

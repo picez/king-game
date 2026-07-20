@@ -92,6 +92,16 @@ export default function TutorialBoard({ scene, highlightIds, pulseIds }: Props) 
           ))}
         </div>
       )}
+      {scene.trick && scene.trick.length > 0 && (
+        <div className="tutorial-trick" dir="ltr">
+          {scene.trick.map((tc) => (
+            <span key={tc.id} className={`tutorial-trickcard${tc.winner ? ' tutorial-trickcard--win' : ''}`}>
+              <SceneCard face={tc.card} />
+              {tc.lead && <span className="tutorial-trickcard__lead" aria-hidden="true">①</span>}
+            </span>
+          ))}
+        </div>
+      )}
       {scene.melds && scene.melds.length > 0 && (
         <div className="tutorial-melds">
           {scene.melds.map((m) => (

@@ -356,19 +356,21 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
       horizontal overflow**; Arabic RTL reads correctly.
 
-### 5c. Tutorials (Stage 31.1, unreleased — client-only)
+### 5c. Tutorials (Stages 31.1–31.2, unreleased — client-only)
 
 > No backend — tutorials are 100% client-side scripted demos (no server/stats/account). This smoke just
-> confirms the deployed bundle serves the menu section and both tutorials render.
+> confirms the deployed bundle serves the menu section and every tutorial renders.
 
-- [ ] **Menu → 🎓 Tutorials** opens the hub listing **all 6 games**; **51** and **Durak** show **Start**
-      (with a **⏱ ≈ Ns** chip), the other four show a dimmed **"Coming next"**. No network call fires
-      opening a tutorial (DevTools → Network stays quiet).
-- [ ] **51 tutorial** runs **Step 1/7 → 7/7** with highlighted cards + captions (A-2-3/Q-K-A, K-A-2 ✗,
-      Take & open 51, joker); **Durak tutorial** runs **1/6 → 6/6** (attack/defense pairs, Trump ♥).
+- [ ] **Menu → 🎓 Tutorials** opens the hub listing **all 6 games**, and **every** row (King, Durak,
+      Deberc, Tarneeb, Preferans, 51) shows **Start** (with a **⏱ ≈ Ns** chip) — no "Coming next" left.
+      No network call fires opening a tutorial (DevTools → Network stays quiet).
+- [ ] **Each tutorial runs end-to-end** (Step 1 → last) with highlighted cards + short captions:
+      51 (7, A-2-3/Q-K-A/K-A-2✗/joker), Durak (6, attack-defense/Trump♥), King (6, lead badge + winner),
+      Deberc (7, Терц + **Палтіна**, 5>4, exchange, Bela), Tarneeb (6, bid/trump/void→trump/scoring),
+      Preferans (6, declarer/talon/10 tricks; variants noted as "not in the app yet").
       **Back/Next/Skip/Done** + **←/→/Esc** work; **Done/Skip** return to the hub (never a live game).
 - [ ] **Mobile 360/390:** no horizontal overflow on the hub or any step; Arabic RTL mirrors, card runs
-      still read low→high. (Automated: `node scripts/tutorial-shots.mjs <preview-url>`.)
+      still read low→high. (Automated: `node scripts/tutorial-shots.mjs <preview-url>` — a step per game.)
 
 ## 6. Rooms / invite
 

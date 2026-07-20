@@ -67,6 +67,16 @@ export interface TutorialChip {
   tone?: 'default' | 'good' | 'bad' | 'gold';
 }
 
+/** One card played to the centre of a standard trick (King / Tarneeb / Preferans). */
+export interface TutorialTrickCard {
+  id: string;
+  card: TutorialCardFace;
+  /** The led card of the trick (gets a lead badge). */
+  lead?: boolean;
+  /** The winning card of the trick (highlighted as the taker). */
+  winner?: boolean;
+}
+
 /** A deterministic snapshot the renderer draws. No rng, no reducer. */
 export interface TutorialScene {
   /** Which generic board arrangement to render. */
@@ -76,6 +86,8 @@ export interface TutorialScene {
   seats?: TutorialSeat[];
   /** Durak: attack/defense pairs on the table. */
   pairs?: TutorialPair[];
+  /** A standard trick: cards played to the centre (King / Tarneeb / Preferans). */
+  trick?: TutorialTrickCard[];
   /** 51: public melds on the table. */
   melds?: TutorialMeld[];
   /** Top of the discard pile (51 / Durak). */

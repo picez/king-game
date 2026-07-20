@@ -49,10 +49,10 @@ auto-refresh mid-game), and an **offline** hint.
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Tutorials (Stage 31.1, MVP)** — a **🎓 Tutorials** menu section eases new players in: a hub of all 6
+**Tutorials (Stages 31.1–31.2)** — a **🎓 Tutorials** menu section eases new players in: a hub of all 6
 games with a shared, data-driven player of **scripted, deterministic** scenes (short captions +
-highlighted cards, ≤ 2 min). **51** and **Durak** are fully scripted; the rest are "Coming next".
-Client-only — no reducers, network, account, stats or achievements. Pure `src/tutorials/` catalog +
+highlighted cards, ≤ 2 min). **All six games** are fully scripted (King/Durak/Deberc/Tarneeb/Preferans/
+51). Client-only — no reducers, network, account, stats or achievements. Pure `src/tutorials/` catalog +
 `src/ui/tutorials/` UI; i18n ×4. Design + rollout: [`TUTORIALS_PLAN.md`](TUTORIALS_PLAN.md).
 
 **51 / Syrian 51** was released as the **6th game** at Stage 30.7 (`status: available`): local +
