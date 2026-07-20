@@ -887,14 +887,24 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — PWA / mobile
 
-> **Native app QA — placeholder (Stage 33.0 design → [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md); NOT
-> built yet).** When the **Android TWA** lands (Stage 33.2/33.3), run this mobile smoke on a **physical
-> Android** device from a **signed build**: (a) launches full-screen standalone from the store install;
-> (b) **Google sign-in** completes (TWA uses Chrome — OAuth must not be blocked); (c) create/join an
-> **online room** over `wss://…/ws`; (d) **voice** — mic permission prompt, two-device audio (TURN for
-> cross-network); (e) an **invite link `https://…/?room=CODE`** opens the app (app-links) and joins;
-> (f) **install/update** — a web deploy surfaces the "Update available" refresh; (g) 360/390 layouts +
-> **Arabic RTL** with no horizontal overflow. Verify `assetlinks.json` matches the **Play app-signing**
+> **Android TWA readiness (Stage 33.1 done — [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md); no app built).**
+> Web-side prerequisites, checkable now on the deploy:
+> - [ ] `manifest.webmanifest` `description` names **all six** games; `name`/`short_name` = **Card
+>       Majlis**; `start_url`/`scope` = `/`; `display` = `standalone`; 192 + 512 + **maskable** icons.
+> - [ ] `index.html` `<meta description>` matches (six games); `theme-color` = `#0d4f28`.
+> - [ ] `public/.well-known/assetlinks.example.json` exists (package `com.cardmajlis.app`, **placeholder**
+>       fingerprint); **no real `assetlinks.json`** in the repo (`/.well-known/assetlinks.json` → 404 on
+>       the deploy until store setup).
+> - [ ] The install banner does **not** show in standalone/installed mode; the "Update available" pill
+>       still works (guarded: `shouldOfferInstall({…, standalone:true}) === false`).
+>
+> **Native app QA — placeholder (NOT built yet).** When the **Android TWA** lands (Stage 33.2/33.3), run
+> this mobile smoke on a **physical Android** from a **signed build**: (a) launches full-screen standalone
+> from the store install; (b) **Google sign-in** completes (TWA uses Chrome — OAuth must not be blocked);
+> (c) create/join an **online room** over `wss://…/ws`; (d) **voice** — mic prompt, two-device audio (TURN
+> for cross-network); (e) an **invite link `https://…/?room=CODE`** opens the app (app-links) and joins;
+> (f) **install/update** — a web deploy surfaces the "Update available" refresh; (g) 360/390 + **Arabic
+> RTL** with no horizontal overflow. Verify the real `assetlinks.json` matches the **Play app-signing**
 > SHA-256. iOS stays PWA add-to-home-screen until the 33.4 decision.
 
 > Install / update / offline UX = Stage 21.0. Banners are a progressive enhancement:

@@ -9,15 +9,23 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Android app readiness (Stage 33.1).** Prepared the web/PWA for a future **Android TWA** without
+  building an app: the install **description** (manifest + page `<meta>`) now names **all six** games
+  (previously only four), and the repo carries a `public/.well-known/assetlinks.example.json` **template**
+  (proposed package `com.cardmajlis.app`, placeholder certificate). The real Digital-Asset-Links file is
+  added only at store setup with the Play App-Signing key. No native project, no dependency, no runtime
+  behaviour change.
+
 ### Docs
 
-- **Mobile app strategy designed (Stage 33.0, design-only).** Added
-  [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) — an audit of four paths to Android/iOS apps and a
-  recommendation: **Android-first via a Trusted Web Activity** wrapping the production PWA (the Chrome
-  engine keeps Google login, cookies and voice behaving exactly as on the web), with **iOS staying a PWA**
-  until a later decision. Includes a feature-compatibility matrix, security/privacy + store-disclosure
-  notes, store prerequisites, a technical-readiness checklist, and a staged rollout (33.1–33.5). No
-  runtime change, no native project, no dependency.
+- **Mobile app strategy designed (Stage 33.0).** Added [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) — an
+  audit of four paths to Android/iOS apps and a recommendation: **Android-first via a Trusted Web
+  Activity** wrapping the production PWA (the Chrome engine keeps Google login, cookies and voice behaving
+  exactly as on the web), with **iOS staying a PWA** until a later decision. Includes a
+  feature-compatibility matrix, security/privacy + store-disclosure notes, store prerequisites, a
+  technical-readiness checklist, and a staged rollout (33.1–33.5).
 
 ## [0.4.1] — 2026-07-20 — Achievements expansion
 

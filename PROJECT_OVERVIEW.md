@@ -40,10 +40,12 @@ Installable **PWA**: a network-first service worker (offline app shell), a
 non-intrusive **install** card, a user-controlled **"Update available"** refresh (no
 auto-refresh mid-game), and an **offline** hint.
 
-**Native apps (planned, Stage 33.0 design)** — [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md): the
-recommended path is **Android-first via a Trusted Web Activity (TWA)** wrapping the production PWA (Chrome
-engine → Google OAuth / cookies / WebRTC behave identically), with **iOS staying PWA-only** until a later
-Capacitor decision. The web/PWA stays the single source of truth; no native project exists yet.
+**Native apps (planned; Stage 33.0 design, 33.1 readiness done)** —
+[`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md): the recommended path is **Android-first via a Trusted Web
+Activity (TWA)** wrapping the production PWA (Chrome engine → Google OAuth / cookies / WebRTC behave
+identically), with **iOS staying PWA-only** until a later Capacitor decision. **33.1** made the web/PWA
+TWA-ready (manifest + `<meta>` description → all 6 games, a `assetlinks.example.json` template + guards,
+domain/OAuth/voice notes). The web/PWA stays the single source of truth; **no native project exists yet**.
 
 ## Supported games (6 released, local + online)
 

@@ -1,7 +1,7 @@
 {
   "name": "Card Majlis",
   "short_name": "Card Majlis",
-  "description": "Card Majlis — a card lounge for King, Durak, Deberc & Tarneeb. Local pass-and-play or online.",
+  "description": "Card Majlis — a card lounge for King, Durak, Deberc, Tarneeb, Preferans & 51. Local pass-and-play or online.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

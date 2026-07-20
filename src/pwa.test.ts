@@ -69,6 +69,55 @@ describe('PWA manifest', () => {
     expect(manifest.name).not.toMatch(/King/);
     expect(manifest.short_name).not.toMatch(/King/);
   });
+
+  it('description names all SIX current games (no stale four/five-game copy)', () => {
+    const d: string = manifest.description;
+    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51']) {
+      expect(d, `description should mention ${game}`).toContain(game);
+    }
+    // The old stale copy ended "…Deberc & Tarneeb." with the two newest games missing.
+    expect(d).not.toMatch(/Deberc & Tarneeb\./);
+  });
+
+  it('scope is root ("/") so a TWA owns all in-scope URLs (incl. /?room=CODE)', () => {
+    expect(manifest.scope).toBe('/');
+    expect(manifest.start_url).toBe('/');
+  });
+
+  it('index.html <meta description> matches the manifest (all six games)', () => {
+    const idx = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51']) {
+      expect(idx, `index.html description should mention ${game}`).toMatch(new RegExp(`content="[^"]*${game}`));
+    }
+    expect(idx).not.toMatch(/Deberc &amp; Tarneeb\.|Deberc & Tarneeb\./);
+  });
+});
+
+describe('Android TWA readiness (Stage 33.1) — Digital Asset Links', () => {
+  const WELL_KNOWN = join(PUBLIC, '.well-known');
+  const EXAMPLE = join(WELL_KNOWN, 'assetlinks.example.json');
+
+  it('ships an EXAMPLE assetlinks (not a real one) so 33.2 has a template', () => {
+    expect(existsSync(EXAMPLE), 'assetlinks.example.json should exist').toBe(true);
+    // Never ship a real /.well-known/assetlinks.json — TWA verification must use the
+    // owner's real Play App Signing cert, added only at store-setup time (not in git).
+    expect(existsSync(join(WELL_KNOWN, 'assetlinks.json')), 'no real assetlinks.json in repo').toBe(false);
+  });
+
+  it('the example is valid Digital-Asset-Links JSON with the proposed package + a PLACEHOLDER cert', () => {
+    const dal = JSON.parse(readFileSync(EXAMPLE, 'utf8')) as Array<{
+      relation: string[]; target: { namespace: string; package_name: string; sha256_cert_fingerprints: string[] };
+    }>;
+    expect(Array.isArray(dal)).toBe(true);
+    const t = dal[0].target;
+    expect(dal[0].relation).toContain('delegate_permission/common.handle_all_urls');
+    expect(t.namespace).toBe('android_app');
+    expect(t.package_name).toBe('com.cardmajlis.app');
+    // The fingerprint MUST stay an obvious placeholder — never a real-looking colon-hex cert.
+    const fp = t.sha256_cert_fingerprints[0];
+    expect(fp).toMatch(/REPLACE|PLACEHOLDER/i);
+    expect(fp, 'placeholder must not look like a real SHA-256 fingerprint').not.toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/i);
+  });
 });
 
 describe('Card Majlis app icons', () => {

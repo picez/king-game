@@ -514,6 +514,20 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       **top pills clear the notch**, there is **no horizontal scroll**, and rotating to
       landscape shows **no blocker** (content just adapts).
 
+### 10a. Android TWA readiness (Stage 33.1 — no app built yet)
+
+> The Android app is a planned **TWA** ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)); nothing is submitted.
+> This checks the deployed PWA meets the wrapper's web prerequisites.
+
+- [ ] `curl -s $HOST/manifest.webmanifest` → the **`description` names all six games** (King, Durak,
+      Deberc, Tarneeb, Preferans & 51); `name`/`short_name` = **Card Majlis**; `start_url`/`scope` = `/`;
+      `display` = `standalone`; 192 + 512 + **maskable** icons.
+- [ ] **No real Asset Links shipped yet:** `curl -sI $HOST/.well-known/assetlinks.json` → **404**
+      (expected — the real file is added only at store setup with the Play App-Signing SHA-256). The
+      repo carries only `assetlinks.example.json` (a placeholder template).
+- [ ] **Installability:** Lighthouse/DevTools → *Application → Manifest* shows no installability errors;
+      the app installs and launches standalone (the TWA reuses exactly this).
+
 ## 11. Security spot-checks
 
 - [ ] Invite URL contains **only** `?room=CODE` (re-confirm from §6).

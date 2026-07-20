@@ -142,8 +142,34 @@ safe to poll. `commit` is populated when the build env sets `RENDER_GIT_COMMIT`.
 4. The client connects over `wss://…/ws` automatically (the menu's mixed-content
    warning only appears if you manually type a `ws://` URL on an HTTPS page).
 5. **Install as an app (PWA):** browser menu → **Add to Home screen / Install** —
-   launches standalone, portrait, with the King icon (needs HTTPS, which Render
-   provides).
+   launches standalone, portrait, with the Card Majlis medallion icon (needs HTTPS,
+   which Render provides).
+
+---
+
+## Android app (TWA) readiness (Stage 33.1 — no store submission yet)
+
+The plan is an **Android Trusted Web Activity** wrapping this deployed PWA (see
+[`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)). Ops prerequisites, when 33.2+ builds it:
+
+1. **Custom domain (recommended):** prefer a stable custom domain (e.g. `cardmajlis.com`) over the
+   `onrender.com` subdomain — Digital Asset Links are tied to the exact origin. Add it in Render →
+   *Settings → Custom Domains*, point DNS, then re-point `ALLOWED_ORIGINS` / `GOOGLE_REDIRECT_URI`
+   (/ optional `VITE_WS_URL`) at it.
+2. **Digital Asset Links:** serve `/.well-known/assetlinks.json` on the production origin (200,
+   `application/json`, no redirect). A template is in the repo at
+   `public/.well-known/assetlinks.example.json` — copy it to `assetlinks.json` and fill in the
+   **Google Play App-Signing** SHA-256 (Play Console → *App integrity → App signing*), **NOT** the
+   upload key. Verify:
+   ```
+   curl -s https://<domain>/.well-known/assetlinks.json      # 200 + JSON, no redirect
+   ```
+3. **Google OAuth:** if you use a custom domain, add `https://<domain>/auth/callback` to the OAuth
+   client's **Authorized redirect URIs** and the origin to **Authorized JavaScript origins** (see the
+   *Google sign-in* section below), or sign-in 400s. The TWA uses Chrome, so the cookie-session OAuth
+   flow works unchanged — **no WebView OAuth**.
+4. **Voice on cellular:** configure a **TURN** relay (`VOICE_ICE_SERVERS`) before broad mobile testing —
+   `/health/diagnostics` should read `voice.ice: turn_configured` (STUN-only fails strict/symmetric NAT).
 
 ---
 

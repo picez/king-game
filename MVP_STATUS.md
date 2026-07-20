@@ -167,14 +167,17 @@ documented as post-MVP, not built. Spec + plan:
 - **PWA**: installable on Android (manifest, icons, app-shell service worker). App
   icon = the **Card Majlis medallion** (emerald coin + gold 8-point Levantine star +
   four suit pips); procedural, `npm run icons`.
-- **Native mobile apps — strategy DESIGNED (Stage 33.0, design-only)**:
+- **Native mobile apps — strategy DESIGNED (33.0) + Android TWA READINESS done (33.1)**:
   [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) audits 4 paths (PWA-only / **Android TWA** / Capacitor /
   Expo-RN) and recommends **Android-first via TWA** (wraps the production PWA in a Chrome-backed Trusted
   Web Activity — OAuth/cookies/WebRTC behave exactly like the PWA), **iOS PWA-only** until a later
   Capacitor decision. Includes a feature-compat matrix, security/privacy + store-disclosure needs, store
   prerequisites (`com.cardmajlis.app`, Play App Signing, `assetlinks.json`), and a technical-readiness
-  checklist. **No native project, no dependency, no runtime change** this stage. Staged rollout 33.1
-  (TWA readiness) → 33.2 (scaffold) → 33.3 (internal test build) → 33.4 (iOS decision) → 33.5 (push).
+  checklist. **33.1** landed the web-side readiness: manifest + `index.html` `<meta>` description now name
+  **all six** games, a **`public/.well-known/assetlinks.example.json`** template (placeholder cert) +
+  guard tests, and domain/OAuth/voice ops notes — **no native project, no dependency, no real
+  `assetlinks.json`**. Staged rollout **33.1 (TWA readiness ✅)** → 33.2 (Bubblewrap scaffold) → 33.3
+  (signed internal test build) → 33.4 (iOS decision) → 33.5 (push).
 - **Production path**: env config, `/health`, origin allowlist, HTTPS/WSS guide.
 - **Profiles/auth foundation (partial — Stage 4)**: an **opt-in** HTTP API
   (`/api/me` · `/api/profile` · `/api/settings` · `/api/games/king/settings` ·

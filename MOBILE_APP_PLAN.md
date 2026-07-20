@@ -1,9 +1,11 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
-> **STATUS: DESIGN ONLY.** This document chooses a path to **Android and iOS apps** for Card Majlis and
-> defines a staged rollout. It ships **no native project, no dependency, no build-script change, and no
-> store submission** — it is the blueprint the build stages (33.1+) follow. When the build starts, code
-> follows this doc; if the two disagree, update this doc first (deliberately).
+> **STATUS: strategy DESIGNED (33.0); Android TWA READINESS DONE (33.1).** This document chooses a path
+> to **Android and iOS apps** for Card Majlis and defines a staged rollout. Stage 33.1 fixed the web/PWA
+> readiness gaps (manifest/index copy → all 6 games; a `assetlinks.example.json` template + guards; domain
+> / OAuth / voice notes below) **without** creating a native project, Bubblewrap scaffold, AAB/APK,
+> dependency, or a real `assetlinks.json`. When 33.2 starts, code follows this doc; if the two disagree,
+> update this doc first.
 
 **Premise:** the web app is already a **high-quality installable PWA** — the wrappers below reuse the
 **deployed web app as the single source of truth**, they do not fork it. Related docs:
@@ -138,11 +140,10 @@ Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not sup
 
 ---
 
-## 6. Technical readiness checklist (Scope F — audit, do NOT implement)
+## 6. Technical readiness checklist (Scope F — 33.1 fixed the ✅[x] items)
 
-Gaps found in the current repo; each is a 33.1 task, not done here.
-
-- [ ] **Manifest `description`** lists only *King, Durak, Deberc & Tarneeb* — **add Preferans & 51** (copy).
+- [x] **Manifest + `index.html` `description`** now name **all six** games (King, Durak, Deberc, Tarneeb,
+      Preferans & 51) — fixed in 33.1, guard-tested (`src/pwa.test.ts`).
 - [x] `name` / `short_name` present (**Card Majlis**).
 - [x] Icons **192 / 512** + a **maskable-512** + svg present (`public/icons/…`); confirm the maskable
       safe-zone renders correctly on Android adaptive icons.
@@ -156,7 +157,10 @@ Gaps found in the current repo; each is a 33.1 task, not done here.
 - [x] **`/health/diagnostics`** exists (version / games.count / db / voice.ice / avatarUploads) — use it in
       the mobile smoke.
 - [x] **Deep links `/?room=CODE`** parse on load (`roomCodeFromQuery`) → TWA app-links work in scope.
-- [ ] **`assetlinks.json`** not present yet — author it in 33.1 with the **Play app-signing** SHA-256.
+- [x] **`assetlinks.example.json`** template added at `public/.well-known/assetlinks.example.json`
+      (package `com.cardmajlis.app`, **placeholder** fingerprint) — guard-tested. The **real**
+      `/.well-known/assetlinks.json` is deliberately **NOT** in the repo (added only at store setup with
+      the owner's Play App-Signing SHA-256 — see §7a).
 - [ ] **`robots`/SEO metadata** — optional; a store listing carries discovery, but confirm `index.html`
       has sane `<title>`/`<meta description>`/OG tags for link previews (invite shares).
 - [x] **Bandwidth** — static media is cache-tiered with ETags (already audited); fine for mobile data.
@@ -167,10 +171,83 @@ Gaps found in the current repo; each is a 33.1 task, not done here.
 
 ---
 
+## 6a. Digital Asset Links, domain & OAuth (Stage 33.1)
+
+### Digital Asset Links (`assetlinks.json`)
+
+- **Template shipped:** `public/.well-known/assetlinks.example.json` — copy it to `assetlinks.json` at
+  **store-setup time only**, filling in the real fingerprint. It must be served at
+  **`https://<domain>/.well-known/assetlinks.json`** with `content-type: application/json`, HTTP 200,
+  no redirect.
+- **Package id:** **`com.cardmajlis.app`** (proposed; finalise with the domain).
+- ⚠️ **Fingerprint source:** the `sha256_cert_fingerprints` value MUST be the **Google Play App-Signing**
+  certificate's SHA-256 (Play Console → *App integrity → App signing*), **NOT** the local upload key.
+  Using the upload key is the #1 reason TWA verification (and thus full-screen launch) silently fails.
+- **Owner verification commands** (after hosting the real file):
+  ```
+  curl -s https://<domain>/.well-known/assetlinks.json          # 200 + the JSON, no redirect
+  # Google's official checker:
+  https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://<domain>&relation=delegate_permission/common.handle_all_urls
+  ```
+
+### Domain decision (Scope C)
+
+- **Current:** the app runs on a Render subdomain — **`https://king-game-cqgd.onrender.com`** (HTTPS/WSS
+  auto). A TWA *can* verify against this subdomain, but it is **not recommended** for a store launch.
+- **Recommended:** provision a **custom domain** (e.g. `cardmajlis.com` / `cardmajlis.app`, owner's
+  choice) because: (1) **stable branding** for the Play listing; (2) **assetlinks is tied to the exact
+  origin** — an onrender.com hostname could change and break verification; (3) **listing trust**; (4)
+  decouples from Render's subdomain scheme. **Do not buy/configure the domain in this stage** — it's an
+  owner action tracked in §5 / the store checklist.
+- When the domain lands, re-point **`assetlinks.json`**, **`GOOGLE_REDIRECT_URI`**, **`ALLOWED_ORIGINS`**
+  (and any `VITE_WS_URL`) at it, and add the new origin to Render + the DNS.
+
+### OAuth / TWA readiness (Scope D)
+
+- The Google **redirect stays a web-origin callback** (`https://<domain>/auth/callback` via
+  `GOOGLE_REDIRECT_URI`). A **TWA uses Chrome**, so the existing **cookie session + Authorization-Code +
+  PKCE** flow works unchanged — no WebView OAuth, ever.
+- **No native token storage** in the future Android package — the server already keeps only the stable
+  `sub` + profile basics; the device holds only Chrome's HttpOnly session cookie.
+- **Owner action when a custom domain is used:** add the production origin's `…/auth/callback` to the
+  Google Cloud OAuth client's **Authorized redirect URIs** (and the origin to **Authorized JavaScript
+  origins**) — otherwise sign-in 400s. (Documented in `RENDER_DEPLOY.md`.)
+
+### Voice / mic readiness (Scope E)
+
+- WebRTC mic capture triggers **Android's permission prompt via Chrome/TWA** on first voice-join — no code
+  change needed; it behaves like the PWA.
+- **STUN-only fails strict/symmetric NAT** (common on cellular). Configure a **TURN** relay
+  (`VOICE_ICE_SERVERS`) before broad mobile testing — `/health/diagnostics` should read
+  `voice.ice: turn_configured`. (Existing known limit; no code change.)
+
+### PWA install/update inside a TWA (Scope F)
+
+- **Audited, no change needed:** `shouldOfferInstall(…)` already returns **false** when `standalone` is
+  true (a TWA launches in `display-mode: standalone`), so the **install banner never shows inside the
+  installed app**; and `beforeinstallprompt` doesn't fire there anyway. The **"Update available" banner
+  still works** (SW update is independent of standalone). Safe-area CSS vars already exist. Guard:
+  `src/pwa/pwaClient.test.ts` (`shouldOfferInstall({…, standalone:true}) === false`).
+
+## 6b. Store listing metadata (Scope G — draft, owner fills the specifics)
+
+| Field | Value / draft |
+|---|---|
+| **App name** | **Card Majlis** |
+| **Short description** (≤80 chars) | *"Six classic card games — King, Durak, Deberc, Tarneeb, Preferans & 51."* |
+| **Full description** (draft placeholder) | A card lounge for **six** games — King, Durak, Deberc, Tarneeb, Preferans and 51 (Syrian 51). **Play locally** pass-and-play, or **online** with friends in private rooms with optional **voice chat**. Stats, leaderboards, achievements, and a quick **tutorial** for every game. *(Owner to finalise + localise.)* |
+| **Privacy policy URL** | **NEEDED** — publish before submission (covers §4 disclosures). |
+| **Support email** | **NEEDED** — a contact address for the listing. |
+| **Screenshots** | **NEEDED** — phone screenshots (menu, a game table, the tutorial, achievements). None auto-generated this stage. |
+| **Content rating** | Complete the questionnaire (card games; no gambling with real money; optional user voice/text chat → likely *Teen*-ish, owner confirms). |
+| **Data safety** (Play) | **Account info:** email + Google user id (sign-in, friends, leaderboards). **Avatars:** user image (optional). **Microphone:** **live** voice only — **not recorded, not stored, not shared**. **Game stats.** **No ads.** **No analytics** *(declare only if it stays true — verify)*. Provide a **data-deletion** path. |
+| **Accounts** | **Google Play Console** developer account required (Scope E). |
+
 ## 7. Boundaries & non-goals
 
-**This stage (33.0):** design only — this document. **No** native project, **no** dependency, **no**
-build-script change, **no** store submission, **no** runtime app code change, **no** version bump.
+**This stage (33.0 design / 33.1 readiness):** docs + a manifest/index copy fix + an `assetlinks.example`
+template + guard tests. **No** native project, Bubblewrap scaffold, AAB/APK, dependency, DB/server change,
+real `assetlinks.json`, iOS work, or version bump.
 
 **Not chosen (and why):** Capacitor/RN as the *first* wrapper — they'd re-solve OAuth/cookies/mic that a
 TWA gets free, for a bigger surface. They stay the **iOS/future** path (33.4+), evaluated on merit.
