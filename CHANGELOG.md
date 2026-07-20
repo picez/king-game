@@ -9,13 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-### Docs
+### Added
 
-- **Achievements expansion designed (Stage 32.0, design-only).** Added
-  [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) — an implementation-ready plan to grow the badge set
-  across all 6 games (a first wave of ~15 new badges, 14→29) still **derived from existing stats only**,
-  with no DB migration, no new stats field, and no server/social/private data. No runtime change ships
-  in this stage.
+- **More achievements (Stage 32.1).** The Profile **Achievements** grid grows from **14 to 29** badges —
+  every game that lacked a basic "won a game" badge now has one (**Deberc / Tarneeb / Preferans / 51**),
+  plus play-count and win-count depth badges, a **Sharp Bidder** skill badge (70% Tarneeb contract
+  success over a real sample), and two global milestones (**Six-Game Regular** — play every game; and
+  **Champion's Circle** — 25 total wins). A new **Uncommon** rarity tier joins Common/Rare/Epic. Every
+  badge is still **derived purely from your existing stats** — no DB migration, no new tracking, no
+  server push, and All-Rounder is unchanged (still a win in all six games). English, Ukrainian, German
+  and Arabic. Designed in [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) (Stage 32.0).
 
 ## [0.4.0] — 2026-07-20 — Tutorials and final rule polish
 

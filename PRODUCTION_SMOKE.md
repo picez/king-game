@@ -393,6 +393,10 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] Profile → **My stats** → that game shows a non-empty record; **Leaderboard** lists
       your row (highlighted "you"). (Bot games / no Postgres → empty is expected.)
 - [ ] Profile → **Achievements** → at least "First Win" is earned after a win.
+- [ ] **Achievements expansion (Stage 32.1):** the grid shows **29** badges (dynamic `n/29` count) at
+      **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
+      Tarneeb Pairs / Preferans / 51** the game's new **winner** badge turns gold; **All-Rounder** still
+      needs a win in all six games. **Uncommon** badges render with a green accent.
 
 ## 8. Avatars
 

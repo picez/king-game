@@ -13,7 +13,7 @@
 import type { GameType } from '../games/catalog';
 import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats } from '../net/statsApi';
 
-export type Rarity = 'common' | 'rare' | 'epic';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
 /**
  * A combined snapshot of the user's per-game stats. Any game may be `null` when
@@ -77,7 +77,23 @@ function wonEveryGame(a: AllStats): boolean {
     && won(a.tarneeb) >= 1 && won(a.preferans) >= 1 && won(a.fiftyOne) >= 1;
 }
 
-// ── the catalog (14 badges, spread across games + rarities) ──────────────────
+/** True when the user has PLAYED at least one game of every canonical game (Stage 32.1). */
+function playedEveryGame(a: AllStats): boolean {
+  return played(a.king) >= 1 && played(a.durak) >= 1 && played(a.deberc) >= 1
+    && played(a.tarneeb) >= 1 && played(a.preferans) >= 1 && played(a.fiftyOne) >= 1;
+}
+
+/** Whether a game's contract-success is ≥ `pct` over a MINIMUM decided sample (anti-fluke). */
+function contractSkill(
+  s: { contractsMade: number; contractsFailed: number; contractSuccessRate: number | null } | null,
+  pct: number, minDecided: number,
+): boolean {
+  if (!s) return false;
+  const decided = s.contractsMade + s.contractsFailed;
+  return decided >= minDecided && (s.contractSuccessRate ?? 0) >= pct;
+}
+
+// ── the catalog (29 badges: the original 14 + the Stage 32.1 expansion) ──────
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -137,6 +153,77 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'deberc-jackpot', titleKey: 'ach.debercJackpot.title', descriptionKey: 'ach.debercJackpot.desc',
     icon: '💰', gameType: 'deberc', rarity: 'epic', evaluate: (s) => (s.deberc ? s.deberc.jackpotCount : 0) >= 1,
+  },
+
+  // ── Stage 32.1 expansion (ACHIEVEMENTS_PLAN.md §4) — 15 derived badges ──────
+  // Global
+  {
+    id: 'six-game-regular', titleKey: 'ach.sixGameRegular.title', descriptionKey: 'ach.sixGameRegular.desc',
+    icon: '🎲', rarity: 'uncommon', evaluate: playedEveryGame,
+  },
+  {
+    id: 'champions-circle', titleKey: 'ach.championsCircle.title', descriptionKey: 'ach.championsCircle.desc',
+    icon: '🏆', rarity: 'rare', evaluate: (s) => totalWins(s) >= 25,
+  },
+  // King
+  {
+    id: 'king-regular', titleKey: 'ach.kingRegular.title', descriptionKey: 'ach.kingRegular.desc',
+    icon: '♚', gameType: 'king', rarity: 'common', evaluate: (s) => played(s.king) >= 10,
+  },
+  {
+    id: 'king-champion', titleKey: 'ach.kingChampion.title', descriptionKey: 'ach.kingChampion.desc',
+    icon: '🏰', gameType: 'king', rarity: 'rare', evaluate: (s) => won(s.king) >= 10,
+  },
+  // Durak
+  {
+    id: 'durak-defender', titleKey: 'ach.durakDefender.title', descriptionKey: 'ach.durakDefender.desc',
+    icon: '🛡️', gameType: 'durak', rarity: 'uncommon', evaluate: (s) => won(s.durak) >= 5,
+  },
+  {
+    id: 'durak-regular', titleKey: 'ach.durakRegular.title', descriptionKey: 'ach.durakRegular.desc',
+    icon: '🔁', gameType: 'durak', rarity: 'common', evaluate: (s) => played(s.durak) >= 10,
+  },
+  // Deberc — fills the missing basic Deberc win badge, plus a combination-depth badge.
+  {
+    id: 'deberc-winner', titleKey: 'ach.debercWinner.title', descriptionKey: 'ach.debercWinner.desc',
+    icon: '🏵️', gameType: 'deberc', rarity: 'common', evaluate: (s) => won(s.deberc) >= 1,
+  },
+  {
+    id: 'deberc-terz-collector', titleKey: 'ach.debercTerzCollector.title', descriptionKey: 'ach.debercTerzCollector.desc',
+    icon: '📇', gameType: 'deberc', rarity: 'uncommon', evaluate: (s) => (s.deberc ? s.deberc.combinations.terz : 0) >= 10,
+  },
+  // Tarneeb (PAIRS — canonical `tarneeb`, never the separate solo dimension).
+  {
+    id: 'tarneeb-winner', titleKey: 'ach.tarneebWinner.title', descriptionKey: 'ach.tarneebWinner.desc',
+    icon: '♠️', gameType: 'tarneeb', rarity: 'common', evaluate: (s) => won(s.tarneeb) >= 1,
+  },
+  {
+    id: 'tarneeb-sharp-bidder', titleKey: 'ach.tarneebSharpBidder.title', descriptionKey: 'ach.tarneebSharpBidder.desc',
+    icon: '🎯', gameType: 'tarneeb', rarity: 'rare', evaluate: (s) => contractSkill(s.tarneeb, 70, 10),
+  },
+  // Preferans — fills the missing basic Preferans win badge, plus a contract-volume badge.
+  {
+    id: 'preferans-winner', titleKey: 'ach.preferansWinner.title', descriptionKey: 'ach.preferansWinner.desc',
+    icon: '🏅', gameType: 'preferans', rarity: 'common', evaluate: (s) => won(s.preferans) >= 1,
+  },
+  {
+    id: 'preferans-contract-regular', titleKey: 'ach.preferansContractRegular.title', descriptionKey: 'ach.preferansContractRegular.desc',
+    icon: '📜', gameType: 'preferans', rarity: 'uncommon', evaluate: (s) => (s.preferans ? s.preferans.contractsMade : 0) >= 10,
+  },
+  // 51
+  {
+    id: 'fifty-one-regular', titleKey: 'ach.fiftyOneRegular.title', descriptionKey: 'ach.fiftyOneRegular.desc',
+    icon: '🧧', gameType: 'fifty-one', rarity: 'common', evaluate: (s) => played(s.fiftyOne) >= 10,
+  },
+  {
+    id: 'fifty-one-champion', titleKey: 'ach.fiftyOneChampion.title', descriptionKey: 'ach.fiftyOneChampion.desc',
+    icon: '🏮', gameType: 'fifty-one', rarity: 'rare', evaluate: (s) => won(s.fiftyOne) >= 5,
+  },
+  {
+    // bestPenalty is the LOWEST final running penalty across games (lower is better).
+    id: 'fifty-one-low-penalty', titleKey: 'ach.fiftyOneLowPenalty.title', descriptionKey: 'ach.fiftyOneLowPenalty.desc',
+    icon: '🧊', gameType: 'fifty-one', rarity: 'uncommon',
+    evaluate: (s) => s.fiftyOne != null && s.fiftyOne.bestPenalty != null && s.fiftyOne.bestPenalty <= 50,
   },
 ] as const;
 

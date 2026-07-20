@@ -1,9 +1,9 @@
 # Achievements Expansion — Design Plan (Stage 32.0)
 
-> **STATUS: DESIGN ONLY.** This is an implementation-ready plan to grow the achievement set across all
-> **6 games**. It ships **no runtime code, no new badges in the catalog, no DB migration, and no new
-> stats fields** — it is the blueprint Stage 32.1 follows. When the build starts, code follows this doc;
-> if the two disagree, update this doc first (deliberately).
+> **STATUS: FIRST WAVE SHIPPED (Stage 32.1).** The §4 subset — **15 new derived badges** (catalog
+> **14 → 29**) — is implemented in `src/stats/achievements.ts` with i18n ×4 and tests. This doc stays
+> the source of truth for the design; if code and doc disagree, update this doc first. The remaining
+> ✅ badges (§3, held) and ❌ badges (need a new stat field) stay for later waves.
 
 The achievement system is a **pure, derived-from-stats** catalog (`src/stats/achievements.ts`): every
 badge is a **null-safe boolean predicate over the read-only aggregate stats** the Profile already
@@ -189,9 +189,9 @@ tarneeb-target-climber, fifty-one-quick-opener, fifty-one-joker-trader (+ any st
 
 ---
 
-## 4. Recommended first-implementation subset — Stage 32.1 (Scope D)
+## 4. First-implementation subset — Stage 32.1 (Scope D) — ✅ SHIPPED
 
-**Ship 15 new badges** (all ✅ available, no migration, no tutorial progress, no event history). Chosen
+**Shipped 15 new badges** (all ✅ available, no migration, no tutorial progress, no event history). Chosen
 so **every game gains its missing basic win badge** (Deberc/Tarneeb/Preferans/51 have none today) plus
 one regular/skill badge, with two global milestones — balanced and non-grindy:
 

@@ -147,6 +147,7 @@
 .ach-badge--locked { opacity: 0.66; }
 .ach-badge--locked .ach-badge__title { color: var(--text-muted); }
 /* Rarity accent (only meaningful once earned): a coloured left rail. */
+.ach-badge--earned.ach-badge--uncommon { box-shadow: var(--top-light), inset 3px 0 0 #4caf6d; }
 .ach-badge--earned.ach-badge--rare { box-shadow: var(--top-light), inset 3px 0 0 #5aa0ff; }
 .ach-badge--earned.ach-badge--epic { box-shadow: var(--top-light), inset 3px 0 0 #c07bff; }
 .ach-empty { margin: 0; }
@@ -194,6 +195,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ach-toast__rarity { font-size: 0.7rem; color: var(--text-muted); }
+.ach-toast__rarity--uncommon { color: #4caf6d; }
 .ach-toast__rarity--rare { color: #5aa0ff; }
 .ach-toast__rarity--epic { color: #c07bff; }
 .ach-toast__actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; }

@@ -43,17 +43,20 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 8–14 badges with unique ids', () => {
-    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(8);
-    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(14);
+  it('has 29 badges with unique ids (14 original + 15 in the Stage 32.1 expansion)', () => {
+    expect(ACHIEVEMENTS.length).toBe(29);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
+    // The expansion's basic per-game win badges (Deberc/Tarneeb/Preferans previously had none).
+    for (const id of ['deberc-winner', 'tarneeb-winner', 'preferans-winner', 'six-game-regular']) {
+      expect(ids).toContain(id);
+    }
   });
 
   it('every badge has a valid rarity, an icon, and a game scope in the catalog', () => {
     for (const a of ACHIEVEMENTS) {
-      expect(['common', 'rare', 'epic']).toContain(a.rarity);
+      expect(['common', 'uncommon', 'rare', 'epic']).toContain(a.rarity);
       expect(a.icon.length).toBeGreaterThan(0);
       if (a.gameType) expect(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']).toContain(a.gameType);
     }
@@ -74,6 +77,25 @@ describe('achievements catalog', () => {
     for (const key of ['profile.achievements', 'ach.progress', 'ach.emptyLocked']) {
       expect(EN[key as keyof typeof EN], key).toBeTruthy();
     }
+  });
+});
+
+describe('achievements module is pure (derived from AllStats only)', () => {
+  const src = readFileSync(join(process.cwd(), 'src/stats/achievements.ts'), 'utf8');
+  it('imports no runtime net/server/db/ws and runs no fetch/reducer', () => {
+    const importLines = src.split('\n').filter((l) => l.trimStart().startsWith('import'));
+    for (const line of importLines) {
+      // A `import type … from '../net/statsApi'` (types only) is allowed; a runtime import is not.
+      if (/^import\s+type\b/.test(line.trimStart())) continue;
+      expect(line, line).not.toMatch(/\/(net|server|db)\/|\bws\b|serverCore|wsHandlers/);
+    }
+    expect(src).not.toMatch(/fetch\(|Reducer\(|Math\.random/);
+  });
+  it('every evaluator is a pure predicate over AllStats (no side effects in the catalog)', () => {
+    // Structural: every badge exposes an `evaluate` function; running the whole catalog twice over
+    // the same snapshot yields identical results (deterministic, no hidden state).
+    const snap: AllStats = { ...zero(), king: king({ gamesWon: 3, gamesPlayed: 12 }) };
+    expect(evaluateAchievements(snap).map((r) => r.earned)).toEqual(evaluateAchievements(snap).map((r) => r.earned));
   });
 });
 
@@ -113,6 +135,31 @@ describe('each badge has a positive + negative case', () => {
     { id: 'deberc-meld-maker', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 10, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 9, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) } },
     { id: 'deberc-bella', earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 1, total: 1, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: zero() },
     { id: 'deberc-jackpot', earn: { ...zero(), deberc: deberc({ jackpotCount: 1 }) }, lock: { ...zero(), deberc: deberc({ jackpotCount: 0, gamesWon: 3 }) } },
+    // ── Stage 32.1 expansion ──────────────────────────────────────────────────
+    {
+      id: 'six-game-regular',
+      earn: { king: king({ gamesPlayed: 1 }), durak: durak({ gamesPlayed: 1 }), deberc: deberc({ gamesPlayed: 1 }), tarneeb: tarneeb({ gamesPlayed: 1 }), preferans: preferans({ gamesPlayed: 1 }), fiftyOne: fiftyOne({ gamesPlayed: 1 }) },
+      lock: { king: king({ gamesPlayed: 1 }), durak: durak({ gamesPlayed: 1 }), deberc: deberc({ gamesPlayed: 1 }), tarneeb: tarneeb({ gamesPlayed: 1 }), preferans: preferans({ gamesPlayed: 0 }), fiftyOne: fiftyOne({ gamesPlayed: 1 }) },
+    },
+    { id: 'champions-circle', earn: { ...zero(), king: king({ gamesWon: 25 }) }, lock: { ...zero(), king: king({ gamesWon: 24 }) } },
+    { id: 'king-regular', earn: { ...zero(), king: king({ gamesPlayed: 10 }) }, lock: { ...zero(), king: king({ gamesPlayed: 9 }) } },
+    { id: 'king-champion', earn: { ...zero(), king: king({ gamesWon: 10 }) }, lock: { ...zero(), king: king({ gamesWon: 9 }) } },
+    { id: 'durak-defender', earn: { ...zero(), durak: durak({ gamesWon: 5 }) }, lock: { ...zero(), durak: durak({ gamesWon: 4 }) } },
+    { id: 'durak-regular', earn: { ...zero(), durak: durak({ gamesPlayed: 10 }) }, lock: { ...zero(), durak: durak({ gamesPlayed: 9 }) } },
+    { id: 'deberc-winner', earn: { ...zero(), deberc: deberc({ gamesWon: 1 }) }, lock: { ...zero(), deberc: deberc({ gamesWon: 0, gamesPlayed: 4 }) } },
+    { id: 'deberc-terz-collector', earn: { ...zero(), deberc: deberc({ combinations: { terz: 10, platina: 0, bella: 0, total: 10, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) }, lock: { ...zero(), deberc: deberc({ combinations: { terz: 9, platina: 0, bella: 0, total: 9, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) } },
+    { id: 'tarneeb-winner', earn: { ...zero(), tarneeb: tarneeb({ gamesWon: 1 }) }, lock: { ...zero(), tarneeb: tarneeb({ gamesWon: 0, gamesPlayed: 4 }) } },
+    {
+      // Skill badge: earned at ≥70% over ≥10 decided; LOCKED at a perfect but tiny sample (1/1) — anti-fluke.
+      id: 'tarneeb-sharp-bidder',
+      earn: { ...zero(), tarneeb: tarneeb({ contractsMade: 8, contractsFailed: 2, contractSuccessRate: 80 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ contractsMade: 1, contractsFailed: 0, contractSuccessRate: 100 }) },
+    },
+    { id: 'preferans-winner', earn: { ...zero(), preferans: preferans({ gamesWon: 1 }) }, lock: { ...zero(), preferans: preferans({ gamesWon: 0, gamesPlayed: 4 }) } },
+    { id: 'preferans-contract-regular', earn: { ...zero(), preferans: preferans({ contractsMade: 10 }) }, lock: { ...zero(), preferans: preferans({ contractsMade: 9 }) } },
+    { id: 'fifty-one-regular', earn: { ...zero(), fiftyOne: fiftyOne({ gamesPlayed: 10 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ gamesPlayed: 9 }) } },
+    { id: 'fifty-one-champion', earn: { ...zero(), fiftyOne: fiftyOne({ gamesWon: 5 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ gamesWon: 4 }) } },
+    { id: 'fifty-one-low-penalty', earn: { ...zero(), fiftyOne: fiftyOne({ bestPenalty: 50 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ bestPenalty: 51 }) } },
   ];
 
   it('covers every catalog badge', () => {
@@ -157,6 +204,47 @@ describe('Tarneeb Soloist is isolated from Pairs / All-Rounder / aggregates (Sta
     expect(earnedId({ ...zero(), tarneebSolo: tarneeb({ gamesWon: 1 }) }, 'tarneeb-soloist')).toBe(true);
     expect(earnedId(zero(), 'tarneeb-soloist')).toBe(false);           // undefined tarneebSolo
     expect(earnedId({ king: null, durak: null, deberc: null, tarneeb: null, preferans: null, fiftyOne: null }, 'tarneeb-soloist')).toBe(false);
+  });
+
+  it('Tarneeb PAIRS win badge reads canonical `tarneeb`, not the solo dimension', () => {
+    // A solo-only win does not earn the Pairs win badge; a pairs win does.
+    expect(earnedId({ ...zero(), tarneebSolo: tarneeb({ gamesWon: 3 }) }, 'tarneeb-winner')).toBe(false);
+    expect(earnedId({ ...zero(), tarneeb: tarneeb({ gamesWon: 1 }) }, 'tarneeb-winner')).toBe(true);
+  });
+});
+
+describe('Stage 32.1 expansion — aggregates + All-Rounder stay unchanged', () => {
+  it('Six-Game Regular needs PLAYING each game (distinct from All-Rounder, which needs a WIN in each)', () => {
+    // Played every game once but won NONE → Six-Game Regular earned, All-Rounder locked.
+    const playedOnly: AllStats = {
+      king: king({ gamesPlayed: 1 }), durak: durak({ gamesPlayed: 1 }), deberc: deberc({ gamesPlayed: 1 }),
+      tarneeb: tarneeb({ gamesPlayed: 1 }), preferans: preferans({ gamesPlayed: 1 }), fiftyOne: fiftyOne({ gamesPlayed: 1 }),
+    };
+    expect(earnedId(playedOnly, 'six-game-regular')).toBe(true);
+    expect(earnedId(playedOnly, 'all-rounder')).toBe(false);
+  });
+
+  it('the new play/win-count badges do NOT change totalWins / totalGames semantics', () => {
+    // totalWins/totalGames are still the plain sums of the six canonical games' counters.
+    const s: AllStats = {
+      king: king({ gamesWon: 2, gamesPlayed: 5 }), durak: durak({ gamesWon: 3, gamesPlayed: 8 }),
+      deberc: deberc({ gamesWon: 1, gamesPlayed: 4 }), tarneeb: tarneeb({ gamesWon: 4, gamesPlayed: 10 }),
+      preferans: preferans({ gamesWon: 0, gamesPlayed: 2 }), fiftyOne: fiftyOne({ gamesWon: 5, gamesPlayed: 11 }),
+      tarneebSolo: tarneeb({ gamesWon: 9, gamesPlayed: 20 }), // solo excluded
+    };
+    expect(totalWins(s)).toBe(2 + 3 + 1 + 4 + 0 + 5);        // 15 (solo not counted)
+    expect(totalGames(s)).toBe(5 + 8 + 4 + 10 + 2 + 11);     // 40 (solo not counted)
+  });
+
+  it('earning many new game-specific badges never earns All-Rounder without a win in every game', () => {
+    // Lots of plays + some wins, but zero Preferans wins → All-Rounder stays locked.
+    const s: AllStats = {
+      king: king({ gamesPlayed: 10, gamesWon: 10 }), durak: durak({ gamesPlayed: 10, gamesWon: 5 }),
+      deberc: deberc({ gamesPlayed: 10, gamesWon: 1 }), tarneeb: tarneeb({ gamesPlayed: 10, gamesWon: 1 }),
+      preferans: preferans({ gamesPlayed: 10, gamesWon: 0 }), fiftyOne: fiftyOne({ gamesPlayed: 10, gamesWon: 5 }),
+    };
+    expect(earnedId(s, 'king-champion')).toBe(true);   // a new badge is earned…
+    expect(earnedId(s, 'all-rounder')).toBe(false);    // …but All-Rounder is unaffected
   });
 });
 

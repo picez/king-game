@@ -228,8 +228,8 @@ documented as post-MVP, not built. Spec + plan:
   read tolerantly, recomputable via `rebuildUserStats`). **No gameplay/rules/
   scoring change.** See [`ARCHITECTURE_DB_AUTH.md`](ARCHITECTURE_DB_AUTH.md)
   §3 Stage 5/5.1/5.2.
-- **Achievements / badges foundation (Stage 16.0; +1 in 28.6)**: a Profile **Achievements**
-  tab (4th tab, next to Account / My stats / Leaderboard) showing **14** badges in a
+- **Achievements / badges foundation (Stage 16.0; +1 in 28.6; +15 in 32.1)**: a Profile **Achievements**
+  tab (4th tab, next to Account / My stats / Leaderboard) showing **29** badges in a
   compact grid — earned = gold coin, locked = muted padlock with the goal still
   shown. Badges are a **pure client-side catalog** (`src/stats/achievements.ts`,
   `evaluateAchievements(AllStats)`) **derived entirely from the existing per-game
@@ -241,14 +241,14 @@ documented as post-MVP, not built. Spec + plan:
   **Soloist (Stage 28.6 — win a Tarneeb Solo; reads the separate `tarneeb-solo`
   stats)**, Preferans Declarer, **51 Winner (Stage 30.7 — win a game of 51)**,
   Deberc Meld Maker (10) / Bella / Jackpot. i18n ×4.
-  - **Expansion designed (Stage 32.0, design-only)** — [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md):
-    an implementation-ready plan for **~15 new badges** (Stage 32.1 subset, 14→29) still **derived from
-    existing stats only** — a basic win badge for every game that lacks one (Deberc/Tarneeb/Preferans/51),
-    play-N / win-N depth badges, a min-sample contract-success skill badge, and global milestones
-    (Six-Game Regular, Champion's Circle 25 wins). Adds an `uncommon` rarity tier. **No DB migration,
-    no new stats field, no tutorial-progress/social/private data**; All-Rounder and the aggregates stay
-    unchanged. Deferred ideas (streaks, exact-bid, Deberc solo/pairs split, 51 quick-open/joker-trade,
-    Tutorial Graduate) each wait for a new stat field.
+  - **Expansion shipped (Stage 32.1)** — [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4: **+15 new
+    badges (14→29)**, still **derived from existing stats only** — a basic win badge for every game that
+    lacked one (Deberc/Tarneeb/Preferans/51), play-N / win-N depth badges, a **min-sample** contract-
+    success skill badge (≥70% over ≥10 decided), and global milestones (Six-Game Regular = played each,
+    Champion's Circle = 25 total wins). Adds an `uncommon` rarity tier. **No DB migration, no new stats
+    field, no tutorial-progress/social/private data**; All-Rounder and the aggregates are **unchanged**.
+    Deferred ideas (streaks, exact-bid, Deberc solo/pairs split, 51 quick-open/joker-trade, Tutorial
+    Graduate) each still wait for a new stat field.
 - **Achievement unlock toast (Stage 16.1)**: a compact, non-blocking
   "Achievement unlocked" toast surfaced **only on the Profile screen after the
   stats resolve** — never during active gameplay, never over cards/hands. A

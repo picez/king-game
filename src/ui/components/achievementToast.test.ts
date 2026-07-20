@@ -11,7 +11,7 @@ const store = read('src/stats/achievementsSeen.ts');
 
 const NEW_KEYS = [
   'ach.unlocked', 'ach.new', 'ach.more', 'ach.next',
-  'ach.rarity.common', 'ach.rarity.rare', 'ach.rarity.epic',
+  'ach.rarity.common', 'ach.rarity.uncommon', 'ach.rarity.rare', 'ach.rarity.epic',
 ];
 
 describe('i18n parity — unlock-toast keys in every language', () => {

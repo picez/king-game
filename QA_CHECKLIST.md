@@ -762,20 +762,27 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — Achievements / badges (Stage 16.0)
 
-> A Profile **Achievements** tab shows **14** badges derived **purely from the existing
-> per-game stats** — no DB writes, no server route, no popups. Earned = gold coin,
-> locked = muted padlock (goal still shown). **Expansion planned** (Stage 32.0 design →
-> [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md); ~15 more stats-derived badges land in Stage 32.1).
+> A Profile **Achievements** tab shows **29** badges (Stage 32.1 expansion, was 14) derived **purely
+> from the existing per-game stats** — no DB writes, no server route, no popups. Earned = gold coin,
+> locked = muted padlock (goal still shown). See [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md).
 
-- [ ] **Profile → Achievements:** the badge grid renders at **360/390** with no
-      horizontal overflow; **RTL (Arabic)** mirrors cleanly.
-- [ ] **Locked state:** a fresh account (no games) shows every badge locked (padlocks)
-      + the "Play games to unlock badges." hint; signed-out shows the sign-in hint.
-- [ ] **Earned state (DB configured):** after winning a game, **First Win** (and the
-      relevant per-game badge) flip to gold; the `n/total unlocked` counter updates.
-- [ ] **(Stage 32.1 placeholder — not built yet)** when the expansion ships, re-verify the grid still
-      fits 360/390 + RTL with the larger badge count, and that each game's new **win** badge unlocks on
-      a first win.
+> **Note:** the *populated* grid needs a **DB-backed environment** (auth + stats API) — a static
+> `vite preview` leaves the panel in its loading/sign-in state, so grid QA is done against a real deploy.
+> The grid is a responsive `auto-fill minmax(9rem,1fr)` with a **dynamic** `n/total` count (no hard-coded
+> "14"/"29"), so a larger badge count cannot cause horizontal overflow.
+
+- [ ] **Profile → Achievements:** the **29-badge** grid renders at **360/390** with no horizontal
+      overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of 29.
+- [ ] **Locked state:** a fresh account (no games) shows every badge locked (padlocks) + the "Play games
+      to unlock badges." hint; signed-out shows the sign-in hint.
+- [ ] **New win badges (Stage 32.1):** after a first win in **Deberc / Tarneeb Pairs / Preferans / 51**,
+      the game's new **winner** badge flips to gold (these games had no basic win badge before).
+- [ ] **Depth + skill badges:** play-N badges (King Regular, Durak Regular, 51 Regular = 10 games) and
+      win-N badges (King Champion = 10, 51 Champion = 5) unlock at their thresholds; **Sharp Bidder**
+      stays **locked** until the decided-sample minimum (≥10) is met even at 100% success. **Uncommon**
+      badges show a green accent.
+- [ ] **Aggregates unchanged:** All-Rounder still needs a win in **all six** games; the new play/win
+      badges never earn it on their own, and `n/total` reflects 29.
 
 ## Manual — Achievement unlock toast (Stage 16.1)
 
