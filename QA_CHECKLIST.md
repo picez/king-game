@@ -887,6 +887,16 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — PWA / mobile
 
+> **Native app QA — placeholder (Stage 33.0 design → [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md); NOT
+> built yet).** When the **Android TWA** lands (Stage 33.2/33.3), run this mobile smoke on a **physical
+> Android** device from a **signed build**: (a) launches full-screen standalone from the store install;
+> (b) **Google sign-in** completes (TWA uses Chrome — OAuth must not be blocked); (c) create/join an
+> **online room** over `wss://…/ws`; (d) **voice** — mic permission prompt, two-device audio (TURN for
+> cross-network); (e) an **invite link `https://…/?room=CODE`** opens the app (app-links) and joins;
+> (f) **install/update** — a web deploy surfaces the "Update available" refresh; (g) 360/390 layouts +
+> **Arabic RTL** with no horizontal overflow. Verify `assetlinks.json` matches the **Play app-signing**
+> SHA-256. iOS stays PWA add-to-home-screen until the 33.4 decision.
+
 > Install / update / offline UX = Stage 21.0. Banners are a progressive enhancement:
 > the install card only shows when Chrome fires `beforeinstallprompt`; the update pill
 > only when the service worker has a WAITING new version; the offline pill only when

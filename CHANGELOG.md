@@ -9,7 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Docs
+
+- **Mobile app strategy designed (Stage 33.0, design-only).** Added
+  [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) — an audit of four paths to Android/iOS apps and a
+  recommendation: **Android-first via a Trusted Web Activity** wrapping the production PWA (the Chrome
+  engine keeps Google login, cookies and voice behaving exactly as on the web), with **iOS staying a PWA**
+  until a later decision. Includes a feature-compatibility matrix, security/privacy + store-disclosure
+  notes, store prerequisites, a technical-readiness checklist, and a staged rollout (33.1–33.5). No
+  runtime change, no native project, no dependency.
 
 ## [0.4.1] — 2026-07-20 — Achievements expansion
 
