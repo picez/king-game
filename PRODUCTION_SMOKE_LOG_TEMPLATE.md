@@ -102,6 +102,9 @@ try { iwr "$H/cards/faces/spades-a.png" -Headers @{ 'If-None-Match' = $et } -Use
 | Preferans | ☐ | ☐ | ☐ | |
 | 51 (Syrian 51) | ☐ | ☐ | ☐ | |
 
+- [ ] **Tarneeb target score**: host picks **🎯 41/61/101** → lobby line shows `· 🎯 n`; the match ends at
+      that total; legacy client (no target) → **41**; rematch keeps it (Pairs **and** Solo). — …
+
 ## 8. 51 rule smoke (§5b)
 
 - [ ] **Open once per round**, ≥51 to open; after opening, lay further melds. — …
