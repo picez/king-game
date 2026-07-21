@@ -12,7 +12,7 @@ upload are live — **without** reading the full deployment docs.
   a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.5`** (tag `v0.4.5`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.6`** (tag `v0.4.6`).
 
 Set your host once and reuse it below:
 
@@ -28,35 +28,44 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.5 adds no migrations** — 0009 is still the latest. v0.4.5 is the **owner smoke guide** (Stage
-> 35.0): a **docs-only** patch adding `OWNER_SMOKE_GUIDE.md` (a short live-testing + bug-report how-to).
-> **No native app, no APK/AAB/keystore, no dependency, no schema change, and no runtime change** (the
-> web-only iOS install hint shipped in v0.4.2; the Android TWA build tooling in v0.4.3). The v0.4.1
-> **Achievements expansion** (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are
-> intact. The v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.6 adds no migrations** — 0009 is still the latest. v0.4.6 is **Android TWA debug build readiness**
+> (Stages 33.13–33.14): a **config + docs** patch — a one-line `android-twa/twa-manifest.json` fix
+> (`splashScreenFadeOutDuration`) that **unblocks** the TWA **debug** build, an emulator-run evidence doc,
+> and a `check-env.ps1` that detects an off-`PATH` Android Studio JBR/SDK. **No native app is shipped, no
+> APK/AAB/keystore/generated project committed, no dependency, no schema change, and no runtime change**
+> (the debug build opens as a **Custom Tab** until real Asset Links). The v0.4.1 **Achievements expansion**
+> (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are intact. The v0.3.7 Syrian
+> 51 release records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.5 release smoke (fast targeted pass — owner smoke guide)
+## 0. v0.4.6 release smoke (fast targeted pass — Android TWA debug build readiness)
 
-v0.4.5 is a **docs-only** patch (Stage 35.0): it adds [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md), a
-short 20–30 min live-testing + bug-report how-to. **No native app, no schema change, and no runtime
-change** (the iOS install hint shipped in v0.4.2; Android TWA build tooling in v0.4.3). The released
-six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact — so this §0 pass doubles as the
-owner's **full pre-live production smoke**.
+v0.4.6 is a **config + docs** patch (Stages 33.13–33.14): a one-line `android-twa/twa-manifest.json` fix
+(`splashScreenFadeOutDuration`) that **unblocks** the Android TWA **debug** build, an emulator-run evidence
+doc, and a `check-env.ps1` that detects an off-`PATH` Android Studio JBR/SDK. **No native app is shipped,
+no schema change, and no runtime change.** The released six-game state, v0.4.2 iOS hint, and v0.4.1
+achievements are intact — so this §0 pass doubles as the owner's **full pre-live production smoke**.
 
 > **Testing status:** the **public/unauthenticated** checks (§1 of the log template) were **green on
 > v0.4.4** (diagnostics/static/manifest — Stage 34.2). The **login/device/mic-gated manual smoke is still
-> owner-required for v0.4.5** — walk [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) and record results in
+> owner-required** — walk [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) and record results in
 > [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md).
+
+> **Android TWA (Stages 33.12–33.14):** the **debug** APK is **verified to build + run** in an emulator
+> (`bubblewrap update` → `gradlew assembleDebug` → the app loads the prod PWA) — see
+> [`android-twa/DEBUG_BUILD_EVIDENCE.md`](android-twa/DEBUG_BUILD_EVIDENCE.md). It opens as a **Custom Tab**
+> (URL bar) until a real `assetlinks.json` — full-screen needs a **custom domain + Play App-Signing
+> SHA-256** ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) §9). `android-twa/check-env.ps1` now **detects** an
+> Android Studio JBR/SDK that isn't on `PATH` and prints the `JAVA_HOME`/`ANDROID_HOME` to set.
 
 Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements
 §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.5`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.6`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.5 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.6 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
@@ -566,16 +575,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] **Installability:** Lighthouse/DevTools → *Application → Manifest* shows no installability errors;
       the app installs and launches standalone (the TWA reuses exactly this).
 
-### 10b. Android TWA scaffold + build runbook + owner triage (Stage 33.2/33.3/33.8 — config-only, no app built)
+### 10b. Android TWA scaffold + build runbook + owner triage (Stages 33.2–33.14 — config-only, no app shipped)
 
-> The TWA config scaffold + owner build runbook + build-log template live at [`android-twa/`](android-twa/).
-> The native Gradle project/APK/AAB is **not** generated (toolchain absent — `check-env.ps1` reports the JDK
-> gap). Full first-run device checklist: [`QA_CHECKLIST.md`](QA_CHECKLIST.md) "Manual — PWA / mobile →
-> Android TWA first run".
+> The TWA config scaffold + owner build runbook + build-log/triage tooling live at
+> [`android-twa/`](android-twa/). The **debug** APK is **verified to build + run in an emulator** (Stages
+> 33.12–33.14, [`android-twa/DEBUG_BUILD_EVIDENCE.md`](android-twa/DEBUG_BUILD_EVIDENCE.md)) — it opens as a
+> **Custom Tab** until real Asset Links. The **generated Gradle project / APK / keystore stay git-ignored**
+> (never committed). Full first-run device checklist: [`QA_CHECKLIST.md`](QA_CHECKLIST.md) "Manual — PWA /
+> mobile → Android TWA first run".
 
-- [ ] **Scaffold hygiene:** `git ls-files android-twa` lists only `twa-manifest.json`, `check-env.ps1`,
-      `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no** `app/`, `gradlew`, `*.gradle`, `*.apk`,
-      `*.aab`, or `*.keystore` (guarded by `src/pwa.test.ts`).
+- [ ] **Scaffold hygiene:** `git ls-files android-twa` lists only the committed scaffold —
+      `twa-manifest.json`, `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`,
+      `BUILD_LOG_TEMPLATE.md`, `DEBUG_BUILD_EVIDENCE.md` — **no** `app/`, `gradlew`, `*.gradle`, `*.apk`,
+      `*.aab`, `*.keystore`, `emulator-*.png`, or `manifest-checksum.txt` (guarded by `src/pwa.test.ts`).
 - [ ] **Config matches manifest:** `twa-manifest.json` `packageId` = `com.cardmajlis.app`, `host`/`startUrl`
       / theme `#0d4f28` / `standalone` / `portrait` / icons match `public/manifest.webmanifest` and
       `assetlinks.example.json` (guarded by `src/pwa.test.ts`).

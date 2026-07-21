@@ -5,9 +5,12 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.4.5`** (owner smoke guide — a **docs-only** patch adding
-`OWNER_SMOKE_GUIDE.md`, a short 20–30 min live-testing + bug-report how-to (the detailed PASS/FAIL matrix
-stays in `PRODUCTION_SMOKE_LOG_TEMPLATE.md`); no gameplay/DB/dependency/native-artifact/runtime change; on
+**Status: stable MVP — release `v0.4.6`** (Android TWA debug build readiness — a **config + docs** patch
+packaging Stages 33.13–33.14: a one-line `android-twa/twa-manifest.json` fix (`splashScreenFadeOutDuration`)
+that **unblocks** the TWA debug build, an emulator-run evidence doc, and a `check-env.ps1` that detects an
+off-`PATH` Android Studio JBR/SDK; no gameplay/DB/dependency change, no native binary committed (debug
+opens as a Custom Tab until real Asset Links); on the `v0.4.5` owner smoke guide — a **docs-only** patch
+adding `OWNER_SMOKE_GUIDE.md`, a short 20–30 min live-testing + bug-report how-to; on
 the `v0.4.4` production readiness audit — a **docs-only** patch packaging the Stage 34.0 pre-live audit
 (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" — and added
 security/privacy spot-checks to `PRODUCTION_SMOKE.md` §11); on the `v0.4.3` mobile app build readiness — a **docs + tooling**

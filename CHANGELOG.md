@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.6] — 2026-07-21 — Android TWA debug build readiness
+
+> A **config + docs** patch packaging Stages 33.13–33.14. It **unblocks and verifies** the Android TWA
+> **debug** build (a one-line `twa-manifest.json` fix), records the emulator run as evidence, and teaches
+> `check-env.ps1` to find an Android Studio toolchain that isn't on `PATH`. **No** gameplay/web-source
+> change, no DB migration (latest stays `0009`), no dependency, and **no** native binary is committed (the
+> APK / keystore / generated Gradle project / screenshots stay git-ignored). A **debug** build opens as a
+> **Custom Tab** until a real `assetlinks.json` (custom domain + Play App-Signing SHA-256) verifies the
+> origin — see [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) §9.
+
 ### Docs
 
 - **Android TWA debug build evidence (Stage 33.14).** Recorded that the Android TWA **debug APK actually
