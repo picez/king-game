@@ -805,11 +805,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 - [ ] **Profile → Achievements:** the **34-badge** catalog renders at **360/390** with no horizontal
       overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of **34**.
-- [ ] **Grouped filter (Stage 37.0):** a **styled** chip strip — **Global · King · Durak · Deberc ·
+- [ ] **Filter chips (Stage 37.2):** a **styled** chip strip — **All · Global · King · Durak · Deberc ·
       Tarneeb · Preferans · 51** (each = icon + short name + its own **earned/total**) — opens on
-      **Global** (there is **no "All" tab**) and shows **one group at a time** (never all 34). Tapping a
-      chip filters the grid. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar on
-      360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/34` count and which
+      **All**, which shows the **full 34-badge catalog** (earned + locked). Tapping **Global** or a game
+      filters to just that bucket. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar
+      on 360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/34` count and which
       badges are earned are **unchanged** by filtering.
 - [ ] **New badges (Stage 37.0):** **King** *Nothing Went Right* (minus points in all six negative
       rounds); **Deberc** *Paltina Hunter* (3 Палтіна) + *Double Declaration* (2+ combos in one hand);

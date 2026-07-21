@@ -264,9 +264,11 @@ quick-opener/joker-trader, and **Tutorial Graduate** once tutorial completion is
 
 ## 7. Stage 37.0 — grouped UX + honesty audit of the owner's requested badges
 
-**UX (shipped):** the Profile Achievements grid is now browsed **per group** — a styled filter chip strip
-(**Global · King · Durak · Deberc · Tarneeb · Preferans · 51**, each with a game icon + its own
-earned/total). **There is no "All" tab** (default = Global); the grid never shows all badges at once. The
+**UX (shipped, corrected in Stage 37.2):** the Profile Achievements grid is filtered by a styled chip strip
+— **All · Global · King · Durak · Deberc · Tarneeb · Preferans · 51**, each with an icon + its own
+earned/total. The **All** chip is first and the default; it shows the **full catalog of all 34 badges**
+(earned + locked) in catalog order. Global + each game show just their bucket. (Stage 37.0 had wrongly
+dropped the All chip and opened on Global; 37.2 restored it after owner feedback — see the note below.) The
 strip scrolls **inside itself** (styled scrollbar), so 360/390 + Arabic RTL never overflow the page.
 
 **New badges IMPLEMENTED (derived from EXISTING stats — no new fields, no migration) → catalog 29 → 34:**

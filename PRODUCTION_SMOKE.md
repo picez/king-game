@@ -29,8 +29,8 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
 > **v0.4.8 adds no migrations** — 0009 is still the latest. v0.4.8 is **achievement grouping and badge
-> expansion** (Stages 37.0–37.1): the Profile **Achievements** grid is browsed **per game** — a styled
-> filter chip strip (Global + each game, earned/total), **no "All" tab**, opens on **Global** — and the
+> expansion** (Stages 37.0–37.1, 37.2 filter fix): the Profile **Achievements** grid has a styled
+> filter chip strip — **All** (full catalog, default) then Global + each game, earned/total — and the
 > catalog grows **29 → 34** with 5 new stats-derived badges (King *Nothing Went Right*, Deberc *Paltina
 > Hunter* / *Double Declaration*, Tarneeb *In the Red* / *Overbidder*). **No gameplay-rule change, no
 > dependency, no schema change, no new stats field** (the released six-game state, v0.4.7 reconnect/resume,
@@ -41,8 +41,8 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 
 ## 0. v0.4.8 release smoke (fast targeted pass — achievement grouping and badge expansion)
 
-v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (grouped-per-game filter, no "All"
-tab) and grows the catalog **29 → 34**. **No gameplay-rule / schema / dependency / stats-field change.**
+v0.4.8 (Stages 37.0–37.1, 37.2 filter fix) reshapes the Profile **Achievements** grid (filter chip strip —
+All + Global + each game) and grows the catalog **29 → 34**. **No gameplay-rule / schema / dependency / stats-field change.**
 The released six-game state, v0.4.7 reconnect/resume, v0.4.2 iOS hint, and Tutorials are intact — so this
 §0 pass doubles as the owner's **full pre-live production smoke**. Headline manual checks (need a signed-in
 account; the carried-over cross-device one needs two devices/browsers):
@@ -54,10 +54,10 @@ account; the carried-over cross-device one needs two devices/browsers):
       a **guest** / empty account sees no block; it does not duplicate device A's local **Resume** card.
 - [ ] **5-min reconnect window (36.0):** reload/close a tab mid-game (incl. vs bots) → within **5 minutes**
       the room still exists and **Resume** returns you to your seat (was 90 s).
-- [ ] **Achievements grouped, no "All" (37.0):** Profile → Achievements opens on **Global** (there is **no
-      "All" tab**) and shows the **filter chip strip** (Global + the six games), each chip a game icon +
-      short name + its own **earned/total**; tapping a chip swaps the grid to that group (never all badges
-      at once). The strip scrolls **inside itself** (styled scrollbar, not the native OS bar), so **360/390**
+- [ ] **Achievements filter chips (37.2):** Profile → Achievements opens on **All** (the full 34-badge
+      catalog, earned + locked) and shows the **filter chip strip** (All + Global + the six games), each
+      chip an icon + short name + its own **earned/total**; tapping **Global** or a game swaps the grid to
+      that bucket. The strip scrolls **inside itself** (styled scrollbar, not the native OS bar), so **360/390**
       and **Arabic RTL** never overflow the page. Header count reads out of **34**.
 - [ ] **New 37.0 badges (locked/earned per stats):** King *Nothing Went Right*, Deberc *Paltina Hunter* /
       *Double Declaration*, Tarneeb *In the Red* / *Overbidder* each appear in their game's group, earned or
@@ -112,8 +112,8 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       **404** and the TWA runs as a Custom Tab. (See [`android-twa/README.md`](android-twa/README.md).)
 - [ ] **Achievements (Stage 32.1 + 37.0, DB-backed):** signed in with real/seeded stats, Profile →
       **Achievements** shows **34** badges (dynamic `n/34`) at **360/390** with no horizontal overflow
-      (Arabic RTL mirrors), browsed via the **grouped filter strip** (Global + each game, **no "All"**,
-      opens on Global, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
+      (Arabic RTL mirrors), browsed via the **filter chip strip** (All + Global + each game,
+      opens on All, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
       flips that game's **winner** badge; **Six-Game Regular** unlocks after playing every game;
       **All-Rounder** still needs a win in all six; **Tarneeb Soloist** stays separate from Pairs. New
       **37.0** badges: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
@@ -475,7 +475,7 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       your row (highlighted "you"). (Bot games / no Postgres → empty is expected.)
 - [ ] Profile → **Achievements** → at least "First Win" is earned after a win.
 - [ ] **Achievements (Stage 32.1 + 37.0):** the catalog is **34** badges (dynamic `n/34` count), browsed
-      via the **grouped filter strip** (Global + each game, **no "All"**, opens on Global, styled internal
+      via the **filter chip strip** (All + Global + each game, opens on All, styled internal
       scroll) at **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
       Tarneeb Pairs / Preferans / 51** the game's new **winner** badge turns gold; **All-Rounder** still
       needs a win in all six games. **Uncommon** badges render with a green accent.

@@ -6,8 +6,8 @@
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
 **Status: stable MVP — release `v0.4.8`** (achievement grouping and badge expansion — Stages 37.0–37.1:
-the Profile **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each
-game, with earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
+the Profile **Achievements** grid is filtered by a styled chip strip — **All** (full catalog, default) then
+**Global** + each game, each with earned/total (Stage 37.2 restored the All chip) — and the catalog grows **29→34** with five new
 stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
 *In the Red* / *Overbidder*); no DB migration, no new stats field, no dependency change; on the `v0.4.7`
 reconnect and table polish — Stages 36.0–36.2: achievements **first** grouped by game, **rooms survive

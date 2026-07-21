@@ -6,8 +6,8 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
 > **Release:** **v0.4.8** — achievement grouping and badge expansion (Stages 37.0–37.1): the Profile
-> **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each game, with
-> earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
+> **Achievements** grid is filtered by a styled chip strip — **All** (full 34-badge catalog, default) then
+> **Global** + each game, each with earned/total (Stage 37.2 restored the All chip) — and the catalog grows **29→34** with five new
 > stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
 > *In the Red* / *Overbidder*) — no DB migration, no new stats field, no dependency change. On the
 > **v0.4.7** reconnect and table polish (Stages 36.0–36.2): achievements **first** grouped by game, **rooms
@@ -158,8 +158,8 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** **34** badges derived purely from stats + a post-game "unlocked" toast, browsed
-  **per game** — a styled filter chip strip (Global + each game, with earned/total), **no "All" tab**. The
+- **Achievements:** **34** badges derived purely from stats + a post-game "unlocked" toast, filtered by
+  a styled chip strip — **All** (full catalog, default) then Global + each game, each with earned/total. The
   **Stage 32.1 expansion** added 15 stats-derived badges (14→29) and the **Stage 37.0** pass added 5 more
   (29→34: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb *In the Red* /
   *Overbidder*) plus the grouped filter — all with **no DB migration / no new stats field**; All-Rounder

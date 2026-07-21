@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Restore the "All" achievements filter (Stage 37.2).** The Profile **Achievements** chip strip now
+  leads with an **All** chip (**Усі / Alle / الكل**) that is selected by default and shows the **full
+  catalog of all 34 badges** (earned + locked) in catalog order — reverting the 37.0 decision to open on
+  **Global** and only ever show one group at a time. The **Global** chip and each game chip stay, each with
+  its own earned/total; the header progress remains the global **earned / 34**. Switching filters changes
+  only which rows the grid renders — earned/locked logic, the toast/seen ledger, and stats loading are
+  untouched. The strip still scrolls inside itself, mobile-safe on 360/390 and mirrored under Arabic RTL.
+
 ## [0.4.8] — 2026-07-21 — Achievement grouping and badge expansion
 
 > Player-facing polish to the Profile **Achievements** grid (grouped-per-game filter, no "All" tab) plus
