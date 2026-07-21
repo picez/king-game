@@ -1,8 +1,9 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
 > **STATUS: DESIGNED (33.0); READINESS (33.1); SCAFFOLD (33.2); BUILD RUNBOOK (33.3); iOS DECISION (33.5);
-> iOS PWA HARDENING (33.6) DONE; BUILD TRIAGE (33.4) — awaiting owner logs.** This document chooses a path
-> to **Android and iOS apps** for Card Majlis
+> iOS PWA HARDENING (33.6) DONE; BUILD TRIAGE (33.4) — awaiting owner logs.** Stages 33.0–33.6 shipped as
+> the **v0.4.2 "mobile app readiness"** patch (docs + the web-only iOS install hint; no native app built).
+> This document chooses a path to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
 > `twa-manifest.json` + `.gitignore` + README). Stage 33.3 added the **owner build runbook**: a read-only

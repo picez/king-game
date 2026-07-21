@@ -362,7 +362,7 @@ web app.
 
 **Install on Android (Chrome):** open the HTTPS site → menu **⋮ → Add to Home
 screen / Install app**. It launches standalone (no browser chrome), portrait,
-with the King icon.
+with the Card Majlis medallion icon.
 
 Requirements & behaviour:
 

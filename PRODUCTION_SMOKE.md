@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.1`** (tag `v0.4.1`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.2`** (tag `v0.4.2`).
 
 Set your host once and reuse it below:
 
@@ -23,25 +23,44 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.1 adds no migrations** — 0009 is still the latest. v0.4.1 is the **Achievements expansion**
-> (14→29 badges, Stage 32.1) on top of the v0.4.0 Tutorials feature — all client-side, **no schema
-> change**. Badges are **derived purely from the existing per-game stats** (no new column, no write path,
-> no server push). The full *populated* achievements grid needs a **DB-backed environment** (auth +
-> stats) to render — see §7. The v0.3.7 Syrian 51 release records its stats under the free-text
-> `game_type='fifty-one'`.
+> **v0.4.2 adds no migrations** — 0009 is still the latest. v0.4.2 is **mobile app readiness** (Stages
+> 33.0–33.6): a **docs + PWA** patch — Android **TWA** strategy/scaffold/runbook, the **iOS PWA-only**
+> decision, and a web-only **iOS "Add to Home Screen" hint**. **No native app is built or submitted, no
+> dependency, no schema change**; the only runtime change is the iOS install hint. The prior v0.4.1
+> **Achievements expansion** (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are
+> intact. The v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.1 release smoke (fast targeted pass)
+## 0. v0.4.2 release smoke (fast targeted pass — mobile app readiness)
 
-What v0.4.1 headlines — the **Achievements expansion** (14→29 badges, Stage 32.1) — plus the v0.4.0
-Tutorials feature and the v0.3.x rule polish it rides on. Everything is client-side; **no schema change**,
-and the released six-game state is intact. Full achievements smoke is §7; tutorials §5c; 51 §5b.
+v0.4.2 is a **docs + PWA** patch (Stages 33.0–33.6): the **Android TWA** strategy/scaffold/runbook, the
+**iOS PWA-only** decision, and a web-only **iOS "Add to Home Screen" hint**. **No native app is built or
+submitted, no schema change**; the released six-game state and the v0.4.1 achievements are intact. The
+only runtime change to smoke is the **iOS hint**. Android TWA scaffold hygiene is §10b; iOS PWA + hint is
+§10c; achievements §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.1`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.2`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.1 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.2 — latest stays `0009`).
+- [ ] **iOS install hint (Stage 33.6, the only runtime change):** on **iOS Safari**, the **menu** shows a
+      dismissible **"Install Card Majlis — Tap Share, then Add to Home Screen"** card — **not** during a
+      game, **not** once installed (standalone), and it **stays hidden after ✕** (persisted). No fake
+      install button. On Android/desktop it does **not** appear (that path keeps the Chrome install card).
+- [ ] **Android TWA (owner machine, optional — no app is shipped in this release):** `android-twa\
+      check-env.ps1` → JDK **PASS** (17+); `npx @bubblewrap/cli@latest init --manifest
+      https://king-game-cqgd.onrender.com/manifest.webmanifest` (package `com.cardmajlis.app`) →
+      `.\gradlew.bat assembleDebug` → `adb install -r app\build\outputs\apk\debug\app-debug.apk`. The
+      debug APK is **debug-signed → shows a Custom Tab URL bar** until a real `assetlinks.json` matches;
+      then smoke **Google login**, **online rooms**, **voice mic**, **hand drag**, **tutorials**. (§10b.)
+- [ ] **iOS PWA smoke:** Safari → **Share → Add to Home Screen** → launches **standalone**; **Google
+      login**, an **online room** (`wss://…/ws`), **voice** mic prompt, and a **tutorial** all work; the
+      install hint is hidden in standalone. (§10c.)
+- [ ] **Asset Links caveat:** the repo ships **only** `assetlinks.example.json` (placeholder). A real
+      `/.well-known/assetlinks.json` is added **only** after enrolling in **Play App Signing** and using
+      that certificate's **SHA-256** (not the upload/debug key) — until then `…/assetlinks.json` is a
+      **404** and the TWA runs as a Custom Tab. (See [`android-twa/README.md`](android-twa/README.md).)
 - [ ] **Achievements expansion (Stage 32.1, DB-backed):** signed in with real/seeded stats, Profile →
       **Achievements** shows **29** badges (dynamic `n/29`) at **360/390** with no horizontal overflow
       (Arabic RTL mirrors). A first win in **Deberc / Tarneeb Pairs / Preferans / 51** flips that game's

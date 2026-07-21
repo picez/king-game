@@ -5,9 +5,12 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.4.1`** (achievements expansion — the Profile **Achievements** grid
-grows **14→29** badges (a win badge per game + depth/skill badges + global milestones + an `uncommon`
-tier), all derived from existing stats, no DB migration; on the `v0.4.0` tutorials and final rule polish — a **🎓 Tutorials** menu with
+**Status: stable MVP — release `v0.4.2`** (mobile app readiness — a **docs + PWA** patch packaging Stages
+33.0–33.6: Android **TWA** strategy/readiness + config-only scaffold (`android-twa/`) + owner build
+runbook & `check-env.ps1`, the **iOS PWA-only** decision, and a web-only **iOS "Add to Home Screen" hint**;
+no native app built/submitted, no dependency, no DB migration; on the `v0.4.1` achievements expansion — the
+Profile **Achievements** grid grows **14→29** badges (a win badge per game + depth/skill badges + global
+milestones + an `uncommon` tier), all derived from existing stats; on the `v0.4.0` tutorials and final rule polish — a **🎓 Tutorials** menu with
 **scripted step-by-step tutorials for all six games** (client-only, ≤2 min, mobile/RTL-safe); on the
 `v0.3.9` hand drag, 51 polish, and Deberc rule fixes — **drag-to-order
 hands** in all six games with a roomier tray and **pair-name team labels**; 51 gains **discard-to-open**,

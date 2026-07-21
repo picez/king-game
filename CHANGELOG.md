@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.2] — 2026-07-21 — Mobile app readiness
+
+> A **docs + PWA** patch release: it packages Stages 33.0–33.6 — the **Android TWA** strategy/readiness,
+> a config-only TWA scaffold (`android-twa/`), the owner build runbook + `check-env.ps1`, the corrected
+> Bubblewrap command, the **iOS PWA-only** decision, and a new **iOS "Add to Home Screen" hint**. **No**
+> native app is built or submitted, no dependency, no DB migration (latest stays `0009`), no gameplay/rule
+> change. The only runtime change is the web-only iOS install hint.
+
 ### Added
 
 - **iOS "Add to Home Screen" hint (Stage 33.6 — iOS PWA hardening).** Because iOS Safari never fires

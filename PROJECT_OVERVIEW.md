@@ -4,9 +4,13 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.1** — achievements expansion: the Profile **Achievements** grid grows **14→29**
-> badges (a win badge per game + play/win-count depth + a min-sample skill badge + global milestones +
-> an `uncommon` rarity tier), all derived from existing stats, no DB migration. On the **v0.4.0**
+> **Release:** **v0.4.2** — mobile app readiness: a **docs + PWA** patch packaging Stages 33.0–33.6 (the
+> Android **TWA** strategy/readiness + config-only `android-twa/` scaffold + owner build runbook, the
+> **iOS PWA-only** decision, and a web-only **iOS "Add to Home Screen" hint**) — no native app built or
+> submitted, no dependency, no DB migration. On the **v0.4.1** achievements expansion: the Profile
+> **Achievements** grid grows **14→29** badges (a win badge per game + play/win-count depth + a min-sample
+> skill badge + global milestones + an `uncommon` rarity tier), all derived from existing stats. On the
+> **v0.4.0**
 > tutorials and final rule polish: a **🎓 Tutorials** menu with **scripted
 > step-by-step tutorials for all six games** (client-only, ≤2 min, mobile/RTL-safe, no reducer/server/
 > stats). On the **v0.3.9** hand drag, 51 polish, and Deberc rule fixes: **drag-to-order hands** in all
