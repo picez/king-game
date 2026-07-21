@@ -18,6 +18,7 @@
   "maskableIconUrl": "https://king-game-cqgd.onrender.com/icons/maskable-512.png",
   "monochromeIconUrl": "",
   "shortcuts": [],
+  "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
     "alias": "android"

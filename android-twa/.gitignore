@@ -34,4 +34,9 @@ gradle.properties
 local.properties
 twa-manifest.json.bak
 store_icon.png
+manifest-checksum.txt
 *.log
+
+# --- Local run artifacts (emulator/device screenshots) — never commit ---
+emulator-*.png
+*-screenshot.png

@@ -153,6 +153,21 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
     expect(twa.webManifestUrl).toBe(`https://${twa.host}/manifest.webmanifest`);
   });
 
+  it('sets splashScreenFadeOutDuration (Bubblewrap 1.24+ emits an invalid build.gradle without it)', () => {
+    // Stage 33.13: a missing value makes bubblewrap write `splashScreenFadeOutDuration: ,` into the
+    // generated app/build.gradle → Gradle "Unexpected input: ','" → assembleDebug fails. Must be a number.
+    expect(typeof twa.splashScreenFadeOutDuration).toBe('number');
+    expect(twa.splashScreenFadeOutDuration).toBeGreaterThan(0);
+  });
+
+  it('.gitignore excludes local run artifacts (emulator screenshots + bubblewrap checksum)', () => {
+    const gi = readFileSync(join(TWA_DIR, '.gitignore'), 'utf8');
+    expect(gi).toMatch(/emulator-\*\.png/);
+    expect(gi).toContain('manifest-checksum.txt');
+    // But the committed scaffold files must NOT be ignored.
+    expect(gi).not.toMatch(/^\s*(README\.md|BUILD_LOG_TEMPLATE\.md|triage-build-log\.ps1|check-env\.ps1)\s*$/m);
+  });
+
   it('points icons at same-origin manifest assets that exist', () => {
     for (const url of [twa.iconUrl, twa.maskableIconUrl]) {
       expect(url.startsWith(`https://${twa.host}/`)).toBe(true);

@@ -9,7 +9,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- **Android TWA debug build blocker (Stage 33.13).** The committed `android-twa/twa-manifest.json` was
+  missing `splashScreenFadeOutDuration`, so **Bubblewrap 1.24+** generated an `app/build.gradle` with
+  `splashScreenFadeOutDuration: ,` (empty) → Gradle failed with `Unexpected input: ','` and
+  `gradlew assembleDebug` never produced an APK. Added `"splashScreenFadeOutDuration": 300` to the manifest
+  (verified end-to-end: `bubblewrap update` → `gradlew assembleDebug` → **BUILD SUCCESSFUL**, and the debug
+  APK runs in an Android emulator, opening the production PWA as a Custom Tab — Stage 33.12). Hardened
+  `android-twa/.gitignore` to exclude local run artifacts (`emulator-*.png`, `manifest-checksum.txt`) and
+  added `src/pwa.test.ts` guards. **No** generated Gradle project / APK / keystore / screenshots are
+  committed; no gameplay/web-source change, no dependency, no version bump.
 
 ## [0.4.5] — 2026-07-21 — Owner smoke guide
 
