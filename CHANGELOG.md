@@ -11,6 +11,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Docs
 
+- **Android TWA production Asset Links + custom-domain plan (Stage 33.9).** Added the ordered owner runbook
+  ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) §9) to turn the Custom-Tab debug build into a **full-screen**
+  verified TWA: choose a **custom domain** → add it in Render + re-point `GOOGLE_REDIRECT_URI`/
+  `ALLOWED_ORIGINS` → add the new origin to Google OAuth (redirect URIs + JS origins) → verify manifest/
+  service-worker/login on it → build a **signed AAB** → read the **Play App-Signing SHA-256** (Play Console
+  → App integrity → App signing; **not** the upload/debug key) → create + **deploy** the real
+  `/.well-known/assetlinks.json` (copy the example locally, fill the SHA — **never commit it**) → verify
+  reachability/JSON/fingerprint and `adb shell pm get-app-links com.cardmajlis.app`. Warns that a
+  wrong/stale `assetlinks.json` can be cached. **Docs + guard tests only — no real `assetlinks.json`, no
+  APK/AAB, no store submission, no invented SHA, no dependency, no version bump.**
 - **Android TWA owner-build triage hardening (Stage 33.8).** Made the owner-run Android **debug** build
   as fail-safe as possible without building anything in-repo: a paste-in
   [`android-twa/BUILD_LOG_TEMPLATE.md`](android-twa/BUILD_LOG_TEMPLATE.md) (check-env → `bubblewrap init` →

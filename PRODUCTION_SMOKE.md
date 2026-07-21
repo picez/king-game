@@ -571,6 +571,11 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       [`android-twa/BUILD_LOG_TEMPLATE.md`](android-twa/BUILD_LOG_TEMPLATE.md) (check-env → init → gradle →
       adb + full-screen-vs-Custom-Tab). A debug-signed APK showing a **Custom Tab URL bar is expected**
       until a real `assetlinks.json` matches the Play App-Signing SHA. Only **text logs** are shared.
+- [ ] **Production full-screen path (33.9):** to make it launch full-screen, follow the ordered runbook in
+      [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) **§9** — custom domain → OAuth redirect → PWA verify →
+      signed AAB → **Play App-Signing SHA-256** → real `assetlinks.json` (deployed, never committed) →
+      verify with `curl`/`Invoke-WebRequest` + `adb shell pm get-app-links com.cardmajlis.app`. The
+      upload/debug key SHA will **not** verify; a wrong/stale `assetlinks.json` can be cached.
 
 ### 10c. iOS PWA (Stage 33.5 decision — PWA-only, no App Store app)
 

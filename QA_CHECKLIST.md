@@ -954,6 +954,15 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 >
 > Before store submission (33.3-release+): verify the real `assetlinks.json` matches the **Play
 > App-Signing** SHA-256 (not the upload/debug key) — see [`android-twa/README.md`](android-twa/README.md).
+>
+> **Full-screen (verified) TWA — production path (Stage 33.9):** a build without a matching served
+> `assetlinks.json` opens as a **Custom Tab** by design. To reach full-screen, follow the ordered runbook in
+> [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) **§9**: custom domain (Render) → Google OAuth redirect/JS
+> origins for the new origin → verify manifest/SW/login on it → signed AAB → **Play App-Signing SHA-256**
+> (Play Console → App integrity → App signing; **not** the upload/debug key) → create + deploy the real
+> `assetlinks.json` (copy the example locally, fill the SHA, deploy — **never commit it**) → verify with
+> `curl`/`Invoke-WebRequest` and `adb shell pm get-app-links com.cardmajlis.app` (domain **verified**). A
+> wrong/stale `assetlinks.json` can be **cached** — get the SHA right the first time.
 
 > **iOS PWA (Stage 33.5 decision — PWA-only; no App Store app; [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)
 > §8).** The iOS meta already ships in `index.html` (apple-touch-icon, status-bar `black-translucent`,

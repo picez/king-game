@@ -213,6 +213,40 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
   });
 });
 
+describe('Android TWA production Asset Links docs (Stage 33.9)', () => {
+  const plan = readFileSync(join(process.cwd(), 'MOBILE_APP_PLAN.md'), 'utf8');
+  const readme = readFileSync(join(process.cwd(), 'android-twa', 'README.md'), 'utf8');
+
+  it('the assetlinks example stays a placeholder — no real assetlinks.json in the repo', () => {
+    const wk = join(process.cwd(), 'public', '.well-known');
+    expect(existsSync(join(wk, 'assetlinks.example.json'))).toBe(true);
+    expect(existsSync(join(wk, 'assetlinks.json')), 'no real assetlinks.json committed').toBe(false);
+    const ex = readFileSync(join(wk, 'assetlinks.example.json'), 'utf8');
+    expect(ex).toMatch(/REPLACE|PLACEHOLDER/i);
+  });
+
+  it('the production runbook (§9) requires the PLAY APP-SIGNING SHA, not upload/debug', () => {
+    expect(plan).toMatch(/§?\s*9\.?\s*Android production Asset Links/);
+    expect(plan).toMatch(/Play App-?Signing/i);
+    // Must explicitly warn the upload/debug key SHA does NOT verify (no "fake SHA works" claim).
+    expect(plan).toMatch(/upload[\s\S]{0,40}debug|debug[\s\S]{0,40}upload/i);
+    expect(plan).toMatch(/not\s+match|will\s+not|silently\s+fails|do\s+not\s+use/i);
+  });
+
+  it('the runbook reminds the owner to add the custom-domain OAuth redirect', () => {
+    expect(plan).toMatch(/Authorized redirect URIs/i);
+    expect(plan).toContain('/auth/callback');
+  });
+
+  it('docs never instruct committing an APK/AAB/keystore or a placeholder assetlinks.json', () => {
+    for (const doc of [plan, readme]) {
+      expect(doc).not.toMatch(/git add[^\n]*\.(apk|aab|keystore|jks)/i);
+    }
+    // The real assetlinks.json is deployed, never committed with a placeholder.
+    expect(plan).toMatch(/only after|not committed|deploy (it|only when)/i);
+  });
+});
+
 describe('iOS PWA meta (Stage 33.5 — iOS stays PWA-only)', () => {
   const idx = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
 

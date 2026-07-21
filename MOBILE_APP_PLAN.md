@@ -5,7 +5,11 @@
 > logs.** Stages 33.0–33.6 shipped as the **v0.4.2 "mobile app readiness"** patch (docs + the web-only iOS
 > install hint; no native app built). Stage 33.7 hardened the owner-run Android build path (a paste-in
 > `BUILD_LOG_TEMPLATE.md`, README known-states + troubleshooting tables, `check-env.ps1` config-sanity
-> checks, guards) — still **no native build** in-repo; the owner runs it and pastes logs back.
+> checks, guards) — still **no native build** in-repo; the owner runs it and pastes logs back. Stage 33.9
+> added the **production Asset Links + custom-domain runbook** (§9): the ordered owner path to a
+> **full-screen** TWA (custom domain → OAuth → PWA verify → signed AAB → **Play App-Signing SHA-256** →
+> real `assetlinks.json`), with verification commands — **still no real `assetlinks.json`, no APK/AAB, no
+> store submission, and no invented SHA**.
 > This document chooses a path to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
@@ -84,6 +88,7 @@ cookies, and mic permissions** the TWA gets for free.
 | **33.6 — iOS PWA hardening** ✅ | **DONE.** Added a non-intrusive **iOS A2HS hint** (menu-only, iOS-only, not-installed, dismissible, separate key, in-game–suppressed, no fake button) — pure `shouldOfferIosHint`/`detectIos` + `PwaBanners` UI + i18n ×4 + tests. The rest of the meta/safe-area was already shipping (§8d). **No native, no dependency.** | no native, no App Store |
 | **33.7 — Android debug / internal test** ⏳ | **Owner-run triage hardening DONE (repo side); build still owner-run.** Added `android-twa/BUILD_LOG_TEMPLATE.md` (paste-in log format), a **Known-expected-launch-states** table + a **Troubleshooting** table in the README (wrong npx package / wrong `--manifest` / Java 8 / SDK / licenses / DAL-not-verified / mic / OAuth redirect), read-only **config-sanity** checks in `check-env.ps1` (packageId / webManifestUrl / README uses `@bubblewrap/cli` / no wrong `npx bubblewrap init`), and repo guard tests. **Remaining (owner):** generate the Gradle project + **debug** APK, install, fill the log template; then a **signed AAB** on the Play internal track. **No** generated project/APK/AAB/keystore committed. | runbook + triage + guards in repo; owner runs the build |
 | **33.8 — iOS native wrapper decision** | **Only after Android is validated.** Decide Capacitor/WKWebView vs stay PWA-only; if building, require **external-browser OAuth** (`ASWebAuthenticationSession`) + mic permission + a Guideline 4.2 plan. | decision doc; build only if it clears the risk |
+| **33.9 — Android production Asset Links + custom domain** ✅ | **DONE (design/docs, §9).** The ordered owner runbook to a **full-screen** TWA: pick a custom domain → Render custom domain + env → Google OAuth redirect/JS origins → verify PWA on the new origin → signed AAB + **Play App-Signing SHA-256** (not upload/debug) → real `assetlinks.json` (repo-safe: local copy of the example, deploy only when the SHA exists) → verify (manifest/assetlinks/`pm get-app-links`). Warns on the wrong-SHA caching trap. **No** real `assetlinks.json`, APK/AAB, store submission, or invented SHA. | design/docs only; owner runs the store/domain steps |
 | **Future — Capacitor spike / push** | A Capacitor iOS spike if the owner still wants the App Store; Web Push (Android/Chrome) or native push; splash/share-sheet polish. | opt-in, post-MVP |
 
 ---
@@ -190,6 +195,10 @@ Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not sup
 ---
 
 ## 6a. Digital Asset Links, domain & OAuth (Stage 33.1)
+
+> For the **step-by-step production runbook** (custom domain → OAuth → PWA verify → signed AAB → Play
+> App-Signing SHA-256 → real `assetlinks.json` → verification commands), see **§9**. This subsection is the
+> original design-level summary.
 
 ### Digital Asset Links (`assetlinks.json`)
 
@@ -429,3 +438,144 @@ Audited against `index.html` + `src/pwa/pwaClient.ts`. **Most items already ship
 Design/docs only. **No** iOS native project, **no** Capacitor install, **no** dependency, **no** App Store
 submission, **no** runtime code change (iOS PWA meta already ships), **no** version bump. iOS stays
 **PWA-only** until the §8b conditions are met and the owner opts in (33.8).
+
+---
+
+## 9. Android production Asset Links + custom domain (Stage 33.9 — design/docs only)
+
+> **Why:** a debug APK (or any build whose signing cert isn't declared in a served `assetlinks.json`)
+> opens as a **Custom Tab with a URL bar**, not a full-screen TWA. Full-screen requires a
+> **`/.well-known/assetlinks.json`** on the launch origin whose `sha256_cert_fingerprints` matches the
+> APK's signing certificate. This section is the **owner runbook** to get there. **This stage ships no
+> real `assetlinks.json`, no APK/AAB, no store submission, and invents no SHA** — the real file is created
+> only after the owner reads the **Play App-Signing** SHA-256 from Play Console.
+
+### 9a. Domain decision (do this first)
+
+- **Recommended:** a **custom domain** you control — e.g. **`cardmajlis.app`** (apex) or a dedicated
+  **`play.cardmajlis.com`** subdomain. Either works; pick one origin and keep it stable. Asset Links are
+  tied to the **exact origin** (scheme + host), so the origin must not churn.
+- **Why not the `onrender.com` subdomain:** it *can* verify, but (1) the Render hostname can change; (2)
+  weaker listing trust/branding; (3) it couples the store identity to Render's scheme. Use it only for a
+  throwaway internal test.
+- **One origin everywhere:** once chosen, that same origin must serve the **manifest**, the **app**, the
+  **`assetlinks.json`**, and be the **OAuth redirect** origin — mixing origins breaks either login or
+  verification.
+
+### 9b. Add the custom domain in Render
+
+1. Render dashboard -> the web service -> **Settings -> Custom Domains -> Add Custom Domain** -> enter
+   `cardmajlis.app` (and/or `www` / `play.`).
+2. Add the DNS records Render shows at your registrar (an `ALIAS`/`ANAME`/`CNAME` for a subdomain, or the
+   `A`/`ALIAS` records for an apex). Wait for Render to issue the **TLS cert** (HTTPS/WSS auto).
+3. Re-point the app's env to the new origin (Render -> Environment):
+   - `GOOGLE_REDIRECT_URI = https://<domain>/auth/callback`
+   - `ALLOWED_ORIGINS` includes `https://<domain>` (comma-separated with any others)
+   - optional `VITE_WS_URL` if you pin the WebSocket origin
+
+   Redeploy so the client is built against the new origin.
+
+### 9c. Google OAuth for the new origin (or login 400s)
+
+In **Google Cloud Console -> APIs & Services -> Credentials -> your OAuth 2.0 Client**:
+- **Authorized redirect URIs:** add `https://<domain>/auth/callback`.
+- **Authorized JavaScript origins:** add `https://<domain>`.
+- Keep the old origin's entries until you've cut over. (A TWA uses Chrome, so the existing cookie-session
+  Authorization-Code + PKCE flow works unchanged — **never** move OAuth into an embedded WebView.)
+
+### 9d. Verify the new origin serves the PWA correctly (before Asset Links)
+
+On the new origin, confirm:
+- `https://<domain>/manifest.webmanifest` -> 200, `name` = **Card Majlis**, `start_url`/`scope` = `/`,
+  `display` = `standalone`, 192 + 512 + maskable icons (names all six games in `description`).
+- The **service worker** registers and the app installs/launches standalone (DevTools -> Application).
+- `/api` + `/auth` are reachable (network-only; not cached) and Google login completes end-to-end.
+- Static/media headers look right (ETag/cache tiers) — see [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md).
+
+Then update `android-twa/twa-manifest.json` `host` + `webManifestUrl` (and the repo guards in
+`src/pwa.test.ts`) to the new origin, and re-`bubblewrap init`/`update` so the wrapper points at it.
+
+### 9e. Get the Play App-Signing SHA-256 (the only correct fingerprint)
+
+- Upload a **signed AAB** to a Play track (internal testing is enough) and enroll in **Play App Signing**.
+- **Play Console -> your app -> Test and release -> App integrity -> App signing** -> copy the
+  **"App signing key certificate" -> SHA-256 certificate fingerprint** (colon-hex, 32 bytes).
+- WARNING: **Do NOT use** the **upload key** SHA or the local **debug** key SHA. They will *not* match what
+  Google re-signs the delivered app with, so verification silently fails and the app stays a Custom Tab.
+  This is the single most common TWA mistake.
+
+### 9f. Create the real `assetlinks.json` (only after you have the SHA)
+
+Repo-safe workflow — the real file is **not** committed until the SHA exists:
+
+```powershell
+# from the repo root, LOCALLY:
+Copy-Item public\.well-known\assetlinks.example.json public\.well-known\assetlinks.json
+# edit assetlinks.json: replace REPLACE_WITH_GOOGLE_PLAY_APP_SIGNING_SHA256_FINGERPRINT
+#   with the Play App-Signing SHA-256 (colon-hex). Keep package_name = com.cardmajlis.app.
+```
+
+- Deploy it so it is served at **`https://<domain>/.well-known/assetlinks.json`** with **HTTP 200**,
+  **`content-type: application/json`**, and **no redirect**.
+- WARNING — caching: a wrong or stale `assetlinks.json` can be **cached by Chrome/Play services** and
+  make verification flaky for a while. Get the SHA right the first time; if you must change it, expect a
+  delay (reinstall the app / clear the verifier cache) before full-screen kicks in.
+- The repo keeps only `assetlinks.example.json`; a guard test fails if a real-looking SHA or a committed
+  `assetlinks.json` appears.
+
+### 9g. Verification commands (owner)
+
+Manifest + Asset Links reachability (replace `DOMAIN`):
+
+```powershell
+# PowerShell
+(Invoke-WebRequest "https://DOMAIN/manifest.webmanifest").StatusCode          # expect 200
+(Invoke-WebRequest "https://DOMAIN/.well-known/assetlinks.json").Content       # expect the JSON, 200, no redirect
+```
+```bash
+# Bash
+curl -sI  https://DOMAIN/.well-known/assetlinks.json   # 200 + content-type: application/json, no 30x
+curl -s   https://DOMAIN/.well-known/assetlinks.json | jq .   # valid JSON
+```
+
+JSON sanity — package + fingerprint format:
+
+```bash
+# package_name must be com.cardmajlis.app
+curl -s https://DOMAIN/.well-known/assetlinks.json | jq -r '.[0].target.package_name'
+# fingerprint must be colon-hex (32 bytes -> 95 chars), NOT the placeholder
+curl -s https://DOMAIN/.well-known/assetlinks.json | jq -r '.[0].target.sha256_cert_fingerprints[0]' \
+  | grep -Eq '^([0-9A-F]{2}:){31}[0-9A-F]{2}$' && echo "fingerprint format OK" || echo "BAD/placeholder fingerprint"
+```
+
+Google's official statement checker (open in a browser):
+
+```
+https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://DOMAIN&relation=delegate_permission/common.handle_all_urls
+```
+
+On-device, once the APK is installed (Android's app-links verifier state):
+
+```bash
+adb shell pm get-app-links com.cardmajlis.app
+# look for the domain in state "verified". If "1024"/"legacy_failure"/none, DAL isn't verified yet.
+# Force a re-check (Android 12+):
+adb shell pm verify-app-links --re-verify com.cardmajlis.app
+```
+> `pm get-app-links` / `pm verify-app-links` need the app installed on a connected device; output format
+> varies by Android version — read the per-domain state line rather than a fixed column.
+
+### 9h. Production TWA verification — exact order
+
+1. Provision the **custom domain** in Render (9b) and confirm HTTPS/WSS.
+2. Add the new origin to **Google OAuth** redirect URIs + JS origins (9c).
+3. Verify the **PWA** on the new origin (manifest / SW / login) (9d); update `twa-manifest.json` `host` +
+   `webManifestUrl` + guards.
+4. Build a **signed AAB**, upload to a Play **internal** track, enroll in **Play App Signing** (9e).
+5. Copy the **Play App-Signing SHA-256**; create + deploy the real **`assetlinks.json`** on the domain (9f).
+6. Verify reachability + JSON + fingerprint (9g); run Google's checker.
+7. Install the app from the internal track; `adb shell pm get-app-links ...` shows the domain **verified**;
+   the app now launches **full-screen** (no URL bar).
+
+> Until step 5-7 complete, any build (debug or internal) correctly opens as a **Custom Tab** — that is
+> expected, not a bug.

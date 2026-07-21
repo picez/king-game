@@ -199,7 +199,12 @@ still works, it just isn't verified.
 The repo keeps **only** `assetlinks.example.json` (a placeholder). The real
 `/.well-known/assetlinks.json` is deliberately **absent** until store setup — a guard test
 (`src/pwa.test.ts`) fails if a real one appears or the placeholder starts to look like a real SHA.
-See [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md) §6a.
+
+> **Full production runbook** — custom domain → Render + OAuth → PWA verify → signed AAB → **Play
+> App-Signing SHA-256** → real `assetlinks.json` → verification commands (incl. `adb shell pm
+> get-app-links com.cardmajlis.app`): **[`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md) §9** (design-level
+> summary in §6a). A wrong/stale `assetlinks.json` can be **cached** and make verification flaky — get the
+> Play App-Signing SHA right the first time; the upload/debug key SHA will **not** verify.
 
 ---
 
