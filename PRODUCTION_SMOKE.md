@@ -6,6 +6,9 @@ upload are live — **without** reading the full deployment docs.
 
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+- **Fill-in log + triage rules:** [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md) —
+  a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
+  **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
   release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.4`** (tag `v0.4.4`).
 
