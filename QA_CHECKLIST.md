@@ -413,6 +413,18 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       the game continues from the same state (file persistence).
 - [ ] **Leave room / Back to menu** clears the saved session (no stale Resume).
 
+### Reconnect & same-user cross-device (Stage 36.0)
+
+- [ ] **Bot game survives a reload for ~5 min:** start an online room with **bots**, then
+      close/reload the tab. Within **5 minutes** the room still exists → **Resume** returns you to your
+      seat mid-game (was 90 s; `ORPHAN_ROOM_TTL_MS` overrides). After 5 min of no humans it's swept.
+- [ ] **Same account, second device:** signed in on device A in a room; on device B (same Google account)
+      the server can match your seat by **userId** — a `RECLAIM_ROOM` for that room code takes over your
+      seat (fresh token issued to B; A is dropped). A **different** account gets **no** seat. Guests can't
+      reclaim. `FIND_MY_ROOMS` lists only your own rooms (codes + game type + started — no tokens/hands).
+- [ ] **Reconnect race:** with a flaky mobile connection (background/foreground), a stale socket's late
+      close does **not** knock the freshly-reconnected client offline (the seat stays connected).
+
 ## Manual — orphan rooms + disconnected substitute (Stage 7.2)
 
 > Tip: set short envs to test fast, e.g. `ORPHAN_ROOM_TTL_MS=20000` (20s) and
@@ -750,6 +762,13 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       `curl -sI $HOST/api/games/fifty-one/stats` → 200 for a signed-in user.
 - [ ] **Regression:** local play, online create/join/start, redaction (no opponent-hand leak), reconnect,
       and stats recording all still work (covered by `npm run verify`).
+- [ ] **Card calculator (Stage 36.0):** tap **🧮 Count cards** in the topbar — a preview panel opens
+      **even on another player's turn**. Tapping hand cards shows the selection's meld validity/value and
+      the **hand penalty total**; it **plays nothing**, removes no cards, and doesn't disturb your meld
+      selection/staging or the manual hand order. Toggling it off clears the picks. Works at 360/390 + RTL.
+- [ ] **Public melds (Stage 36.0):** with several melds down (incl. a joker-represented card and a long
+      run), cards are **slightly bigger (72px)**, never **overlap or clip**, and a long run **scrolls
+      inside** its meld block — no horizontal page overflow at 360/390.
 
 ## Manual — Deberc combination stats (Stage 13.8)
 
@@ -779,6 +798,11 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 - [ ] **Profile → Achievements:** the **29-badge** grid renders at **360/390** with no horizontal
       overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of 29.
+- [ ] **Filter strip (Stage 36.0):** a chip row — **All · Global · King · Durak · Deberc · Tarneeb ·
+      Preferans · 51** — each showing its own **earned/total**; tapping a chip filters the grid to that
+      game (All = every badge). The strip **scrolls horizontally** on 360/390 (no page overflow) and
+      mirrors under **Arabic RTL**. The overall `n/29` count and which badges are earned are **unchanged**
+      by filtering.
 - [ ] **Locked state:** a fresh account (no games) shows every badge locked (padlocks) + the "Play games
       to unlock badges." hint; signed-out shows the sign-in hint.
 - [ ] **New win badges (Stage 32.1):** after a first win in **Deberc / Tarneeb Pairs / Preferans / 51**,

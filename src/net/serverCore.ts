@@ -423,6 +423,46 @@ export function markDisconnected(room: ServerRoom, clientId: string): void {
   if (m) m.connected = false;
 }
 
+/**
+ * Stage 36.0 — server-authoritative cross-device reclaim. Finds the HUMAN member
+ * whose account matches `userId` (resolved server-side from the session cookie —
+ * NEVER a client-supplied value), so a signed-in player can resume their OWN seat
+ * from a different device even without the original reconnect token. A blank /
+ * null userId never matches (guests can't reclaim each other's seats), and bots are
+ * never reclaimable. Marks the member connected and returns it; the caller mints a
+ * fresh reconnect token for the new device (invalidating the old one).
+ */
+export function reclaimMemberByUserId(room: ServerRoom, userId: string | null | undefined): ServerMember | null {
+  if (!userId) return null;
+  const member = [...room.members.values()].find((m) => m.type === 'human' && m.userId === userId);
+  if (!member) return null;
+  member.connected = true;
+  return member;
+}
+
+/** A privacy-safe pointer to a room the caller has a seat in (no token/hand/others). */
+export interface UserRoomRef { code: string; gameType: GameType; started: boolean }
+
+/**
+ * Stage 36.0 — the rooms where `userId` holds a human seat, for cross-device
+ * discovery ("you have a game in progress, rejoin?"). Privacy-safe: only the code
+ * + game type + started flag, never tokens, hands, or other players' identities.
+ * A blank / null userId returns []. Server-side only; matched on the authoritative
+ * userId, never on any client-claimed identity.
+ */
+export function findUserRoomCodes(
+  rooms: Iterable<ServerRoom>, userId: string | null | undefined,
+): UserRoomRef[] {
+  if (!userId) return [];
+  const out: UserRoomRef[] = [];
+  for (const room of rooms) {
+    if ([...room.members.values()].some((m) => m.type === 'human' && m.userId === userId)) {
+      out.push({ code: room.code, gameType: room.gameType ?? DEFAULT_GAME_TYPE, started: room.started });
+    }
+  }
+  return out;
+}
+
 /** True when at least one HUMAN member currently has a live connection. */
 export function hasConnectedHuman(room: ServerRoom): boolean {
   return [...room.members.values()].some((m) => m.type === 'human' && m.connected);

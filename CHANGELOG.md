@@ -9,7 +9,40 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Achievements by game (Stage 36.0).** The Profile **Achievements** grid gains a compact **filter
+  strip** — **All · Global · King · Durak · Deberc · Tarneeb · Preferans · 51** — each chip showing its own
+  **earned/total**, so 29 badges are browsable per game instead of one long wall. Purely a UI grouping
+  (pure `groupAchievements`): the earned/locked logic, **All-Rounder**, and the totals are unchanged. The
+  strip scrolls horizontally on 360/390 and mirrors under Arabic RTL. English, Ukrainian, German, Arabic.
+- **51 card calculator (Stage 36.0).** A new **🧮 Count cards** toggle on the 51 table opens a **local,
+  display-only** calculator available at **any time — even on another player's turn**. Tap cards in your
+  hand to preview whether the selection is a valid meld and what it's worth, plus your hand's total penalty
+  value. It **dispatches nothing**, never removes cards, and never disturbs the meld selection/staging or
+  the manual hand order — it reuses the existing pure rules (`resolveMeld` / `handPenalty`).
+
+### Changed
+
+- **Rooms survive 5 minutes for reconnect (Stage 36.0).** The orphan-room TTL (how long a room with no
+  connected human lives) is now **5 minutes** (was 90 s), so a player who accidentally closed the tab or
+  reloaded — **including in a game against bots** — can come back and RECONNECT to the same room. Deliberate
+  **Leave** and finished-room cleanup are unchanged. Overridable via `ORPHAN_ROOM_TTL_MS`.
+- **51 meld cards — uniform slot + bigger (Stage 36.0).** Every public-meld card (normal, bare joker, and a
+  joker showing the card it represents) now renders in the **same `.fiftyone-meldcard` slot wrapper**, so a
+  single CSS rule governs the slot for all of them — no path can disagree and overlap. Cards are enlarged
+  to **72×112** (from 64×100); a long run scrolls **inside** its meld block so nothing overflows the page.
+
+### Fixed
+
+- **Same-user reconnect from another device (Stage 36.0).** A signed-in player can now resume their **own**
+  active room from a **different device**. New server-authoritative paths match the account by the
+  **session-cookie userId** (never a client-claimed value): `RECLAIM_ROOM` takes over the caller's own seat
+  (minting a fresh reconnect token for the new device) and `FIND_MY_ROOMS` returns a privacy-safe list of
+  the caller's rooms (codes + game type + started only — no tokens/hands/other identities). Also fixed a
+  **reconnect race**: an old, half-open socket's late `close` no longer disconnects a member whose socket
+  map now points at a **newer** connection (the cause of a reconnect sometimes "not connecting"). No DB,
+  schema, dependency, or reconnect-token-security change.
 
 ## [0.4.6] — 2026-07-21 — Android TWA debug build readiness
 

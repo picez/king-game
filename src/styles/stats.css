@@ -122,6 +122,35 @@
 }
 .ach-head__label { font-size: 0.8rem; color: var(--text-muted); }
 
+/* Filter segments (Stage 36.0): a compact chip row — All · Global · each game — that
+   scrolls horizontally on a narrow phone instead of wrapping/overflowing the page.
+   In-flow flex, so it mirrors correctly under RTL with no extra rules. */
+.ach-segments {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+  scrollbar-width: thin;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+.ach-segment {
+  flex: 0 0 auto;                     /* chips keep their size; the row scrolls */
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.3rem 0.6rem; min-height: var(--tap-min, 2.5rem);
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-2); color: var(--text);
+  font-size: 0.82rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+}
+.ach-segment--active {
+  background: var(--accent); color: var(--on-accent, #08130b);
+  border-color: var(--accent-light, var(--accent));
+}
+.ach-segment__count {
+  font-variant-numeric: tabular-nums; font-weight: 800; font-size: 0.76rem;
+  opacity: 0.85;
+}
+
 /* Responsive badge grid: 2-up on narrow phones, auto-fills wider. Never overflows. */
 .ach-grid {
   display: grid; gap: 0.5rem;

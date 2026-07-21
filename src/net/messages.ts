@@ -155,6 +155,18 @@ export type ClientMessage =
   | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
+  /**
+   * Cross-device reclaim (Stage 36.0): a signed-in player resumes their OWN seat in
+   * `code` from a DIFFERENT device — no reconnect token required. The server matches
+   * the authoritative session userId (resolved from the cookie, never client-supplied);
+   * a fresh reconnect token is minted for the new device. Guests (no userId) are refused.
+   */
+  | { t: 'RECLAIM_ROOM'; code: RoomCode }
+  /**
+   * Cross-device discovery (Stage 36.0): "which rooms does this signed-in account have a
+   * seat in?" Replied with MY_ROOMS (privacy-safe: codes + game type + started only).
+   */
+  | { t: 'FIND_MY_ROOMS' }
   /** Host-only: set the per-turn timer (seconds; 0 = off) before the game starts. */
   | { t: 'SET_TIMER'; turnTimerSec: number }
   /** Discovery: request the public room list (no session required). */
@@ -224,6 +236,9 @@ export type ServerMessage =
   | { t: 'ROOM_UPDATE'; room: RoomSnapshot }
   /** Reply to LIST_ROOMS — public summaries only. */
   | { t: 'ROOMS_LIST'; rooms: RoomSummary[] }
+  /** Reply to FIND_MY_ROOMS (Stage 36.0) — the signed-in caller's OWN active rooms,
+   *  privacy-safe (no tokens/hands/other identities), for a "rejoin your game?" prompt. */
+  | { t: 'MY_ROOMS'; rooms: { code: RoomCode; gameType: GameType; started: boolean }[] }
   /**
    * Authoritative game state. `state` is already redacted for the recipient
    * (only their own hand is populated) — see `redactStateFor`.

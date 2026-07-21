@@ -60,10 +60,12 @@ describe('AchievementsPanel — "New" marker for unseen earned badges', () => {
 describe('AchievementsPanel — dynamic count + responsive grid (Stage 32.1 scale-safe)', () => {
   const css = read('src/styles/stats.css');
   it('renders a DYNAMIC earned/total count (no hard-coded badge number)', () => {
-    expect(panel).toContain('{earned}/{rows.length}');   // never a literal like "/14" or "/29"
+    expect(panel).toContain('{totalEarned}/{rows.length}'); // never a literal like "/14" or "/29"
     expect(panel).not.toMatch(/\/\s*(?:11|13|14|29)\b/);
-    // The grid maps the full catalog, so it grows with the catalog automatically.
-    expect(panel).toContain('rows.map(');
+    // The grid maps the (filtered) evaluated rows, which derive from the full catalog,
+    // so it grows with the catalog automatically (Stage 36.0 adds a per-game filter).
+    expect(panel).toContain('shown.map(');
+    expect(panel).toContain('groupAchievements(rows)');
   });
   it('the badge grid is a responsive auto-fill grid (cannot overflow horizontally)', () => {
     expect(css).toMatch(/\.ach-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(/);

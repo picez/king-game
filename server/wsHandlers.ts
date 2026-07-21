@@ -13,7 +13,8 @@ import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
 import {
-  createRoom, addMember, reconnectMember, kickMember, addBot, setTimer,
+  createRoom, addMember, reconnectMember, reclaimMemberByUserId, findUserRoomCodes,
+  kickMember, addBot, setTimer,
   startGame, applyActionRequest, listRoomSummaries, sanitizedStateFor,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
@@ -69,6 +70,11 @@ export interface WsContext {
 export function handleClientMessage(
   ctx: WsContext, socket: WebSocket, sessionRef: SessionRef, attachIdentity: () => void,
   msg: ClientMessage, limiter: ConnectionLimiter,
+  // Stage 36.0: the connection's authoritative account id (resolved server-side from
+  // the session cookie; null for guests). Used ONLY for same-user cross-device reclaim
+  // and discovery — never for the token-based seat authority. Default keeps callers/tests
+  // that don't sign in working unchanged.
+  getUserId: () => string | null = () => null,
 ): void {
   const { send, sendError } = ctx;
   const socialIO: SocialIO = {
@@ -229,6 +235,50 @@ export function handleClientMessage(
       // substitute for their turn is cancelled (clearRoomTimers) and only the
       // normal turn timer (if any) is rescheduled.
       if (room.gameState) ctx.broadcastAndAdvance(room);
+      break;
+    }
+
+    case 'RECLAIM_ROOM': {
+      // Cross-device reclaim (Stage 36.0): resume THIS signed-in account's own seat in
+      // `code` from another device — no reconnect token needed. Server-authoritative:
+      // it matches the connection's resolved userId (from the cookie), NEVER a client
+      // value. A fresh reconnect token is minted for the new device (the old one dies).
+      const uid = getUserId();
+      if (!uid) return sendError(socket, 'BAD_MESSAGE', 'Sign in to reclaim a seat');
+      const reqCode = String(msg.code || '').toUpperCase();
+      const room = ctx.rooms.get(reqCode);
+      if (!room) {
+        ctx.logRoomEvent('RECLAIM_ROOM', reqCode, null, 'ROOM_NOT_FOUND');
+        return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
+      }
+      const member = reclaimMemberByUserId(room, uid);
+      if (!member) {
+        ctx.logRoomEvent('RECLAIM_ROOM', reqCode, room, 'UNKNOWN_TOKEN');
+        return sendError(socket, 'ROOM_NOT_FOUND', 'No seat for this account in that room');
+      }
+      // Abandon any previous room this connection held (БЕЗ-2) before taking the seat.
+      leaveCurrentSession(ctx, sessionRef);
+      // Mint a fresh reconnect token for the new device; store only its hash (БЕЗ-4).
+      const reconnectToken = randomUUID();
+      member.reconnectToken = hashReconnectToken(reconnectToken);
+      ctx.sockets.set(member.clientId, socket);
+      sessionRef.value = { room, clientId: member.clientId };
+      attachIdentity();
+      ctx.welcome(socket, member, room, reconnectToken);
+      ctx.broadcastRoom(room);
+      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
+      ctx.sendChatHistory(socket, room.code);
+      ctx.persistRoom(room);
+      ctx.logRoomEvent('RECLAIM_ROOM', reqCode, room);
+      // Re-evaluate timers: the seat is connected again → cancel any pending AI substitute.
+      if (room.gameState) ctx.broadcastAndAdvance(room);
+      break;
+    }
+
+    case 'FIND_MY_ROOMS': {
+      // Cross-device discovery (Stage 36.0): the signed-in caller's own active rooms
+      // (codes + meta only). Guests get []. No session/room needed — just the userId.
+      send(socket, { t: 'MY_ROOMS', rooms: findUserRoomCodes(ctx.rooms.values(), getUserId()) });
       break;
     }
 

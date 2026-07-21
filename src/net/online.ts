@@ -39,7 +39,10 @@ export type OnlineIntent =
   | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 3 | 4; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
-  | { kind: 'resume'; code: string; reconnectToken: string; name: string };
+  | { kind: 'resume'; code: string; reconnectToken: string; name: string }
+  /** Cross-device reclaim (Stage 36.0): resume this signed-in account's own seat in
+   *  `code` from ANOTHER device — no token (the server matches the session userId). */
+  | { kind: 'reclaim'; code: string };
 
 /**
  * The one message a fresh connection sends to realise the user's intent.
@@ -71,6 +74,10 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
     // Resume relies on the reconnect token — never the password.
     return { t: 'RECONNECT', code: intent.code, reconnectToken: intent.reconnectToken };
   }
+  if (intent.kind === 'reclaim') {
+    // Cross-device: no token; the server authoritatively matches the session userId.
+    return { t: 'RECLAIM_ROOM', code: intent.code };
+  }
   return {
     t: 'JOIN_ROOM',
     code: intent.code,
@@ -78,6 +85,12 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
     ...(intent.password ? { password: intent.password } : {}),
     ...(intent.avatar ? { avatar: intent.avatar } : {}),
   };
+}
+
+/** Cross-device discovery (Stage 36.0): ask the server which rooms this signed-in
+ *  account has a seat in (server replies MY_ROOMS). Guests get an empty list. */
+export function findMyRoomsMessage(): ClientMessage {
+  return { t: 'FIND_MY_ROOMS' };
 }
 
 /** A seated member's seat index maps to the engine's player id. */

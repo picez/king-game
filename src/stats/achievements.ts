@@ -236,3 +236,41 @@ export function evaluateAchievements(s: AllStats): AchievementProgress[] {
 export function earnedCount(rows: AchievementProgress[]): number {
   return rows.reduce((n, r) => n + (r.earned ? 1 : 0), 0);
 }
+
+// ── grouping for the Profile UI (Stage 36.0 — filter by game) ────────────────
+// PURE and display-only: it re-buckets the SAME evaluated rows by their `gameType`
+// (cross-game badges → 'global'). It NEVER changes earned/locked, All-Rounder, or
+// the totals — those still come from evaluateAchievements over the full stat set.
+
+/** A filter segment: cross-game badges ('global') or one game. */
+export type AchievementGroupKey = 'global' | GameType;
+
+/** Canonical segment order shown in the Profile (Global first, then the six games). */
+export const ACHIEVEMENT_GROUP_ORDER: readonly AchievementGroupKey[] = [
+  'global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one',
+] as const;
+
+export interface AchievementGroup {
+  key: AchievementGroupKey;
+  rows: AchievementProgress[];
+  earned: number;
+  total: number;
+}
+
+/**
+ * Bucket evaluated rows by game (a badge with no `gameType` is 'global'), in the
+ * canonical order, skipping empty groups. Per-group earned/total lets the UI show
+ * progress inside each game without touching the global count.
+ */
+export function groupAchievements(rows: AchievementProgress[]): AchievementGroup[] {
+  const byKey = new Map<AchievementGroupKey, AchievementProgress[]>();
+  for (const r of rows) {
+    const key: AchievementGroupKey = r.achievement.gameType ?? 'global';
+    const bucket = byKey.get(key);
+    if (bucket) bucket.push(r); else byKey.set(key, [r]);
+  }
+  return ACHIEVEMENT_GROUP_ORDER.filter((k) => byKey.has(k)).map((key) => {
+    const g = byKey.get(key)!;
+    return { key, rows: g, earned: earnedCount(g), total: g.length };
+  });
+}

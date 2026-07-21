@@ -68,14 +68,29 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*flex:\s*0 0 var\(--f51-meld-card-w\)[^}]*\}/);
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*margin:\s*0[^}]*\}/);
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*transform:\s*none[^}]*\}/);
-    // Cards are ENLARGED (30.14) — one variable sizes the slot AND the card, so the
-    // two can never disagree; 64px keeps 4 cards readable at 360 without page overflow.
-    expect(css).toMatch(/--f51-meld-card-w:\s*64px/);
+    // Cards are ENLARGED (Stage 36.0: 72px) — one variable sizes the slot AND the card,
+    // so the two can never disagree; still readable at 360 without page overflow.
+    expect(css).toMatch(/--f51-meld-card-w:\s*72px/);
+    expect(css).toMatch(/--f51-meld-card-h:\s*112px/);
     expect(block).toMatch(/\.fiftyone-meld__cards \.card\s*\{[^}]*width:\s*var\(--f51-meld-card-w\)/);
     // Add / Replace joker live in their OWN row under the cards, never over them —
     // the row is a plain flex sibling of the card row, so it cannot overlay it.
     expect(css).toMatch(/\.fiftyone-meld__ctrls\s*\{[^}]*display:\s*flex[^}]*\}/);
     expect(css).not.toMatch(/\.fiftyone-meld__ctrls\s*\{[^}]*position:\s*absolute/);
+  });
+
+  it('EVERY meld card shares the same .fiftyone-meldcard slot wrapper (Stage 36.0)', () => {
+    const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
+    // The single MeldCard component wraps normal cards, bare jokers AND represented
+    // jokers in one `.fiftyone-meldcard` span, so one CSS rule governs every slot.
+    expect(src).toMatch(/className=\{`fiftyone-meldcard\$\{jokerRep \? ' fiftyone-meldcard--joker' : ''\}`\}/);
+    // Neither the bare-joker nor the normal-card branch returns a bare .card any more
+    // (both flow through the wrapper): the wrapper open-tag precedes the inner card.
+    const meld = src.slice(src.indexOf('function MeldCard'), src.indexOf('export default function FiftyOneGameScreen'));
+    expect(meld).toContain('fiftyone-meldcard');
+    // The wrapper is the slot in CSS: it is inline-flex and the row child rule pins it.
+    const css = read('src/styles/fiftyone.css');
+    expect(css).toMatch(/\.fiftyone-meldcard\s*\{[^}]*display:\s*inline-flex/);
   });
 
   it('joker replacement is offered only to an opened player on their meld step (30.14)', () => {

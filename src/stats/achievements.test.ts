@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ACHIEVEMENTS, evaluateAchievements, earnedCount, totalWins, totalGames,
+  groupAchievements,
   type AllStats,
 } from './achievements';
 import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats } from '../net/statsApi';
@@ -283,5 +284,45 @@ describe('boundaries — derived only, no DB/network/private data', () => {
     expect(menu).toContain('void loadTarneebSoloStats()');
     // Achievements wait for the solo load to resolve too.
     expect(menu).toMatch(/allResolved =[^\n]*tarneebSoloStats/);
+  });
+});
+
+describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)', () => {
+  it('buckets by game (no gameType → global), in canonical order, with per-group counts', () => {
+    // King has 1 win + 12 played → king-winner, king-regular earned (3 king badges total);
+    // plus first-win (global). Nothing else won/played.
+    const s: AllStats = { ...zero(), king: king({ gamesWon: 1, gamesPlayed: 12 }) };
+    const rows = evaluateAchievements(s);
+    const groups = groupAchievements(rows);
+    // canonical order, only non-empty groups (every catalog game has ≥1 badge → all present)
+    expect(groups.map((g) => g.key)).toEqual(
+      ['global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'],
+    );
+    const king_ = groups.find((g) => g.key === 'king')!;
+    expect(king_.total).toBe(3);           // king-winner, king-regular, king-champion
+    expect(king_.earned).toBe(2);          // winner (≥1 win) + regular (≥10 played); not champion (≥10 wins)
+    expect(king_.rows.every((r) => r.achievement.gameType === 'king')).toBe(true);
+    // global bucket holds only cross-game (no gameType) badges
+    const global = groups.find((g) => g.key === 'global')!;
+    expect(global.rows.every((r) => r.achievement.gameType === undefined)).toBe(true);
+    expect(global.earned).toBe(1);         // first-win only
+  });
+
+  it('the sum of every group total equals the whole catalog (no badge lost or duplicated)', () => {
+    const rows = evaluateAchievements(zero());
+    const groups = groupAchievements(rows);
+    expect(groups.reduce((n, g) => n + g.total, 0)).toBe(ACHIEVEMENTS.length);
+    // and per-group earned sums to the global earned count — grouping never changes earned
+    const s: AllStats = { ...zero(), king: king({ gamesWon: 1, gamesPlayed: 12 }) };
+    const rows2 = evaluateAchievements(s);
+    expect(groupAchievements(rows2).reduce((n, g) => n + g.earned, 0)).toBe(earnedCount(rows2));
+  });
+
+  it('every group key has a segment label in the i18n dictionary', () => {
+    for (const g of groupAchievements(evaluateAchievements(zero()))) {
+      const key = g.key === 'global' ? 'ach.group.global' : `gameType.${g.key}`;
+      expect(EN[key as keyof typeof EN], `missing label for ${g.key}`).toBeTruthy();
+    }
+    expect(EN['ach.filter.all']).toBeTruthy();
   });
 });

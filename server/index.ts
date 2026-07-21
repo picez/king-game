@@ -121,10 +121,11 @@ const HOUR_MS = 60 * 60 * 1000;
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_HOURS ?? 24) * HOUR_MS;
 const ROOM_HARD_TTL_MS = Number(process.env.ROOM_HARD_TTL_HOURS ?? 48) * HOUR_MS;
 // Orphan room (no connected human — only bots/offline humans) → delete after this.
-// Short by design (default 90 s): an abandoned lobby/table should vanish quickly,
-// while still leaving a window for a tab reload to RECONNECT. Applies to both a
-// lobby and an active game. Overridable via ORPHAN_ROOM_TTL_MS.
-const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 90 * 1000);
+// Default 5 minutes (Stage 36.0): long enough that a player who accidentally closed
+// the tab / reloaded — including in a game against bots — can come back and RECONNECT
+// to the SAME room, while an abandoned table still vanishes on its own. Applies to
+// both a lobby and an active game. Overridable via ORPHAN_ROOM_TTL_MS.
+const ORPHAN_ROOM_TTL_MS = Number(process.env.ORPHAN_ROOM_TTL_MS ?? 5 * 60 * 1000);
 // When a DISCONNECTED human's turn comes, wait this long before an AI substitute
 // acts for them (Stage 7.2; default 2 min). A room turn timer, if enabled AND
 // shorter, takes precedence (players agreed to it). Reconnecting cancels it.
@@ -241,7 +242,7 @@ function persistRoom(room: ServerRoom): void {
   const now = Date.now();
   // Keep the orphan timer current: set it when the last human disconnects, clear
   // it when a human (re)connects. orphanSince itself is NOT bumped by activity, so
-  // the 15-min countdown runs from when humans actually left (Stage 7.2).
+  // the ORPHAN_ROOM_TTL_MS countdown runs from when humans actually left (Stage 7.2).
   recomputeOrphan(room, now);
   touchRoom(room, now);
   storage.saveRoom(room);
@@ -777,12 +778,19 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
-    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter);
+    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter, () => resolvedUserId);
   });
 
   socket.on('close', () => {
     const session = sessionRef.value;
     if (!session) return;
+    // Stage 36.0 race guard: a member keeps its clientId across reconnects, and each
+    // connection has its own sessionRef pointing at that clientId. If a NEWER socket
+    // already reconnected this member (same clientId), the sockets map now points at
+    // that newer socket — an OLD half-open socket's late 'close' must NOT delete the
+    // live mapping or flip the just-reconnected member back to disconnected. Only the
+    // socket that currently OWNS the clientId performs the disconnect cleanup.
+    if (sockets.get(session.clientId) !== socket) return;
     sockets.delete(session.clientId);
     dispatchVoice(leaveVoice(session.room.code, session.clientId)); // notify voice peers
     markDisconnected(session.room, session.clientId);

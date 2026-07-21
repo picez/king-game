@@ -63,10 +63,13 @@
 
 /* Public melds. The card size is a variable so the whole block (slot, card, joker
    badge) is sized from ONE number — they can never disagree and overlap (30.14).
-   64×100 keeps the 74×118 card aspect, so `contain` letterboxes almost nothing. */
+   72×112 keeps the 74×118 card aspect, so `contain` letterboxes almost nothing;
+   long runs scroll INSIDE the block (overflow-x) so bigger cards never overflow the
+   page. Stage 36.0: EVERY meld card is a `.fiftyone-meldcard` slot span, so one rule
+   governs the slot for normal cards, bare jokers and represented jokers alike. */
 .fiftyone-melds {
-  --f51-meld-card-w: 64px;
-  --f51-meld-card-h: 100px;
+  --f51-meld-card-w: 72px;
+  --f51-meld-card-h: 112px;
   --f51-meld-gap: 0.4rem;
   display: flex;
   flex-wrap: wrap;
@@ -127,7 +130,9 @@
 .fiftyone-meld__cards .card .card__center { font-size: 1.6rem; }
 /* Add / Replace joker sit in their own row UNDER the cards — never over them. */
 .fiftyone-meld__ctrls { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
-.fiftyone-meldcard { display: inline-flex; }
+/* The uniform slot wrapper for EVERY meld card (Stage 36.0). Centres the inner .card
+   (which is pinned to the same width via the var), so the wrapper IS the slot. */
+.fiftyone-meldcard { display: inline-flex; align-items: center; justify-content: center; }
 /* Kept INSIDE the card box (never negative offsets) so it can't reach a neighbour. */
 .fiftyone-meldcard__jbadge {
   position: absolute; top: 1px; right: 1px; font-size: 0.72rem; line-height: 1;
@@ -215,3 +220,20 @@
 .fiftyone-setup__deck { font-size: 0.85rem; opacity: 0.9; }
 .fiftyone-howto { background: none; border: none; color: inherit; cursor: pointer; text-decoration: underline; padding: 0.3rem 0; }
 .fiftyone-setup__start { margin-top: 0.5rem; }
+
+/* Card calculator (Stage 36.0) — a local, display-only preview panel. Compact,
+   mobile-first, RTL-safe (in-flow flex), never overlaps the hand/actions. */
+.fiftyone-calc-btn--on { background: var(--accent); color: var(--on-accent, #08130b); }
+.fiftyone-calc {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.45rem 0.6rem; margin: 0.2rem 0;
+  border: 1px solid var(--accent-light, var(--accent)); border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.fiftyone-calc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+.fiftyone-calc__hand { font-weight: 800; font-variant-numeric: tabular-nums; }
+.fiftyone-calc__hint { font-size: 0.72rem; opacity: 0.75; }
+.fiftyone-calc__empty { font-size: 0.8rem; opacity: 0.8; }
+.fiftyone-calc__result { font-weight: 700; }
+.fiftyone-calc__result--ok { color: var(--success, #7fdca0); }
+.fiftyone-calc__result--no { color: var(--text-muted, #b9c7bd); }

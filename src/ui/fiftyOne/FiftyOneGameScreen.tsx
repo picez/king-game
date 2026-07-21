@@ -5,6 +5,7 @@ import GameHelpModal from '../components/GameHelpModal';
 import type { Card, Rank, Suit } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
 import { resolveMeld } from '../../games/fiftyOne/melds';
+import { calcSelection, calcHandTotal } from '../../games/fiftyOne/calculator';
 import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
 import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder } from '../../hooks/useManualHandOrder';
@@ -67,19 +68,24 @@ function JokerCard({ onClick, selected, disabled, size = 'hand' }: {
   );
 }
 
-/** One card as it appears INSIDE a public meld: a joker shows the card it
- *  represents (§8) with a small 🃏 badge — never a flat "25". */
+/** One card as it appears INSIDE a public meld. EVERY variant — normal card, bare
+ *  joker, and a joker showing the card it represents (§8) — is wrapped in the SAME
+ *  `.fiftyone-meldcard` slot span (Stage 36.0) so ONE CSS rule governs the fixed
+ *  slot size for all of them; the card can never disagree with its slot and overlap
+ *  a neighbour. A represented joker adds a small 🃏 badge — never a flat "25". */
 function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { suit: Suit; rank: Rank } }) {
-  if (card.joker && represents) {
-    return (
-      <span className="fiftyone-meldcard fiftyone-meldcard--joker">
-        <CardView card={{ suit: represents.suit, rank: represents.rank, value: 0 }} size="mini" disabled />
-        <span className="fiftyone-meldcard__jbadge" aria-hidden="true">🃏</span>
-      </span>
-    );
-  }
-  if (card.joker) return <JokerCard size="mini" disabled />;
-  return <CardView card={toCard(card)} size="mini" disabled />;
+  const jokerRep = card.joker && !!represents;
+  const inner = jokerRep
+    ? <CardView card={{ suit: represents!.suit, rank: represents!.rank, value: 0 }} size="mini" disabled />
+    : card.joker
+      ? <JokerCard size="mini" disabled />
+      : <CardView card={toCard(card)} size="mini" disabled />;
+  return (
+    <span className={`fiftyone-meldcard${jokerRep ? ' fiftyone-meldcard--joker' : ''}`}>
+      {inner}
+      {jokerRep && <span className="fiftyone-meldcard__jbadge" aria-hidden="true">🃏</span>}
+    </span>
+  );
 }
 
 export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false }: Props) {
@@ -91,6 +97,12 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   // selection ORDER is meaningful — it fixes a joker's position in the meld (30.9)
   // — so we NEVER auto-sort it; the player nudges it with ← / → instead (30.12).
   const [selPicked, setSelPicked] = useState<number | null>(null);
+  // Card calculator (Stage 36.0): a LOCAL, display-only mode available at ANY time
+  // (even on someone else's turn). It never dispatches, never removes cards from the
+  // hand, and never touches the meld selection/staging or the manual hand order — it
+  // only previews what a picked combination is worth + the hand's total penalty.
+  const [calcMode, setCalcMode] = useState(false);
+  const [calcSel, setCalcSel] = useState<string[]>([]);
 
   const { phase, turnStep, currentSeat, roundNumber } = state;
   const opened = state.openedBySeat[humanSeat];
@@ -141,6 +153,23 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     if (stagedIds.has(id)) return; // staged cards are locked until "Open" or "Clear"
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
     setSelPicked(null);
+  }
+
+  // --- Calculator (local, display-only) --------------------------------------
+  // Selection order is honoured (it fixes a joker's slot), and stale ids simply drop
+  // when the hand mutates. Nothing here dispatches or mutates the reducer/hand.
+  const calcCards = useMemo(
+    () => calcSel.map((id) => hand.find((c) => c.id === id)).filter((c): c is FiftyOneCard => !!c),
+    [calcSel, hand],
+  );
+  const calcResult = calcSelection(calcCards);
+  const calcTotal = calcHandTotal(hand);
+  function toggleCalc(id: string) {
+    setCalcSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+  function setCalc(on: boolean) {
+    setCalcMode(on);
+    if (!on) setCalcSel([]); // leaving calc mode clears its local picks
   }
 
   /** Nudge the picked selected card left/right — reorders the meld sequence (and
@@ -251,6 +280,14 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
       <div className="fiftyone-topbar">
         <button type="button" className="btn btn--ghost fiftyone-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className="fiftyone-round">{t('fiftyOne.round').replace('{n}', String(roundNumber))}</span>
+        <button
+          type="button"
+          className={`btn btn--ghost fiftyone-calc-btn ${calcMode ? 'fiftyone-calc-btn--on' : ''}`}
+          aria-pressed={calcMode}
+          onClick={() => setCalc(!calcMode)}
+          aria-label={t('fiftyOne.calcToggle')}
+          title={t('fiftyOne.calcToggle')}
+        >🧮</button>
         <button type="button" className="btn btn--ghost fiftyone-help-btn" onClick={() => setShowHelp(true)} aria-label={t('help.howToPlay')}>❓</button>
       </div>
 
@@ -400,19 +437,51 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         </div>
       )}
 
+      {/* Card calculator (Stage 36.0): available ANY time — tap your cards to preview
+          what a combination is worth, whether it's a valid meld, and your hand's total
+          penalty. Purely local: it dispatches nothing and never removes cards. */}
+      {calcMode && (
+        <div className="fiftyone-calc" role="region" aria-label={t('fiftyOne.calcToggle')}>
+          <div className="fiftyone-calc__row">
+            <span className="fiftyone-calc__hand">{t('fiftyOne.calcHandTotal').replace('{n}', String(calcTotal))}</span>
+            <span className="fiftyone-calc__hint">{t('fiftyOne.calcHint')}</span>
+          </div>
+          <div className="fiftyone-calc__row fiftyone-calc__sel">
+            {calcCards.length === 0
+              ? <span className="fiftyone-calc__empty">{t('fiftyOne.calcPickCards')}</span>
+              : (
+                <span className={`fiftyone-calc__result ${calcResult.valid ? 'fiftyone-calc__result--ok' : 'fiftyone-calc__result--no'}`}>
+                  {calcResult.valid
+                    ? t(calcResult.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(calcResult.value))
+                      + (calcResult.jokerRepresents
+                        ? Object.values(calcResult.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
+                        : '')
+                    : t('fiftyOne.calcNotMeld').replace('{n}', String(calcResult.value))}
+                </span>
+              )}
+            {calcCards.length > 0 && (
+              <button type="button" className="btn btn--ghost btn--small" onClick={() => setCalcSel([])}>{t('fiftyOne.clear')}</button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* The human's hand (staged cards are hidden here until Open/Clear). Drag to
-          reorder; tap to select for a meld — the tap order fixes a joker's spot. */}
+          reorder; tap to select for a meld — the tap order fixes a joker's spot. In
+          calc mode a tap picks the card for the calculator instead (any time). */}
       <HandReorderTray
         items={handOrder.ordered}
         cardId={fiftyOneCardId}
         order={handOrder}
-        onTap={(c) => toggle(c.id)}
-        canTap={() => meldContext}
-        renderCard={(c) =>
-          c.joker
-            ? <JokerCard selected={selected.includes(c.id)} disabled={!meldContext} />
-            : <CardView card={toCard(c)} size="hand" selected={selected.includes(c.id)} disabled={!meldContext} />
-        }
+        onTap={(c) => (calcMode ? toggleCalc(c.id) : toggle(c.id))}
+        canTap={() => calcMode || meldContext}
+        renderCard={(c) => {
+          const sel = calcMode ? calcSel.includes(c.id) : selected.includes(c.id);
+          const dis = calcMode ? false : !meldContext;
+          return c.joker
+            ? <JokerCard selected={sel} disabled={dis} />
+            : <CardView card={toCard(c)} size="hand" selected={sel} disabled={dis} />;
+        }}
       />
 
       {/* Action bar — context-sensitive per step. */}

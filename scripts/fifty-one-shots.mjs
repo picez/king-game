@@ -100,7 +100,7 @@ const HUMAN_STEP = `(()=>{
 //   • covered  — a control (Add / Replace joker) whose rect intersects a card's rect,
 //     i.e. a button sitting ON the cards instead of under them.
 // Every element child counts, so a future non-.card child can't slip past the check.
-const MIN_CARD_W = 48; // the CSS asks for 64px; below this a card has been squeezed
+const MIN_CARD_W = 48; // the CSS asks for 72px (Stage 36.0); below this a card has been squeezed
 const OVERLAP_PROBE = `JSON.stringify((()=>{
   const intersects=(a,b)=> a.left < b.right-0.5 && b.left < a.right-0.5 && a.top < b.bottom-0.5 && b.top < a.bottom-0.5;
   const rows=[...document.querySelectorAll('.fiftyone-meld__cards')];
