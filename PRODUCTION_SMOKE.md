@@ -4,6 +4,8 @@ A **10–15 minute** post-deploy pass. Run it after every production deploy (Ren
 VPS). It confirms the six-game platform, rooms/stats/social, and the optional avatar
 upload are live — **without** reading the full deployment docs.
 
+- **New to testing this? Start with** [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) — a friendly 20–30 min
+  walkthrough (what to open, in what order) + how to report a bug. This page is the exhaustive technical pass.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - **Fill-in log + triage rules:** [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md) —

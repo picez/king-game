@@ -1,7 +1,8 @@
 # Card Majlis — Project Overview
 
 A concise "what this is and how it fits together" for the whole project. For the
-running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
+running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smoke see
+[`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
 > **Release:** **v0.4.4** — production readiness audit: a **docs-only** patch packaging the Stage 34.0

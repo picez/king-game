@@ -7,6 +7,8 @@
 > fill each block with **PASS / FAIL / BLOCKED** + evidence, and hand it back. Classify each FAIL with the
 > **Triage rules** at the bottom so a product bug is never confused with a deploy/env/manual issue.
 
+- **New to this? Read** [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) **first** — the short 20–30 min
+  how-to-test + how-to-report-a-bug page. This template is where you record the results.
 - **Full checklist reference:** [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §0–§11.
 - Result legend: **PASS** = worked as documented · **FAIL** = reproducible defect (attach repro) ·
   **BLOCKED** = couldn't run (no account/device/mic/network).

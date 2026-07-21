@@ -5,6 +5,11 @@ WebSocket against a real server, incl. restart restore). This file is the
 **manual / device** pass to run before a release. See
 [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) for what each feature is.
 
+> **Just want the quick live pass?** Start with [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) (20–30 min,
+> how-to-test + how-to-report-a-bug) and record results in
+> [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md). This file is the exhaustive
+> per-feature reference behind it.
+
 **Sections** (grouped; the detailed checks follow in stage order below):
 
 - **Smoke / automated** — Automated (run first), local pass-and-play.
