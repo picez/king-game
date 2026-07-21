@@ -11,6 +11,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Android TWA build runbook (Stage 33.3).** Prepared the owner-run path to a real Android **debug**
+  build from `android-twa/twa-manifest.json` — no app is built or submitted. Added a **read-only**
+  `android-twa/check-env.ps1` (checks JDK 17+, Android SDK, adb, Node/npm, Bubblewrap, and the manifest;
+  installs/downloads/writes nothing; `FAIL` on this repo's JDK 8), the exact PowerShell build runbook in
+  the README (`check-env` → `bubblewrap init` → `.\gradlew.bat assembleDebug` → `adb install`), an
+  Asset-Links/TWA-verification explanation (a debug-signed APK shows a Custom Tab URL bar until a Play
+  App-Signing `assetlinks.json` matches; `keytool` debug-SHA + Play Console locations), an expanded
+  on-device Android QA checklist, and **repo guard tests** (`src/pwa.test.ts`) that fail if any
+  APK/AAB/keystore or generated Gradle project is committed or the config drifts from the web manifest.
+  No native project/APK/AAB/keystore committed, no real `assetlinks.json`, no web dependency, no version
+  bump.
 - **Android TWA scaffold (Stage 33.2).** Added a **config-only** Trusted Web Activity scaffold at
   `android-twa/` — a committed Bubblewrap `twa-manifest.json` (package `com.cardmajlis.app`, host
   `king-game-cqgd.onrender.com`, `standalone`/`portrait`, theme `#0d4f28`, 512 + maskable icons), a

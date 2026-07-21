@@ -1,14 +1,16 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
-> **STATUS: strategy DESIGNED (33.0); Android TWA READINESS DONE (33.1); TWA SCAFFOLD DONE (33.2).** This
-> document chooses a path to **Android and iOS apps** for Card Majlis and defines a staged rollout. Stage
-> 33.1 fixed the web/PWA readiness gaps (manifest/index copy → all 6 games; a `assetlinks.example.json`
-> template + guards; domain / OAuth / voice notes below) **without** creating a native project. Stage 33.2
-> added the **TWA config scaffold** at [`android-twa/`](android-twa/) — a committed Bubblewrap
-> `twa-manifest.json` + `.gitignore` + README — but **did not** generate the Gradle project, build an
-> APK/AAB, create a keystore, ship a real `assetlinks.json`, or submit to the store (the build toolchain —
-> JDK 17+, Android SDK, Bubblewrap — was unavailable; the generated project is not faked). When 33.3
-> starts, code follows this doc; if the two disagree, update this doc first.
+> **STATUS: strategy DESIGNED (33.0); TWA READINESS (33.1); TWA SCAFFOLD (33.2); BUILD RUNBOOK (33.3) DONE.**
+> This document chooses a path to **Android and iOS apps** for Card Majlis and defines a staged rollout.
+> Stage 33.1 fixed the web/PWA readiness gaps **without** a native project. Stage 33.2 added the **TWA
+> config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap `twa-manifest.json` +
+> `.gitignore` + README). Stage 33.3 added the **owner build runbook**: a read-only `check-env.ps1`, exact
+> `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install` steps, Asset-Links/keytool verification
+> notes, an expanded on-device QA checklist, and repo guard tests (`src/pwa.test.ts`). **None** of these
+> generated/committed the Gradle project, built an APK/AAB, created a keystore, shipped a real
+> `assetlinks.json`, or submitted to the store — the build toolchain (JDK 17+, Android SDK, Bubblewrap) was
+> unavailable and nothing is faked; the owner runs the runbook on a toolchained machine. When 33.3's build
+> is executed, code follows this doc; if the two disagree, update this doc first.
 
 **Premise:** the web app is already a **high-quality installable PWA** — the wrappers below reuse the
 **deployed web app as the single source of truth**, they do not fork it. Related docs:
@@ -67,7 +69,7 @@ cookies, and mic permissions** the TWA gets for free.
 |---|---|---|
 | **33.1 — Android TWA readiness** | Verify/finish PWA installability: manifest `name`/`short_name`/`description` (add Preferans+51), **maskable** icon, `theme`/`background` colors, `start_url`/`scope`/`display`; document the **`assetlinks.json`** contents + hosting path (`/.well-known/assetlinks.json`), the **package id** (`com.cardmajlis.app`), **Play App Signing** notes, and the **production-URL/HTTPS** requirement. **No native project.** | design/docs + tiny manifest copy fix only |
 | **33.2 — Android TWA scaffold** ✅ | **DONE.** TWA config scaffold at [`android-twa/`](android-twa/): a committed Bubblewrap `twa-manifest.json` (package `com.cardmajlis.app`, host `king-game-cqgd.onrender.com`, `standalone`/`portrait`, theme `#0d4f28`, 512+maskable icons) + `.gitignore` (keystores/APK/AAB/generated Gradle) + README. **Not** done (toolchain absent — JDK 8 only, no Android SDK/Bubblewrap): generating the Gradle project, APK/AAB, keystore, real `assetlinks.json`, store submission. Generated project intentionally not faked. | native scaffold in a separate dir / repo path; no app logic |
-| **33.3 — Android internal test build** | Generate the Gradle project (`bubblewrap init`) + a **signed AAB/APK**; install on a **physical Android** device; run the mobile smoke (login, online room, voice, invite deep-link, install/update). | internal testing track only |
+| **33.3 — Android build runbook + debug smoke** | **Runbook DONE (repo side).** Added `android-twa/check-env.ps1` (read-only JDK/SDK/adb/node/Bubblewrap check) + the exact owner build runbook in the README (`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install`), Asset-Links/keytool verification notes, an expanded on-device QA checklist, and repo guard tests. **Owner-run remainder:** actually generate the Gradle project + **debug** APK on a toolchained machine and run the smoke (login, online room, 51, tutorials, achievements, voice, invite deep-link, install/update). A **signed AAB** + Play internal track is a later 33.3-release step. **No** generated project/APK committed; no store submission. | runbook + guards in repo; owner runs the build; internal testing track only |
 | **33.4 — iOS decision** | Decide **PWA-only vs Capacitor/WKWebView**; if building, spike OAuth-via-system-browser + mic permission + assess Guideline 4.2 review risk. | decision doc; build only if it clears the risk |
 | **33.5 — Push / native polish (optional)** | Web Push (Android/Chrome) or native push if Capacitor lands; splash/share-sheet polish. | opt-in, post-MVP |
 
@@ -246,38 +248,48 @@ Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not sup
 | **Data safety** (Play) | **Account info:** email + Google user id (sign-in, friends, leaderboards). **Avatars:** user image (optional). **Microphone:** **live** voice only — **not recorded, not stored, not shared**. **Game stats.** **No ads.** **No analytics** *(declare only if it stays true — verify)*. Provide a **data-deletion** path. |
 | **Accounts** | **Google Play Console** developer account required (Scope E). |
 
-## 6c. TWA scaffold (Stage 33.2 — DONE)
+## 6c. TWA scaffold + build runbook (Stage 33.2 scaffold · 33.3 runbook — DONE)
 
-The scaffold lives at [`android-twa/`](android-twa/) and is **config-only**:
+The scaffold lives at [`android-twa/`](android-twa/) and is **config + runbook only** (no native build):
 
 - **`twa-manifest.json`** — the Bubblewrap **input** (source of truth for the wrapper), hand-authored to
   mirror `public/manifest.webmanifest`: `packageId: com.cardmajlis.app`, `host:
   king-game-cqgd.onrender.com`, `startUrl: /`, `display: standalone`, `orientation: portrait`, theme /
   background / nav colors `#0d4f28`, icons `icon-512.png` + maskable `maskable-512.png`, notifications
   off. Edit this file then `bubblewrap update` — never hand-edit generated Gradle files.
+- **`check-env.ps1`** — a **read-only** Windows PowerShell checker (33.3): verifies JDK 17+, Android SDK,
+  adb, node/npm, Bubblewrap, and `twa-manifest.json` validity; prints `PASS`/`WARN`/`FAIL`, exits `1` on a
+  hard gap. Installs/downloads/writes nothing. (In this repo's env it reports JDK `FAIL` — Java 8.)
 - **`.gitignore`** — excludes the generated Android project (`app/`, `gradlew`, `*.gradle`, `.gradle/`),
   build outputs (`*.apk`, `*.aab`, `build/`), and **all keystores** (`*.keystore`, `*.jks`, …). A root
   `.gitignore` safety-net repeats the keystore/APK/AAB/`build/` rules under `android-twa/**`.
-- **`README.md`** — prerequisites (JDK 17+, Android SDK, `npx @bubblewrap/cli`), the `bubblewrap
-  init/update/build` + `gradlew assembleDebug` commands, the Play App-Signing → real `assetlinks.json`
-  step, and this stage's boundaries.
+- **`README.md`** — the full **owner build runbook** (33.3): prerequisites (JDK 17+, Android SDK, Node,
+  `npx @bubblewrap/cli`), `check-env.ps1` → `bubblewrap init` → `.\gradlew.bat assembleDebug` →
+  `adb install`, the expected generated-file list + APK path, the **Asset Links / TWA verification**
+  explanation (debug key ⇒ Custom Tab URL bar is expected; Play App-Signing SHA-256 → real
+  `assetlinks.json`), plus `keytool` debug-SHA and Play Console locations.
 
 **Why config-only:** the environment had **JDK 8 only, no Android SDK, no Bubblewrap** → the Gradle
 project cannot be generated or built here. Per the stage rule, generated files are **not faked**; the
-owner runs `bubblewrap init` (33.3) on a machine with the toolchain. `twa-manifest.json` is an input, not
-a generated artifact, so committing it is honest and stable.
+owner runs the runbook (33.3) on a machine with the toolchain. `twa-manifest.json` + `check-env.ps1` are
+inputs, not generated artifacts, so committing them is honest and stable.
 
-**Owner build path (33.3):** `cd android-twa` → `bubblewrap init --manifest ./twa-manifest.json` →
-`gradlew.bat assembleDebug` (or `bubblewrap build`) → output `app/build/outputs/apk/debug/app-debug.apk`.
-The first-run on-device checklist is in [`QA_CHECKLIST.md`](QA_CHECKLIST.md) ("Manual — PWA / mobile →
-Android TWA first run") and [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §10b.
+**Owner build path (33.3):** `cd android-twa` → `.\check-env.ps1` (JDK must PASS) →
+`bubblewrap init --manifest .\twa-manifest.json` → `.\gradlew.bat assembleDebug` (or `bubblewrap build`)
+→ output `app\build\outputs\apk\debug\app-debug.apk` → `adb install -r …`. A **debug** APK is
+debug-signed, so it will typically launch as a **Custom Tab (URL bar visible)** — full-screen TWA needs a
+matching `assetlinks.json`. The first-run on-device checklist is in [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+("Manual — PWA / mobile → Android TWA first run") and [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §10b.
+Repo guards (`src/pwa.test.ts`) fail if a build artifact/keystore is committed or the config drifts from
+the manifest.
 
 ## 7. Boundaries & non-goals
 
 **Stage 33.0 design / 33.1 readiness:** docs + a manifest/index copy fix + an `assetlinks.example`
-template + guard tests. **Stage 33.2 scaffold:** the `android-twa/` config-only scaffold above. **Neither
-stage** built a native project/APK/AAB, added a runtime dependency, changed DB/server, shipped a real
-`assetlinks.json`, touched iOS, or bumped the version.
+template + guard tests. **Stage 33.2 scaffold + 33.3 runbook:** the `android-twa/` config + read-only
+`check-env.ps1` + build runbook above, plus repo guard tests. **None of these stages** built or committed
+a native project/APK/AAB, created a keystore, added a runtime dependency, changed DB/server, shipped a
+real `assetlinks.json`, touched iOS, or bumped the version.
 
 **Not chosen (and why):** Capacitor/RN as the *first* wrapper — they'd re-solve OAuth/cookies/mic that a
 TWA gets free, for a bigger surface. They stay the **iOS/future** path (33.4+), evaluated on merit.

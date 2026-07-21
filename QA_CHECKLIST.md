@@ -898,37 +898,49 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > - [ ] The install banner does **not** show in standalone/installed mode; the "Update available" pill
 >       still works (guarded: `shouldOfferInstall({…, standalone:true}) === false`).
 >
-> **Android TWA — scaffold DONE (Stage 33.2), native project NOT built yet.** The config scaffold lives at
-> [`android-twa/`](android-twa/) (`twa-manifest.json` + `.gitignore` + README; no Gradle project/APK/AAB —
-> toolchain absent). iOS stays PWA add-to-home-screen until the 33.4 decision.
+> **Android TWA — scaffold + runbook DONE (Stage 33.2/33.3), native project NOT built yet.** The config
+> scaffold lives at [`android-twa/`](android-twa/) (`twa-manifest.json` + `check-env.ps1` + `.gitignore` +
+> README build runbook; no Gradle project/APK/AAB — toolchain absent). iOS stays PWA add-to-home-screen
+> until the 33.4 decision.
 >
-> **Scaffold hygiene (checkable now, no device):**
-> - [ ] `git ls-files android-twa` → only `twa-manifest.json`, `.gitignore`, `README.md` (no `app/`,
->       `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`).
+> **Scaffold hygiene (checkable now, no device — guarded by `src/pwa.test.ts`):**
+> - [ ] `git ls-files android-twa` → only `twa-manifest.json`, `check-env.ps1`, `.gitignore`, `README.md`
+>       (no `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`).
 > - [ ] `twa-manifest.json` `packageId` = `com.cardmajlis.app`; `host`/`startUrl`/theme `#0d4f28`/
 >       `standalone`/`portrait`/icons match `public/manifest.webmanifest` + `assetlinks.example.json`.
+> - [ ] `android-twa\check-env.ps1` runs read-only and reports JDK/SDK/adb/node/npm/Bubblewrap; JDK must
+>       be **PASS** (17+) before building.
 >
-> **Android TWA first run (after a 33.3 debug build — `bubblewrap init` → `gradlew.bat assembleDebug`;
-> until then N/A).** Install on a **physical Android** and check:
-> - [ ] `adb install -r app/build/outputs/apk/debug/app-debug.apk` succeeds; **Card Majlis** icon appears.
-> - [ ] **TWA, not a generic WebView** — launches full-screen standalone. (Without a verified
->       `assetlinks.json` it may fall back to a **Custom Tab with a URL bar** — expected until Digital
->       Asset Links verify with the Play App-Signing SHA-256.)
+> **Android TWA first run (after a 33.3 debug build — `.\check-env.ps1` → `bubblewrap init` →
+> `.\gradlew.bat assembleDebug`; until then N/A).** Install on a **physical Android** and check:
+> - [ ] `adb install -r app\build\outputs\apk\debug\app-debug.apk` succeeds; **Card Majlis** icon appears.
+> - [ ] **Opens the production URL** (`king-game-cqgd.onrender.com`) as the app's start — same content as
+>       the deployed PWA, not a stale bundle.
+> - [ ] **TWA, not a generic WebView** — launches full-screen standalone with **no address bar** when
+>       Asset Links verify. **Debug build caveat:** a `assembleDebug` APK is signed with the debug key, so
+>       it will typically show a **Custom Tab with a URL bar** — that is **expected** until a Play
+>       App-Signing `assetlinks.json` matches (see [`android-twa/README.md`](android-twa/README.md)).
 > - [ ] **Google sign-in** completes (TWA uses Chrome → OAuth not blocked; a plain WebView would fail).
-> - [ ] Create/join an **online room** over `wss://…/ws`; a second device sees it.
-> - [ ] **Voice** — Android **mic permission** prompt appears; two-device audio works (TURN for
->       cross-network — `/health/diagnostics` `voice.ice: turn_configured`).
+> - [ ] Create/join an **online room** over `wss://…/ws`; a second device sees it and play advances.
+> - [ ] **51 (Syrian 51)** smoke — start a local game, open a meld, discard; no overflow/clipped melds.
+> - [ ] **Tutorials** — 🎓 hub opens; at least one game tutorial plays Back/Next/Skip cleanly.
+> - [ ] **Achievements** — Profile → Achievements grid renders all badges (no broken icons).
+> - [ ] **Hand drag on touch** — drag-reorder a card in hand works with a finger; tap still plays;
+>       `↺ Auto-sort` resets.
+> - [ ] **Voice** — Android **mic permission** prompt appears; two-device audio works on the **same
+>       Wi-Fi** (cross-network needs TURN — `/health/diagnostics` `voice.ice: turn_configured`).
 > - [ ] **Invite link** `https://<verified-domain>/?room=CODE` opens the **app** and joins **once**
 >       Asset Links verify for that exact origin; otherwise it opens the **browser** PWA (document which
 >       origin is verified — the onrender.com subdomain vs a custom domain — before testing).
 > - [ ] **Install banner hidden** in standalone; the **"Update available"** pill still appears after a
 >       web deploy and refreshes with no mid-game reload.
-> - [ ] **Back button** navigates web history; from the start screen it backgrounds/closes cleanly.
+> - [ ] **Back button** navigates web history; from the start screen it backgrounds/closes cleanly (no
+>       blank Custom Tab left behind).
 > - [ ] **360/390** width: no horizontal overflow on menu or any table; re-check **Arabic RTL**.
 > - [ ] **Offline** — cached shell loads; live features degrade like the in-browser PWA.
 >
-> Before store submission (33.3+): verify the real `assetlinks.json` matches the **Play App-Signing**
-> SHA-256 (not the upload key) — see [`android-twa/README.md`](android-twa/README.md).
+> Before store submission (33.3-release+): verify the real `assetlinks.json` matches the **Play
+> App-Signing** SHA-256 (not the upload/debug key) — see [`android-twa/README.md`](android-twa/README.md).
 
 > Install / update / offline UX = Stage 21.0. Banners are a progressive enhancement:
 > the install card only shows when Chrome fires `beforeinstallprompt`; the update pill

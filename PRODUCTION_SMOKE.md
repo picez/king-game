@@ -528,17 +528,21 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] **Installability:** Lighthouse/DevTools → *Application → Manifest* shows no installability errors;
       the app installs and launches standalone (the TWA reuses exactly this).
 
-### 10b. Android TWA scaffold (Stage 33.2 — config-only, no app built)
+### 10b. Android TWA scaffold + build runbook (Stage 33.2/33.3 — config-only, no app built)
 
-> The TWA config scaffold lives at [`android-twa/`](android-twa/). The native Gradle project/APK/AAB is
-> **not** generated (toolchain absent). Full first-run device checklist: [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
-> "Manual — PWA / mobile → Android TWA first run".
+> The TWA config scaffold + owner build runbook live at [`android-twa/`](android-twa/). The native Gradle
+> project/APK/AAB is **not** generated (toolchain absent — `check-env.ps1` reports the JDK gap). Full
+> first-run device checklist: [`QA_CHECKLIST.md`](QA_CHECKLIST.md) "Manual — PWA / mobile → Android TWA
+> first run".
 
-- [ ] **Scaffold hygiene:** `git ls-files android-twa` lists only `twa-manifest.json`, `.gitignore`,
-      `README.md` — **no** `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, or `*.keystore`.
+- [ ] **Scaffold hygiene:** `git ls-files android-twa` lists only `twa-manifest.json`, `check-env.ps1`,
+      `.gitignore`, `README.md` — **no** `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, or `*.keystore`
+      (guarded by `src/pwa.test.ts`).
 - [ ] **Config matches manifest:** `twa-manifest.json` `packageId` = `com.cardmajlis.app`, `host`/`startUrl`
       / theme `#0d4f28` / `standalone` / `portrait` / icons match `public/manifest.webmanifest` and
-      `assetlinks.example.json`.
+      `assetlinks.example.json` (guarded by `src/pwa.test.ts`).
+- [ ] **Env check runs read-only:** `pwsh android-twa/check-env.ps1` (or `powershell -File …`) prints
+      PASS/WARN/FAIL and installs nothing; JDK must be PASS (17+) before a build.
 
 ## 11. Security spot-checks
 

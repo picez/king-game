@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const PUBLIC = join(process.cwd(), 'public');
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -117,6 +118,68 @@ describe('Android TWA readiness (Stage 33.1) — Digital Asset Links', () => {
     const fp = t.sha256_cert_fingerprints[0];
     expect(fp).toMatch(/REPLACE|PLACEHOLDER/i);
     expect(fp, 'placeholder must not look like a real SHA-256 fingerprint').not.toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/i);
+  });
+});
+
+describe('Android TWA scaffold (Stage 33.2/33.3) — twa-manifest + repo hygiene', () => {
+  const TWA_DIR = join(process.cwd(), 'android-twa');
+  const twa = JSON.parse(readFileSync(join(TWA_DIR, 'twa-manifest.json'), 'utf8'));
+  const manifest = JSON.parse(readFileSync(join(process.cwd(), 'public', 'manifest.webmanifest'), 'utf8'));
+
+  it('keeps the proposed package id (matches assetlinks.example)', () => {
+    expect(twa.packageId).toBe('com.cardmajlis.app');
+    const dal = JSON.parse(
+      readFileSync(join(process.cwd(), 'public', '.well-known', 'assetlinks.example.json'), 'utf8'),
+    ) as Array<{ target: { package_name: string } }>;
+    expect(dal[0].target.package_name).toBe(twa.packageId);
+  });
+
+  it('targets the current production host until the custom-domain stage', () => {
+    // If a custom domain is provisioned, update this guard + twa-manifest together.
+    expect(twa.host).toBe('king-game-cqgd.onrender.com');
+    expect(twa.startUrl).toBe('/');
+    expect(twa.fullScopeUrl).toBe(`https://${twa.host}/`);
+  });
+
+  it('display / orientation / colors mirror the web manifest', () => {
+    expect(twa.display).toBe(manifest.display); // standalone
+    expect(twa.orientation).toBe('portrait'); // manifest is portrait-primary
+    expect(twa.themeColor.toLowerCase()).toBe(manifest.theme_color.toLowerCase());
+    expect(twa.backgroundColor.toLowerCase()).toBe(manifest.background_color.toLowerCase());
+  });
+
+  it('points icons at same-origin manifest assets that exist', () => {
+    for (const url of [twa.iconUrl, twa.maskableIconUrl]) {
+      expect(url.startsWith(`https://${twa.host}/`)).toBe(true);
+      const rel = url.replace(`https://${twa.host}/`, '');
+      expect(existsSync(join(process.cwd(), 'public', rel)), `${rel} should exist`).toBe(true);
+    }
+  });
+
+  it('commits NO build artifacts or secrets under android-twa/ (git-tracked only)', () => {
+    let tracked: string[];
+    try {
+      tracked = execFileSync('git', ['ls-files', 'android-twa'], { encoding: 'utf8' })
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } catch {
+      // No git available (e.g. a source tarball) — the .gitignore rules still apply; skip.
+      return;
+    }
+    // Whatever IS committed must be exactly the safe scaffold, never a keystore/APK/AAB/Gradle project.
+    const forbidden = tracked.filter((f) => /\.(apk|aab|keystore|jks|p12|idsig)$/i.test(f));
+    expect(forbidden, `android-twa must not commit build artifacts/keystores: ${forbidden.join(', ')}`).toEqual([]);
+    expect(tracked.some((f) => /(^|\/)gradlew(\.bat)?$/.test(f)), 'generated gradlew must not be committed').toBe(false);
+    expect(tracked.some((f) => /\.gradle$/.test(f)), 'generated *.gradle must not be committed').toBe(false);
+    for (const expected of [
+      'android-twa/twa-manifest.json',
+      'android-twa/check-env.ps1',
+      'android-twa/.gitignore',
+      'android-twa/README.md',
+    ]) {
+      expect(tracked, `${expected} should be committed`).toContain(expected);
+    }
   });
 });
 
