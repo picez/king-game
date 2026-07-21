@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.7] — 2026-07-21 — Reconnect and table polish
+
+> Player-facing polish across **reconnect**, **achievements**, and **51**. **No** DB migration (latest
+> stays `0009`), dependency, or native change. Stage 36.2 additionally corrected stale env-var docs
+> (`ORPHAN_ROOM_TTL_MS` is **5 min**, not the old 15 min) and added a guard that the 51 calculator stays
+> local-only.
+
 ### Added
 
 - **Resume your game from another device (Stage 36.1).** The main menu now shows a **"Your active rooms"**

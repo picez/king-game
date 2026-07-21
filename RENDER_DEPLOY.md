@@ -51,7 +51,7 @@ balancer, and WebSocket connections are supported on the same service.
    | `ALLOWED_ORIGINS` | `https://<your-service>.onrender.com` | set after step 9 (see below) |
    | `ROOM_TTL_HOURS` | `24` | idle-room cleanup |
    | `ROOM_HARD_TTL_HOURS` | `48` | hard cap for connected rooms |
-   | `ORPHAN_ROOM_TTL_MS` | `900000` | delete orphan rooms (no connected human) after 15 min (Stage 7.2) |
+   | `ORPHAN_ROOM_TTL_MS` | `300000` | delete orphan rooms (no connected human) after **5 min** (Stage 36.0 — room survives a reload/close so you can reconnect, incl. bot games) |
    | `DISCONNECTED_SUBSTITUTE_DELAY_MS` | `120000` | AI substitute delay for a disconnected human's turn, 2 min (Stage 7.2) |
    | `VITE_WS_URL` | `wss://<your-service>.onrender.com/ws` | **optional** — see note |
    | `VOICE_ICE_SERVERS` | _(unset)_ | **optional, preferred** — runtime TURN for voice; served at `/api/voice/ice-config`, no rebuild (see below) |
@@ -124,7 +124,7 @@ readiness) without opening the Render dashboard, use the diagnostics endpoint:
 
 ```bash
 curl -s https://<your-service>.onrender.com/health/diagnostics
-# {"status":"ok","version":"0.4.6","commit":"…","uptime":42,"db":"enabled",
+# {"status":"ok","version":"0.4.7","commit":"…","uptime":42,"db":"enabled",
 #  "rooms":{"total":3,"open":1,"inGame":2},"connections":5,
 #  "games":{"count":6,"ids":["king","durak","deberc","tarneeb","preferans","fifty-one"]},
 #  "avatarUploads":{"status":"enabled","reason":null,"ffmpeg":true,"database":true}}

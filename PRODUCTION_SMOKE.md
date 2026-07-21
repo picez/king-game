@@ -12,7 +12,7 @@ upload are live — **without** reading the full deployment docs.
   a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.6`** (tag `v0.4.6`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.7`** (tag `v0.4.7`).
 
 Set your host once and reuse it below:
 
@@ -28,24 +28,38 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.6 adds no migrations** — 0009 is still the latest. v0.4.6 is **Android TWA debug build readiness**
-> (Stages 33.13–33.14): a **config + docs** patch — a one-line `android-twa/twa-manifest.json` fix
-> (`splashScreenFadeOutDuration`) that **unblocks** the TWA **debug** build, an emulator-run evidence doc,
-> and a `check-env.ps1` that detects an off-`PATH` Android Studio JBR/SDK. **No native app is shipped, no
-> APK/AAB/keystore/generated project committed, no dependency, no schema change, and no runtime change**
-> (the debug build opens as a **Custom Tab** until real Asset Links). The v0.4.1 **Achievements expansion**
-> (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are intact. The v0.3.7 Syrian
-> 51 release records its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.7 adds no migrations** — 0009 is still the latest. v0.4.7 is **reconnect and table polish**
+> (Stages 36.0–36.2): **achievements grouped by game**, **rooms survive 5 min for reconnect** (orphan TTL
+> 90s→5min), **same-user cross-device resume** (`RECLAIM_ROOM` by userId + a menu "Your active rooms"
+> block + a reconnect race-guard), a **51 card calculator** (local, off-turn), and a **51 meld layout
+> fix**. **No gameplay-rule change, no dependency, no schema change** (the released six-game state, the
+> v0.4.1 achievements set of 29, and v0.4.0 Tutorials are all intact). The v0.3.7 Syrian 51 release records
+> its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.6 release smoke (fast targeted pass — Android TWA debug build readiness)
+## 0. v0.4.7 release smoke (fast targeted pass — reconnect and table polish)
 
-v0.4.6 is a **config + docs** patch (Stages 33.13–33.14): a one-line `android-twa/twa-manifest.json` fix
-(`splashScreenFadeOutDuration`) that **unblocks** the Android TWA **debug** build, an emulator-run evidence
-doc, and a `check-env.ps1` that detects an off-`PATH` Android Studio JBR/SDK. **No native app is shipped,
-no schema change, and no runtime change.** The released six-game state, v0.4.2 iOS hint, and v0.4.1
-achievements are intact — so this §0 pass doubles as the owner's **full pre-live production smoke**.
+v0.4.7 (Stages 36.0–36.2) polishes **reconnect**, **achievements**, and **51**. **No gameplay-rule /
+schema / dependency change.** The released six-game state, v0.4.2 iOS hint, and the 29-badge achievements
+set are intact — so this §0 pass doubles as the owner's **full pre-live production smoke**. Headline
+manual checks (need a signed-in account; the cross-device one needs two devices/browsers):
+
+- [ ] **Resume from another device (36.1):** signed in on device A in a room (a game with **bots** counts,
+      or a lobby) → on device B, **same account** → the **menu shows "Your active rooms"** with that room
+      (game · code · Lobby/In game · players · updated) → **tap** restores the **same seat/game**; device A
+      is dropped and does **not** knock B offline. Shows **only your own** rooms (no others'/tokens/hands);
+      a **guest** / empty account sees no block; it does not duplicate device A's local **Resume** card.
+- [ ] **5-min reconnect window (36.0):** reload/close a tab mid-game (incl. vs bots) → within **5 minutes**
+      the room still exists and **Resume** returns you to your seat (was 90 s).
+- [ ] **Achievements grouped (36.0):** Profile → Achievements shows the **filter strip** (All · Global ·
+      the six games), each with its own earned/total; tapping a chip filters the grid. Scrolls on 360/390,
+      mirrors under **Arabic RTL**; the overall `n/29` and which badges are earned are **unchanged**.
+- [ ] **51 Count cards (36.0):** on the 51 table tap **🧮 Count cards** — a preview panel opens **even on
+      another player's turn**; picking cards shows the selection's meld validity/value + the hand penalty;
+      it **plays nothing**, removes no cards, and doesn't disturb your selection/hand order.
+- [ ] **51 public melds (36.0):** with several melds down (incl. a joker-represented card and a long run),
+      cards are readable (72px), **never overlap/clip**, and a long run scrolls **inside** its block.
 
 > **Testing status:** the **public/unauthenticated** checks (§1 of the log template) were **green on
 > v0.4.4** (diagnostics/static/manifest — Stage 34.2). The **login/device/mic-gated manual smoke is still
@@ -62,10 +76,10 @@ achievements are intact — so this §0 pass doubles as the owner's **full pre-l
 Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements
 §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.6`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.7`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.6 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.7 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404

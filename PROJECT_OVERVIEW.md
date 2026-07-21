@@ -5,11 +5,13 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.6** — Android TWA debug build readiness: a **config + docs** patch packaging Stages
-> 33.13–33.14 — a one-line `android-twa/twa-manifest.json` fix (`splashScreenFadeOutDuration`) that
-> **unblocks** the TWA debug build (verified in an emulator; opens as a **Custom Tab** until real Asset
-> Links), an evidence doc, and a `check-env.ps1` that detects an off-`PATH` Android Studio JBR/SDK — no
-> gameplay/DB/dependency change, no native binary committed. On the **v0.4.5** owner smoke guide: a
+> **Release:** **v0.4.7** — reconnect and table polish (Stages 36.0–36.2): **achievements grouped by game**
+> (per-game filter strip; logic unchanged), **rooms survive 5 min for reconnect** (orphan TTL 90s→5min,
+> incl. bot games), **same-user cross-device resume** (server-authoritative `RECLAIM_ROOM` by userId + a
+> menu "Your active rooms" block + a reconnect race-guard fix), a **51 card calculator** (local, off-turn
+> preview), and a **51 meld layout fix** (uniform slot wrapper, bigger cards, no overlap) — no
+> gameplay-rule/DB/dependency change. On the **v0.4.6** Android TWA debug build readiness: a **config +
+> docs** patch (Stages 33.13–33.14) that unblocks the TWA debug build. On the **v0.4.5** owner smoke guide: a
 > **docs-only** patch adding `OWNER_SMOKE_GUIDE.md`. On the
 > **v0.4.4** production readiness audit: a **docs-only** patch packaging the Stage 34.0 pre-live audit
 > (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" — and added

@@ -79,6 +79,25 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(css).not.toMatch(/\.fiftyone-meld__ctrls\s*\{[^}]*position:\s*absolute/);
   });
 
+  it('the 51 card calculator is LOCAL-only — off-turn, no dispatch, no hand mutation (Stage 36.0)', () => {
+    const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
+    // Uses the pure calculator helpers (no rules re-implemented in the UI).
+    expect(src).toContain("from '../../games/fiftyOne/calculator'");
+    expect(src).toContain('calcSelection(calcCards)');
+    expect(src).toContain('calcHandTotal(hand)');
+    // Works at ANY time — the hand tap is enabled off-turn in calc mode.
+    expect(src).toContain('canTap={() => calcMode || meldContext}');
+    // A calc tap only flips LOCAL state; it must not dispatch or mutate the reducer.
+    const toggle = src.slice(src.indexOf('function toggleCalc'), src.indexOf('function toggleCalc') + 200);
+    expect(toggle).toContain('setCalcSel(');
+    expect(toggle).not.toContain('apply(');
+    // The calculator panel never dispatches an action (no apply({ type: ... }) in it).
+    const calcPanel = src.slice(src.indexOf('fiftyone-calc"'), src.indexOf('The human'));
+    expect(calcPanel).not.toContain('apply(');
+    // Selecting for the calculator does NOT go through the meld selection/staging path.
+    expect(src).toContain('onTap={(c) => (calcMode ? toggleCalc(c.id) : toggle(c.id))}');
+  });
+
   it('EVERY meld card shares the same .fiftyone-meldcard slot wrapper (Stage 36.0)', () => {
     const src = read('src/ui/fiftyOne/FiftyOneGameScreen.tsx');
     // The single MeldCard component wraps normal cards, bare jokers AND represented

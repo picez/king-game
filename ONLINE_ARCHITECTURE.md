@@ -243,7 +243,7 @@ touching the reducer, rules, scoring, or deck. A **connected human** =
   stamps `room.orphanSince` the moment the last human disconnects and clears it
   when any human (re)connects — the timestamp is **not** bumped by activity, so
   the countdown runs from when humans actually left. The existing cleanup sweep
-  deletes orphans `>= ORPHAN_ROOM_TTL_MS` old (default **15 min**) from memory
+  deletes orphans `>= ORPHAN_ROOM_TTL_MS` old (default **5 min**, Stage 36.0) from memory
   **and** storage, cancelling their timers. Applies to **lobby and active game**.
   `orphanSince` is persisted, so a restart resumes the countdown (restored humans
   have no socket → the room is immediately re-evaluated as orphaned).
@@ -265,7 +265,7 @@ touching the reducer, rules, scoring, or deck. A **connected human** =
   reconnectable) and keeps Resume; bots still run normally.
 - **Privacy:** none of this adds protocol fields — no `userId`/tokens, no private
   hands. The offline state is already public via the room member `connected` flag.
-- Env: `ORPHAN_ROOM_TTL_MS` (900000), `DISCONNECTED_SUBSTITUTE_DELAY_MS` (120000).
+- Env: `ORPHAN_ROOM_TTL_MS` (300000 — 5 min, Stage 36.0), `DISCONNECTED_SUBSTITUTE_DELAY_MS` (120000).
 
 ## 4. Server modes
 

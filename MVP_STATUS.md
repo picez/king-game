@@ -5,11 +5,13 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.4.6`** (Android TWA debug build readiness — a **config + docs** patch
-packaging Stages 33.13–33.14: a one-line `android-twa/twa-manifest.json` fix (`splashScreenFadeOutDuration`)
-that **unblocks** the TWA debug build, an emulator-run evidence doc, and a `check-env.ps1` that detects an
-off-`PATH` Android Studio JBR/SDK; no gameplay/DB/dependency change, no native binary committed (debug
-opens as a Custom Tab until real Asset Links); on the `v0.4.5` owner smoke guide — a **docs-only** patch
+**Status: stable MVP — release `v0.4.7`** (reconnect and table polish — Stages 36.0–36.2: **achievements
+grouped by game** (per-game filter strip, earned/total; logic unchanged), **rooms survive 5 min for
+reconnect** (orphan TTL 90s→5min, incl. bot games), **same-user cross-device resume** (server-authoritative
+`RECLAIM_ROOM` by userId + a menu "Your active rooms" block + a reconnect race-guard fix), a **51 card
+calculator** (local, off-turn preview), and a **51 meld layout fix** (uniform slot wrapper, bigger cards,
+no overlap); no gameplay-rule/DB/dependency change; on the `v0.4.6` Android TWA debug build readiness — a
+**config + docs** patch (Stages 33.13–33.14) that unblocks the TWA debug build; on the `v0.4.5` owner smoke guide — a **docs-only** patch
 adding `OWNER_SMOKE_GUIDE.md`, a short 20–30 min live-testing + bug-report how-to; on
 the `v0.4.4` production readiness audit — a **docs-only** patch packaging the Stage 34.0 pre-live audit
 (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" — and added
@@ -170,7 +172,7 @@ documented as post-MVP, not built. Spec + plan:
   (see DEPLOYMENT.md).
 - **Orphan cleanup + disconnected substitute (Stage 7.2)**: a room with **no
   connected human** (only bots/offline humans) is deleted after
-  `ORPHAN_ROOM_TTL_MS` (default **15 min**) — lobby or active game. A human who
+  `ORPHAN_ROOM_TTL_MS` (default **5 min**, Stage 36.0) — lobby or active game. A human who
   **disconnects mid-game is not played for instantly**: when their turn comes the
   server waits `DISCONNECTED_SUBSTITUTE_DELAY_MS` (default **2 min**, or the room
   turn timer if shorter) then plays a **legal AI move** for them via the normal
