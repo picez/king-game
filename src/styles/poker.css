@@ -141,10 +141,37 @@
 .poker-wager-go { min-height: 44px; }
 .poker-waiting { text-align: center; opacity: 0.75; font-size: 0.85rem; }
 
+/* Public action history */
+.poker-log { display: flex; flex-direction: column; gap: 0.2rem; }
+.poker-log__title { font-size: 0.72rem; opacity: 0.7; }
+.poker-log__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  background: var(--surface-1, rgba(255, 255, 255, 0.05));
+  max-height: 7rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.poker-log__row { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.78rem; }
+.poker-log__name { opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.poker-log__act { flex-shrink: 0; font-weight: 600; }
+
 /* Setup / handover / finished */
 .poker-setup__counts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .poker-setup__count { flex: 1 1 2.5rem; min-height: 44px; }
 .poker-howto { background: none; border: none; color: inherit; cursor: pointer; text-decoration: underline; padding: 0.5rem 0; }
+
+.poker-setup__seats { list-style: none; margin: 0.3rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.poker-setup__seat { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.poker-setup__seatno { width: 1.4rem; text-align: center; font-weight: 700; opacity: 0.7; }
+.poker-setup__role { flex: 0 0 auto; min-height: 40px; }
+.poker-setup__name { flex: 1 1 8rem; min-height: 40px; min-width: 6rem; padding: 0.3rem 0.5rem; border-radius: 0.4rem; }
+.poker-setup__warn { color: #e0a020; font-size: 0.85rem; }
+.poker-handover__pass { font-weight: 600; }
 
 .poker-handover { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
 .poker-handover__card {

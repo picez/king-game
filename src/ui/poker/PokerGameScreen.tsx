@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { legalActions, smallBlindSeat, bigBlindSeat } from '../../games/poker/rules';
-import type { HandCategory, PokerAction, PokerState } from '../../games/poker/types';
+import type { HandCategory, PokerActionKind, PokerAction, PokerState } from '../../games/poker/types';
 import PokerCardView from './PokerCardView';
 
 interface Props {
@@ -19,6 +19,12 @@ const CATEGORY_KEY: Record<HandCategory, string> = {
   three_of_a_kind: 'poker.cat.trips', straight: 'poker.cat.straight', flush: 'poker.cat.flush',
   full_house: 'poker.cat.fullHouse', four_of_a_kind: 'poker.cat.quads',
   straight_flush: 'poker.cat.straightFlush', royal_flush: 'poker.cat.royalFlush',
+};
+
+/** i18n label per action-log kind (reuses the action labels; blind/raise are log-only). */
+const LOG_KIND_KEY: Record<PokerActionKind, string> = {
+  blind: 'poker.log.blind', fold: 'poker.fold', check: 'poker.check', call: 'poker.call',
+  bet: 'poker.bet', raise: 'poker.log.raise', allin: 'poker.allIn',
 };
 
 /**
@@ -105,11 +111,35 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online }
         </div>
       )}
 
+      {/* Public action history for the current hand (§13) — compact, mobile-safe. */}
+      <PokerLog state={state} />
+
       {/* Action row (mobile-safe, wraps) */}
       {myTurn && la && <PokerActions la={la} pot={pot} apply={apply} />}
       {state.phase === 'betting' && !myTurn && (
         <p className="poker-waiting">{t('poker.waiting').replace('{name}', state.players[state.toActSeat]?.name ?? '')}</p>
       )}
+    </div>
+  );
+}
+
+/** Compact scrollable public log of the current hand's actions (no card data). */
+function PokerLog({ state }: { state: PokerState }) {
+  const { t } = useI18n();
+  const log = state.actionLog ?? [];
+  if (log.length === 0) return null;
+  const rows = log.slice(-8); // most recent few, oldest→newest
+  return (
+    <div className="poker-log" aria-label={t('poker.log.title')}>
+      <span className="poker-log__title">{t('poker.log.title')}</span>
+      <ol className="poker-log__list">
+        {rows.map((e, i) => (
+          <li key={log.length - rows.length + i} className="poker-log__row">
+            <span className="poker-log__name">{state.players[e.seat]?.name ?? `#${e.seat + 1}`}</span>
+            <span className="poker-log__act">{t(LOG_KIND_KEY[e.kind])}{e.amount > 0 ? ` ${e.amount}` : ''}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

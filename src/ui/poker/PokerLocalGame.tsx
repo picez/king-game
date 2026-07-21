@@ -2,34 +2,44 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { pokerReducer } from '../../games/poker/engine';
 import { pokerBotAction } from '../../games/poker/ai';
 import { getActingPokerSeat } from '../../games/poker/rules';
+import { pokerRedactStateFor } from '../../games/poker/redact';
 import { localBotNames } from '../../games/botIdentities';
 import { useI18n } from '../../i18n';
 import type { PlayerType } from '../../models/types';
 import type { PokerAction, PokerState } from '../../games/poker/types';
-import PokerSetup from './PokerSetup';
+import PokerSetup, { type PokerSeatConfig } from './PokerSetup';
 import PokerGameScreen from './PokerGameScreen';
 import PokerFinished from './PokerFinished';
-import { pokerRedactStateFor } from '../../games/poker/redact';
+import { needsHandover, viewerFor } from './passAndPlay';
 
-/** Pause between bot moves so a human can follow the betting unfold. */
+/** Pause between bot moves so humans can follow the betting unfold. */
 const BOT_DELAY_MS = 750;
-/** The local human always occupies seat 0; the rest are bots. */
-const HUMAN_SEAT = 0;
 
 /**
- * Local-only poker (No-Limit Texas Hold'em): one human (seat 0) + 1–5 bots. Owns the
- * pure state via `pokerReducer`, drives the bots through `pokerBotAction`, and renders
- * setup → handover → table → finished. A handover screen gates the human's first
- * private view each hand so hole cards are never shown before they choose to reveal
- * (§14). Entirely separate from any server / online state.
+ * Local poker (No-Limit Texas Hold'em) — true PASS-AND-PLAY (§14). Any valid mix of
+ * 2–6 human/bot seats. Owns the pure state via `pokerReducer`; bots auto-play ONLY on
+ * AI seats. Before EACH private decision by a human, a handover screen hides the
+ * table until that human confirms, so one player's hole cards are never exposed to
+ * the next — the table is redacted for the acting human's seat only. Between hands and
+ * during a bot's turn no player's private hand leaks. Fully separate from online state.
  */
 export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
   const { t } = useI18n();
   const [state, setState] = useState<PokerState | null>(null);
-  const [revealedHand, setRevealedHand] = useState<number>(0);
+  /** The human seat currently allowed to view the table (null = handover pending / public). */
+  const [viewerSeat, setViewerSeat] = useState<number | null>(null);
   const apply = useCallback((action: PokerAction) => setState((s) => pokerReducer(s, action)), []);
 
-  // Bot auto-play during a live betting round.
+  // A new hand hides everyone's cards again until the next human confirms a handover.
+  const prevHand = useRef(0);
+  useEffect(() => {
+    if (state && state.handNumber !== prevHand.current) {
+      prevHand.current = state.handNumber;
+      setViewerSeat(null);
+    }
+  }, [state]);
+
+  // Bot auto-play — ONLY on AI seats, during a live betting round.
   const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!state || state.phase !== 'betting') return;
@@ -40,29 +50,43 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     return () => { if (botTimer.current) clearTimeout(botTimer.current); };
   }, [state, apply]);
 
-  function start(playerCount: number) {
-    const botCount = playerCount - 1;
-    const playerNames = ['You', ...localBotNames('poker', botCount, ['You'])];
-    const playerTypes: PlayerType[] = ['human', ...Array<PlayerType>(botCount).fill('ai')];
-    setRevealedHand(0);
-    apply({ type: 'START_GAME', playerNames, playerTypes, playerCount });
+  function start(seats: PokerSeatConfig[]) {
+    // Assign bot identities to the AI seats; humans keep their chosen names (which may
+    // duplicate — the acting human is always resolved by SEAT, never by name).
+    const takenNames = seats.filter((s) => s.type === 'human').map((s) => s.name);
+    const botNames = localBotNames('poker', seats.filter((s) => s.type === 'ai').length, takenNames);
+    let b = 0;
+    const playerNames = seats.map((s) => (s.type === 'human' ? s.name : botNames[b++]));
+    const playerTypes: PlayerType[] = seats.map((s) => s.type);
+    prevHand.current = 0;
+    setViewerSeat(null);
+    apply({ type: 'START_GAME', playerNames, playerTypes, playerCount: seats.length });
+  }
+
+  function playAgain() {
+    setState(null);
+    prevHand.current = 0;
+    setViewerSeat(null);
   }
 
   if (!state) return <PokerSetup onStart={start} onExit={onExit} />;
   if (state.phase === 'game_finished') {
-    return <PokerFinished state={state} mySeat={HUMAN_SEAT} onPlayAgain={() => { setState(null); setRevealedHand(0); }} onExit={onExit} />;
+    // Shared device: show the winner neutrally (no single "you"); reveal nothing private.
+    return <PokerFinished state={pokerRedactStateFor(state, null)} mySeat={null} onPlayAgain={playAgain} onExit={onExit} />;
   }
 
-  // Handover: before the human's first decision of a NEW hand, hide the table until
-  // they choose to reveal — so hole cards are never exposed on pass-and-play (§14).
-  const humanToAct = state.phase === 'betting' && state.toActSeat === HUMAN_SEAT;
-  if (humanToAct && revealedHand !== state.handNumber) {
+  // Handover: a human must confirm before their private view is shown — so the
+  // previous player's hand is already hidden and never seen by the next (§14). The
+  // acting human is resolved by SEAT (duplicate names are safe).
+  if (needsHandover(state, viewerSeat)) {
+    const actor = state.toActSeat;
     return (
       <div className="screen poker-handover">
         <div className="poker-handover__card">
           <p className="poker-handover__title">{t('poker.handover.title')}</p>
+          <p className="poker-handover__pass">{t('poker.handover.pass').replace('{name}', state.players[actor].name)}</p>
           <p className="poker-handover__body">{t('poker.handover.body')}</p>
-          <button type="button" className="btn btn--primary" onClick={() => setRevealedHand(state.handNumber)}>
+          <button type="button" className="btn btn--primary" onClick={() => setViewerSeat(actor)}>
             {t('poker.handover.reveal')}
           </button>
         </div>
@@ -70,7 +94,8 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     );
   }
 
-  // The human only ever sees seat 0's hole cards (redact the rest even locally).
-  const view = pokerRedactStateFor(state, HUMAN_SEAT);
-  return <PokerGameScreen state={view} mySeat={HUMAN_SEAT} apply={apply} onExit={onExit} />;
+  // The seat whose hole cards the local screen may reveal (confirmed human, or none).
+  const seat = viewerFor(state, viewerSeat);
+  const view = pokerRedactStateFor(state, seat);
+  return <PokerGameScreen state={view} mySeat={seat} apply={apply} onExit={onExit} />;
 }
