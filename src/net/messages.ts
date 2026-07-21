@@ -53,6 +53,21 @@ export interface RoomMember {
   avatarImageUrl?: string | null;
 }
 
+/**
+ * Authoritative turn-timer identity + deadline (Stage 37.5). The room owns ONE
+ * deadline per timed human turn; every client counts down to `deadlineAt` (an epoch
+ * ms), correcting for clock skew via `serverNow`. `revision` is the stable turn
+ * identity — it changes ONLY on a real gameplay transition to a new turn, never on a
+ * reload/reconnect/rebroadcast, so those never reset or extend the countdown.
+ * `deadlineAt` is null when no human is on a room timer (timer off / public screen).
+ * Carries NO cards / tokens / user ids.
+ */
+export interface RoomTimerInfo {
+  deadlineAt: number | null;
+  revision: number;
+  serverNow: number;
+}
+
 export interface RoomSnapshot {
   code: RoomCode;
   members: RoomMember[];
@@ -242,9 +257,12 @@ export type ServerMessage =
   | { t: 'MY_ROOMS'; rooms: { code: RoomCode; gameType: GameType; started: boolean; players: number; updatedAt: number }[] }
   /**
    * Authoritative game state. `state` is already redacted for the recipient
-   * (only their own hand is populated) — see `redactStateFor`.
+   * (only their own hand is populated) — see `redactStateFor`. `timer` carries the
+   * authoritative turn-timer identity + deadline (Stage 37.5) so every client counts
+   * down to the SAME server deadline (survives reload/reconnect); omitted by legacy
+   * senders / when there is no active timer.
    */
-  | { t: 'STATE_UPDATE'; state: AnyGameState | null }
+  | { t: 'STATE_UPDATE'; state: AnyGameState | null; timer?: RoomTimerInfo }
   /**
    * Relay mode only: the server forwards another member's ACTION_REQUEST to
    * the host (the authority), tagged with the requesting seat so the host can

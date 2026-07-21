@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { GameContext } from '../../hooks/useGame';
 import { useNetworkGame } from '../../hooks/useNetworkGame';
-import type { OnlineIntent } from '../../hooks/useNetworkGame';
+import type { OnlineIntent, ClientTimer } from '../../hooks/useNetworkGame';
 import { getActingPlayerId } from '../../core/gameEngine';
 import { getGameDefinition } from '../../games/registry';
 import TurnTimerBar from '../components/TurnTimerBar';
@@ -35,31 +35,28 @@ import type { RematchUi } from './RematchControls';
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
 
 /** Cards still in play — a game-agnostic progress signal (drops on each play) used to
- *  restart the turn timer. Works for `handsBySeat` (Tarneeb) and `players[].hand`. */
-function cardsInPlay(state: unknown): number {
-  const s = state as { handsBySeat?: unknown[][]; players?: { hand?: unknown[] }[] };
-  if (Array.isArray(s?.handsBySeat)) return s.handsBySeat.reduce((n, h) => n + (h?.length ?? 0), 0);
-  if (Array.isArray(s?.players)) return s.players.reduce((n, p) => n + (p?.hand?.length ?? 0), 0);
-  return 0;
-}
+ *  gate the low-time alert to MY turn. */
 
 /**
- * The per-turn timer element for a NON-King online game (Stage 29.2). Computes the
- * acting player game-agnostically via the GameDefinition and restarts the countdown
- * whenever the actor or card-progress changes. Rendered INSIDE the RoomSocial control
- * cluster (Stage 29.7) — next to the voice/emoji/chat buttons, never over the table or
- * hand. Returns null when the host left the timer off (turnTimerSec 0). King keeps its
- * own in-banner TurnTimer.
+ * The per-turn timer element for a NON-King online game (Stage 29.2; authoritative
+ * deadline Stage 37.5). Computes the acting player game-agnostically via the
+ * GameDefinition (to gate the low-time alert to MY turn) and drives the countdown from
+ * the authoritative server `timer` (deadline/revision) — never a local full-length
+ * clock, so reload/reconnect can't reset or extend it. Rendered INSIDE the RoomSocial
+ * control cluster (Stage 29.7) — next to the voice/emoji/chat buttons, never over the
+ * table or hand. Returns null when the host left the timer off (turnTimerSec 0). King
+ * keeps its own in-banner TurnTimer.
  */
-function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number): ReactNode {
+function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number, timer: ClientTimer | null): ReactNode {
   if (turnTimerSec <= 0 || !gameType || !state) return null;
   const def = getGameDefinition(gameType);
   const actingId = def ? def.getActingPlayerId(state as never) : null;
-  const turnKey = `${gameType}:${actingId ?? ''}:${cardsInPlay(state)}`;
   return (
     <TurnTimerBar
       turnTimerSec={turnTimerSec}
-      turnKey={turnKey}
+      deadlineAt={timer?.deadlineAt ?? null}
+      revision={timer?.revision ?? 0}
+      clockOffset={timer?.clockOffset ?? 0}
       active={actingId != null && actingId === myPlayerId}
       className="turn-timer--social"
     />
@@ -274,7 +271,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // Per-turn timer for the non-King online games (Stage 29.2) — visible when the host set
   // 30/60/90. Rendered inside the RoomSocial control cluster (Stage 29.7), not as a table
   // overlay. King renders its own TurnTimer inside the GameRouter branch.
-  const timerEl = onlineTurnTimer(net.room?.gameType, net.state, net.myPlayerId, net.room?.turnTimerSec ?? 0);
+  const timerEl = onlineTurnTimer(net.room?.gameType, net.state, net.myPlayerId, net.room?.turnTimerSec ?? 0, net.timer);
 
   // Experimental online Durak: render the Durak screens (NOT King's GameRouter).
   // The Durak screen itself shows the read-only table + "waiting / bot thinking /
@@ -403,7 +400,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     <>
       <GameContext.Provider value={{
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
-        turnTimerSec: net.room?.turnTimerSec ?? 0, myPlayerId: net.myPlayerId, disconnectedSeats,
+        turnTimerSec: net.room?.turnTimerSec ?? 0, timer: net.timer, myPlayerId: net.myPlayerId, disconnectedSeats,
         seatAvatarImages, rematch: rematchUi,
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}

@@ -30,7 +30,7 @@ import type { PreferansState } from '../games/preferans/types';
 import type { FiftyOneState } from '../games/fiftyOne/types';
 import type { PokerState } from '../games/poker/types';
 import { isPokerAction } from '../games/poker/rules';
-import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
+import type { ErrorCode, RoomSnapshot, RoomSummary, RoomTimerInfo, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
 // cycle). Re-exported here so existing importers keep working unchanged.
@@ -138,6 +138,22 @@ export interface ServerRoom {
    */
   passwordSalt: string | null;
   passwordHash: string | null;
+  /**
+   * Authoritative turn-timer (Stage 37.5). The room owns ONE deadline per timed
+   * human turn — the client never runs an independent clock.
+   *  - `turnTimerRevision` bumps on each real gameplay transition to a new turn
+   *    (never on a connection event / rebroadcast); it is the client's turn identity.
+   *  - `turnDeadlineAt` is the epoch-ms room-timer deadline for the current human
+   *    turn (null when the room timer is off or no human is on the clock). STABLE
+   *    across reconnect/disconnect/rebroadcast — it is minted only when a new turn
+   *    begins. Client-visible via RoomTimerInfo.
+   *  - `substituteDeadlineAt` is the SERVER-ONLY deadline for auto-substituting a
+   *    DISCONNECTED acting human when the room timer is off (epoch ms) or null. Never
+   *    sent to clients. All three persist so a restart honours the remaining time.
+   */
+  turnTimerRevision: number;
+  turnDeadlineAt: number | null;
+  substituteDeadlineAt: number | null;
   /** Epoch ms; set on create, bumped on each persisted change. */
   createdAt: number;
   updatedAt: number;
@@ -272,6 +288,9 @@ export function createRoom(opts: {
     dealLog: [],
     passwordSalt: hasPw ? salt : null,
     passwordHash: hasPw ? hasher.hash(salt, opts.password!) : null,
+    turnTimerRevision: 0,
+    turnDeadlineAt: null,
+    substituteDeadlineAt: null,
     createdAt: now,
     updatedAt: now,
     orphanSince: null, // the host is connected at creation → not an orphan
@@ -521,6 +540,57 @@ export function substituteDelayMs(
     return timerMs != null ? Math.min(timerMs, substituteMs) : substituteMs;
   }
   return timerMs; // connected: the room timer, or null (wait)
+}
+
+/**
+ * The client-visible authoritative timer info (Stage 37.5). Exposes ONLY the room
+ * turn-timer deadline + its revision + the server clock (for skew correction) — never
+ * the server-only substitute deadline, and never any card/token/user data. `serverNow`
+ * is supplied by the I/O layer (so this stays pure/testable).
+ */
+export function roomTimerInfo(room: ServerRoom, serverNow: number): RoomTimerInfo {
+  return {
+    deadlineAt: room.turnDeadlineAt ?? null,
+    revision: room.turnTimerRevision ?? 0,
+    serverNow,
+  };
+}
+
+/**
+ * Mint a FRESH authoritative deadline for the turn that just began (Stage 37.5). Called
+ * ONLY after a real gameplay transition — bumps the turn revision, clears any pending
+ * substitute, and sets `turnDeadlineAt` when a HUMAN is on a timer-enabled table (else
+ * null: timer off / bot / public screen). Mutates the room; `now` is injected so it is
+ * deterministic. Connection events must NOT call this (that is what keeps the deadline
+ * stable across reload/reconnect).
+ */
+export function beginTurnDeadline(room: ServerRoom, now: number): void {
+  room.turnTimerRevision = (room.turnTimerRevision ?? 0) + 1;
+  room.substituteDeadlineAt = null;
+  const acting = actingMember(room);
+  room.turnDeadlineAt = acting && acting.type === 'human' && room.turnTimerSec > 0
+    ? now + room.turnTimerSec * 1000
+    : null;
+}
+
+/**
+ * The ABSOLUTE epoch-ms time the current HUMAN turn should auto-resolve, or null (no
+ * auto-action — not a human turn, or a connected human with the timer off). Applies the
+ * precedence rule and manages the SERVER-ONLY substitute deadline:
+ *   • room timer on  → the stored room deadline (governs; substitute cleared);
+ *   • timer off + connected → null (wait for them; substitute cleared);
+ *   • timer off + disconnected → a substitute deadline that STARTS on the first call
+ *     after the disconnect and stays STABLE across later calls (a rebroadcast never
+ *     restarts it); a reconnect (connected again) cancels it.
+ * Mutates `room.substituteDeadlineAt`. `substituteMs` is injected for determinism.
+ */
+export function resolveHumanFireAt(room: ServerRoom, now: number, substituteMs: number): number | null {
+  const acting = actingMember(room);
+  if (!acting || acting.type !== 'human') { room.substituteDeadlineAt = null; return null; }
+  if (room.turnDeadlineAt != null) { room.substituteDeadlineAt = null; return room.turnDeadlineAt; }
+  if (acting.connected) { room.substituteDeadlineAt = null; return null; }
+  if (room.substituteDeadlineAt == null) room.substituteDeadlineAt = now + substituteMs;
+  return room.substituteDeadlineAt;
 }
 
 /**
@@ -1171,6 +1241,11 @@ export interface PersistedRoom {
   updatedAt: number;
   /** Orphan timer (epoch ms) or null. Older saves lack it → treated as null. */
   orphanSince?: number | null;
+  /** Authoritative turn-timer metadata (Stage 37.5). Legacy saves lack these →
+   *  restored as revision 0 / no deadline (conservative). No cards/tokens. */
+  turnTimerRevision?: number;
+  turnDeadlineAt?: number | null;
+  substituteDeadlineAt?: number | null;
 }
 
 export function serializeRoom(room: ServerRoom): PersistedRoom {
@@ -1196,6 +1271,9 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
     orphanSince: room.orphanSince,
+    turnTimerRevision: room.turnTimerRevision,
+    turnDeadlineAt: room.turnDeadlineAt,
+    substituteDeadlineAt: room.substituteDeadlineAt,
   };
 }
 
@@ -1264,6 +1342,13 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     createdAt: typeof o.createdAt === 'number' ? o.createdAt : 0,
     updatedAt: typeof o.updatedAt === 'number' ? o.updatedAt : 0,
     orphanSince: typeof o.orphanSince === 'number' ? o.orphanSince : null,
+    // Turn-timer metadata (Stage 37.5). Legacy saves lack these → conservative defaults:
+    // revision 0, no room deadline, no pending substitute (the restore path re-derives
+    // what it needs). A finite future deadline is honoured (only its remaining time is
+    // scheduled); a past one fires on the next tick.
+    turnTimerRevision: typeof o.turnTimerRevision === 'number' ? o.turnTimerRevision : 0,
+    turnDeadlineAt: typeof o.turnDeadlineAt === 'number' ? o.turnDeadlineAt : null,
+    substituteDeadlineAt: typeof o.substituteDeadlineAt === 'number' ? o.substituteDeadlineAt : null,
   };
 }
 

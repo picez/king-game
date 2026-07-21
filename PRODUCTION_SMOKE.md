@@ -167,6 +167,14 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       at the **bottom of the table** (moved from top-centre in Stage 29.5) and counts down each turn;
       with the timer **off** it does **not** appear; local play shows none. The **low-time sound**
       alert still fires **only on your turn**.
+- [ ] **Authoritative shared timer (Stage 37.5) — for EACH of the 7 games**, in an online room with a
+      **30s timer** and **two tabs/devices**: (1) both show the **same** countdown; (2) **reload the acting
+      client mid-turn** → the timer **does NOT reset to 30** (resumes ~the same remaining) and no extra time
+      is granted; (3) **reload the opponent** → the acting client's deadline is **unchanged**; (4) let it
+      reach **0** → exactly **one** legal server auto-action fires and **both** clients get the same new
+      state, the room still accepts the next **manual** action (no double move); (5) repeat a reconnect
+      **below 10s** → no duplicate low-time alert; (6) check **mobile 360/390 + Arabic RTL** — no overflow.
+      Public auto-advance screens / bot turns must **not** show a full human countdown.
 - [ ] **Tarneeb Solo trick UI (v0.3.4):** during a **Solo** game the standings strip shows **all 4
       players' live trick count (🃏 N)**, and a **larger dedicated "review my tricks" button** sits
       under the standings (reachable on 360/390). **Pairs** is unchanged (compact topbar team badge).

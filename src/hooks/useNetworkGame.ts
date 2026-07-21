@@ -27,6 +27,17 @@ export interface ReactionEvent {
 /** A non-fatal social notice (rate-limited / message blocked) for a small toast. */
 export interface SocialNotice { code: ErrorCode; message: string; at: number }
 
+/**
+ * The authoritative turn-timer, resolved for THIS client (Stage 37.5). `deadlineAt`
+ * is a server epoch-ms deadline (null when no human is on a room timer). `revision`
+ * is the stable turn identity (changes only on a real gameplay transition, never on
+ * reload/reconnect). `clockOffset = serverNow − Date.now()` at receipt, so the client
+ * counts down against the SERVER clock (skew-safe). The countdown is derived from
+ * these each tick via `Date.now()`, so it survives reload/reconnect and background-tab
+ * throttling instead of running an independent per-second decrement.
+ */
+export interface ClientTimer { deadlineAt: number | null; revision: number; clockOffset: number }
+
 export interface NetworkGame {
   status: OnlineStatus;
   error: string | null;
@@ -37,6 +48,8 @@ export interface NetworkGame {
   myPlayerId: string | null;
   /** This client's stable connection id (used to identify self in the lobby). */
   myClientId: string | null;
+  /** Authoritative turn-timer for the current turn, or null (no active timer). */
+  timer: ClientTimer | null;
   isHost: boolean;
   /** True when it is this client's turn to act. */
   myTurn: boolean;
@@ -134,6 +147,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [state, setState] = useState<GameState | null>(null);
+  const [timer, setTimerState] = useState<ClientTimer | null>(null);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [reactions, setReactions] = useState<ReactionEvent[]>([]);
   const [chat, setChat] = useState<ChatMessage[]>([]);
@@ -202,6 +216,13 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         // and own their finished screen, so only King drives net.status here.
         const s = msg.state;
         setState(s as GameState | null);
+        // Adopt the authoritative turn-timer (Stage 37.5). We store `clockOffset` (the
+        // server clock minus ours, at receipt) so the countdown runs against the SERVER
+        // deadline regardless of client clock skew; a reload/reconnect just receives the
+        // same deadline/revision and continues — it never resets or extends the timer.
+        if (msg.timer) {
+          setTimerState({ deadlineAt: msg.timer.deadlineAt, revision: msg.timer.revision, clockOffset: msg.timer.serverNow - Date.now() });
+        }
         // A fresh (non-finished) state means a new game/deal is live — clear any pending
         // rematch so the NEXT finish starts a clean rematch (Stage 25.9).
         if (!stateIsFinished(s)) setRematch(null);
@@ -406,7 +427,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const myTurn = !!state && !('gameType' in state) && getActingPlayerId(state) === myPlayerId;
 
   return {
-    status, error, errorCode, room, state, myPlayerId,
+    status, error, errorCode, room, state, myPlayerId, timer,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,

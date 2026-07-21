@@ -44,6 +44,22 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Authoritative room turn timer for all 7 games (Stage 37.5).** Fixes two production bugs: (1) the timer
+  could reach 0 without the server auto-action firing (the timeout silently stopped on a no-op and never
+  re-scheduled); (2) a reload / reconnect / reclaim mid-turn restarted the client countdown from full and
+  could re-arm the server timeout, granting extra time. The per-turn deadline is now part of the
+  **authoritative room state** (`turnDeadlineAt` + `turnTimerRevision`, persisted) and is minted **only on a
+  real gameplay transition** — connection events keep the same deadline. Every `STATE_UPDATE` carries a
+  `RoomTimerInfo` (`{ deadlineAt, revision, serverNow }`); the client derives the remaining time from the
+  server deadline against `Date.now()` (skew-corrected, background-throttle-safe), so a reload 12 s into a
+  30 s turn shows ~18 s and never resets/extends. The server arms ONE absolute-deadline timer with a
+  **revision guard** (no stale double-move); the disconnected-substitute deadline is server-only, starts on
+  disconnect and cancels on reconnect, and never extends an enabled room timer. Restore uses the persisted
+  remaining time (past deadlines resolve immediately; legacy rooms restore conservatively). The turn-timeout
+  auto-action path is audited across all 7 games so a deadline never stalls the table (Durak defence gained a
+  `TAKE_CARDS` safety fallback). No DB migration; no game-rule change; timer metadata carries no
+  cards/tokens/user ids.
+
 - **Achievements grid: no "All" tab, default Global (Stage 37.3).** Reverted the Stage 37.2 re-introduction
   of a combined **All** chip — the owner's ask was to implement the full requested badge *pack* (above),
   not a combined tab. The grid opens on **Global** and is browsed one group at a time; the header still

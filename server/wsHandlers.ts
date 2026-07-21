@@ -15,7 +15,7 @@ import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/message
 import {
   createRoom, addMember, reconnectMember, reclaimMemberByUserId, findUserRoomCodes,
   kickMember, addBot, setTimer,
-  startGame, applyActionRequest, listRoomSummaries, sanitizedStateFor,
+  startGame, applyActionRequest, listRoomSummaries, sanitizedStateFor, roomTimerInfo,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
@@ -52,7 +52,7 @@ export interface WsContext {
   sendError(socket: WebSocket, code: ErrorCode, message: string): void;
   broadcastRoom(room: ServerRoom): void;
   broadcastToRoom(room: ServerRoom, msg: ServerMessage): void;
-  broadcastAndAdvance(room: ServerRoom): void;
+  broadcastAndAdvance(room: ServerRoom, opts?: { turnAdvanced?: boolean }): void;
   sendChatHistory(socket: WebSocket, code: string): void;
   persistRoom(room: ServerRoom): void;
   welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reconnectToken: string): void;
@@ -198,7 +198,7 @@ export function handleClientMessage(
       attachIdentity();
       ctx.welcome(socket, room.members.get(clientId)!, room, reconnectToken);
       ctx.broadcastRoom(room);
-      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId) });
+      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId), timer: roomTimerInfo(room, Date.now()) });
       ctx.sendChatHistory(socket, room.code);
       ctx.persistRoom(room);
       ctx.logRoomEvent('JOIN_ROOM', reqCode, room);
@@ -228,7 +228,7 @@ export function handleClientMessage(
       ctx.welcome(socket, member, room, msg.reconnectToken);
       ctx.broadcastRoom(room);
       // Reconnecting client immediately gets the current sanitized state.
-      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
+      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId), timer: roomTimerInfo(room, Date.now()) });
       ctx.sendChatHistory(socket, room.code);
       ctx.persistRoom(room);
       // Re-evaluate timers: the player is connected again, so a pending AI
@@ -266,7 +266,7 @@ export function handleClientMessage(
       attachIdentity();
       ctx.welcome(socket, member, room, reconnectToken);
       ctx.broadcastRoom(room);
-      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId) });
+      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, member.clientId), timer: roomTimerInfo(room, Date.now()) });
       ctx.sendChatHistory(socket, room.code);
       ctx.persistRoom(room);
       ctx.logRoomEvent('RECLAIM_ROOM', reqCode, room);
@@ -290,7 +290,7 @@ export function handleClientMessage(
       if (!res.ok) return sendError(socket, res.error!, 'Cannot start game');
       ctx.logLatestDeal(room);
       ctx.broadcastRoom(room);
-      ctx.broadcastAndAdvance(room);
+      ctx.broadcastAndAdvance(room, { turnAdvanced: true }); // game started → first turn deadline
       ctx.persistRoom(room);
       break;
     }
@@ -309,7 +309,7 @@ export function handleClientMessage(
         return sendError(socket, 'BAD_MESSAGE', 'Malformed action');
       }
       if (!res.ok) return sendError(socket, res.error!, 'Action rejected');
-      ctx.broadcastAndAdvance(room);
+      ctx.broadcastAndAdvance(room, { turnAdvanced: true }); // an action advanced the turn → new deadline
       ctx.persistRoom(room);
       break;
     }

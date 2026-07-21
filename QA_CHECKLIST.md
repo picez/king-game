@@ -412,6 +412,10 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] Restart the server (`Ctrl-C`, `npm run server` again) → players Resume and
       the game continues from the same state (file persistence).
 - [ ] **Leave room / Back to menu** clears the saved session (no stale Resume).
+- [ ] **Authoritative timer survives reload (Stage 37.5):** in an online room with a **30s** timer,
+      **reload the acting player mid-turn** → the countdown resumes at ~the same remaining (NOT reset to 30)
+      and grants no extra time; **reloading the opponent** does not change the deadline; at **0** exactly one
+      server auto-action fires and the room accepts the next manual action.
 
 ### Reconnect & same-user cross-device (Stage 36.0)
 

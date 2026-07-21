@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import type { RematchUi } from '../ui/online/RematchControls';
+import type { ClientTimer } from './useNetworkGame';
 
 interface GameContextType {
   state: GameState | null;
@@ -17,6 +18,8 @@ interface GameContextType {
   onExit?: () => void;
   /** Online only: per-turn timer in seconds (0/undefined = off). */
   turnTimerSec?: number;
+  /** Online only (Stage 37.5): the authoritative turn-timer deadline/identity, or null. */
+  timer?: ClientTimer | null;
   /** Online only: this client's player id (used to detect "it's my turn"). */
   myPlayerId?: string | null;
   /** Online only: seat indices of human players currently disconnected. */

@@ -256,10 +256,40 @@ touching the reducer, rules, scoring, or deck. A **connected human** =
   bot), keeps its seat/`userId` (so finished-game **stats still attribute to the
   human**), and shows as **offline** ("📴 Waiting for X to reconnect…"). The
   timer is recomputed on every advance: **reconnecting cancels** the substitute.
-  - **Precedence** (`substituteDelayMs`): connected human + room timer → the
-    timer; connected human, no timer → wait; **disconnected** human → after
+  - **Precedence** (`resolveHumanFireAt`): connected human + room timer → the room
+    deadline; connected human, no timer → wait; **disconnected** human → after
     `DISCONNECTED_SUBSTITUTE_DELAY_MS` (default **2 min**), OR the room turn timer
     if it is enabled **and shorter** (players agreed to that timer).
+
+### Authoritative turn timer (Stage 37.5)
+
+The per-turn timer is part of the **authoritative room state**, not a local browser
+stopwatch. Each timed human turn has ONE server deadline that every client shares:
+
+- **`turnDeadlineAt`** (epoch ms) + **`turnTimerRevision`** live on the room and are
+  **persisted**. `beginTurnDeadline(room, now)` mints a fresh deadline (bumps the
+  revision) **only on a real gameplay transition** to a new turn — a connection event
+  (reconnect / reclaim / disconnect / rebroadcast / restore) never mints one, so it
+  can neither **reset nor extend** the clock.
+- Every `STATE_UPDATE` (and the reconnect/reclaim/join state sends) carries a
+  `RoomTimerInfo` (`{ deadlineAt, revision, serverNow }`). The client derives the
+  remaining time from `deadlineAt` against `Date.now()` each tick, correcting for skew
+  via `serverNow` — so reload/reconnect resumes the same countdown and a throttled
+  background tab catches up instantly. A reload 12 s into a 30 s turn shows ~18 s.
+- `armRoomTimer` schedules ONE `setTimeout` at the **absolute** deadline (re-arms fire
+  at the same wall-clock time, not a fresh full length). The callback is
+  **revision-guarded**: a callback from an old turn no-ops once a newer turn began, so
+  a stale timer can never double-move.
+- A `substituteDeadlineAt` (server-only, persisted, never sent to clients) covers a
+  disconnected acting human when the room timer is off; it starts on disconnect, stays
+  stable across other events, and cancels on reconnect. The room timer, when enabled,
+  governs and is never extended by the substitute delay.
+- **Restore:** a persisted future deadline schedules only its *remaining* time; a past
+  one resolves on the next tick; legacy rooms without the fields restore conservatively
+  (revision 0, no deadline). No cards/tokens/user ids appear in the timer metadata.
+- On expiry the server applies a **legal** auto-action through the same reducer path
+  (`applyTimeoutAction` → `botAction`), audited across all 7 games so a deadline never
+  leaves the table stuck; a failure to act is logged (card-free) rather than looping.
 - **Not orphan-affected:** explicit **Leave lobby** still removes the member +
   frees the seat immediately; **Leave game** still drops the socket (offline,
   reconnectable) and keeps Resume; bots still run normally.

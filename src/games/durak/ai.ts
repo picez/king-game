@@ -73,7 +73,10 @@ export function durakBotAction(state: DurakState): DurakAction | null {
 
   const unbeaten = unbeatenAttacks(state);
   const first = unbeaten[0];
-  if (!first) return null; // nothing to answer (shouldn't happen in 'defense')
+  // Degenerate (should never happen in a legal 'defense' state): with nothing to
+  // answer, TAKE the table rather than returning null — the server turn-timeout must
+  // ALWAYS get a legal auto-action so a slow/absent defender never stalls the table.
+  if (!first) return { type: 'TAKE_CARDS' };
 
   // Cheapest legal beat for each unbeaten attack; if any is unbeatable → take.
   const beats = unbeaten.map((a) => ({ a, best: pickLowest(getValidDefenseCards(state, a), trump) }));

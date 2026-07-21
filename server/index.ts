@@ -27,7 +27,8 @@ import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/message
 import {
   markDisconnected, removeMember, autoAdvance, snapshot, sanitizedStateFor, touchRoom,
   roomsToExpire, roomHasPassword, botMemberToAct, applyBotTurn,
-  actingMember, applyTimeoutAction, recomputeOrphan, substituteDelayMs, publicScreenOf,
+  actingMember, applyTimeoutAction, recomputeOrphan, publicScreenOf, roomTimerInfo,
+  beginTurnDeadline, resolveHumanFireAt,
   isRoomFinished, markRematchReady, removeRematchReady, clearRematch, rematchStateOf,
   allHumansReady, restartGame,
   type ServerRoom, type ServerMember,
@@ -288,8 +289,11 @@ function sendChatHistory(socket: WebSocket, code: string): void {
 }
 
 function broadcastState(room: ServerRoom): void {
+  // Every STATE_UPDATE carries the authoritative turn-timer (Stage 37.5) so all
+  // clients count down to the SAME deadline and a reload/reconnect can't reset it.
+  const timer = roomTimerInfo(room, Date.now());
   for (const m of room.members.values()) {
-    send(socketOf(m), { t: 'STATE_UPDATE', state: sanitizedStateFor(room, m.clientId) });
+    send(socketOf(m), { t: 'STATE_UPDATE', state: sanitizedStateFor(room, m.clientId), timer });
   }
 }
 
@@ -361,7 +365,7 @@ function handleRematch(session: SessionRef, decline: boolean): void {
     if (res.ok) {
       logLatestDeal(room);
       broadcastRoom(room);
-      broadcastAndAdvance(room);
+      broadcastAndAdvance(room, { turnAdvanced: true }); // a fresh game → a fresh deadline
       persistRoom(room);
     }
     return; // the fresh STATE_UPDATE clears the finish screen — no REMATCH_STATE needed
@@ -507,24 +511,39 @@ function maybeRecordFinished(room: ServerRoom): void {
 }
 
 /**
- * Broadcast the new state, then schedule the next server-driven step:
- *  - public screens (trick_complete / round_scoring) auto-advance on a timer;
- *  - otherwise, if the player to act is a bot, schedule its move after a delay;
- *  - a human's turn auto-plays via the turn timer / disconnected substitute rule.
- * Re-entrant: each scheduled step calls this again, so a chain of bot turns keeps
- * flowing without an infinite loop (a step only reschedules when it changed state).
+ * Broadcast the new state, then (re)schedule the next server-driven step. The turn
+ * timer is now an AUTHORITATIVE room DEADLINE (Stage 37.5), not a fresh full-length
+ * countdown re-armed on every call:
+ *  - `turnAdvanced: true`  — a REAL gameplay transition began a new turn → MINT a new
+ *    deadline (bump the revision, set `turnDeadlineAt`). Passed by the action / bot /
+ *    timeout / auto-advance / start / rematch paths.
+ *  - `turnAdvanced: false` (default) — a CONNECTION event or a harmless rebroadcast
+ *    (reconnect / reclaim / disconnect / restore). The existing deadline + revision
+ *    are KEPT; the setTimeout is merely re-armed to fire at the SAME absolute time, so
+ *    it never resets or extends. Only the disconnected-substitute deadline may start
+ *    (on the acting human's disconnect) or cancel (on their reconnect).
+ * Re-entrant: each scheduled step calls this again with `turnAdvanced: true`.
  */
-function broadcastAndAdvance(room: ServerRoom): void {
+function broadcastAndAdvance(room: ServerRoom, opts: { turnAdvanced?: boolean } = {}): void {
   broadcastState(room);
   maybeRecordFinished(room);
-  clearRoomTimers(room.code);
+  if (opts.turnAdvanced) beginTurnDeadline(room, Date.now()); // a new turn → a fresh deadline
+  armRoomTimer(room, Date.now());
+}
 
-  // Game-agnostic public-screen kind (King status / Deberc phase → normalised).
+/**
+ * (Re)arm the single server-driven timer for a room to fire at the CURRENT deadline —
+ * public-screen advance, bot move, room-timer turn deadline, or a disconnected-human
+ * substitute. Uses absolute deadlines so a re-arm (from a connection event) fires at
+ * the same wall-clock time instead of restarting.
+ */
+function armRoomTimer(room: ServerRoom, now: number): void {
+  clearRoomTimers(room.code); // clears the pending setTimeout handle only — not the deadlines
+
   const screen = publicScreenOf(room);
   const delay = screen === 'trick_complete' ? TRICK_ADVANCE_MS
     : screen === 'round_scoring' ? ROUND_ADVANCE_MS
     : null;
-
   if (delay != null) {
     advanceTimers.set(room.code, setTimeout(() => {
       advanceTimers.delete(room.code);
@@ -532,14 +551,13 @@ function broadcastAndAdvance(room: ServerRoom): void {
       const before = room.dealLog.length;
       if (autoAdvance(room, { now: Date.now() })) {
         if (room.dealLog.length > before) logLatestDeal(room); // a new round was dealt
-        broadcastAndAdvance(room);
+        broadcastAndAdvance(room, { turnAdvanced: true });
         persistRoom(room);
       }
     }, delay));
     return;
   }
 
-  // A player-owned screen: if that player is a bot, play its move after a pause.
   if (botMemberToAct(room)) {
     botTimers.set(room.code, setTimeout(() => {
       botTimers.delete(room.code);
@@ -547,36 +565,66 @@ function broadcastAndAdvance(room: ServerRoom): void {
       const before = room.dealLog.length;
       if (applyBotTurn(room).acted) {
         if (room.dealLog.length > before) logLatestDeal(room); // bot dealt a new round
-        broadcastAndAdvance(room);
+        broadcastAndAdvance(room, { turnAdvanced: true });
         persistRoom(room);
       }
     }, BOT_DELAY_MS));
     return;
   }
 
-  // Human's turn: auto-play a safe AI move after a delay so a slow/absent player
-  // never stalls the table. The delay encodes the precedence rule (serverCore):
-  //   • connected human + room timer → the turn timer;
-  //   • connected human, no timer → wait (no auto-action);
-  //   • DISCONNECTED human → an AI SUBSTITUTE after SUBSTITUTE_DELAY_MS (or the
-  //     room timer if shorter). The member stays human (not converted to a bot);
-  //     reconnecting recomputes this on the next advance and cancels it.
-  // Reset on every transition (clearRoomTimers above).
   const acting = actingMember(room);
-  const humanDelay = substituteDelayMs(acting, room, SUBSTITUTE_DELAY_MS);
-  if (acting && acting.type === 'human' && humanDelay != null) {
+  if (!acting || acting.type !== 'human') return; // no human on the clock
+
+  // The ABSOLUTE fire time for this human turn (room deadline / substitute / none) —
+  // computed by the pure serverCore helper, which also manages the substitute deadline.
+  const fireAt = resolveHumanFireAt(room, now, SUBSTITUTE_DELAY_MS);
+  if (fireAt == null) return;
+
+  const revisionAtArm = room.turnTimerRevision ?? 0;
+  const seatAtArm = acting.seatIndex;
+  turnTimers.set(room.code, setTimeout(() => {
+    turnTimers.delete(room.code);
+    onTurnTimeout(room, revisionAtArm, seatAtArm);
+  }, Math.max(0, fireAt - now)));
+}
+
+/** A public phase/status string for diagnostics ONLY — never any card/token data. */
+function safePhaseOf(room: ServerRoom): string {
+  const s = room.gameState as { phase?: unknown; status?: unknown } | null;
+  const p = s?.phase ?? s?.status;
+  return typeof p === 'string' ? p : 'unknown';
+}
+
+/**
+ * Fired when a room's turn deadline expires. Stale-guards against a newer turn (a
+ * different revision) or an actor that is no longer a human, then applies ONE legal
+ * auto-action through the same authorised reducer path. On success it advances the
+ * turn (fresh deadline); on failure it logs a card-free diagnostic (surfacing a
+ * game-specific botAction gap) WITHOUT spinning a zero-delay loop.
+ */
+function onTurnTimeout(room: ServerRoom, revisionAtArm: number, seatAtArm: number | null): void {
+  if (!rooms.has(room.code)) return;
+  // A newer turn already began (a real transition bumped the revision) → this old
+  // callback must not act in the new turn.
+  if ((room.turnTimerRevision ?? 0) !== revisionAtArm) return;
+  const acting = actingMember(room);
+  if (!acting || acting.type !== 'human' || acting.seatIndex !== seatAtArm) return;
+  const before = room.dealLog.length;
+  const res = applyTimeoutAction(room);
+  if (res.acted) {
+    if (room.dealLog.length > before) logLatestDeal(room);
     const reason = acting.connected ? 'turn timeout' : 'disconnected substitute';
-    turnTimers.set(room.code, setTimeout(() => {
-      turnTimers.delete(room.code);
-      if (!rooms.has(room.code)) return;
-      const before = room.dealLog.length;
-      if (applyTimeoutAction(room).acted) {
-        if (room.dealLog.length > before) logLatestDeal(room);
-        console.log(`[King] room ${room.code} ${reason} → auto-action for seat ${acting.seatIndex}`);
-        broadcastAndAdvance(room);
-        persistRoom(room);
-      }
-    }, humanDelay));
+    console.log(`[King] room ${room.code} ${room.gameType} ${reason} → auto-action for seat ${acting.seatIndex}`);
+    broadcastAndAdvance(room, { turnAdvanced: true });
+    persistRoom(room);
+  } else {
+    // The auto-action could not be applied even though a human is on the clock. This
+    // should never happen (every game's botAction is legal in every player-owned
+    // phase) — log it so a regression is visible, and do NOT re-arm a 0-delay loop.
+    console.error(
+      `[King] room ${room.code} ${room.gameType} timeout produced NO action for seat ${acting.seatIndex} `
+      + `(phase ${safePhaseOf(room)}) — botAction/legality gap; room may stall`,
+    );
   }
 }
 
