@@ -11,6 +11,25 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 _Nothing yet._
 
+## [0.4.5] — 2026-07-21 — Owner smoke guide
+
+> A **docs-only** patch. **No** gameplay, DB migration (latest stays `0009`), dependency, native artifact,
+> or runtime change.
+
+### Docs
+
+- **Owner smoke guide (Stage 35.0).** Added [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) — a short,
+  owner-friendly 20–30 min walkthrough for the live manual smoke: what to open and in what order
+  (diagnostics/static → login/avatar → friends/invite → voice → the six games → 51/Deberc/Tarneeb special
+  rules → tutorials/achievements → mobile RTL), a **"how to report a bug"** checklist (game, local/online,
+  room code, exact steps, expected vs actual, screenshot/video, browser/device, `diagnostics`
+  version/commit, whether a hard refresh was tried), and a **"what is *not* a product bug"** list (deploy
+  lag before rollout finishes, missing TURN for cross-network voice, iOS PWA-only, Android Custom Tab
+  before Asset Links, Google OAuth `redirect_uri_mismatch`, avatar `503` on non-ffmpeg hosts). Linked from
+  `PRODUCTION_SMOKE.md`, `PRODUCTION_SMOKE_LOG_TEMPLATE.md`, `QA_CHECKLIST.md`, and `PROJECT_OVERVIEW.md`.
+  The detailed PASS/FAIL/BLOCKED matrix stays authoritative in `PRODUCTION_SMOKE_LOG_TEMPLATE.md` (no
+  duplication).
+
 ## [0.4.4] — 2026-07-21 — Production readiness audit
 
 > A **docs-only** patch packaging the Stage 34.0 pre-live audit. **No** gameplay, DB migration (latest

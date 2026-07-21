@@ -5,10 +5,12 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.4** — production readiness audit: a **docs-only** patch packaging the Stage 34.0
-> pre-live audit (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" —
-> and added security/privacy spot-checks to `PRODUCTION_SMOKE.md` §11) — no gameplay/DB/dependency/
-> native-artifact/runtime change. On the **v0.4.3** mobile app build readiness: a **docs + tooling** patch
+> **Release:** **v0.4.5** — owner smoke guide: a **docs-only** patch adding `OWNER_SMOKE_GUIDE.md`, a short
+> 20–30 min live-testing + bug-report how-to (the detailed PASS/FAIL matrix stays in
+> `PRODUCTION_SMOKE_LOG_TEMPLATE.md`) — no gameplay/DB/dependency/native-artifact/runtime change. On the
+> **v0.4.4** production readiness audit: a **docs-only** patch packaging the Stage 34.0 pre-live audit
+> (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" — and added
+> security/privacy spot-checks to `PRODUCTION_SMOKE.md` §11). On the **v0.4.3** mobile app build readiness: a **docs + tooling** patch
 > packaging Stages 33.8–33.10 (the owner-run Android **TWA** build path hardened with a build-log template +
 > a read-only build-log **triage helper** + the production **Asset Links + custom-domain** runbook). On the
 > **v0.4.2** mobile app readiness: a **docs + PWA** patch packaging Stages 33.0–33.6 (the

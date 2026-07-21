@@ -12,7 +12,7 @@ upload are live — **without** reading the full deployment docs.
   a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.4`** (tag `v0.4.4`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.5`** (tag `v0.4.5`).
 
 Set your host once and reuse it below:
 
@@ -28,29 +28,35 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.4 adds no migrations** — 0009 is still the latest. v0.4.4 is the **production readiness audit**
-> (Stage 34.0): a **docs-only** patch — fixed current-state doc/comment drift (51 is a fully released game,
-> not "Experimental") and added security/privacy spot-checks (§11). **No native app, no APK/AAB/keystore,
-> no dependency, no schema change, and no runtime change** (the web-only iOS install hint shipped in
-> v0.4.2; the Android TWA build tooling in v0.4.3). The v0.4.1 **Achievements expansion** (14→29 badges,
-> derived from existing stats — see §7) and v0.4.0 Tutorials are intact. The v0.3.7 Syrian 51 release
-> records its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.5 adds no migrations** — 0009 is still the latest. v0.4.5 is the **owner smoke guide** (Stage
+> 35.0): a **docs-only** patch adding `OWNER_SMOKE_GUIDE.md` (a short live-testing + bug-report how-to).
+> **No native app, no APK/AAB/keystore, no dependency, no schema change, and no runtime change** (the
+> web-only iOS install hint shipped in v0.4.2; the Android TWA build tooling in v0.4.3). The v0.4.1
+> **Achievements expansion** (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are
+> intact. The v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.4 release smoke (fast targeted pass — production readiness audit)
+## 0. v0.4.5 release smoke (fast targeted pass — owner smoke guide)
 
-v0.4.4 is a **docs-only** patch (Stage 34.0): current-state doc/comment drift fixes (51 is a fully
-**released** game, not "Experimental") and added **security/privacy** spot-checks (§11). **No native app,
-no schema change, and no runtime change** (the iOS install hint shipped in v0.4.2; Android TWA build
-tooling in v0.4.3). The released six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact — so
-this §0 pass doubles as the owner's **full pre-live production smoke**. Security spot-checks are §11;
-Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements §7; tutorials §5c; 51 §5b.
+v0.4.5 is a **docs-only** patch (Stage 35.0): it adds [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md), a
+short 20–30 min live-testing + bug-report how-to. **No native app, no schema change, and no runtime
+change** (the iOS install hint shipped in v0.4.2; Android TWA build tooling in v0.4.3). The released
+six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact — so this §0 pass doubles as the
+owner's **full pre-live production smoke**.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.4`**, `commit` matches the deploy,
+> **Testing status:** the **public/unauthenticated** checks (§1 of the log template) were **green on
+> v0.4.4** (diagnostics/static/manifest — Stage 34.2). The **login/device/mic-gated manual smoke is still
+> owner-required for v0.4.5** — walk [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) and record results in
+> [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md).
+
+Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements
+§7; tutorials §5c; 51 §5b.
+
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.5`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.4 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.5 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
