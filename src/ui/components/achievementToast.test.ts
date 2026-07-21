@@ -57,6 +57,31 @@ describe('AchievementsPanel — "New" marker for unseen earned badges', () => {
   });
 });
 
+describe('AchievementsPanel — grouped filter, no "All" (Stage 37.0)', () => {
+  const css = read('src/styles/stats.css');
+  it('has NO "All" filter and defaults to the first group (Global)', () => {
+    expect(panel).not.toContain("'all'");
+    expect(panel).not.toContain('ach.filter.all');
+    expect(panel).toContain("useState<AchievementGroupKey>('global')");
+    // The chip strip maps the GROUPS themselves (one per game/global) — never an all-tab.
+    expect(panel).toContain('groups.map((g) =>');
+    // Only the active group's rows are shown — never all 34 at once.
+    expect(panel).toContain('active ? active.rows : rows');
+  });
+  it('each chip shows a game icon + label + its own earned/total', () => {
+    expect(panel).toContain('ach-segment__icon');
+    expect(panel).toContain('GROUP_ICON');
+    expect(panel).toContain('{g.earned}/{g.total}');
+  });
+  it('the filter strip is a styled INTERNAL horizontal scroll (no page overflow, RTL-safe)', () => {
+    expect(css).toMatch(/\.ach-segments\s*\{[^}]*overflow-x:\s*auto/);
+    expect(css).toMatch(/\.ach-segments\s*\{[^}]*max-width:\s*100%/);
+    // A styled (not default-OS) scrollbar tuned to the Card Majlis felt.
+    expect(css).toContain('.ach-segments::-webkit-scrollbar');
+    expect(css).toMatch(/\.ach-segments\s*\{[^}]*scrollbar-color:/);
+  });
+});
+
 describe('AchievementsPanel — dynamic count + responsive grid (Stage 32.1 scale-safe)', () => {
   const css = read('src/styles/stats.css');
   it('renders a DYNAMIC earned/total count (no hard-coded badge number)', () => {

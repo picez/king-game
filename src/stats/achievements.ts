@@ -63,6 +63,13 @@ export interface AchievementProgress {
 const won = (s: { gamesWon: number } | null): number => (s ? s.gamesWon : 0);
 const played = (s: { gamesPlayed: number } | null): number => (s ? s.gamesPlayed : 0);
 
+/** The six King NEGATIVE round modes (everything except Trump). A negative mode's
+ *  per-mode `totalScore` is only ever ≤ 0 (penalties), so a value < 0 means the
+ *  player conceded points in that mode across their games (Stage 37.0). */
+export const KING_NEGATIVE_MODES = [
+  'no_tricks', 'no_hearts', 'no_jacks', 'no_queens', 'king_of_hearts', 'last_two_tricks',
+] as const;
+
 /** Total wins across every game (0 when nothing loaded). */
 export function totalWins(a: AllStats): number {
   return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans) + won(a.fiftyOne);
@@ -93,7 +100,7 @@ function contractSkill(
   return decided >= minDecided && (s.contractSuccessRate ?? 0) >= pct;
 }
 
-// ── the catalog (29 badges: the original 14 + the Stage 32.1 expansion) ──────
+// ── the catalog (34 badges: original 14 + Stage 32.1 (+15) + Stage 37.0 (+5)) ──
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -224,6 +231,47 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'fifty-one-low-penalty', titleKey: 'ach.fiftyOneLowPenalty.title', descriptionKey: 'ach.fiftyOneLowPenalty.desc',
     icon: '🧊', gameType: 'fifty-one', rarity: 'uncommon',
     evaluate: (s) => s.fiftyOne != null && s.fiftyOne.bestPenalty != null && s.fiftyOne.bestPenalty <= 50,
+  },
+
+  // ── Stage 37.0 — new badges DERIVED FROM EXISTING STATS (no new fields) ──────
+  {
+    // Comedy: conceded points in EVERY one of the six King negative rounds — a
+    // negative mode's per-mode total is < 0 only if you took a penalty there.
+    id: 'king-all-negatives', titleKey: 'ach.kingAllNegatives.title', descriptionKey: 'ach.kingAllNegatives.desc',
+    icon: '🙈', gameType: 'king', rarity: 'uncommon',
+    evaluate: (s) => {
+      const mb = s.king?.modeBreakdown;
+      return !!mb && KING_NEGATIVE_MODES.every((m) => (mb[m]?.totalScore ?? 0) < 0);
+    },
+  },
+  {
+    // Платина (Deberc's four-in-a-row) is the rarest sequence — collect a few.
+    id: 'deberc-platina-collector', titleKey: 'ach.debercPlatinaCollector.title', descriptionKey: 'ach.debercPlatinaCollector.desc',
+    icon: '🎼', gameType: 'deberc', rarity: 'rare',
+    evaluate: (s) => (s.deberc ? s.deberc.combinations.platina : 0) >= 3,
+  },
+  {
+    // A single hand with 2+ combinations: total melds exceed the count of
+    // hands-with-a-meld, so by pigeonhole one hand held more than one (Stage 37.0).
+    id: 'deberc-multi-meld', titleKey: 'ach.debercMultiMeld.title', descriptionKey: 'ach.debercMultiMeld.desc',
+    icon: '🎰', gameType: 'deberc', rarity: 'uncommon',
+    evaluate: (s) => {
+      const c = s.deberc?.combinations;
+      return !!c && c.handsWithMeld >= 1 && c.total > c.handsWithMeld;
+    },
+  },
+  {
+    // Comedy: finished a game with a NEGATIVE team total (worst final ≤ -1). Pairs
+    // only — `tarneeb` is the canonical Pairs source (solo is never mixed in).
+    id: 'tarneeb-negative-game', titleKey: 'ach.tarneebNegativeGame.title', descriptionKey: 'ach.tarneebNegativeGame.desc',
+    icon: '📉', gameType: 'tarneeb', rarity: 'uncommon',
+    evaluate: (s) => s.tarneeb != null && s.tarneeb.worstGameScore != null && s.tarneeb.worstGameScore < 0,
+  },
+  {
+    // Comedy: declared at least 3 hands and made NONE of them — every bid went down.
+    id: 'tarneeb-all-bids-down', titleKey: 'ach.tarneebAllBidsDown.title', descriptionKey: 'ach.tarneebAllBidsDown.desc',
+    icon: '🤡', gameType: 'tarneeb', rarity: 'uncommon',
+    evaluate: (s) => s.tarneeb != null && s.tarneeb.contractsMade === 0 && s.tarneeb.contractsFailed >= 3,
   },
 ] as const;
 

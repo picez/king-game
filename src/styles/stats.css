@@ -122,32 +122,51 @@
 }
 .ach-head__label { font-size: 0.8rem; color: var(--text-muted); }
 
-/* Filter segments (Stage 36.0): a compact chip row — All · Global · each game — that
-   scrolls horizontally on a narrow phone instead of wrapping/overflowing the page.
-   In-flow flex, so it mirrors correctly under RTL with no extra rules. */
+/* Filter chips (Stage 36.0; polished 37.0): a compact chip row — Global · each game
+   (NO "All") — that scrolls horizontally INSIDE itself on a narrow phone, so the page
+   never overflows. In-flow flex → mirrors correctly under RTL. The scrollbar is styled
+   to the Card Majlis felt instead of the OS default. */
 .ach-segments {
   display: flex;
   gap: 0.35rem;
   overflow-x: auto;
-  padding-bottom: 0.2rem;
-  scrollbar-width: thin;
+  padding-bottom: 0.35rem;
   max-width: 100%;
   -webkit-overflow-scrolling: touch;
+  /* Firefox styled thin scrollbar (emerald thumb on a faint track). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #f5c518) transparent;
+  /* A soft fade at the trailing edge hints "there's more to scroll". */
+  mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
 }
+/* WebKit styled scrollbar — slim, rounded, brand-tinted. */
+.ach-segments::-webkit-scrollbar { height: 5px; }
+.ach-segments::-webkit-scrollbar-track { background: transparent; }
+.ach-segments::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent, #f5c518) 65%, transparent);
+  border-radius: 999px;
+}
+.ach-segments::-webkit-scrollbar-thumb:hover { background: var(--accent, #f5c518); }
 .ach-segment {
   flex: 0 0 auto;                     /* chips keep their size; the row scrolls */
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  padding: 0.3rem 0.6rem; min-height: var(--tap-min, 2.5rem);
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.28rem 0.6rem; min-height: var(--tap-min, 2.5rem);
   border: 1px solid var(--border); border-radius: 999px;
   background: var(--surface-2); color: var(--text);
-  font-size: 0.82rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+  font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
 }
+.ach-segment:active { transform: scale(0.97); }
 .ach-segment--active {
   background: var(--accent); color: var(--on-accent, #08130b);
   border-color: var(--accent-light, var(--accent));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent, #f5c518) 40%, transparent);
 }
+.ach-segment__icon { font-size: 0.95rem; line-height: 1; }
+.ach-segment__label { max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; }
 .ach-segment__count {
-  font-variant-numeric: tabular-nums; font-weight: 800; font-size: 0.76rem;
+  font-variant-numeric: tabular-nums; font-weight: 800; font-size: 0.74rem;
   opacity: 0.85;
 }
 

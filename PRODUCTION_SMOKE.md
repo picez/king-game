@@ -103,12 +103,14 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       `/.well-known/assetlinks.json` is added **only** after enrolling in **Play App Signing** and using
       that certificate's **SHA-256** (not the upload/debug key) — until then `…/assetlinks.json` is a
       **404** and the TWA runs as a Custom Tab. (See [`android-twa/README.md`](android-twa/README.md).)
-- [ ] **Achievements expansion (Stage 32.1, DB-backed):** signed in with real/seeded stats, Profile →
-      **Achievements** shows **29** badges (dynamic `n/29`) at **360/390** with no horizontal overflow
-      (Arabic RTL mirrors). A first win in **Deberc / Tarneeb Pairs / Preferans / 51** flips that game's
-      new **winner** badge; **Six-Game Regular** unlocks after playing every game; **All-Rounder** still
-      needs a win in all six; **Tarneeb Soloist** stays separate from Pairs; **Uncommon** badges show a
-      green accent. (Full detail §7.)
+- [ ] **Achievements (Stage 32.1 + 37.0, DB-backed):** signed in with real/seeded stats, Profile →
+      **Achievements** shows **34** badges (dynamic `n/34`) at **360/390** with no horizontal overflow
+      (Arabic RTL mirrors), browsed via the **grouped filter strip** (Global + each game, **no "All"**,
+      opens on Global, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
+      flips that game's **winner** badge; **Six-Game Regular** unlocks after playing every game;
+      **All-Rounder** still needs a win in all six; **Tarneeb Soloist** stays separate from Pairs. New
+      **37.0** badges: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
+      *In the Red* / *Overbidder*. (Full detail §7.)
 - [ ] **Tutorials (all 6):** the main menu shows a **🎓 Tutorials** tile → a hub listing **all 6 games**,
       **every** row **Start**-able (no "Coming next"). Open **each** tutorial and step to **Done** — King,
       Durak, Deberc, Tarneeb, Preferans, 51 — highlighted cards + short captions; Back/Next/Skip/←→/Esc
@@ -465,8 +467,9 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] Profile → **My stats** → that game shows a non-empty record; **Leaderboard** lists
       your row (highlighted "you"). (Bot games / no Postgres → empty is expected.)
 - [ ] Profile → **Achievements** → at least "First Win" is earned after a win.
-- [ ] **Achievements expansion (Stage 32.1):** the grid shows **29** badges (dynamic `n/29` count) at
-      **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
+- [ ] **Achievements (Stage 32.1 + 37.0):** the catalog is **34** badges (dynamic `n/34` count), browsed
+      via the **grouped filter strip** (Global + each game, **no "All"**, opens on Global, styled internal
+      scroll) at **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
       Tarneeb Pairs / Preferans / 51** the game's new **winner** badge turns gold; **All-Rounder** still
       needs a win in all six games. **Uncommon** badges render with a green accent.
 

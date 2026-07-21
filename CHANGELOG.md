@@ -9,7 +9,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **More achievements + a cleaner grid (Stage 37.0).** The Profile **Achievements** catalog grows **29 →
+  34**: five new badges derived from the existing stats (no DB migration) — **King** *"Nothing Went Right"*
+  (concede points in every one of the six negative rounds), **Deberc** *"Paltina Hunter"* (3 Палтіна) and
+  *"Double Declaration"* (2+ combinations in one hand), and **Tarneeb** *"In the Red"* (finish a game with
+  a negative team score) and *"Overbidder"* (declare 3+ hands and make none). The grid is now browsed
+  **per game**: a styled filter chip strip (**Global** and each game, each with its icon + earned/total)
+  replaces the old flat wall — there's **no "All" tab** (it opens on Global) and it never shows all badges
+  at once. The strip scrolls **inside itself** (styled scrollbar), so 360/390 and Arabic RTL never overflow
+  the page. Earned/locked logic, **All-Rounder**, and the totals are **unchanged**; every new badge is
+  null-safe. English, Ukrainian, German, Arabic. Many other requested badges need per-round/per-hand
+  telemetry the aggregate stats don't carry yet — they're documented as **deferred** with the exact field
+  each needs in [`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §7.
 
 ## [0.4.7] — 2026-07-21 — Reconnect and table polish
 

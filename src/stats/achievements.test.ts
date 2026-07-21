@@ -44,8 +44,8 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 29 badges with unique ids (14 original + 15 in the Stage 32.1 expansion)', () => {
-    expect(ACHIEVEMENTS.length).toBe(29);
+  it('has 34 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0)', () => {
+    expect(ACHIEVEMENTS.length).toBe(34);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
@@ -161,6 +161,41 @@ describe('each badge has a positive + negative case', () => {
     { id: 'fifty-one-regular', earn: { ...zero(), fiftyOne: fiftyOne({ gamesPlayed: 10 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ gamesPlayed: 9 }) } },
     { id: 'fifty-one-champion', earn: { ...zero(), fiftyOne: fiftyOne({ gamesWon: 5 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ gamesWon: 4 }) } },
     { id: 'fifty-one-low-penalty', earn: { ...zero(), fiftyOne: fiftyOne({ bestPenalty: 50 }) }, lock: { ...zero(), fiftyOne: fiftyOne({ bestPenalty: 51 }) } },
+    // ── Stage 37.0 — new derived badges ──────────────────────────────────────
+    {
+      id: 'king-all-negatives',
+      // Conceded points (totalScore < 0) in ALL six negative modes.
+      earn: { ...zero(), king: king({ modeBreakdown: {
+        no_tricks: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_hearts: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_jacks: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_queens: { rounds: 1, totalScore: -2, averageScore: -2 },
+        king_of_hearts: { rounds: 1, totalScore: -4, averageScore: -4 },
+        last_two_tricks: { rounds: 1, totalScore: -4, averageScore: -4 },
+      } }) },
+      // Missing one negative mode (only five have a negative total) → not earned.
+      lock: { ...zero(), king: king({ modeBreakdown: {
+        no_tricks: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_hearts: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_jacks: { rounds: 1, totalScore: -2, averageScore: -2 },
+        no_queens: { rounds: 1, totalScore: -2, averageScore: -2 },
+        king_of_hearts: { rounds: 1, totalScore: -4, averageScore: -4 },
+      } }) },
+    },
+    { id: 'deberc-platina-collector',
+      earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 3, bella: 0, total: 3, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) },
+      lock: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 2, bella: 0, total: 2, handsPlayed: 0, handsWithMeld: 0, meldRate: null } }) } },
+    { id: 'deberc-multi-meld',
+      // total (3) > handsWithMeld (2) ⇒ a hand held 2+ combinations.
+      earn: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 3, handsPlayed: 2, handsWithMeld: 2, meldRate: null } }) },
+      // total == handsWithMeld ⇒ at most one per hand.
+      lock: { ...zero(), deberc: deberc({ combinations: { terz: 0, platina: 0, bella: 0, total: 2, handsPlayed: 2, handsWithMeld: 2, meldRate: null } }) } },
+    { id: 'tarneeb-negative-game',
+      earn: { ...zero(), tarneeb: tarneeb({ worstGameScore: -5 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ worstGameScore: 10 }) } },
+    { id: 'tarneeb-all-bids-down',
+      earn: { ...zero(), tarneeb: tarneeb({ contractsMade: 0, contractsFailed: 3 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ contractsMade: 1, contractsFailed: 3 }) } },
   ];
 
   it('covers every catalog badge', () => {
@@ -299,8 +334,8 @@ describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)'
       ['global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'],
     );
     const king_ = groups.find((g) => g.key === 'king')!;
-    expect(king_.total).toBe(3);           // king-winner, king-regular, king-champion
-    expect(king_.earned).toBe(2);          // winner (≥1 win) + regular (≥10 played); not champion (≥10 wins)
+    expect(king_.total).toBe(4);           // king-winner, king-regular, king-champion, king-all-negatives
+    expect(king_.earned).toBe(2);          // winner (≥1 win) + regular (≥10 played); not champion/all-negatives
     expect(king_.rows.every((r) => r.achievement.gameType === 'king')).toBe(true);
     // global bucket holds only cross-game (no gameType) badges
     const global = groups.find((g) => g.key === 'global')!;

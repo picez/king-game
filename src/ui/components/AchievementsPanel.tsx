@@ -16,25 +16,30 @@ interface Props {
   seen?: readonly string[];
 }
 
-type Filter = 'all' | AchievementGroupKey;
+/** A tiny emoji per group for the compact filter chip (Stage 37.0). */
+const GROUP_ICON: Record<AchievementGroupKey, string> = {
+  global: '🏆', king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄',
+};
 
-/** Segment label — 'all'/'global' have their own keys; a game key reuses gameType.*. */
-function filterLabelKey(f: Filter): string {
-  if (f === 'all') return 'ach.filter.all';
-  if (f === 'global') return 'ach.group.global';
-  return `gameType.${f}`;
+/** Segment label — 'global' has its own key; a game key reuses gameType.*. */
+function groupLabelKey(g: AchievementGroupKey): string {
+  return g === 'global' ? 'ach.group.global' : `gameType.${g}`;
 }
 
 /**
- * Achievements / badges (Stage 16.0; grouped by game in Stage 36.0). A compact grid
- * derived entirely from the public per-game stats — earned/locked logic, All-Rounder
- * and totals are unchanged. A segment bar (All · Global · each game) filters the grid
- * so 29 badges are browsable per game instead of one big wall; each segment shows its
- * own earned/total. No DB writes, no popups — a read-only overview.
+ * Achievements / badges (Stage 16.0; grouped by game in Stage 36.0, polished in 37.0).
+ * A compact grid derived entirely from the public per-game stats — the earned/locked
+ * logic, All-Rounder and the totals are unchanged. A styled chip strip (**Global** and
+ * each game — NO "All") filters the grid so the badges are browsed one group at a time,
+ * never as one wall; each chip shows its game icon + its own earned/total. The strip
+ * scrolls horizontally inside itself (styled), so on 360/390 and Arabic RTL the page
+ * never overflows. No DB writes, no popups.
  */
 export default function AchievementsPanel({ stats, loading, needsSignIn, seen = [] }: Props) {
   const { t } = useI18n();
-  const [filter, setFilter] = useState<Filter>('all');
+  // Default to the first group (Global) — there is no "All" (Stage 37.0), so the grid
+  // never shows all 34 badges at once.
+  const [filter, setFilter] = useState<AchievementGroupKey>('global');
 
   if (loading) return <p className="stats-msg">{t('net.connecting')}…</p>;
 
@@ -43,15 +48,9 @@ export default function AchievementsPanel({ stats, loading, needsSignIn, seen = 
   const groups = groupAchievements(rows);
   const seenSet = new Set(seen);
 
-  // The rows to show: all, or one group's. (Falling back to `rows` keeps the panel
-  // sane if a selected group ever has no badges — it never does today.)
-  const shown = filter === 'all' ? rows : (groups.find((g) => g.key === filter)?.rows ?? rows);
-
-  // The segment strip: All first, then each non-empty group, each with its e/t count.
-  const segments: { key: Filter; earned: number; total: number }[] = [
-    { key: 'all', earned: totalEarned, total: rows.length },
-    ...groups.map((g) => ({ key: g.key as Filter, earned: g.earned, total: g.total })),
-  ];
+  // The active group (fall back to the first if the default ever isn't present).
+  const active = groups.find((g) => g.key === filter) ?? groups[0];
+  const shown = active ? active.rows : rows;
 
   return (
     <div className="ach-panel">
@@ -67,20 +66,22 @@ export default function AchievementsPanel({ stats, loading, needsSignIn, seen = 
         <span className="ach-head__label">{t('ach.progress')}</span>
       </div>
 
-      {/* Filter segments — horizontally scrollable on mobile, RTL-safe (in-flow flex). */}
+      {/* Filter chips — one per group (Global + each game), NO "All". Styled horizontal
+          scroll (see stats.css .ach-segments), so 360/390 + RTL never overflow the page. */}
       <div className="ach-segments" role="tablist" aria-label={t('ach.filterLabel')}>
-        {segments.map((s) => (
+        {groups.map((g) => (
           <button
-            key={s.key}
+            key={g.key}
             type="button"
             role="tab"
-            aria-selected={filter === s.key}
-            data-seg={s.key}
-            className={`ach-segment ${filter === s.key ? 'ach-segment--active' : ''}`}
-            onClick={() => setFilter(s.key)}
+            aria-selected={(active?.key ?? filter) === g.key}
+            data-seg={g.key}
+            className={`ach-segment ${(active?.key ?? filter) === g.key ? 'ach-segment--active' : ''}`}
+            onClick={() => setFilter(g.key)}
           >
-            <span className="ach-segment__label">{t(filterLabelKey(s.key))}</span>
-            <span className="ach-segment__count">{s.earned}/{s.total}</span>
+            <span className="ach-segment__icon" aria-hidden="true">{GROUP_ICON[g.key]}</span>
+            <span className="ach-segment__label">{t(groupLabelKey(g.key))}</span>
+            <span className="ach-segment__count">{g.earned}/{g.total}</span>
           </button>
         ))}
       </div>

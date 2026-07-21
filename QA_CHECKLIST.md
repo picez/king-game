@@ -803,13 +803,18 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > The grid is a responsive `auto-fill minmax(9rem,1fr)` with a **dynamic** `n/total` count (no hard-coded
 > "14"/"29"), so a larger badge count cannot cause horizontal overflow.
 
-- [ ] **Profile → Achievements:** the **29-badge** grid renders at **360/390** with no horizontal
-      overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of 29.
-- [ ] **Filter strip (Stage 36.0):** a chip row — **All · Global · King · Durak · Deberc · Tarneeb ·
-      Preferans · 51** — each showing its own **earned/total**; tapping a chip filters the grid to that
-      game (All = every badge). The strip **scrolls horizontally** on 360/390 (no page overflow) and
-      mirrors under **Arabic RTL**. The overall `n/29` count and which badges are earned are **unchanged**
-      by filtering.
+- [ ] **Profile → Achievements:** the **34-badge** catalog renders at **360/390** with no horizontal
+      overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of **34**.
+- [ ] **Grouped filter (Stage 37.0):** a **styled** chip strip — **Global · King · Durak · Deberc ·
+      Tarneeb · Preferans · 51** (each = icon + short name + its own **earned/total**) — opens on
+      **Global** (there is **no "All" tab**) and shows **one group at a time** (never all 34). Tapping a
+      chip filters the grid. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar on
+      360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/34` count and which
+      badges are earned are **unchanged** by filtering.
+- [ ] **New badges (Stage 37.0):** **King** *Nothing Went Right* (minus points in all six negative
+      rounds); **Deberc** *Paltina Hunter* (3 Палтіна) + *Double Declaration* (2+ combos in one hand);
+      **Tarneeb** *In the Red* (negative team final) + *Overbidder* (declare 3+, make none) — each flips to
+      gold once its condition is met and stays locked otherwise.
 - [ ] **Locked state:** a fresh account (no games) shows every badge locked (padlocks) + the "Play games
       to unlock badges." hint; signed-out shows the sign-in hint.
 - [ ] **New win badges (Stage 32.1):** after a first win in **Deberc / Tarneeb Pairs / Preferans / 51**,

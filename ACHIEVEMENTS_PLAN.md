@@ -259,3 +259,58 @@ new stats field, **no** server route, **no** tutorial-progress dependency, **no*
 then the ❌ badges as their counters land — Deberc solo/pairs split, Tarneeb exact-bid, streaks, 51
 quick-opener/joker-trader, and **Tutorial Graduate** once tutorial completion is persisted (see
 `TUTORIALS_PLAN.md` §8). Social badges remain intentionally **out** — badges stay stats-only.
+
+---
+
+## 7. Stage 37.0 — grouped UX + honesty audit of the owner's requested badges
+
+**UX (shipped):** the Profile Achievements grid is now browsed **per group** — a styled filter chip strip
+(**Global · King · Durak · Deberc · Tarneeb · Preferans · 51**, each with a game icon + its own
+earned/total). **There is no "All" tab** (default = Global); the grid never shows all badges at once. The
+strip scrolls **inside itself** (styled scrollbar), so 360/390 + Arabic RTL never overflow the page.
+
+**New badges IMPLEMENTED (derived from EXISTING stats — no new fields, no migration) → catalog 29 → 34:**
+
+| id | game | condition (existing stat) |
+|---|---|---|
+| `king-all-negatives` | King | all six `modeBreakdown[negativeMode].totalScore < 0` (conceded in every negative round) |
+| `deberc-platina-collector` | Deberc | `combinations.platina >= 3` |
+| `deberc-multi-meld` | Deberc | `combinations.total > combinations.handsWithMeld` (a hand held 2+ melds, by pigeonhole) |
+| `tarneeb-negative-game` | Tarneeb | `worstGameScore < 0` (finished a game with a negative team total) |
+| `tarneeb-all-bids-down` | Tarneeb | `contractsMade === 0 && contractsFailed >= 3` |
+
+**DEFERRED — the owner's other requests need per-round / per-hand telemetry the aggregate stats do not
+carry today.** Each is listed with the **exact field(s)** a future summarizer would have to record (all
+addable to the JSONB `stats` object without a DB migration, but they are new write-paths + tests, so a
+separate slice):
+
+- **King — perfect negative rounds** (finish a no-tricks / no-hearts / no-jacks / no-queens / king-heart /
+  last-two round taking NONE of the penalised cards): needs `perfectNegativeRounds: Record<modeId, count>`
+  (a per-round "scored 0 in a negative mode" counter). *Aggregate `totalScore` can't isolate a single
+  perfect round.*
+- **King — trump round, take all tricks**: needs `trumpSweeps` (per-round: tricks-taken === max).
+- **King — trump round, fewer tricks than a rival (comedy)**: needs per-round tricks-taken vs the field
+  (`trumpLowestCount`), a per-round comparison not kept.
+- **Durak — lose to / win by a "погони" six attack (comedy ×2)**: needs the last bout's card ranks +
+  attacker/loser mapping — `lastAttackAllSixes` + `loserWasYou`/`loserWasThem`. The final state has this;
+  the summarizer does not record it.
+- **Deberc — win without a "бейт"** (term to be confirmed in `DEBERC_RULES.md` before naming): needs a
+  per-game flag (`wonWithoutBete`). **Not implemented — the term must be verified first, not invented.**
+- **Deberc — finish a game with a negative score (comedy)**: needs `worstGameScore` (Deberc stats have no
+  final-score aggregate yet — add `bestGameScore`/`worstGameScore` like Tarneeb).
+- **Deberc — a whole game with NO combination (comedy)**: needs `gamesWithNoMeld` (per-game, not derivable
+  from the cumulative meld totals).
+- **Tarneeb — a game with zero failed contracts**: needs `cleanContractGames` (per-game count; the
+  cumulative `contractsFailed` can't isolate one clean game). *NB: an overall "never failed a contract" is
+  derivable but was intentionally NOT added — it changes the requested per-game semantics.*
+- **Tarneeb — bid 13 and win (epic)**: needs the winning bid value (`maxWinningBid` / a bid histogram) —
+  no bid detail is aggregated.
+- **51 — finish a round on the first move**: needs per-round move count (`instantRoundWins`).
+- **51 — never open (≥51) in a whole game (comedy)**: needs `gamesNeverOpened` (per-game opened flag).
+- **51 — two jokers in one deal**: needs per-hand joker usage (`maxJokersInHand`). *Also note the MVP meld
+  rule caps ONE joker per meld, so this must be counted per-hand, not per-meld.*
+- **51 — never take a 100 (unopened) penalty in a game (comedy)**: needs `gamesWithNoHundred` (a per-round
+  penalty-100 flag folded per game).
+
+**Rarity:** reused the existing `common | uncommon | rare | epic` (no `legendary` tier added). All-Rounder,
+`totalWins`, `totalGames`, and the totals are **unchanged**; every new evaluator is null-safe.
