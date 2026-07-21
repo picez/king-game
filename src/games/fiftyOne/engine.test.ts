@@ -471,6 +471,14 @@ describe('51 Stage 37.3 achievement telemetry (reducer accumulation)', () => {
     c('2', 'clubs'),                                        // spare (to discard)
   ];
 
+  /** Fresh NEW-game telemetry (never-opened all true) — what START_GAME would seed. */
+  const freshTel = (n: number) => ({
+    neverOpenedGameBySeat: Array.from({ length: n }, () => true),
+    tookHundredBySeat: Array.from({ length: n }, () => false),
+    twoJokerDealBySeat: Array.from({ length: n }, () => false),
+    instantRoundWinBySeat: Array.from({ length: n }, () => false),
+  });
+
   it('START_GAME seeds telemetry; the two-joker flag matches the ACTUAL deal', () => {
     const s = fiftyOneReducer(null, {
       type: 'START_GAME', playerNames: ['A', 'B', 'C'], playerTypes: ['ai', 'ai', 'ai'], dealerSeat: 0,
@@ -487,9 +495,8 @@ describe('51 Stage 37.3 achievement telemetry (reducer accumulation)', () => {
     }
   });
 
-  it('opening flips neverOpenedGameBySeat[seat] to false (from a legacy no-telemetry state)', () => {
-    const s = baseState([opener(), [c('3', 'clubs')]], { currentSeat: 0 });
-    expect(s.telemetry).toBeUndefined(); // backward-compat: legacy state has no telemetry
+  it('opening flips neverOpenedGameBySeat[seat] to false (new game with fresh telemetry)', () => {
+    const s = baseState([opener(), [c('3', 'clubs')]], { currentSeat: 0, telemetry: freshTel(2) });
     const o = fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [opener().slice(0, 3), opener().slice(3, 6)] }) as FiftyOneState;
     expect(o.openedBySeat[0]).toBe(true);
     expect(o.telemetry?.neverOpenedGameBySeat[0]).toBe(false);
@@ -499,7 +506,7 @@ describe('51 Stage 37.3 achievement telemetry (reducer accumulation)', () => {
   it('a first-move round win sets instantRoundWin; unopened losers set tookHundred', () => {
     const s = baseState(
       [[c('7', 'hearts')], [c('8', 'spades'), c('9', 'spades')], [c('3', 'clubs'), c('4', 'clubs')]],
-      { currentSeat: 0, starterSeat: 0, turnHasPassed: false },
+      { currentSeat: 0, starterSeat: 0, turnHasPassed: false, telemetry: freshTel(3) },
     );
     const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
     expect(r.roundWinnerSeat).toBe(0);
@@ -518,5 +525,49 @@ describe('51 Stage 37.3 achievement telemetry (reducer accumulation)', () => {
     const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
     expect(r.roundWinnerSeat).toBe(0);
     expect(r.telemetry?.instantRoundWinBySeat[0]).toBe(false);
+  });
+
+  // --- FAIL 2: conservative legacy initialization (Stage 37.3 hardening) ---------
+  // A game that STARTED before the 37.3 deploy and is restored mid-game has NO
+  // telemetry and UNKNOWN prior history. `ensureTelemetry` must seed it
+  // conservatively so unknown history can NEVER grant a whole-game ABSENCE badge
+  // (`neverOpenedGame`, `noHundredGame`); occurrence badges may still flip on a
+  // real post-restore event.
+
+  it('legacy state (no telemetry): a later action seeds CONSERVATIVE telemetry, not fresh', () => {
+    const s = baseState([opener(), [c('3', 'clubs')]], { currentSeat: 0 });
+    expect(s.telemetry).toBeUndefined(); // pre-37.3 persisted state
+    const o = fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [opener().slice(0, 3), opener().slice(3, 6)] }) as FiftyOneState;
+    // Unknown history ⇒ the absence badges are already presumed broken for EVERY seat:
+    expect(o.telemetry?.neverOpenedGameBySeat).toEqual([false, false]); // NOT [false, true]
+    expect(o.telemetry?.tookHundredBySeat).toEqual([true, true]);       // noHundredGame impossible
+  });
+
+  it('legacy state still records a REAL occurrence badge (instantRoundWin) after restore', () => {
+    // A fresh round dealt AFTER restore resets turnHasPassed, so a genuine first-move
+    // win is observable and legitimately recorded even on a legacy (no-telemetry) state.
+    const s = baseState(
+      [[c('7', 'hearts')], [c('8', 'spades')], [c('3', 'clubs')]],
+      { currentSeat: 0, starterSeat: 0, turnHasPassed: false }, // no telemetry ⇒ legacy
+    );
+    expect(s.telemetry).toBeUndefined();
+    const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
+    expect(r.roundWinnerSeat).toBe(0);
+    expect(r.telemetry?.instantRoundWinBySeat[0]).toBe(true);           // real occurrence recorded
+    // …but the whole-game ABSENCE badges stay unreachable (unknown history).
+    expect(r.telemetry?.neverOpenedGameBySeat.every((x) => x === false)).toBe(true);
+    expect(r.telemetry?.tookHundredBySeat.every((x) => x === true)).toBe(true);
+  });
+
+  it('a NEW game (fresh telemetry) can still honestly reach the absence badges', () => {
+    // Contrast to the legacy case: a game we own end-to-end keeps the correct behaviour —
+    // a seat that never opens stays neverOpened=true and never took a 100 (noHundred).
+    const s = baseState([[c('7', 'hearts')], [c('8', 'spades'), c('9', 'spades')]], {
+      currentSeat: 0, starterSeat: 0, turnHasPassed: false, telemetry: freshTel(2),
+    });
+    const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
+    expect(r.roundWinnerSeat).toBe(0);
+    expect(r.telemetry?.neverOpenedGameBySeat[0]).toBe(true);  // winner never opened this round
+    expect(r.telemetry?.tookHundredBySeat[0]).toBe(false);     // winner never took a 100 → noHundred
   });
 });

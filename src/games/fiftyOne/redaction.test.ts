@@ -12,6 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { fiftyOneRedactStateFor } from './redact';
+import { fiftyOneGameDefinition } from './definition';
 import type { Rank, Suit } from '../../models/types';
 import type { FiftyOneCard, FiftyOneState } from './types';
 
@@ -147,5 +148,84 @@ describe('51 redaction hardening — no private card ever leaks (§14)', () => {
     for (const forbidden of ['lastAction', 'debug', 'log', 'history', 'deck', 'seed', 'rng']) {
       expect(forbidden in view, `state must not expose ${forbidden}`).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FAIL 1 (Stage 37.3 hardening): the internal server-authoritative accumulators
+// `telemetry` (carries `twoJokerDealBySeat` — a private-hand fact about another
+// seat) and `turnHasPassed` must NEVER reach a client viewer or spectator, and
+// redaction must not mutate the authoritative state.
+// ---------------------------------------------------------------------------
+
+/** A mid-round state carrying Stage 37.3 internal accumulators (as the server holds). */
+function withTelemetry(): FiftyOneState {
+  return {
+    ...sample(),
+    // seat 2 was dealt two jokers this game — a PRIVATE fact that must not leak.
+    telemetry: {
+      neverOpenedGameBySeat: [false, true, true, false],
+      tookHundredBySeat: [false, false, true, true],
+      twoJokerDealBySeat: [false, false, true, false],
+      instantRoundWinBySeat: [true, false, false, false],
+    },
+    turnHasPassed: true,
+  };
+}
+
+/** The internal accumulator keys that must be absent from any serialized client view. */
+const INTERNAL_KEYS = ['telemetry', 'turnHasPassed', 'twoJokerDealBySeat', 'neverOpenedGameBySeat',
+  'tookHundredBySeat', 'instantRoundWinBySeat'];
+
+describe('51 redaction — internal telemetry never leaks (§14, FAIL 1)', () => {
+  it('the owner (viewer at their own seat) receives no telemetry / turnHasPassed', () => {
+    const view = fiftyOneRedactStateFor(withTelemetry(), 0);
+    expect(view.telemetry).toBeUndefined();
+    expect(view.turnHasPassed).toBeUndefined();
+  });
+
+  it('an opponent receives no telemetry / turnHasPassed', () => {
+    const view = fiftyOneRedactStateFor(withTelemetry(), 1);
+    expect(view.telemetry).toBeUndefined();
+    expect(view.turnHasPassed).toBeUndefined();
+  });
+
+  it('a spectator (null seat) receives no telemetry / turnHasPassed', () => {
+    const view = fiftyOneRedactStateFor(withTelemetry(), null);
+    expect(view.telemetry).toBeUndefined();
+    expect(view.turnHasPassed).toBeUndefined();
+  });
+
+  it('JSON.stringify(view) contains none of the internal accumulator keys, for every viewer', () => {
+    const state = withTelemetry();
+    for (const viewer of [0, 1, 2, 3, null]) {
+      const json = JSON.stringify(fiftyOneRedactStateFor(state, viewer));
+      for (const key of INTERNAL_KEYS) {
+        expect(json.includes(key), `viewer ${viewer} leaked internal key ${key}`).toBe(false);
+      }
+    }
+  });
+
+  it('redaction does not mutate the authoritative state (telemetry preserved server-side)', () => {
+    const state = withTelemetry();
+    const before = JSON.stringify(state);
+    fiftyOneRedactStateFor(state, 0);
+    fiftyOneRedactStateFor(state, null);
+    expect(JSON.stringify(state)).toBe(before);       // untouched
+    expect(state.telemetry?.twoJokerDealBySeat[2]).toBe(true); // still authoritative
+    expect(state.turnHasPassed).toBe(true);
+  });
+
+  it('the online path (GameDefinition.redactStateFor) and reconnect snapshot also strip telemetry', () => {
+    // serverCore builds every broadcast + reconnect snapshot via def.redactStateFor.
+    const state = withTelemetry();
+    for (const viewer of [2, null]) {
+      const view = fiftyOneGameDefinition.redactStateFor(state, viewer);
+      expect(view.telemetry).toBeUndefined();
+      expect(view.turnHasPassed).toBeUndefined();
+      expect(JSON.stringify(view).includes('twoJokerDealBySeat')).toBe(false);
+    }
+    // The authoritative copy still holds telemetry for the finish summarizer.
+    expect(state.telemetry).toBeDefined();
   });
 });

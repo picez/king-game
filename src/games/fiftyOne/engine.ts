@@ -38,7 +38,8 @@ function clone(state: FiftyOneState): FiftyOneState {
   return JSON.parse(JSON.stringify(state)) as FiftyOneState;
 }
 
-/** Fresh Stage 37.3 telemetry: never-opened starts true, all else false. */
+/** Fresh Stage 37.3 telemetry for a NEW game: never-opened starts true (nobody has
+ *  opened yet), all else false. Only correct when we own the full game history. */
 function freshTelemetry(playerCount: number): FiftyOneTelemetry {
   return {
     neverOpenedGameBySeat: Array.from({ length: playerCount }, () => true),
@@ -48,9 +49,29 @@ function freshTelemetry(playerCount: number): FiftyOneTelemetry {
   };
 }
 
-/** Null-safe accessor: creates the telemetry object on a legacy state that lacks it. */
+/**
+ * CONSERVATIVE telemetry for a legacy state restored mid-game WITHOUT telemetry
+ * (a game that started before the Stage 37.3 deploy). Its prior history is unknown,
+ * so the two whole-game-ABSENCE badges must be presumed already broken and can NEVER
+ * unlock from a partial record:
+ *  - `neverOpenedGameBySeat = false` — we cannot prove no seat ever opened.
+ *  - `tookHundredBySeat = true`      — presume a hundred was taken ⇒ `noHundredGame` = false.
+ * The two OCCURRENCE badges stay `false` and may still legitimately flip `true` if the
+ * event is actually observed after restore (`instantRoundWin`, `twoJokerDeal`).
+ */
+function legacyTelemetry(playerCount: number): FiftyOneTelemetry {
+  return {
+    neverOpenedGameBySeat: Array.from({ length: playerCount }, () => false),
+    tookHundredBySeat: Array.from({ length: playerCount }, () => true),
+    twoJokerDealBySeat: Array.from({ length: playerCount }, () => false),
+    instantRoundWinBySeat: Array.from({ length: playerCount }, () => false),
+  };
+}
+
+/** Null-safe accessor. On a legacy state that lacks telemetry, seed a CONSERVATIVE
+ *  object (not a fresh one) so unknown history can never grant an absence badge. */
 function ensureTelemetry(s: FiftyOneState): FiftyOneTelemetry {
-  if (!s.telemetry) s.telemetry = freshTelemetry(s.playerCount);
+  if (!s.telemetry) s.telemetry = legacyTelemetry(s.playerCount);
   return s.telemetry;
 }
 

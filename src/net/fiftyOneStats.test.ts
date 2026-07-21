@@ -3,7 +3,11 @@ import {
   isFinishedFiftyOneGame, summarizeFinishedFiftyOneGame, computeFiftyOneStatDeltas,
   fiftyOneFinishSignature,
 } from './fiftyOneStats';
-import type { FiftyOnePlayer, FiftyOneState } from '../games/fiftyOne/types';
+import { fiftyOneReducer } from '../games/fiftyOne/engine';
+import type { FiftyOneCard, FiftyOnePlayer, FiftyOneState } from '../games/fiftyOne/types';
+
+const card = (rank: FiftyOneCard['rank'], suit: FiftyOneCard['suit']): FiftyOneCard =>
+  ({ id: `0-${suit}-${rank}`, joker: false, suit, rank });
 
 const P = (seat: number, ai = false): FiftyOnePlayer => ({
   id: `player-${seat}`, name: `P${seat}`, seatIndex: seat, type: ai ? 'ai' : 'human',
@@ -149,6 +153,32 @@ describe('Stage 37.3 telemetry — summarizer reads state.telemetry (null-safe)'
     expect(byId['player-2']).toMatchObject({ twoJokerDeal: true, noHundredGame: true });
     // The telemetry booleans never leak any card data.
     expect(JSON.stringify(summarizeFinishedFiftyOneGame(s))).not.toMatch(/"rank"|"suit"|"joker"/);
+  });
+
+  it('FAIL 2: a LEGACY match (no telemetry) driven to finish grants NEITHER absence badge', () => {
+    // A pre-37.3 game restored mid-match: unknown history. Even if the winner plays a
+    // clean final round, `neverOpenedGame` / `noHundredGame` must NOT unlock.
+    const legacy: FiftyOneState = {
+      gameType: 'fifty-one', phase: 'playing', playerCount: 3,
+      players: [P(0), P(1), P(2)],
+      dealerSeat: 2, starterSeat: 0, currentSeat: 0, turnStep: 'meld_discard',
+      handsBySeat: [[card('7', 'hearts')], [card('8', 'spades')], [card('9', 'clubs')]],
+      drawPile: [], discardPile: [],
+      openedBySeat: [false, false, false], publicMelds: [],
+      scoresBySeat: [0, 500, 500], eliminatedSeats: [false, false, false],
+      roundNumber: 7, roundWinnerSeat: null, winnerSeat: null, lastRound: null,
+      options: { targetPenalty: 510 },
+      // NB: no `telemetry`, no `turnHasPassed` — a legacy persisted state.
+    };
+    const finishedState = fiftyOneReducer(legacy, { type: 'DISCARD', card: card('7', 'hearts') }) as FiftyOneState;
+    expect(finishedState.phase).toBe('game_finished');
+    expect(finishedState.winnerSeat).toBe(0);
+
+    const byId = Object.fromEntries(
+      computeFiftyOneStatDeltas(summarizeFinishedFiftyOneGame(finishedState)).map((d) => [d.playerId, d]),
+    );
+    // Winner earns the win, but NOT the two whole-game absence badges (history unknown).
+    expect(byId['player-0']).toMatchObject({ won: true, neverOpenedGame: false, noHundredGame: false });
   });
 });
 

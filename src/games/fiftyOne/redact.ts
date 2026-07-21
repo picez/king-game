@@ -6,7 +6,12 @@
 //   • the discard pile is PUBLIC (top + full list per §14 MVP);
 //   • opened melds (incl. which card a joker represents), opened flags,
 //     scores, eliminations, whose turn/step, round number: all PUBLIC.
-// Never leaks a private hand or the draw-pile order. Mirrors Durak/Tarneeb.
+//   • `telemetry` / `turnHasPassed` are INTERNAL server-authoritative accumulators
+//     (Stage 37.3): they carry private-hand facts (e.g. `twoJokerDealBySeat` reveals
+//     that another seat was dealt two jokers) and are read only by the finish
+//     summarizer — never sent to any client viewer or spectator.
+// Never leaks a private hand, the draw-pile order, or an internal accumulator.
+// Mirrors Durak/Tarneeb.
 // ---------------------------------------------------------------------------
 
 import type { FiftyOneCard, FiftyOneState } from './types';
@@ -26,6 +31,11 @@ export function fiftyOneRedactStateFor(state: FiftyOneState, viewerSeat: number 
     handsBySeat: state.handsBySeat.map((hand, seat) => (seat === viewerSeat ? hand : hide(hand))),
     // The draw pile is face-down: order and contents are hidden, count kept.
     drawPile: hide(state.drawPile),
+    // Internal server-authoritative accumulators — stripped from every client payload
+    // (they leak private-hand facts and are never needed by the UI). `undefined` keeps
+    // the type intact and drops the keys from the serialized JSON.
+    telemetry: undefined,
+    turnHasPassed: undefined,
     // discardPile / publicMelds / openedBySeat / scoresBySeat / eliminatedSeats /
     // currentSeat / turnStep / roundNumber / lastRound: all public — untouched.
   };
