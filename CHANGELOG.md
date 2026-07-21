@@ -9,7 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Docs
+
+- **Final production-readiness audit (Stage 34.0).** A pre-live-testing repo audit for **v0.4.3** —
+  release-state consistency, security/privacy wording, and mobile readiness. Fixes only real current-state
+  drift: a stale **"Experimental"** label for **51** in the `QA_CHECKLIST.md` online-smoke step (51 is a
+  fully **released** game, `status:'available'`) and a matching misleading code comment in
+  `src/games/registry.ts` (`coming_soon (not playable yet)` → `released`). Added concise
+  **security/privacy** spot-checks to `PRODUCTION_SMOKE.md` §11 (WS payloads carry no auth
+  secrets/tokens/emails; voice relays signaling only — no audio bytes/recording/DB; TURN creds are
+  env-only, not committed; avatar upload needs Postgres+ffmpeg with no committed secrets; only the
+  placeholder `assetlinks.example.json` is committed). No gameplay, DB, dependency, or native-artifact
+  change; no version bump.
 
 ## [0.4.3] — 2026-07-21 — Mobile app build readiness
 

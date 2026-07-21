@@ -672,7 +672,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       draw-pile hidden + reconnect snapshot still redacted + no hand/draw in `RoomSummary`), and
       updated catalog/registry/platformAudit/apiDisabled/localGating.
 - [ ] *(30.5, manual)* **Online smoke** at **360/390 portrait** (two devices or two tabs + a bot):
-      Host a 51 room ("Experimental" in the Host picker), Join from the other; each player sees **only
+      Host a 51 room (pick **51** 🀄 in the Host picker — it's a fully **released** game, not
+      "Experimental"), Join from the other; each player sees **only
       their own hand** (opponents show 🂠counts, the draw pile is face-down); a normal turn
       draws→melds→discards over the wire; the acting player's buttons are enabled and the waiter's are
       disabled; the between-rounds summary appears and the **server** starts the next round (no

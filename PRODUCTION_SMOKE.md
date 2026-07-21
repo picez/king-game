@@ -608,7 +608,20 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] `curl -sI $HOST/api/avatar/not-a-real-id.webp` → **`404`** (client falls back to
       emoji; never a stack trace).
 - [ ] No opponent hand leaks: in a 2-human room, each client only ever sees its **own**
-      cards (others show face-down counts).
+      cards (others show face-down counts) — true for **all six** games incl. **51** (opponent
+      hands + draw pile stay hidden, in live state and reconnect snapshots).
+- [ ] **WS payloads carry no auth secrets:** game/lobby messages contain only display names +
+      avatar **URLs** — **no** session cookie/token, email, or Google `sub`. (Auth is an HttpOnly
+      cookie over `/auth`; the WebSocket never carries it.)
+- [ ] **Voice = signaling only:** the server relays **WebRTC signaling** (SDP/ICE) between peers
+      and stores **no audio bytes, no recording, nothing in the DB**; audio is peer-to-peer.
+- [ ] **TURN creds are env-only:** any TURN relay comes from **`VOICE_ICE_SERVERS`** (client-visible
+      by design for ICE) — **not** committed to the repo. No secrets/keys are committed.
+- [ ] **Avatar upload** needs **Postgres + ffmpeg**; without them it returns a clean **`503`** (no
+      crash). No upload keys/secrets are committed.
+- [ ] **Digital Asset Links:** only `assetlinks.example.json` (placeholder SHA) is committed; a real
+      `/.well-known/assetlinks.json` is **never** committed — added only at store setup with the Play
+      App-Signing SHA-256 (guarded by `src/pwa.test.ts`).
 - [ ] Server logs show **no errors/stack traces** during the smoke; browser Console clean.
 
 ---

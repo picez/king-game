@@ -22,7 +22,7 @@ export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   deberc: debercGameDefinition,
   tarneeb: tarneebGameDefinition,
   preferans: preferansGameDefinition, // Stage 19.7: released (available, local + online + stats)
-  'fifty-one': fiftyOneGameDefinition, // Stage 30.2: registered coming_soon (not playable yet)
+  'fifty-one': fiftyOneGameDefinition, // Stage 30.7: released (available, local + online + stats)
 };
 
 /** The definition for a game type, or null for an unknown/invalid value. */
