@@ -10,7 +10,9 @@
 > **full-screen** TWA (custom domain → OAuth → PWA verify → signed AAB → **Play App-Signing SHA-256** →
 > real `assetlinks.json`), with verification commands — **still no real `assetlinks.json`, no APK/AAB, no
 > store submission, and no invented SHA**. Stage 33.10 added a **read-only** `triage-build-log.ps1` that
-> classifies a pasted build log (`[environment]` vs `[repo/config]`) — no build, no install.
+> classifies a pasted build log (`[environment]` vs `[repo/config]`) — no build, no install. Stages
+> 33.8–33.10 shipped as the **v0.4.3 "mobile app build readiness"** patch (docs + owner-side PowerShell
+> helpers + guards; no native build).
 > This document chooses a path to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap

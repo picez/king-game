@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.3] — 2026-07-21 — Mobile app build readiness
+
+> A **docs + tooling** patch (Stages 33.8–33.10), continuing the v0.4.2 mobile-readiness line. It hardens
+> the **owner-run Android TWA build** path — a paste-in build-log template + a read-only build-log **triage
+> helper**, and the ordered **production Asset Links + custom-domain** runbook to reach a full-screen TWA.
+> **No** native app is built or submitted, no APK/AAB/keystore or generated Gradle project is committed, no
+> real `assetlinks.json` (only the placeholder example), no dependency, no DB migration (latest stays
+> `0009`), no gameplay/rule change. **Nothing runs at runtime that changed** — it is entirely docs +
+> owner-side PowerShell helpers + guard tests.
+
 ### Docs
 
 - **Android TWA build-log triage helper (Stage 33.10).** Added `android-twa/triage-build-log.ps1` — a

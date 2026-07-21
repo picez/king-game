@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.2`** (tag `v0.4.2`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.3`** (tag `v0.4.3`).
 
 Set your host once and reuse it below:
 
@@ -23,37 +23,45 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.2 adds no migrations** — 0009 is still the latest. v0.4.2 is **mobile app readiness** (Stages
-> 33.0–33.6): a **docs + PWA** patch — Android **TWA** strategy/scaffold/runbook, the **iOS PWA-only**
-> decision, and a web-only **iOS "Add to Home Screen" hint**. **No native app is built or submitted, no
-> dependency, no schema change**; the only runtime change is the iOS install hint. The prior v0.4.1
+> **v0.4.3 adds no migrations** — 0009 is still the latest. v0.4.3 is **mobile app build readiness**
+> (Stages 33.8–33.10): a **docs + tooling** patch — a paste-in Android build-log template, a read-only
+> build-log **triage helper** (`android-twa/triage-build-log.ps1`), and the production **Asset Links +
+> custom-domain** runbook (§9). **No native app is built or submitted, no APK/AAB/keystore, no dependency,
+> no schema change, and no runtime change** (the web-only iOS install hint shipped in v0.4.2). The v0.4.1
 > **Achievements expansion** (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are
 > intact. The v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.2 release smoke (fast targeted pass — mobile app readiness)
+## 0. v0.4.3 release smoke (fast targeted pass — mobile app build readiness)
 
-v0.4.2 is a **docs + PWA** patch (Stages 33.0–33.6): the **Android TWA** strategy/scaffold/runbook, the
-**iOS PWA-only** decision, and a web-only **iOS "Add to Home Screen" hint**. **No native app is built or
-submitted, no schema change**; the released six-game state and the v0.4.1 achievements are intact. The
-only runtime change to smoke is the **iOS hint**. Android TWA scaffold hygiene is §10b; iOS PWA + hint is
-§10c; achievements §7; tutorials §5c; 51 §5b.
+v0.4.3 is a **docs + tooling** patch (Stages 33.8–33.10): a paste-in Android build-log template, a
+read-only build-log **triage helper**, and the production **Asset Links + custom-domain** runbook (§9).
+**No native app is built or submitted, no schema change, and no runtime change** (the iOS install hint
+shipped in v0.4.2). The released six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact.
+Android TWA scaffold + owner-build tooling is §10b; iOS PWA + hint is §10c; achievements §7; tutorials
+§5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.2`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.3`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.2 — latest stays `0009`).
-- [ ] **iOS install hint (Stage 33.6, the only runtime change):** on **iOS Safari**, the **menu** shows a
-      dismissible **"Install Card Majlis — Tap Share, then Add to Home Screen"** card — **not** during a
-      game, **not** once installed (standalone), and it **stays hidden after ✕** (persisted). No fake
-      install button. On Android/desktop it does **not** appear (that path keeps the Chrome install card).
-- [ ] **Android TWA (owner machine, optional — no app is shipped in this release):** `android-twa\
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.3 — latest stays `0009`).
+- [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
+      `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
+      `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
+      (only the placeholder example ships). Guarded by `src/pwa.test.ts`.
+- [ ] **iOS install hint (from v0.4.2):** on **iOS Safari**, the **menu** shows a dismissible **"Install
+      Card Majlis — Tap Share, then Add to Home Screen"** card — **not** during a game, **not** once
+      installed (standalone), and it **stays hidden after ✕** (persisted). No fake install button. On
+      Android/desktop it does **not** appear (that path keeps the Chrome install card).
+- [ ] **Android TWA owner-build flow (optional — no app is shipped in this release):** `android-twa\
       check-env.ps1` → JDK **PASS** (17+); `npx @bubblewrap/cli@latest init --manifest
       https://king-game-cqgd.onrender.com/manifest.webmanifest` (package `com.cardmajlis.app`) →
-      `.\gradlew.bat assembleDebug` → `adb install -r app\build\outputs\apk\debug\app-debug.apk`. The
-      debug APK is **debug-signed → shows a Custom Tab URL bar** until a real `assetlinks.json` matches;
-      then smoke **Google login**, **online rooms**, **voice mic**, **hand drag**, **tutorials**. (§10b.)
+      `.\gradlew.bat assembleDebug` → `adb install -r app\build\outputs\apk\debug\app-debug.apk`. If it
+      fails, classify the log offline: `.\triage-build-log.ps1 .\<log>` (read-only). The debug APK is
+      **debug-signed → shows a Custom Tab URL bar** until a real `assetlinks.json` matches — the
+      **custom-domain + Play App-Signing SHA** path to full-screen is [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)
+      **§9**. Then smoke **Google login**, **online rooms**, **voice mic**, **hand drag**, **tutorials**. (§10b.)
 - [ ] **iOS PWA smoke:** Safari → **Share → Add to Home Screen** → launches **standalone**; **Google
       login**, an **online room** (`wss://…/ws`), **voice** mic prompt, and a **tutorial** all work; the
       install hint is hidden in standalone. (§10c.)
