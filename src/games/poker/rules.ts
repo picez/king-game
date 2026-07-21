@@ -31,16 +31,47 @@ export function isPokerLifecycleAction(action: { type: string }): boolean {
   return action.type === 'START_GAME' || action.type === 'START_NEXT_HAND';
 }
 
-/** Narrow an unknown value to a well-formed PokerAction the reducer will accept. */
+/** A finite, safe integer (no NaN / Infinity / fraction / string). */
+function isFiniteSafeInt(v: unknown): boolean {
+  return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v);
+}
+
+/** Optional START_GAME options must be a plain object with finite numeric fields. */
+function isValidStartOptions(v: unknown): boolean {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
+  const o = v as Record<string, unknown>;
+  for (const k of ['startingStack', 'smallBlind', 'bigBlind']) {
+    if (o[k] !== undefined && !(typeof o[k] === 'number' && Number.isFinite(o[k] as number))) return false;
+  }
+  return true;
+}
+
+/**
+ * Narrow an UNTRUSTED value to a well-formed PokerAction the reducer will accept
+ * without throwing (WebSocket JSON is arbitrary). Rejects null / strings / arrays /
+ * empty objects / unknown types / malformed BET-RAISE amounts. START_GAME is
+ * validated structurally (playerNames array, optional playerTypes array, optional
+ * playerCount/buttonSeat finite safe integers, optional options object) so the pure
+ * reducer never dereferences a missing field — even though the client boundary
+ * additionally blocks lifecycle actions.
+ */
 export function isPokerAction(value: unknown): value is PokerAction {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const a = value as { type?: unknown; amount?: unknown };
   switch (a.type) {
-    case 'FOLD': case 'CHECK': case 'CALL': case 'ALL_IN':
-    case 'START_GAME': case 'START_NEXT_HAND':
+    case 'FOLD': case 'CHECK': case 'CALL': case 'ALL_IN': case 'START_NEXT_HAND':
       return true;
     case 'BET': case 'RAISE':
       return isValidWagerAmount(a.amount);
+    case 'START_GAME': {
+      const b = value as { playerNames?: unknown; playerTypes?: unknown; playerCount?: unknown; buttonSeat?: unknown; options?: unknown };
+      if (!Array.isArray(b.playerNames)) return false;
+      if (b.playerTypes !== undefined && !Array.isArray(b.playerTypes)) return false;
+      if (b.playerCount !== undefined && !isFiniteSafeInt(b.playerCount)) return false;
+      if (b.buttonSeat !== undefined && !isFiniteSafeInt(b.buttonSeat)) return false;
+      if (b.options !== undefined && !isValidStartOptions(b.options)) return false;
+      return true;
+    }
     default:
       return false;
   }
@@ -188,6 +219,12 @@ export function legalActions(state: PokerState, seat: number): LegalActions {
   const canRaise = canAct && state.currentBet > 0 && stack > toCall && raiseOpen;
   const minRaiseTo = Math.min(state.currentBet + state.minRaise, maxTo);
 
+  // An all-in that would RAISE the current bet must also respect the raise right — a
+  // seat whose right is closed (after an incomplete all-in) cannot re-raise by shoving.
+  // An all-in that only CALLS (≤ current bet) is always allowed (§5/§6).
+  const allInWouldRaise = maxTo > state.currentBet;
+  const canAllIn = canAct && stack > 0 && (!allInWouldRaise || raiseOpen);
+
   return {
     seat,
     canFold: canAct,
@@ -199,6 +236,6 @@ export function legalActions(state: PokerState, seat: number): LegalActions {
     canRaise,
     minRaiseTo,
     maxTo,
-    canAllIn: canAct && stack > 0,
+    canAllIn,
   };
 }

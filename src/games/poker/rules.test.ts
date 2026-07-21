@@ -42,6 +42,25 @@ describe('lifecycle + action guards', () => {
     expect(isPokerAction({ type: 'RAISE' })).toBe(false);
     expect(isPokerAction({ type: 'NUKE' })).toBe(false);
     expect(isPokerAction(null)).toBe(false);
+    expect(isPokerAction(undefined)).toBe(false);
     expect(isPokerAction('FOLD')).toBe(false);
+    expect(isPokerAction(42)).toBe(false);
+    expect(isPokerAction([])).toBe(false);            // arrays are not actions
+    expect(isPokerAction({})).toBe(false);            // empty object → no type
+  });
+
+  it('validates START_GAME structurally so the reducer never dereferences a missing field', () => {
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A', 'B'] })).toBe(true);
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A', 'B'], playerTypes: ['human', 'ai'], playerCount: 2, buttonSeat: 0 })).toBe(true);
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A', 'B'], options: { startingStack: 1000, smallBlind: 10, bigBlind: 20 } })).toBe(true);
+    // Malformed START_GAME shapes.
+    expect(isPokerAction({ type: 'START_GAME' })).toBe(false);                                  // no playerNames
+    expect(isPokerAction({ type: 'START_GAME', playerNames: 'AB' })).toBe(false);               // not an array
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], playerTypes: 'human' })).toBe(false); // playerTypes not array
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], playerCount: 1.5 })).toBe(false);     // fractional
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], playerCount: NaN })).toBe(false);
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], buttonSeat: Infinity })).toBe(false);
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], options: 'nope' })).toBe(false);      // options not object
+    expect(isPokerAction({ type: 'START_GAME', playerNames: ['A'], options: { smallBlind: 'x' } })).toBe(false);
   });
 });

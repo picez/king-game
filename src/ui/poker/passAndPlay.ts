@@ -22,12 +22,16 @@ export function needsHandover(state: PokerState, viewerSeat: number | null): boo
 }
 
 /**
- * The seat the local table may be redacted for: the confirmed human during betting
- * (their own hole cards, kept while bots act on the same device); nobody (null) on a
- * public screen or before a handover is confirmed.
+ * The seat the local table may be redacted for: ONLY the confirmed CURRENT human
+ * actor. Returns null on a public screen, on a BOT's turn, or before the acting human
+ * confirms a handover — so no player's hole cards are ever on screen while a bot acts
+ * (there is no 750ms leak window: the result never depends on a stale viewerSeat, only
+ * on who is acting NOW). §14.
  */
 export function viewerFor(state: PokerState, viewerSeat: number | null): number | null {
   if (state.phase !== 'betting') return null;
-  if (needsHandover(state, viewerSeat)) return null;
-  return viewerSeat;
+  const seat = actingSeat(state);
+  if (seat == null) return null;                          // public / between-hands screen
+  if (state.players[seat].type !== 'human') return null;  // a bot is acting → reveal nothing
+  return viewerSeat === seat ? seat : null;               // only the confirmed acting human
 }

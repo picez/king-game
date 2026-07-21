@@ -30,11 +30,16 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
   const [viewerSeat, setViewerSeat] = useState<number | null>(null);
   const apply = useCallback((action: PokerAction) => setState((s) => pokerReducer(s, action)), []);
 
-  // A new hand hides everyone's cards again until the next human confirms a handover.
-  const prevHand = useRef(0);
+  // Whenever the ACTING seat changes (a new turn, a bot's turn, or a new hand), the
+  // prior confirmation is dropped so the next human must confirm a fresh handover —
+  // in particular after any bot turn (bot → human ALWAYS re-prompts), even if it is
+  // the same human who acted before the bot. Combined with `viewerFor` returning null
+  // on a bot's turn, no player's hole cards are ever shown while a bot acts.
+  const prevActor = useRef<number | null>(-1);
   useEffect(() => {
-    if (state && state.handNumber !== prevHand.current) {
-      prevHand.current = state.handNumber;
+    const actor = state ? getActingPokerSeat(state) : null;
+    if (actor !== prevActor.current) {
+      prevActor.current = actor;
       setViewerSeat(null);
     }
   }, [state]);
@@ -58,14 +63,14 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     let b = 0;
     const playerNames = seats.map((s) => (s.type === 'human' ? s.name : botNames[b++]));
     const playerTypes: PlayerType[] = seats.map((s) => s.type);
-    prevHand.current = 0;
+    prevActor.current = -1;
     setViewerSeat(null);
     apply({ type: 'START_GAME', playerNames, playerTypes, playerCount: seats.length });
   }
 
   function playAgain() {
     setState(null);
-    prevHand.current = 0;
+    prevActor.current = -1;
     setViewerSeat(null);
   }
 

@@ -417,3 +417,77 @@ describe('P2 — public action history (§13)', () => {
     expect(s.actionLog).toHaveLength(2);
   });
 });
+
+// ── Stage 37.4 corrective hardening — round 2 ───────────────────────────────
+
+describe('FAIL 2 — ALL_IN cannot bypass a closed raise right (§5/§6)', () => {
+  it('an already-acted seat with a closed raise right cannot shove to re-raise', () => {
+    let s = mkState({
+      playerCount: 3, street: 'flop', buttonSeat: 0,
+      board: [pc('9', 'spades'), pc('6', 'diamonds'), pc('2', 'clubs')],
+      stacksBySeat: [300, 300, 150], contributedBySeat: [20, 20, 20],
+      currentBet: 0, minRaise: 20, toActSeat: 1,
+    });
+    s = pokerReducer(s, { type: 'BET', amount: 100 }) as PokerState;      // seat 1 bets 100 (full)
+    // seat 2's raise right was RE-OPENED by the full bet → it may shove-raise.
+    expect(legalActions(s, 2).canAllIn).toBe(true);
+    s = pokerReducer(s, { type: 'ALL_IN' }) as PokerState;                // seat 2 incomplete all-in to 150
+    // seat 0 has not acted since the full bet → keeps BOTH raise and shove-raise rights.
+    expect(legalActions(s, 0).canRaise).toBe(true);
+    expect(legalActions(s, 0).canAllIn).toBe(true);
+    s = pokerReducer(s, { type: 'CALL' }) as PokerState;                  // seat 0 calls 150
+    // seat 1 already acted; the incomplete all-in did NOT re-open its raise right.
+    expect(s.toActSeat).toBe(1);
+    const la1 = legalActions(s, 1);
+    expect(la1.canRaise).toBe(false);
+    expect(la1.canAllIn).toBe(false);       // a shove (300 > 150) would raise → blocked
+    expect(la1.canCall).toBe(true);         // may only call the extra 50 …
+    expect(pokerReducer(s, { type: 'ALL_IN' })).toBe(s); // … a forged ALL_IN is a no-op
+    expect(pokerReducer(s, { type: 'CALL' })).not.toBe(s); // … a CALL is accepted
+  });
+
+  it('a SHORT all-in call (≤ current bet) stays legal even with a closed raise right', () => {
+    // seat 1 has a closed right but only 30 chips over a 50 shortfall → a call for less.
+    // A full river board is present so the resulting showdown resolves cleanly.
+    const s = mkState({
+      playerCount: 3, street: 'river',
+      board: [pc('9', 'spades'), pc('6', 'diamonds'), pc('4', 'clubs'), pc('3', 'hearts'), pc('2', 'spades')],
+      holeCardsBySeat: [[pc('A', 'spades'), pc('A', 'hearts')], [pc('K', 'spades'), pc('Q', 'hearts')], [pc('J', 'clubs'), pc('10', 'diamonds')]],
+      stacksBySeat: [0, 30, 0], committedBySeat: [150, 100, 150], contributedBySeat: [150, 100, 150],
+      allInBySeat: [true, false, true], actedBySeat: [true, false, true],
+      raiseOpenBySeat: [false, false, false], currentBet: 150, minRaise: 100, toActSeat: 1,
+    });
+    const la = legalActions(s, 1);
+    expect(la.canRaise).toBe(false);
+    expect(la.canAllIn).toBe(true);    // maxTo 130 ≤ currentBet 150 → an all-in CALL, allowed
+    expect(pokerReducer(s, { type: 'ALL_IN' })).not.toBe(s); // accepted
+  });
+
+  it('a full raise re-opens both canRaise and a shove-raise for everyone else', () => {
+    let s = start(3, 13, 0);
+    s = pokerReducer(s, { type: 'RAISE', amount: 60 }) as PokerState; // seat 0 full raise to 60
+    // seat 1 faces a full raise → both rights open.
+    const la1 = legalActions(s, 1);
+    expect(la1.canRaise).toBe(true);
+    expect(la1.canAllIn).toBe(true);
+  });
+});
+
+describe('FAIL 1 — the reducer never throws on runtime-invalid direct input', () => {
+  it('returns the same live state for null / non-object / unknown-type / malformed actions', () => {
+    const s = start(3, 9, 0);
+    const bad: unknown[] = [
+      null, undefined, 'FOLD', 42, [], {}, { type: 'NUKE' },
+      { type: 'BET' }, { type: 'RAISE', amount: 'x' }, { type: 'BET', amount: NaN },
+      { type: 'START_GAME' }, { type: 'START_GAME', playerNames: 'AB' }, { type: 'START_GAME', playerNames: ['A', 'B'], playerCount: 1.5 },
+    ];
+    for (const a of bad) {
+      expect(pokerReducer(s, a as never), JSON.stringify(a)).toBe(s); // same reference, no throw
+    }
+  });
+
+  it('returns null (not a throw) for a malformed action from the null state', () => {
+    expect(pokerReducer(null, null as never)).toBeNull();
+    expect(pokerReducer(null, { type: 'START_GAME', playerNames: 'nope' } as never)).toBeNull();
+  });
+});

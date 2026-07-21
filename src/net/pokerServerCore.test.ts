@@ -218,6 +218,29 @@ describe('poker server boundary — malformed WebSocket amounts (P0-2)', () => {
     expect(JSON.stringify(room.gameState)).toBe(before); // authoritative state untouched
     expect(checkPokerInvariants(asP(room.gameState))).toEqual([]);
   });
+
+  it('any malformed action shape is rejected WITHOUT throwing; the session survives (FAIL 1)', () => {
+    const { room, clientForSeat } = seatedRoom(3, 23);
+    const actorSeat = Number(def.getActingPlayerId(asP(room.gameState))!.split('-')[1]);
+    const before = JSON.stringify(room.gameState);
+    const malformed: unknown[] = [
+      null, undefined, 'FOLD', 42, [], {}, { type: 'NUKE' },
+      { type: 'BET' }, { type: 'RAISE', amount: {} }, { type: 'BET', amount: 'x' },
+      { type: 'START_GAME', playerNames: 'nope' }, { type: 'START_NEXT_HAND' },
+    ];
+    for (const action of malformed) {
+      // Must NOT throw — a boundary rejection, not an uncaught exception.
+      const res = applyActionRequest(room, clientForSeat(actorSeat), action as AnyGameAction);
+      expect(res.ok, JSON.stringify(action)).toBe(false);
+    }
+    // Chips / pot / turn / reference all intact after every rejection.
+    expect(JSON.stringify(room.gameState)).toBe(before);
+    expect(checkPokerInvariants(asP(room.gameState))).toEqual([]);
+    // The session is NOT corrupted — a subsequent VALID action from the actor succeeds.
+    const ok = applyActionRequest(room, clientForSeat(actorSeat), { type: 'FOLD' } as AnyGameAction);
+    expect(ok.ok).toBe(true);
+    expect(JSON.stringify(room.gameState)).not.toBe(before);
+  });
 });
 
 describe('poker deal metadata is recorded for every hand (P0-3)', () => {

@@ -298,7 +298,16 @@ export function handleClientMessage(
     case 'ACTION_REQUEST': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
-      const res = applyActionRequest(room, clientId, msg.action);
+      // `msg.action` is UNTRUSTED (arbitrary JSON). `applyActionRequest` validates and
+      // never mutates on rejection, but wrap it so any residual throw becomes a safe
+      // BAD_MESSAGE rejection instead of an uncaught exception that could tear down the
+      // connection — the room/session stay intact for the next valid action.
+      let res;
+      try {
+        res = applyActionRequest(room, clientId, msg.action);
+      } catch {
+        return sendError(socket, 'BAD_MESSAGE', 'Malformed action');
+      }
       if (!res.ok) return sendError(socket, res.error!, 'Action rejected');
       ctx.broadcastAndAdvance(room);
       ctx.persistRoom(room);

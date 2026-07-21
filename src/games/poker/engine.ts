@@ -20,6 +20,7 @@ import {
   firstToActPostflop,
   firstToActPreflop,
   inHandSeats,
+  isPokerAction,
   isValidWagerAmount,
   legalActions,
   nextActiveSeat,
@@ -519,6 +520,9 @@ export function pokerReducer(
   ctx?: PokerContext,
 ): PokerState | null {
   const rng = resolveRng(ctx);
+  // Defensive against a runtime-invalid direct call (untrusted input): never throw —
+  // reject a malformed action by returning the current state reference (or null).
+  if (!isPokerAction(action)) return state;
   if (action.type === 'START_GAME') {
     // START_GAME is a lifecycle action that CREATES a match: it is honoured only from
     // the empty (null) state. Never let it replace a live authoritative PokerState —

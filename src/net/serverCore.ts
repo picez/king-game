@@ -29,6 +29,7 @@ import { normalizeEliminationScore } from '../games/fiftyOne/rules';
 import type { PreferansState } from '../games/preferans/types';
 import type { FiftyOneState } from '../games/fiftyOne/types';
 import type { PokerState } from '../games/poker/types';
+import { isPokerAction } from '../games/poker/rules';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -675,12 +676,20 @@ export function applyActionRequest(
   if (!def) return { ok: false, error: 'ILLEGAL_ACTION' };
   const seat = room.members.get(clientId)?.seatIndex ?? null;
 
+  // Poker: the action is UNTRUSTED WebSocket JSON — validate its shape at the boundary
+  // BEFORE reading any field, so a null / string / array / malformed payload can never
+  // dereference or throw. Anything not a well-formed PokerAction is rejected safely.
+  if (gameType === 'poker' && !isPokerAction(action)) {
+    return { ok: false, error: 'ILLEGAL_ACTION' };
+  }
+
   // Lifecycle actions (match creation / between-hands advance) are SERVER-driven only
   // (startGame / autoAdvance) — a client ACTION_REQUEST must NEVER trigger them, even
   // from the acting seat, or an actor could reset/replace a live authoritative state.
   // Poker's lifecycle actions are START_GAME / START_NEXT_HAND; no released game routes
-  // either through a client action, so rejecting them here is safe for every game.
-  const actionType = (action as { type?: string }).type;
+  // either through a client action, so rejecting them here is safe for every game. The
+  // read is null-safe so a malformed non-poker payload also cannot throw here.
+  const actionType = (action && typeof action === 'object') ? (action as { type?: string }).type : undefined;
   if (actionType === 'START_GAME' || actionType === 'START_NEXT_HAND') {
     return { ok: false, error: 'ILLEGAL_ACTION' };
   }
