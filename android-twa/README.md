@@ -22,6 +22,7 @@ truth (see [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md)).
 |---|---|
 | `twa-manifest.json` | **Bubblewrap config** (source of truth for the wrapper): package id, host, name, colors, icons, orientation. Hand-authored to match `public/manifest.webmanifest`. Edit **this**, then `bubblewrap update`. |
 | `check-env.ps1` | **Read-only** toolchain check (JDK 17+, Android SDK, adb, node/npm, Bubblewrap, manifest JSON). Installs/downloads/writes nothing. Prints `PASS`/`WARN`/`FAIL`; exits `1` on any hard failure. |
+| `triage-build-log.ps1` | **Read-only** classifier for a pasted build log — maps known failures to Category / Evidence / Meaning / Owner action, tagged `[environment]` vs `[repo/config]`. Installs/downloads/writes nothing (Stage 33.10). |
 | `.gitignore` | Keeps the **generated** Android project, build outputs (`*.apk`/`*.aab`/`build/`/`.gradle/`), and **keystores** out of git. |
 | `BUILD_LOG_TEMPLATE.md` | Paste-in template for the **owner's** real build logs (`check-env` → `bubblewrap init` → Gradle → `adb`) so repo/config issues can be triaged (Stage 33.8). Text logs only — never commit generated projects/APKs/keystores. |
 | `README.md` | This file. |
@@ -214,8 +215,28 @@ The agent's environment can't run the toolchain, so the **owner runs the build**
 Copy [`BUILD_LOG_TEMPLATE.md`](BUILD_LOG_TEMPLATE.md), fill each block with the **real output**
 (`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb`), note whether the app opened
 full-screen or as a Custom Tab, and hand it back. Only **repo/config** issues get fixed in-repo;
-machine-setup issues (JDK, SDK, licenses, adb, Play Console) are the owner's to resolve — the table below
-tells them apart.
+machine-setup issues (JDK, SDK, licenses, adb, Play Console) are the owner's to resolve — the tables below
+tell them apart.
+
+### Triage a pasted build log (offline helper)
+
+Save your raw build output to a file (e.g. the filled `BUILD_LOG_TEMPLATE.md`, or any `.txt`/`.log`) and
+run the **read-only** classifier — it installs/downloads nothing and only prints to the console:
+
+```powershell
+cd C:\ClaudeCode\builder-agent\projects\king-game\android-twa
+.\triage-build-log.ps1 .\owner-build-log.md
+```
+
+For each known failure it prints the **Category**, the **Evidence** line from your log, what it **Means**,
+and the **Owner action** — tagged **[environment]** (your machine: JDK/SDK/licenses/network/adb) or
+**[repo/config]** (this repo: wrong `npx` package, wrong `--manifest` target, Asset Links / OAuth origin).
+It recognises: JDK < 17 · Android SDK / `ANDROID_HOME` missing · unaccepted licenses · wrong `npx
+bubblewrap` · wrong `init --manifest` target · Gradle download/network failure · missing Android Gradle
+plugin/distribution · adb no-device/unauthorized · Custom-Tab-because-DAL-not-verified · Asset Links SHA
+mismatch (upload/debug key mistake) · Google OAuth `redirect_uri_mismatch`. Anything else prints
+**"Unknown — paste the full log + Machine facts"**. The helper never fixes machine setup for you; it points
+you at the runbook (this README + [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md) §9).
 
 ### Known expected launch states
 

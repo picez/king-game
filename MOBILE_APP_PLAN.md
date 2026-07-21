@@ -9,7 +9,8 @@
 > added the **production Asset Links + custom-domain runbook** (§9): the ordered owner path to a
 > **full-screen** TWA (custom domain → OAuth → PWA verify → signed AAB → **Play App-Signing SHA-256** →
 > real `assetlinks.json`), with verification commands — **still no real `assetlinks.json`, no APK/AAB, no
-> store submission, and no invented SHA**.
+> store submission, and no invented SHA**. Stage 33.10 added a **read-only** `triage-build-log.ps1` that
+> classifies a pasted build log (`[environment]` vs `[repo/config]`) — no build, no install.
 > This document chooses a path to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
@@ -89,6 +90,7 @@ cookies, and mic permissions** the TWA gets for free.
 | **33.7 — Android debug / internal test** ⏳ | **Owner-run triage hardening DONE (repo side); build still owner-run.** Added `android-twa/BUILD_LOG_TEMPLATE.md` (paste-in log format), a **Known-expected-launch-states** table + a **Troubleshooting** table in the README (wrong npx package / wrong `--manifest` / Java 8 / SDK / licenses / DAL-not-verified / mic / OAuth redirect), read-only **config-sanity** checks in `check-env.ps1` (packageId / webManifestUrl / README uses `@bubblewrap/cli` / no wrong `npx bubblewrap init`), and repo guard tests. **Remaining (owner):** generate the Gradle project + **debug** APK, install, fill the log template; then a **signed AAB** on the Play internal track. **No** generated project/APK/AAB/keystore committed. | runbook + triage + guards in repo; owner runs the build |
 | **33.8 — iOS native wrapper decision** | **Only after Android is validated.** Decide Capacitor/WKWebView vs stay PWA-only; if building, require **external-browser OAuth** (`ASWebAuthenticationSession`) + mic permission + a Guideline 4.2 plan. | decision doc; build only if it clears the risk |
 | **33.9 — Android production Asset Links + custom domain** ✅ | **DONE (design/docs, §9).** The ordered owner runbook to a **full-screen** TWA: pick a custom domain → Render custom domain + env → Google OAuth redirect/JS origins → verify PWA on the new origin → signed AAB + **Play App-Signing SHA-256** (not upload/debug) → real `assetlinks.json` (repo-safe: local copy of the example, deploy only when the SHA exists) → verify (manifest/assetlinks/`pm get-app-links`). Warns on the wrong-SHA caching trap. **No** real `assetlinks.json`, APK/AAB, store submission, or invented SHA. | design/docs only; owner runs the store/domain steps |
+| **33.10 — Build-log triage helper** ✅ | **DONE.** Added `android-twa/triage-build-log.ps1` — a **read-only** classifier that maps a pasted build log to Category / Evidence / Meaning / Owner action, tagged `[environment]` vs `[repo/config]` (JDK<17, SDK/`ANDROID_HOME`, licenses, wrong `npx bubblewrap`, wrong `--manifest` target, Gradle download/network, missing AGP, adb no-device, Custom-Tab-DAL, Asset Links SHA mismatch, OAuth redirect). Installs/downloads/writes nothing; verified on Java-8/npx/adb/clean samples. README + BUILD_LOG_TEMPLATE + guards updated. | read-only helper + docs; no build, no APK/AAB |
 | **Future — Capacitor spike / push** | A Capacitor iOS spike if the owner still wants the App Store; Web Push (Android/Chrome) or native push; splash/share-sheet polish. | opt-in, post-MVP |
 
 ---

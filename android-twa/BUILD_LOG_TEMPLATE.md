@@ -75,6 +75,20 @@ Notes / screenshots description:
 (what you saw — status bar color, whether the emerald theme showed, any error toast)
 ```
 
+## 5b. Triage helper output (optional, offline)
+
+Run the read-only classifier on this file and paste its output — it labels known failures
+`[environment]` vs `[repo/config]` with an action each (see [`README.md`](README.md) → *Triage a pasted
+build log*):
+
+```powershell
+.\triage-build-log.ps1 .\BUILD_LOG_TEMPLATE.md
+```
+
+```text
+(paste the triage output here)
+```
+
 ## 6. Feature smoke (only if it installed)
 
 Tick what worked; note anything that failed with the exact message:

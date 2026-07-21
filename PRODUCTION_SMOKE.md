@@ -571,6 +571,7 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       [`android-twa/BUILD_LOG_TEMPLATE.md`](android-twa/BUILD_LOG_TEMPLATE.md) (check-env → init → gradle →
       adb + full-screen-vs-Custom-Tab). A debug-signed APK showing a **Custom Tab URL bar is expected**
       until a real `assetlinks.json` matches the Play App-Signing SHA. Only **text logs** are shared.
+      Optionally classify it offline: `android-twa\triage-build-log.ps1 <log>` (read-only, Stage 33.10).
 - [ ] **Production full-screen path (33.9):** to make it launch full-screen, follow the ordered runbook in
       [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) **§9** — custom domain → OAuth redirect → PWA verify →
       signed AAB → **Play App-Signing SHA-256** → real `assetlinks.json` (deployed, never committed) →

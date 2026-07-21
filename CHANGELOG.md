@@ -11,6 +11,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Docs
 
+- **Android TWA build-log triage helper (Stage 33.10).** Added `android-twa/triage-build-log.ps1` — a
+  **read-only** classifier that takes a pasted build-log file and maps known failures to **Category /
+  Evidence / Meaning / Owner action**, tagged **[environment]** (your machine) vs **[repo/config]** (this
+  repo). It recognises JDK < 17, missing Android SDK / `ANDROID_HOME`, unaccepted licenses, the wrong `npx
+  bubblewrap` package, the wrong `init --manifest` target, Gradle download/network failures, a missing
+  Android Gradle plugin/distribution, `adb` no-device/unauthorized, "opens as a Custom Tab because Asset
+  Links aren't verified", Asset Links SHA mismatch (upload/debug-key mistake), and Google OAuth
+  `redirect_uri_mismatch`; anything else prints "Unknown — paste the full log". It **installs nothing,
+  downloads nothing, spawns no process, and writes no files** (verified on Java-8/npx/adb/clean samples).
+  README + `BUILD_LOG_TEMPLATE.md` document it; new `src/pwa.test.ts` guards assert it exists, stays
+  read-only, and covers every category. No build, no APK/AAB, no keystore, no real `assetlinks.json`, no
+  dependency, no version bump.
 - **Android TWA production Asset Links + custom-domain plan (Stage 33.9).** Added the ordered owner runbook
   ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) §9) to turn the Custom-Tab debug build into a **full-screen**
   verified TWA: choose a **custom domain** → add it in Render + re-point `GOOGLE_REDIRECT_URI`/

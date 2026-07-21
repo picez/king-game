@@ -921,6 +921,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > - [ ] **How it opened:** full-screen (DAL verified) vs **Custom Tab URL bar** (expected for debug) vs
 >       generic WebView/crash (real issue). See the README **Known-expected-launch-states** table.
 > - [ ] Only **text logs** are shared — **no** APK/AAB/keystore or generated Gradle project committed.
+> - [ ] **Offline triage (optional):** `.\triage-build-log.ps1 .\<your-log>.md` classifies known failures
+>       (`[environment]` vs `[repo/config]`) read-only — paste its output alongside the raw log.
 >
 > **Android TWA first run (after a 33.3 debug build — `.\check-env.ps1` → `bubblewrap init --manifest
 > https://king-game-cqgd.onrender.com/manifest.webmanifest` (the **web** manifest URL, not

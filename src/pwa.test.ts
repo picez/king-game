@@ -180,6 +180,7 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
     for (const expected of [
       'android-twa/twa-manifest.json',
       'android-twa/check-env.ps1',
+      'android-twa/triage-build-log.ps1',
       'android-twa/.gitignore',
       'android-twa/README.md',
       'android-twa/BUILD_LOG_TEMPLATE.md',
@@ -210,6 +211,52 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
     expect(body).toMatch(/check-env/);
     expect(body).toMatch(/assembleDebug/);
     expect(body).toMatch(/Custom Tab/);
+  });
+});
+
+describe('Android TWA build-log triage helper (Stage 33.10)', () => {
+  const TWA_DIR = join(process.cwd(), 'android-twa');
+  const scriptPath = join(TWA_DIR, 'triage-build-log.ps1');
+
+  it('ships the read-only triage-build-log.ps1 helper', () => {
+    expect(existsSync(scriptPath), 'triage-build-log.ps1 should exist').toBe(true);
+  });
+
+  it('is read-only — no install/download/process-spawn/destructive-write cmdlets', () => {
+    const s = readFileSync(scriptPath, 'utf8');
+    // PowerShell cmdlets that would install, fetch, spawn, or mutate. (Shell command
+    // NAMES like `npm i` / `adb` appear only inside owner-advice strings, so they are
+    // not part of this guard — the script never invokes them.)
+    const forbidden = [
+      /Install-\w+/i, /Start-Process/i, /Invoke-WebRequest/i, /Invoke-RestMethod/i, /Start-BitsTransfer/i,
+      /Invoke-Expression/i, /\biex\b/i, /\biwr\b/i, /Remove-Item/i, /New-Item/i,
+      /Out-File/i, /Set-Content/i, /Add-Content/i, /Clear-Content/i, /Start-Job/i,
+    ];
+    for (const re of forbidden) {
+      expect(re.test(s), `triage script must not contain ${re}`).toBe(false);
+    }
+    // It DOES read the log and DOES classify into environment vs repo/config.
+    expect(s).toMatch(/Get-Content/);
+    expect(s).toMatch(/environment/);
+    expect(s).toMatch(/repo\/config/);
+  });
+
+  it('classifies the required failure categories', () => {
+    const s = readFileSync(scriptPath, 'utf8');
+    for (const cat of [
+      'JDK < 17', 'Android SDK missing', 'licenses not accepted', 'Wrong npx package',
+      'Wrong init --manifest', 'Gradle download', 'adb: no device', 'Custom Tab',
+      'Asset Links SHA mismatch', 'Google OAuth redirect',
+    ]) {
+      expect(s, `triage should classify: ${cat}`).toContain(cat);
+    }
+  });
+
+  it('README and BUILD_LOG_TEMPLATE reference the helper command', () => {
+    const readme = readFileSync(join(TWA_DIR, 'README.md'), 'utf8');
+    const tpl = readFileSync(join(TWA_DIR, 'BUILD_LOG_TEMPLATE.md'), 'utf8');
+    expect(readme).toContain('triage-build-log.ps1');
+    expect(tpl).toContain('triage-build-log.ps1');
   });
 });
 
