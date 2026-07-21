@@ -34,27 +34,48 @@ Write-Host ''
 Write-Host 'Card Majlis - Android TWA environment check (read-only)' -ForegroundColor Cyan
 Write-Host '=======================================================' -ForegroundColor Cyan
 
-# --- Java / JDK 17+ (required by Bubblewrap + Android Gradle Plugin) ---
-if (Test-Cmd 'java') {
-  # `java -version` prints to stderr; in PS 5.1 with EAP=SilentlyContinue, a
-  # PowerShell 2>&1 merge drops the wrapped ErrorRecords. Route through cmd so
-  # we get the plain text regardless of ErrorActionPreference.
-  $raw = (cmd /c "java -version 2>&1") -join "`n"
+# --- Read-only detection of an Android Studio toolchain that isn't on PATH (Stage 33.14) ---
+# The machine may have a usable JDK/SDK installed via Android Studio without any env vars.
+# We only DETECT and REPORT candidates + the vars to set — we never write env vars.
+$asStudioJbr   = "$env:ProgramFiles\Android\Android Studio\jbr"
+$asJbrJava     = Join-Path $asStudioJbr 'bin\java.exe'
+$sdkCandidates = @("$env:LOCALAPPDATA\Android\Sdk", "$env:ProgramFiles\Android\Sdk") | Where-Object { $_ }
+$detectedSdk   = $sdkCandidates | Where-Object { Test-Path (Join-Path $_ 'platform-tools\adb.exe') } | Select-Object -First 1
+
+function Get-JavaMajor([string]$exe) {
+  # `java -version` prints to stderr; route through cmd for EAP-independent capture.
+  $raw = (cmd /c "`"$exe`" -version 2>&1") -join "`n"
   $m = [regex]::Match($raw, 'version "(\d+)(?:\.(\d+))?')
-  if ($m.Success) {
-    $major = [int]$m.Groups[1].Value
-    if ($major -eq 1) { $major = [int]$m.Groups[2].Value }  # legacy "1.8" scheme
-    if ($major -ge 17) { Write-Result PASS 'JDK'   "Java $major (>= 17)" }
-    else { Write-Result FAIL 'JDK' "Java $major found; need JDK 17+ (Temurin/Zulu/Android Studio JBR)" }
-  }
-  else { Write-Result WARN 'JDK' "java present but version unparsable: $($raw -split "`n" | Select-Object -First 1)" }
+  if (-not $m.Success) { return 0 }
+  $mj = [int]$m.Groups[1].Value
+  if ($mj -eq 1) { $mj = [int]$m.Groups[2].Value }   # legacy "1.8" scheme
+  return $mj
 }
-else { Write-Result FAIL 'JDK' 'java not on PATH; install JDK 17+ (e.g. Temurin 17)' }
+
+# --- Java / JDK 17+ (required by Bubblewrap + Android Gradle Plugin) ---
+$jdkOk = $false
+if (Test-Cmd 'java') {
+  $mj = Get-JavaMajor 'java'
+  if ($mj -ge 17) { Write-Result PASS 'JDK' "Java $mj (>= 17)"; $jdkOk = $true }
+  elseif ($mj -gt 0) { Write-Result WARN 'JDK' "PATH java is Java $mj (<17); a newer JDK is needed to build" }
+  else { Write-Result WARN 'JDK' 'java present but version unparsable' }
+}
+if (-not $jdkOk) {
+  if (Test-Path $asJbrJava) {
+    $mj = Get-JavaMajor $asJbrJava
+    if ($mj -ge 17) {
+      Write-Result PASS 'JDK (JBR)' "Android Studio JBR = Java $mj  ->  set JAVA_HOME=`"$asStudioJbr`""
+      $jdkOk = $true
+    }
+  }
+  if (-not $jdkOk) { Write-Result FAIL 'JDK' 'No JDK 17+ on PATH or Android Studio JBR; install JDK 17+ (Temurin/Zulu/Android Studio)' }
+}
 
 # --- Android SDK ---
 $sdk = $env:ANDROID_HOME; if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
 if ($sdk -and (Test-Path $sdk)) { Write-Result PASS 'Android SDK' $sdk }
 elseif ($sdk) { Write-Result WARN 'Android SDK' "ANDROID_HOME/SDK_ROOT set but missing: $sdk" }
+elseif ($detectedSdk) { Write-Result PASS 'Android SDK' "detected $detectedSdk  ->  set ANDROID_HOME to it (env var is unset)" }
 else { Write-Result WARN 'Android SDK' 'ANDROID_HOME/ANDROID_SDK_ROOT unset (Bubblewrap can install an SDK on first run)' }
 
 # --- adb (needed to install the debug APK on a device) ---
@@ -62,6 +83,7 @@ if (Test-Cmd 'adb') {
   $v = ((& adb version 2>&1) | Select-Object -First 1)
   Write-Result PASS 'adb' $v
 }
+elseif ($detectedSdk) { Write-Result PASS 'adb' "$detectedSdk\platform-tools\adb.exe (add platform-tools to PATH)" }
 else { Write-Result WARN 'adb' 'adb not on PATH; needed only to install on a device (comes with platform-tools)' }
 
 # --- Node / npm ---

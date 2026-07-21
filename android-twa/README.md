@@ -21,7 +21,8 @@ truth (see [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md)).
 | File | Role |
 |---|---|
 | `twa-manifest.json` | **Bubblewrap config** (source of truth for the wrapper): package id, host, name, colors, icons, orientation. Hand-authored to match `public/manifest.webmanifest`. Edit **this**, then `bubblewrap update`. |
-| `check-env.ps1` | **Read-only** toolchain check (JDK 17+, Android SDK, adb, node/npm, Bubblewrap, manifest JSON). Installs/downloads/writes nothing. Prints `PASS`/`WARN`/`FAIL`; exits `1` on any hard failure. |
+| `check-env.ps1` | **Read-only** toolchain check (JDK 17+, Android SDK, adb, node/npm, Bubblewrap, manifest JSON). **Also detects an Android Studio JBR/SDK that isn't on `PATH`** and prints the `JAVA_HOME`/`ANDROID_HOME` to set (never writes env vars). Prints `PASS`/`WARN`/`FAIL`; exits `1` on any hard failure. |
+| `DEBUG_BUILD_EVIDENCE.md` | Record that the debug APK was **actually built + run in an emulator** (Stages 33.12/33.13): the working toolchain, commands, launch summary, visual confirmation, and known non-bugs. Text only — no binaries. |
 | `triage-build-log.ps1` | **Read-only** classifier for a pasted build log — maps known failures to Category / Evidence / Meaning / Owner action, tagged `[environment]` vs `[repo/config]`. Installs/downloads/writes nothing (Stage 33.10). |
 | `.gitignore` | Keeps the **generated** Android project, build outputs (`*.apk`/`*.aab`/`build/`/`.gradle/`), and **keystores** out of git. |
 | `BUILD_LOG_TEMPLATE.md` | Paste-in template for the **owner's** real build logs (`check-env` → `bubblewrap init` → Gradle → `adb`) so repo/config issues can be triaged (Stage 33.8). Text logs only — never commit generated projects/APKs/keystores. |

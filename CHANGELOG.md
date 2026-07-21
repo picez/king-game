@@ -9,6 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Docs
+
+- **Android TWA debug build evidence (Stage 33.14).** Recorded that the Android TWA **debug APK actually
+  builds and runs** — added `android-twa/DEBUG_BUILD_EVIDENCE.md` (the working toolchain — Android Studio
+  JBR 21 + SDK, AVD `Pixel_9`, Bubblewrap 1.24.1; the `bubblewrap update` → `gradlew assembleDebug` →
+  **BUILD SUCCESSFUL** commands; the emulator install/launch summary; visual confirmation of the Card
+  Majlis menu, six-game tagline, Tutorials tile and interactive Local setup; and the known non-bugs:
+  **Custom Tab** in the unverified debug state, Chrome first-run, and `check-env` false-NOT-READY when the
+  JBR/SDK aren't on `PATH`). Also improved `check-env.ps1` to **detect** an Android Studio JBR/SDK off
+  `PATH` and print the `JAVA_HOME`/`ANDROID_HOME` to set (read-only — never writes env vars). No binaries
+  are committed (APK / keystore / generated Gradle project / screenshots stay git-ignored); no gameplay/
+  dependency/version change.
+
 ### Fixed
 
 - **Android TWA debug build blocker (Stage 33.13).** The committed `android-twa/twa-manifest.json` was

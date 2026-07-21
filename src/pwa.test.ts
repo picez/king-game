@@ -168,6 +168,17 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
     expect(gi).not.toMatch(/^\s*(README\.md|BUILD_LOG_TEMPLATE\.md|triage-build-log\.ps1|check-env\.ps1)\s*$/m);
   });
 
+  it('ships the debug-build evidence doc (Custom-Tab-expected; no binaries committed)', () => {
+    const path = join(TWA_DIR, 'DEBUG_BUILD_EVIDENCE.md');
+    expect(existsSync(path), 'DEBUG_BUILD_EVIDENCE.md should exist').toBe(true);
+    const doc = readFileSync(path, 'utf8');
+    expect(doc).toMatch(/Custom Tab/);            // records the expected debug launch state
+    expect(doc).toMatch(/BUILD SUCCESSFUL/);       // records the verified build
+    expect(doc).toMatch(/git-ignored/i);           // states artifacts are not committed
+    // It must NOT tell anyone to commit an APK/AAB/keystore/screenshot.
+    expect(doc).not.toMatch(/git add[^\n]*\.(apk|aab|keystore|png)/i);
+  });
+
   it('points icons at same-origin manifest assets that exist', () => {
     for (const url of [twa.iconUrl, twa.maskableIconUrl]) {
       expect(url.startsWith(`https://${twa.host}/`)).toBe(true);
