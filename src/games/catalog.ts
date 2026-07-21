@@ -8,7 +8,7 @@
  * its own per-`game_type` stats.
  */
 
-export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'] as const;
+export const GAME_TYPES = ['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker'] as const;
 
 export type GameType = typeof GAME_TYPES[number];
 
@@ -30,7 +30,7 @@ export interface GameCatalogEntry {
   shortTitleKey: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 2 | 3 | 4 | 5;
+  defaultPlayerCount: 2 | 3 | 4 | 5 | 6;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;
@@ -120,6 +120,19 @@ export const GAME_CATALOG = {
     status: 'available',    // Stage 30.7: released — local + online + stats + favorite + achievement
     rulesDoc: '51_RULES.md',
   },
+  poker: {
+    id: 'poker',
+    titleKey: 'gameType.poker',
+    shortTitleKey: 'gameType.poker',
+    minPlayers: 2,          // No-Limit Texas Hold'em, 2–6 seats (POKER_RULES §1)
+    maxPlayers: 6,          // the shared room cap MAX_PLAYERS rose 5→6 for poker
+    defaultPlayerCount: 4,  // social table default (heads-up..6-max all supported)
+    supportsLocal: true,    // Stage 37.4: local pass-and-play (1 human + bots)
+    supportsOnline: true,   // Stage 37.4: server-authoritative online rooms
+    supportsBots: true,     // pure core has a deterministic fair bot (Stage 37.4)
+    status: 'available',    // Stage 37.4: released — local + online + stats + favorite + achievement
+    rulesDoc: 'POKER_RULES.md',
+  },
 } satisfies Record<GameType, GameCatalogEntry>;
 
 export function isGameType(value: unknown): value is GameType {
@@ -151,7 +164,7 @@ export interface PublicGameEntry {
   shortTitle: string;
   minPlayers: number;
   maxPlayers: number;
-  defaultPlayerCount: 2 | 3 | 4 | 5;
+  defaultPlayerCount: 2 | 3 | 4 | 5 | 6;
   supportsLocal: boolean;
   supportsOnline: boolean;
   supportsBots: boolean;

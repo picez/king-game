@@ -48,7 +48,7 @@ describe('userSettings field validators', () => {
     for (const g of ['king', 'durak', 'deberc', 'tarneeb']) {
       expect(sanitizeFavoriteGame(g)).toBe(g);
     }
-    expect(sanitizeFavoriteGame('poker')).toBe(DEFAULT_FAVORITE_GAME);
+    expect(sanitizeFavoriteGame('chess')).toBe(DEFAULT_FAVORITE_GAME);
     expect(sanitizeFavoriteGame(undefined)).toBe(DEFAULT_FAVORITE_GAME);
     expect(sanitizeFavoriteGame(7)).toBe(DEFAULT_FAVORITE_GAME);
     expect(DEFAULT_FAVORITE_GAME).toBe('king');
@@ -86,7 +86,7 @@ describe('sanitizeGlobalSettings', () => {
     expect(sanitizeGlobalSettings({ lang: 'de', avatar: AVATARS[1], cardStyle: 'blue', animationPreference: 'reduced', favoriteGame: 'durak', cardFaceTheme: 'clean' }))
       .toEqual({ lang: 'de', avatar: AVATARS[1], cardStyle: 'blue', animationPreference: 'reduced', favoriteGame: 'durak', cardFaceTheme: 'clean' });
     expect(sanitizeGlobalSettings({})).toEqual(dflt);
-    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope', favoriteGame: 'poker', cardFaceTheme: 'nope' })).toEqual(dflt);
+    expect(sanitizeGlobalSettings({ lang: 'zz', avatar: 'nope', animationPreference: 'nope', favoriteGame: 'chess', cardFaceTheme: 'nope' })).toEqual(dflt);
     expect(sanitizeGlobalSettings(null)).toEqual(dflt);
   });
 });

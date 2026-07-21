@@ -12,7 +12,7 @@ import {
 describe('game catalog', () => {
   it('registers King, Durak, Deberc, Tarneeb + Preferans (all available)', () => {
     expect(DEFAULT_GAME_TYPE).toBe('king'); // unchanged
-    expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+    expect(GAME_TYPES).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker']);
     expect(GAME_CATALOG.king).toMatchObject({
       id: 'king', minPlayers: 3, maxPlayers: 4, supportsLocal: true,
       supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
@@ -53,23 +53,33 @@ describe('game catalog', () => {
     expect(getGameCatalogEntry('fifty-one')?.status).toBe('available');
   });
 
+  it('registers Poker (No-Limit Texas Hold\'em) as available — 7th game (Stage 37.4)', () => {
+    expect(GAME_CATALOG.poker).toMatchObject({
+      id: 'poker', minPlayers: 2, maxPlayers: 6, defaultPlayerCount: 4,
+      supportsLocal: true, supportsOnline: true, supportsBots: true,
+      status: 'available', rulesDoc: 'POKER_RULES.md',
+    });
+    expect(isGameType('poker')).toBe(true);
+    expect(getGameCatalogEntry('poker')?.status).toBe('available');
+  });
+
   it('validates game types at runtime', () => {
     expect(isGameType('king')).toBe(true);
     expect(isGameType('durak')).toBe(true);
     expect(isGameType('deberc')).toBe(true);
     expect(isGameType('tarneeb')).toBe(true);
-    expect(isGameType('poker')).toBe(false);
+    expect(isGameType('chess')).toBe(false);
     expect(getGameCatalogEntry('durak')?.id).toBe('durak');
     expect(getGameCatalogEntry('deberc')?.id).toBe('deberc');
     expect(getGameCatalogEntry('tarneeb')?.id).toBe('tarneeb');
     expect(isGameType('preferans')).toBe(true);
     expect(getGameCatalogEntry('preferans')?.status).toBe('available');
-    expect(getGameCatalogEntry('poker')).toBeNull();
+    expect(getGameCatalogEntry('chess')).toBeNull();
   });
 
   it('normalizes the favorite game, falling back to King (Stage 13.3)', () => {
     for (const g of GAME_TYPES) expect(normalizeFavoriteGame(g)).toBe(g);
-    expect(normalizeFavoriteGame('poker')).toBe(DEFAULT_GAME_TYPE);
+    expect(normalizeFavoriteGame('chess')).toBe(DEFAULT_GAME_TYPE);
     expect(normalizeFavoriteGame(null)).toBe('king');
     expect(normalizeFavoriteGame(undefined)).toBe('king');
     expect(normalizeFavoriteGame(42)).toBe('king');
@@ -77,7 +87,7 @@ describe('game catalog', () => {
 
   it('exposes all games publicly with status and NO private fields', () => {
     const pub = publicGameCatalog();
-    expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+    expect(pub.map((g) => g.id)).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker']);
     // 51 surfaces publicly as available — local + online on (no private fields).
     const fiftyOne = pub.find((g) => g.id === 'fifty-one')!;
     expect(fiftyOne).toEqual({

@@ -477,6 +477,53 @@ export async function fetchFiftyOneStats(base: string): Promise<Loadable<FiftyOn
   return failFor(status);
 }
 
+export interface PokerStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  gamesLost: number;
+  winRate: number | null;
+  handsPlayed: number;
+  handsWon: number;
+  showdownsWon: number;
+  potsWon: number;
+  /** Largest single pot ever won (chips). */
+  biggestPot: number;
+  /** Hands won after having been all-in at some point. */
+  allInsWon: number;
+  /** Royal flushes shown down. */
+  royalFlushCount: number;
+  lastGameAt: string | null;
+}
+
+/** Flattens the API payload (`{ stats: <view> }`) into PokerStats (null-safe). */
+export function parsePokerStats(raw: unknown): PokerStats {
+  const top = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const s = (top.stats && typeof top.stats === 'object') ? top.stats as Record<string, unknown> : {};
+  const gamesPlayed = num(s.gamesPlayed);
+  const gamesWon = num(s.gamesWon);
+  return {
+    gamesPlayed,
+    gamesWon,
+    gamesLost: num(s.gamesLost),
+    winRate: 'winRate' in s ? numOrNull(s.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    handsPlayed: num(s.handsPlayed),
+    handsWon: num(s.handsWon),
+    showdownsWon: num(s.showdownsWon),
+    potsWon: num(s.potsWon),
+    biggestPot: num(s.biggestPot),
+    allInsWon: num(s.allInsWon),
+    royalFlushCount: num(s.royalFlushCount),
+    lastGameAt: str(s.lastGameAt),
+  };
+}
+
+/** GET /api/games/poker/stats — the signed-in/guest user's own poker stats. */
+export async function fetchPokerStats(base: string): Promise<Loadable<PokerStats>> {
+  const { status, data } = await getJson(base, '/api/games/poker/stats');
+  if (status === 200) return { state: 'ok', data: parsePokerStats(data) };
+  return failFor(status);
+}
+
 function parseLeaderboardRow(e: Record<string, unknown>): LeaderboardEntry {
   const gamesPlayed = num(e.gamesPlayed);
   const gamesWon = num(e.gamesWon);
@@ -711,6 +758,49 @@ export async function fetchFiftyOneLeaderboard(base: string): Promise<Loadable<F
     const rows = list
       .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
       .map(parseFiftyOneLeaderboardRow);
+    return { state: 'ok', data: rows };
+  }
+  return failFor(status);
+}
+
+/** One public poker leaderboard row — no user id; `self` marks the caller. */
+export interface PokerLeaderboardEntry {
+  displayName: string | null;
+  avatar: string | null;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number | null;
+  biggestPot: number;
+  royalFlushCount: number;
+  lastGameAt: string | null;
+  self: boolean;
+}
+
+function parsePokerLeaderboardRow(e: Record<string, unknown>): PokerLeaderboardEntry {
+  const gamesPlayed = num(e.gamesPlayed);
+  const gamesWon = num(e.gamesWon);
+  return {
+    displayName: str(e.displayName),
+    avatar: str(e.avatar),
+    gamesPlayed,
+    gamesWon,
+    winRate: 'winRate' in e ? numOrNull(e.winRate) : (gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : null),
+    biggestPot: num(e.biggestPot),
+    royalFlushCount: num(e.royalFlushCount),
+    lastGameAt: str(e.lastGameAt),
+    self: e.self === true,
+  };
+}
+
+/** GET /api/games/poker/leaderboard — public top poker players. */
+export async function fetchPokerLeaderboard(base: string): Promise<Loadable<PokerLeaderboardEntry[]>> {
+  const { status, data } = await getJson(base, '/api/games/poker/leaderboard');
+  if (status === 200) {
+    const list = (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).leaderboard))
+      ? (data as { leaderboard: unknown[] }).leaderboard : [];
+    const rows = list
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .map(parsePokerLeaderboardRow);
     return { state: 'ok', data: rows };
   }
   return failFor(status);

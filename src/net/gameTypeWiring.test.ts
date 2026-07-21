@@ -45,7 +45,7 @@ describe('gameType wiring (Stage 8.5)', () => {
 
   it('an unknown persisted gameType falls back to king', () => {
     const persisted = serializeRoom(room3()) as Record<string, unknown>;
-    persisted.gameType = 'poker';
+    persisted.gameType = 'chess';
     expect(deserializeRoom(persisted)!.gameType).toBe('king');
   });
 

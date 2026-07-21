@@ -15,6 +15,7 @@ import { debercGameDefinition } from './deberc/definition';
 import { tarneebGameDefinition } from './tarneeb/definition';
 import { preferansGameDefinition } from './preferans/definition';
 import { fiftyOneGameDefinition } from './fiftyOne/definition';
+import { pokerGameDefinition } from './poker/definition';
 
 export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   king: kingGameDefinition,
@@ -23,6 +24,7 @@ export const GAME_DEFINITIONS: Record<GameType, AnyGameDefinition> = {
   tarneeb: tarneebGameDefinition,
   preferans: preferansGameDefinition, // Stage 19.7: released (available, local + online + stats)
   'fifty-one': fiftyOneGameDefinition, // Stage 30.7: released (available, local + online + stats)
+  poker: pokerGameDefinition,          // Stage 37.4: released (available, local + online + stats)
 };
 
 /** The definition for a game type, or null for an unknown/invalid value. */

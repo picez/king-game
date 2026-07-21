@@ -109,7 +109,7 @@ export function handleClientMessage(
         typeof requested === 'number' && requested >= entry.minPlayers && requested <= entry.maxPlayers
           ? requested
           : entry.maxPlayers
-      ) as 2 | 3 | 4 | 5;
+      ) as 2 | 3 | 4 | 5 | 6;
       const variant = gameType === 'durak' ? (msg.variant === 'transfer' ? 'transfer' : 'simple') : undefined;
       const matchSize = gameType === 'deberc' ? (msg.matchSize === 'big' ? 'big' : 'small') : undefined;
       // Tarneeb Solo/Pairs (Stage 28.4). Default Pairs; anything but 'solo' → pairs.

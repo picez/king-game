@@ -261,7 +261,7 @@ describe('persistence (serialize / restore)', () => {
     expect(deserializeRoom('not an object')).toBeNull();
     expect(deserializeRoom({ v: 999, code: 'X' })).toBeNull();          // wrong version
     expect(deserializeRoom({ v: 1, code: 'X' })).toBeNull();            // missing members
-    expect(deserializeRoom({ v: 1, code: 'X', members: [], playerCount: 5, modeSelectionType: 'fixed' })).toBeNull();
+    expect(deserializeRoom({ v: 1, code: 'X', members: [], playerCount: 7, modeSelectionType: 'fixed' })).toBeNull(); // out of 2..6 range
   });
 
   it('MemoryRoomStorage skips corrupt entries and keeps valid ones', () => {

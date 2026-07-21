@@ -28,6 +28,7 @@ import { normalizeTargetScore } from '../games/tarneeb/rules';
 import { normalizeEliminationScore } from '../games/fiftyOne/rules';
 import type { PreferansState } from '../games/preferans/types';
 import type { FiftyOneState } from '../games/fiftyOne/types';
+import type { PokerState } from '../games/poker/types';
 import type { ErrorCode, RoomSnapshot, RoomSummary, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
@@ -116,7 +117,7 @@ export interface ServerRoom {
   fiftyOneEliminationScore?: number;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
-  playerCount: 2 | 3 | 4 | 5;
+  playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -160,7 +161,7 @@ export interface OpResult {
   error?: ErrorCode;
 }
 
-const MAX_PLAYERS = 5;
+const MAX_PLAYERS = 6;
 
 // ---------------------------------------------------------------------------
 // Join-secret hashing (salted; plaintext is never stored)
@@ -223,7 +224,7 @@ export function verifyPassword(
 
 export function createRoom(opts: {
   code: string;
-  playerCount: 2 | 3 | 4 | 5;
+  playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
   host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
   /** Which game to host (default King). */
@@ -802,6 +803,24 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     return false;
   }
 
+  if (gameType === 'poker') {
+    // Poker's only server-advanced public screen is `hand_complete` (no seat acts
+    // there: getActingPokerSeat → null). START_NEXT_HAND RE-DEALS the next hand, so
+    // it must be threaded with a server seed — otherwise the redeal falls back to
+    // Math.random and stops being reproducible / server-authoritative. The hand
+    // resolves inside the betting action that closes the river / a fold-out (no
+    // trick_complete screen) and `game_finished` is terminal.
+    const def = getGameDefinition('poker');
+    if (!def) return false;
+    const state = room.gameState as PokerState;
+    if (state.phase === 'hand_complete') {
+      const seed = deal.seed ?? randomSeed();
+      room.gameState = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
+      return true;
+    }
+    return false;
+  }
+
   // Durak: no server-advanced public screens (bouts resolve inside the reducer).
   return false;
 }
@@ -840,6 +859,11 @@ export function publicScreenOf(room: ServerRoom): PublicScreen {
     // 51's single public between-rounds pause is `round_complete`, mapped to the
     // generic 'round_scoring'. Internal-only until 51 online lands (Stage 30.5).
     return (s as FiftyOneState).phase === 'round_complete' ? 'round_scoring' : null;
+  }
+  if (gt === 'poker') {
+    // Poker's single public between-hands pause is `hand_complete`, mapped to the
+    // generic 'round_scoring' (a showdown / next-hand pause).
+    return (s as PokerState).phase === 'hand_complete' ? 'round_scoring' : null;
   }
   return null;
 }
@@ -1094,7 +1118,7 @@ export interface PersistedRoom {
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   members: ServerMember[];
-  playerCount: 2 | 3 | 4 | 5;
+  playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
   turnTimerSec: number;
   started: boolean;
@@ -1144,7 +1168,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
   const o = data as Record<string, unknown>;
   if (o.v !== 1) return null;
   if (typeof o.code !== 'string' || !Array.isArray(o.members)) return null;
-  if (o.playerCount !== 2 && o.playerCount !== 3 && o.playerCount !== 4) return null;
+  if (typeof o.playerCount !== 'number' || o.playerCount < 2 || o.playerCount > 6) return null;
   if (o.modeSelectionType !== 'fixed' && o.modeSelectionType !== 'dealer_choice') return null;
 
   const members = new Map<string, ServerMember>();
@@ -1188,7 +1212,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     // undefined (buildStartAction then applies the default 510), a bad value snaps to a preset.
     fiftyOneEliminationScore: o.fiftyOneEliminationScore != null ? normalizeEliminationScore(o.fiftyOneEliminationScore as number) : undefined,
     members,
-    playerCount: o.playerCount,
+    playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,
     turnTimerSec: normalizeTimer(o.turnTimerSec),
     started: o.started === true,

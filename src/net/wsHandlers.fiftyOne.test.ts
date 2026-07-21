@@ -125,7 +125,7 @@ describe('wsHandlers allows hosting 51 online (Stage 30.5; released 30.7)', () =
     run(create(2));
     // Fake a second connection with no session trying to start → BAD_MESSAGE (no room).
     const { run: run2, errors: errors2 } = fresh();
-    run2({ t: 'CREATE_ROOM', name: 'X', modeSelectionType: 'fixed', gameType: 'poker' } as ClientMessage);
+    run2({ t: 'CREATE_ROOM', name: 'X', modeSelectionType: 'fixed', gameType: 'chess' } as ClientMessage);
     expect(errors2).toContain('BAD_MESSAGE'); // unknown game type rejected
     expect(errors).not.toContain('BAD_MESSAGE');
   });

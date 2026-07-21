@@ -41,6 +41,7 @@ export const GAME_HELP: Record<GameType, GameHelpEntry> = {
   tarneeb: { id: 'tarneeb', sections: ALL },
   preferans: { id: 'preferans', sections: ALL },
   'fifty-one': { id: 'fifty-one', sections: FIFTY_ONE },
+  poker: { id: 'poker', sections: ALL },
 };
 
 /** i18n key for a section's short label (e.g. "Goal", "Players"). */

@@ -106,14 +106,15 @@ describe('buildDiagnostics — db + avatar readiness', () => {
 });
 
 describe('availableGameIds + ffmpeg cache + env readers', () => {
-  it('lists all six AVAILABLE game ids (incl. the released 51)', () => {
+  it('lists all seven AVAILABLE game ids (incl. the released 51 + Poker)', () => {
     const ids = availableGameIds();
     const available = GAME_TYPES.filter((g) => GAME_CATALOG[g].status === 'available');
     for (const g of available) expect(ids).toContain(g);
     expect(ids.length).toBe(available.length);
-    // 51 is released (Stage 30.7) → now surfaced in the diagnostics game list.
+    // 51 (Stage 30.7) + Poker (Stage 37.4) are released → surfaced in the diagnostics list.
     expect(ids).toContain('fifty-one');
-    expect(ids.length).toBe(6);
+    expect(ids).toContain('poker');
+    expect(ids.length).toBe(7);
   });
 
   it('setFfmpegReady / getFfmpegReady round-trips the cached boot flag', () => {

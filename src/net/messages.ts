@@ -69,7 +69,7 @@ export interface RoomSnapshot {
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
-  playerCount: 2 | 3 | 4 | 5;
+  playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
   /** Per-turn timer in seconds (0 = off). Host-set in the lobby. */
   turnTimerSec: number;
@@ -107,7 +107,7 @@ export interface RoomSummary {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
-  playerCount: 2 | 3 | 4 | 5;
+  playerCount: 2 | 3 | 4 | 5 | 6;
   occupiedSeats: number;
   hasPassword: boolean;
   /** lobby = joinable; full = lobby with no free seats; in_game = started. */
@@ -152,7 +152,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /**
@@ -176,7 +176,7 @@ export type ClientMessage =
   | { t: 'KICK_MEMBER'; clientId: string }
   /** Host-only: add a server-side AI bot to a free player seat before start. */
   | { t: 'ADD_BOT' }
-  | { t: 'UPDATE_SETTINGS'; playerCount?: 3 | 4; modeSelectionType?: 'fixed' | 'dealer_choice' }
+  | { t: 'UPDATE_SETTINGS'; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType?: 'fixed' | 'dealer_choice' }
   | { t: 'START_GAME' }
   /** A request to mutate game state; the authority validates and applies it. */
   | { t: 'ACTION_REQUEST'; action: AnyGameAction }

@@ -19,6 +19,7 @@ import { preferansGameDefinition } from './preferans/definition';
 import type { PreferansState } from './preferans/types';
 import { fiftyOneGameDefinition } from './fiftyOne/definition';
 import type { FiftyOneState } from './fiftyOne/types';
+import { pokerGameDefinition } from './poker/definition';
 
 describe('game registry', () => {
   it('returns the right definition by gameType and null for unknown input', () => {
@@ -27,7 +28,8 @@ describe('game registry', () => {
     expect(getGameDefinition('tarneeb')).toBe(tarneebGameDefinition);
     expect(getGameDefinition('preferans')).toBe(preferansGameDefinition);
     expect(getGameDefinition('fifty-one')).toBe(fiftyOneGameDefinition);
-    expect(getGameDefinition('poker')).toBeNull();
+    expect(getGameDefinition('poker')).toBe(pokerGameDefinition);
+    expect(getGameDefinition('chess')).toBeNull();
     expect(getGameDefinition(undefined)).toBeNull();
     expect(getGameDefinition(42)).toBeNull();
     expect(GAME_DEFINITIONS.king.id).toBe('king');
@@ -35,6 +37,7 @@ describe('game registry', () => {
     expect(GAME_DEFINITIONS.tarneeb.id).toBe('tarneeb');
     expect(GAME_DEFINITIONS.preferans.id).toBe('preferans');
     expect(GAME_DEFINITIONS['fifty-one'].id).toBe('fifty-one');
+    expect(GAME_DEFINITIONS.poker.id).toBe('poker');
     expect(DEFAULT_GAME_DEFINITION).toBe(kingGameDefinition); // King remains default
   });
 });

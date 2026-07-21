@@ -32,13 +32,13 @@ describe('normalizeGameCatalog', () => {
     expect(normalizeGameCatalog({ games: 'x' })).toBeNull();
   });
   it('drops unknown game ids and malformed entries', () => {
-    expect(normalizeGameCatalog({ games: [{ ...KING, id: 'poker' }] })).toBeNull(); // unknown id → dropped → empty → null
+    expect(normalizeGameCatalog({ games: [{ ...KING, id: 'chess' }] })).toBeNull(); // unknown id → dropped → empty → null
     expect(normalizeGameCatalog({ games: [{ ...KING, defaultPlayerCount: 5 }] })).toBeNull();
     expect(normalizeGameCatalog({ games: [{ ...KING, supportsBots: 'yes' }] })).toBeNull();
     expect(normalizeGameCatalog({ games: [{ ...KING, title: 123 }] })).toBeNull();
   });
   it('keeps only the valid entries when mixed', () => {
-    const games = normalizeGameCatalog({ games: [KING, { id: 'poker' }] });
+    const games = normalizeGameCatalog({ games: [KING, { id: 'chess' }] });
     expect(games).toEqual([KING]);
   });
 });

@@ -108,7 +108,7 @@ describe('wsHandlers now allows hosting Tarneeb online (Stage 10.5)', () => {
     const sessionRef: SessionRef = { value: null };
     const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
 
-    handleClientMessage(ctx, socket, sessionRef, () => {}, create('poker'), limiter);
+    handleClientMessage(ctx, socket, sessionRef, () => {}, create('chess'), limiter);
 
     expect(errors).toContain('BAD_MESSAGE');
     expect(rooms.size).toBe(0);

@@ -16,6 +16,7 @@ import type { DebercState, DebercAction } from './deberc/types';
 import type { TarneebState, TarneebAction } from './tarneeb/types';
 import type { PreferansState, PreferansAction } from './preferans/types';
 import type { FiftyOneState, FiftyOneAction } from './fiftyOne/types';
+import type { PokerState, PokerAction } from './poker/types';
 
-export type AnyGameState = GameState | DurakState | DebercState | TarneebState | PreferansState | FiftyOneState;
-export type AnyGameAction = GameAction | DurakAction | DebercAction | TarneebAction | PreferansAction | FiftyOneAction;
+export type AnyGameState = GameState | DurakState | DebercState | TarneebState | PreferansState | FiftyOneState | PokerState;
+export type AnyGameAction = GameAction | DurakAction | DebercAction | TarneebAction | PreferansAction | FiftyOneAction | PokerAction;

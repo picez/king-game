@@ -36,8 +36,8 @@ const AVAILABLE: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status 
 const NOT_RELEASED: GameType[] = GAME_TYPES.filter((id) => GAME_CATALOG[id].status !== 'available');
 
 describe('platform tiers are internally consistent (Stage 20.0 / 30.7)', () => {
-  it('all six games are fully available; there is no not-yet-released game', () => {
-    expect(AVAILABLE).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one']);
+  it('all seven games are fully available; there is no not-yet-released game', () => {
+    expect(AVAILABLE).toEqual(['king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker']);
     expect(NOT_RELEASED).toEqual([]);
     for (const id of AVAILABLE) {
       const e = GAME_CATALOG[id];

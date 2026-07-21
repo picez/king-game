@@ -565,7 +565,7 @@ async function main() {
   console.log('\n[2n] online Durak room');
   // Unknown gameType is rejected.
   const badGame = await connect();
-  sendMsg(badGame, { t: 'CREATE_ROOM', name: 'X', playerCount: 2, modeSelectionType: 'fixed', gameType: 'poker' });
+  sendMsg(badGame, { t: 'CREATE_ROOM', name: 'X', playerCount: 2, modeSelectionType: 'fixed', gameType: 'chess' });
   await sleep(150);
   check(badGame.lastError?.code === 'BAD_MESSAGE', 'unknown gameType rejected (BAD_MESSAGE)');
   badGame.ws.close();
