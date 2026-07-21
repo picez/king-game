@@ -1,0 +1,43 @@
+{
+  "packageId": "com.cardmajlis.app",
+  "host": "king-game-cqgd.onrender.com",
+  "name": "Card Majlis",
+  "launcherName": "Card Majlis",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#0d4f28",
+  "themeColorDark": "#0d4f28",
+  "navigationColor": "#0d4f28",
+  "navigationColorDark": "#0d4f28",
+  "navigationDividerColor": "#0d4f28",
+  "navigationDividerColorDark": "#0d4f28",
+  "backgroundColor": "#0d4f28",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://king-game-cqgd.onrender.com/icons/icon-512.png",
+  "maskableIconUrl": "https://king-game-cqgd.onrender.com/icons/maskable-512.png",
+  "monochromeIconUrl": "",
+  "shortcuts": [],
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1",
+  "appVersionCode": 1,
+  "shellApkVersion": 1,
+  "webManifestUrl": "https://king-game-cqgd.onrender.com/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://king-game-cqgd.onrender.com/",
+  "minSdkVersion": 21,
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1"
+}

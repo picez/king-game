@@ -21,3 +21,12 @@ dist/
 # Large source sprite-sheets for card art (kept locally; sliced into
 # public/cards/faces/ which IS committed). Not needed at runtime.
 card-sources/
+
+# Android TWA scaffold — never commit signing keys or build outputs, even if
+# the native Android project is generated inside android-twa/ (see its README).
+android-twa/**/*.keystore
+android-twa/**/*.jks
+android-twa/**/*.apk
+android-twa/**/*.aab
+android-twa/**/build/
+android-twa/**/.gradle/

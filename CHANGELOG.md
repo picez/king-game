@@ -11,6 +11,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Android TWA scaffold (Stage 33.2).** Added a **config-only** Trusted Web Activity scaffold at
+  `android-twa/` — a committed Bubblewrap `twa-manifest.json` (package `com.cardmajlis.app`, host
+  `king-game-cqgd.onrender.com`, `standalone`/`portrait`, theme `#0d4f28`, 512 + maskable icons), a
+  `.gitignore` that keeps keystores / APKs / AABs / the generated Gradle project out of the repo, and a
+  README with the `bubblewrap init/build` + `assetlinks.json` steps. The **native Android project is not
+  generated or built** (the environment lacked JDK 17+, the Android SDK, and Bubblewrap — the generated
+  files are deliberately not faked); the owner runs `bubblewrap init` on a toolchained machine (Stage
+  33.3). **No** store submission, real `assetlinks.json`, keystore, runtime dependency, or version bump.
 - **Android app readiness (Stage 33.1).** Prepared the web/PWA for a future **Android TWA** without
   building an app: the install **description** (manifest + page `<meta>`) now names **all six** games
   (previously only four), and the repo carries a `public/.well-known/assetlinks.example.json` **template**
