@@ -6,6 +6,7 @@ export const UK: Record<string, string> = {
   'app.subtitle': 'Картковий салон для Кінг, Дурак, Деберц, Тарніб, Преферанс і 51',
   'pwa.installTitle': 'Встановити Card Majlis',
   'pwa.installBody': 'Грайте швидше з головного екрана',
+  'pwa.iosInstallHint': 'Натисніть «Поділитися», далі «На екран “Домівка”»',
   'pwa.install': 'Встановити',
   'pwa.dismiss': 'Сховати',
   'pwa.updateTitle': 'Доступне оновлення',

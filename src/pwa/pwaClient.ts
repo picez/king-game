@@ -7,6 +7,10 @@
 /** localStorage key: the user dismissed the install banner (don't nag again). */
 export const INSTALL_DISMISS_KEY = 'cardMajlis.pwaInstallDismissed.v1';
 
+/** localStorage key: the user dismissed the iOS "Add to Home Screen" hint. Kept
+ *  separate from INSTALL_DISMISS_KEY so the two platforms don't cross-suppress. */
+export const IOS_HINT_DISMISS_KEY = 'cardMajlis.iosInstallHintDismissed.v1';
+
 /** The `beforeinstallprompt` event (not in lib.dom yet). Chrome/Android only. */
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -33,17 +37,42 @@ export function shouldOfferInstall(s: {
   return s.hasPrompt && !s.dismissed && !s.standalone && !s.inGame;
 }
 
+/** iOS Safari never fires `beforeinstallprompt`, so instead of a fake install
+ *  button we offer a one-line hint pointing at Share → Add to Home Screen. Show
+ *  it only on iOS, when not already installed, not dismissed, and not in a game.
+ *  Pure — the caller supplies state (see detectIos / isIosUserAgent below). */
+export function shouldOfferIosHint(s: {
+  isIos: boolean;
+  standalone: boolean;
+  dismissed: boolean;
+  inGame: boolean;
+}): boolean {
+  return s.isIos && !s.standalone && !s.dismissed && !s.inGame;
+}
+
+/** Pure iOS detection from UA/platform. iPadOS 13+ reports as desktop "MacIntel",
+ *  so a Mac platform WITH touch points counts as iOS too. No DOM access. */
+export function isIosUserAgent(ua: string, platform: string, maxTouchPoints: number): boolean {
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  if (/iP(hone|ad|od)/.test(platform)) return true;
+  return platform === 'MacIntel' && maxTouchPoints > 1; // iPad on iOS 13+
+}
+
 /** Minimal Storage shape so the dismiss helpers are testable without a browser. */
 export interface KVStore {
   getItem: (k: string) => string | null;
   setItem: (k: string, v: string) => void;
 }
 
-export function loadInstallDismissed(store: KVStore | null | undefined): boolean {
-  try { return store?.getItem(INSTALL_DISMISS_KEY) === '1'; } catch { return false; }
+export function loadInstallDismissed(
+  store: KVStore | null | undefined, key: string = INSTALL_DISMISS_KEY,
+): boolean {
+  try { return store?.getItem(key) === '1'; } catch { return false; }
 }
-export function saveInstallDismissed(store: KVStore | null | undefined): void {
-  try { store?.setItem(INSTALL_DISMISS_KEY, '1'); } catch { /* private mode / no storage */ }
+export function saveInstallDismissed(
+  store: KVStore | null | undefined, key: string = INSTALL_DISMISS_KEY,
+): void {
+  try { store?.setItem(key, '1'); } catch { /* private mode / no storage */ }
 }
 
 // ── DOM / service-worker layer (not unit-tested; guarded at the source level) ─
@@ -55,6 +84,13 @@ export function detectStandalone(): boolean {
     && window.matchMedia('(display-mode: standalone)').matches;
   const ios = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
   return isStandaloneDisplay(!!mm, ios);
+}
+
+/** True on iOS (iPhone/iPad/iPod, incl. iPadOS-as-desktop). Safe without a DOM. */
+export function detectIos(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const nav = navigator as Navigator & { platform?: string; maxTouchPoints?: number };
+  return isIosUserAgent(nav.userAgent || '', nav.platform || '', nav.maxTouchPoints || 0);
 }
 
 /** Reflect installed/standalone state on the root element as

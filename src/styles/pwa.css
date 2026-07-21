@@ -87,3 +87,11 @@
   cursor: pointer;
 }
 .pwa-install__x:hover { color: var(--text); }
+
+/* iOS hint variant — no CTA button; let the "Share → Add to Home Screen" line
+   wrap to two lines instead of truncating (there's no button competing for room). */
+.pwa-install--ios .pwa-install__body {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}

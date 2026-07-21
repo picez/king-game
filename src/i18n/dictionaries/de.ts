@@ -6,6 +6,7 @@ export const DE: Record<string, string> = {
   'app.subtitle': 'Eine Kartenlounge für König, Durak, Deberz, Tarneeb, Preferans & 51',
   'pwa.installTitle': 'Card Majlis installieren',
   'pwa.installBody': 'Schneller vom Startbildschirm spielen',
+  'pwa.iosInstallHint': 'Auf „Teilen“ tippen, dann „Zum Home-Bildschirm“',
   'pwa.install': 'Installieren',
   'pwa.dismiss': 'Ausblenden',
   'pwa.updateTitle': 'Update verfügbar',

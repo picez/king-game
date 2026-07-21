@@ -559,6 +559,9 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       (guarded by `src/pwa.test.ts`).
 - [ ] **Standalone detection:** an installed iOS PWA (`navigator.standalone`) hides the install card and
       keeps the "Update available" pill (guarded: `pwaClient.isStandaloneDisplay(false, true) === true`).
+- [ ] **iOS A2HS hint (Stage 33.6):** on iOS Safari, the menu shows a dismissible "Share → Add to Home
+      Screen" hint; it is suppressed in-game, once installed, and after dismiss (guarded:
+      `shouldOfferIosHint` + `isIosUserAgent` + separate `IOS_HINT_DISMISS_KEY` in `src/pwa/pwaClient.test.ts`).
 
 ## 11. Security spot-checks
 

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type BeforeInstallPromptEvent,
-  detectStandalone, applyStandaloneAttr, registerServiceWorker, applyWaitingUpdate,
-  loadInstallDismissed, saveInstallDismissed,
+  detectStandalone, detectIos, applyStandaloneAttr, registerServiceWorker, applyWaitingUpdate,
+  loadInstallDismissed, saveInstallDismissed, IOS_HINT_DISMISS_KEY,
 } from './pwaClient';
 
 export interface PwaState {
@@ -21,6 +21,12 @@ export interface PwaState {
   offline: boolean;
   /** Running as an installed/standalone app. */
   standalone: boolean;
+  /** On iOS, not installed, and not dismissed → offer the Share → Add to Home
+   *  Screen hint (iOS Safari never fires `beforeinstallprompt`). The UI still
+   *  ANDs this with "not in a game", like the install card. */
+  iosHintReady: boolean;
+  /** Hide the iOS install hint for good (persisted, separate key). */
+  dismissIosHint: () => void;
 }
 
 /**
@@ -34,6 +40,9 @@ export function usePwa(): PwaState {
   const [dismissed, setDismissed] = useState(() =>
     loadInstallDismissed(typeof localStorage !== 'undefined' ? localStorage : null));
   const [standalone] = useState(() => detectStandalone());
+  const [isIos] = useState(() => detectIos());
+  const [iosHintDismissed, setIosHintDismissed] = useState(() =>
+    loadInstallDismissed(typeof localStorage !== 'undefined' ? localStorage : null, IOS_HINT_DISMISS_KEY));
   const [waitingReg, setWaitingReg] = useState<ServiceWorkerRegistration | null>(null);
   const [offline, setOffline] = useState(() =>
     typeof navigator !== 'undefined' && navigator.onLine === false);
@@ -84,6 +93,11 @@ export function usePwa(): PwaState {
     saveInstallDismissed(typeof localStorage !== 'undefined' ? localStorage : null);
   }, []);
 
+  const dismissIosHint = useCallback(() => {
+    setIosHintDismissed(true);
+    saveInstallDismissed(typeof localStorage !== 'undefined' ? localStorage : null, IOS_HINT_DISMISS_KEY);
+  }, []);
+
   const applyUpdate = useCallback(() => {
     applyWaitingUpdate(waitingReg);
   }, [waitingReg]);
@@ -96,5 +110,7 @@ export function usePwa(): PwaState {
     applyUpdate,
     offline,
     standalone,
+    iosHintReady: isIos && !standalone && !iosHintDismissed,
+    dismissIosHint,
   };
 }

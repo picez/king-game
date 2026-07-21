@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **iOS "Add to Home Screen" hint (Stage 33.6 — iOS PWA hardening).** Because iOS Safari never fires
+  `beforeinstallprompt`, the Android-style install card never appeared on iPhone/iPad. A small,
+  non-intrusive **hint** now shows there instead: **"Install Card Majlis — Tap Share, then Add to Home
+  Screen"** — **menu only** (never during a game), **iOS only**, only when **not already installed**, and
+  **dismissible** (persisted under its own key so it doesn't cross-suppress the Android install card). No
+  fake install button, no modal. English, Ukrainian, German, Arabic. Web-only; no gameplay change, no
+  dependency, no native project. (Guarded by new `src/pwa/pwaClient.test.ts` cases.)
+
 ### Docs
 
 - **iOS app strategy decided (Stage 33.5).** Added a dedicated iOS section to

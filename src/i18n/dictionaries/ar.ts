@@ -6,6 +6,7 @@ export const AR: Record<string, string> = {
   'app.subtitle': 'صالة ورق لكينج ودوراك وديبيرتس وطرنيب وبريفيرانس و51',
   'pwa.installTitle': 'ثبّت Card Majlis',
   'pwa.installBody': 'العب أسرع من شاشتك الرئيسية',
+  'pwa.iosInstallHint': 'اضغط «مشاركة» ثم «إضافة إلى الشاشة الرئيسية»',
   'pwa.install': 'تثبيت',
   'pwa.dismiss': 'إخفاء',
   'pwa.updateTitle': 'تحديث متاح',

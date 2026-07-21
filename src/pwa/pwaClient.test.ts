@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  INSTALL_DISMISS_KEY, isStandaloneDisplay, shouldOfferInstall, applyStandaloneAttr,
+  INSTALL_DISMISS_KEY, IOS_HINT_DISMISS_KEY, isStandaloneDisplay, shouldOfferInstall,
+  shouldOfferIosHint, isIosUserAgent, applyStandaloneAttr,
   loadInstallDismissed, saveInstallDismissed, type KVStore,
 } from './pwaClient';
 
@@ -30,6 +31,25 @@ describe('pwaClient — pure helpers', () => {
     expect(shouldOfferInstall({ ...base, inGame: true })).toBe(false);     // never during play
   });
 
+  it('shouldOfferIosHint only on iOS, not installed, not dismissed, not in a game', () => {
+    const base = { isIos: true, standalone: false, dismissed: false, inGame: false };
+    expect(shouldOfferIosHint(base)).toBe(true);
+    expect(shouldOfferIosHint({ ...base, isIos: false })).toBe(false);     // non-iOS → no iOS hint
+    expect(shouldOfferIosHint({ ...base, standalone: true })).toBe(false); // already installed
+    expect(shouldOfferIosHint({ ...base, dismissed: true })).toBe(false);  // user dismissed
+    expect(shouldOfferIosHint({ ...base, inGame: true })).toBe(false);     // never during play
+  });
+
+  it('isIosUserAgent detects iPhone/iPad/iPod and iPadOS-as-desktop, not real desktop', () => {
+    expect(isIosUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari', 'iPhone', 5)).toBe(true);
+    expect(isIosUserAgent('Mozilla/5.0 (iPad; CPU OS 16_0) Safari', 'iPad', 5)).toBe(true);
+    // iPadOS 13+ Safari reports as MacIntel but has touch points.
+    expect(isIosUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X) Safari', 'MacIntel', 5)).toBe(true);
+    // A real Mac (no touch) and Android must NOT be treated as iOS.
+    expect(isIosUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X) Safari', 'MacIntel', 0)).toBe(false);
+    expect(isIosUserAgent('Mozilla/5.0 (Linux; Android 14) Chrome', 'Linux armv8l', 5)).toBe(false);
+  });
+
   it('applyStandaloneAttr stamps data-standalone true/false on the given element', () => {
     const el = { dataset: {} as DOMStringMap };
     applyStandaloneAttr(true, el);
@@ -48,6 +68,16 @@ describe('pwaClient — pure helpers', () => {
     // Null/missing storage (private mode) never throws → treated as "not dismissed".
     expect(loadInstallDismissed(null)).toBe(false);
     expect(() => saveInstallDismissed(null)).not.toThrow();
+  });
+
+  it('the iOS hint dismiss uses a SEPARATE key (does not cross-suppress the install card)', () => {
+    const store = memStore();
+    saveInstallDismissed(store, IOS_HINT_DISMISS_KEY);
+    expect(store.data[IOS_HINT_DISMISS_KEY]).toBe('1');
+    expect(loadInstallDismissed(store, IOS_HINT_DISMISS_KEY)).toBe(true);
+    // The install-card key stays untouched → the two banners are independent.
+    expect(loadInstallDismissed(store, INSTALL_DISMISS_KEY)).toBe(false);
+    expect(INSTALL_DISMISS_KEY).not.toBe(IOS_HINT_DISMISS_KEY);
   });
 });
 
@@ -156,6 +186,12 @@ describe('usePwa — event wiring + cleanup', () => {
   it('stamps <html data-standalone> from the resolved standalone state', () => {
     expect(hook).toContain('applyStandaloneAttr(standalone)');
   });
+  it('exposes the iOS hint state (detectIos + separate dismiss key), gated by standalone', () => {
+    expect(hook).toContain('detectIos()');
+    expect(hook).toContain('IOS_HINT_DISMISS_KEY');
+    expect(hook).toContain('iosHintReady: isIos && !standalone && !iosHintDismissed');
+    expect(hook).toContain('dismissIosHint');
+  });
 });
 
 describe('PwaBanners + App wiring', () => {
@@ -166,6 +202,15 @@ describe('PwaBanners + App wiring', () => {
     expect(banners).toContain("t('pwa.offline')");
     expect(banners).toContain("t('pwa.updateTitle')");
     expect(banners).toContain('pwa.applyUpdate');             // Refresh → user-initiated update
+  });
+  it('renders the iOS hint only outside a game, with a dismiss (no fake install button)', () => {
+    expect(banners).toContain('pwa.iosHintReady && !inGame');  // menu only, iOS only
+    expect(banners).toContain("t('pwa.iosInstallHint')");      // Share → Add to Home Screen copy
+    expect(banners).toContain('pwa.dismissIosHint');           // dismissible + persisted
+    // The iOS hint block must NOT offer a fake install CTA (Safari can't prompt).
+    const iosIdx = banners.indexOf('pwa-install--ios');
+    expect(iosIdx).toBeGreaterThan(-1);
+    expect(banners.slice(iosIdx)).not.toContain('pwa.promptInstall');
   });
   it('App renders PwaBanners with the inGame flag (menu vs local/online)', () => {
     expect(app).toContain('const pwa = usePwa()');

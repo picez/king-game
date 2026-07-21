@@ -18,12 +18,15 @@ interface Props {
  *  • install card (bottom-centre): only when Chrome offered it, not installed, not
  *    dismissed, and NOT in a game. iOS Safari never fires the event → no card there
  *    (no fake/intrusive prompt).
+ *  • iOS hint (bottom-centre): iOS only, not installed, not dismissed, menu only —
+ *    a one-line Share → Add to Home Screen tip (no fake install button).
  */
 export default function PwaBanners({ pwa, inGame }: Props) {
   const { t } = useI18n();
   const showInstall = pwa.installReady && !inGame;
+  const showIosHint = pwa.iosHintReady && !inGame;
 
-  if (!pwa.offline && !pwa.updateReady && !showInstall) return null;
+  if (!pwa.offline && !pwa.updateReady && !showInstall && !showIosHint) return null;
 
   return (
     <>
@@ -56,6 +59,19 @@ export default function PwaBanners({ pwa, inGame }: Props) {
             {t('pwa.install')}
           </button>
           <button type="button" className="pwa-install__x" aria-label={t('pwa.dismiss')} onClick={pwa.dismissInstall}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {showIosHint && (
+        <div className="pwa-install pwa-install--ios" role="dialog" aria-label={t('pwa.installTitle')}>
+          <span className="pwa-install__icon" aria-hidden="true">📲</span>
+          <span className="pwa-install__text">
+            <span className="pwa-install__title">{t('pwa.installTitle')}</span>
+            <span className="pwa-install__body">{t('pwa.iosInstallHint')}</span>
+          </span>
+          <button type="button" className="pwa-install__x" aria-label={t('pwa.dismiss')} onClick={pwa.dismissIosHint}>
             ✕
           </button>
         </div>

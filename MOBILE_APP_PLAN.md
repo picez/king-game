@@ -1,7 +1,8 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
-> **STATUS: DESIGNED (33.0); READINESS (33.1); SCAFFOLD (33.2); BUILD RUNBOOK (33.3) DONE; BUILD TRIAGE
-> (33.4) — awaiting owner logs.** This document chooses a path to **Android and iOS apps** for Card Majlis
+> **STATUS: DESIGNED (33.0); READINESS (33.1); SCAFFOLD (33.2); BUILD RUNBOOK (33.3); iOS DECISION (33.5);
+> iOS PWA HARDENING (33.6) DONE; BUILD TRIAGE (33.4) — awaiting owner logs.** This document chooses a path
+> to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
 > `twa-manifest.json` + `.gitignore` + README). Stage 33.3 added the **owner build runbook**: a read-only
@@ -76,7 +77,7 @@ cookies, and mic permissions** the TWA gets for free.
 | **33.3 — Android build runbook + debug smoke** ✅ | **Runbook DONE (repo side).** Added `android-twa/check-env.ps1` (read-only JDK/SDK/adb/node/Bubblewrap check) + the exact owner build runbook in the README (`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install`), Asset-Links/keytool verification notes, an expanded on-device QA checklist, and repo guard tests. Owner-run remainder is the actual build (→ 33.7). | runbook + guards in repo; owner runs the build |
 | **33.4 — Android build triage** ✅ | **DONE (docs harden).** Corrected `bubblewrap init --manifest` to take the **Web App Manifest URL** (verified vs the CLI reference), flagged `npx @bubblewrap/cli`, added a `webManifestUrl` guard. Awaiting owner build logs to triage real failures. | docs + one guard; no build run |
 | **33.5 — iOS decision / design** ✅ | **DONE (this section §8).** Audit iOS PWA-only vs Capacitor WKWebView vs native rewrite vs defer; **recommend iOS PWA-only now**, defer any App Store wrapper until Android TWA is proven + a custom domain + store assets exist. Compatibility matrix, hardening checklist, store prerequisites. **No native project.** | design/docs only |
-| **33.6 — iOS PWA hardening** | Meta/icon/safe-area/A2HS polish **without native** (mostly already in `index.html`/`pwaClient.ts` — see §8 checklist). Doc-only corrections at most. | no native, no App Store |
+| **33.6 — iOS PWA hardening** ✅ | **DONE.** Added a non-intrusive **iOS A2HS hint** (menu-only, iOS-only, not-installed, dismissible, separate key, in-game–suppressed, no fake button) — pure `shouldOfferIosHint`/`detectIos` + `PwaBanners` UI + i18n ×4 + tests. The rest of the meta/safe-area was already shipping (§8d). **No native, no dependency.** | no native, no App Store |
 | **33.7 — Android debug / internal test** | After the owner's `check-env`/build logs: generate the Gradle project + **debug** APK, run the on-device smoke; then a **signed AAB** on the Play internal track. | internal testing track only |
 | **33.8 — iOS native wrapper decision** | **Only after Android is validated.** Decide Capacitor/WKWebView vs stay PWA-only; if building, require **external-browser OAuth** (`ASWebAuthenticationSession`) + mic permission + a Guideline 4.2 plan. | decision doc; build only if it clears the risk |
 | **Future — Capacitor spike / push** | A Capacitor iOS spike if the owner still wants the App Store; Web Push (Android/Chrome) or native push; splash/share-sheet polish. | opt-in, post-MVP |
@@ -393,9 +394,11 @@ Audited against `index.html` + `src/pwa/pwaClient.ts`. **Most items already ship
       **"Update available"** pill (SW-driven) still works on iOS.
 - [x] **Offline** — the app-shell SW serves offline; `/api`+`/auth` are network-only (no stale auth).
 - [ ] **Apple startup images (splash)** — **optional/deferred**; iOS shows a blank splash without them.
-      Not worth the per-device asset matrix for the MVP; revisit in 33.6 if desired.
-- [ ] **A2HS help text** — an optional iOS-only "tap Share → Add to Home Screen" hint could reduce install
-      friction; **future** (no runtime change this stage).
+      Not worth the per-device asset matrix for the MVP; revisit later if desired.
+- [x] **A2HS help text (Stage 33.6)** — a non-intrusive iOS-only hint ("Tap Share, then Add to Home
+      Screen") now shows on the **menu** only, on iOS, when **not** installed and **not** dismissed
+      (separate `IOS_HINT_DISMISS_KEY`), suppressed **in-game** like the install card. No fake install
+      button. Pure `shouldOfferIosHint` + `detectIos`/`isIosUserAgent`; UI in `PwaBanners`; i18n ×4.
 - [ ] **On-device smoke (owner):** from an **installed** iOS PWA — Google login completes in Safari, an
       online room connects over `wss://…/ws`, the **mic** permission prompts on voice-join, an invite
       `…/?room=CODE` opens and joins, 360/390 + **Arabic RTL** show no overflow. (Tracked in

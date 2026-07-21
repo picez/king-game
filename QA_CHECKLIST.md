@@ -948,6 +948,10 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > §8).** The iOS meta already ships in `index.html` (apple-touch-icon, status-bar `black-translucent`,
 > `apple-mobile-web-app-*`, `viewport-fit=cover`) and `pwaClient` detects `navigator.standalone`. On a
 > real iPhone (Safari), smoke the installed PWA:
+> - [ ] **iOS A2HS hint (Stage 33.6)** — in Safari on the **menu** (not installed), a non-intrusive
+>       bottom card shows **"Install Card Majlis — Tap Share, then Add to Home Screen"** with a ✕. It is
+>       **not** shown during a game, **not** shown once installed (standalone), and stays hidden after ✕
+>       (persisted). No fake install button.
 > - [ ] **Add to Home Screen** — Safari → Share → *Add to Home Screen*; the **Card Majlis** icon + title
 >       appear; launching opens **standalone** (no Safari chrome), status bar legible over the emerald theme.
 > - [ ] **Google sign-in** completes (Safari engine — OAuth not blocked).
