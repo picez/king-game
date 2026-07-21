@@ -167,17 +167,19 @@ documented as post-MVP, not built. Spec + plan:
 - **PWA**: installable on Android (manifest, icons, app-shell service worker). App
   icon = the **Card Majlis medallion** (emerald coin + gold 8-point Levantine star +
   four suit pips); procedural, `npm run icons`.
-- **Native mobile apps — strategy DESIGNED (33.0) + Android TWA READINESS done (33.1)**:
+- **Native mobile apps — design/docs only through 33.5 (no native project built)**:
   [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) audits 4 paths (PWA-only / **Android TWA** / Capacitor /
   Expo-RN) and recommends **Android-first via TWA** (wraps the production PWA in a Chrome-backed Trusted
-  Web Activity — OAuth/cookies/WebRTC behave exactly like the PWA), **iOS PWA-only** until a later
-  Capacitor decision. Includes a feature-compat matrix, security/privacy + store-disclosure needs, store
-  prerequisites (`com.cardmajlis.app`, Play App Signing, `assetlinks.json`), and a technical-readiness
-  checklist. **33.1** landed the web-side readiness: manifest + `index.html` `<meta>` description now name
-  **all six** games, a **`public/.well-known/assetlinks.example.json`** template (placeholder cert) +
-  guard tests, and domain/OAuth/voice ops notes — **no native project, no dependency, no real
-  `assetlinks.json`**. Staged rollout **33.1 (TWA readiness ✅)** → 33.2 (Bubblewrap scaffold) → 33.3
-  (signed internal test build) → 33.4 (iOS decision) → 33.5 (push).
+  Web Activity — OAuth/cookies/WebRTC behave exactly like the PWA), **iOS PWA-only** for now. **33.1** web
+  readiness (manifest/`<meta>` → six games, `assetlinks.example.json` + guards); **33.2** config-only TWA
+  scaffold at `android-twa/` (Bubblewrap `twa-manifest.json`); **33.3** owner build runbook + read-only
+  `check-env.ps1`; **33.4** corrected `bubblewrap init` to take the **web-manifest URL** (+ `webManifestUrl`
+  guard); **33.5 iOS decision (§8)** — **stay iOS PWA-only**, defer any App Store/Capacitor wrapper until
+  the Android TWA is proven + a custom domain + store assets exist (Capacitor would need external-browser
+  `ASWebAuthenticationSession` OAuth, never embedded-WebView; iOS PWA meta already ships). **No native
+  project, no dependency, no real `assetlinks.json`.** Rollout: 33.1–33.4 ✅ → **33.5 iOS decision ✅** →
+  33.6 iOS PWA hardening → 33.7 Android debug/internal test → 33.8 iOS native wrapper decision → future
+  Capacitor spike / push.
 - **Production path**: env config, `/health`, origin allowlist, HTTPS/WSS guide.
 - **Profiles/auth foundation (partial — Stage 4)**: an **opt-in** HTTP API
   (`/api/me` · `/api/profile` · `/api/settings` · `/api/games/king/settings` ·

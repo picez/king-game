@@ -188,6 +188,19 @@ describe('Android TWA scaffold (Stage 33.2/33.3) — twa-manifest + repo hygiene
   });
 });
 
+describe('iOS PWA meta (Stage 33.5 — iOS stays PWA-only)', () => {
+  const idx = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+
+  it('ships the Add-to-Home-Screen meta so the installed iOS PWA launches standalone', () => {
+    expect(idx).toMatch(/rel="apple-touch-icon"\s+href="\/icons\/apple-touch-icon\.png"/);
+    expect(idx).toMatch(/name="apple-mobile-web-app-capable"\s+content="yes"/);
+    expect(idx).toMatch(/name="apple-mobile-web-app-status-bar-style"/);
+    expect(idx).toMatch(/name="apple-mobile-web-app-title"\s+content="Card Majlis"/);
+    // viewport-fit=cover is required for iOS safe-area (notch/home-bar) insets.
+    expect(idx).toMatch(/viewport-fit=cover/);
+  });
+});
+
 describe('Card Majlis app icons', () => {
   // Every icon the HTML links to must exist, be a valid PNG at the right size,
   // and stay within a sane byte budget (procedural, ~emerald medallion + star).

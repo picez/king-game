@@ -547,6 +547,19 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       (`…/manifest.webmanifest`), **not** `twa-manifest.json` (which `build`/`update` read). Guarded:
       `src/pwa.test.ts` keeps `twa-manifest.webManifestUrl` in sync with `host`.
 
+### 10c. iOS PWA (Stage 33.5 decision — PWA-only, no App Store app)
+
+> Decision: **iOS stays PWA-only** ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) §8); any App Store/Capacitor
+> wrapper is deferred to 33.8 (after Android is validated + a custom domain + store assets). The iOS PWA
+> meta already ships — nothing to build. Device smoke: [`QA_CHECKLIST.md`](QA_CHECKLIST.md) "Manual — PWA /
+> mobile → iOS PWA".
+
+- [ ] **iOS meta present:** `index.html` has `apple-touch-icon`, `apple-mobile-web-app-capable`,
+      `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`, and `viewport-fit=cover`
+      (guarded by `src/pwa.test.ts`).
+- [ ] **Standalone detection:** an installed iOS PWA (`navigator.standalone`) hides the install card and
+      keeps the "Update available" pill (guarded: `pwaClient.isStandaloneDisplay(false, true) === true`).
+
 ## 11. Security spot-checks
 
 - [ ] Invite URL contains **only** `?room=CODE` (re-confirm from §6).

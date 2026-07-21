@@ -944,6 +944,23 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > Before store submission (33.3-release+): verify the real `assetlinks.json` matches the **Play
 > App-Signing** SHA-256 (not the upload/debug key) — see [`android-twa/README.md`](android-twa/README.md).
 
+> **iOS PWA (Stage 33.5 decision — PWA-only; no App Store app; [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)
+> §8).** The iOS meta already ships in `index.html` (apple-touch-icon, status-bar `black-translucent`,
+> `apple-mobile-web-app-*`, `viewport-fit=cover`) and `pwaClient` detects `navigator.standalone`. On a
+> real iPhone (Safari), smoke the installed PWA:
+> - [ ] **Add to Home Screen** — Safari → Share → *Add to Home Screen*; the **Card Majlis** icon + title
+>       appear; launching opens **standalone** (no Safari chrome), status bar legible over the emerald theme.
+> - [ ] **Google sign-in** completes (Safari engine — OAuth not blocked).
+> - [ ] **Online room** connects over `wss://…/ws`; **voice** join shows the iOS **mic** prompt (same-Wi-Fi
+>       audio; TURN for cross-network).
+> - [ ] **Invite** `…/?room=CODE` opens and joins in the PWA.
+> - [ ] **Install card hidden** in standalone; the **"Update available"** pill still works.
+> - [ ] **360/390 + Arabic RTL** — no horizontal overflow; safe-area insets respected (notch/home bar).
+> - [ ] **Offline** — cached shell loads; live features degrade like in-browser.
+>
+> Deferred (no native work now): Apple **startup/splash** images and an iOS-only "Share → Add to Home
+> Screen" hint are optional 33.6 polish. Any App Store wrapper is **33.8**, only after Android is validated.
+
 > Install / update / offline UX = Stage 21.0. Banners are a progressive enhancement:
 > the install card only shows when Chrome fires `beforeinstallprompt`; the update pill
 > only when the service worker has a WAITING new version; the offline pill only when

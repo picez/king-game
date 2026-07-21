@@ -73,9 +73,13 @@ cookies, and mic permissions** the TWA gets for free.
 |---|---|---|
 | **33.1 — Android TWA readiness** | Verify/finish PWA installability: manifest `name`/`short_name`/`description` (add Preferans+51), **maskable** icon, `theme`/`background` colors, `start_url`/`scope`/`display`; document the **`assetlinks.json`** contents + hosting path (`/.well-known/assetlinks.json`), the **package id** (`com.cardmajlis.app`), **Play App Signing** notes, and the **production-URL/HTTPS** requirement. **No native project.** | design/docs + tiny manifest copy fix only |
 | **33.2 — Android TWA scaffold** ✅ | **DONE.** TWA config scaffold at [`android-twa/`](android-twa/): a committed Bubblewrap `twa-manifest.json` (package `com.cardmajlis.app`, host `king-game-cqgd.onrender.com`, `standalone`/`portrait`, theme `#0d4f28`, 512+maskable icons) + `.gitignore` (keystores/APK/AAB/generated Gradle) + README. **Not** done (toolchain absent — JDK 8 only, no Android SDK/Bubblewrap): generating the Gradle project, APK/AAB, keystore, real `assetlinks.json`, store submission. Generated project intentionally not faked. | native scaffold in a separate dir / repo path; no app logic |
-| **33.3 — Android build runbook + debug smoke** | **Runbook DONE (repo side).** Added `android-twa/check-env.ps1` (read-only JDK/SDK/adb/node/Bubblewrap check) + the exact owner build runbook in the README (`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install`), Asset-Links/keytool verification notes, an expanded on-device QA checklist, and repo guard tests. **Owner-run remainder:** actually generate the Gradle project + **debug** APK on a toolchained machine and run the smoke (login, online room, 51, tutorials, achievements, voice, invite deep-link, install/update). A **signed AAB** + Play internal track is a later 33.3-release step. **No** generated project/APK committed; no store submission. | runbook + guards in repo; owner runs the build; internal testing track only |
-| **33.4 — iOS decision** | Decide **PWA-only vs Capacitor/WKWebView**; if building, spike OAuth-via-system-browser + mic permission + assess Guideline 4.2 review risk. | decision doc; build only if it clears the risk |
-| **33.5 — Push / native polish (optional)** | Web Push (Android/Chrome) or native push if Capacitor lands; splash/share-sheet polish. | opt-in, post-MVP |
+| **33.3 — Android build runbook + debug smoke** ✅ | **Runbook DONE (repo side).** Added `android-twa/check-env.ps1` (read-only JDK/SDK/adb/node/Bubblewrap check) + the exact owner build runbook in the README (`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install`), Asset-Links/keytool verification notes, an expanded on-device QA checklist, and repo guard tests. Owner-run remainder is the actual build (→ 33.7). | runbook + guards in repo; owner runs the build |
+| **33.4 — Android build triage** ✅ | **DONE (docs harden).** Corrected `bubblewrap init --manifest` to take the **Web App Manifest URL** (verified vs the CLI reference), flagged `npx @bubblewrap/cli`, added a `webManifestUrl` guard. Awaiting owner build logs to triage real failures. | docs + one guard; no build run |
+| **33.5 — iOS decision / design** ✅ | **DONE (this section §8).** Audit iOS PWA-only vs Capacitor WKWebView vs native rewrite vs defer; **recommend iOS PWA-only now**, defer any App Store wrapper until Android TWA is proven + a custom domain + store assets exist. Compatibility matrix, hardening checklist, store prerequisites. **No native project.** | design/docs only |
+| **33.6 — iOS PWA hardening** | Meta/icon/safe-area/A2HS polish **without native** (mostly already in `index.html`/`pwaClient.ts` — see §8 checklist). Doc-only corrections at most. | no native, no App Store |
+| **33.7 — Android debug / internal test** | After the owner's `check-env`/build logs: generate the Gradle project + **debug** APK, run the on-device smoke; then a **signed AAB** on the Play internal track. | internal testing track only |
+| **33.8 — iOS native wrapper decision** | **Only after Android is validated.** Decide Capacitor/WKWebView vs stay PWA-only; if building, require **external-browser OAuth** (`ASWebAuthenticationSession`) + mic permission + a Guideline 4.2 plan. | decision doc; build only if it clears the risk |
+| **Future — Capacitor spike / push** | A Capacitor iOS spike if the owner still wants the App Store; Web Push (Android/Chrome) or native push; splash/share-sheet polish. | opt-in, post-MVP |
 
 ---
 
@@ -299,13 +303,122 @@ the manifest.
 
 **Stage 33.0 design / 33.1 readiness:** docs + a manifest/index copy fix + an `assetlinks.example`
 template + guard tests. **Stage 33.2 scaffold + 33.3 runbook:** the `android-twa/` config + read-only
-`check-env.ps1` + build runbook above, plus repo guard tests. **None of these stages** built or committed
-a native project/APK/AAB, created a keystore, added a runtime dependency, changed DB/server, shipped a
-real `assetlinks.json`, touched iOS, or bumped the version.
+`check-env.ps1` + build runbook, plus repo guard tests. **Stage 33.4 build triage:** doc/command fix + a
+guard. **Stage 33.5 iOS decision (§8):** design/docs only — recommend **iOS PWA-only** now. **None of
+these stages** built or committed a native project/APK/AAB (Android or iOS), created a keystore, added a
+runtime dependency, changed DB/server, shipped a real `assetlinks.json`, created an iOS/Capacitor project,
+or bumped the version.
 
 **Not chosen (and why):** Capacitor/RN as the *first* wrapper — they'd re-solve OAuth/cookies/mic that a
-TWA gets free, for a bigger surface. They stay the **iOS/future** path (33.4+), evaluated on merit.
+TWA gets free, for a bigger surface. They stay the **iOS/future** path (§8, decided at **33.8** only after
+Android is proven), evaluated on merit.
 
 **Carried invariants:** the **web/PWA is the source of truth**; wrappers never fork app logic; OAuth never
 runs in an embedded WebView; voice stays P2P with no recording; no new tracking/ads without an explicit,
 disclosed decision.
+
+---
+
+## 8. iOS app decision (Stage 33.5 — design only)
+
+> **Decision: keep iOS PWA-only for now; defer any App Store wrapper until Android TWA is proven.** This
+> section is **design-only** — no iOS project, no Capacitor, no dependency, no App Store submission. It
+> mirrors the Android §1 audit for iOS specifically. The deciding factor is the same one that made Android
+> a TWA: the app's **cookie-session Google OAuth**, which Apple's embedded WebViews handle worse than
+> Chrome, plus App Store **Guideline 4.2** "minimum functionality" risk for a thin web wrapper.
+
+### 8a. iOS options audit (Scope A)
+
+| # | Option | How it works | Effort | Pros | Cons / risk |
+|---|---|---|---|---|---|
+| **1** | **iOS PWA only** *(current + recommended now)* | Safari → **Share → Add to Home Screen**; launches standalone (`navigator.standalone`). No App Store. | **Zero** (already works — `index.html` iOS meta + `pwaClient` detect it). | Least risk; always the latest deploy; full feature parity (it *is* the web app); no review, no fee, no signing. | **Not in the App Store** → weak discoverability; **install friction** (Share→A2HS is non-obvious, Safari-only); **push** is limited (Web Push needs iOS 16.4+ **and** an installed PWA); no store ratings; users trust store installs more. |
+| **2** | **Capacitor iOS (WKWebView wrapper)** | A native iOS shell hosting the web app in **WKWebView** + native plugins; shipped via the App Store. | **Medium–High.** | Real App Store listing; native share sheet / push / biometrics later; more lifecycle control. | **Google OAuth is blocked/*problematic* in an embedded WebView** → must route login through **`ASWebAuthenticationSession`** / `@capacitor/browser` and hand the **session cookie** back to the WKWebView origin (custom-scheme ↔ https) — a real design task; **WebRTC mic permission** wiring per-platform (`NSMicrophoneUsageDescription`); **App Store Guideline 4.2** "thin wrapper" rejection risk unless it adds genuine native value; **two** signing/provisioning + review pipelines; ongoing maintenance. |
+| **3** | **Native / Expo React-Native rewrite** | Re-implement the UI in RN (or Expo DOM) with native modules. | **Very high (future only).** | Full native UI + modules + push if the product ever needs a native shell. | Migrating a full **Vite/DOM** app (reducers, CSS, PWA, WebRTC, SW) to RN is **expensive** and adds a **new stack + two stores**; an RN-`WebView` is just Capacitor with more parts. Only justified if native features/UI/push become **core** — **not MVP**. |
+| **4** | **iOS deferred until Android TWA proven** *(recommended path/timing)* | Ship/validate the **Android TWA** first; revisit iOS once the wrapper approach and store assets are proven. | **Zero now.** | De-risks: Android validates the wrapper model, the store-disclosure set, and the assets **once**, before paying the higher iOS cost; keeps focus. | iOS users stay on the PWA slightly longer (acceptable — the PWA is fully functional). |
+
+### 8b. Recommendation (Scope B)
+
+- **Now: iOS = PWA-only (Options 1 + 4).** Do **not** build an App Store wrapper yet. Revisit only when
+  **all** of these hold:
+  1. **Android TWA** debug/internal test **succeeds** (validates the "wrap the PWA" model end-to-end);
+  2. a **custom domain** exists (stable origin for Digital Asset Links / Universal Links + branding);
+  3. **privacy policy URL + support email + phone screenshots** are ready (both stores need them);
+  4. the **owner explicitly accepts** the App Store wrapper cost + Guideline 4.2 review risk.
+- **If/when iOS App Store is pursued (33.8):** prefer **Capacitor** **only** with an **external-browser
+  OAuth** flow — `ASWebAuthenticationSession` (or `@capacitor/browser` Custom Tab equivalent) — and hand
+  the session cookie back to the WKWebView origin. **Never** run Google OAuth in a plain embedded WebView
+  (Apple's WKWebView + Google's `disallowed_useragent` = broken/again-blocked login). Add real native
+  value (share sheet, push, offline polish) to clear **Guideline 4.2**.
+- **Not chosen:** a native/Expo rewrite (Option 3) as the first iOS step — highest cost, re-solves
+  everything the PWA already does, justified only by a hard native-feature requirement that does not exist
+  today.
+
+### 8c. iOS feature compatibility matrix (Scope C)
+
+Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not supported.
+
+| Feature | iOS PWA (now) | Capacitor WKWebView | Native / Expo rewrite |
+|---|:--:|:--:|:--:|
+| Local (pass-and-play) games | ✅ | ✅ | ✅ (re-implement) |
+| Online rooms / WebSocket (`wss://…/ws`) | ✅ | ⚠️ (WS on WKWebView; ok on modern iOS) | ⚠️ |
+| **Google login (OAuth cookie session)** | ✅ (Safari engine) | ❌ default WebView → 🔧 via `ASWebAuthenticationSession` | ❌ → 🔧 same |
+| **Cookies / session** | ✅ (Safari cookie jar) | ⚠️ 🔧 (share cookie custom-scheme ↔ https origin; CORS/`ALLOWED_ORIGINS`) | 🔧 |
+| Avatar upload / camera / files | ✅ (file input; server WebP) | ⚠️ (permission plist + plugin wiring) | ⚠️ |
+| **Voice (WebRTC + microphone)** | ✅ (Safari mic prompt; TURN for NAT) | ⚠️ 🔧 (`NSMicrophoneUsageDescription` + WKWebView mic wiring) | ⚠️ 🔧 |
+| Friends / invites / **`/?room=` deep links** | ✅ (in-app query) | 🔧 (Universal Links / custom scheme) | 🔧 |
+| Tutorials (client-only) | ✅ | ✅ | ✅ |
+| Achievements / stats (Postgres) | ✅ | ✅ | ✅ |
+| Offline / **SW controlled update** | ✅ (Safari runs the SW) | ⚠️ (SW in WKWebView varies; often native cache) | ⚠️ |
+| Push notifications (future) | ⚠️ Web Push **iOS 16.4+ & installed PWA only** | ✅ (APNs, native) | ✅ |
+| Install / update UX | ⚠️ (manual Share→A2HS; SW update pill works) | ✅ (store install/update) | ✅ |
+| **App Store policy risk** | n/a (no store) | ⚠️ **Guideline 4.2** thin-wrapper review | ⚠️ (less, if genuinely native) |
+
+**Read-out:** the iOS-PWA column is the only one that needs **no** re-solving of OAuth/cookies/mic — which
+is exactly why it stays the MVP while Android proves the wrapper model.
+
+### 8d. iOS PWA hardening checklist (Scope D — mostly already done; no native)
+
+Audited against `index.html` + `src/pwa/pwaClient.ts`. **Most items already ship** — this stage
+**implements nothing**; it records status and flags only obviously-safe doc/meta touch-ups for **33.6**.
+
+- [x] **`apple-touch-icon`** — `index.html` links `/icons/apple-touch-icon.png` (180×180, guard-tested).
+- [x] **Viewport + safe area** — `viewport-fit=cover` set; base CSS uses safe-area insets.
+- [x] **Status bar** — `apple-mobile-web-app-status-bar-style: black-translucent` (matches the dark
+      emerald theme); `theme-color #0d4f28`.
+- [x] **Standalone capable + title** — `apple-mobile-web-app-capable` / `mobile-web-app-capable` = `yes`;
+      `apple-mobile-web-app-title = Card Majlis`.
+- [x] **Standalone detection** — `pwaClient.isStandaloneDisplay(...)` reads `navigator.standalone` (iOS
+      home-screen apps) as well as `display-mode: standalone`; `data-standalone` stamped for CSS.
+- [x] **Install card suppressed when installed** — `shouldOfferInstall(...)` is false in standalone; the
+      **"Update available"** pill (SW-driven) still works on iOS.
+- [x] **Offline** — the app-shell SW serves offline; `/api`+`/auth` are network-only (no stale auth).
+- [ ] **Apple startup images (splash)** — **optional/deferred**; iOS shows a blank splash without them.
+      Not worth the per-device asset matrix for the MVP; revisit in 33.6 if desired.
+- [ ] **A2HS help text** — an optional iOS-only "tap Share → Add to Home Screen" hint could reduce install
+      friction; **future** (no runtime change this stage).
+- [ ] **On-device smoke (owner):** from an **installed** iOS PWA — Google login completes in Safari, an
+      online room connects over `wss://…/ws`, the **mic** permission prompts on voice-join, an invite
+      `…/?room=CODE` opens and joins, 360/390 + **Arabic RTL** show no overflow. (Tracked in
+      [`QA_CHECKLIST.md`](QA_CHECKLIST.md) / [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md).)
+
+### 8e. iOS store prerequisites — only if 33.8 says build (Scope E — owner actions)
+
+- **Apple Developer Program** account (annual fee); a **bundle id** (e.g. `app.cardmajlis`), signing +
+  provisioning profiles.
+- **Custom domain** strongly recommended first (Universal Links + branding + stable origin).
+- **Privacy policy URL** and **support email** (both stores require them).
+- **Screenshots** — iPhone sizes (menu, a game table, a tutorial, achievements). None auto-generated.
+- **App review notes** — explain it's a **web-account card-game** app: how a reviewer signs in (Google),
+  what the microphone is for (optional **live** voice, not recorded), and that games are pass-and-play or
+  online. Pre-empt **Guideline 4.2** by listing the native value added.
+- **Content rating** — card games, no real-money gambling, optional user voice/text chat.
+- **App Privacy ("nutrition label") disclosure:** **account** email + Google user id (sign-in / friends /
+  leaderboards); **avatars** (optional user image); **microphone** — **live** voice only, **not recorded,
+  not stored, not shared**; **game stats**; **no ads**; **no analytics** *(declare only if it stays true —
+  verify before submitting)*; provide a **data-deletion** path.
+
+### 8f. iOS boundaries (this stage)
+
+Design/docs only. **No** iOS native project, **no** Capacitor install, **no** dependency, **no** App Store
+submission, **no** runtime code change (iOS PWA meta already ships), **no** version bump. iOS stays
+**PWA-only** until the §8b conditions are met and the owner opts in (33.8).

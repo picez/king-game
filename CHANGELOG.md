@@ -9,6 +9,21 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Docs
+
+- **iOS app strategy decided (Stage 33.5).** Added a dedicated iOS section to
+  [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) (§8): an audit of **iOS PWA-only vs Capacitor WKWebView vs
+  native rewrite vs defer-until-Android-proven**, with the recommendation to **keep iOS PWA-only for now**
+  and defer any App Store wrapper until the Android TWA is validated, a custom domain exists, and store
+  assets (privacy policy, support email, screenshots) are ready — and, if a wrapper is ever built, to use
+  **external-browser OAuth (`ASWebAuthenticationSession`)**, never an embedded WebView. Includes an
+  iOS feature-compatibility matrix, a **PWA-hardening checklist** (mostly already shipping — apple-touch
+  icon, status-bar/standalone meta, `viewport-fit=cover`, `navigator.standalone` detection), store
+  prerequisites, and a re-staged rollout (33.5 iOS decision → 33.6 iOS PWA hardening → 33.7 Android
+  debug/internal test → 33.8 iOS native decision). A small `src/pwa.test.ts` guard now asserts the iOS
+  meta stays in `index.html`. **Design-only: no iOS project, no Capacitor, no dependency, no App Store
+  submission, no version bump.**
+
 ### Fixed
 
 - **Android TWA build command (Stage 33.4 triage).** Corrected the build runbook: `bubblewrap init
