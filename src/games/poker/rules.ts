@@ -5,10 +5,46 @@
 // See POKER_RULES.md §2/§5/§6.
 // ---------------------------------------------------------------------------
 
-import type { PokerOptions, PokerState } from './types';
+import type { PokerAction, PokerOptions, PokerState } from './types';
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
+
+/**
+ * Runtime guard for a client-supplied wager amount (§5). WebSocket JSON is untrusted
+ * input, so `amount` may be a string / object / null / NaN / Infinity / fraction /
+ * negative / unsafe integer despite the TS type. A legal wager is a positive, finite,
+ * SAFE integer (no fractional chips). The reducer AND the server boundary both call
+ * this so a malformed payload can never enter authoritative chip math.
+ */
+export function isValidWagerAmount(amount: unknown): amount is number {
+  return typeof amount === 'number' && Number.isFinite(amount)
+    && Number.isSafeInteger(amount) && amount > 0;
+}
+
+/**
+ * Lifecycle actions that a CLIENT `ACTION_REQUEST` must never trigger — they belong to
+ * game creation / the server (or local) public-screen advance, not to a seated player
+ * mid-hand. The server boundary rejects these before the reducer runs.
+ */
+export function isPokerLifecycleAction(action: { type: string }): boolean {
+  return action.type === 'START_GAME' || action.type === 'START_NEXT_HAND';
+}
+
+/** Narrow an unknown value to a well-formed PokerAction the reducer will accept. */
+export function isPokerAction(value: unknown): value is PokerAction {
+  if (!value || typeof value !== 'object') return false;
+  const a = value as { type?: unknown; amount?: unknown };
+  switch (a.type) {
+    case 'FOLD': case 'CHECK': case 'CALL': case 'ALL_IN':
+    case 'START_GAME': case 'START_NEXT_HAND':
+      return true;
+    case 'BET': case 'RAISE':
+      return isValidWagerAmount(a.amount);
+    default:
+      return false;
+  }
+}
 
 /** Fixed MVP configuration (§1). */
 export const DEFAULT_OPTIONS: PokerOptions = { startingStack: 1000, smallBlind: 10, bigBlind: 20 };
@@ -145,8 +181,11 @@ export function legalActions(state: PokerState, seat: number): LegalActions {
   // A "bet" needs no outstanding wager; a "raise" faces one.
   const canBet = canAct && state.currentBet === 0;
   const minBet = Math.min(committed + state.options.bigBlind, maxTo);
-  // Raise faces a bet and needs more chips than a pure call.
-  const canRaise = canAct && state.currentBet > 0 && stack > toCall;
+  // Raise faces a bet, needs more chips than a pure call, AND the seat must still
+  // hold its raise RIGHT — an incomplete (below-min) all-in does not re-open it for a
+  // seat that already acted, so they may only call the extra or fold (§5/§6).
+  const raiseOpen = state.raiseOpenBySeat?.[seat] !== false; // legacy states (no field) → open
+  const canRaise = canAct && state.currentBet > 0 && stack > toCall && raiseOpen;
   const minRaiseTo = Math.min(state.currentBet + state.minRaise, maxTo);
 
   return {

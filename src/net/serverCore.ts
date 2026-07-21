@@ -675,6 +675,16 @@ export function applyActionRequest(
   if (!def) return { ok: false, error: 'ILLEGAL_ACTION' };
   const seat = room.members.get(clientId)?.seatIndex ?? null;
 
+  // Lifecycle actions (match creation / between-hands advance) are SERVER-driven only
+  // (startGame / autoAdvance) — a client ACTION_REQUEST must NEVER trigger them, even
+  // from the acting seat, or an actor could reset/replace a live authoritative state.
+  // Poker's lifecycle actions are START_GAME / START_NEXT_HAND; no released game routes
+  // either through a client action, so rejecting them here is safe for every game.
+  const actionType = (action as { type?: string }).type;
+  if (actionType === 'START_GAME' || actionType === 'START_NEXT_HAND') {
+    return { ok: false, error: 'ILLEGAL_ACTION' };
+  }
+
   // Authorise the sender. King keeps its EXACT rule (1:1); any other game allows
   // only the player whose turn it is (the reducer enforces the rest of legality).
   const authorized = gameType === 'king'
@@ -815,7 +825,11 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     const state = room.gameState as PokerState;
     if (state.phase === 'hand_complete') {
       const seed = deal.seed ?? randomSeed();
-      room.gameState = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
+      const next = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
+      room.gameState = next;
+      // Record the re-deal's seed so EVERY hand (not just the first) has audit metadata.
+      // Skip when the advance ends the match (no new deal happened).
+      if (next && (next as PokerState).phase !== 'game_finished') recordDeal(room, seed, deal.now ?? 0);
       return true;
     }
     return false;
@@ -944,7 +958,25 @@ function dealFingerprint(state: GameState): string {
 
 /** Appends a DealRecord for the room's current round (King-only deal audit). */
 function recordDeal(room: ServerRoom, seed: number, timestamp: number): void {
-  if (room.gameType !== 'king') return; // only King keeps a per-round deal audit log
+  // Poker keeps a per-HAND deal audit log too (Stage 37.4 hardening): every
+  // server-authoritative shuffle seed is recorded so the whole match is reproducible,
+  // not just the first hand. The fingerprint is derived from PUBLIC deal metadata only
+  // (hand index + button + seed) — never any card / deck / hole data.
+  if (room.gameType === 'poker') {
+    const p = room.gameState as PokerState | null;
+    if (!p) return;
+    room.dealLog.push({
+      roundIndex: p.handNumber,
+      dealerIndex: p.buttonSeat,
+      dealerId: p.players[p.buttonSeat]?.id ?? `player-${p.buttonSeat}`,
+      modeId: null,
+      seed,
+      deckHash: hashString(`poker|${p.handNumber}|${p.buttonSeat}|${seed}`),
+      timestamp,
+    });
+    return;
+  }
+  if (room.gameType !== 'king') return; // only King (and poker above) keep a deal audit log
   const s = room.gameState as GameState | null;
   if (!s) return;
   room.dealLog.push({

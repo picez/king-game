@@ -17,6 +17,7 @@ import {
 } from './serverCore';
 import { getGameDefinition } from '../games/registry';
 import { GAME_CATALOG } from '../games/catalog';
+import { checkPokerInvariants } from '../games/poker/invariants';
 import type { AnyGameAction } from '../games/anyGame';
 import type { PokerState } from '../games/poker/types';
 
@@ -176,5 +177,71 @@ describe('serverCore runs poker internally (Stage 37.4)', () => {
     expect(sum.includes('gameState')).toBe(false);
     const full = asP(room.gameState);
     for (const c of full.deck) expect(snap.includes(c.id)).toBe(false);
+  });
+});
+
+// ── Stage 37.4 corrective hardening (server boundary) ───────────────────────
+
+describe('poker server boundary — clients cannot run lifecycle actions (P0-1)', () => {
+  it('a forged START_GAME from the acting client is rejected; state is unchanged', () => {
+    const { room, clientForSeat } = seatedRoom(3, 13);
+    const actorSeat = Number(def.getActingPlayerId(asP(room.gameState))!.split('-')[1]);
+    const before = JSON.stringify(room.gameState);
+    const forged = { type: 'START_GAME', playerNames: ['X', 'Y'], playerCount: 2 } as unknown as AnyGameAction;
+    const res = applyActionRequest(room, clientForSeat(actorSeat), forged);
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe('ILLEGAL_ACTION');
+    expect(JSON.stringify(room.gameState)).toBe(before); // not reset, content identical
+    expect(asP(room.gameState).playerCount).toBe(3);
+  });
+
+  it('a forged START_NEXT_HAND from the acting client is rejected; state is unchanged', () => {
+    const { room, clientForSeat } = seatedRoom(3, 15);
+    const actorSeat = Number(def.getActingPlayerId(asP(room.gameState))!.split('-')[1]);
+    const before = JSON.stringify(room.gameState);
+    const res = applyActionRequest(room, clientForSeat(actorSeat), { type: 'START_NEXT_HAND' } as unknown as AnyGameAction);
+    expect(res.ok).toBe(false);
+    expect(res.error).toBe('ILLEGAL_ACTION');
+    expect(JSON.stringify(room.gameState)).toBe(before);
+  });
+});
+
+describe('poker server boundary — malformed WebSocket amounts (P0-2)', () => {
+  it('a malformed RAISE payload does not mutate chips / pot / turn; invariants stay green', () => {
+    const { room, clientForSeat } = seatedRoom(3, 19);
+    const actorSeat = Number(def.getActingPlayerId(asP(room.gameState))!.split('-')[1]);
+    const before = JSON.stringify(room.gameState);
+    for (const amount of ['not-a-number', {}, null, NaN, Infinity, 20.5, -20, 0]) {
+      const res = applyActionRequest(room, clientForSeat(actorSeat), { type: 'RAISE', amount } as unknown as AnyGameAction);
+      expect(res.ok, `RAISE ${String(amount)}`).toBe(false);
+    }
+    expect(JSON.stringify(room.gameState)).toBe(before); // authoritative state untouched
+    expect(checkPokerInvariants(asP(room.gameState))).toEqual([]);
+  });
+});
+
+describe('poker deal metadata is recorded for every hand (P0-3)', () => {
+  it('the initial deal + auto-advanced hands each write a distinct ordered deal record (no cards)', () => {
+    const room = botRoom(3, 41);
+    expect(room.dealLog.length).toBeGreaterThanOrEqual(1); // initial deal recorded by startGame
+    let guard = 0;
+    while (room.dealLog.length < 3 && !def.isFinished(asP(room.gameState)) && guard++ < 5000) {
+      const s = asP(room.gameState);
+      if (s.phase === 'hand_complete') { autoAdvance(room, { seed: 1000 + guard }); continue; }
+      const m = actingMember(room);
+      if (!m) break;
+      applyActionRequest(room, m.clientId, bot(s), { seed: 1000 + guard });
+    }
+    const first3 = room.dealLog.slice(0, 3);
+    expect(first3.length).toBe(3);
+    // Ordered, distinct hand indices + distinct seeds.
+    expect(first3.map((r) => r.roundIndex)).toEqual([1, 2, 3]);
+    expect(new Set(first3.map((r) => r.seed)).size).toBe(3);
+    // No private card / deck / hole data in any record.
+    const json = JSON.stringify(room.dealLog);
+    expect(json).not.toMatch(/hearts|spades|clubs|diamonds|hole|"rank"|"suit"/);
+    // Persistence keeps the deal log intact.
+    const restored = deserializeRoom(serializeRoom(room))!;
+    expect(restored.dealLog).toEqual(room.dealLog);
   });
 });

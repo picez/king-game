@@ -20,6 +20,7 @@ import {
   firstToActPostflop,
   firstToActPreflop,
   inHandSeats,
+  isValidWagerAmount,
   legalActions,
   nextActiveSeat,
   normalizeOptions,
@@ -29,6 +30,7 @@ import {
 import type {
   HandCategory,
   PokerAction,
+  PokerActionEntry,
   PokerCard,
   PokerContext,
   PokerHandResult,
@@ -98,6 +100,7 @@ function startGame(action: Extract<PokerAction, { type: 'START_GAME' }>, rng: Rn
     allInBySeat: falses(),
     wasAllInBySeat: falses(),
     actedBySeat: falses(),
+    raiseOpenBySeat: falses(),
     eliminatedBySeat: falses(),
     currentBet: 0,
     minRaise: options.bigBlind,
@@ -105,6 +108,7 @@ function startGame(action: Extract<PokerAction, { type: 'START_GAME' }>, rng: Rn
     revealedBySeat: falses(),
     lastHand: null,
     winnerSeat: null,
+    actionLog: [],
     telemetry: freshTelemetry(playerCount),
   };
 
@@ -138,6 +142,7 @@ function dealHand(s: PokerState, buttonSeat: number, rng: Rng): void {
   s.currentBet = 0;
   s.minRaise = s.options.bigBlind;
   s.lastHand = null;
+  s.actionLog = [];
 
   const seats = activeSeats(s);
   const sb = smallBlindSeat(s);
@@ -148,12 +153,20 @@ function dealHand(s: PokerState, buttonSeat: number, rng: Rng): void {
   for (const seat of seats) s.telemetry.handsPlayedBySeat[seat] += 1;
 
   // Post the blinds (forced — they do NOT count as "acted", so the BB keeps its
-  // option to act when the round returns to it).
-  commit(s, sb, Math.min(s.options.smallBlind, s.stacksBySeat[sb]));
+  // option to act when the round returns to it). Logged as public 'blind' entries.
+  const sbPaid = Math.min(s.options.smallBlind, s.stacksBySeat[sb]);
+  commit(s, sb, sbPaid);
+  logAction(s, sb, 'blind', sbPaid);
   const bb = bigBlindSeat(s);
-  commit(s, bb, Math.min(s.options.bigBlind, s.stacksBySeat[bb]));
-  s.currentBet = Math.max(...s.committedBySeat);
+  const bbPaid = Math.min(s.options.bigBlind, s.stacksBySeat[bb]);
+  commit(s, bb, bbPaid);
+  logAction(s, bb, 'blind', bbPaid);
+  // The nominal pre-flop bring-in is the FULL big blind even if the BB posted a
+  // short all-in for less (§ short-BB): others must still complete to the big blind,
+  // while side pots cap the short BB to its actual contribution (§8).
+  s.currentBet = s.options.bigBlind;
   s.minRaise = s.options.bigBlind;
+  openRaiseRights(s);
   s.toActSeat = firstToActPreflop(s);
 
   // Degenerate: if fewer than 2 seats can act (blinds put someone all-in), the
@@ -174,46 +187,73 @@ function commit(s: PokerState, seat: number, amount: number): void {
   if (s.committedBySeat[seat] > s.currentBet) s.currentBet = s.committedBySeat[seat];
 }
 
+/** Open the raise right for every seat at the start of a betting round (§5/§6). */
+function openRaiseRights(s: PokerState): void {
+  s.raiseOpenBySeat = Array.from({ length: s.playerCount }, () => true);
+}
+
+/** Append one public entry to the current hand's action history (no card data). */
+function logAction(s: PokerState, seat: number, kind: PokerActionEntry['kind'], amount: number): void {
+  s.actionLog.push({ seat, street: s.street, kind, amount });
+}
+
 // --- Betting actions --------------------------------------------------------
 
 function applyBettingAction(s: PokerState, action: PokerAction, rng: Rng): boolean {
+  // Backward-safe: a state persisted by an older build (mid-hand reconnect) may lack
+  // the newer public betting fields — normalise before any mutation. Missing raise
+  // rights default to OPEN (the permissive, never-illegally-restrictive choice).
+  if (!Array.isArray(s.actionLog)) s.actionLog = [];
+  if (!Array.isArray(s.raiseOpenBySeat) || s.raiseOpenBySeat.length !== s.playerCount) {
+    s.raiseOpenBySeat = Array.from({ length: s.playerCount }, () => true);
+  }
   const seat = s.toActSeat;
   const la = legalActions(s, seat);
   if (!la.canFold && !la.canCheck && !la.canCall) return false; // seat cannot act
+  const before = s.committedBySeat[seat];
 
   switch (action.type) {
     case 'FOLD':
       if (!la.canFold) return false;
       s.foldedBySeat[seat] = true;
       s.actedBySeat[seat] = true;
+      logAction(s, seat, 'fold', 0);
       break;
     case 'CHECK':
       if (!la.canCheck) return false;
       s.actedBySeat[seat] = true;
+      logAction(s, seat, 'check', 0);
       break;
     case 'CALL': {
       if (!la.canCall) return false;
       commit(s, seat, la.callAmount);
       s.actedBySeat[seat] = true;
+      logAction(s, seat, 'call', s.committedBySeat[seat] - before);
       break;
     }
     case 'BET': {
       if (!la.canBet) return false;
+      // Untrusted runtime input: reject a non-positive / non-finite / non-safe-integer
+      // / fractional amount before it can enter chip math (§5).
+      if (!isValidWagerAmount(action.amount)) return false;
       const target = action.amount;
       const allInTo = la.maxTo;
       const isAllIn = target >= allInTo;
       if (!isAllIn && (target < la.minBet || target > allInTo)) return false;
       applyRaiseTo(s, seat, Math.min(target, allInTo));
+      logAction(s, seat, 'bet', s.committedBySeat[seat] - before);
       break;
     }
     case 'RAISE': {
       if (!la.canRaise) return false;
+      if (!isValidWagerAmount(action.amount)) return false;
       const target = action.amount;
       const allInTo = la.maxTo;
       if (target <= s.currentBet) return false;      // a raise must exceed the current bet
       const isAllIn = target >= allInTo;
       if (!isAllIn && (target < la.minRaiseTo || target > allInTo)) return false;
       applyRaiseTo(s, seat, Math.min(target, allInTo));
+      logAction(s, seat, 'raise', s.committedBySeat[seat] - before);
       break;
     }
     case 'ALL_IN': {
@@ -221,6 +261,7 @@ function applyBettingAction(s: PokerState, action: PokerAction, rng: Rng): boole
       const allInTo = la.maxTo;
       if (allInTo > s.currentBet) applyRaiseTo(s, seat, allInTo); // functions as bet/raise
       else { commit(s, seat, s.stacksBySeat[seat]); s.actedBySeat[seat] = true; } // all-in call for less
+      logAction(s, seat, 'allin', s.committedBySeat[seat] - before);
       break;
     }
     default:
@@ -240,10 +281,18 @@ function applyRaiseTo(s: PokerState, seat: number, target: number): void {
   const fullRaise = increment >= s.minRaise;
   if (fullRaise) {
     s.minRaise = increment;
-    // Reopen: everyone else who can act must act again.
-    for (const other of actableSeats(s)) if (other !== seat) s.actedBySeat[other] = false;
+    // A full bet/raise RE-OPENS both action and raise rights for everyone else who
+    // can act; they must act again and regain the right to re-raise (§6).
+    for (const other of actableSeats(s)) {
+      if (other !== seat) { s.actedBySeat[other] = false; s.raiseOpenBySeat[other] = true; }
+    }
   }
+  // An incomplete (below-min) all-in raise does NOT re-open: seats that already acted
+  // keep their (closed) raise right and may only call the extra or fold; seats that
+  // have not yet acted since the last full raise keep their still-open right (§5/§6).
+  // The aggressor cannot re-raise itself until someone re-opens the action.
   s.actedBySeat[seat] = true;
+  s.raiseOpenBySeat[seat] = false;
 }
 
 /** Advance to the next actor, or close the street when the round is complete. */
@@ -292,6 +341,7 @@ function closeStreet(s: PokerState, rng: Rng): void {
   if (s.street === 'river') { resolveShowdown(s); return; }
   dealNextStreet(s, rng);
   s.actedBySeat = s.actedBySeat.map(() => false);
+  openRaiseRights(s); // every actable seat regains the right to bet/raise this street
   s.toActSeat = firstActingPostflop(s);
 }
 
@@ -346,17 +396,27 @@ function settleIfNoActionPossible(s: PokerState, rng: Rng): void {
 
 // --- Resolution -------------------------------------------------------------
 
-/** The lone remaining (non-folded) player wins the whole pot; no showdown (§7). */
+/** The lone remaining (non-folded) player wins the pot; no showdown (§7). Uncalled
+ *  excess is RETURNED (not a won pot) via the same side-pot layering as a showdown,
+ *  so `biggestPot` is never inflated by chips that were never at risk (§8). */
 function resolveFoldWin(s: PokerState): void {
-  const remaining = inHandSeats(s);
-  const winner = remaining[0];
-  const total = s.contributedBySeat.reduce((a, b) => a + b, 0);
-  const pot: PokerPotAward = { amount: total, eligibleSeats: [winner], winners: [winner], returned: false };
-  s.stacksBySeat[winner] += total;
+  const winner = inHandSeats(s)[0];
+  const pots = computeSidePots(s.contributedBySeat, s.foldedBySeat);
   const wonBySeat = Array.from({ length: s.playerCount }, () => 0);
-  wonBySeat[winner] = total;
-  recordHandTelemetry(s, [pot], false, []);
-  finishHand(s, { showdown: false, revealedSeats: [], categoryBySeat: {}, pots: [pot], wonBySeat });
+  for (const pot of pots) {
+    if (pot.returned) {
+      // Uncalled chips return to their sole contributor (usually the winner).
+      s.stacksBySeat[pot.winners[0]] += pot.amount;
+      continue;
+    }
+    // Every contested layer is uncontested here (all other contributors folded) → the
+    // lone remaining player wins it.
+    pot.winners = [winner];
+    s.stacksBySeat[winner] += pot.amount;
+    wonBySeat[winner] += pot.amount;
+  }
+  recordHandTelemetry(s, pots, false, []);
+  finishHand(s, { showdown: false, revealedSeats: [], categoryBySeat: {}, pots, wonBySeat });
 }
 
 /** Showdown: build side pots, evaluate eligible hands, award, reveal (§8/§9/§10). */
@@ -459,10 +519,17 @@ export function pokerReducer(
   ctx?: PokerContext,
 ): PokerState | null {
   const rng = resolveRng(ctx);
-  if (action.type === 'START_GAME') return startGame(action, rng);
+  if (action.type === 'START_GAME') {
+    // START_GAME is a lifecycle action that CREATES a match: it is honoured only from
+    // the empty (null) state. Never let it replace a live authoritative PokerState —
+    // an acting online client must not be able to reset the room via ACTION_REQUEST.
+    return state === null ? startGame(action, rng) : state;
+  }
   if (state === null) return null;
 
   if (action.type === 'START_NEXT_HAND') {
+    // Lifecycle advance between hands (server auto-advance / local public control).
+    // Only valid at the hand_complete pause; a no-op (same ref) otherwise.
     const next = clone(state);
     return startNextHand(next, rng) ? next : state;
   }

@@ -34,6 +34,7 @@ export function checkPokerInvariants(state: PokerState): string[] {
     ['contributedBySeat', state.contributedBySeat.length],
     ['foldedBySeat', state.foldedBySeat.length],
     ['allInBySeat', state.allInBySeat.length],
+    ['raiseOpenBySeat', state.raiseOpenBySeat.length],
     ['eliminatedBySeat', state.eliminatedBySeat.length],
   ];
   for (const [name, len] of perSeat) if (len !== n) errors.push(`${name} length ${len} != playerCount ${n}`);

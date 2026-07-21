@@ -30,9 +30,10 @@ function finished(over: Partial<PokerState> = {}): PokerState {
     buttonSeat: 0, handNumber: 12, street: 'river',
     stacksBySeat: [0, 3000, 0], holeCardsBySeat: [[], [], []], board: [], deck: [], burned: [],
     committedBySeat: zeros(), contributedBySeat: zeros(), foldedBySeat: falses(),
-    allInBySeat: falses(), wasAllInBySeat: falses(), actedBySeat: falses(), eliminatedBySeat: [true, false, true],
+    allInBySeat: falses(), wasAllInBySeat: falses(), actedBySeat: falses(),
+    raiseOpenBySeat: falses(), eliminatedBySeat: [true, false, true],
     currentBet: 0, minRaise: 20, toActSeat: 1, revealedBySeat: falses(),
-    lastHand: null, winnerSeat: 1,
+    lastHand: null, winnerSeat: 1, actionLog: [],
     telemetry: tel({
       handsPlayedBySeat: [12, 12, 12], handsWonBySeat: [3, 8, 1], showdownsWonBySeat: [1, 4, 0],
       potsWonBySeat: [3, 9, 1], biggestPotBySeat: [400, 1200, 150], allInsWonBySeat: [0, 2, 0],

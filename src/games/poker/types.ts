@@ -92,6 +92,22 @@ export interface PokerHandResult {
   newlyEliminated: number[];
 }
 
+/** The kinds of action recorded in the public per-hand action history (§13). */
+export type PokerActionKind = 'blind' | 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allin';
+
+/**
+ * One entry in the current hand's PUBLIC action history (§13). Carries NO card /
+ * deck / burn data — only the seat, the street, the action kind and the chip amount
+ * actually committed by that action (0 for fold/check). Reset at each deal.
+ */
+export interface PokerActionEntry {
+  seat: number;
+  street: PokerStreet;
+  kind: PokerActionKind;
+  /** Chips this action committed (blind/call/bet/raise/all-in); 0 for fold/check. */
+  amount: number;
+}
+
 /**
  * Per-seat, per-MATCH telemetry accumulators (persist across hands; only reset at
  * START_GAME). PUBLIC counters, never any card. Read by the finish summarizer;
@@ -154,6 +170,13 @@ export interface PokerState {
   wasAllInBySeat: boolean[];
   /** Whether each seat has acted since the last bet/raise on this street. */
   actedBySeat: boolean[];
+  /**
+   * Whether each seat currently has the RIGHT to raise (§5/§6). All actable seats
+   * start a street with the right; a full bet/raise re-opens it for everyone else; a
+   * below-minimum (incomplete) all-in does NOT re-open it for players who already
+   * acted — they may only call the extra or fold. Public betting state.
+   */
+  raiseOpenBySeat: boolean[];
   /** Seats eliminated from the match (stack 0 between hands). */
   eliminatedBySeat: boolean[];
 
@@ -170,6 +193,9 @@ export interface PokerState {
   lastHand: PokerHandResult | null;
   /** The match winner (last player with chips), or null until finished. */
   winnerSeat: number | null;
+
+  /** PUBLIC per-hand action history (§13); reset each deal. Never any card data. */
+  actionLog: PokerActionEntry[];
 
   /** Per-match telemetry (see PokerTelemetry). */
   telemetry: PokerTelemetry;

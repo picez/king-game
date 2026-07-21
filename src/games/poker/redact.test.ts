@@ -24,9 +24,10 @@ function sample(over: Partial<PokerState> = {}): PokerState {
     deck: [pc('4', 'hearts'), pc('5', 'hearts'), pc('6', 'hearts')],
     burned: [pc('9', 'clubs')],
     committedBySeat: zeros(), contributedBySeat: [20, 20, 20], foldedBySeat: falses(),
-    allInBySeat: falses(), wasAllInBySeat: falses(), actedBySeat: falses(), eliminatedBySeat: falses(),
+    allInBySeat: falses(), wasAllInBySeat: falses(), actedBySeat: falses(),
+    raiseOpenBySeat: [true, true, true], eliminatedBySeat: falses(),
     currentBet: 0, minRaise: 20, toActSeat: 1, revealedBySeat: falses(),
-    lastHand: null, winnerSeat: null,
+    lastHand: null, winnerSeat: null, actionLog: [],
     telemetry: {
       handsPlayedBySeat: zeros(), handsWonBySeat: zeros(), showdownsWonBySeat: zeros(),
       potsWonBySeat: zeros(), biggestPotBySeat: zeros(), allInsWonBySeat: zeros(), royalFlushBySeat: zeros(),
@@ -66,6 +67,23 @@ describe('poker redaction — hole cards / deck / burns are private (§13)', () 
     expect(view.board).toEqual(sample().board);
     expect(view.contributedBySeat).toEqual([20, 20, 20]);
     expect(view.stacksBySeat).toEqual([980, 990, 980]);
+  });
+
+  it('the action history + raise rights stay public but carry no card data (§13)', () => {
+    const state = sample({
+      raiseOpenBySeat: [true, false, true],
+      actionLog: [
+        { seat: 1, street: 'preflop', kind: 'blind', amount: 10 },
+        { seat: 2, street: 'preflop', kind: 'blind', amount: 20 },
+        { seat: 0, street: 'flop', kind: 'bet', amount: 40 },
+      ],
+    });
+    for (const viewer of [0, 1, null]) {
+      const view = pokerRedactStateFor(state, viewer);
+      expect(view.actionLog).toEqual(state.actionLog);           // public to everyone
+      expect(view.raiseOpenBySeat).toEqual([true, false, true]); // public betting state
+      expect(JSON.stringify(view.actionLog)).not.toMatch(/rank|suit|hearts|spades|hole|deck|burn/);
+    }
   });
 
   it('a spectator (null seat) sees NO hole cards at all', () => {
