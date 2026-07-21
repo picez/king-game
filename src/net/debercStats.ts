@@ -74,6 +74,15 @@ export interface DebercPlayerResult {
   isWinner: boolean;
   /** This seat's scoring-meld counts this match (aggregate-only, no cards). */
   melds: DebercMeldCounts;
+  /** This seat's team FINAL cumulative match score (matchScore; can be negative). */
+  finalTeamScore: number;
+  /**
+   * Stage 37.3: did this seat's team ever take a «Бейт» (об'яз under-score) mark in
+   * ANY hand this match? «Бейт» is the DISPLAY label for the об'яз-underperform mark,
+   * recorded on `DebercHandResult.hvTeam` (internal field names are swapped vs the
+   * labels — see DEBERC_RULES §7). Used for the "win without a Бейт" badge.
+   */
+  teamHadBeyt: boolean;
 }
 
 /** Everything the stats layer needs about one finished Deberc game. */
@@ -99,6 +108,12 @@ export interface DebercStatDelta {
   melds: DebercMeldCounts;
   /** Scored hands this game (added to the user's handsPlayed denominator). */
   handsPlayed: number;
+  /** This seat's team final match score this game (best/worst tracking; Stage 37.3). */
+  finalTeamScore: number;
+  /** True when this seat scored NO meld at all this game (comedy badge). */
+  noMeldGame: boolean;
+  /** True when this seat WON and its team never took a «Бейт» mark this game. */
+  wonNoBeyt: boolean;
 }
 
 /** True only for a finished Deberc match. */
@@ -110,6 +125,12 @@ export function isFinishedDebercGame(state: DebercState | null): state is Deberc
 export function summarizeFinishedDebercGame(state: DebercState): DebercFinishedSummary {
   const winnerTeam = state.winnerTeam;
   const meldsBySeat = tallyMeldsBySeat(state);
+  const matchScore = state.matchScore ?? [];
+  // Teams that took a «Бейт» (об'яз under-score = internal hvTeam) in ANY hand.
+  const beytTeams = new Set<number>();
+  for (const h of state.handHistory) {
+    if (typeof h.hvTeam === 'number') beytTeams.add(h.hvTeam);
+  }
   const players: DebercPlayerResult[] = state.players.map((p) => {
     const team = state.teamOf[p.seatIndex] ?? p.seatIndex;
     return {
@@ -121,6 +142,8 @@ export function summarizeFinishedDebercGame(state: DebercState): DebercFinishedS
       team,
       isWinner: winnerTeam != null && team === winnerTeam,
       melds: meldsBySeat.get(p.seatIndex) ?? emptyDebercMeldCounts(),
+      finalTeamScore: matchScore[team] ?? 0,
+      teamHadBeyt: beytTeams.has(team),
     };
   });
   return {
@@ -141,6 +164,9 @@ export function computeDebercStatDeltas(summary: DebercFinishedSummary): DebercS
     isJackpot: summary.isJackpot && p.isWinner,
     melds: p.melds,
     handsPlayed: summary.handsPlayed,
+    finalTeamScore: p.finalTeamScore,
+    noMeldGame: p.melds.total === 0,
+    wonNoBeyt: p.isWinner && !p.teamHadBeyt,
   }));
 }
 
@@ -181,5 +207,12 @@ export interface DebercStatsView {
   jackpotRate: number | null;  // 0..100 integer over games played; null when none
   /** Meld/combination breakdown (aggregate-only; no cards). */
   combinations: DebercCombinationStats;
+  /** Best/worst final team match score across games (Stage 37.3); null when none. */
+  bestGameScore: number | null;
+  worstGameScore: number | null;
+  /** Games finished with NO scoring meld at all (comedy badge). */
+  gamesWithNoMeld: number;
+  /** Games won without the team ever taking a «Бейт» mark. */
+  gamesWonNoBeyt: number;
   lastGameAt: string | null;
 }

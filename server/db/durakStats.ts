@@ -40,19 +40,27 @@ function gameKey(roomCode: string, summary: DurakFinishedSummary): string {
   return createHash('sha256').update(`${DURAK}|${roomCode}|${outcome}|${winners}`).digest('hex');
 }
 
-interface DurakStatsBlob { foolCount: number; drawCount: number; }
+interface DurakStatsBlob { foolCount: number; drawCount: number; wonBySixes: number; lostBySixes: number; }
+
+const numOr0 = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
 /** Reads the Durak stats JSONB, defaulting missing counters to 0. Pure. */
 export function readDurakStats(raw: unknown): DurakStatsBlob {
   const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
   return {
-    foolCount: typeof o.foolCount === 'number' ? o.foolCount : 0,
-    drawCount: typeof o.drawCount === 'number' ? o.drawCount : 0,
+    foolCount: numOr0(o.foolCount),
+    drawCount: numOr0(o.drawCount),
+    wonBySixes: numOr0(o.wonBySixes),
+    lostBySixes: numOr0(o.lostBySixes),
   };
 }
 
 function serializeDurakStats(s: DurakStatsBlob): Record<string, unknown> {
-  return { v: DURAK_STATS_VERSION, foolCount: s.foolCount, drawCount: s.drawCount };
+  return {
+    v: DURAK_STATS_VERSION,
+    foolCount: s.foolCount, drawCount: s.drawCount,
+    wonBySixes: s.wonBySixes, lostBySixes: s.lostBySixes,
+  };
 }
 
 /**
@@ -137,6 +145,8 @@ async function upsertDurakUserStats(
   const nextStats = serializeDurakStats({
     foolCount: prev.foolCount + (delta.isFool ? 1 : 0),
     drawCount: prev.drawCount + (delta.isDraw ? 1 : 0),
+    wonBySixes: prev.wonBySixes + (delta.wonBySixes ? 1 : 0),
+    lostBySixes: prev.lostBySixes + (delta.lostBySixes ? 1 : 0),
   });
 
   const now = new Date();
@@ -183,6 +193,8 @@ function toDurakStatsView(
     foolCount: blob.foolCount,
     drawCount: blob.drawCount,
     foolRate: pct(blob.foolCount, gamesPlayed),
+    wonBySixes: blob.wonBySixes,
+    lostBySixes: blob.lostBySixes,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

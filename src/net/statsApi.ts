@@ -48,6 +48,13 @@ export interface KingStats {
   surrenderedSupported: boolean;
   /** modeId → { rounds, totalScore, averageScore }. */
   modeBreakdown: Record<string, ModeStat>;
+  /** Stage 37.3 telemetry — per-negative-mode count of rounds finished taking NO
+   *  penalty (per-round score exactly 0). Empty on legacy rows. */
+  perfectNegativeRounds: Record<string, number>;
+  /** Trump rounds where the user took EVERY trick (all opponents scored 0). */
+  trumpSweeps: number;
+  /** Trump rounds where the user took strictly FEWER tricks than every rival. */
+  trumpLowTricks: number;
   /** ISO timestamp of the last completed game, or null. */
   lastGameAt: string | null;
 }
@@ -104,6 +111,16 @@ function str(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
 }
 
+/** Parses a `Record<string, number>` counter map, dropping non-numeric entries. */
+function parseCountMap(raw: unknown): Record<string, number> {
+  const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+  }
+  return out;
+}
+
 function parseModeBreakdown(raw: unknown): Record<string, ModeStat> {
   const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
   const out: Record<string, ModeStat> = {};
@@ -142,6 +159,9 @@ export function parseKingStats(raw: unknown): KingStats {
     surrenderedCount: num(s.surrenderedCount),
     surrenderedSupported: s.surrenderedSupported === true,
     modeBreakdown: parseModeBreakdown(s.modeBreakdown),
+    perfectNegativeRounds: parseCountMap(s.perfectNegativeRounds),
+    trumpSweeps: num(s.trumpSweeps),
+    trumpLowTricks: num(s.trumpLowTricks),
     lastGameAt: str(s.lastGameAt) ?? str(s.lastPlayedAt),
   };
 }
@@ -165,6 +185,10 @@ export interface DurakStats {
   drawCount: number;
   /** 0–100 integer, or null when no games. */
   foolRate: number | null;
+  /** Stage 37.3 telemetry — games won by finishing the fool with an all-sixes attack. */
+  wonBySixes: number;
+  /** Games lost as the fool who took an all-sixes finishing attack. */
+  lostBySixes: number;
   lastGameAt: string | null;
 }
 
@@ -183,6 +207,8 @@ export function parseDurakStats(raw: unknown): DurakStats {
     foolCount,
     drawCount: num(s.drawCount),
     foolRate: 'foolRate' in s ? numOrNull(s.foolRate) : (gamesPlayed > 0 ? Math.round((foolCount / gamesPlayed) * 100) : null),
+    wonBySixes: num(s.wonBySixes),
+    lostBySixes: num(s.lostBySixes),
     lastGameAt: str(s.lastGameAt),
   };
 }
@@ -217,6 +243,13 @@ export interface DebercStats {
   jackpotRate: number | null;
   /** Meld/combination breakdown (aggregate-only). */
   combinations: DebercCombinationStats;
+  /** Best/worst final team match score across games (matchScore; can be negative). */
+  bestGameScore: number | null;
+  worstGameScore: number | null;
+  /** Stage 37.3 telemetry — games finished with NO scoring meld at all (comedy). */
+  gamesWithNoMeld: number;
+  /** Games won WITHOUT the team ever taking a «Бейт» (об'яз under-score) mark. */
+  gamesWonNoBeyt: number;
   lastGameAt: string | null;
 }
 
@@ -252,6 +285,10 @@ export function parseDebercStats(raw: unknown): DebercStats {
     jackpotCount,
     jackpotRate: 'jackpotRate' in s ? numOrNull(s.jackpotRate) : (gamesPlayed > 0 ? Math.round((jackpotCount / gamesPlayed) * 100) : null),
     combinations: parseDebercCombinations(s.combinations),
+    bestGameScore: numOrNull(s.bestGameScore),
+    worstGameScore: numOrNull(s.worstGameScore),
+    gamesWithNoMeld: num(s.gamesWithNoMeld),
+    gamesWonNoBeyt: num(s.gamesWonNoBeyt),
     lastGameAt: str(s.lastGameAt),
   };
 }
@@ -281,6 +318,10 @@ export interface TarneebStats {
   /** Best/worst team final score across games, or null when none. */
   bestGameScore: number | null;
   worstGameScore: number | null;
+  /** Stage 37.3 telemetry — games where the user declared ≥1 contract and failed NONE. */
+  cleanContractGames: number;
+  /** Highest bid the user MADE as declarer across games (0 when none). */
+  maxWinningBid: number;
   lastGameAt: string | null;
 }
 
@@ -307,6 +348,8 @@ export function parseTarneebStats(raw: unknown): TarneebStats {
     averageTeamScore: 'averageTeamScore' in s ? numOrNull(s.averageTeamScore) : (gamesPlayed > 0 ? Math.round(num(s.totalTeamScore) / gamesPlayed) : null),
     bestGameScore: numOrNull(s.bestGameScore),
     worstGameScore: numOrNull(s.worstGameScore),
+    cleanContractGames: num(s.cleanContractGames),
+    maxWinningBid: num(s.maxWinningBid),
     lastGameAt: str(s.lastGameAt),
   };
 }
@@ -391,6 +434,14 @@ export interface FiftyOneStats {
   averagePenalty: number | null;
   /** Best (lowest) final penalty across games, or null when none. */
   bestPenalty: number | null;
+  /** Stage 37.3 telemetry — games with ≥1 round won on the very first move. */
+  gamesWithInstantRoundWin: number;
+  /** Games the user finished without ever opening (≥51) a single round (comedy). */
+  gamesNeverOpened: number;
+  /** Games where the user was dealt two jokers in one round's hand. */
+  gamesWithTwoJokerDeal: number;
+  /** Games the user finished without ever taking the flat-100 (never-opened) penalty. */
+  gamesWithNoHundred: number;
   lastGameAt: string | null;
 }
 
@@ -411,6 +462,10 @@ export function parseFiftyOneStats(raw: unknown): FiftyOneStats {
     totalPenalty,
     averagePenalty: 'averagePenalty' in s ? numOrNull(s.averagePenalty) : (gamesPlayed > 0 ? Math.round(totalPenalty / gamesPlayed) : null),
     bestPenalty: numOrNull(s.bestPenalty),
+    gamesWithInstantRoundWin: num(s.gamesWithInstantRoundWin),
+    gamesNeverOpened: num(s.gamesNeverOpened),
+    gamesWithTwoJokerDeal: num(s.gamesWithTwoJokerDeal),
+    gamesWithNoHundred: num(s.gamesWithNoHundred),
     lastGameAt: str(s.lastGameAt),
   };
 }

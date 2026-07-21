@@ -803,14 +803,19 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > The grid is a responsive `auto-fill minmax(9rem,1fr)` with a **dynamic** `n/total` count (no hard-coded
 > "14"/"29"), so a larger badge count cannot cause horizontal overflow.
 
-- [ ] **Profile → Achievements:** the **34-badge** catalog renders at **360/390** with no horizontal
-      overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of **34**.
-- [ ] **Filter chips (Stage 37.2):** a **styled** chip strip — **All · Global · King · Durak · Deberc ·
+- [ ] **Profile → Achievements:** the **48-badge** catalog renders at **360/390** with no horizontal
+      overflow; **RTL (Arabic)** mirrors cleanly; the `n/total unlocked` count reads out of **48**.
+- [ ] **Filter chips (Stage 37.0/37.3):** a **styled** chip strip — **Global · King · Durak · Deberc ·
       Tarneeb · Preferans · 51** (each = icon + short name + its own **earned/total**) — opens on
-      **All**, which shows the **full 34-badge catalog** (earned + locked). Tapping **Global** or a game
-      filters to just that bucket. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar
-      on 360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/34` count and which
+      **Global** (there is **no "All" tab**) and shows **one group at a time** (never all 48). Tapping a
+      chip filters the grid. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar
+      on 360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/48` count and which
       badges are earned are **unchanged** by filtering.
+- [ ] **Stage 37.3 pack (Unreleased, needs real play):** the 14 new telemetry badges appear in their
+      game's group, locked until earned — e.g. 51 *First-Move Finish* / *Double Joker* / *Sealed Shut* /
+      *Hundred-Free*, Deberc *Beyt-Free* / *Below Zero* / *Melodyless*, Tarneeb *Flawless Contract* / *Grand
+      Slam Bid*, King *Spotless Slate* / *Clean Sweep* / *Trump Wallflower*, Durak *Six-Gun Salute* / *Sixed
+      Out*. They unlock only from real round/hand/game outcomes (online, with a DB), never a proxy.
 - [ ] **New badges (Stage 37.0):** **King** *Nothing Went Right* (minus points in all six negative
       rounds); **Deberc** *Paltina Hunter* (3 Палтіна) + *Double Declaration* (2+ combos in one hand);
       **Tarneeb** *In the Red* (negative team final) + *Overbidder* (declare 3+, make none) — each flips to

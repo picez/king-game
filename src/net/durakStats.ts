@@ -32,6 +32,14 @@ export interface DurakFinishedSummary {
   winners: string[];
   foolId: string | null;
   isDraw: boolean;
+  /**
+   * Stage 37.3 telemetry — set only when the game FINISHED on an all-sixes attack:
+   * the just-resolved final bout (`lastBout`) had every attack card a six AND the
+   * fool actually TOOK it (fool == defender of that bout). `winnerId` is the seat
+   * that attacked (delivered the six humiliation); `loserId` is the fool. Derived
+   * from the PUBLIC final table cards only — no counter here ever exposes a card.
+   */
+  sixAttack: { winnerId: string; loserId: string } | null;
 }
 
 /** Per-player Durak stat contribution from ONE finished game. */
@@ -40,6 +48,29 @@ export interface DurakStatDelta {
   won: boolean;
   isFool: boolean;
   isDraw: boolean;
+  /** This seat won by finishing the fool with an all-sixes attack (Stage 37.3). */
+  wonBySixes: boolean;
+  /** This seat was the fool who took an all-sixes finishing attack. */
+  lostBySixes: boolean;
+}
+
+/**
+ * Detects an all-sixes finishing attack from the FINAL public state (Stage 37.3):
+ * the game ended (non-draw, a fool exists), the just-resolved `lastBout` had EVERY
+ * attack card a six, and the fool is the defender who TOOK that bout. Returns the
+ * attacker (winner) + fool (loser) ids, or null. Pure; reads only the public
+ * last-bout cards + seat roles the finished state already carries.
+ */
+function detectSixAttack(state: DurakState): { winnerId: string; loserId: string } | null {
+  if (state.isDraw || !state.foolId) return null;
+  const lb = state.lastBout;
+  if (!lb || lb.length === 0) return null;
+  if (!lb.every((pair) => pair.attack.rank === '6')) return null;
+  const defender = state.players[state.defenderIndex];
+  if (!defender || defender.id !== state.foolId) return null; // fool must have TAKEN it
+  const attacker = state.players[state.attackerIndex];
+  if (!attacker || attacker.id === state.foolId) return null;
+  return { winnerId: attacker.id, loserId: state.foolId };
 }
 
 /** True only for a finished Durak game. */
@@ -65,6 +96,7 @@ export function summarizeFinishedDurakGame(state: DurakState): DurakFinishedSumm
     winners: [...state.winnerIds],
     foolId: state.foolId,
     isDraw: state.isDraw,
+    sixAttack: detectSixAttack(state),
   };
 }
 
@@ -75,6 +107,8 @@ export function computeDurakStatDeltas(summary: DurakFinishedSummary): DurakStat
     won: p.isWinner,
     isFool: p.isFool,
     isDraw: summary.isDraw,
+    wonBySixes: summary.sixAttack?.winnerId === p.playerId,
+    lostBySixes: summary.sixAttack?.loserId === p.playerId,
   }));
 }
 
@@ -99,5 +133,7 @@ export interface DurakStatsView {
   foolCount: number;   // times the user was the fool (== gamesLost)
   drawCount: number;   // games that ended in a draw
   foolRate: number | null;  // 0..100 integer; null when no games
+  wonBySixes: number;  // games won by an all-sixes finishing attack (Stage 37.3)
+  lostBySixes: number; // games lost as the fool who took an all-sixes attack
   lastGameAt: string | null;
 }

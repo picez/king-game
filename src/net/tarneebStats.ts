@@ -42,6 +42,10 @@ export interface TarneebPlayerResult {
   /** Of those declarer hands: how many made / failed the contract. */
   contractsMade: number;
   contractsFailed: number;
+  /** Stage 37.3: this seat declared ≥1 contract this game and FAILED none. */
+  cleanContractGame: boolean;
+  /** Highest bid this seat MADE as declarer this game (0 when none). */
+  maxWinningBid: number;
 }
 
 /** A score-only per-hand record for durable `rounds` (never any cards). */
@@ -76,6 +80,10 @@ export interface TarneebStatDelta {
   declarerCount: number;
   contractsMade: number;
   contractsFailed: number;
+  /** This game counted as a clean-contract game for this seat (Stage 37.3). */
+  cleanContractGame: boolean;
+  /** Highest bid this seat made as declarer this game (running max across games). */
+  maxWinningBid: number;
 }
 
 /** True only for a finished Tarneeb match. */
@@ -99,10 +107,13 @@ function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedS
   const declarerCount: Record<number, number> = {};
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
+  const maxWinningBid: Record<number, number> = {};
   for (const h of history) {
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
-    if (h.made) contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
-    else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
+    if (h.made) {
+      contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
+      maxWinningBid[h.declarerSeat] = Math.max(maxWinningBid[h.declarerSeat] ?? 0, h.bid);
+    } else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
   }
 
   const players: TarneebPlayerResult[] = state.players.map((p) => ({
@@ -117,6 +128,8 @@ function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedS
     declarerCount: declarerCount[p.seatIndex] ?? 0,
     contractsMade: contractsMade[p.seatIndex] ?? 0,
     contractsFailed: contractsFailed[p.seatIndex] ?? 0,
+    cleanContractGame: (declarerCount[p.seatIndex] ?? 0) >= 1 && (contractsFailed[p.seatIndex] ?? 0) === 0,
+    maxWinningBid: maxWinningBid[p.seatIndex] ?? 0,
   }));
 
   const seatToPlayerId = new Map(state.players.map((p) => [p.seatIndex, p.id]));
@@ -152,10 +165,13 @@ export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinish
   const declarerCount: Record<number, number> = {};
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
+  const maxWinningBid: Record<number, number> = {};
   for (const h of state.handHistory) {
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
-    if (h.made) contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
-    else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
+    if (h.made) {
+      contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
+      maxWinningBid[h.declarerSeat] = Math.max(maxWinningBid[h.declarerSeat] ?? 0, h.bid);
+    } else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
   }
 
   const players: TarneebPlayerResult[] = state.players.map((p) => {
@@ -172,6 +188,8 @@ export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinish
       declarerCount: declarerCount[p.seatIndex] ?? 0,
       contractsMade: contractsMade[p.seatIndex] ?? 0,
       contractsFailed: contractsFailed[p.seatIndex] ?? 0,
+      cleanContractGame: (declarerCount[p.seatIndex] ?? 0) >= 1 && (contractsFailed[p.seatIndex] ?? 0) === 0,
+      maxWinningBid: maxWinningBid[p.seatIndex] ?? 0,
     };
   });
 
@@ -209,6 +227,8 @@ export function computeTarneebStatDeltas(summary: TarneebFinishedSummary): Tarne
     declarerCount: p.declarerCount,
     contractsMade: p.contractsMade,
     contractsFailed: p.contractsFailed,
+    cleanContractGame: p.cleanContractGame,
+    maxWinningBid: p.maxWinningBid,
   }));
 }
 
@@ -244,5 +264,7 @@ export interface TarneebStatsView {
   averageTeamScore: number | null; // rounded mean over games; null when none
   bestGameScore: number | null;    // best (highest) team final score
   worstGameScore: number | null;   // worst (lowest) team final score
+  cleanContractGames: number;      // games with ≥1 declared + 0 failed (Stage 37.3)
+  maxWinningBid: number;           // highest bid ever made as declarer (0 when none)
   lastGameAt: string | null;
 }

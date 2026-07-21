@@ -126,6 +126,32 @@ describe('computeFiftyOneStatDeltas', () => {
   });
 });
 
+describe('Stage 37.3 telemetry — summarizer reads state.telemetry (null-safe)', () => {
+  it('a legacy finished state with NO telemetry yields all-false (backward-compatible)', () => {
+    const deltas = computeFiftyOneStatDeltas(summarizeFinishedFiftyOneGame(finished())); // no telemetry
+    for (const d of deltas) {
+      expect(d).toMatchObject({ instantRoundWin: false, neverOpenedGame: false, twoJokerDeal: false, noHundredGame: false });
+    }
+  });
+
+  it('maps per-seat telemetry booleans; noHundredGame = never took the flat-100', () => {
+    const s = finished({
+      telemetry: {
+        neverOpenedGameBySeat: [true, false, false],
+        tookHundredBySeat: [true, false, false],
+        twoJokerDealBySeat: [false, false, true],
+        instantRoundWinBySeat: [false, true, false],
+      },
+    });
+    const byId = Object.fromEntries(computeFiftyOneStatDeltas(summarizeFinishedFiftyOneGame(s)).map((d) => [d.playerId, d]));
+    expect(byId['player-0']).toMatchObject({ neverOpenedGame: true, noHundredGame: false /* took a 100 */ });
+    expect(byId['player-1']).toMatchObject({ instantRoundWin: true, neverOpenedGame: false, noHundredGame: true });
+    expect(byId['player-2']).toMatchObject({ twoJokerDeal: true, noHundredGame: true });
+    // The telemetry booleans never leak any card data.
+    expect(JSON.stringify(summarizeFinishedFiftyOneGame(s))).not.toMatch(/"rank"|"suit"|"joker"/);
+  });
+});
+
 describe('fiftyOneFinishSignature', () => {
   it('is stable for the same outcome and differs for a different winner/penalties', () => {
     const a = fiftyOneFinishSignature(finished());

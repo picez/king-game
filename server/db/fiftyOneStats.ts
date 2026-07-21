@@ -28,7 +28,7 @@ import type { SeatUsers, RecordResult } from './stats';
 
 const FIFTY_ONE = 'fifty-one';
 const FIFTY_ONE_RULESET = 'fifty-one-v1';
-const FIFTY_ONE_STATS_VERSION = 1;
+const FIFTY_ONE_STATS_VERSION = 2; // v2: +instant-win / never-opened / two-joker / no-100 (Stage 37.3)
 
 async function database(): Promise<PostgresJsDatabase> {
   const conn = await getDb();
@@ -47,6 +47,11 @@ interface FiftyOneStatsBlob {
   timesEliminated: number;
   totalPenalty: number;
   bestPenalty: number; // +Infinity sentinel when no games yet (lower is better)
+  // Stage 37.3 telemetry counters.
+  gamesWithInstantRoundWin: number;
+  gamesNeverOpened: number;
+  gamesWithTwoJokerDeal: number;
+  gamesWithNoHundred: number;
 }
 
 /** Reads the 51 stats JSONB, defaulting missing counters safely. Pure. */
@@ -57,6 +62,10 @@ export function readFiftyOneStats(raw: unknown): FiftyOneStatsBlob {
     timesEliminated: num(o.timesEliminated, 0),
     totalPenalty: num(o.totalPenalty, 0),
     bestPenalty: num(o.bestPenalty, Number.POSITIVE_INFINITY),
+    gamesWithInstantRoundWin: num(o.gamesWithInstantRoundWin, 0),
+    gamesNeverOpened: num(o.gamesNeverOpened, 0),
+    gamesWithTwoJokerDeal: num(o.gamesWithTwoJokerDeal, 0),
+    gamesWithNoHundred: num(o.gamesWithNoHundred, 0),
   };
 }
 
@@ -65,6 +74,10 @@ function serializeFiftyOneStats(s: FiftyOneStatsBlob): Record<string, unknown> {
     v: FIFTY_ONE_STATS_VERSION,
     timesEliminated: s.timesEliminated,
     totalPenalty: s.totalPenalty,
+    gamesWithInstantRoundWin: s.gamesWithInstantRoundWin,
+    gamesNeverOpened: s.gamesNeverOpened,
+    gamesWithTwoJokerDeal: s.gamesWithTwoJokerDeal,
+    gamesWithNoHundred: s.gamesWithNoHundred,
   };
   if (Number.isFinite(s.bestPenalty)) out.bestPenalty = s.bestPenalty;
   return out;
@@ -158,6 +171,10 @@ async function upsertFiftyOneUserStats(
     totalPenalty: prev.totalPenalty + delta.finalPenalty,
     // Lower is better → best = the MIN final penalty seen.
     bestPenalty: Math.min(prev.bestPenalty, delta.finalPenalty),
+    gamesWithInstantRoundWin: prev.gamesWithInstantRoundWin + (delta.instantRoundWin ? 1 : 0),
+    gamesNeverOpened: prev.gamesNeverOpened + (delta.neverOpenedGame ? 1 : 0),
+    gamesWithTwoJokerDeal: prev.gamesWithTwoJokerDeal + (delta.twoJokerDeal ? 1 : 0),
+    gamesWithNoHundred: prev.gamesWithNoHundred + (delta.noHundredGame ? 1 : 0),
   });
 
   const now = new Date();
@@ -210,6 +227,10 @@ function toFiftyOneStatsView(
     totalPenalty: blob.totalPenalty,
     averagePenalty: avg(blob.totalPenalty, gamesPlayed),
     bestPenalty: Number.isFinite(blob.bestPenalty) ? blob.bestPenalty : null,
+    gamesWithInstantRoundWin: blob.gamesWithInstantRoundWin,
+    gamesNeverOpened: blob.gamesNeverOpened,
+    gamesWithTwoJokerDeal: blob.gamesWithTwoJokerDeal,
+    gamesWithNoHundred: blob.gamesWithNoHundred,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

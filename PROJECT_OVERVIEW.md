@@ -6,8 +6,8 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
 > **Release:** **v0.4.8** — achievement grouping and badge expansion (Stages 37.0–37.1): the Profile
-> **Achievements** grid is filtered by a styled chip strip — **All** (full 34-badge catalog, default) then
-> **Global** + each game, each with earned/total (Stage 37.2 restored the All chip) — and the catalog grows **29→34** with five new
+> **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each game, with
+> earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
 > stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
 > *In the Red* / *Overbidder*) — no DB migration, no new stats field, no dependency change. On the
 > **v0.4.7** reconnect and table polish (Stages 36.0–36.2): achievements **first** grouped by game, **rooms
@@ -158,12 +158,12 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** **34** badges derived purely from stats + a post-game "unlocked" toast, filtered by
-  a styled chip strip — **All** (full catalog, default) then Global + each game, each with earned/total. The
-  **Stage 32.1 expansion** added 15 stats-derived badges (14→29) and the **Stage 37.0** pass added 5 more
-  (29→34: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb *In the Red* /
-  *Overbidder*) plus the grouped filter — all with **no DB migration / no new stats field**; All-Rounder
-  unchanged. ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4, §7.)
+- **Achievements:** **48** badges (34 released + **14 Unreleased, Stage 37.3**) derived from stats + a
+  post-game "unlocked" toast, browsed **per game** — a styled chip strip (**Global** + each game, **no
+  "All" tab**, opens on Global). The **Stage 32.1** expansion added 15 (14→29), **Stage 37.0** added 5
+  (29→34), and **Stage 37.3** the full owner-requested pack of **14** (34→48) — each backed by **real
+  per-round / per-hand / per-game telemetry** added to the JSONB stats (**no DB migration**, backward-safe).
+  All-Rounder + totals unchanged. ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4, §7, §8.)
 - **Preferences** sync to the profile when signed in, else stay device-local.
 
 ## Deployment

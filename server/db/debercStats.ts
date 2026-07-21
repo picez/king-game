@@ -24,7 +24,7 @@ import type { SeatUsers, RecordResult } from './stats';
 
 const DEBERC = 'deberc';
 const DEBERC_RULESET = 'deberc-v1';
-const DEBERC_STATS_VERSION = 2; // v2: +combination counters (Stage 13.8)
+const DEBERC_STATS_VERSION = 3; // v3: +final-score + no-meld + no-Бейт telemetry (Stage 37.3)
 
 async function database(): Promise<PostgresJsDatabase> {
   const conn = await getDb();
@@ -48,6 +48,11 @@ interface DebercStatsBlob {
   totalMelds: number;
   handsPlayed: number;   // scored hands across all games (the denominator)
   handsWithMeld: number; // hands where the user scored ≥1 meld
+  // Stage 37.3 telemetry.
+  bestGameScore: number;  // MAX final team match score (−Inf sentinel when none)
+  worstGameScore: number; // MIN final team match score (+Inf sentinel when none)
+  gamesWithNoMeld: number;
+  gamesWonNoBeyt: number;
 }
 
 const numOr0 = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -59,6 +64,7 @@ const numOr0 = (v: unknown): number => (typeof v === 'number' && Number.isFinite
  */
 export function readDebercStats(raw: unknown): DebercStatsBlob {
   const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const num = (v: unknown, d: number) => (typeof v === 'number' ? v : d);
   return {
     jackpotCount: numOr0(o.jackpotCount),
     terz: numOr0(o.terz),
@@ -67,16 +73,24 @@ export function readDebercStats(raw: unknown): DebercStatsBlob {
     totalMelds: numOr0(o.totalMelds),
     handsPlayed: numOr0(o.handsPlayed),
     handsWithMeld: numOr0(o.handsWithMeld),
+    bestGameScore: num(o.bestGameScore, Number.NEGATIVE_INFINITY),
+    worstGameScore: num(o.worstGameScore, Number.POSITIVE_INFINITY),
+    gamesWithNoMeld: numOr0(o.gamesWithNoMeld),
+    gamesWonNoBeyt: numOr0(o.gamesWonNoBeyt),
   };
 }
 
 function serializeDebercStats(s: DebercStatsBlob): Record<string, unknown> {
-  return {
+  const out: Record<string, unknown> = {
     v: DEBERC_STATS_VERSION,
     jackpotCount: s.jackpotCount,
     terz: s.terz, platina: s.platina, bella: s.bella,
     totalMelds: s.totalMelds, handsPlayed: s.handsPlayed, handsWithMeld: s.handsWithMeld,
+    gamesWithNoMeld: s.gamesWithNoMeld, gamesWonNoBeyt: s.gamesWonNoBeyt,
   };
+  if (Number.isFinite(s.bestGameScore)) out.bestGameScore = s.bestGameScore;
+  if (Number.isFinite(s.worstGameScore)) out.worstGameScore = s.worstGameScore;
+  return out;
 }
 
 /**
@@ -167,6 +181,11 @@ async function upsertDebercUserStats(
     totalMelds: prev.totalMelds + m.total,
     handsPlayed: prev.handsPlayed + delta.handsPlayed,
     handsWithMeld: prev.handsWithMeld + m.handsWithMeld,
+    // Higher final match score is better → best = MAX, worst = MIN.
+    bestGameScore: Math.max(prev.bestGameScore, delta.finalTeamScore),
+    worstGameScore: Math.min(prev.worstGameScore, delta.finalTeamScore),
+    gamesWithNoMeld: prev.gamesWithNoMeld + (delta.noMeldGame ? 1 : 0),
+    gamesWonNoBeyt: prev.gamesWonNoBeyt + (delta.wonNoBeyt ? 1 : 0),
   });
 
   const now = new Date();
@@ -221,6 +240,10 @@ function toDebercStatsView(
       handsWithMeld: blob.handsWithMeld,
       meldRate: pct(blob.handsWithMeld, blob.handsPlayed),
     },
+    bestGameScore: Number.isFinite(blob.bestGameScore) ? blob.bestGameScore : null,
+    worstGameScore: Number.isFinite(blob.worstGameScore) ? blob.worstGameScore : null,
+    gamesWithNoMeld: blob.gamesWithNoMeld,
+    gamesWonNoBeyt: blob.gamesWonNoBeyt,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

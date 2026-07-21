@@ -57,26 +57,23 @@ describe('AchievementsPanel — "New" marker for unseen earned badges', () => {
   });
 });
 
-describe('AchievementsPanel — grouped filter with "All" (Stage 37.2)', () => {
+describe('AchievementsPanel — grouped filter, no "All" (Stage 37.3)', () => {
   const css = read('src/styles/stats.css');
-  it('has an "All" filter that is first and the default', () => {
-    // "All" is a real chip, prepended before the groups, selected by default.
-    expect(panel).toContain('ach.filter.all');
-    expect(panel).toContain("useState<AchievementFilter>('all')");
-    // The first segment IS the All chip (whole catalog), then each group follows.
-    expect(panel).toContain("{ key: 'all', earned: totalEarned, total: rows.length }");
-    expect(panel).toContain('segments.map((seg) =>');
+  it('has NO "All" filter and defaults to the first group (Global)', () => {
+    // Stage 37.3 owner correction: the full badge set is reached by tabbing the game
+    // groups, not a combined "All" tab (which 37.2 had wrongly added back).
+    expect(panel).not.toContain("'all'");
+    expect(panel).not.toContain('ach.filter.all');
+    expect(panel).toContain("useState<AchievementGroupKey>('global')");
+    // The chip strip maps the GROUPS themselves (one per game/global) — never an all-tab.
+    expect(panel).toContain('groups.map((g) =>');
+    // Only the active group's rows are shown — never every badge at once.
+    expect(panel).toContain('active ? active.rows : rows');
   });
-  it('the All filter shows the FULL catalog (all 34 rows), a group filter shows its bucket', () => {
-    // 'all' → the full evaluateAchievements result; otherwise the active group's rows.
-    expect(panel).toContain("filter === 'all' ? rows :");
-    // Header progress stays the global earned/total (earned / 34), never per-group.
-    expect(panel).toContain('{totalEarned}/{rows.length}');
-  });
-  it('each chip shows an icon + label + its own earned/total', () => {
+  it('each chip shows a game icon + label + its own earned/total', () => {
     expect(panel).toContain('ach-segment__icon');
     expect(panel).toContain('GROUP_ICON');
-    expect(panel).toContain('{seg.earned}/{seg.total}');
+    expect(panel).toContain('{g.earned}/{g.total}');
   });
   it('the filter strip is a styled INTERNAL horizontal scroll (no page overflow, RTL-safe)', () => {
     expect(css).toMatch(/\.ach-segments\s*\{[^}]*overflow-x:\s*auto/);

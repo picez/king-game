@@ -29,8 +29,8 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
 > **v0.4.8 adds no migrations** — 0009 is still the latest. v0.4.8 is **achievement grouping and badge
-> expansion** (Stages 37.0–37.1, 37.2 filter fix): the Profile **Achievements** grid has a styled
-> filter chip strip — **All** (full catalog, default) then Global + each game, earned/total — and the
+> expansion** (Stages 37.0–37.1): the Profile **Achievements** grid has a styled filter chip strip
+> (**Global** + each game, earned/total, **no "All" tab**, opens on Global) — and the released
 > catalog grows **29 → 34** with 5 new stats-derived badges (King *Nothing Went Right*, Deberc *Paltina
 > Hunter* / *Double Declaration*, Tarneeb *In the Red* / *Overbidder*). **No gameplay-rule change, no
 > dependency, no schema change, no new stats field** (the released six-game state, v0.4.7 reconnect/resume,
@@ -41,8 +41,9 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 
 ## 0. v0.4.8 release smoke (fast targeted pass — achievement grouping and badge expansion)
 
-v0.4.8 (Stages 37.0–37.1, 37.2 filter fix) reshapes the Profile **Achievements** grid (filter chip strip —
-All + Global + each game) and grows the catalog **29 → 34**. **No gameplay-rule / schema / dependency / stats-field change.**
+v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (per-game filter chip strip, no "All")
+and grows the released catalog **29 → 34**. **Unreleased Stage 37.3** adds the full owner-requested pack of
+**14** more badges (**34 → 48**) with real per-round/per-hand/per-game telemetry (JSONB, **no DB migration**).
 The released six-game state, v0.4.7 reconnect/resume, v0.4.2 iOS hint, and Tutorials are intact — so this
 §0 pass doubles as the owner's **full pre-live production smoke**. Headline manual checks (need a signed-in
 account; the carried-over cross-device one needs two devices/browsers):
@@ -54,11 +55,16 @@ account; the carried-over cross-device one needs two devices/browsers):
       a **guest** / empty account sees no block; it does not duplicate device A's local **Resume** card.
 - [ ] **5-min reconnect window (36.0):** reload/close a tab mid-game (incl. vs bots) → within **5 minutes**
       the room still exists and **Resume** returns you to your seat (was 90 s).
-- [ ] **Achievements filter chips (37.2):** Profile → Achievements opens on **All** (the full 34-badge
-      catalog, earned + locked) and shows the **filter chip strip** (All + Global + the six games), each
-      chip an icon + short name + its own **earned/total**; tapping **Global** or a game swaps the grid to
-      that bucket. The strip scrolls **inside itself** (styled scrollbar, not the native OS bar), so **360/390**
-      and **Arabic RTL** never overflow the page. Header count reads out of **34**.
+- [ ] **Achievements filter chips (37.0/37.3):** Profile → Achievements opens on **Global** (there is
+      **no "All" tab**) and shows the **filter chip strip** (Global + the six games), each chip an icon +
+      short name + its own **earned/total**; tapping a chip swaps the grid to that group. The strip scrolls
+      **inside itself** (styled scrollbar, not the native OS bar), so **360/390** and **Arabic RTL** never
+      overflow the page. Header count now reads out of **48**.
+- [ ] **Stage 37.3 pack (Unreleased, needs real play + a DB):** the new badges unlock only from real
+      telemetry — e.g. win a 51 round on the first move (*First-Move Finish*), be dealt two jokers
+      (*Double Joker*), win a Deberc match with no «Бейт» (*Beyt-Free*), bid 13 and make it in Tarneeb
+      (*Grand Slam Bid*), take every trick in a King Trump round (*Clean Sweep*), finish the Durak fool
+      with an all-sixes attack (*Six-Gun Salute*). Each appears in its game's group, locked until earned.
 - [ ] **New 37.0 badges (locked/earned per stats):** King *Nothing Went Right*, Deberc *Paltina Hunter* /
       *Double Declaration*, Tarneeb *In the Red* / *Overbidder* each appear in their game's group, earned or
       locked according to the account's stats (full detail §7).
@@ -111,9 +117,9 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       that certificate's **SHA-256** (not the upload/debug key) — until then `…/assetlinks.json` is a
       **404** and the TWA runs as a Custom Tab. (See [`android-twa/README.md`](android-twa/README.md).)
 - [ ] **Achievements (Stage 32.1 + 37.0, DB-backed):** signed in with real/seeded stats, Profile →
-      **Achievements** shows **34** badges (dynamic `n/34`) at **360/390** with no horizontal overflow
-      (Arabic RTL mirrors), browsed via the **filter chip strip** (All + Global + each game,
-      opens on All, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
+      **Achievements** shows **48** badges (dynamic `n/48`) at **360/390** with no horizontal overflow
+      (Arabic RTL mirrors), browsed via the **filter chip strip** (Global + each game, **no "All"**,
+      opens on Global, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
       flips that game's **winner** badge; **Six-Game Regular** unlocks after playing every game;
       **All-Rounder** still needs a win in all six; **Tarneeb Soloist** stays separate from Pairs. New
       **37.0** badges: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
@@ -474,8 +480,8 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] Profile → **My stats** → that game shows a non-empty record; **Leaderboard** lists
       your row (highlighted "you"). (Bot games / no Postgres → empty is expected.)
 - [ ] Profile → **Achievements** → at least "First Win" is earned after a win.
-- [ ] **Achievements (Stage 32.1 + 37.0):** the catalog is **34** badges (dynamic `n/34` count), browsed
-      via the **filter chip strip** (All + Global + each game, opens on All, styled internal
+- [ ] **Achievements (Stage 32.1 + 37.0 + 37.3):** the catalog is **48** badges (dynamic `n/48` count), browsed
+      via the **filter chip strip** (Global + each game, **no "All"**, opens on Global, styled internal
       scroll) at **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
       Tarneeb Pairs / Preferans / 51** the game's new **winner** badge turns gold; **All-Rounder** still
       needs a win in all six games. **Uncommon** badges render with a green accent.

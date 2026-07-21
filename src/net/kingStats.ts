@@ -93,6 +93,17 @@ export interface PlayerStatDelta {
   negativeRoundsPlayed: number;
   /** modeId → { rounds, totalScore } for this player. */
   modeBreakdown: Record<string, ModeAgg>;
+  /**
+   * Stage 37.3 telemetry (derived purely from the score-only round table):
+   * `perfectNegativeRounds[mode]` counts negative-mode rounds this player finished
+   * with a per-round score of exactly 0 (took NONE of the penalised cards).
+   * `trumpSweeps` counts Trump rounds where this player took EVERY trick (score > 0
+   * while every opponent scored 0). `trumpLowTricks` counts Trump rounds where this
+   * player took strictly FEWER tricks than every opponent (a unique-lowest score).
+   */
+  perfectNegativeRounds: Record<string, number>;
+  trumpSweeps: number;
+  trumpLowTricks: number;
 }
 
 /** True only for a finished King game with a usable score table. */
@@ -148,8 +159,11 @@ export function summarizeFinishedGame(state: GameState): FinishedGameSummary {
 export function computeStatDeltas(summary: FinishedGameSummary): PlayerStatDelta[] {
   return summary.players.map((p) => {
     const modeBreakdown: Record<string, ModeAgg> = {};
+    const perfectNegativeRounds: Record<string, number> = {};
     let trumpRoundsPlayed = 0;
     let roundsCounted = 0;
+    let trumpSweeps = 0;
+    let trumpLowTricks = 0;
     for (const r of summary.rounds) {
       const s = r.scoreByPlayer[p.playerId];
       if (typeof s !== 'number') continue;
@@ -158,7 +172,21 @@ export function computeStatDeltas(summary: FinishedGameSummary): PlayerStatDelta
       agg.rounds += 1;
       agg.totalScore += s;
       modeBreakdown[r.modeId] = agg;
-      if (r.modeId === TRUMP_MODE) trumpRoundsPlayed += 1;
+      // The other seats' scores this round (Trump comparisons need the whole field).
+      const others = Object.entries(r.scoreByPlayer)
+        .filter(([id]) => id !== p.playerId)
+        .map(([, v]) => v);
+      if (r.modeId === TRUMP_MODE) {
+        trumpRoundsPlayed += 1;
+        // Trump score is +reward per trick (0 for no tricks), so "took every trick"
+        // ⇔ this seat scored > 0 while every opponent scored exactly 0.
+        if (s > 0 && others.length > 0 && others.every((v) => v === 0)) trumpSweeps += 1;
+        // "Fewer tricks than every rival" ⇔ a unique-lowest trump score.
+        if (others.length > 0 && others.every((v) => s < v)) trumpLowTricks += 1;
+      } else if (s === 0) {
+        // A negative-mode round scored 0 ⇒ this seat took none of the penalised cards.
+        perfectNegativeRounds[r.modeId] = (perfectNegativeRounds[r.modeId] ?? 0) + 1;
+      }
     }
     return {
       playerId: p.playerId,
@@ -171,6 +199,9 @@ export function computeStatDeltas(summary: FinishedGameSummary): PlayerStatDelta
       trumpRoundsPlayed,
       negativeRoundsPlayed: roundsCounted - trumpRoundsPlayed,
       modeBreakdown,
+      perfectNegativeRounds,
+      trumpSweeps,
+      trumpLowTricks,
     };
   });
 }

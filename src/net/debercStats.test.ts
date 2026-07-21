@@ -95,6 +95,46 @@ describe('computeDebercStatDeltas', () => {
   });
 });
 
+describe('Stage 37.3 telemetry — final score / no-meld / won-without-Бейт', () => {
+  // «Бейт» (об'яз under-score) is stored on DebercHandResult.hvTeam (labels swapped
+  // vs internal names — DEBERC_RULES §7). A hand with hvTeam=t means team t was Бейт.
+  const beytHand = (hvTeam: number | null): DebercHandResult => ({
+    teamPoints: [0, 0], cardPoints: [0, 0], meldPoints: [0, 0],
+    hvTeam, beitTeams: [], topScorerTeam: 0, objazSeat: 0, dealerSeat: 0, meldTally: [],
+  });
+
+  it('carries each seat\'s team final match score (can be negative) into the delta', () => {
+    const deltas = computeDebercStatDeltas(summarizeFinishedDebercGame(finished4p({ matchScore: [-30, 100], winnerTeam: 1 })));
+    const byId = Object.fromEntries(deltas.map((d) => [d.playerId, d]));
+    expect(byId['player-0'].finalTeamScore).toBe(-30); // team 0 (seats 0 & 2)
+    expect(byId['player-2'].finalTeamScore).toBe(-30);
+    expect(byId['player-1'].finalTeamScore).toBe(100); // team 1 (seats 1 & 3)
+    expect(byId['player-0'].won).toBe(false);          // team 1 won
+  });
+
+  it('flags noMeldGame only for a seat that scored no combination all match', () => {
+    const deltas = computeDebercStatDeltas(summarizeFinishedDebercGame(finished4p({
+      handHistory: [hand([{ seat: 1, kind: 'terz' }])], // only seat 1 melds
+    })));
+    const byId = Object.fromEntries(deltas.map((d) => [d.playerId, d]));
+    expect(byId['player-0'].noMeldGame).toBe(true);
+    expect(byId['player-2'].noMeldGame).toBe(true);
+    expect(byId['player-1'].noMeldGame).toBe(false);
+  });
+
+  it('won-without-Бейт: true when the winning team never took a «Бейт» mark', () => {
+    // Team 0 wins; a Бейт fell on team 1 (the losers) → winners are Бейт-free.
+    const clean = computeDebercStatDeltas(summarizeFinishedDebercGame(finished4p({ handHistory: [beytHand(1)] })));
+    const cById = Object.fromEntries(clean.map((d) => [d.playerId, d]));
+    expect(cById['player-0']).toMatchObject({ won: true, wonNoBeyt: true });
+    expect(cById['player-1'].wonNoBeyt).toBe(false); // lost → not a "won without" credit
+
+    // Same win, but this time the winning team 0 DID take a Бейт in some hand.
+    const dirty = computeDebercStatDeltas(summarizeFinishedDebercGame(finished4p({ handHistory: [beytHand(0)] })));
+    expect(Object.fromEntries(dirty.map((d) => [d.playerId, d]))['player-0'].wonNoBeyt).toBe(false);
+  });
+});
+
 describe('debercFinishSignature', () => {
   it('is stable for the same outcome and differs for a different winner', () => {
     const a = debercFinishSignature(finished4p());

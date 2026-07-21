@@ -102,6 +102,25 @@ export interface FiftyOneRoundResult {
   newlyEliminated: number[];
 }
 
+/**
+ * Stage 37.3 achievement telemetry — GAME-LEVEL per-seat accumulators (persist
+ * across rounds; only reset at START_GAME). PUBLIC booleans, never any card:
+ *  - `neverOpenedGameBySeat` — the seat has NOT opened (≥51) in ANY round (starts
+ *    all `true`, set `false` the moment a seat opens).
+ *  - `tookHundredBySeat` — the seat took the flat-100 (never-opened) penalty in ≥1
+ *    round (§11).
+ *  - `twoJokerDealBySeat` — the seat was dealt ≥2 jokers in ≥1 round's hand.
+ *  - `instantRoundWinBySeat` — the seat won a round on the very first move (the
+ *    starter emptied its hand before the turn passed to any other seat).
+ * Read only by the finish summarizer; each maps to a per-game 0/1 stat counter.
+ */
+export interface FiftyOneTelemetry {
+  neverOpenedGameBySeat: boolean[];
+  tookHundredBySeat: boolean[];
+  twoJokerDealBySeat: boolean[];
+  instantRoundWinBySeat: boolean[];
+}
+
 export interface FiftyOneState {
   gameType: 'fifty-one';
   phase: FiftyOnePhase;
@@ -144,6 +163,13 @@ export interface FiftyOneState {
   winnerSeat: number | null;
   /** The most recently scored round (public; no cards), or null. */
   lastRound: FiftyOneRoundResult | null;
+
+  /** Stage 37.3 achievement telemetry (see FiftyOneTelemetry). Optional so legacy
+   *  persisted states (mid-game reconnect) stay valid — treated as all-false. */
+  telemetry?: FiftyOneTelemetry;
+  /** Per-round flag: the turn has advanced to a second seat this round (reset each
+   *  deal). Detects a first-move round win. Optional for legacy states. */
+  turnHasPassed?: boolean;
 
   options: FiftyOneOptions;
 }

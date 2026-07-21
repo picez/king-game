@@ -193,6 +193,35 @@ describe('computeTarneebStatDeltas', () => {
   });
 });
 
+describe('Stage 37.3 telemetry — clean-contract game / max winning bid', () => {
+  it('flags a clean-contract game (declared ≥1, failed 0) and the max MADE bid per seat', () => {
+    // Default finished(): seat 0 made bids 8 & 7 (no fail); seat 1 declared 9 and failed.
+    const byId = Object.fromEntries(computeTarneebStatDeltas(summarizeFinishedTarneebGame(finished())).map((d) => [d.playerId, d]));
+    expect(byId['player-0']).toMatchObject({ cleanContractGame: true, maxWinningBid: 8 });
+    expect(byId['player-1']).toMatchObject({ cleanContractGame: false, maxWinningBid: 0 }); // had a fail
+    expect(byId['player-2']).toMatchObject({ cleanContractGame: false, maxWinningBid: 0 }); // never declared
+  });
+
+  it('records a MADE bid of 13 as the max winning bid; a failed 13 does not', () => {
+    const made13 = computeTarneebStatDeltas(summarizeFinishedTarneebGame(finished({
+      handHistory: [hand({ handNumber: 1, declarerSeat: 0, declarerTeam: 'A', bid: 13, made: true, deltaByTeam: { A: 26, B: 0 } })],
+    })));
+    expect(Object.fromEntries(made13.map((d) => [d.playerId, d]))['player-0'].maxWinningBid).toBe(13);
+
+    const failed13 = computeTarneebStatDeltas(summarizeFinishedTarneebGame(finished({
+      handHistory: [hand({ handNumber: 1, declarerSeat: 0, declarerTeam: 'A', bid: 13, made: false, deltaByTeam: { A: -13, B: 5 } })],
+    })));
+    expect(Object.fromEntries(failed13.map((d) => [d.playerId, d]))['player-0'].maxWinningBid).toBe(0);
+  });
+
+  it('computes the same telemetry for the SOLO variant from soloHandHistory', () => {
+    // finishedSolo(): seat 0 made bid 4 (clean); seat 1 failed bid 6.
+    const byId = Object.fromEntries(computeTarneebStatDeltas(summarizeFinishedTarneebGame(finishedSolo())).map((d) => [d.playerId, d]));
+    expect(byId['player-0']).toMatchObject({ cleanContractGame: true, maxWinningBid: 4 });
+    expect(byId['player-1']).toMatchObject({ cleanContractGame: false, maxWinningBid: 0 });
+  });
+});
+
 describe('tarneebFinishSignature', () => {
   it('is stable for the same outcome and differs for a different winner/score', () => {
     const a = tarneebFinishSignature(finished());

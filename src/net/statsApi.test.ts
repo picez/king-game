@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   fetchKingStats, fetchKingLeaderboard, parseKingStats,
   parseDurakStats, fetchDurakStats, fetchDurakLeaderboard,
-  parseDebercStats,
+  parseDebercStats, parseFiftyOneStats,
   parseTarneebStats, fetchTarneebStats, fetchTarneebLeaderboard,
   parsePreferansStats, fetchPreferansStats, fetchPreferansLeaderboard,
   winRatePct, averageScore, formatSigned, formatLastPlayed, modeBreakdownRows,
@@ -307,6 +307,41 @@ describe('fetchKingLeaderboard', () => {
   it('503 → unavailable', async () => {
     stubFetch(503, { error: 'db_disabled' });
     expect((await fetchKingLeaderboard(BASE)).state).toBe('unavailable');
+  });
+});
+
+describe('Stage 37.3 telemetry — parsers default new fields on OLD payloads', () => {
+  it('parseKingStats: a legacy payload (no telemetry) defaults to 0 / {}', () => {
+    const s = parseKingStats({ stats: { gamesPlayed: 3, gamesWon: 1 } });
+    expect(s.perfectNegativeRounds).toEqual({});
+    expect(s.trumpSweeps).toBe(0);
+    expect(s.trumpLowTricks).toBe(0);
+  });
+  it('parseKingStats: reads the new telemetry when present', () => {
+    const s = parseKingStats({ stats: { perfectNegativeRounds: { no_hearts: 2, bad: 'x' }, trumpSweeps: 4, trumpLowTricks: 1 } });
+    expect(s.perfectNegativeRounds).toEqual({ no_hearts: 2 }); // non-numeric dropped
+    expect(s.trumpSweeps).toBe(4);
+    expect(s.trumpLowTricks).toBe(1);
+  });
+  it('parseDurakStats: legacy → 0; new → read', () => {
+    expect(parseDurakStats({ stats: {} })).toMatchObject({ wonBySixes: 0, lostBySixes: 0 });
+    expect(parseDurakStats({ stats: { wonBySixes: 2, lostBySixes: 3 } })).toMatchObject({ wonBySixes: 2, lostBySixes: 3 });
+  });
+  it('parseDebercStats: legacy → 0/null; new → read', () => {
+    expect(parseDebercStats({ stats: {} })).toMatchObject({ gamesWithNoMeld: 0, gamesWonNoBeyt: 0, bestGameScore: null, worstGameScore: null });
+    expect(parseDebercStats({ stats: { gamesWithNoMeld: 1, gamesWonNoBeyt: 2, bestGameScore: 520, worstGameScore: -30 } }))
+      .toMatchObject({ gamesWithNoMeld: 1, gamesWonNoBeyt: 2, bestGameScore: 520, worstGameScore: -30 });
+  });
+  it('parseTarneebStats: legacy → 0; new → read', () => {
+    expect(parseTarneebStats({ stats: {} })).toMatchObject({ cleanContractGames: 0, maxWinningBid: 0 });
+    expect(parseTarneebStats({ stats: { cleanContractGames: 3, maxWinningBid: 13 } })).toMatchObject({ cleanContractGames: 3, maxWinningBid: 13 });
+  });
+  it('parseFiftyOneStats: legacy → 0; new → read', () => {
+    expect(parseFiftyOneStats({ stats: {} })).toMatchObject({
+      gamesWithInstantRoundWin: 0, gamesNeverOpened: 0, gamesWithTwoJokerDeal: 0, gamesWithNoHundred: 0,
+    });
+    expect(parseFiftyOneStats({ stats: { gamesWithInstantRoundWin: 1, gamesNeverOpened: 2, gamesWithTwoJokerDeal: 3, gamesWithNoHundred: 4 } }))
+      .toMatchObject({ gamesWithInstantRoundWin: 1, gamesNeverOpened: 2, gamesWithTwoJokerDeal: 3, gamesWithNoHundred: 4 });
   });
 });
 

@@ -14,21 +14,25 @@ const king = (o: Partial<KingStats> = {}): KingStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, winRate: null, roundsPlayed: 0,
   totalScore: 0, averageScore: null, bestScore: null, worstScore: null,
   trumpRoundsPlayed: 0, negativeRoundsPlayed: 0, surrenderedCount: 0,
-  surrenderedSupported: false, modeBreakdown: {}, lastGameAt: null, ...o,
+  surrenderedSupported: false, modeBreakdown: {},
+  perfectNegativeRounds: {}, trumpSweeps: 0, trumpLowTricks: 0, lastGameAt: null, ...o,
 });
 const durak = (o: Partial<DurakStats> = {}): DurakStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, winRate: null,
-  foolCount: 0, drawCount: 0, foolRate: null, lastGameAt: null, ...o,
+  foolCount: 0, drawCount: 0, foolRate: null,
+  wonBySixes: 0, lostBySixes: 0, lastGameAt: null, ...o,
 });
 const deberc = (o: Partial<DebercStats> = {}): DebercStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, winRate: null, jackpotCount: 0, jackpotRate: null,
   combinations: { terz: 0, platina: 0, bella: 0, total: 0, handsPlayed: 0, handsWithMeld: 0, meldRate: null },
+  bestGameScore: null, worstGameScore: null, gamesWithNoMeld: 0, gamesWonNoBeyt: 0,
   lastGameAt: null, ...o,
 });
 const tarneeb = (o: Partial<TarneebStats> = {}): TarneebStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, winRate: null, handsPlayed: 0, handsAsDeclarer: 0,
   contractsMade: 0, contractsFailed: 0, contractSuccessRate: null, totalTeamScore: 0,
-  averageTeamScore: null, bestGameScore: null, worstGameScore: null, lastGameAt: null, ...o,
+  averageTeamScore: null, bestGameScore: null, worstGameScore: null,
+  cleanContractGames: 0, maxWinningBid: 0, lastGameAt: null, ...o,
 });
 const preferans = (o: Partial<PreferansStats> = {}): PreferansStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, gamesDrawn: 0, winRate: null, handsPlayed: 0, handsAsDeclarer: 0,
@@ -37,15 +41,17 @@ const preferans = (o: Partial<PreferansStats> = {}): PreferansStats => ({
 });
 const fiftyOne = (o: Partial<FiftyOneStats> = {}): FiftyOneStats => ({
   gamesPlayed: 0, gamesWon: 0, gamesLost: 0, winRate: null, roundsPlayed: 0,
-  timesEliminated: 0, totalPenalty: 0, averagePenalty: null, bestPenalty: null, lastGameAt: null, ...o,
+  timesEliminated: 0, totalPenalty: 0, averagePenalty: null, bestPenalty: null,
+  gamesWithInstantRoundWin: 0, gamesNeverOpened: 0, gamesWithTwoJokerDeal: 0, gamesWithNoHundred: 0,
+  lastGameAt: null, ...o,
 });
 const zero = (): AllStats => ({ king: king(), durak: durak(), deberc: deberc(), tarneeb: tarneeb(), preferans: preferans(), fiftyOne: fiftyOne() });
 const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 34 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0)', () => {
-    expect(ACHIEVEMENTS.length).toBe(34);
+  it('has 48 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3)', () => {
+    expect(ACHIEVEMENTS.length).toBe(48);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
@@ -196,6 +202,55 @@ describe('each badge has a positive + negative case', () => {
     { id: 'tarneeb-all-bids-down',
       earn: { ...zero(), tarneeb: tarneeb({ contractsMade: 0, contractsFailed: 3 }) },
       lock: { ...zero(), tarneeb: tarneeb({ contractsMade: 1, contractsFailed: 3 }) } },
+    // ── Stage 37.3 — the full owner-requested pack (real telemetry) ──────────────
+    { id: 'king-perfect-negatives',
+      // A perfect (score-0) round in ALL SIX negative modes.
+      earn: { ...zero(), king: king({ perfectNegativeRounds: {
+        no_tricks: 1, no_hearts: 1, no_jacks: 1, no_queens: 1, king_of_hearts: 1, last_two_tricks: 1,
+      } }) },
+      // Missing one negative mode (only five perfect) → locked.
+      lock: { ...zero(), king: king({ perfectNegativeRounds: {
+        no_tricks: 1, no_hearts: 1, no_jacks: 1, no_queens: 1, king_of_hearts: 1,
+      } }) } },
+    { id: 'king-trump-sweep',
+      earn: { ...zero(), king: king({ trumpSweeps: 1 }) },
+      lock: { ...zero(), king: king({ trumpSweeps: 0, trumpRoundsPlayed: 5 }) } },
+    { id: 'king-trump-fewest',
+      earn: { ...zero(), king: king({ trumpLowTricks: 1 }) },
+      lock: { ...zero(), king: king({ trumpLowTricks: 0, trumpRoundsPlayed: 5 }) } },
+    { id: 'durak-lose-to-sixes',
+      earn: { ...zero(), durak: durak({ lostBySixes: 1 }) },
+      lock: { ...zero(), durak: durak({ lostBySixes: 0, foolCount: 2 }) } },
+    { id: 'durak-win-by-sixes',
+      earn: { ...zero(), durak: durak({ wonBySixes: 1 }) },
+      lock: { ...zero(), durak: durak({ wonBySixes: 0, gamesWon: 2 }) } },
+    { id: 'deberc-no-beyt-win',
+      earn: { ...zero(), deberc: deberc({ gamesWonNoBeyt: 1 }) },
+      lock: { ...zero(), deberc: deberc({ gamesWonNoBeyt: 0, gamesWon: 3 }) } },
+    { id: 'deberc-negative-final',
+      earn: { ...zero(), deberc: deberc({ worstGameScore: -5 }) },
+      lock: { ...zero(), deberc: deberc({ worstGameScore: 10 }) } },
+    { id: 'deberc-no-meld-game',
+      earn: { ...zero(), deberc: deberc({ gamesWithNoMeld: 1 }) },
+      lock: { ...zero(), deberc: deberc({ gamesWithNoMeld: 0, gamesPlayed: 3 }) } },
+    { id: 'tarneeb-clean-contract-game',
+      earn: { ...zero(), tarneeb: tarneeb({ cleanContractGames: 1 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ cleanContractGames: 0, gamesPlayed: 3 }) } },
+    { id: 'tarneeb-bid-13-win',
+      earn: { ...zero(), tarneeb: tarneeb({ maxWinningBid: 13 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ maxWinningBid: 12 }) } },
+    { id: 'fifty-one-instant-round',
+      earn: { ...zero(), fiftyOne: fiftyOne({ gamesWithInstantRoundWin: 1 }) },
+      lock: { ...zero(), fiftyOne: fiftyOne({ gamesWithInstantRoundWin: 0, gamesPlayed: 3 }) } },
+    { id: 'fifty-one-never-opened',
+      earn: { ...zero(), fiftyOne: fiftyOne({ gamesNeverOpened: 1 }) },
+      lock: { ...zero(), fiftyOne: fiftyOne({ gamesNeverOpened: 0, gamesPlayed: 3 }) } },
+    { id: 'fifty-one-two-jokers',
+      earn: { ...zero(), fiftyOne: fiftyOne({ gamesWithTwoJokerDeal: 1 }) },
+      lock: { ...zero(), fiftyOne: fiftyOne({ gamesWithTwoJokerDeal: 0, gamesPlayed: 3 }) } },
+    { id: 'fifty-one-no-hundred',
+      earn: { ...zero(), fiftyOne: fiftyOne({ gamesWithNoHundred: 1 }) },
+      lock: { ...zero(), fiftyOne: fiftyOne({ gamesWithNoHundred: 0, gamesPlayed: 3 }) } },
   ];
 
   it('covers every catalog badge', () => {
@@ -334,8 +389,8 @@ describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)'
       ['global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one'],
     );
     const king_ = groups.find((g) => g.key === 'king')!;
-    expect(king_.total).toBe(4);           // king-winner, king-regular, king-champion, king-all-negatives
-    expect(king_.earned).toBe(2);          // winner (≥1 win) + regular (≥10 played); not champion/all-negatives
+    expect(king_.total).toBe(7);           // + king-perfect-negatives, king-trump-sweep, king-trump-fewest (Stage 37.3)
+    expect(king_.earned).toBe(2);          // winner (≥1 win) + regular (≥10 played); no new telemetry earned
     expect(king_.rows.every((r) => r.achievement.gameType === 'king')).toBe(true);
     // global bucket holds only cross-game (no gameType) badges
     const global = groups.find((g) => g.key === 'global')!;

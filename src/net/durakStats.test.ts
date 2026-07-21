@@ -62,6 +62,42 @@ describe('computeDurakStatDeltas', () => {
   });
 });
 
+describe('Stage 37.3 — all-sixes finishing attack (win/lose by sixes)', () => {
+  const six = (suit: 'spades' | 'hearts' | 'diamonds' | 'clubs') => ({ rank: '6' as const, suit, value: 6 });
+  const seven = { rank: '7' as const, suit: 'hearts' as const, value: 7 };
+  // Default finished(): foolId='player-1', defenderIndex=1 (the taker), attackerIndex=0.
+  const sixBout = [
+    { attack: six('spades'), beat: null },
+    { attack: six('hearts'), beat: null },
+  ];
+
+  it('credits the attacker (win) and the fool (lose) when every last-bout attack is a six', () => {
+    const sum = summarizeFinishedDurakGame(finished({ lastBout: sixBout }));
+    expect(sum.sixAttack).toEqual({ winnerId: 'player-0', loserId: 'player-1' });
+    const byId = Object.fromEntries(computeDurakStatDeltas(sum).map((d) => [d.playerId, d]));
+    expect(byId['player-0']).toMatchObject({ wonBySixes: true, lostBySixes: false });
+    expect(byId['player-1']).toMatchObject({ wonBySixes: false, lostBySixes: true });
+    expect(byId['player-2']).toMatchObject({ wonBySixes: false, lostBySixes: false });
+  });
+
+  it('does NOT fire when any attack card is not a six', () => {
+    const sum = summarizeFinishedDurakGame(finished({ lastBout: [{ attack: six('spades'), beat: null }, { attack: seven, beat: null }] }));
+    expect(sum.sixAttack).toBeNull();
+    expect(computeDurakStatDeltas(sum).every((d) => !d.wonBySixes && !d.lostBySixes)).toBe(true);
+  });
+
+  it('does NOT fire when the fool did not take the finishing bout (fool ≠ defender)', () => {
+    // Successful-defense finish: the last bout was taken by seat 2, but the fool is seat 1.
+    const sum = summarizeFinishedDurakGame(finished({ lastBout: sixBout, defenderIndex: 2 }));
+    expect(sum.sixAttack).toBeNull();
+  });
+
+  it('does NOT fire on a draw or with no last bout', () => {
+    expect(summarizeFinishedDurakGame(finished({ isDraw: true, foolId: null, lastBout: sixBout })).sixAttack).toBeNull();
+    expect(summarizeFinishedDurakGame(finished({})).sixAttack).toBeNull(); // lastBout undefined
+  });
+});
+
 describe('durakFinishSignature', () => {
   it('is stable for the same outcome and differs for a different fool', () => {
     const a = durakFinishSignature(finished({}));

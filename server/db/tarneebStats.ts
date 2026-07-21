@@ -58,6 +58,9 @@ interface TarneebStatsBlob {
   totalTeamScore: number;
   bestGameScore: number;   // -Infinity sentinel when no games yet
   worstGameScore: number;  // +Infinity sentinel when no games yet
+  // Stage 37.3 telemetry.
+  cleanContractGames: number;
+  maxWinningBid: number;   // running MAX of made-as-declarer bids (0 when none)
 }
 
 /** Reads the Tarneeb stats JSONB, defaulting missing counters safely. Pure. */
@@ -71,6 +74,8 @@ export function readTarneebStats(raw: unknown): TarneebStatsBlob {
     totalTeamScore: num(o.totalTeamScore, 0),
     bestGameScore: num(o.bestGameScore, Number.NEGATIVE_INFINITY),
     worstGameScore: num(o.worstGameScore, Number.POSITIVE_INFINITY),
+    cleanContractGames: num(o.cleanContractGames, 0),
+    maxWinningBid: num(o.maxWinningBid, 0),
   };
 }
 
@@ -81,6 +86,8 @@ function serializeTarneebStats(s: TarneebStatsBlob): Record<string, unknown> {
     contractsMade: s.contractsMade,
     contractsFailed: s.contractsFailed,
     totalTeamScore: s.totalTeamScore,
+    cleanContractGames: s.cleanContractGames,
+    maxWinningBid: s.maxWinningBid,
   };
   if (Number.isFinite(s.bestGameScore)) out.bestGameScore = s.bestGameScore;
   if (Number.isFinite(s.worstGameScore)) out.worstGameScore = s.worstGameScore;
@@ -191,6 +198,8 @@ async function upsertTarneebUserStats(
     // Tarneeb team scores can be negative; best = MAX, worst = MIN final score.
     bestGameScore: Math.max(prev.bestGameScore, delta.teamFinalScore),
     worstGameScore: Math.min(prev.worstGameScore, delta.teamFinalScore),
+    cleanContractGames: prev.cleanContractGames + (delta.cleanContractGame ? 1 : 0),
+    maxWinningBid: Math.max(prev.maxWinningBid, delta.maxWinningBid),
   });
 
   const now = new Date();
@@ -248,6 +257,8 @@ function toTarneebStatsView(
     averageTeamScore: avg(blob.totalTeamScore, gamesPlayed),
     bestGameScore: Number.isFinite(blob.bestGameScore) ? blob.bestGameScore : null,
     worstGameScore: Number.isFinite(blob.worstGameScore) ? blob.worstGameScore : null,
+    cleanContractGames: blob.cleanContractGames,
+    maxWinningBid: blob.maxWinningBid,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

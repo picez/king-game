@@ -9,15 +9,32 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **The full owner-requested achievement pack — catalog 34 → 48 (Stage 37.3).** Fourteen new badges, each
+  backed by **real per-round / per-hand / per-game telemetry** (never an aggregate proxy), added to the
+  JSONB stats payload with **no DB migration**, backward-compatible and null-safe for old accounts, recorded
+  from real game outcomes and idempotent on reconnect:
+  - **King** — *Spotless Slate* (a zero-penalty round in every one of the six negative modes), *Clean Sweep*
+    (take every trick in a Trump round), *Trump Wallflower* (fewer Trump tricks than every rival).
+  - **Durak** — *Six-Gun Salute* (finish the fool with an all-sixes attack) and *Sixed Out* (lose as the
+    fool who took one).
+  - **Deberc** — *Beyt-Free* (win without your team ever taking a «Бейт» mark), *Below Zero* (negative final
+    team score), *Melodyless* (a whole match with no combination).
+  - **Tarneeb** — *Flawless Contract* (a game as declarer with zero failed contracts), *Grand Slam Bid*
+    (bid the maximum 13 and make it).
+  - **51** — *First-Move Finish* (win a round on the very first move), *Sealed Shut* (never open a whole
+    game), *Double Joker* (dealt two jokers in one hand), *Hundred-Free* (no 100-point penalty all game).
+
+  English, Ukrainian, German, Arabic. All-Rounder, `totalWins`/`totalGames` and every existing badge are
+  **unchanged**.
+
 ### Fixed
 
-- **Restore the "All" achievements filter (Stage 37.2).** The Profile **Achievements** chip strip now
-  leads with an **All** chip (**Усі / Alle / الكل**) that is selected by default and shows the **full
-  catalog of all 34 badges** (earned + locked) in catalog order — reverting the 37.0 decision to open on
-  **Global** and only ever show one group at a time. The **Global** chip and each game chip stay, each with
-  its own earned/total; the header progress remains the global **earned / 34**. Switching filters changes
-  only which rows the grid renders — earned/locked logic, the toast/seen ledger, and stats loading are
-  untouched. The strip still scrolls inside itself, mobile-safe on 360/390 and mirrored under Arabic RTL.
+- **Achievements grid: no "All" tab, default Global (Stage 37.3).** Reverted the Stage 37.2 re-introduction
+  of a combined **All** chip — the owner's ask was to implement the full requested badge *pack* (above),
+  not a combined tab. The grid opens on **Global** and is browsed one group at a time; the header still
+  reports the global **earned / total** across every badge.
 
 ## [0.4.8] — 2026-07-21 — Achievement grouping and badge expansion
 

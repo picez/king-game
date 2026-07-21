@@ -31,10 +31,27 @@ import type {
   FiftyOnePlayer,
   FiftyOneRoundResult,
   FiftyOneState,
+  FiftyOneTelemetry,
 } from './types';
 
 function clone(state: FiftyOneState): FiftyOneState {
   return JSON.parse(JSON.stringify(state)) as FiftyOneState;
+}
+
+/** Fresh Stage 37.3 telemetry: never-opened starts true, all else false. */
+function freshTelemetry(playerCount: number): FiftyOneTelemetry {
+  return {
+    neverOpenedGameBySeat: Array.from({ length: playerCount }, () => true),
+    tookHundredBySeat: Array.from({ length: playerCount }, () => false),
+    twoJokerDealBySeat: Array.from({ length: playerCount }, () => false),
+    instantRoundWinBySeat: Array.from({ length: playerCount }, () => false),
+  };
+}
+
+/** Null-safe accessor: creates the telemetry object on a legacy state that lacks it. */
+function ensureTelemetry(s: FiftyOneState): FiftyOneTelemetry {
+  if (!s.telemetry) s.telemetry = freshTelemetry(s.playerCount);
+  return s.telemetry;
 }
 
 function resolveRng(ctx?: FiftyOneContext): Rng {
@@ -98,6 +115,8 @@ function startGame(action: Extract<FiftyOneAction, { type: 'START_GAME' }>, rng:
     roundWinnerSeat: null,
     winnerSeat: null,
     lastRound: null,
+    telemetry: freshTelemetry(playerCount),
+    turnHasPassed: false,
     options: { targetPenalty: normalizeEliminationScore(action.options?.targetPenalty) },
   };
   return dealRound(base, dealerSeat, rng, false);
@@ -125,6 +144,13 @@ function dealRound(base: FiftyOneState, dealerSeat: number, rng: Rng, incrementR
   s.turnStep = 'meld_discard';
   s.phase = 'playing';
   s.roundWinnerSeat = null;
+  s.turnHasPassed = false; // per-round: no seat has taken a turn after the starter yet
+  // Telemetry (game-level): flag any seat dealt ≥2 jokers this round.
+  const tel = ensureTelemetry(s);
+  for (let seat = 0; seat < s.playerCount; seat++) {
+    const jokers = (s.handsBySeat[seat] ?? []).reduce((n, c) => n + (c.joker ? 1 : 0), 0);
+    if (jokers >= 2) tel.twoJokerDealBySeat[seat] = true;
+  }
   if (incrementRound) s.roundNumber += 1;
   return s;
 }
@@ -146,11 +172,19 @@ function ensureDrawable(s: FiftyOneState, rng: Rng): boolean {
 function scoreRound(s: FiftyOneState, roundWinner: number): FiftyOneState {
   const penaltyBySeat = Array.from({ length: s.playerCount }, () => 0);
   const neverOpenedBySeat = Array.from({ length: s.playerCount }, () => false);
+  const tel = ensureTelemetry(s);
+
+  // First-move round win: the starter emptied its hand before the turn ever passed
+  // to a second seat (`turnHasPassed === false`, only known for post-37.3 rounds).
+  if (s.turnHasPassed === false && roundWinner === s.starterSeat) {
+    tel.instantRoundWinBySeat[roundWinner] = true;
+  }
 
   for (let seat = 0; seat < s.playerCount; seat++) {
     if (s.eliminatedSeats[seat] || seat === roundWinner) continue;
     const opened = s.openedBySeat[seat];
     neverOpenedBySeat[seat] = !opened;
+    if (!opened) tel.tookHundredBySeat[seat] = true; // unopened ⇒ took the flat-100 (§11)
     const p = handPenalty(s.handsBySeat[seat], opened);
     penaltyBySeat[seat] = p;
     s.scoresBySeat[seat] += p;
@@ -284,6 +318,7 @@ export function fiftyOneReducer(
         s.publicMelds.push(meld);
       }
       s.openedBySeat[seat] = true;
+      ensureTelemetry(s).neverOpenedGameBySeat[seat] = false; // opened at least once this game
       s.turnStep = 'meld_discard';                       // now the player must discard to end the turn
       return s;
     }
@@ -331,6 +366,7 @@ export function fiftyOneReducer(
         s.publicMelds.push(meld);
       }
       s.openedBySeat[seat] = true;
+      ensureTelemetry(s).neverOpenedGameBySeat[seat] = false; // opened at least once this game
       return s; // still meld_discard — the player must discard to end the turn
     }
 
@@ -408,6 +444,7 @@ export function fiftyOneReducer(
         return scoreRound(s, seat);                      // emptied hand → round win (§11)
       }
       s.currentSeat = nextActiveSeat(s, seat);
+      s.turnHasPassed = true;                            // a second seat now acts this round
       s.turnStep = 'draw';
       return s;
     }

@@ -10,7 +10,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
-- Achievements: 34 total, grouped by Global + each game; no `All` tab; default group is Global; styled horizontal chip scroll.
+- Achievements: **48 total** (34 released + 14 Unreleased Stage 37.3), grouped by Global + each game; **no `All` tab**; default group is Global; styled horizontal chip scroll. The Stage 37.3 pack is backed by real per-round/per-hand/per-game telemetry added to the JSONB stats (no DB migration); 51 telemetry lives on `FiftyOneState.telemetry`.
 - Recent reconnect work: 5-minute orphan room TTL, same-user cross-device room discovery/reclaim via `FIND_MY_ROOMS -> MY_ROOMS -> RECLAIM_ROOM`.
 - Syrian 51: released local+online+stats+achievement; configurable elimination score 210/310/410/510; Count cards calculator; discard-to-open; joker replacement; meld cards use uniform slots.
 - Tutorials: scripted tutorials for all 6 games, not live practice.
@@ -28,12 +28,12 @@ Use this file as the first read after archiving this chat. It is intentionally s
 ## Open / likely next work
 - Owner may bring real bug reports from daily play; fix those before speculative polish.
 - Manual smoke still most valuable: same-user phone reconnect, 5-minute bot reconnect, achievements mobile/RTL, 51 calculator/meld layout.
-- Deferred achievements need new telemetry before honest implementation:
-  - King perfect negative rounds / trump sweeps / trump fewer-than-opponent.
-  - Durak sixes “epaulettes” win/loss.
-  - Deberc no-meld game, negative finish, win without disputed term.
-  - Tarneeb clean contracts, bid-13 win, all bids failed.
-  - 51 first-turn round win, never opened, two-joker deal, no-100 game.
+- The owner-requested achievement pack is now **fully implemented (Stage 37.3, catalog 34→48)** with real
+  telemetry — King perfect-negatives/trump-sweep/trump-fewest, Durak win/lose-by-sixes, Deberc
+  no-Бейт-win/negative-final/no-meld, Tarneeb clean-contract/bid-13-win, 51 first-move/never-opened/
+  two-jokers/no-100. Durak "sixes" = final bout all-sixes taken by the fool (owner-confirmed, no rule
+  existed). Deberc «Бейт» = об'яз under-score = internal `hvTeam` (labels swapped, DEBERC_RULES §7).
+  Details in `ACHIEVEMENTS_PLAN.md §8`. No badges are deferred now.
 
 ## Workflow reminders
 - User often asks for “prompt”; when they do, provide only a Claude prompt and do not edit files.

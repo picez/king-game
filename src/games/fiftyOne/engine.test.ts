@@ -463,3 +463,60 @@ describe('51 joker replacement (§9a, owner rule 30.14)', () => {
     expect(out.lastRound?.penaltyBySeat[0]).toBe(25); // the bought-back joker alone
   });
 });
+
+describe('51 Stage 37.3 achievement telemetry (reducer accumulation)', () => {
+  const opener = () => [
+    c('10', 'hearts'), c('J', 'hearts'), c('Q', 'hearts'), // run = 30
+    c('7', 'clubs'), c('7', 'diamonds'), c('7', 'spades'), // set = 21
+    c('2', 'clubs'),                                        // spare (to discard)
+  ];
+
+  it('START_GAME seeds telemetry; the two-joker flag matches the ACTUAL deal', () => {
+    const s = fiftyOneReducer(null, {
+      type: 'START_GAME', playerNames: ['A', 'B', 'C'], playerTypes: ['ai', 'ai', 'ai'], dealerSeat: 0,
+    }, { rng: makeRng(1) }) as FiftyOneState;
+    expect(s.telemetry).toBeDefined();
+    expect(s.telemetry!.neverOpenedGameBySeat).toEqual([true, true, true]); // nobody opened yet
+    expect(s.telemetry!.tookHundredBySeat).toEqual([false, false, false]);
+    expect(s.telemetry!.instantRoundWinBySeat).toEqual([false, false, false]);
+    expect(s.turnHasPassed).toBe(false);
+    // Whatever the seed dealt, the flag must equal the real per-seat joker count ≥ 2.
+    for (let seat = 0; seat < s.playerCount; seat++) {
+      const jokers = s.handsBySeat[seat].filter((cd) => cd.joker).length;
+      expect(s.telemetry!.twoJokerDealBySeat[seat]).toBe(jokers >= 2);
+    }
+  });
+
+  it('opening flips neverOpenedGameBySeat[seat] to false (from a legacy no-telemetry state)', () => {
+    const s = baseState([opener(), [c('3', 'clubs')]], { currentSeat: 0 });
+    expect(s.telemetry).toBeUndefined(); // backward-compat: legacy state has no telemetry
+    const o = fiftyOneReducer(s, { type: 'OPEN_MELDS', melds: [opener().slice(0, 3), opener().slice(3, 6)] }) as FiftyOneState;
+    expect(o.openedBySeat[0]).toBe(true);
+    expect(o.telemetry?.neverOpenedGameBySeat[0]).toBe(false);
+    expect(o.telemetry?.neverOpenedGameBySeat[1]).toBe(true); // seat 1 never opened
+  });
+
+  it('a first-move round win sets instantRoundWin; unopened losers set tookHundred', () => {
+    const s = baseState(
+      [[c('7', 'hearts')], [c('8', 'spades'), c('9', 'spades')], [c('3', 'clubs'), c('4', 'clubs')]],
+      { currentSeat: 0, starterSeat: 0, turnHasPassed: false },
+    );
+    const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
+    expect(r.roundWinnerSeat).toBe(0);
+    expect(r.telemetry?.instantRoundWinBySeat[0]).toBe(true);
+    // Seats 1 & 2 never opened → they took the flat-100 this round; the winner did not.
+    expect(r.telemetry?.tookHundredBySeat[1]).toBe(true);
+    expect(r.telemetry?.tookHundredBySeat[2]).toBe(true);
+    expect(r.telemetry?.tookHundredBySeat[0]).toBe(false);
+  });
+
+  it('does NOT set instantRoundWin when the turn already passed this round', () => {
+    const s = baseState(
+      [[c('7', 'hearts')], [c('8', 'spades')], [c('3', 'clubs')]],
+      { currentSeat: 0, starterSeat: 0, turnHasPassed: true },
+    );
+    const r = fiftyOneReducer(s, { type: 'DISCARD', card: c('7', 'hearts') }) as FiftyOneState;
+    expect(r.roundWinnerSeat).toBe(0);
+    expect(r.telemetry?.instantRoundWinBySeat[0]).toBe(false);
+  });
+});

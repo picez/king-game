@@ -70,6 +70,24 @@ interface ExistingStats {
   negativeRoundsPlayed: number;
   surrenderedCount: number;
   modeBreakdown: Record<string, ModeAggInternal>;
+  // Stage 37.3 telemetry (all default 0/{} for legacy rows).
+  perfectNegativeRounds: Record<string, number>;
+  trumpSweeps: number;
+  trumpLowTricks: number;
+}
+
+/** Reads a `Record<string, number>` counter map from JSONB, dropping bad entries. */
+function readCountMap(raw: unknown): Record<string, number> {
+  const o = (raw && typeof raw === 'object') ? raw as Record<string, unknown> : {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(o)) if (typeof v === 'number') out[k] = v;
+  return out;
+}
+/** Adds two `Record<string, number>` counter maps key-wise. */
+function addCountMaps(a: Record<string, number>, b: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = (out[k] ?? 0) + v;
+  return out;
 }
 
 /**
@@ -103,6 +121,9 @@ function readStats(raw: unknown): ExistingStats {
     negativeRoundsPlayed: typeof o.negativeRoundsPlayed === 'number' ? o.negativeRoundsPlayed : 0,
     surrenderedCount: typeof o.surrenderedCount === 'number' ? o.surrenderedCount : 0,
     modeBreakdown,
+    perfectNegativeRounds: readCountMap(o.perfectNegativeRounds),
+    trumpSweeps: typeof o.trumpSweeps === 'number' ? o.trumpSweeps : 0,
+    trumpLowTricks: typeof o.trumpLowTricks === 'number' ? o.trumpLowTricks : 0,
   };
 }
 
@@ -115,6 +136,9 @@ function serializeStats(s: ExistingStats): Record<string, unknown> {
     negativeRoundsPlayed: s.negativeRoundsPlayed,
     surrenderedCount: s.surrenderedCount,
     modeBreakdown: s.modeBreakdown,
+    perfectNegativeRounds: s.perfectNegativeRounds,
+    trumpSweeps: s.trumpSweeps,
+    trumpLowTricks: s.trumpLowTricks,
   };
   if (Number.isFinite(s.bestGameScore)) out.bestGameScore = s.bestGameScore;
   if (Number.isFinite(s.worstGameScore)) out.worstGameScore = s.worstGameScore;
@@ -136,6 +160,9 @@ function combineStats(a: ExistingStats, b: ExistingStats): ExistingStats {
     negativeRoundsPlayed: a.negativeRoundsPlayed + b.negativeRoundsPlayed,
     surrenderedCount: a.surrenderedCount + b.surrenderedCount,
     modeBreakdown,
+    perfectNegativeRounds: addCountMaps(a.perfectNegativeRounds, b.perfectNegativeRounds),
+    trumpSweeps: a.trumpSweeps + b.trumpSweeps,
+    trumpLowTricks: a.trumpLowTricks + b.trumpLowTricks,
   };
 }
 
@@ -296,6 +323,9 @@ async function upsertUserStats(
     // Surrenders are not yet in RoundRecord (no rules change) → stays 0.
     surrenderedCount: prev.surrenderedCount,
     modeBreakdown,
+    perfectNegativeRounds: addCountMaps(prev.perfectNegativeRounds, delta.perfectNegativeRounds),
+    trumpSweeps: prev.trumpSweeps + delta.trumpSweeps,
+    trumpLowTricks: prev.trumpLowTricks + delta.trumpLowTricks,
   });
 
   const now = new Date();
@@ -346,6 +376,10 @@ export interface UserStatsView {
   /** False: RoundRecord has no `surrenderedBy` yet (no rules change) → always 0. */
   surrenderedSupported: boolean;
   modeBreakdown: Record<string, ModeStatView>;
+  /** Stage 37.3 telemetry (see ExistingStats). */
+  perfectNegativeRounds: Record<string, number>;
+  trumpSweeps: number;
+  trumpLowTricks: number;
   lastGameAt: string | null;
 }
 
@@ -384,6 +418,9 @@ function toStatsView(
     surrenderedCount: s.surrenderedCount,
     surrenderedSupported: false,
     modeBreakdown,
+    perfectNegativeRounds: s.perfectNegativeRounds,
+    trumpSweeps: s.trumpSweeps,
+    trumpLowTricks: s.trumpLowTricks,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }
@@ -489,7 +526,9 @@ export async function rebuildUserStats(userId: string, gameType = KING): Promise
   }
 
   let roundsPlayed = 0, trumpRoundsPlayed = 0, negativeRoundsPlayed = 0;
+  let trumpSweeps = 0, trumpLowTricks = 0;
   const modeBreakdown: Record<string, ModeAggInternal> = {};
+  const perfectNegativeRounds: Record<string, number> = {};
   const gameIds = [...playerByGame.keys()];
   if (gameIds.length > 0) {
     const rr = await db.select({ gameId: rounds.gameId, modeId: rounds.modeId, scores: rounds.scores })
@@ -497,19 +536,29 @@ export async function rebuildUserStats(userId: string, gameType = KING): Promise
     for (const r of rr) {
       const pid = playerByGame.get(r.gameId);
       if (!pid) continue;
-      const sc = (r.scores as Record<string, number> | null)?.[pid];
+      const all = (r.scores as Record<string, number> | null) ?? null;
+      const sc = all?.[pid];
       if (typeof sc !== 'number') continue;
       roundsPlayed++;
       const mode = r.modeId ?? 'unknown';
       const m = modeBreakdown[mode] ?? { rounds: 0, totalScore: 0 };
       modeBreakdown[mode] = { rounds: m.rounds + 1, totalScore: m.totalScore + sc };
-      if (mode === TRUMP_MODE) trumpRoundsPlayed++; else negativeRoundsPlayed++;
+      const others = all ? Object.entries(all).filter(([id]) => id !== pid).map(([, v]) => v) : [];
+      if (mode === TRUMP_MODE) {
+        trumpRoundsPlayed++;
+        if (sc > 0 && others.length > 0 && others.every((v) => v === 0)) trumpSweeps++;
+        if (others.length > 0 && others.every((v) => sc < v)) trumpLowTricks++;
+      } else {
+        negativeRoundsPlayed++;
+        if (sc === 0) perfectNegativeRounds[mode] = (perfectNegativeRounds[mode] ?? 0) + 1;
+      }
     }
   }
 
   const stats: ExistingStats = {
     totalScore, bestGameScore: best, worstGameScore: worst,
     trumpRoundsPlayed, negativeRoundsPlayed, surrenderedCount: 0, modeBreakdown,
+    perfectNegativeRounds, trumpSweeps, trumpLowTricks,
   };
   const now = new Date();
   const values = {

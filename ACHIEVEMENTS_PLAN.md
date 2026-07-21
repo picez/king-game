@@ -264,12 +264,13 @@ quick-opener/joker-trader, and **Tutorial Graduate** once tutorial completion is
 
 ## 7. Stage 37.0 — grouped UX + honesty audit of the owner's requested badges
 
-**UX (shipped, corrected in Stage 37.2):** the Profile Achievements grid is filtered by a styled chip strip
-— **All · Global · King · Durak · Deberc · Tarneeb · Preferans · 51**, each with an icon + its own
-earned/total. The **All** chip is first and the default; it shows the **full catalog of all 34 badges**
-(earned + locked) in catalog order. Global + each game show just their bucket. (Stage 37.0 had wrongly
-dropped the All chip and opened on Global; 37.2 restored it after owner feedback — see the note below.) The
-strip scrolls **inside itself** (styled scrollbar), so 360/390 + Arabic RTL never overflow the page.
+**UX (Stage 37.0, re-corrected in Stage 37.3):** the Profile Achievements grid is filtered by a styled chip
+strip — **Global · King · Durak · Deberc · Tarneeb · Preferans · 51**, each with an icon + its own
+earned/total. There is **no "All" tab**; the grid opens on **Global** and is browsed one group at a time,
+and the header reports the global **earned / total** across every badge. (Stage 37.2 had briefly re-added a
+combined All chip after mis-reading the owner's ask; Stage 37.3 removed it again — the owner wanted the full
+badge *pack* below implemented, not a combined tab.) The strip scrolls **inside itself** (styled scrollbar),
+so 360/390 + Arabic RTL never overflow the page.
 
 **New badges IMPLEMENTED (derived from EXISTING stats — no new fields, no migration) → catalog 29 → 34:**
 
@@ -281,38 +282,42 @@ strip scrolls **inside itself** (styled scrollbar), so 360/390 + Arabic RTL neve
 | `tarneeb-negative-game` | Tarneeb | `worstGameScore < 0` (finished a game with a negative team total) |
 | `tarneeb-all-bids-down` | Tarneeb | `contractsMade === 0 && contractsFailed >= 3` |
 
-**DEFERRED — the owner's other requests need per-round / per-hand telemetry the aggregate stats do not
-carry today.** Each is listed with the **exact field(s)** a future summarizer would have to record (all
-addable to the JSONB `stats` object without a DB migration, but they are new write-paths + tests, so a
-separate slice):
+## 8. Stage 37.3 — the full owner-requested pack IMPLEMENTED (catalog 34 → 48)
 
-- **King — perfect negative rounds** (finish a no-tricks / no-hearts / no-jacks / no-queens / king-heart /
-  last-two round taking NONE of the penalised cards): needs `perfectNegativeRounds: Record<modeId, count>`
-  (a per-round "scored 0 in a negative mode" counter). *Aggregate `totalScore` can't isolate a single
-  perfect round.*
-- **King — trump round, take all tricks**: needs `trumpSweeps` (per-round: tricks-taken === max).
-- **King — trump round, fewer tricks than a rival (comedy)**: needs per-round tricks-taken vs the field
-  (`trumpLowestCount`), a per-round comparison not kept.
-- **Durak — lose to / win by a "погони" six attack (comedy ×2)**: needs the last bout's card ranks +
-  attacker/loser mapping — `lastAttackAllSixes` + `loserWasYou`/`loserWasThem`. The final state has this;
-  the summarizer does not record it.
-- **Deberc — win without a "бейт"** (term to be confirmed in `DEBERC_RULES.md` before naming): needs a
-  per-game flag (`wonWithoutBete`). **Not implemented — the term must be verified first, not invented.**
-- **Deberc — finish a game with a negative score (comedy)**: needs `worstGameScore` (Deberc stats have no
-  final-score aggregate yet — add `bestGameScore`/`worstGameScore` like Tarneeb).
-- **Deberc — a whole game with NO combination (comedy)**: needs `gamesWithNoMeld` (per-game, not derivable
-  from the cumulative meld totals).
-- **Tarneeb — a game with zero failed contracts**: needs `cleanContractGames` (per-game count; the
-  cumulative `contractsFailed` can't isolate one clean game). *NB: an overall "never failed a contract" is
-  derivable but was intentionally NOT added — it changes the requested per-game semantics.*
-- **Tarneeb — bid 13 and win (epic)**: needs the winning bid value (`maxWinningBid` / a bid histogram) —
-  no bid detail is aggregated.
-- **51 — finish a round on the first move**: needs per-round move count (`instantRoundWins`).
-- **51 — never open (≥51) in a whole game (comedy)**: needs `gamesNeverOpened` (per-game opened flag).
-- **51 — two jokers in one deal**: needs per-hand joker usage (`maxJokersInHand`). *Also note the MVP meld
-  rule caps ONE joker per meld, so this must be counted per-hand, not per-meld.*
-- **51 — never take a 100 (unopened) penalty in a game (comedy)**: needs `gamesWithNoHundred` (a per-round
-  penalty-100 flag folded per game).
+**All fourteen badges the §7 audit had deferred are now shipped with REAL telemetry** — not aggregate
+proxies. Each new field was added to the per-game JSONB `stats` payload (readers default it to `0`/`{}` so
+old accounts stay valid), written from real round/hand/game outcomes on both the local and online reducers'
+shared summarizers, is idempotent on reconnect (finish recording stays `gameKey`-idempotent; the reducer
+accumulators are boolean sets / per-game counters, never double-incremented), and leaks no card/private
+state through the API. **No DB migration.**
 
-**Rarity:** reused the existing `common | uncommon | rare | epic` (no `legendary` tier added). All-Rounder,
-`totalWins`, `totalGames`, and the totals are **unchanged**; every new evaluator is null-safe.
+| id | game | telemetry field(s) | how it's recorded |
+|---|---|---|---|
+| `king-perfect-negatives` | King | `perfectNegativeRounds: Record<mode,count>` | summarizer: a negative-mode round scored exactly 0 (took no penalty card) |
+| `king-trump-sweep` | King | `trumpSweeps` | summarizer: a Trump round where every opponent scored 0 |
+| `king-trump-fewest` | King | `trumpLowTricks` | summarizer: a Trump round with a unique-lowest score |
+| `durak-win-by-sixes` / `durak-lose-to-sixes` | Durak | `wonBySixes` / `lostBySixes` | summarizer: final `lastBout` all-sixes + fool == taker (attacker→win, fool→lose) |
+| `deberc-no-beyt-win` | Deberc | `gamesWonNoBeyt` | summarizer: winner whose team never appears in any hand's `hvTeam` (display «Бейт» = об'яз under-score, DEBERC_RULES §7) |
+| `deberc-negative-final` | Deberc | `bestGameScore`/`worstGameScore` (from `matchScore`) | summarizer: final team match score < 0 |
+| `deberc-no-meld-game` | Deberc | `gamesWithNoMeld` | summarizer: the seat's meld total this match == 0 |
+| `tarneeb-clean-contract-game` | Tarneeb | `cleanContractGames` | summarizer: declared ≥1 and failed 0 this game |
+| `tarneeb-bid-13-win` | Tarneeb | `maxWinningBid` | summarizer: highest bid MADE as declarer (≥ 13) |
+| `fifty-one-instant-round` | 51 | `gamesWithInstantRoundWin` | **reducer**: starter emptied its hand before the turn passed |
+| `fifty-one-never-opened` | 51 | `gamesNeverOpened` | **reducer**: seat never opened (≥51) in any round |
+| `fifty-one-two-jokers` | 51 | `gamesWithTwoJokerDeal` | **reducer**: dealt ≥2 jokers in one round's hand |
+| `fifty-one-no-hundred` | 51 | `gamesWithNoHundred` | **reducer**: seat never took the flat-100 (never-opened) penalty |
+
+**Durak «sixes» semantics** — DURAK_RULES has no named six-attack rule for the supported 2–4p game (the
+«погони»/epaulettes variant is 5–6p, unimplemented), so the condition was confirmed with the owner
+(Stage 37.3): the game finished on an all-sixes attack that the fool TOOK. Nothing was invented.
+
+**Deberc «бейт»** — confirmed in DEBERC_RULES §7: the display label «Бейт» is the об'яз-under-score event,
+stored internally on `hvTeam` (the internal field names are swapped vs the display labels). The badge uses
+`hvTeam`, not the zero-tricks `beitTeams`.
+
+**51 telemetry lives in the game state** — `FiftyOneState.telemetry` (game-level per-seat accumulators) +
+a per-round `turnHasPassed` flag, both optional so legacy persisted states (mid-game reconnect) stay valid.
+The finish summarizer reads them; redaction is unchanged (they are public booleans, no cards).
+
+**Rarity:** reused the existing `common | uncommon | rare | epic`. All-Rounder, `totalWins`, `totalGames`
+and the totals are **unchanged**; every new evaluator is null-safe.

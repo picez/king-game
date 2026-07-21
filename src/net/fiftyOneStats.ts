@@ -30,6 +30,15 @@ export interface FiftyOnePlayerResult {
   finalPenalty: number;
   /** Whether this seat was eliminated (penalty ≥ target). True for all losers. */
   eliminated: boolean;
+  // Stage 37.3 telemetry (from state.telemetry; all false on legacy states).
+  /** Won ≥1 round on the very first move this game. */
+  instantRoundWin: boolean;
+  /** Never opened (≥51) a single round this whole game (comedy). */
+  neverOpenedGame: boolean;
+  /** Was dealt ≥2 jokers in one round's hand this game. */
+  twoJokerDeal: boolean;
+  /** Never took the flat-100 (never-opened) penalty this whole game. */
+  noHundredGame: boolean;
 }
 
 /** Everything the stats layer needs about one finished 51 game. */
@@ -54,6 +63,11 @@ export interface FiftyOneStatDelta {
   finalPenalty: number;
   eliminated: boolean;  // this seat crossed the elimination target
   roundsPlayed: number; // rounds in this match (same for every seat)
+  // Stage 37.3 per-game telemetry booleans (→ 0/1 stat counters).
+  instantRoundWin: boolean;
+  neverOpenedGame: boolean;
+  twoJokerDeal: boolean;
+  noHundredGame: boolean;
 }
 
 /** True only for a finished 51 match. */
@@ -65,17 +79,26 @@ export function isFinishedFiftyOneGame(state: FiftyOneState | null): state is Fi
 export function summarizeFinishedFiftyOneGame(state: FiftyOneState): FiftyOneFinishedSummary {
   const winnerSeat = state.winnerSeat;
   const finalPenalties = state.scoresBySeat.slice(0, state.playerCount);
+  const tel = state.telemetry; // may be undefined on a legacy finished state
 
-  const players: FiftyOnePlayerResult[] = state.players.map((p) => ({
-    seatIndex: p.seatIndex,
-    playerId: p.id,
-    name: p.name,
-    type: p.type === 'ai' ? 'ai' : 'human',
-    avatar: (p as { avatar?: string }).avatar,
-    isWinner: winnerSeat != null && p.seatIndex === winnerSeat,
-    finalPenalty: finalPenalties[p.seatIndex] ?? 0,
-    eliminated: state.eliminatedSeats[p.seatIndex] === true,
-  }));
+  const players: FiftyOnePlayerResult[] = state.players.map((p) => {
+    const seat = p.seatIndex;
+    return {
+      seatIndex: seat,
+      playerId: p.id,
+      name: p.name,
+      type: p.type === 'ai' ? 'ai' : 'human',
+      avatar: (p as { avatar?: string }).avatar,
+      isWinner: winnerSeat != null && seat === winnerSeat,
+      finalPenalty: finalPenalties[seat] ?? 0,
+      eliminated: state.eliminatedSeats[seat] === true,
+      instantRoundWin: tel?.instantRoundWinBySeat[seat] === true,
+      neverOpenedGame: tel?.neverOpenedGameBySeat[seat] === true,
+      twoJokerDeal: tel?.twoJokerDealBySeat[seat] === true,
+      // "No hundred all game" — the seat NEVER took the flat-100 penalty.
+      noHundredGame: tel != null && tel.tookHundredBySeat[seat] !== true,
+    };
+  });
 
   return {
     playerCount: state.playerCount,
@@ -96,6 +119,10 @@ export function computeFiftyOneStatDeltas(summary: FiftyOneFinishedSummary): Fif
     finalPenalty: p.finalPenalty,
     eliminated: p.eliminated,
     roundsPlayed: summary.roundsPlayed,
+    instantRoundWin: p.instantRoundWin,
+    neverOpenedGame: p.neverOpenedGame,
+    twoJokerDeal: p.twoJokerDeal,
+    noHundredGame: p.noHundredGame,
   }));
 }
 
@@ -124,5 +151,10 @@ export interface FiftyOneStatsView {
   totalPenalty: number;            // cumulative final penalty (lower is better)
   averagePenalty: number | null;   // rounded mean final penalty; null when none
   bestPenalty: number | null;      // lowest (best) final penalty across games
+  // Stage 37.3 telemetry counters (games where the thing happened at least once).
+  gamesWithInstantRoundWin: number;
+  gamesNeverOpened: number;
+  gamesWithTwoJokerDeal: number;
+  gamesWithNoHundred: number;
   lastGameAt: string | null;
 }

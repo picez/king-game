@@ -127,3 +127,38 @@ describe('computeStatDeltas', () => {
     expect(d1.trumpRoundsPlayed).toBe(1);
   });
 });
+
+describe('computeStatDeltas — Stage 37.3 telemetry (trump sweep / low / perfect negatives)', () => {
+  const s = finishedState({
+    playerCount: 3,
+    totals: [0, 0, 0],
+    rounds: [
+      // Trump SWEEP by player-0: they scored > 0 while every opponent scored 0.
+      round(1, 'player-0', 'trump', 1, { 'player-0': 80, 'player-1': 0, 'player-2': 0 }),
+      // Trump round with a unique-lowest: player-2 took strictly fewer than both rivals.
+      round(2, 'player-1', 'trump', 2, { 'player-0': 24, 'player-1': 48, 'player-2': 8 }),
+      // Perfect negative rounds: score exactly 0 in a negative mode.
+      round(3, 'player-2', 'no_hearts', 0, { 'player-0': 0, 'player-1': -10, 'player-2': -20 }),
+      round(4, 'player-0', 'no_jacks', 0, { 'player-0': -30, 'player-1': 0, 'player-2': -5 }),
+    ],
+  });
+  const deltas = computeStatDeltas(summarizeFinishedGame(s));
+  const d = (id: string) => deltas.find((x) => x.playerId === id)!;
+
+  it('counts a trump sweep only for the seat that took every trick', () => {
+    expect(d('player-0').trumpSweeps).toBe(1);
+    expect(d('player-1').trumpSweeps).toBe(0);
+    expect(d('player-2').trumpSweeps).toBe(0);
+  });
+  it('counts trump-low only for a unique-lowest trump score (ties do not count)', () => {
+    expect(d('player-2').trumpLowTricks).toBe(1);   // 8 < 24 and 8 < 48
+    // Round 1 had two zeros (a tie for lowest) → neither zero-seat is "fewer than every rival".
+    expect(d('player-1').trumpLowTricks).toBe(0);
+    expect(d('player-0').trumpLowTricks).toBe(0);
+  });
+  it('counts a perfect negative round per mode when the round score is exactly 0', () => {
+    expect(d('player-0').perfectNegativeRounds).toEqual({ no_hearts: 1 });
+    expect(d('player-1').perfectNegativeRounds).toEqual({ no_jacks: 1 });
+    expect(d('player-2').perfectNegativeRounds).toEqual({}); // never scored 0 in a negative round
+  });
+});

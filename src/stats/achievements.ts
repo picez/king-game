@@ -100,7 +100,9 @@ function contractSkill(
   return decided >= minDecided && (s.contractSuccessRate ?? 0) >= pct;
 }
 
-// ── the catalog (34 badges: original 14 + Stage 32.1 (+15) + Stage 37.0 (+5)) ──
+// ── the catalog (48 badges: original 14 + Stage 32.1 (+15) + Stage 37.0 (+5)
+//    + Stage 37.3 (+14, the full owner-requested pack, each backed by real
+//    per-round/per-hand/per-game telemetry — never an aggregate proxy)) ──
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -272,6 +274,102 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'tarneeb-all-bids-down', titleKey: 'ach.tarneebAllBidsDown.title', descriptionKey: 'ach.tarneebAllBidsDown.desc',
     icon: '🤡', gameType: 'tarneeb', rarity: 'uncommon',
     evaluate: (s) => s.tarneeb != null && s.tarneeb.contractsMade === 0 && s.tarneeb.contractsFailed >= 3,
+  },
+
+  // ── Stage 37.3 — the full owner-requested pack (+14) backed by REAL telemetry ──
+  // King
+  {
+    // A perfect (score-0, took no penalised card) round in EVERY one of the six
+    // negative modes — a per-round `perfectNegativeRounds[mode]` counter, not the
+    // aggregate mode total (which can't isolate a single clean round).
+    id: 'king-perfect-negatives', titleKey: 'ach.kingPerfectNegatives.title', descriptionKey: 'ach.kingPerfectNegatives.desc',
+    icon: '😇', gameType: 'king', rarity: 'epic',
+    evaluate: (s) => {
+      const pnr = s.king?.perfectNegativeRounds;
+      return !!pnr && KING_NEGATIVE_MODES.every((m) => (pnr[m] ?? 0) >= 1);
+    },
+  },
+  {
+    // Took EVERY trick in a Trump round (opponents all scored 0) — `trumpSweeps`.
+    id: 'king-trump-sweep', titleKey: 'ach.kingTrumpSweep.title', descriptionKey: 'ach.kingTrumpSweep.desc',
+    icon: '🧹', gameType: 'king', rarity: 'rare',
+    evaluate: (s) => (s.king ? s.king.trumpSweeps : 0) >= 1,
+  },
+  {
+    // Comedy: took strictly FEWER Trump-round tricks than every rival — `trumpLowTricks`.
+    id: 'king-trump-fewest', titleKey: 'ach.kingTrumpFewest.title', descriptionKey: 'ach.kingTrumpFewest.desc',
+    icon: '🐌', gameType: 'king', rarity: 'uncommon',
+    evaluate: (s) => (s.king ? s.king.trumpLowTricks : 0) >= 1,
+  },
+  // Durak
+  {
+    // Comedy: lost as the fool who TOOK an all-sixes finishing attack — `lostBySixes`.
+    id: 'durak-lose-to-sixes', titleKey: 'ach.durakLoseToSixes.title', descriptionKey: 'ach.durakLoseToSixes.desc',
+    icon: '😩', gameType: 'durak', rarity: 'uncommon',
+    evaluate: (s) => (s.durak ? s.durak.lostBySixes : 0) >= 1,
+  },
+  {
+    // Finished the fool off with an all-sixes attack — `wonBySixes`.
+    id: 'durak-win-by-sixes', titleKey: 'ach.durakWinBySixes.title', descriptionKey: 'ach.durakWinBySixes.desc',
+    icon: '💥', gameType: 'durak', rarity: 'rare',
+    evaluate: (s) => (s.durak ? s.durak.wonBySixes : 0) >= 1,
+  },
+  // Deberc
+  {
+    // Won a match without the team EVER taking a «Бейт» (об'яз under-score) mark.
+    id: 'deberc-no-beyt-win', titleKey: 'ach.debercNoBeytWin.title', descriptionKey: 'ach.debercNoBeytWin.desc',
+    icon: '🧿', gameType: 'deberc', rarity: 'rare',
+    evaluate: (s) => (s.deberc ? s.deberc.gamesWonNoBeyt : 0) >= 1,
+  },
+  {
+    // Comedy: finished a match with a NEGATIVE final team score (`worstGameScore < 0`).
+    id: 'deberc-negative-final', titleKey: 'ach.debercNegativeFinal.title', descriptionKey: 'ach.debercNegativeFinal.desc',
+    icon: '🔻', gameType: 'deberc', rarity: 'uncommon',
+    evaluate: (s) => s.deberc != null && s.deberc.worstGameScore != null && s.deberc.worstGameScore < 0,
+  },
+  {
+    // Comedy: a whole match with NO scoring meld at all — `gamesWithNoMeld`.
+    id: 'deberc-no-meld-game', titleKey: 'ach.debercNoMeldGame.title', descriptionKey: 'ach.debercNoMeldGame.desc',
+    icon: '🪹', gameType: 'deberc', rarity: 'uncommon',
+    evaluate: (s) => (s.deberc ? s.deberc.gamesWithNoMeld : 0) >= 1,
+  },
+  // Tarneeb
+  {
+    // A whole game as declarer with ZERO failed contracts — `cleanContractGames`.
+    id: 'tarneeb-clean-contract-game', titleKey: 'ach.tarneebCleanContractGame.title', descriptionKey: 'ach.tarneebCleanContractGame.desc',
+    icon: '🧾', gameType: 'tarneeb', rarity: 'rare',
+    evaluate: (s) => (s.tarneeb ? s.tarneeb.cleanContractGames : 0) >= 1,
+  },
+  {
+    // Bid the maximum 13 and MADE it — `maxWinningBid` (highest bid ever made).
+    id: 'tarneeb-bid-13-win', titleKey: 'ach.tarneebBid13Win.title', descriptionKey: 'ach.tarneebBid13Win.desc',
+    icon: '🗻', gameType: 'tarneeb', rarity: 'epic',
+    evaluate: (s) => (s.tarneeb ? s.tarneeb.maxWinningBid : 0) >= 13,
+  },
+  // 51
+  {
+    // Won a round on the very first move — `gamesWithInstantRoundWin`.
+    id: 'fifty-one-instant-round', titleKey: 'ach.fiftyOneInstantRound.title', descriptionKey: 'ach.fiftyOneInstantRound.desc',
+    icon: '⚡', gameType: 'fifty-one', rarity: 'rare',
+    evaluate: (s) => (s.fiftyOne ? s.fiftyOne.gamesWithInstantRoundWin : 0) >= 1,
+  },
+  {
+    // Comedy: never opened (≥51) a single round in a whole match — `gamesNeverOpened`.
+    id: 'fifty-one-never-opened', titleKey: 'ach.fiftyOneNeverOpened.title', descriptionKey: 'ach.fiftyOneNeverOpened.desc',
+    icon: '🚪', gameType: 'fifty-one', rarity: 'uncommon',
+    evaluate: (s) => (s.fiftyOne ? s.fiftyOne.gamesNeverOpened : 0) >= 1,
+  },
+  {
+    // Was dealt TWO jokers in one round's hand — `gamesWithTwoJokerDeal`.
+    id: 'fifty-one-two-jokers', titleKey: 'ach.fiftyOneTwoJokers.title', descriptionKey: 'ach.fiftyOneTwoJokers.desc',
+    icon: '🃏', gameType: 'fifty-one', rarity: 'uncommon',
+    evaluate: (s) => (s.fiftyOne ? s.fiftyOne.gamesWithTwoJokerDeal : 0) >= 1,
+  },
+  {
+    // A whole match without ever taking the flat-100 (never-opened) penalty.
+    id: 'fifty-one-no-hundred', titleKey: 'ach.fiftyOneNoHundred.title', descriptionKey: 'ach.fiftyOneNoHundred.desc',
+    icon: '🧼', gameType: 'fifty-one', rarity: 'rare',
+    evaluate: (s) => (s.fiftyOne ? s.fiftyOne.gamesWithNoHundred : 0) >= 1,
   },
 ] as const;
 
