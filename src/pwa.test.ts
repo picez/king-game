@@ -121,7 +121,7 @@ describe('Android TWA readiness (Stage 33.1) — Digital Asset Links', () => {
   });
 });
 
-describe('Android TWA scaffold (Stage 33.2/33.3) — twa-manifest + repo hygiene', () => {
+describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hygiene', () => {
   const TWA_DIR = join(process.cwd(), 'android-twa');
   const twa = JSON.parse(readFileSync(join(TWA_DIR, 'twa-manifest.json'), 'utf8'));
   const manifest = JSON.parse(readFileSync(join(process.cwd(), 'public', 'manifest.webmanifest'), 'utf8'));
@@ -182,9 +182,34 @@ describe('Android TWA scaffold (Stage 33.2/33.3) — twa-manifest + repo hygiene
       'android-twa/check-env.ps1',
       'android-twa/.gitignore',
       'android-twa/README.md',
+      'android-twa/BUILD_LOG_TEMPLATE.md',
     ]) {
       expect(tracked, `${expected} should be committed`).toContain(expected);
     }
+  });
+
+  it('README documents the CORRECT bubblewrap init (web-manifest URL via @bubblewrap/cli)', () => {
+    const readme = readFileSync(join(TWA_DIR, 'README.md'), 'utf8');
+    expect(readme).toContain('@bubblewrap/cli');
+    expect(readme).toMatch(/init --manifest https:\/\/king-game-cqgd\.onrender\.com\/manifest\.webmanifest/);
+    // The bare `npx bubblewrap init` resolves an unrelated package — must never be an instruction.
+    expect(readme).not.toMatch(/npx bubblewrap init/);
+  });
+
+  it('README never tells the owner to commit an APK/AAB/keystore', () => {
+    const readme = readFileSync(join(TWA_DIR, 'README.md'), 'utf8');
+    expect(readme).not.toMatch(/git add[^\n]*\.(apk|aab|keystore|jks)/i);
+    expect(readme).toMatch(/never\b[^\n]*commit|not committed|git-ignored/i);
+  });
+
+  it('ships the owner build-log template (Stage 33.8) for pasting real logs back', () => {
+    const tpl = join(TWA_DIR, 'BUILD_LOG_TEMPLATE.md');
+    expect(existsSync(tpl), 'BUILD_LOG_TEMPLATE.md should exist').toBe(true);
+    const body = readFileSync(tpl, 'utf8');
+    // It must ask for the key artefacts to triage, but never for a committed binary.
+    expect(body).toMatch(/check-env/);
+    expect(body).toMatch(/assembleDebug/);
+    expect(body).toMatch(/Custom Tab/);
   });
 });
 

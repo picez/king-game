@@ -1,8 +1,11 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
 > **STATUS: DESIGNED (33.0); READINESS (33.1); SCAFFOLD (33.2); BUILD RUNBOOK (33.3); iOS DECISION (33.5);
-> iOS PWA HARDENING (33.6) DONE; BUILD TRIAGE (33.4) — awaiting owner logs.** Stages 33.0–33.6 shipped as
-> the **v0.4.2 "mobile app readiness"** patch (docs + the web-only iOS install hint; no native app built).
+> iOS PWA HARDENING (33.6) DONE; BUILD TRIAGE (33.4) + OWNER-BUILD TRIAGE HARDENING (33.7) — awaiting owner
+> logs.** Stages 33.0–33.6 shipped as the **v0.4.2 "mobile app readiness"** patch (docs + the web-only iOS
+> install hint; no native app built). Stage 33.7 hardened the owner-run Android build path (a paste-in
+> `BUILD_LOG_TEMPLATE.md`, README known-states + troubleshooting tables, `check-env.ps1` config-sanity
+> checks, guards) — still **no native build** in-repo; the owner runs it and pastes logs back.
 > This document chooses a path to **Android and iOS apps** for Card Majlis
 > and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
 > Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
@@ -79,7 +82,7 @@ cookies, and mic permissions** the TWA gets for free.
 | **33.4 — Android build triage** ✅ | **DONE (docs harden).** Corrected `bubblewrap init --manifest` to take the **Web App Manifest URL** (verified vs the CLI reference), flagged `npx @bubblewrap/cli`, added a `webManifestUrl` guard. Awaiting owner build logs to triage real failures. | docs + one guard; no build run |
 | **33.5 — iOS decision / design** ✅ | **DONE (this section §8).** Audit iOS PWA-only vs Capacitor WKWebView vs native rewrite vs defer; **recommend iOS PWA-only now**, defer any App Store wrapper until Android TWA is proven + a custom domain + store assets exist. Compatibility matrix, hardening checklist, store prerequisites. **No native project.** | design/docs only |
 | **33.6 — iOS PWA hardening** ✅ | **DONE.** Added a non-intrusive **iOS A2HS hint** (menu-only, iOS-only, not-installed, dismissible, separate key, in-game–suppressed, no fake button) — pure `shouldOfferIosHint`/`detectIos` + `PwaBanners` UI + i18n ×4 + tests. The rest of the meta/safe-area was already shipping (§8d). **No native, no dependency.** | no native, no App Store |
-| **33.7 — Android debug / internal test** | After the owner's `check-env`/build logs: generate the Gradle project + **debug** APK, run the on-device smoke; then a **signed AAB** on the Play internal track. | internal testing track only |
+| **33.7 — Android debug / internal test** ⏳ | **Owner-run triage hardening DONE (repo side); build still owner-run.** Added `android-twa/BUILD_LOG_TEMPLATE.md` (paste-in log format), a **Known-expected-launch-states** table + a **Troubleshooting** table in the README (wrong npx package / wrong `--manifest` / Java 8 / SDK / licenses / DAL-not-verified / mic / OAuth redirect), read-only **config-sanity** checks in `check-env.ps1` (packageId / webManifestUrl / README uses `@bubblewrap/cli` / no wrong `npx bubblewrap init`), and repo guard tests. **Remaining (owner):** generate the Gradle project + **debug** APK, install, fill the log template; then a **signed AAB** on the Play internal track. **No** generated project/APK/AAB/keystore committed. | runbook + triage + guards in repo; owner runs the build |
 | **33.8 — iOS native wrapper decision** | **Only after Android is validated.** Decide Capacitor/WKWebView vs stay PWA-only; if building, require **external-browser OAuth** (`ASWebAuthenticationSession`) + mic permission + a Guideline 4.2 plan. | decision doc; build only if it clears the risk |
 | **Future — Capacitor spike / push** | A Capacitor iOS spike if the owner still wants the App Store; Web Push (Android/Chrome) or native push; splash/share-sheet polish. | opt-in, post-MVP |
 

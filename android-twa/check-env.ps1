@@ -78,6 +78,7 @@ else {
 
 # --- twa-manifest.json sanity (read-only) ---
 $manifestPath = Join-Path $PSScriptRoot 'twa-manifest.json'
+$twa = $null
 if (Test-Path $manifestPath) {
   try {
     $twa = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
@@ -86,6 +87,25 @@ if (Test-Path $manifestPath) {
   catch { Write-Result FAIL 'twa-manifest' "invalid JSON: $($_.Exception.Message)" }
 }
 else { Write-Result FAIL 'twa-manifest' "missing $manifestPath" }
+
+# --- Repo config sanity (read-only; catches config/README drift before a build) ---
+if ($twa) {
+  if ($twa.packageId -eq 'com.cardmajlis.app') { Write-Result PASS 'packageId' $twa.packageId }
+  else { Write-Result WARN 'packageId' "expected com.cardmajlis.app, got '$($twa.packageId)'" }
+
+  $expectedWm = "https://$($twa.host)/manifest.webmanifest"
+  if ($twa.host -and $twa.webManifestUrl -eq $expectedWm) { Write-Result PASS 'webManifestUrl' $twa.webManifestUrl }
+  else { Write-Result WARN 'webManifestUrl' "expected $expectedWm, got '$($twa.webManifestUrl)'" }
+}
+
+$readmePath = Join-Path $PSScriptRoot 'README.md'
+if (Test-Path $readmePath) {
+  $readme = Get-Content -Raw -Path $readmePath
+  # The correct init uses @bubblewrap/cli; the bare `npx bubblewrap init` is the wrong package.
+  if ($readme -match '@bubblewrap/cli') { Write-Result PASS 'README cmd' 'uses @bubblewrap/cli' }
+  else { Write-Result WARN 'README cmd' 'missing @bubblewrap/cli reference' }
+  if ($readme -match 'npx bubblewrap init') { Write-Result FAIL 'README cmd' 'contains wrong "npx bubblewrap init" (use @bubblewrap/cli)' }
+}
 
 # --- Summary ---
 Write-Host '-------------------------------------------------------'

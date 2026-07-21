@@ -9,7 +9,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Docs
+
+- **Android TWA owner-build triage hardening (Stage 33.8).** Made the owner-run Android **debug** build
+  as fail-safe as possible without building anything in-repo: a paste-in
+  [`android-twa/BUILD_LOG_TEMPLATE.md`](android-twa/BUILD_LOG_TEMPLATE.md) (check-env → `bubblewrap init` →
+  Gradle → `adb`, plus a full-screen-vs-Custom-Tab observation), a **Known-expected-launch-states** table
+  and a **Troubleshooting** table in the README (wrong `npx` package, wrong `--manifest` target, Java 8,
+  missing Android SDK, unaccepted licenses, blocked Gradle download, no adb device, DAL-not-verified,
+  microphone, Google OAuth redirect), read-only **config-sanity** checks added to `check-env.ps1`
+  (packageId / `webManifestUrl` / README uses `@bubblewrap/cli` / no wrong `npx bubblewrap init`), and new
+  `src/pwa.test.ts` guards (correct init command, no wrong command, never instructs to commit
+  APK/AAB/keystore, the template exists). No owner build logs were available, so **no native build,
+  APK/AAB, keystore, or generated Gradle project** was produced or committed; no dependency, no version
+  bump. iOS is unaffected.
 
 ## [0.4.2] — 2026-07-21 — Mobile app readiness
 

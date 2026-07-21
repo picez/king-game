@@ -1,4 +1,4 @@
-# Card Majlis — Android TWA build runbook (Stage 33.2 scaffold · 33.3 runbook)
+# Card Majlis — Android TWA build runbook (Stage 33.2 scaffold · 33.3 runbook · 33.8 triage)
 
 This folder holds the **Trusted Web Activity (TWA)** wrapper config for the Android app.
 A TWA is a thin Android shell that opens the **deployed production PWA** in a Chrome-backed,
@@ -23,6 +23,7 @@ truth (see [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md)).
 | `twa-manifest.json` | **Bubblewrap config** (source of truth for the wrapper): package id, host, name, colors, icons, orientation. Hand-authored to match `public/manifest.webmanifest`. Edit **this**, then `bubblewrap update`. |
 | `check-env.ps1` | **Read-only** toolchain check (JDK 17+, Android SDK, adb, node/npm, Bubblewrap, manifest JSON). Installs/downloads/writes nothing. Prints `PASS`/`WARN`/`FAIL`; exits `1` on any hard failure. |
 | `.gitignore` | Keeps the **generated** Android project, build outputs (`*.apk`/`*.aab`/`build/`/`.gradle/`), and **keystores** out of git. |
+| `BUILD_LOG_TEMPLATE.md` | Paste-in template for the **owner's** real build logs (`check-env` → `bubblewrap init` → Gradle → `adb`) so repo/config issues can be triaged (Stage 33.8). Text logs only — never commit generated projects/APKs/keystores. |
 | `README.md` | This file. |
 
 Everything else (the `app/` module, `gradlew`, `build.gradle`, `android.keystore`, `*.apk`,
@@ -149,11 +150,13 @@ adb devices                     # confirm the device is listed
 adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 ```
 
-### 6. Open the app and run the smoke
+### 6. Open the app, run the smoke, and record the log
 
 Launch **Card Majlis** from the launcher and work through the on-device checklist in
 [`../QA_CHECKLIST.md`](../QA_CHECKLIST.md) ("Manual — PWA / mobile → Android TWA first run") and
-[`../PRODUCTION_SMOKE.md`](../PRODUCTION_SMOKE.md) §10b.
+[`../PRODUCTION_SMOKE.md`](../PRODUCTION_SMOKE.md) §10b. Capture the outputs of steps 2–5 (and how the app
+opened — full-screen vs Custom Tab) into [`BUILD_LOG_TEMPLATE.md`](BUILD_LOG_TEMPLATE.md) and hand it back
+so any repo/config issue can be triaged (see **Build log + triage** below).
 
 ---
 
@@ -199,6 +202,39 @@ The repo keeps **only** `assetlinks.example.json` (a placeholder). The real
 See [`../MOBILE_APP_PLAN.md`](../MOBILE_APP_PLAN.md) §6a.
 
 ---
+
+## Build log + triage (Stage 33.8)
+
+The agent's environment can't run the toolchain, so the **owner runs the build** and pastes the logs.
+Copy [`BUILD_LOG_TEMPLATE.md`](BUILD_LOG_TEMPLATE.md), fill each block with the **real output**
+(`check-env` → `bubblewrap init` → `gradlew.bat assembleDebug` → `adb`), note whether the app opened
+full-screen or as a Custom Tab, and hand it back. Only **repo/config** issues get fixed in-repo;
+machine-setup issues (JDK, SDK, licenses, adb, Play Console) are the owner's to resolve — the table below
+tells them apart.
+
+### Known expected launch states
+
+| What you see on first launch | Meaning | Action |
+|---|---|---|
+| **Full-screen, no address bar** | Digital Asset Links **verified** — the served `assetlinks.json` SHA-256 matches the APK's signing cert. | Done — this is the goal. |
+| **Custom Tab with a URL/address bar** | **Expected for a debug build.** The debug keystore's SHA-256 doesn't match any hosted `assetlinks.json` (there's none in the repo yet). | Normal. Full-screen needs a real `assetlinks.json` from **Play App Signing** (see the Asset Links section). |
+| App opens a **plain browser**, not the app | App-links not verified for this origin, or `assetlinks.json` served with a redirect / wrong content-type / 404. | Verify the file at `https://<host>/.well-known/assetlinks.json` (200, `application/json`, no redirect). |
+| **Play SHA ≠ debug/upload SHA** | Three different certs exist: debug (local), upload (your key), and Play App-Signing (Google's). Only the **Play App-Signing** SHA belongs in the production `assetlinks.json`. | Copy the SHA from Play Console → App integrity → App signing (**not** the upload/debug key). |
+
+### Troubleshooting (owner)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `npx bubblewrap` installs the wrong thing / command not found | Bare `bubblewrap` resolves an **unrelated** npm package. | Use **`npx @bubblewrap/cli@latest …`** or `npm i -g @bubblewrap/cli`. |
+| `init` overwrites/ignores your config, or errors on the manifest | `--manifest` was pointed at `twa-manifest.json`. | `--manifest` takes the **Web App Manifest URL** (`https://…/manifest.webmanifest`). `init` *writes* a twa-manifest; `build`/`update` *read* it. |
+| Gradle: "Unsupported class file major version" / build fails immediately | **Java 8/11** on PATH (this repo's env had Java 8). | Install **JDK 17+** (Temurin/Zulu or Android Studio JBR); re-run `.\check-env.ps1` until JDK = PASS. |
+| `SDK location not found` / `ANDROID_HOME` errors | Android SDK missing or env var unset. | Install via Android Studio, or let `bubblewrap init` provision one; set `ANDROID_HOME`. |
+| Gradle stops on "You have not accepted the license agreements" | SDK licenses not accepted. | `sdkmanager --licenses` (accept all), then rebuild. |
+| Gradle hangs / fails downloading dependencies | Network/proxy blocks the Gradle or Maven download. | Retry on an open network / configure the proxy; this is environment, not repo. |
+| `adb: no devices/emulators found` | Device not connected or USB debugging off. | Enable **Developer options → USB debugging**, reconnect, `adb devices`. |
+| App opens as a browser tab, not full-screen | Digital Asset Links not verified (see the table above). | Expected for debug; for release host the real `assetlinks.json` with the Play SHA. |
+| No **microphone** prompt / voice fails | Mic permission not granted, or strict-NAT without TURN. | TWA inherits Chrome's mic prompt on voice-join; cross-network needs a **TURN** relay (`VOICE_ICE_SERVERS`). |
+| **Google login** 400 / `redirect_uri_mismatch` | The launch origin isn't in the OAuth client's authorized redirect URIs. | Add `https://<host>/auth/callback` to the Google OAuth client (and the origin to JavaScript origins). See [`../RENDER_DEPLOY.md`](../RENDER_DEPLOY.md). |
 
 ## Signing & secrets
 

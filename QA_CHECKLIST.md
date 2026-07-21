@@ -904,12 +904,23 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > until the 33.4 decision.
 >
 > **Scaffold hygiene (checkable now, no device — guarded by `src/pwa.test.ts`):**
-> - [ ] `git ls-files android-twa` → only `twa-manifest.json`, `check-env.ps1`, `.gitignore`, `README.md`
->       (no `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`).
+> - [ ] `git ls-files android-twa` → only `twa-manifest.json`, `check-env.ps1`, `.gitignore`, `README.md`,
+>       `BUILD_LOG_TEMPLATE.md` (no `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`).
 > - [ ] `twa-manifest.json` `packageId` = `com.cardmajlis.app`; `host`/`startUrl`/theme `#0d4f28`/
 >       `standalone`/`portrait`/icons match `public/manifest.webmanifest` + `assetlinks.example.json`.
-> - [ ] `android-twa\check-env.ps1` runs read-only and reports JDK/SDK/adb/node/npm/Bubblewrap; JDK must
->       be **PASS** (17+) before building.
+> - [ ] `android-twa\check-env.ps1` runs read-only and reports JDK/SDK/adb/node/npm/Bubblewrap **plus
+>       config-sanity** (packageId / webManifestUrl / README uses `@bubblewrap/cli`, no wrong `npx
+>       bubblewrap init`); JDK must be **PASS** (17+) before building.
+>
+> **Owner build-log capture (Stage 33.8 — hand back for triage):** after running the build, fill
+> [`android-twa/BUILD_LOG_TEMPLATE.md`](android-twa/BUILD_LOG_TEMPLATE.md) and paste it back:
+> - [ ] `.\check-env.ps1` full output (PASS/WARN/FAIL + READY line).
+> - [ ] `bubblewrap init` output (correct **web-manifest URL** command; prompt answers).
+> - [ ] `.\gradlew.bat assembleDebug` output (BUILD SUCCESSFUL/FAILED + APK path).
+> - [ ] `adb devices` + `adb install -r …` output.
+> - [ ] **How it opened:** full-screen (DAL verified) vs **Custom Tab URL bar** (expected for debug) vs
+>       generic WebView/crash (real issue). See the README **Known-expected-launch-states** table.
+> - [ ] Only **text logs** are shared — **no** APK/AAB/keystore or generated Gradle project committed.
 >
 > **Android TWA first run (after a 33.3 debug build — `.\check-env.ps1` → `bubblewrap init --manifest
 > https://king-game-cqgd.onrender.com/manifest.webmanifest` (the **web** manifest URL, not
