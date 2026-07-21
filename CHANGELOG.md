@@ -11,6 +11,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Resume your game from another device (Stage 36.1).** The main menu now shows a **"Your active rooms"**
+  block to a **signed-in** player, listing the rooms **their own account** has a seat in (game, code,
+  Lobby/In game, player count, "updated N ago"). Tapping one **reclaims that seat** — server-matched by the
+  account (userId), no reconnect token needed — so a game (or a lobby with bots) started on one device can
+  be resumed on another. It shows only your **own** rooms (privacy-safe discovery — no tokens/hands/other
+  identities), never appears for guests or an empty list, and does **not** duplicate this device's local
+  Resume card. Refreshed on opening the menu / after sign-in / a Refresh button — not polled. Completes the
+  server-authoritative reclaim from Stage 36.0. English, Ukrainian, German, Arabic.
 - **Achievements by game (Stage 36.0).** The Profile **Achievements** grid gains a compact **filter
   strip** — **All · Global · King · Durak · Deberc · Tarneeb · Preferans · 51** — each chip showing its own
   **earned/total**, so 29 badges are browsable per game instead of one long wall. Purely a UI grouping

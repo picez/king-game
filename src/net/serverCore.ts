@@ -440,8 +440,18 @@ export function reclaimMemberByUserId(room: ServerRoom, userId: string | null | 
   return member;
 }
 
-/** A privacy-safe pointer to a room the caller has a seat in (no token/hand/others). */
-export interface UserRoomRef { code: string; gameType: GameType; started: boolean }
+/** A privacy-safe pointer to a room the caller has a seat in — enough to render a
+ *  "resume your game?" card (code, game, lobby/in-game, seat COUNT, last activity),
+ *  but NEVER any hand, game state, reconnect token, or another player's identity. */
+export interface UserRoomRef {
+  code: string;
+  gameType: GameType;
+  started: boolean;
+  /** Number of seated members (humans + bots) — a count only, no names/identities. */
+  players: number;
+  /** Room's last-activity epoch ms (for a relative "updated Ns ago" label). */
+  updatedAt: number;
+}
 
 /**
  * Stage 36.0 — the rooms where `userId` holds a human seat, for cross-device
@@ -457,7 +467,13 @@ export function findUserRoomCodes(
   const out: UserRoomRef[] = [];
   for (const room of rooms) {
     if ([...room.members.values()].some((m) => m.type === 'human' && m.userId === userId)) {
-      out.push({ code: room.code, gameType: room.gameType ?? DEFAULT_GAME_TYPE, started: room.started });
+      out.push({
+        code: room.code,
+        gameType: room.gameType ?? DEFAULT_GAME_TYPE,
+        started: room.started,
+        players: room.members.size,
+        updatedAt: room.updatedAt,
+      });
     }
   }
   return out;

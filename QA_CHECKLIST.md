@@ -418,10 +418,17 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] **Bot game survives a reload for ~5 min:** start an online room with **bots**, then
       close/reload the tab. Within **5 minutes** the room still exists → **Resume** returns you to your
       seat mid-game (was 90 s; `ORPHAN_ROOM_TTL_MS` overrides). After 5 min of no humans it's swept.
-- [ ] **Same account, second device:** signed in on device A in a room; on device B (same Google account)
-      the server can match your seat by **userId** — a `RECLAIM_ROOM` for that room code takes over your
-      seat (fresh token issued to B; A is dropped). A **different** account gets **no** seat. Guests can't
-      reclaim. `FIND_MY_ROOMS` lists only your own rooms (codes + game type + started — no tokens/hands).
+- [ ] **Same account, second device (UI, Stage 36.1):** on **device A** (signed in) start a game — e.g. a
+      **51/King room with bots** — and play a turn. On **device B**, sign in with the **same account** and
+      open the **main menu** → a **"Your active rooms"** block lists that room (game · code · **In game** ·
+      players · updated). **Tap it** → you land in the **same game/seat** (the board + your hand restored);
+      device A is dropped. A **different** account sees **no** such block; a **guest** sees none; an empty
+      account sees none. The block shows **only your own** rooms — no other players' rooms, no
+      tokens/hands. It doesn't duplicate device A's own local **Resume** card.
+- [ ] **Old device doesn't disconnect the new one:** after B reclaims, closing A's tab does **not** knock B
+      offline (the race guard — B stays connected and playing).
+- [ ] **Expired room:** if the room was swept before you tap Resume, you get a normal "room not found"
+      error and returning to the menu refreshes the list (the stale room drops).
 - [ ] **Reconnect race:** with a flaky mobile connection (background/foreground), a stale socket's late
       close does **not** knock the freshly-reconnected client offline (the seat stays connected).
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { useRoomList } from '../hooks/useRoomList';
+import { useMyRooms } from '../hooks/useMyRooms';
 import type { RoomSummary } from '../net/messages';
 import {
   filterRooms, sortRooms, countRoomsByGame, roomListAgo, ROOM_SORTS,
@@ -106,6 +107,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
 
   const account = useAccount(url, customServer);
   const roomList = useRoomList();
+  const myRooms = useMyRooms(); // same-user cross-device discovery (Stage 36.1)
   // App-level presence (Stage 25.7): keeps a signed-in user "online" at the menu and drives
   // the incoming-request badge + a friend room-invite toast. Idle for guests.
   const presence = usePresence(url, account.base, account.signedIn);
@@ -194,6 +196,15 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
     return () => clearInterval(id);
   }, [pane]);
 
+  // Same-user discovery (Stage 36.1): when the menu is shown to a SIGNED-IN user, ask
+  // the server (once) which rooms THIS account has a seat in, so a second device can
+  // offer "Resume your game". Not polled — refreshed on entering the menu / after
+  // login / a manual Refresh. Guests + an empty list render nothing.
+  useEffect(() => {
+    if (pane === 'menu' && account.signedIn && url.trim()) myRooms.refresh(url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pane, account.signedIn, url]);
+
   function resume() {
     if (!resumable) return;
     onOnlineWithAuth(resumable.serverUrl, {
@@ -202,6 +213,14 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
     });
   }
   function forgetResumable() { clearSession(); setResumable(null); }
+
+  /** Cross-device resume (Stage 36.1): reclaim MY own seat in `code` by userId — no
+   *  token needed. An expired room surfaces the normal error on connect; returning to
+   *  the menu re-runs discovery and drops it from the list. */
+  function reclaimRoom(code: string) {
+    if (!url.trim()) return;
+    onOnlineWithAuth(url.trim(), { kind: 'reclaim', code });
+  }
 
   function host() {
     if (!name.trim() || !url.trim()) return;
@@ -327,6 +346,44 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 <span className="continue-card__go" aria-hidden="true">▶</span>
               </button>
               <button className="link-btn" onClick={forgetResumable}>{t('menu.forget')}</button>
+            </div>
+          )}
+
+          {/* Same-user cross-device resume (Stage 36.1): the SIGNED-IN account's own
+              active rooms (server-matched by userId). The local resume card above
+              already covers this device's saved room, so it is excluded here to avoid
+              a duplicate. Guests / empty list → nothing renders. */}
+          {account.signedIn && myRooms.rooms.some((r) => r.code !== resumable?.roomCode) && (
+            <div className="continue-block myrooms-block">
+              <div className="myrooms-block__head">
+                <span className="myrooms-block__title">{t('menu.myRooms.title')}</span>
+                <button className="link-btn" onClick={() => myRooms.refresh(url)} disabled={myRooms.loading}>
+                  {t('btn.refresh')}
+                </button>
+              </div>
+              {myRooms.rooms.filter((r) => r.code !== resumable?.roomCode).map((r) => {
+                const rago = roomListAgo(r.updatedAt, nowTick);
+                const agoLabel = rago.state === 'ago'
+                  ? t('join.updatedAgo').replace('{n}', rago.unit)
+                  : t('join.updatedJustNow');
+                return (
+                  <button key={r.code} className="continue-card myroom-card" data-myroom={r.code} onClick={() => reclaimRoom(r.code)}>
+                    <span className="continue-card__icon" aria-hidden="true">↩</span>
+                    <span className="continue-card__text">
+                      <span className="continue-card__title">
+                        {t(GAME_CATALOG[r.gameType].titleKey)} · {r.code}{' '}
+                        <span className={`myroom-card__status ${r.started ? 'myroom-card__status--game' : ''}`}>
+                          {r.started ? t('menu.myRooms.inGame') : t('menu.myRooms.lobby')}
+                        </span>
+                      </span>
+                      <span className="continue-card__detail">
+                        {t('menu.myRooms.players').replace('{n}', String(r.players))} · {agoLabel}
+                      </span>
+                    </span>
+                    <span className="continue-card__go" aria-hidden="true">▶</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 

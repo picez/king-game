@@ -439,6 +439,11 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] Opening that link in a second tab prefills the Join sheet with the code (does **not**
       auto-join); joining works.
 - [ ] **Leave lobby** before start frees the seat.
+- [ ] **Resume from another device (Stage 36.1):** signed in on one device in a room (a game with **bots**
+      counts), sign in with the **same account** on a second device → the menu's **"Your active rooms"**
+      block lists that room → tapping it **restores the same seat/game**; the first device is dropped and
+      does **not** knock the second offline. Shows **only your own** rooms (no others', no tokens/hands);
+      a guest / empty account sees no block.
 
 ## 7. Stats / leaderboard (needs Postgres + migrations)
 

@@ -503,6 +503,20 @@
 .link-btn { align-self: center; background: none; border: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 0.2rem 0.4rem; }
 .link-btn:hover { color: var(--text); }
 
+/* Same-user cross-device "your active rooms" block (Stage 36.1). A quieter variant of
+   the gold resume card, stacked; each card reclaims that room by userId. RTL-safe. */
+.myrooms-block__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.myrooms-block__title { font-size: 0.82rem; font-weight: 700; color: var(--text-muted); }
+.myrooms-block .myroom-card {
+  background: var(--panel); color: var(--text); border: 1px solid var(--border);
+}
+.myroom-card__status {
+  display: inline-block; margin-inline-start: 0.4rem; padding: 0.05rem 0.4rem;
+  border-radius: 999px; font-size: 0.7rem; font-weight: 700;
+  background: rgba(255, 255, 255, 0.12); color: var(--text-muted);
+}
+.myroom-card__status--game { background: rgba(250, 204, 21, 0.24); color: var(--accent, #f5c518); }
+
 .action-tiles { display: flex; flex-direction: column; gap: 0.7rem; }
 .tile {
   display: flex; align-items: center; gap: 0.85rem; width: 100%;

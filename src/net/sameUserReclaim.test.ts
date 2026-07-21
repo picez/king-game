@@ -46,7 +46,7 @@ describe('reclaimMemberByUserId (same-user cross-device)', () => {
 });
 
 describe('findUserRoomCodes (discovery — privacy-safe)', () => {
-  it('returns only code/gameType/started for rooms where the user has a seat', () => {
+  it('returns privacy-safe refs (code/game/started/players/updatedAt) for the user\'s rooms', () => {
     const r1 = room('R1'); r1.members.get('host')!.userId = 'u1'; r1.started = true;
     const r2 = room('R2'); // no u1 seat
     const r3 = room('R3'); addMember(r3, { clientId: 'c2', reconnectToken: id(), name: 'X' });
@@ -54,9 +54,14 @@ describe('findUserRoomCodes (discovery — privacy-safe)', () => {
     const refs = findUserRoomCodes([r1, r2, r3], 'u1');
     expect(refs.map((x) => x.code).sort()).toEqual(['R1', 'R3']);
     const one = refs.find((x) => x.code === 'R1')!;
-    expect(one).toEqual({ code: 'R1', gameType: r1.gameType, started: true });
-    // No tokens / hands / other identities ever leak in a discovery ref.
-    expect(Object.keys(one).sort()).toEqual(['code', 'gameType', 'started']);
+    expect(one).toMatchObject({ code: 'R1', gameType: r1.gameType, started: true, players: r1.members.size });
+    expect(typeof one.updatedAt).toBe('number');
+    // ONLY these non-sensitive fields — never tokens, hands, gameState, or names.
+    expect(Object.keys(one).sort()).toEqual(['code', 'gameType', 'players', 'started', 'updatedAt']);
+    const s = JSON.stringify(refs);
+    for (const leak of ['reconnectToken', 'hand', 'gameState', 'userId', 'password']) {
+      expect(s).not.toMatch(new RegExp(leak, 'i'));
+    }
   });
 
   it('a guest (null/blank userId) discovers nothing', () => {

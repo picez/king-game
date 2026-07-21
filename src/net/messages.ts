@@ -237,8 +237,9 @@ export type ServerMessage =
   /** Reply to LIST_ROOMS — public summaries only. */
   | { t: 'ROOMS_LIST'; rooms: RoomSummary[] }
   /** Reply to FIND_MY_ROOMS (Stage 36.0) — the signed-in caller's OWN active rooms,
-   *  privacy-safe (no tokens/hands/other identities), for a "rejoin your game?" prompt. */
-  | { t: 'MY_ROOMS'; rooms: { code: RoomCode; gameType: GameType; started: boolean }[] }
+   *  privacy-safe (code, game, lobby/in-game, seat COUNT, last activity — NO tokens,
+   *  hands, game state, or other identities), for a "resume your game?" prompt. */
+  | { t: 'MY_ROOMS'; rooms: { code: RoomCode; gameType: GameType; started: boolean; players: number; updatedAt: number }[] }
   /**
    * Authoritative game state. `state` is already redacted for the recipient
    * (only their own hand is populated) — see `redactStateFor`.
