@@ -9,6 +9,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.4.4] — 2026-07-21 — Production readiness audit
+
+> A **docs-only** patch packaging the Stage 34.0 pre-live audit. **No** gameplay, DB migration (latest
+> stays `0009`), dependency, native artifact, or runtime change — it fixes current-state doc/comment drift
+> and fills a security-wording gap so the repo is ready for the owner's live production smoke.
+
 ### Docs
 
 - **Final production-readiness audit (Stage 34.0).** A pre-live-testing repo audit for **v0.4.3** —

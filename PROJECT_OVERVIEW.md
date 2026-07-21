@@ -4,11 +4,13 @@ A concise "what this is and how it fits together" for the whole project. For the
 running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.3** — mobile app build readiness: a **docs + tooling** patch packaging Stages
-> 33.8–33.10 (the owner-run Android **TWA** build path hardened with a paste-in build-log template + a
-> read-only build-log **triage helper** + the production **Asset Links + custom-domain** runbook) — no
-> native app built or submitted, no APK/AAB/keystore, no real `assetlinks.json`, no dependency, no DB
-> migration. On the **v0.4.2** mobile app readiness: a **docs + PWA** patch packaging Stages 33.0–33.6 (the
+> **Release:** **v0.4.4** — production readiness audit: a **docs-only** patch packaging the Stage 34.0
+> pre-live audit (fixed current-state doc/comment drift — 51 is a fully released game, not "Experimental" —
+> and added security/privacy spot-checks to `PRODUCTION_SMOKE.md` §11) — no gameplay/DB/dependency/
+> native-artifact/runtime change. On the **v0.4.3** mobile app build readiness: a **docs + tooling** patch
+> packaging Stages 33.8–33.10 (the owner-run Android **TWA** build path hardened with a build-log template +
+> a read-only build-log **triage helper** + the production **Asset Links + custom-domain** runbook). On the
+> **v0.4.2** mobile app readiness: a **docs + PWA** patch packaging Stages 33.0–33.6 (the
 > Android **TWA** strategy/scaffold/runbook, the **iOS PWA-only** decision, and a web-only **iOS "Add to
 > Home Screen" hint**). On the **v0.4.1** achievements expansion: the Profile
 > **Achievements** grid grows **14→29** badges (a win badge per game + play/win-count depth + a min-sample

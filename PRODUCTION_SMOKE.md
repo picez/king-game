@@ -7,7 +7,7 @@ upload are live — **without** reading the full deployment docs.
 - Full deploy guides: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) · [`DEPLOYMENT.md`](DEPLOYMENT.md)
 - Deep QA (per-game, edge cases): [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.3`** (tag `v0.4.3`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.4`** (tag `v0.4.4`).
 
 Set your host once and reuse it below:
 
@@ -23,29 +23,29 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.3 adds no migrations** — 0009 is still the latest. v0.4.3 is **mobile app build readiness**
-> (Stages 33.8–33.10): a **docs + tooling** patch — a paste-in Android build-log template, a read-only
-> build-log **triage helper** (`android-twa/triage-build-log.ps1`), and the production **Asset Links +
-> custom-domain** runbook (§9). **No native app is built or submitted, no APK/AAB/keystore, no dependency,
-> no schema change, and no runtime change** (the web-only iOS install hint shipped in v0.4.2). The v0.4.1
-> **Achievements expansion** (14→29 badges, derived from existing stats — see §7) and v0.4.0 Tutorials are
-> intact. The v0.3.7 Syrian 51 release records its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.4 adds no migrations** — 0009 is still the latest. v0.4.4 is the **production readiness audit**
+> (Stage 34.0): a **docs-only** patch — fixed current-state doc/comment drift (51 is a fully released game,
+> not "Experimental") and added security/privacy spot-checks (§11). **No native app, no APK/AAB/keystore,
+> no dependency, no schema change, and no runtime change** (the web-only iOS install hint shipped in
+> v0.4.2; the Android TWA build tooling in v0.4.3). The v0.4.1 **Achievements expansion** (14→29 badges,
+> derived from existing stats — see §7) and v0.4.0 Tutorials are intact. The v0.3.7 Syrian 51 release
+> records its stats under the free-text `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.3 release smoke (fast targeted pass — mobile app build readiness)
+## 0. v0.4.4 release smoke (fast targeted pass — production readiness audit)
 
-v0.4.3 is a **docs + tooling** patch (Stages 33.8–33.10): a paste-in Android build-log template, a
-read-only build-log **triage helper**, and the production **Asset Links + custom-domain** runbook (§9).
-**No native app is built or submitted, no schema change, and no runtime change** (the iOS install hint
-shipped in v0.4.2). The released six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact.
-Android TWA scaffold + owner-build tooling is §10b; iOS PWA + hint is §10c; achievements §7; tutorials
-§5c; 51 §5b.
+v0.4.4 is a **docs-only** patch (Stage 34.0): current-state doc/comment drift fixes (51 is a fully
+**released** game, not "Experimental") and added **security/privacy** spot-checks (§11). **No native app,
+no schema change, and no runtime change** (the iOS install hint shipped in v0.4.2; Android TWA build
+tooling in v0.4.3). The released six-game state, v0.4.2 iOS hint, and v0.4.1 achievements are intact — so
+this §0 pass doubles as the owner's **full pre-live production smoke**. Security spot-checks are §11;
+Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.3`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.4`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.3 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.4 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
