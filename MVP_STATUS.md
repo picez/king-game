@@ -5,12 +5,16 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.4.7`** (reconnect and table polish — Stages 36.0–36.2: **achievements
-grouped by game** (per-game filter strip, earned/total; logic unchanged), **rooms survive 5 min for
-reconnect** (orphan TTL 90s→5min, incl. bot games), **same-user cross-device resume** (server-authoritative
-`RECLAIM_ROOM` by userId + a menu "Your active rooms" block + a reconnect race-guard fix), a **51 card
-calculator** (local, off-turn preview), and a **51 meld layout fix** (uniform slot wrapper, bigger cards,
-no overlap); no gameplay-rule/DB/dependency change; on the `v0.4.6` Android TWA debug build readiness — a
+**Status: stable MVP — release `v0.4.8`** (achievement grouping and badge expansion — Stages 37.0–37.1:
+the Profile **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each
+game, with earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
+stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
+*In the Red* / *Overbidder*); no DB migration, no new stats field, no dependency change; on the `v0.4.7`
+reconnect and table polish — Stages 36.0–36.2: achievements **first** grouped by game, **rooms survive
+5 min for reconnect** (orphan TTL 90s→5min, incl. bot games), **same-user cross-device resume**
+(server-authoritative `RECLAIM_ROOM` by userId + a menu "Your active rooms" block + a reconnect race-guard
+fix), a **51 card calculator** (local, off-turn preview), and a **51 meld layout fix**; on the `v0.4.6`
+Android TWA debug build readiness — a
 **config + docs** patch (Stages 33.13–33.14) that unblocks the TWA debug build; on the `v0.4.5` owner smoke guide — a **docs-only** patch
 adding `OWNER_SMOKE_GUIDE.md`, a short 20–30 min live-testing + bug-report how-to; on
 the `v0.4.4` production readiness audit — a **docs-only** patch packaging the Stage 34.0 pre-live audit

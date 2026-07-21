@@ -9,6 +9,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.4.8] — 2026-07-21 — Achievement grouping and badge expansion
+
+> Player-facing polish to the Profile **Achievements** grid (grouped-per-game filter, no "All" tab) plus
+> five new stats-derived badges (**29 → 34**). **No** DB migration (latest stays `0009`), dependency,
+> schema, or new-stats-field change; **no** version-affecting server change. Stage 37.1 is the release QA
+> pass (docs/version bump).
+
 ### Added
 
 - **More achievements + a cleaner grid (Stage 37.0).** The Profile **Achievements** catalog grows **29 →

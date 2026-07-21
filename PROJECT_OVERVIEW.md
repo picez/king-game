@@ -5,12 +5,16 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.7** — reconnect and table polish (Stages 36.0–36.2): **achievements grouped by game**
-> (per-game filter strip; logic unchanged), **rooms survive 5 min for reconnect** (orphan TTL 90s→5min,
-> incl. bot games), **same-user cross-device resume** (server-authoritative `RECLAIM_ROOM` by userId + a
-> menu "Your active rooms" block + a reconnect race-guard fix), a **51 card calculator** (local, off-turn
-> preview), and a **51 meld layout fix** (uniform slot wrapper, bigger cards, no overlap) — no
-> gameplay-rule/DB/dependency change. On the **v0.4.6** Android TWA debug build readiness: a **config +
+> **Release:** **v0.4.8** — achievement grouping and badge expansion (Stages 37.0–37.1): the Profile
+> **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each game, with
+> earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
+> stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
+> *In the Red* / *Overbidder*) — no DB migration, no new stats field, no dependency change. On the
+> **v0.4.7** reconnect and table polish (Stages 36.0–36.2): achievements **first** grouped by game, **rooms
+> survive 5 min for reconnect** (orphan TTL 90s→5min, incl. bot games), **same-user cross-device resume**
+> (server-authoritative `RECLAIM_ROOM` by userId + a menu "Your active rooms" block + a reconnect
+> race-guard fix), a **51 card calculator** (local, off-turn preview), and a **51 meld layout fix**. On the
+> **v0.4.6** Android TWA debug build readiness: a **config +
 > docs** patch (Stages 33.13–33.14) that unblocks the TWA debug build. On the **v0.4.5** owner smoke guide: a
 > **docs-only** patch adding `OWNER_SMOKE_GUIDE.md`. On the
 > **v0.4.4** production readiness audit: a **docs-only** patch packaging the Stage 34.0 pre-live audit
@@ -154,10 +158,12 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** **29** badges derived purely from stats + a post-game "unlocked" toast. The
-  **Stage 32.1 expansion** ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md)) added 15 stats-derived badges
-  (14→29) — a win badge per game + play/win-count depth + a min-sample skill badge + global milestones,
-  and an `uncommon` rarity tier — with **no DB migration / no new stats field**; All-Rounder unchanged.
+- **Achievements:** **34** badges derived purely from stats + a post-game "unlocked" toast, browsed
+  **per game** — a styled filter chip strip (Global + each game, with earned/total), **no "All" tab**. The
+  **Stage 32.1 expansion** added 15 stats-derived badges (14→29) and the **Stage 37.0** pass added 5 more
+  (29→34: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb *In the Red* /
+  *Overbidder*) plus the grouped filter — all with **no DB migration / no new stats field**; All-Rounder
+  unchanged. ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4, §7.)
 - **Preferences** sync to the profile when signed in, else stay device-local.
 
 ## Deployment

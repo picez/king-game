@@ -12,7 +12,7 @@ upload are live — **without** reading the full deployment docs.
   a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.7`** (tag `v0.4.7`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.8`** (tag `v0.4.8`).
 
 Set your host once and reuse it below:
 
@@ -28,22 +28,24 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
 > (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
 > `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.7 adds no migrations** — 0009 is still the latest. v0.4.7 is **reconnect and table polish**
-> (Stages 36.0–36.2): **achievements grouped by game**, **rooms survive 5 min for reconnect** (orphan TTL
-> 90s→5min), **same-user cross-device resume** (`RECLAIM_ROOM` by userId + a menu "Your active rooms"
-> block + a reconnect race-guard), a **51 card calculator** (local, off-turn), and a **51 meld layout
-> fix**. **No gameplay-rule change, no dependency, no schema change** (the released six-game state, the
-> v0.4.1 achievements set of 29, and v0.4.0 Tutorials are all intact). The v0.3.7 Syrian 51 release records
-> its stats under the free-text `game_type='fifty-one'`.
+> **v0.4.8 adds no migrations** — 0009 is still the latest. v0.4.8 is **achievement grouping and badge
+> expansion** (Stages 37.0–37.1): the Profile **Achievements** grid is browsed **per game** — a styled
+> filter chip strip (Global + each game, earned/total), **no "All" tab**, opens on **Global** — and the
+> catalog grows **29 → 34** with 5 new stats-derived badges (King *Nothing Went Right*, Deberc *Paltina
+> Hunter* / *Double Declaration*, Tarneeb *In the Red* / *Overbidder*). **No gameplay-rule change, no
+> dependency, no schema change, no new stats field** (the released six-game state, v0.4.7 reconnect/resume,
+> and v0.4.0 Tutorials are all intact). The v0.3.7 Syrian 51 release records its stats under the free-text
+> `game_type='fifty-one'`.
 
 ---
 
-## 0. v0.4.7 release smoke (fast targeted pass — reconnect and table polish)
+## 0. v0.4.8 release smoke (fast targeted pass — achievement grouping and badge expansion)
 
-v0.4.7 (Stages 36.0–36.2) polishes **reconnect**, **achievements**, and **51**. **No gameplay-rule /
-schema / dependency change.** The released six-game state, v0.4.2 iOS hint, and the 29-badge achievements
-set are intact — so this §0 pass doubles as the owner's **full pre-live production smoke**. Headline
-manual checks (need a signed-in account; the cross-device one needs two devices/browsers):
+v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (grouped-per-game filter, no "All"
+tab) and grows the catalog **29 → 34**. **No gameplay-rule / schema / dependency / stats-field change.**
+The released six-game state, v0.4.7 reconnect/resume, v0.4.2 iOS hint, and Tutorials are intact — so this
+§0 pass doubles as the owner's **full pre-live production smoke**. Headline manual checks (need a signed-in
+account; the carried-over cross-device one needs two devices/browsers):
 
 - [ ] **Resume from another device (36.1):** signed in on device A in a room (a game with **bots** counts,
       or a lobby) → on device B, **same account** → the **menu shows "Your active rooms"** with that room
@@ -52,9 +54,14 @@ manual checks (need a signed-in account; the cross-device one needs two devices/
       a **guest** / empty account sees no block; it does not duplicate device A's local **Resume** card.
 - [ ] **5-min reconnect window (36.0):** reload/close a tab mid-game (incl. vs bots) → within **5 minutes**
       the room still exists and **Resume** returns you to your seat (was 90 s).
-- [ ] **Achievements grouped (36.0):** Profile → Achievements shows the **filter strip** (All · Global ·
-      the six games), each with its own earned/total; tapping a chip filters the grid. Scrolls on 360/390,
-      mirrors under **Arabic RTL**; the overall `n/29` and which badges are earned are **unchanged**.
+- [ ] **Achievements grouped, no "All" (37.0):** Profile → Achievements opens on **Global** (there is **no
+      "All" tab**) and shows the **filter chip strip** (Global + the six games), each chip a game icon +
+      short name + its own **earned/total**; tapping a chip swaps the grid to that group (never all badges
+      at once). The strip scrolls **inside itself** (styled scrollbar, not the native OS bar), so **360/390**
+      and **Arabic RTL** never overflow the page. Header count reads out of **34**.
+- [ ] **New 37.0 badges (locked/earned per stats):** King *Nothing Went Right*, Deberc *Paltina Hunter* /
+      *Double Declaration*, Tarneeb *In the Red* / *Overbidder* each appear in their game's group, earned or
+      locked according to the account's stats (full detail §7).
 - [ ] **51 Count cards (36.0):** on the 51 table tap **🧮 Count cards** — a preview panel opens **even on
       another player's turn**; picking cards shows the selection's meld validity/value + the hand penalty;
       it **plays nothing**, removes no cards, and doesn't disturb your selection/hand order.
@@ -76,10 +83,10 @@ manual checks (need a signed-in account; the cross-device one needs two devices/
 Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA + hint is §10c; achievements
 §7; tutorials §5c; 51 §5b.
 
-- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.7`**, `commit` matches the deploy,
+- [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.7 — latest stays `0009`).
+      Then **`npm run db:migrate`** if any new migration (none in 0.4.8 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
