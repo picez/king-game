@@ -543,6 +543,9 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       `assetlinks.example.json` (guarded by `src/pwa.test.ts`).
 - [ ] **Env check runs read-only:** `pwsh android-twa/check-env.ps1` (or `powershell -File …`) prints
       PASS/WARN/FAIL and installs nothing; JDK must be PASS (17+) before a build.
+- [ ] **Build command sanity:** the runbook `init`s from the **web** manifest URL
+      (`…/manifest.webmanifest`), **not** `twa-manifest.json` (which `build`/`update` read). Guarded:
+      `src/pwa.test.ts` keeps `twa-manifest.webManifestUrl` in sync with `host`.
 
 ## 11. Security spot-checks
 

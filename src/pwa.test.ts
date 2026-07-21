@@ -148,6 +148,11 @@ describe('Android TWA scaffold (Stage 33.2/33.3) — twa-manifest + repo hygiene
     expect(twa.backgroundColor.toLowerCase()).toBe(manifest.background_color.toLowerCase());
   });
 
+  it('webManifestUrl points at the same host\'s manifest.webmanifest (init reads this)', () => {
+    // `bubblewrap init --manifest <URL>` consumes the WEB manifest; keep this in sync with host.
+    expect(twa.webManifestUrl).toBe(`https://${twa.host}/manifest.webmanifest`);
+  });
+
   it('points icons at same-origin manifest assets that exist', () => {
     for (const url of [twa.iconUrl, twa.maskableIconUrl]) {
       expect(url.startsWith(`https://${twa.host}/`)).toBe(true);

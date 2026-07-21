@@ -1,16 +1,20 @@
 # Mobile App Strategy — Android / iOS Plan (Stage 33.0)
 
-> **STATUS: strategy DESIGNED (33.0); TWA READINESS (33.1); TWA SCAFFOLD (33.2); BUILD RUNBOOK (33.3) DONE.**
-> This document chooses a path to **Android and iOS apps** for Card Majlis and defines a staged rollout.
-> Stage 33.1 fixed the web/PWA readiness gaps **without** a native project. Stage 33.2 added the **TWA
-> config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap `twa-manifest.json` +
-> `.gitignore` + README). Stage 33.3 added the **owner build runbook**: a read-only `check-env.ps1`, exact
-> `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install` steps, Asset-Links/keytool verification
-> notes, an expanded on-device QA checklist, and repo guard tests (`src/pwa.test.ts`). **None** of these
-> generated/committed the Gradle project, built an APK/AAB, created a keystore, shipped a real
-> `assetlinks.json`, or submitted to the store — the build toolchain (JDK 17+, Android SDK, Bubblewrap) was
-> unavailable and nothing is faked; the owner runs the runbook on a toolchained machine. When 33.3's build
-> is executed, code follows this doc; if the two disagree, update this doc first.
+> **STATUS: DESIGNED (33.0); READINESS (33.1); SCAFFOLD (33.2); BUILD RUNBOOK (33.3) DONE; BUILD TRIAGE
+> (33.4) — awaiting owner logs.** This document chooses a path to **Android and iOS apps** for Card Majlis
+> and defines a staged rollout. Stage 33.1 fixed the web/PWA readiness gaps **without** a native project.
+> Stage 33.2 added the **TWA config scaffold** at [`android-twa/`](android-twa/) (committed Bubblewrap
+> `twa-manifest.json` + `.gitignore` + README). Stage 33.3 added the **owner build runbook**: a read-only
+> `check-env.ps1`, exact `bubblewrap init` → `gradlew.bat assembleDebug` → `adb install` steps,
+> Asset-Links/keytool verification notes, an expanded on-device QA checklist, and repo guard tests
+> (`src/pwa.test.ts`). **Stage 33.4** is the owner-run debug build + triage: no build has run yet, so this
+> pass **hardened the docs** — corrected `bubblewrap init --manifest` to take the **Web App Manifest URL**
+> (not `twa-manifest.json`; verified against the CLI reference), flagged `npx @bubblewrap/cli` vs the wrong
+> `npx bubblewrap`, and added a `webManifestUrl` consistency guard. **None** of these generated/committed
+> the Gradle project, built an APK/AAB, created a keystore, shipped a real `assetlinks.json`, or submitted
+> to the store — the toolchain (JDK 17+, SDK, Bubblewrap) was unavailable and nothing is faked. Next: the
+> owner pastes `check-env.ps1` + `bubblewrap`/Gradle logs and we triage real failures. If code and this
+> doc disagree, update this doc first.
 
 **Premise:** the web app is already a **high-quality installable PWA** — the wrappers below reuse the
 **deployed web app as the single source of truth**, they do not fork it. Related docs:
@@ -275,13 +279,21 @@ owner runs the runbook (33.3) on a machine with the toolchain. `twa-manifest.jso
 inputs, not generated artifacts, so committing them is honest and stable.
 
 **Owner build path (33.3):** `cd android-twa` → `.\check-env.ps1` (JDK must PASS) →
-`bubblewrap init --manifest .\twa-manifest.json` → `.\gradlew.bat assembleDebug` (or `bubblewrap build`)
-→ output `app\build\outputs\apk\debug\app-debug.apk` → `adb install -r …`. A **debug** APK is
-debug-signed, so it will typically launch as a **Custom Tab (URL bar visible)** — full-screen TWA needs a
-matching `assetlinks.json`. The first-run on-device checklist is in [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+`bubblewrap init --manifest https://king-game-cqgd.onrender.com/manifest.webmanifest` (set package
+`com.cardmajlis.app` at the prompt; optionally `git checkout -- twa-manifest.json` + `bubblewrap update`
+to pin the committed config) → `.\gradlew.bat assembleDebug` (or `bubblewrap build`) → output
+`app\build\outputs\apk\debug\app-debug.apk` → `adb install -r …`. A **debug** APK is debug-signed, so it
+will typically launch as a **Custom Tab (URL bar visible)** — full-screen TWA needs a matching
+`assetlinks.json`. The first-run on-device checklist is in [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
 ("Manual — PWA / mobile → Android TWA first run") and [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §10b.
 Repo guards (`src/pwa.test.ts`) fail if a build artifact/keystore is committed or the config drifts from
 the manifest.
+
+> **Stage 33.4 correction (build triage).** The `init --manifest` flag takes the **Web App Manifest URL**,
+> not this repo's `twa-manifest.json` — verified against the Bubblewrap CLI reference. `init` *writes* a
+> `twa-manifest.json` (from the web manifest); `build`/`update` are what *read* it. The runbook above and
+> the README were corrected so the owner's first `init` doesn't fail on a wrong argument. No native build
+> has been run yet — awaiting the owner's `check-env.ps1` + build logs to triage further.
 
 ## 7. Boundaries & non-goals
 

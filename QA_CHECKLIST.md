@@ -911,8 +911,10 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > - [ ] `android-twa\check-env.ps1` runs read-only and reports JDK/SDK/adb/node/npm/Bubblewrap; JDK must
 >       be **PASS** (17+) before building.
 >
-> **Android TWA first run (after a 33.3 debug build — `.\check-env.ps1` → `bubblewrap init` →
-> `.\gradlew.bat assembleDebug`; until then N/A).** Install on a **physical Android** and check:
+> **Android TWA first run (after a 33.3 debug build — `.\check-env.ps1` → `bubblewrap init --manifest
+> https://king-game-cqgd.onrender.com/manifest.webmanifest` (the **web** manifest URL, not
+> `twa-manifest.json`; set package `com.cardmajlis.app` at the prompt) → `.\gradlew.bat assembleDebug`;
+> until then N/A).** Install on a **physical Android** and check:
 > - [ ] `adb install -r app\build\outputs\apk\debug\app-debug.apk` succeeds; **Card Majlis** icon appears.
 > - [ ] **Opens the production URL** (`king-game-cqgd.onrender.com`) as the app's start — same content as
 >       the deployed PWA, not a stale bundle.

@@ -9,6 +9,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Android TWA build command (Stage 33.4 triage).** Corrected the build runbook: `bubblewrap init
+  --manifest` takes the **Web App Manifest URL** (`…/manifest.webmanifest`), not the repo's
+  `twa-manifest.json` — `init` *writes* a twa-manifest, while `build`/`update` *read* it (verified against
+  the Bubblewrap CLI reference). The README/plan now `init` from the live web-manifest URL and confirm the
+  package/colors/orientation at the prompts (with an optional `git checkout -- twa-manifest.json` +
+  `bubblewrap update` to pin the committed config), flag `npx @bubblewrap/cli` over the wrong `npx
+  bubblewrap`, and a new `src/pwa.test.ts` guard keeps `twa-manifest.webManifestUrl` in sync with `host`.
+  Docs-only + a guard test; no native build has run (still awaiting the owner's toolchained logs).
+
 ### Changed
 
 - **Android TWA build runbook (Stage 33.3).** Prepared the owner-run path to a real Android **debug**

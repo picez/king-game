@@ -77,15 +77,41 @@ provision an SDK on first run; adb is needed only to install on a device).
 
 ### 3. Generate the native Android project
 
+> ⚠️ **`bubblewrap init --manifest` takes the WEB App Manifest URL, not this `twa-manifest.json`.**
+> `init` *reads* the site's `manifest.webmanifest` and *writes* a fresh `twa-manifest.json` + the Android
+> project. Our committed `twa-manifest.json` is the **reference spec** for the values to confirm at the
+> prompts (and the file `build`/`update` read afterwards). Use `npx @bubblewrap/cli@latest …` (not
+> `npx bubblewrap`, which resolves an unrelated package).
+
 ```powershell
 # Global install (or prefix each command with `npx @bubblewrap/cli@latest`):
 npm i -g @bubblewrap/cli
 
-# Generate the Android project from the committed config.
-# Bubblewrap will PROMPT to create a signing keystore (android.keystore) —
-# accept it; it stays LOCAL and git-ignored. After editing twa-manifest.json
-# later, re-run `bubblewrap update`.
-bubblewrap init --manifest .\twa-manifest.json
+# Generate the Android project from the LIVE web manifest (the URL in
+# twa-manifest.json's "webManifestUrl"). Bubblewrap parses it and prompts for
+# the rest; it also OFFERS to create a signing keystore (android.keystore) —
+# accept it; it stays LOCAL and git-ignored.
+bubblewrap init --manifest https://king-game-cqgd.onrender.com/manifest.webmanifest
+```
+
+At the interactive prompts, **match the committed `twa-manifest.json`** — most values come straight from
+the web manifest, but confirm/enter these:
+
+| Prompt | Enter |
+|---|---|
+| Application ID / package | `com.cardmajlis.app` |
+| App name / launcher name | `Card Majlis` |
+| Display mode | `standalone` |
+| Orientation | `portrait` |
+| Theme / background / nav colors | `#0d4f28` |
+| Signing key | create a new local `android.keystore` (keep it off git) |
+
+**Optional — pin the exact committed config.** `init` writes its own `twa-manifest.json`; to force the
+repo's values, overwrite the generated file with the committed one and regenerate the project:
+
+```powershell
+git checkout -- twa-manifest.json   # restore the committed config over init's version
+bubblewrap update                   # reads ./twa-manifest.json, regenerates the Android project
 ```
 
 **Expected generated files** (all git-ignored, appear in this folder):
@@ -96,7 +122,7 @@ android-twa/
   gradle/  gradlew  gradlew.bat
   build.gradle  settings.gradle  gradle.properties
   android.keystore         # local signing key — NEVER commit, back it up
-  twa-manifest.json        # (updated in place with fingerprints/versionCode)
+  twa-manifest.json        # init/update rewrite this in place (fingerprints/versionCode/shell version)
   store_icon.png           # fetched launcher icon
 ```
 
