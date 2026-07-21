@@ -30,7 +30,7 @@ import { gameIconSrc } from '../../visual/visualAssets';
 
 const TIMER_OPTIONS = [0, 30, 60, 90] as const;
 /** Emoji fallback per favorite-able game (used if the emblem PNG 404s). */
-const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄' };
+const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️' };
 
 /** i18n label key per card-back style. */
 const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {

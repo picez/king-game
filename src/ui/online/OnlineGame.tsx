@@ -25,6 +25,8 @@ import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
 import type { PreferansState } from '../../games/preferans/types';
 import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
+import { PokerOnlineGame } from '../poker';
+import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial from './RoomSocial';
@@ -370,6 +372,22 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         />
         {/* Like Tarneeb/Preferans: no Leave-game pill (the board ✕ leaves,
             reconnectable); social keeps the compact emoji/chat corner + timer. */}
+        {renderSocial(true, undefined, timerEl)}
+      </>
+    );
+  }
+
+  // Online poker (Stage 37.4): render the poker screens (NOT King's GameRouter). The
+  // server drives bots + the between-hands advance (seeded START_NEXT_HAND).
+  if (net.room?.gameType === 'poker') {
+    return (
+      <>
+        <PokerOnlineGame
+          state={net.state as unknown as PokerState}
+          myPlayerId={net.myPlayerId}
+          dispatch={net.dispatch}
+          onExit={leaveGameToMenu}
+        />
         {renderSocial(true, undefined, timerEl)}
       </>
     );

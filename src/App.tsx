@@ -9,6 +9,7 @@ import DebercLocalGame from './ui/deberc/DebercLocalGame';
 import TarneebLocalGame from './ui/tarneeb/TarneebLocalGame';
 import PreferansLocalGame from './ui/preferans/PreferansLocalGame';
 import FiftyOneLocalGame from './ui/fiftyOne/FiftyOneLocalGame';
+import { PokerLocalGame } from './ui/poker';
 import OnlineGame from './ui/online/OnlineGame';
 import { usePwa } from './pwa/usePwa';
 import PwaBanners from './ui/components/PwaBanners';
@@ -39,7 +40,8 @@ export default function App() {
         : mode.gameType === 'tarneeb' ? <TarneebLocalGame onExit={toMenu} />
           : mode.gameType === 'preferans' ? <PreferansLocalGame onExit={toMenu} />
             : mode.gameType === 'fifty-one' ? <FiftyOneLocalGame onExit={toMenu} />
-              : <LocalGame />; // King — unchanged
+              : mode.gameType === 'poker' ? <PokerLocalGame onExit={toMenu} />
+                : <LocalGame />; // King — unchanged
   } else if (mode.kind === 'online') {
     content = (
       <OnlineGame

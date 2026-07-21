@@ -18,7 +18,7 @@ interface Props {
 
 /** A tiny emoji per group for the compact filter chip (Stage 37.0). */
 const GROUP_ICON: Record<AchievementGroupKey, string> = {
-  global: '🏆', king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄',
+  global: '🏆', king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️',
 };
 
 /** Segment label — 'global' has its own key; a game key reuses gameType.*. */

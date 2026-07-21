@@ -1,0 +1,167 @@
+/* ---------------------------------------------------------------------------
+ * Poker (No-Limit Texas Hold'em) table — Stage 37.4.
+ * Mobile-first, RTL-safe (flexbox + logical spacing), theme-aware via the shared
+ * design tokens. The screen clips horizontal overflow and every wide row wraps so
+ * a 360/390 portrait never scrolls sideways; the action row clears the home
+ * indicator (env(safe-area-inset-bottom)). Layout is stable across streets (the
+ * board always reserves five slots).
+ * ------------------------------------------------------------------------- */
+
+.poker-screen {
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: calc(0.6rem + env(safe-area-inset-top)) 0.6rem calc(1rem + env(safe-area-inset-bottom));
+  max-width: 720px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.poker-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.poker-exit {
+  border: none;
+  background: var(--surface-2, rgba(0, 0, 0, 0.2));
+  color: inherit;
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.poker-hand-no { font-weight: 600; opacity: 0.85; }
+.poker-pot { font-weight: 700; }
+
+/* Community board — five reserved slots so the table never reflows. */
+.poker-board {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 4.6rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  background: var(--felt, #0b5d3b);
+}
+.poker-street-label { text-align: center; font-size: 0.85rem; opacity: 0.75; }
+
+/* Cards */
+.poker-card {
+  --w: 2.6rem;
+  width: var(--w);
+  height: calc(var(--w) * 1.4);
+  border-radius: 0.4rem;
+  background: #fdfdfb;
+  color: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+.poker-card--sm { --w: 2rem; }
+.poker-card--red { color: #c0392b; }
+.poker-card__rank { font-size: 0.95rem; }
+.poker-card__suit { font-size: 1.05rem; }
+.poker-card--back {
+  background: repeating-linear-gradient(45deg, #7a1f2b, #7a1f2b 4px, #94303c 4px, #94303c 8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.poker-card--empty {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+/* Seats */
+.poker-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.poker-seat {
+  flex: 1 1 8.5rem;
+  min-width: 8.5rem;
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface-1, rgba(255, 255, 255, 0.06));
+  border: 2px solid transparent;
+}
+.poker-seat--acting { border-color: var(--accent, #e8b84b); }
+.poker-seat--folded { opacity: 0.5; }
+.poker-seat--out { opacity: 0.35; }
+.poker-seat__head { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem; }
+.poker-seat__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.poker-seat__badges { display: flex; gap: 0.2rem; flex-shrink: 0; }
+.poker-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.3rem;
+  background: rgba(255, 255, 255, 0.15);
+}
+.poker-badge--btn { background: var(--accent, #e8b84b); color: #1a1a1a; }
+.poker-badge--allin { background: #c0392b; color: #fff; }
+.poker-seat__row { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.8rem; margin-top: 0.2rem; }
+.poker-seat__tag { opacity: 0.75; }
+.poker-seat__cards { display: flex; gap: 0.25rem; margin-top: 0.35rem; align-items: center; flex-wrap: wrap; }
+.poker-seat__cat { font-size: 0.72rem; opacity: 0.8; }
+
+/* Result / next hand */
+.poker-result { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; }
+.poker-result__text { font-weight: 600; }
+
+/* Action row — wraps, clears the home indicator. */
+.poker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.poker-actions__primary { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.poker-actions__primary .btn { flex: 1 1 5rem; min-height: 44px; }
+.poker-actions__wager { display: flex; flex-direction: column; gap: 0.4rem; }
+.poker-presets { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.poker-preset { flex: 1 1 4rem; min-height: 40px; }
+.poker-slider { width: 100%; min-height: 32px; }
+.poker-wager-go { min-height: 44px; }
+.poker-waiting { text-align: center; opacity: 0.75; font-size: 0.85rem; }
+
+/* Setup / handover / finished */
+.poker-setup__counts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.poker-setup__count { flex: 1 1 2.5rem; min-height: 44px; }
+.poker-howto { background: none; border: none; color: inherit; cursor: pointer; text-decoration: underline; padding: 0.5rem 0; }
+
+.poker-handover { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
+.poker-handover__card {
+  text-align: center;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: var(--surface-1, rgba(255, 255, 255, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: 20rem;
+}
+.poker-handover__title { font-size: 1.2rem; font-weight: 700; }
+
+.poker-finished { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
+.poker-finished__card { text-align: center; padding: 1.5rem; max-width: 22rem; }
+.poker-finished__stacks { list-style: none; padding: 0; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.poker-finished__stacks li { display: flex; justify-content: space-between; gap: 1rem; }
+.poker-finished__stacks li.is-winner { font-weight: 700; color: var(--accent, #e8b84b); }
+.poker-finished__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }

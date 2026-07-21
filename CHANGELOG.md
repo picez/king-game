@@ -11,6 +11,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
+  (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
+  cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip
+  stacks, fixed blinds 10/20. Complete engine — betting (fold/check/call/bet/raise/all-in),
+  four streets, side pots, split pots, odd-chip award, best-5-of-7 evaluation with full tie
+  breaking and the A-2-3-4-5 wheel, and a fair deterministic bot. **Private-hand redaction**
+  (hole cards, deck order and burn cards never reach a client; only showdown-eligible hands
+  reveal), reconnect/persistence, optional turn timer. **Score-only stats + leaderboard**
+  under `game_type='poker'` (no DB migration), a Profile sub-tab, **favoritable**, a scripted
+  tutorial, EN/UK/DE/AR copy, and its own PNG chip emblem. The shared room cap grew 5 → 6.
+  Achievements catalog **48 → 52**: *Poker Winner*, *All-In Survivor*, *Big Pot* (win a pot
+  of ≥ 1000), *Royal Flush*; **All-Rounder now needs a win in all seven games**.
+  [`POKER_RULES.md`](POKER_RULES.md) · [`POKER_PLAN.md`](POKER_PLAN.md)
 - **The full owner-requested achievement pack — catalog 34 → 48 (Stage 37.3).** Fourteen new badges, each
   backed by **real per-round / per-hand / per-game telemetry** (never an aggregate proxy), added to the
   JSONB stats payload with **no DB migration**, backward-compatible and null-safe for old accounts, recorded

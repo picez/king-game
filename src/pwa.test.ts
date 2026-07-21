@@ -71,9 +71,9 @@ describe('PWA manifest', () => {
     expect(manifest.short_name).not.toMatch(/King/);
   });
 
-  it('description names all SIX current games (no stale four/five-game copy)', () => {
+  it('description names all SEVEN current games (no stale four/five-game copy)', () => {
     const d: string = manifest.description;
-    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51']) {
+    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51', 'Poker']) {
       expect(d, `description should mention ${game}`).toContain(game);
     }
     // The old stale copy ended "…Deberc & Tarneeb." with the two newest games missing.
@@ -85,9 +85,9 @@ describe('PWA manifest', () => {
     expect(manifest.start_url).toBe('/');
   });
 
-  it('index.html <meta description> matches the manifest (all six games)', () => {
+  it('index.html <meta description> matches the manifest (all seven games)', () => {
     const idx = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
-    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51']) {
+    for (const game of ['King', 'Durak', 'Deberc', 'Tarneeb', 'Preferans', '51', 'Poker']) {
       expect(idx, `index.html description should mention ${game}`).toMatch(new RegExp(`content="[^"]*${game}`));
     }
     expect(idx).not.toMatch(/Deberc &amp; Tarneeb\.|Deberc & Tarneeb\./);

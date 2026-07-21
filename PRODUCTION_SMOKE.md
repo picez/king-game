@@ -90,7 +90,7 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
 §7; tutorials §5c; 51 §5b.
 
 - [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit` matches the deploy,
-      `db.enabled: true` (`db` status), **`games.count: 6`** with `ids` including **`fifty-one`**,
+      `db.enabled: true` (`db` status), **`games.count: 7`** with `ids` including **`fifty-one`** and **`poker`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
       Then **`npm run db:migrate`** if any new migration (none in 0.4.8 — latest stays `0009`).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,

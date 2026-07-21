@@ -257,6 +257,20 @@ function iconFiftyOne(nx, ny) {
   ), 0.010);
 }
 
+// poker chip (Poker — No-Limit Texas Hold'em). A casino-chip silhouette: an outer
+// rim band (annulus) + a centre pip + six edge notches at 60° steps. Distinct from
+// crown/jester/gem/spade/top-hat/fanned-cards and legible at 32–64 px. No text.
+function iconPoker(nx, ny) {
+  return emblem(nx, ny, (x, y) => {
+    const dx = x - 0.5, dy = y - 0.5;
+    const r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    const ring = Math.min(0.42 - r, r - 0.30);                 // outer rim band
+    const core = 0.15 - r;                                     // centre pip
+    const notch = (Math.cos(a * 6) > 0.6 && r > 0.30 && r < 0.47) ? 0.05 : -1; // 6 edge notches
+    return Math.max(ring, core, notch);
+  }, 0.012);
+}
+
 // ── P1: finish frame (ornamental transparent banner behind a winner summary) ──
 // Transparent interior (content shows through) + a brass double-line rounded-rect
 // border, 8-point corner rosettes, and a very faint warm interior glow. No text.
@@ -343,6 +357,7 @@ emit('visual/icons/game-deberc.png', png(512, 512, 4, iconDeberc));
 emit('visual/icons/game-tarneeb.png', png(512, 512, 4, iconTarneeb));
 emit('visual/icons/game-preferans.png', png(512, 512, 4, iconPreferans));
 emit('visual/icons/game-fifty-one.png', png(512, 512, 4, iconFiftyOne));
+emit('visual/icons/game-poker.png', png(512, 512, 4, iconPoker));
 
 console.log('Generating P1 visual assets (finish frame + seat badges)…');
 emit('visual/finish-frame.png', png(1600, 700, 2, finishFrame));

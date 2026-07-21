@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GameType } from '../games/catalog';
-import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats } from '../net/statsApi';
+import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats, PokerStats } from '../net/statsApi';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
@@ -31,6 +31,10 @@ export interface AllStats {
   /** 51 / Syrian 51 stats (Stage 30.7 — the 6th released game). A canonical member
    *  of the cross-game aggregates (totalWins / totalGames / wonEveryGame). Missing → locked. */
   fiftyOne: FiftyOneStats | null;
+  /** Poker (No-Limit Texas Hold'em) stats (Stage 37.4 — the 7th released game). A
+   *  canonical member of the cross-game aggregates (totalWins / totalGames /
+   *  wonEveryGame). Missing → locked. */
+  poker: PokerStats | null;
   /**
    * Tarneeb SOLO stats (Stage 28.6) — a SEPARATE, optional dimension (game_type
    * 'tarneeb-solo'). Only the dedicated solo badge reads it; it is intentionally
@@ -72,22 +76,22 @@ export const KING_NEGATIVE_MODES = [
 
 /** Total wins across every game (0 when nothing loaded). */
 export function totalWins(a: AllStats): number {
-  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans) + won(a.fiftyOne);
+  return won(a.king) + won(a.durak) + won(a.deberc) + won(a.tarneeb) + won(a.preferans) + won(a.fiftyOne) + won(a.poker);
 }
 /** Total games played across every game (0 when nothing loaded). */
 export function totalGames(a: AllStats): number {
-  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb) + played(a.preferans) + played(a.fiftyOne);
+  return played(a.king) + played(a.durak) + played(a.deberc) + played(a.tarneeb) + played(a.preferans) + played(a.fiftyOne) + played(a.poker);
 }
-/** True only when the user has at least one win in EVERY game (all six, all loaded). */
+/** True only when the user has at least one win in EVERY game (all seven, all loaded). */
 function wonEveryGame(a: AllStats): boolean {
   return won(a.king) >= 1 && won(a.durak) >= 1 && won(a.deberc) >= 1
-    && won(a.tarneeb) >= 1 && won(a.preferans) >= 1 && won(a.fiftyOne) >= 1;
+    && won(a.tarneeb) >= 1 && won(a.preferans) >= 1 && won(a.fiftyOne) >= 1 && won(a.poker) >= 1;
 }
 
 /** True when the user has PLAYED at least one game of every canonical game (Stage 32.1). */
 function playedEveryGame(a: AllStats): boolean {
   return played(a.king) >= 1 && played(a.durak) >= 1 && played(a.deberc) >= 1
-    && played(a.tarneeb) >= 1 && played(a.preferans) >= 1 && played(a.fiftyOne) >= 1;
+    && played(a.tarneeb) >= 1 && played(a.preferans) >= 1 && played(a.fiftyOne) >= 1 && played(a.poker) >= 1;
 }
 
 /** Whether a game's contract-success is ≥ `pct` over a MINIMUM decided sample (anti-fluke). */
@@ -100,9 +104,10 @@ function contractSkill(
   return decided >= minDecided && (s.contractSuccessRate ?? 0) >= pct;
 }
 
-// ── the catalog (48 badges: original 14 + Stage 32.1 (+15) + Stage 37.0 (+5)
+// ── the catalog (52 badges: original 14 + Stage 32.1 (+15) + Stage 37.0 (+5)
 //    + Stage 37.3 (+14, the full owner-requested pack, each backed by real
-//    per-round/per-hand/per-game telemetry — never an aggregate proxy)) ──
+//    per-round/per-hand/per-game telemetry — never an aggregate proxy)
+//    + Stage 37.4 (+4 Poker: winner / all-in survivor / big pot / royal flush)) ──
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -371,6 +376,27 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     icon: '🧼', gameType: 'fifty-one', rarity: 'rare',
     evaluate: (s) => (s.fiftyOne ? s.fiftyOne.gamesWithNoHundred : 0) >= 1,
   },
+  // ── Poker (Stage 37.4 — the 7th released game). Each badge reads a public poker
+  //    stat counter; missing stats → locked. ──
+  {
+    id: 'poker-winner', titleKey: 'ach.pokerWinner.title', descriptionKey: 'ach.pokerWinner.desc',
+    icon: '♠️', gameType: 'poker', rarity: 'common', evaluate: (s) => won(s.poker) >= 1,
+  },
+  {
+    // Won a pot after being all-in at some point in the hand — `allInsWon`.
+    id: 'poker-all-in-survivor', titleKey: 'ach.pokerAllIn.title', descriptionKey: 'ach.pokerAllIn.desc',
+    icon: '🎰', gameType: 'poker', rarity: 'uncommon', evaluate: (s) => (s.poker ? s.poker.allInsWon : 0) >= 1,
+  },
+  {
+    // Won a single pot of at least 1000 chips — `biggestPot`.
+    id: 'poker-big-pot', titleKey: 'ach.pokerBigPot.title', descriptionKey: 'ach.pokerBigPot.desc',
+    icon: '💰', gameType: 'poker', rarity: 'rare', evaluate: (s) => (s.poker ? s.poker.biggestPot : 0) >= 1000,
+  },
+  {
+    // Showed down a royal flush — `royalFlushCount`.
+    id: 'poker-royal-flush', titleKey: 'ach.pokerRoyalFlush.title', descriptionKey: 'ach.pokerRoyalFlush.desc',
+    icon: '👑', gameType: 'poker', rarity: 'epic', evaluate: (s) => (s.poker ? s.poker.royalFlushCount : 0) >= 1,
+  },
 ] as const;
 
 /** Evaluate every achievement against the combined stats, in catalog order. */
@@ -391,9 +417,9 @@ export function earnedCount(rows: AchievementProgress[]): number {
 /** A filter segment: cross-game badges ('global') or one game. */
 export type AchievementGroupKey = 'global' | GameType;
 
-/** Canonical segment order shown in the Profile (Global first, then the six games). */
+/** Canonical segment order shown in the Profile (Global first, then the seven games). */
 export const ACHIEVEMENT_GROUP_ORDER: readonly AchievementGroupKey[] = [
-  'global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one',
+  'global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker',
 ] as const;
 
 export interface AchievementGroup {

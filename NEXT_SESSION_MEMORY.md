@@ -5,7 +5,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 ## Product state
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
 - Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
-- Product: Card Majlis, 6 released games: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51.
+- Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
 - Latest DB migration: `0009`; do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 

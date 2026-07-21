@@ -7,7 +7,7 @@ import { gameIconSrc } from '../../visual/visualAssets';
  * still stand in if a PNG emblem 404s, so the UI never shows a broken image.
  */
 export const GAME_EMOJI: Record<GameType, string> = {
-  king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄',
+  king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️',
 };
 
 interface Props {

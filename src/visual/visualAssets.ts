@@ -49,6 +49,8 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   { id: 'icon-preferans', src: '/visual/icons/game-preferans.png',  format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   // Stage 30.7: 51 (Syrian 51) emblem (two fanned cards) — the 6th available game.
   { id: 'icon-fifty-one', src: '/visual/icons/game-fifty-one.png',  format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
+  // Stage 37.4: Poker emblem (a casino chip) — the 7th available game.
+  { id: 'icon-poker',     src: '/visual/icons/game-poker.png',      format: 'png', maxBytes: 150_000, priority: 'P0', present: true },
   // P1 (Stage 12.8): ornamental finish frame + unified seat-status badge coins.
   { id: 'finish-frame',   src: '/visual/finish-frame.png',          format: 'png', maxBytes: 260_000, priority: 'P1', present: true },
   { id: 'badge-host',     src: '/visual/badges/badge-host.png',     format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
@@ -57,8 +59,9 @@ export const VISUAL_ASSETS: readonly VisualAsset[] = [
   { id: 'badge-active',   src: '/visual/badges/badge-active.png',   format: 'png', maxBytes: 60_000,  priority: 'P1', present: true },
 ] as const;
 
-/** Documented ceiling for the TOTAL present art footprint (P0 ≈ 1.9 MB + P1 headroom). */
-export const VISUAL_TOTAL_MAX_BYTES = 2_900_000;
+/** Documented ceiling for the TOTAL present art footprint (P0 ≈ 2.0 MB + P1 headroom;
+ *  Stage 37.4 added the Poker chip emblem, so the ceiling rose to ~3.0 MB). */
+export const VISUAL_TOTAL_MAX_BYTES = 3_050_000;
 
 /** Kinds of unified seat-status badge (Stage 12.8). */
 export type SeatBadge = 'host' | 'bot' | 'offline' | 'active';

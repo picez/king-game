@@ -21,8 +21,8 @@ describe('Timer rides in the social cluster, not a table overlay (Scope A)', () 
 
   it('OnlineGame threads the timer into RoomSocial via a timerSlot for all non-King games', () => {
     expect(online).toContain('timerSlot={timerSlot}');
-    // durak, deberc, tarneeb, preferans + fifty-one (Stage 30.5 online; released 30.7).
-    expect((online.match(/renderSocial\([^)]*timerEl\)/g) ?? []).length).toBe(5);
+    // durak, deberc, tarneeb, preferans, fifty-one + poker (Stage 37.4).
+    expect((online.match(/renderSocial\([^)]*timerEl\)/g) ?? []).length).toBe(6);
     // The old fixed table overlay is gone.
     expect(online).not.toContain('turn-timer--overlay');
     expect(css).not.toContain('.turn-timer--overlay');

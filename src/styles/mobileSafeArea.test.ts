@@ -86,7 +86,7 @@ describe('no fixed BOTTOM control sits under the home indicator', () => {
 });
 
 describe('game tables clear the bottom safe area under the hand/actions', () => {
-  for (const f of ['src/styles/durak.css', 'src/styles/preferans.css', 'src/styles/fiftyone.css']) {
+  for (const f of ['src/styles/durak.css', 'src/styles/preferans.css', 'src/styles/fiftyone.css', 'src/styles/poker.css']) {
     it(`${f} pads the table for the home indicator`, () => {
       expect(read(f)).toContain('env(safe-area-inset-bottom)');
     });
@@ -100,5 +100,15 @@ describe('51 table never overflows horizontally (360/390 portrait)', () => {
     // The hand + melds + actions wrap rather than push the page wide.
     expect(css).toMatch(/\.fiftyone-hand\s*\{[\s\S]*?flex-wrap:\s*wrap/);
     expect(css).toMatch(/\.fiftyone-actions\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+  });
+});
+
+describe('poker table never overflows horizontally (360/390 portrait)', () => {
+  const css = read('src/styles/poker.css');
+  it('the screen clips horizontal overflow and wide rows wrap within bounds', () => {
+    expect(css).toMatch(/\.poker-screen\s*\{[\s\S]*?overflow-x:\s*hidden/);
+    expect(css).toMatch(/\.poker-board\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.poker-actions\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.poker-seats\s*\{[\s\S]*?flex-wrap:\s*wrap/);
   });
 });

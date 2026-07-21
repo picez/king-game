@@ -82,6 +82,7 @@ source of truth; **no built native app exists yet**.
 | **Tarneeb** | 4 | Two modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid-and-trump — [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + 2-card talon, 32-card — [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |
 | **51** (Syrian 51) | 2–4 | Cutthroat rummy — form runs/sets, open with 51+, jokers wild, penalty scoring, host-configurable elimination score 210/310/410/510 (default 510) — [`51_RULES.md`](51_RULES.md) |
+| **Poker** | 2–6 | No-Limit Texas Hold'em — 2 hole cards + 5 community, four betting streets, side/split pots, best-5-of-7, last-player-standing; fixed blinds 10/20 — [`POKER_RULES.md`](POKER_RULES.md) |
 
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.

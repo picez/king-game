@@ -28,14 +28,15 @@ describe('visual asset manifest', () => {
     }
   });
 
-  it('all 10 P0 assets are present (felt, 2 heroes, card back, 6 game icons)', () => {
+  it('all 11 P0 assets are present (felt, 2 heroes, card back, 7 game icons)', () => {
     // Stage 19.9: the Preferans emblem joins the four original game icons; Stage 30.7
-    // adds the 51 emblem (two fanned cards) — six game icons in all.
+    // adds the 51 emblem (two fanned cards); Stage 37.4 adds the Poker chip — seven
+    // game icons in all.
     const p0 = VISUAL_ASSETS.filter((a) => a.priority === 'P0');
-    expect(p0).toHaveLength(10);
+    expect(p0).toHaveLength(11);
     expect(p0.every((a) => a.present)).toBe(true);
     for (const id of ['felt-tile', 'menu-hero-portrait', 'menu-hero-wide', 'card-back-green',
-      'icon-king', 'icon-durak', 'icon-deberc', 'icon-tarneeb', 'icon-preferans', 'icon-fifty-one']) {
+      'icon-king', 'icon-durak', 'icon-deberc', 'icon-tarneeb', 'icon-preferans', 'icon-fifty-one', 'icon-poker']) {
       expect(visualAsset(id)?.present, id).toBe(true);
     }
   });

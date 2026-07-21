@@ -189,6 +189,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // 51 (Stage 30.5) is cutthroat rummy — no King-style mode; show its
               // Rummy meta + the elimination score (Stage 30.15; default 510 for legacy rooms).
               <>🀄 {t('fiftyOne.metaShort')} · ☠ {room.fiftyOneEliminationScore ?? 510}</>
+            ) : room.gameType === 'poker' ? (
+              // Poker (Stage 37.4) is No-Limit Hold'em — no King-style mode; show its meta.
+              <>♠️ {t('poker.metaShort')}</>
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

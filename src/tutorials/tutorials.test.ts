@@ -21,7 +21,7 @@ import { AR } from '../i18n/dictionaries/ar';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const EXPECTED_STEPS: Record<string, number> = {
-  king: 6, durak: 6, deberc: 7, tarneeb: 6, preferans: 6, 'fifty-one': 7,
+  king: 6, durak: 6, deberc: 7, tarneeb: 6, preferans: 6, 'fifty-one': 7, poker: 7,
 };
 
 describe('tutorial catalog', () => {
@@ -158,6 +158,7 @@ describe('tutorial purity (no engine/net/server; scripted only)', () => {
     'src/tutorials/fiftyOneTutorial.ts', 'src/tutorials/durakTutorial.ts',
     'src/tutorials/kingTutorial.ts', 'src/tutorials/debercTutorial.ts',
     'src/tutorials/tarneebTutorial.ts', 'src/tutorials/preferansTutorial.ts',
+    'src/tutorials/pokerTutorial.ts',
   ];
   for (const f of files) {
     it(`${f} imports no server/db/net/ws and runs no reducer`, () => {

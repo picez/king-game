@@ -12,6 +12,7 @@ import { kingTutorial } from './kingTutorial';
 import { debercTutorial } from './debercTutorial';
 import { tarneebTutorial } from './tarneebTutorial';
 import { preferansTutorial } from './preferansTutorial';
+import { pokerTutorial } from './pokerTutorial';
 
 export const TUTORIALS: TutorialCatalog = {
   king: kingTutorial,
@@ -20,6 +21,7 @@ export const TUTORIALS: TutorialCatalog = {
   tarneeb: tarneebTutorial,
   preferans: preferansTutorial,
   'fifty-one': fiftyOneTutorial,
+  poker: pokerTutorial,
 };
 
 /** The tutorial for a game (never null — every GameType has an entry). */
