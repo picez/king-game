@@ -1170,6 +1170,8 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
     ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
     ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
+    // Minimal PUBLIC recovery status (§16, 37.7.4) — no economy internals. Frozen wins over cancelled.
+    ...(room.pokerFrozen ? { pokerRecovery: 'frozen' as const } : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,

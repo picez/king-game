@@ -89,6 +89,10 @@ export interface RoomSnapshot {
   pokerBigBlind?: number;
   pokerBuyIn?: number;
   pokerBlindGrowth?: number;
+  /** Minimal PUBLIC recovery status (§16, 37.7.4) — NEVER any userId/matchId/escrow. Lets the
+   *  client show a banner: the previous match was cancelled (buy-ins refunded) or the table is
+   *  frozen (temporarily unavailable). Omitted once a fresh match starts. */
+  pokerRecovery?: 'cancelled' | 'frozen';
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -347,6 +351,8 @@ export type ErrorCode =
   | 'INSUFFICIENT_CHIPS'
   /** Bankroll poker (§16): the table is human-only / a seat is not signed in. */
   | 'NOT_SIGNED_IN'
+  /** Bankroll poker (§16, 37.7.4): the chip economy (DB) is unavailable — table frozen. */
+  | 'ECONOMY_UNAVAILABLE'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

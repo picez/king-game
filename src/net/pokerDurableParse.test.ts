@@ -22,6 +22,8 @@ describe('parseDurableMatch is all-or-nothing (FAIL 3/6)', () => {
     ['duplicate user', (r) => ({ ...r, seats: [{ seat: 0, userId: 'dup', amount: 5000 }, { seat: 1, userId: 'dup', amount: 5000 }] })],
     ['amount != buyIn', (r) => ({ ...r, seats: [{ seat: 0, userId: 'u1', amount: 4999 }, { seat: 1, userId: 'u2', amount: 5000 }] })],
     ['empty userId', (r) => ({ ...r, seats: [{ seat: 0, userId: '', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] })],
+    ['seat above 5 (6-max upper bound)', (r) => ({ ...r, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 6, userId: 'u2', amount: 5000 }] })],
+    ['seat 999', (r) => ({ ...r, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 999, userId: 'u2', amount: 5000 }] })],
     ['single seat', (r) => ({ ...r, seats: [{ seat: 0, userId: 'u1', amount: 5000 }] })],
     ['seven seats', (r) => ({ ...r, seats: Array.from({ length: 7 }, (_, i) => ({ seat: i, userId: `u${i}`, amount: 5000 })) })],
     ['bad buyIn', (r) => ({ ...r, buyIn: -1 })],

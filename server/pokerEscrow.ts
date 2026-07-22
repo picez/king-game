@@ -294,6 +294,17 @@ export function hasUnsettledEscrow(room: ServerRoom): boolean {
 }
 
 /**
+ * True when a bankroll room has unsettled escrow but the chip ECONOMY is unavailable
+ * (Stage 37.7.4, FAIL 2). A persisted `funded` escrow means chips may really have been
+ * debited in Postgres, so with no DB access the process must NOT continue the hand, run
+ * timers/bots, accept actions, start/rematch, or pay/refund — it fails CLOSED (frozen in
+ * effect) and keeps the room + escrow intact for a later DB-backed restart to reconcile.
+ */
+export function bankrollEconomyUnavailable(room: ServerRoom): boolean {
+  return isBankrollRoom(room) && !isDbEnabled() && hasUnsettledEscrow(room);
+}
+
+/**
  * Reconcile a room whose PERSISTED escrow was malformed (FAIL 5): refund every unsettled
  * durable match for this room code from the DB (idempotent), then clear the corrupt flag so
  * the room can finally be swept. Returns false (keep the room) on any DB failure or a

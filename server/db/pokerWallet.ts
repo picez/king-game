@@ -137,6 +137,14 @@ export class DurableMatchConflictError extends Error {
   }
 }
 
+/** Thrown when a FRESH durable match record is itself malformed (Stage 37.7.4, FAIL 4). */
+export class InvalidDurableMatchError extends Error {
+  constructor(public readonly matchId: string) {
+    super('invalid_durable_match');
+    this.name = 'InvalidDurableMatchError';
+  }
+}
+
 /** Canonical order-independent key for a seat set (sorted by seat), to compare two records. */
 function canonicalSeatsKey(seats: DurableMatchSeat[]): string {
   return [...seats].sort((a, b) => a.seat - b.seat).map((s) => `${s.seat}:${s.userId}:${s.amount}`).join('|');
@@ -148,11 +156,16 @@ function canonicalSeatsKey(seats: DurableMatchSeat[]): string {
  * the SAME logical match (identical roomCode/buyIn/canonical seats). Stage 37.7.3 (FAIL 4):
  * a re-record of the same matchId with DIFFERENT metadata throws DurableMatchConflictError —
  * rolling back the whole transaction (no new debit) rather than silently accepting the
- * conflicting record.
+ * conflicting record. Stage 37.7.4 (FAIL 4): the FRESH incoming metadata is itself run
+ * through the strict validator BEFORE the INSERT — malformed input throws
+ * InvalidDurableMatchError and rolls the whole transaction back (no corrupt poker_matches row,
+ * no wallet mutation), so a corrupt record can never be created via recordMatchTx.
  */
 export async function recordMatchTx(
   tx: PostgresJsDatabase, matchId: string, roomCode: string, buyIn: number, seats: DurableMatchSeat[],
 ): Promise<void> {
+  // (FAIL 4) Fail closed on malformed INCOMING metadata before touching the DB.
+  if (!parseDurableMatch({ matchId, roomCode, buyIn, seats })) throw new InvalidDurableMatchError(matchId);
   const inserted = await tx.insert(pokerMatches).values({ matchId, roomCode, buyIn, seats })
     .onConflictDoNothing({ target: pokerMatches.matchId })
     .returning({ matchId: pokerMatches.matchId });
@@ -187,7 +200,8 @@ export function parseDurableMatch(raw: { matchId: string; roomCode: string; buyI
   for (const e of raw.seats) {
     if (!e || typeof e !== 'object') return null;
     const o = e as Record<string, unknown>;
-    if (typeof o.seat !== 'number' || !Number.isSafeInteger(o.seat) || o.seat < 0) return null;
+    // (37.7.4 FAIL 3) A poker seat is a safe integer in 0..5 (2–6-max) — seat=6/999 is corrupt.
+    if (typeof o.seat !== 'number' || !Number.isSafeInteger(o.seat) || o.seat < 0 || o.seat > 5) return null;
     if (typeof o.userId !== 'string' || !o.userId || o.userId.length > 200) return null;
     if (typeof o.amount !== 'number' || !Number.isSafeInteger(o.amount) || o.amount <= 0 || o.amount !== buyIn) return null;
     if (seatSet.has(o.seat) || userSet.has(o.userId)) return null; // duplicate seat/user

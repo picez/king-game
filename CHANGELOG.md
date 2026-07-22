@@ -52,6 +52,13 @@ also reported at `GET /health/diagnostics` (`version` field).
     metadata; a recovered room whose buy-ins were refunded is **cancelled/frozen** (never a free
     continuation); every session transition cancels a pending async CREATE/JOIN; and the Poker
     host's account id is stamped atomically at creation. All verified on a real PostgreSQL.
+  - **Recovery-state reset + no-DB fail-closed (Stage 37.7.4):** a recovery-**cancelled** lobby
+    becomes a fully playable new paid match on START (buy-in debited once, flag cleared atomically,
+    actions/timer/advance unblocked, pays out at finish); a restored funded table with **no chip
+    economy** fails closed (no advance/action/start/rematch — `ECONOMY_UNAVAILABLE` — escrow + state
+    kept for a DB-backed restart, never cancelled without DB proof); durable seats are bounded to
+    0–5; `recordMatchTx` validates fresh metadata before insert; a canceled async CREATE/JOIN sends
+    no stale error; and a minimal public recovery banner (cancelled/frozen) leaks no economy data.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

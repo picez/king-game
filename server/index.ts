@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable } from './pokerEscrow';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -356,6 +356,8 @@ function handleRematch(session: SessionRef, decline: boolean): void {
   if (!s) return;
   const room = s.room;
   if (!isRoomFinished(room)) return;                 // only offerable once the game is over
+  // (37.7.4 FAIL 2) A frozen room or one with the economy unavailable can't rematch.
+  if (room.pokerFrozen || bankrollEconomyUnavailable(room)) return;
   const me = room.members.get(s.clientId);
   if (!me || me.role !== 'player' || me.type !== 'human') return;
 
@@ -376,6 +378,7 @@ function handleRematch(session: SessionRef, decline: boolean): void {
         clearRematch(room);
         const res = restartGame(room, { now: Date.now() });
         if (!res.ok) { await refundBuyIns(room); broadcastRematch(room); return; }
+        room.pokerMatchCancelled = undefined; // (37.7.4 FAIL 1) a rematch never inherits stale recovery flags
         logLatestDeal(room);
         broadcastRoom(room);
         broadcastAndAdvance(room, { turnAdvanced: true });
@@ -704,6 +707,9 @@ function handleLeave(room: ServerRoom, clientId: string): void {
 function rescheduleAdvance(room: ServerRoom): void {
   // (37.7.3 FAIL 5) A frozen room (corrupt durable match) or a cancelled match never advances.
   if (room.pokerFrozen || room.pokerMatchCancelled) return;
+  // (37.7.4 FAIL 2) A funded bankroll room with the economy unavailable (no DB) fails closed —
+  // no auto-advance/timer/bot until a DB-backed restart can reconcile it.
+  if (bankrollEconomyUnavailable(room)) return;
   const screen = publicScreenOf(room);
   const acting = actingMember(room);
   // Drive public screens, bot turns, and — after a restart — a disconnected
@@ -1067,8 +1073,14 @@ async function bootstrap(): Promise<void> {
       console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
     }
   } else {
-    // No economy (no DB): advance the deferred bankroll rooms best-effort (nothing to settle).
-    for (const r of restoredRooms) if (isBankrollRoom(r) && hasUnsettledEscrow(r)) rescheduleAdvance(r);
+    // (37.7.4 FAIL 2) No economy (no DB): a restored bankroll room with unsettled escrow FAILS
+    // CLOSED — it is NOT advanced/timed and NOT cancelled/refunded (that needs DB proof). Its
+    // escrow + game state are kept intact; a later DB-backed restart reconciles or settles it.
+    const frozenNoDb = restoredRooms.filter((r) => isBankrollRoom(r) && hasUnsettledEscrow(r));
+    if (frozenNoDb.length) {
+      console.error(`[King] ${frozenNoDb.length} bankroll room(s) restored with NO chip economy — frozen (no advance/settle) until a DB-backed restart`);
+    }
+    // Non-bankroll rooms already advanced in the restore loop above.
   }
 
   // Explicit startup sweep: delete already-expired rooms right away (and remove

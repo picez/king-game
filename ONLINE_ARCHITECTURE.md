@@ -574,3 +574,25 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   resurrect a room/member/session after any transition.
 - **Host identity atomic at CREATE (FAIL 7):** the Poker host's account id is passed into `createRoom`
   and stamped on the host member at creation — never dependent on a later attachIdentity.
+
+### Recovery-state reset + no-DB fail-closed (Stage 37.7.4)
+
+- **Recovery-cancelled lobby is playable again (FAIL 1):** `pokerMatchCancelled` describes only the
+  PREVIOUS recovered match. START_GAME clears it ONLY after a successful debit + startGame (a failed
+  paid start refunds once and leaves a safe cancelled lobby, never hiding recovery status); the new
+  match then accepts actions, runs the timer/advance, and settles at finish. Rematch never inherits
+  stale recovery flags. `pokerFrozen` is NOT auto-cleared (needs operator resolution).
+- **Restored funded room with no DB fails closed (FAIL 2):** a bankroll room restored with unsettled
+  escrow while the economy (DB) is unavailable is NOT advanced/timed and NOT cancelled/refunded (that
+  needs DB proof). `bankrollEconomyUnavailable()` gates `rescheduleAdvance` + ACTION_REQUEST +
+  START_GAME + rematch (→ `ECONOMY_UNAVAILABLE`); the escrow + game state are kept intact for a later
+  DB-backed restart to reconcile/settle without a double debit/refund.
+- **Durable seat upper bound (FAIL 3):** `parseDurableMatch` requires `0 ≤ seat ≤ 5` (6-max) — seat=6/999 is corrupt.
+- **Fresh durable metadata validated before INSERT (FAIL 4):** `recordMatchTx` runs the strict validator
+  on the incoming metadata and throws `InvalidDurableMatchError` (rolling back the whole transaction, no
+  debit) — a corrupt `poker_matches` row can never be created.
+- **Canceled async request is fully silent (FAIL 5):** the async CREATE/JOIN check `isCurrentNav` BEFORE
+  any `sendError`, so a superseded/closed navigation never pushes a stale error into a newer session.
+- **Recovery UX:** `RoomSnapshot.pokerRecovery` carries a minimal PUBLIC status (`cancelled` / `frozen`)
+  — never a userId/matchId/escrow — and is omitted once a fresh match starts; the no-DB case surfaces via
+  the `ECONOMY_UNAVAILABLE` error on any action.

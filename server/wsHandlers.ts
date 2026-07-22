@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitBuyIns, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitBuyIns, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable } from './pokerEscrow';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -204,6 +204,9 @@ export function handleClientMessage(
         if (growth === null) return sendError(socket, 'BAD_MESSAGE', 'Invalid blind growth');
         void (async () => {
           const uid = await getAccountUserId(); // resolved NON-GUEST account, or null
+          // (FAIL 5) A superseded/closed navigation is FULLY SILENT — check BEFORE any send,
+          // so a stale auth callback can never push an error into a newer session.
+          if (!lifecycle.isCurrentNav(nav)) return;
           if (!uid) return sendError(socket, 'NOT_SIGNED_IN', 'Sign in to host an online Poker table');
           finishCreate({ pokerSmallBlind: preset.smallBlind, pokerBigBlind: preset.bigBlind, pokerBuyIn: preset.buyIn, pokerBlindGrowth: growth }, uid);
         })();
@@ -378,6 +381,8 @@ export function handleClientMessage(
       if (!room.members.get(clientId)?.isHost) return sendError(socket, 'NOT_HOST', 'Only the host may start');
       // (37.7.3 FAIL 5) A frozen room (corrupt durable match) can't start anything.
       if (room.pokerFrozen) return sendError(socket, 'ILLEGAL_ACTION', 'This table is frozen for review');
+      // (37.7.4 FAIL 2) No chip economy → can't start/settle a bankroll table.
+      if (bankrollEconomyUnavailable(room)) return sendError(socket, 'ECONOMY_UNAVAILABLE', 'The chip economy is unavailable — try again later');
       // Bankroll poker (§16 F): debit every seat's buy-in ATOMICALLY before starting, all
       // SERIALIZED per room (withRoomLock) so it can't race a leave/kick/settings/second
       // start. Already started → no-op. If the debit commits but startGame then fails, the
@@ -398,16 +403,24 @@ export function handleClientMessage(
           // from the game state. If they diverge, refund and abort (never start such a game).
           if (!escrowMatchesRoomSeats(room)) {
             await refundBuyIns(room);
+            room.pokerMatchCancelled = true; // back to a safe cancelled lobby (FAIL 1)
             sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
+            ctx.persistRoom(room);
             return;
           }
           const res = startGame(room, { now: Date.now() });
           if (!res.ok) {
-            // Debit committed but the game did not start → refund immediately (idempotent).
+            // Debit committed but the game did not start → refund immediately (idempotent) and
+            // leave the room in a safe cancelled lobby (a failed start must NOT hide status).
             await refundBuyIns(room);
+            room.pokerMatchCancelled = true;
             sendError(socket, res.error!, 'Cannot start game');
+            ctx.persistRoom(room);
             return;
           }
+          // (FAIL 1) The new paid match is live → clear ANY recovery-cancelled flag ONLY now,
+          // atomically after a successful debit+start, so gameplay/timer/advance are unblocked.
+          room.pokerMatchCancelled = undefined;
           ctx.logLatestDeal(room);
           ctx.broadcastRoom(room);
           ctx.broadcastAndAdvance(room, { turnAdvanced: true });
@@ -429,6 +442,8 @@ export function handleClientMessage(
       const { room, clientId } = sessionRef.value;
       // (37.7.3 FAIL 5) A frozen/cancelled bankroll room accepts no gameplay actions.
       if (room.pokerFrozen || room.pokerMatchCancelled) return sendError(socket, 'ILLEGAL_ACTION', 'This match has been cancelled');
+      // (37.7.4 FAIL 2) No chip economy → a funded bankroll table accepts no actions.
+      if (bankrollEconomyUnavailable(room)) return sendError(socket, 'ECONOMY_UNAVAILABLE', 'The chip economy is unavailable — this table is paused');
       // `msg.action` is UNTRUSTED (arbitrary JSON). `applyActionRequest` validates and
       // never mutates on rejection, but wrap it so any residual throw becomes a safe
       // BAD_MESSAGE rejection instead of an uncaught exception that could tear down the

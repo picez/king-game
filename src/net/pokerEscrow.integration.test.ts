@@ -374,3 +374,41 @@ describe.skipIf(!TEST_DATABASE_URL)('durable match record integrity (Stage 37.7.
     await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)('recordMatchTx fresh-metadata validation (Stage 37.7.4 FAIL 4, integration)', () => {
+  it('rejects malformed FRESH metadata (no poker_matches row, no wallet change); valid repeat works', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const db = conn!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
+    const U1 = await users.createAccountUser({ email: null, name: 'FreshU1', emailVerified: false });
+    const U2 = await users.createAccountUser({ email: null, name: 'FreshU2', emailVerified: false });
+    await wallet.dailyClaim(U1, DAY);
+    const bad: Array<[string, Array<{ seat: number; userId: string; amount: number }>]> = [
+      ['seat 999', [{ seat: 0, userId: U1, amount: 5000 }, { seat: 999, userId: U2, amount: 5000 }]],
+      ['duplicate user', [{ seat: 0, userId: U1, amount: 5000 }, { seat: 1, userId: U1, amount: 5000 }]],
+      ['wrong amount', [{ seat: 0, userId: U1, amount: 4999 }, { seat: 1, userId: U2, amount: 5000 }]],
+    ];
+    for (const [label, seats] of bad) {
+      const mid = `fresh-${label.replace(/\W/g, '')}-${U1}`;
+      await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${mid}`;
+      await expect(db.transaction(async (tx) => {
+        await wallet.recordMatchTx(tx, mid, 'ROOM', 5000, seats);
+        await wallet.adjustWalletTx(tx, U1, -100, 'table_buy_in', `freshx:${mid}`);
+      }), label).rejects.toBeInstanceOf(wallet.InvalidDurableMatchError);
+      const n = await conn!.sql`SELECT count(*)::int AS n FROM poker_matches WHERE match_id = ${mid}`;
+      expect((n as Array<{ n: number }>)[0].n, label).toBe(0);   // no corrupt row created
+    }
+    expect((await wallet.getWalletView(U1, DAY)).balance).toBe(1_000_000); // no wallet mutation
+    // A valid record (different seat order on repeat) is idempotent.
+    const mid = `fresh-ok-${U1}`;
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${mid}`;
+    const seats = [{ seat: 0, userId: U1, amount: 5000 }, { seat: 1, userId: U2, amount: 5000 }];
+    await db.transaction((tx) => wallet.recordMatchTx(tx, mid, 'ROOM', 5000, seats));
+    await db.transaction((tx) => wallet.recordMatchTx(tx, mid, 'ROOM', 5000, [seats[1], seats[0]]));
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${mid}`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
+  });
+});

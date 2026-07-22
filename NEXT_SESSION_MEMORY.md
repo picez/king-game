@@ -126,3 +126,18 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - `validatePayoutConservation` also validates seat range + exact escrow-seat==player-seat set.
 - Real PostgreSQL: verify PASS 2844; DB-focused run 139 poker tests, 0 skipped. libc 0; latest
   migration 0012; game count 7; achievements 52; no version bump.
+
+### Stage 37.7.4 — recovery-state reset + no-DB fail-closed (COMPLETE, Unreleased)
+- No new migration. All fixes verified on real PostgreSQL (Docker; 164 poker DB tests, 0 skipped).
+- **FAIL 1:** `pokerMatchCancelled` cleared ONLY after a successful debit+startGame (START_GAME) or
+  restartGame (rematch); failed paid start → refund once + safe cancelled lobby. Integration test
+  (`pokerRecovery.integration.test.ts`) proves the new match is debited once, flag cleared, action
+  accepted, advance unblocked, and pays out.
+- **FAIL 2:** `bankrollEconomyUnavailable(room)` (isBankrollRoom && !isDbEnabled && hasUnsettledEscrow)
+  → fail closed: no rescheduleAdvance; ACTION_REQUEST/START/rematch → `ECONOMY_UNAVAILABLE`; bootstrap
+  else-branch no longer advances (keeps escrow+state for a DB-backed restart).
+- **FAIL 3:** `parseDurableMatch` seat range 0..5.
+- **FAIL 4:** `recordMatchTx` validates fresh metadata → `InvalidDurableMatchError` + rollback.
+- **FAIL 5:** async CREATE checks `isCurrentNav` before `sendError` (JOIN already did) → silent on cancel/close.
+- **UX:** `RoomSnapshot.pokerRecovery` ('cancelled'|'frozen', public-only, no economy metadata); cleared on new start.
+- verify PASS 2852; libc 0; latest migration 0012; game count 7; achievements 52; no version bump.

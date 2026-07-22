@@ -264,3 +264,73 @@ describe('pending navigation is cancelled by every session transition (FAIL 6)',
     });
   }
 });
+
+import { createRoom, addMember as addMemberSC } from './serverCore';
+import type { PokerState } from '../games/poker/types';
+
+// FAIL 2: a restored funded bankroll room on a server with NO economy (no DB) must FAIL CLOSED —
+// no actions / start / rematch — and NOT be cancelled/refunded without DB proof.
+describe('funded bankroll room with no economy fails closed (FAIL 2)', () => {
+  function seatedBankrollNoDb() {
+    delete process.env.DATABASE_URL; // economy OFF
+    const { ctx, rooms, errors } = makeCtx();
+    const room = createRoom({ code: 'PKNODB', playerCount: 2, modeSelectionType: 'fixed', gameType: 'poker', host: { clientId: 'h', reconnectToken: 't', name: 'Host', userId: 'u-h' }, pokerSmallBlind: 25, pokerBigBlind: 50, pokerBuyIn: 5000 });
+    addMemberSC(room, { clientId: 'p2', reconnectToken: 't', name: 'B', userId: 'u-b' });
+    room.pokerEscrow = { matchId: 'm1', buyIn: 5000, status: 'funded', seats: [{ seat: 0, userId: 'u-h', amount: 5000 }, { seat: 1, userId: 'u-b', amount: 5000 }] };
+    room.gameState = { gameType: 'poker', phase: 'betting', playerCount: 2, players: [], toActSeat: 0 } as unknown as PokerState;
+    room.started = true;
+    rooms.set(room.code, room);
+    const sessionRef: SessionRef = { value: { room, clientId: 'h' } };
+    const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
+    const run = (msg: ClientMessage) => handleClientMessage(ctx, socket, sessionRef, () => {}, msg, limiter, () => 'u-h', async () => 'u-h');
+    return { rooms, errors, room, run };
+  }
+
+  it('ACTION_REQUEST and START_GAME are rejected with ECONOMY_UNAVAILABLE; escrow + state preserved', () => {
+    const h = seatedBankrollNoDb();
+    h.run({ t: 'ACTION_REQUEST', action: { type: 'FOLD' } } as ClientMessage);
+    expect(h.errors).toContain('ECONOMY_UNAVAILABLE');
+    h.errors.length = 0;
+    h.run({ t: 'START_GAME' } as ClientMessage);
+    expect(h.errors).toContain('ECONOMY_UNAVAILABLE');
+    // The funded escrow + game state are NOT cleared (never cancelled without DB proof).
+    expect(h.room.pokerEscrow?.status).toBe('funded');
+    expect(h.room.gameState).not.toBeNull();
+    expect(h.room.pokerMatchCancelled).toBeFalsy();
+  });
+});
+
+// FAIL 5: a superseded/closed async CREATE is FULLY SILENT — no stale error into a newer session.
+describe('canceled async CREATE sends no stale error (FAIL 5)', () => {
+  for (const transition of ['JOIN_ROOM', 'RECONNECT', 'LEAVE_ROOM'] as const) {
+    it(`a delayed CREATE superseded by ${transition} with auth=null sends no NOT_SIGNED_IN`, async () => {
+      process.env.DATABASE_URL = 'postgres://fake';
+      const h = connHarness(null); // getAccountUserId resolves to null (guest)
+      h.run(pokerCreate({ pokerSmallBlind: 25, pokerBigBlind: 50 }));         // nav 1, awaits auth
+      const msg = transition === 'LEAVE_ROOM' ? { t: 'LEAVE_ROOM' } : { t: transition, code: 'ZZZZ', reconnectToken: 'x' };
+      h.run(msg as ClientMessage);                                            // bumps nav → cancels the CREATE
+      h.errors.length = 0;
+      h.resolve(null); await flush();                                        // stale auth returns null
+      expect(h.errors).not.toContain('NOT_SIGNED_IN');                       // fully silent
+      expect(h.rooms.size).toBe(0);
+    });
+  }
+
+  it('a socket close during auth (null) sends nothing', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness(null);
+    h.run(pokerCreate({ pokerSmallBlind: 25, pokerBigBlind: 50 }));
+    h.close();
+    h.errors.length = 0;
+    h.resolve(null); await flush();
+    expect(h.errors).toHaveLength(0);
+  });
+
+  it('a CURRENT unauthenticated CREATE still gets NOT_SIGNED_IN', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness(null);
+    h.run(pokerCreate({ pokerSmallBlind: 25, pokerBigBlind: 50 }));
+    h.resolve(null); await flush();
+    expect(h.errors).toContain('NOT_SIGNED_IN');
+  });
+});
