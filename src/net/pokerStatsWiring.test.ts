@@ -48,7 +48,7 @@ describe('poker stats add NO migration but DO feed achievements (Stage 37.4)', (
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
     const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker/i));
-    expect(pokerMigrations).toEqual(['0010_poker_wallet.sql', '0011_poker_settlement.sql']);
+    expect(pokerMigrations).toEqual(['0010_poker_wallet.sql', '0011_poker_settlement.sql', '0012_poker_matches.sql']);
     // The economy migrations create ONLY wallet/ledger/settlement tables — never stats tables.
     for (const f of pokerMigrations) {
       expect(read(join('server/db/migrations', f)), f).not.toMatch(/CREATE TABLE[^;]*\b(games|game_players|user_stats)\b/i);

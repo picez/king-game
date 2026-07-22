@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom } from './pokerEscrow';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -833,6 +833,15 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
       }
     }
   };
+  // Stage 37.7.2 (FAIL 3): per-connection navigation lifecycle. A monotonic revision +
+  // an open flag make a delayed async CREATE/JOIN cancellable — it completes only if it is
+  // still the latest navigation and the socket is open. Set false on close (below).
+  let navSeq = 0;
+  let socketOpen = true;
+  const lifecycle = {
+    beginNav: () => ++navSeq,
+    isCurrentNav: (token: number) => token === navSeq && socketOpen,
+  };
   // Stage 37.7.1: the identity resolution promise — awaited by the bankroll-Poker CREATE
   // gate so it can't race this async resolution (a guest / unresolved session must not be
   // able to host a bankroll table). `getAccountUserId` resolves to a NON-GUEST userId or null.
@@ -866,6 +875,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   // be open for presence without being seated in a room). On the online→offline transition,
   // push a FRIEND_PRESENCE(offline) to their online friends.
   socket.on('close', () => {
+    socketOpen = false; // (FAIL 3) cancel any in-flight async CREATE/JOIN for this socket
     if (resolvedUserId && detachPresence(resolvedUserId, socket)) void broadcastPresence(resolvedUserId, false);
   });
 
@@ -884,7 +894,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
-    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter, () => resolvedUserId, getAccountUserId);
+    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter, () => resolvedUserId, getAccountUserId, lifecycle);
   });
 
   socket.on('close', () => {
@@ -937,6 +947,12 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
   // restored transient escrow (pending/settling) before settling.
   void withRoomLock(code, async () => {
     if (!rooms.has(code)) return;                        // already purged by another op
+    // A corrupt persisted escrow (FAIL 5): refund its durable matches by room code from the
+    // DB before deletion; keep the room if anything is still owed / unresolved.
+    if (room.pokerEscrowCorrupt) {
+      if (await reconcileCorruptRoom(room)) purgeRoom(code); else persistRoom(room);
+      return;
+    }
     await reconcileEscrow(room);
     if (!hasUnsettledEscrow(room)) { purgeRoom(code); return; }
     const state = room.gameState as PokerState | null;
@@ -988,21 +1004,49 @@ async function bootstrap(): Promise<void> {
 
   // Restore persisted rooms so a server restart doesn't drop in-progress games.
   let restored = 0;
+  const restoredRooms: ServerRoom[] = [];
   for (const room of storage.loadRooms()) {
     // Restored humans have no live socket → mark the room orphaned now (keeping a
     // persisted orphanSince if present) so an abandoned table is swept on schedule.
     recomputeOrphan(room, Date.now());
     rooms.set(room.code, room);
     rescheduleAdvance(room);
-    // Bankroll crash recovery (§16, 37.7.1): reconcile a restored TRANSIENT escrow
-    // (pending/settling) against the durable DB ledger/settlement so it can't hang — a
-    // committed debit → funded, an uncommitted one → dropped; a committed settlement →
-    // settled/cancelled, else back to funded. Serialized + best-effort (never blocks boot).
-    if (isBankrollRoom(room) && hasUnsettledEscrow(room)) {
-      void withRoomLock(room.code, () => reconcileEscrow(room)).then(() => { if (rooms.has(room.code)) persistRoom(room); }).catch(() => {});
-    }
+    restoredRooms.push(room);
     restored++;
   }
+
+  // Bankroll crash recovery (§16, 37.7.1 + 37.7.2). Two passes:
+  //  (a) reconcile each restored room's TRANSIENT escrow (pending/settling) against the
+  //      durable DB ledger/settlement — committed debit → funded, uncommitted → dropped,
+  //      committed settlement → settled/cancelled, else back to funded;
+  //  (b) DB-authoritative orphan scan (FAIL 1): find committed-but-unresolved matches with
+  //      NO active started room (crashed between the debit commit and room persistence, so
+  //      the room JSON never recorded the escrow) and refund each exactly once. Awaited so
+  //      chips are settled BEFORE the room-cleanup sweep runs.
+  if (isDbEnabled()) {
+    await Promise.all(restoredRooms
+      .filter((r) => isBankrollRoom(r) && hasUnsettledEscrow(r))
+      .map((r) => withRoomLock(r.code, () => reconcileEscrow(r)).then(() => { if (rooms.has(r.code)) persistRoom(r); }).catch(() => {})));
+    const activeMatchIds = new Set<string>();
+    for (const r of restoredRooms) {
+      const esc = r.pokerEscrow;
+      // A live started match owns its buy-ins → keep funded (only funded/settling WITH a
+      // game state count as active; a funded escrow without a game is treated as orphaned).
+      if (isBankrollRoom(r) && esc && (esc.status === 'funded' || esc.status === 'settling') && r.gameState) {
+        activeMatchIds.add(esc.matchId);
+      }
+    }
+    try {
+      const { refunded } = await reconcileOrphanedDebits(activeMatchIds);
+      if (refunded.length) console.log(`[King] crash recovery: refunded ${refunded.length} orphaned poker match(es)`);
+    } catch (err) {
+      console.error('[King] orphaned-debit reconciliation failed:', String((err as Error)?.message ?? err).slice(0, 200));
+    }
+    // Clear the corrupt-escrow flag on rooms whose durable matches are now all resolved.
+    await Promise.all(restoredRooms.filter((r) => r.pokerEscrowCorrupt)
+      .map((r) => reconcileCorruptRoom(r).then((ok) => { if (rooms.has(r.code)) persistRoom(r); return ok; }).catch(() => false)));
+  }
+
   // Explicit startup sweep: delete already-expired rooms right away (and remove
   // them from storage) rather than waiting for the first interval to fire.
   const expiredOnStartup = cleanupRooms();

@@ -214,3 +214,109 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integration)', () => {
+  async function ctx(name: string) {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const escrow = await import('../../server/pokerEscrow');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const A = await users.createAccountUser({ email: null, name: `${name}A`, emailVerified: false });
+    const B = await users.createAccountUser({ email: null, name: `${name}B`, emailVerified: false });
+    await wallet.dailyClaim(A, DAY); await wallet.dailyClaim(B, DAY);
+    return { wallet, escrow, conn, A, B };
+  }
+
+  it('FAIL 1: committed debit whose room never persisted is refunded once by the boot scan', async () => {
+    const { wallet, escrow, conn, A, B } = await ctx('Crash');
+    const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+    // Debit commits durably (poker_matches + ledger). Simulate a HARD CRASH: the room object
+    // (and its escrow/persist) is discarded — nothing about the match survives in room JSON.
+    expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
+    const matchId = r.pokerEscrow!.matchId;
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
+    // Bootstrap finds the durable unresolved match with NO active room → refunds it once.
+    const res1 = await escrow.reconcileOrphanedDebits(new Set());
+    expect(res1.refunded).toContain(matchId);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
+    expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);
+    // A SECOND boot scan refunds nothing new (idempotent).
+    const res2 = await escrow.reconcileOrphanedDebits(new Set());
+    expect(res2.refunded).not.toContain(matchId);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+
+  it('an unambiguously ACTIVE match (in activeMatchIds) is NOT refunded — funded is kept', async () => {
+    const { wallet, escrow, conn, A, B } = await ctx('Active');
+    const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+    expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
+    const matchId = r.pokerEscrow!.matchId;
+    const res = await escrow.reconcileOrphanedDebits(new Set([matchId])); // active room owns it
+    expect(res.refunded).not.toContain(matchId);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000); // still debited (live match)
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+
+  it('FAIL 1 (rematch): a committed rematch debit with no persisted room is refunded once', async () => {
+    const { wallet, escrow, conn, A, B } = await ctx('CrashRe');
+    const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+    await escrow.debitBuyIns(r);
+    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0] } as import('../games/poker/types').PokerState); // A wins
+    const rematch = await escrow.debitRematch(r); // fresh paid match
+    expect(rematch.ok).toBe(true);
+    const rematchId = r.pokerEscrow!.matchId;
+    // Crash before persist → boot scan refunds the rematch buy-in once.
+    const res = await escrow.reconcileOrphanedDebits(new Set());
+    expect(res.refunded).toContain(rematchId);
+    // A: 1M − 5000 (m1) + 10000 (payout) − 5000 (rematch) + 5000 (refund) = 1,005,000.
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+});
+
+describe.skipIf(!TEST_DATABASE_URL)('adjustWalletTx idempotent-repeat fix (Stage 37.7.2 FAIL 6, integration)', () => {
+  it('a repeat debit after the balance dropped stays applied:false (not InsufficientChips)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const db = conn!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
+    const U = await users.createAccountUser({ email: null, name: 'RepeatDrop', emailVerified: false });
+    await wallet.dailyClaim(U, DAY); // 1,000,000
+    const key = `buyin:m1:${U}`;
+    expect(await db.transaction((tx) => wallet.adjustWalletTx(tx, U, -5000, 'table_buy_in', key))).toEqual({ balance: 995_000, applied: true });
+    // Drain the wallet well below 5000.
+    await db.transaction((tx) => wallet.adjustWalletTx(tx, U, -(995_000), 'table_buy_in', `buyin:drain:${U}`));
+    expect((await wallet.getWalletView(U, DAY)).balance).toBe(0);
+    // Repeating the FIRST key must be an idempotent no-op — NOT InsufficientChipsError.
+    const repeat = await db.transaction((tx) => wallet.adjustWalletTx(tx, U, -5000, 'table_buy_in', key));
+    expect(repeat).toEqual({ balance: 0, applied: false });
+    await conn!.sql`DELETE FROM users WHERE id = ${U}`;
+  });
+
+  it('a repeat credit near MAX_SAFE_INTEGER stays applied:false (not ChipOverflow)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const db = conn!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
+    const U = await users.createAccountUser({ email: null, name: 'RepeatMax', emailVerified: false });
+    await wallet.dailyClaim(U, DAY); // 1,000,000
+    const keyP = `payout:m1:${U}`;
+    await db.transaction((tx) => wallet.adjustWalletTx(tx, U, 50, 'table_payout', keyP)); // applied, 1,000,050
+    // Push the balance to MAX_SAFE_INTEGER − 10 so a RE-APPLY of +50 would overflow.
+    const bump = Number.MAX_SAFE_INTEGER - 10 - 1_000_050;
+    await db.transaction((tx) => wallet.adjustWalletTx(tx, U, bump, 'table_payout', `payout:bump:${U}`));
+    expect((await wallet.getWalletView(U, DAY)).balance).toBe(Number.MAX_SAFE_INTEGER - 10);
+    // Repeat keyP (+50): recompute would overflow, but the idempotent path returns first.
+    const repeat = await db.transaction((tx) => wallet.adjustWalletTx(tx, U, 50, 'table_payout', keyP));
+    expect(repeat.applied).toBe(false);
+    expect((await wallet.getWalletView(U, DAY)).balance).toBe(Number.MAX_SAFE_INTEGER - 10);
+    await conn!.sql`DELETE FROM users WHERE id = ${U}`;
+  });
+});

@@ -36,6 +36,14 @@ also reported at `GET /health/diagnostics` (`version` field).
     mutually exclusive** (migration 0011 `poker_match_settlements`); a restored transient
     escrow is **reconciled** on restart; every lifecycle op is **serialized per room**; and
     payouts are refused unless Σ(final stacks) == Σ(buy-ins).
+  - **Crash durability + auth-seat hardening (Stage 37.7.2):** a **durable match record**
+    (migration 0012 `poker_matches`) commits atomically with the buy-in, so a crash between the
+    debit and room persistence can still be recovered — a startup scan refunds any orphaned
+    committed match exactly once. Bankroll **player seats now require a signed-in non-guest
+    account** (stamped atomically at join; one seat per account; guests may spectate). Delayed
+    async CREATE/JOIN are **cancellable** (no stale/duplicate rooms); navigation can't reshape a
+    table mid-lifecycle-op; malformed persisted escrow **fails closed**; and an idempotent wallet
+    repeat can no longer falsely throw Insufficient/Overflow (verified on a real PostgreSQL).
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

@@ -34,6 +34,20 @@ export interface Session { room: ServerRoom; clientId: string }
 export interface SessionRef { value: Session | null }
 
 /**
+ * Per-connection navigation lifecycle (Stage 37.7.2 FAIL 3). A monotonic revision makes a
+ * DELAYED async CREATE/JOIN (awaiting account resolution) safe: it completes ONLY if it is
+ * still the latest navigation AND the socket is open. A second CREATE/JOIN — or a socket
+ * close — invalidates any in-flight one, so a late auth callback can never leave the current
+ * room or spawn a stale/duplicate room.
+ */
+export interface ConnLifecycle {
+  /** Begin a navigation; returns a token that supersedes all prior in-flight navigations. */
+  beginNav: () => number;
+  /** True only if `token` is still the latest navigation AND the socket is still open. */
+  isCurrentNav: (token: number) => boolean;
+}
+
+/**
  * If this connection already holds a room session, leave it before establishing a
  * new one. Without this, a socket that CREATEs/JOINs a second room silently
  * abandons the first — its seat stays `connected:true` forever (the close handler
@@ -82,6 +96,9 @@ export function handleClientMessage(
   // guests / no session / no DB). Used ONLY to gate online bankroll Poker creation, which
   // must not race the async session resolution. Default keeps other callers/tests unchanged.
   getAccountUserId: () => Promise<string | null> = async () => null,
+  // Stage 37.7.2 (FAIL 3): per-connection navigation lifecycle for cancellable async
+  // CREATE/JOIN. Default is a no-op single-shot for callers/tests that don't navigate async.
+  lifecycle: ConnLifecycle = { beginNav: () => 0, isCurrentNav: () => true },
 ): void {
   const { send, sendError } = ctx;
   const socialIO: SocialIO = {
@@ -95,8 +112,18 @@ export function handleClientMessage(
     return sendError(socket, 'RATE_LIMITED', 'Too many requests — slow down');
   }
 
+  // (FAIL 4) A navigation (CREATE/JOIN) that would leave the CURRENT room is refused while
+  // that room is a bankroll table with a lifecycle op (debit/rematch/settlement) in flight —
+  // leaving mid-debit would desync the escrow seats. Retryable once the op completes.
+  const navWouldBreakBankroll = (): boolean => {
+    const cur = sessionRef.value;
+    return !!cur && isBankrollRoom(cur.room) && isRoomBusy(cur.room.code);
+  };
+
   switch (msg.t) {
     case 'CREATE_ROOM': {
+      if (navWouldBreakBankroll()) return sendError(socket, 'ILLEGAL_ACTION', 'Your table is mid-hand — try again in a moment');
+      const nav = lifecycle.beginNav(); // supersede any in-flight async CREATE/JOIN
       // Resolve & validate the game type (default King). Unknown / not-online → reject.
       if (msg.gameType !== undefined && !isGameType(msg.gameType)) {
         return sendError(socket, 'BAD_MESSAGE', 'Unknown game type');
@@ -131,6 +158,10 @@ export function handleClientMessage(
       // the rate-limit + leave + createRoom + welcome. Kept as a closure so the ONLINE
       // BANKROLL Poker path can await its auth/stakes gate first without duplicating this.
       const finishCreate = (poker: { pokerSmallBlind?: number; pokerBigBlind?: number; pokerBuyIn?: number; pokerBlindGrowth?: number }): void => {
+        // (FAIL 3) Only complete if this is still the latest navigation + the socket is open.
+        if (!lifecycle.isCurrentNav(nav)) return;
+        // (FAIL 4) Re-check right before we leave the current room.
+        if (navWouldBreakBankroll()) return sendError(socket, 'ILLEGAL_ACTION', 'Your table is mid-hand — try again in a moment');
         // Bound room churn (БЕЗ-1): stricter than the general message limit.
         if (!limiter.allowCreateRoom(Date.now())) {
           return sendError(socket, 'RATE_LIMITED', 'Creating rooms too fast — slow down');
@@ -182,6 +213,8 @@ export function handleClientMessage(
     }
 
     case 'JOIN_ROOM': {
+      if (navWouldBreakBankroll()) return sendError(socket, 'ILLEGAL_ACTION', 'Your table is mid-hand — try again in a moment');
+      const nav = lifecycle.beginNav();
       // Brute-force gate (БЕЗ-6): checked before the room lookup so a wrong code
       // and a wrong password are throttled uniformly (no timing oracle on which
       // codes exist). Only FAILED joins spend the budget, so real users are
@@ -196,32 +229,52 @@ export function handleClientMessage(
         ctx.logRoomEvent('JOIN_ROOM', reqCode, null, 'ROOM_NOT_FOUND');
         return sendError(socket, 'ROOM_NOT_FOUND', 'No such room');
       }
-      const clientId = randomUUID();
-      // Plaintext token minted here; only its hash is stored (БЕЗ-4).
-      const reconnectToken = randomUUID();
-      const res = addMember(room, {
-        clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar,
-      }, scryptPasswordHasher);
-      if (!res.ok) {
-        // Only a wrong password counts as a guessing attempt; full/name-taken/
-        // already-started are legitimate outcomes and must not penalise the user.
-        if (res.error === 'BAD_PASSWORD') limiter.recordJoinFailure(now);
-        ctx.logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
-        const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password' : 'Cannot join room';
-        return sendError(socket, res.error!, message);
+      const wantsPlayerSeat = msg.role !== 'spectator';
+      // Finalize a successful join: leave the prior room, wire the session, welcome.
+      const finalizeJoin = (clientId: string, reconnectToken: string): void => {
+        // Joined successfully — abandon any previous room this connection held (БЕЗ-2).
+        leaveCurrentSession(ctx, sessionRef);
+        ctx.sockets.set(clientId, socket);
+        sessionRef.value = { room, clientId };
+        attachIdentity();
+        ctx.welcome(socket, room.members.get(clientId)!, room, reconnectToken);
+        ctx.broadcastRoom(room);
+        if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId), timer: roomTimerInfo(room, Date.now()) });
+        ctx.sendChatHistory(socket, room.code);
+        ctx.persistRoom(room);
+        ctx.logRoomEvent('JOIN_ROOM', reqCode, room);
+      };
+      // The sync completion (given the authoritative account id for a bankroll player seat).
+      const finishJoin = (userId: string | null): void => {
+        if (!lifecycle.isCurrentNav(nav)) return;                         // superseded / socket closed
+        if (navWouldBreakBankroll()) return sendError(socket, 'ILLEGAL_ACTION', 'Your table is mid-hand — try again in a moment');
+        const clientId = randomUUID();
+        const reconnectToken = randomUUID(); // plaintext minted here; only its hash is stored (БЕЗ-4)
+        const res = addMember(room, {
+          clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, role: msg.role, password: msg.password, avatar: msg.avatar, userId,
+        }, scryptPasswordHasher);
+        if (!res.ok) {
+          if (res.error === 'BAD_PASSWORD') limiter.recordJoinFailure(now);
+          ctx.logRoomEvent('JOIN_ROOM', reqCode, room, res.error);
+          const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password'
+            : res.error === 'NOT_SIGNED_IN' ? 'Sign in to take a Poker seat (one seat per account)' : 'Cannot join room';
+          return sendError(socket, res.error!, message);
+        }
+        finalizeJoin(clientId, reconnectToken);
+      };
+      // Bankroll poker PLAYER seat (§16, 37.7.2 FAIL 2): require a resolved non-guest account,
+      // awaited (like CREATE) + cancellation-safe. A SPECTATOR seat (or any other game) needs
+      // no account gate — it never receives private cards.
+      if (isBankrollRoom(room) && wantsPlayerSeat) {
+        void (async () => {
+          const uid = await getAccountUserId();
+          if (!lifecycle.isCurrentNav(nav)) return;
+          if (!uid) return sendError(socket, 'NOT_SIGNED_IN', 'Sign in to take a Poker seat');
+          finishJoin(uid);
+        })();
+        break;
       }
-      // Joined successfully — abandon any previous room this connection held so it
-      // doesn't leak with a stuck-connected seat (БЕЗ-2).
-      leaveCurrentSession(ctx, sessionRef);
-      ctx.sockets.set(clientId, socket);
-      sessionRef.value = { room, clientId };
-      attachIdentity();
-      ctx.welcome(socket, room.members.get(clientId)!, room, reconnectToken);
-      ctx.broadcastRoom(room);
-      if (room.gameState) send(socket, { t: 'STATE_UPDATE', state: sanitizedStateFor(room, clientId), timer: roomTimerInfo(room, Date.now()) });
-      ctx.sendChatHistory(socket, room.code);
-      ctx.persistRoom(room);
-      ctx.logRoomEvent('JOIN_ROOM', reqCode, room);
+      finishJoin(null);
       break;
     }
 

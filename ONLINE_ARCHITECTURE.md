@@ -523,3 +523,27 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Payout conservation** (`validatePayoutConservation`): before any credit, every final stack
   must be a finite non-negative safe integer and Σ(final stacks) must equal Σ(buy-ins), else
   fail closed (no wallet mutation).
+
+### Crash durability + auth-seat hardening (Stage 37.7.2)
+
+- **Debit crash durability (FAIL 1):** the durable `poker_matches` record + the buy-in ledger
+  rows commit atomically with the debit. A boot `reconcileOrphanedDebits` refunds any committed
+  match with no active started room (crashed between debit commit and room persistence),
+  exactly once — no reliance on room JSON.
+- **Authenticated seat gate (FAIL 2):** JOIN of a bankroll PLAYER seat requires a resolved
+  non-guest account (awaited like CREATE); the userId is stamped ATOMICALLY at join (not via a
+  later attachIdentity); one account cannot take two player seats; guests may still spectate
+  (no private cards). RECONNECT/RECLAIM keep the existing seat identity.
+- **Cancellable async CREATE/JOIN (FAIL 3):** a per-connection monotonic navigation revision +
+  an open flag mean a delayed auth callback completes only if it is still the latest navigation
+  and the socket is open — a second CREATE/JOIN or a socket close cancels the first, so no
+  stale/duplicate room; two parallel CREATE make one room.
+- **Navigation ↔ lock (FAIL 4):** CREATE/JOIN/LEAVE that would leave the current room are refused
+  while it is a bankroll table with a lifecycle op in flight (`isRoomBusy`); the session is never
+  silently detached mid-debit; a socket disconnect only marks connected=false.
+- **Strict persisted-escrow validation (FAIL 5):** a malformed durable escrow fails CLOSED
+  (marks the room corrupt + alerts, never silently "no escrow that deletes a room with chips
+  owed"); the DB scan refunds the underlying match by room code.
+- **Idempotent-repeat wallet fix (FAIL 6):** `adjustWalletTx` short-circuits on an existing
+  ledger key before any balance math, so a repeat after the balance dropped / near overflow is a
+  clean `applied:false` no-op. Proven with a real concurrent PostgreSQL same-key test.

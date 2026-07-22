@@ -22,8 +22,8 @@ import type { ServerRoom, PokerEscrow, PokerEscrowSeat } from '../src/net/server
 import type { PokerState } from '../src/games/poker/types';
 import { getDb, isDbEnabled } from './db/client';
 import {
-  adjustWalletTx, settleMatchTx, matchLedgerState,
-  InsufficientChipsError, SettlementConflictError,
+  adjustWalletTx, settleMatchTx, matchLedgerState, recordMatchTx, listUnsettledMatches,
+  InsufficientChipsError, SettlementConflictError, type DurableMatch,
 } from './db/pokerWallet';
 
 /** A bankroll room = online poker with a server-derived buy-in (economy enabled). */
@@ -108,6 +108,10 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
   if (!d) { room.pokerEscrow = undefined; return { ok: false, error: 'Economy unavailable' }; }
   try {
     await d.transaction(async (tx) => {
+      // (FAIL 1) Durable match record FIRST, in the SAME transaction as the debits, so a
+      // crash after this commit can always recover the match (matchId/seats) even if the
+      // room JSON never persisted the escrow.
+      await recordMatchTx(tx, matchId, room.code, buyIn, seats);
       for (const s of seats) {
         await adjustWalletTx(tx, s.userId, -buyIn, 'table_buy_in', `buyin:${matchId}:${s.userId}`, { matchId, roomCode: room.code });
       }
@@ -174,10 +178,18 @@ export type ConservationCheck = { ok: true } | { ok: false; error: string };
 export function validatePayoutConservation(esc: PokerEscrow, state: PokerState): ConservationCheck {
   const stacks = state.stacksBySeat;
   if (!Array.isArray(stacks)) return { ok: false, error: 'no stacks' };
+  // (FAIL 5) The escrow itself must be structurally valid — not just the stacks.
+  if (!esc || typeof esc.matchId !== 'string' || !esc.matchId) return { ok: false, error: 'bad escrow' };
+  if (!Number.isSafeInteger(esc.buyIn) || esc.buyIn <= 0) return { ok: false, error: 'bad buyIn' };
+  if (!Array.isArray(esc.seats) || esc.seats.length < 2 || esc.seats.length > 6) return { ok: false, error: 'bad seat count' };
+  const users = new Set<string>();
   let payoutTotal = 0;
   let escrowTotal = 0;
   const seen = new Set<number>();
   for (const s of esc.seats) {
+    if (typeof s.userId !== 'string' || !s.userId || users.has(s.userId)) return { ok: false, error: 'bad/duplicate user' };
+    users.add(s.userId);
+    if (!Number.isSafeInteger(s.amount) || s.amount <= 0 || s.amount !== esc.buyIn) return { ok: false, error: 'bad seat amount' };
     if (seen.has(s.seat)) return { ok: false, error: 'duplicate seat' };
     seen.add(s.seat);
     const stack = stacks[s.seat];
@@ -251,10 +263,78 @@ export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
   }
 }
 
-/** True when a room still holds unsettled escrow (a funded/in-flight bankroll match). */
+/** True when a room still holds unsettled escrow — a funded/in-flight match OR a corrupt
+ *  persisted escrow (§16, 37.7.2 FAIL 5): both block deletion until the DB says nothing is owed. */
 export function hasUnsettledEscrow(room: ServerRoom): boolean {
+  if (room.pokerEscrowCorrupt) return true;
   const esc = room.pokerEscrow;
   return !!esc && esc.status !== 'settled' && esc.status !== 'cancelled';
+}
+
+/**
+ * Reconcile a room whose PERSISTED escrow was malformed (FAIL 5): refund every unsettled
+ * durable match for this room code from the DB (idempotent), then clear the corrupt flag so
+ * the room can finally be swept. Returns false (keep the room) on any DB failure or a
+ * malformed durable match — never loses chips. A room with no DB match resolves immediately.
+ */
+export async function reconcileCorruptRoom(room: ServerRoom): Promise<boolean> {
+  if (!room.pokerEscrowCorrupt) return true;
+  if (!isDbEnabled()) return false; // funded-but-corrupt, no economy → keep for retry
+  let matches: DurableMatch[];
+  try { matches = await listUnsettledMatches(); } catch { return false; }
+  for (const m of matches.filter((mm) => mm.roomCode === room.code)) {
+    if (m.seats.length < 2 || m.seats.some((s) => s.amount !== m.buyIn)) {
+      console.error(`[Poker] corrupt room ${room.code} match ${m.matchId} has malformed durable seats — operator review`);
+      return false; // fail closed
+    }
+    if (!(await refundDurableMatch(m))) return false;
+  }
+  room.pokerEscrowCorrupt = false; // every match for this room is resolved
+  return true;
+}
+
+/** Refund a durable match's buy-ins straight from the DB record (no room JSON needed). */
+async function refundDurableMatch(match: DurableMatch): Promise<boolean> {
+  if (!isDbEnabled()) return false;
+  try {
+    await settleMatchTx(match.matchId, 'cancel_refund', async (tx) => {
+      for (const s of match.seats) {
+        await adjustWalletTx(tx, s.userId, s.amount, 'table_cancel_refund', `refund:${match.matchId}:${s.userId}`, { matchId: match.matchId, roomCode: match.roomCode });
+      }
+    });
+    return true;
+  } catch (err) {
+    if (err instanceof SettlementConflictError) return true; // already paid → resolved
+    return false;
+  }
+}
+
+/**
+ * Startup crash-recovery (FAIL 1), DB-authoritative and INDEPENDENT of room JSON. Scans all
+ * committed-but-unresolved matches (a durable poker_matches row with no settlement row) and,
+ * for any NOT owned by an `activeMatchIds` live started room, performs one atomic idempotent
+ * refund from the durable seat data. This catches a match whose room JSON never recorded the
+ * escrow (crashed between the debit commit and room persistence). Idempotent: a repeat boot
+ * refunds nothing new (the settlement gate + ledger keys no-op). Malformed durable seats fail
+ * closed (skipped + alerted for operator review) rather than silently losing chips.
+ */
+export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<{ refunded: string[] }> {
+  if (!isDbEnabled()) return { refunded: [] };
+  let matches: DurableMatch[];
+  try { matches = await listUnsettledMatches(); } catch { return { refunded: [] }; }
+  const refunded: string[] = [];
+  for (const m of matches) {
+    if (activeMatchIds.has(m.matchId)) continue; // an active started room owns this → keep funded
+    if (m.seats.length < 2 || m.seats.some((s) => s.amount !== m.buyIn)) {
+      console.error(`[Poker] orphaned match ${m.matchId} (room ${m.roomCode}) has malformed durable seats — SKIPPED for operator review`);
+      continue; // fail closed
+    }
+    if (await refundDurableMatch(m)) {
+      refunded.push(m.matchId);
+      console.log(`[Poker] crash-recovery refund for orphaned match ${m.matchId} (room ${m.roomCode})`);
+    }
+  }
+  return { refunded };
 }
 
 /**

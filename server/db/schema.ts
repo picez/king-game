@@ -313,6 +313,23 @@ export const pokerMatchSettlements = pgTable('poker_match_settlements', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Stage 37.7.2 — durable ACTIVE-match record. Written in the SAME transaction as the
+ * buy-in debits so a crash after the debit commit (but before room persistence) can still
+ * recover the match (matchId / roomCode / buyIn / exact seat→user→amount) independently of
+ * room JSON. An unresolved match = a poker_matches row with no poker_match_settlements row.
+ * See migration 0012.
+ */
+export const pokerMatches = pgTable('poker_matches', {
+  matchId: text('match_id').primaryKey(),
+  roomCode: text('room_code').notNull(),
+  buyIn: bigint('buy_in', { mode: 'number' }).notNull(),
+  /** [{ seat, userId, amount }] — the funded composition. */
+  seats: jsonb('seats').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type PokerWalletsTable = typeof pokerWallets;
 export type PokerLedgerTable = typeof pokerLedger;
 export type PokerMatchSettlementsTable = typeof pokerMatchSettlements;
+export type PokerMatchesTable = typeof pokerMatches;

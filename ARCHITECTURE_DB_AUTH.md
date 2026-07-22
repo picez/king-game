@@ -1101,3 +1101,15 @@ refund mutations (`settleMatchTx`), so payout and refund are MUTUALLY EXCLUSIVE 
 crash/restart — the per-user `payout:<m>:<u>` / `refund:<m>:<u>` ledger keys differ, so
 only this shared PK can enforce whole-match exclusion. A repeat of the same outcome is an
 idempotent no-op; the opposite outcome after resolution aborts with no wallet change.
+
+### §2.11.2 Match durability + crash recovery (Stage 37.7.2)
+
+Migration `0012_poker_matches` adds `poker_matches` (`match_id` PK, `room_code`, `buy_in`,
+`seats` jsonb). It is written in the SAME transaction as the buy-in debits (`recordMatchTx`
+inside `performDebit`), so once a debit commits the match is recoverable (matchId + exact
+seat→user→amount) even if the room JSON never persisted the escrow. Startup reconciliation
+(`reconcileOrphanedDebits`) scans `poker_matches LEFT JOIN poker_match_settlements` for
+unresolved matches and refunds any not owned by an active started room — DB-authoritative,
+independent of room JSON, idempotent. `adjustWalletTx` now checks the idempotency ledger key
+BEFORE computing the next balance, so an idempotent repeat of a committed debit/credit
+returns `applied:false` instead of spuriously throwing Insufficient/Overflow.

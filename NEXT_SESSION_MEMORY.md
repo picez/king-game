@@ -6,7 +6,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
 - Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
 - Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
-- Latest DB migration: `0011_poker_settlement` (Stage 37.7.1 — payout/refund mutual-exclusion gate); `0010_poker_wallet` = wallet + ledger. Do not add migrations casually.
+- Latest DB migration: `0012_poker_matches` (Stage 37.7.2 — durable match record for crash recovery); `0011_poker_settlement` = payout/refund gate; `0010_poker_wallet` = wallet + ledger. Do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
@@ -67,8 +67,28 @@ Use this file as the first read after archiving this chat. It is intentionally s
   ledger/settlement; committed debit→funded, uncommitted→dropped; committed settlement→settled/cancelled.
 - **Payout conservation** (`validatePayoutConservation`): Σ final stacks == Σ buy-ins + safe-int/≥0, else fail closed.
 - Tests: `pokerEscrowHardening.test.ts` (conservation/settlement-decision/lock), `wsHandlers.poker.test.ts`
-  (CREATE gate), extended `pokerEscrow.integration.test.ts` (payout/refund mutex, rematch, reconcile — DB, SKIPPED).
+  (CREATE gate), extended `pokerEscrow.integration.test.ts` (payout/refund mutex, rematch, reconcile).
   verify PASS 2795; libc 0; latest migration 0011; game count 7; achievements 52; no version bump.
+
+### Stage 37.7.2 — crash durability + authenticated seat gate (COMPLETE, Unreleased)
+- **Migration `0012_poker_matches`** (`match_id` PK, room_code, buy_in, seats jsonb): durable
+  ACTIVE-match record written in the SAME tx as the buy-in debits (`recordMatchTx` in `performDebit`).
+- **FAIL 1 crash durability:** `reconcileOrphanedDebits(activeMatchIds)` at bootstrap scans
+  `poker_matches` LEFT JOIN settlements → refunds orphaned committed matches (no active room) once,
+  independent of room JSON. `reconcileCorruptRoom` refunds by room_code.
+- **FAIL 2 seat gate:** `addMember` takes `userId`; bankroll player seat requires non-guest account
+  (stamped atomically), one seat per account, guest spectator allowed. JOIN awaits `getAccountUserId`.
+- **FAIL 3 async cancel:** per-connection `lifecycle` (navSeq+socketOpen) → `beginNav`/`isCurrentNav`.
+- **FAIL 4 nav lock:** `navWouldBreakBankroll` guards CREATE/JOIN/LEAVE while `isRoomBusy`.
+- **FAIL 5 strict escrow:** `deserializePokerEscrow(v, playerCount)` → `{escrow|corrupt}`; malformed →
+  `room.pokerEscrowCorrupt` (blocks deletion, alerts). `validatePayoutConservation` also validates escrow.
+- **FAIL 6 idempotent repeat:** `adjustWalletTx` checks the ledger key BEFORE `computeNextBalance`.
+- **Real PostgreSQL used** (Docker `postgres:16-alpine` :55432): ALL poker DB/integration/concurrency
+  suites RAN GREEN (65 tests, incl. crash-sim + concurrent same-key). verify PASS 2820; libc 0; latest
+  migration 0012; game count 7; achievements 52; no version bump. Re-run: `docker run -d --name kg-pg-test
+  -e POSTGRES_PASSWORD=test -e POSTGRES_DB=kingtest -p 55432:5432 postgres:16-alpine`, then
+  `DATABASE_URL=postgres://postgres:test@localhost:55432/kingtest npm run db:migrate`, then
+  `TEST_DATABASE_URL=... npx vitest run src/net/pokerWallet.integration.test.ts src/net/pokerEscrow.integration.test.ts`.
 
 ## Open / likely next work
 - Owner may bring real bug reports from daily play; fix those before speculative polish.

@@ -285,6 +285,12 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   the buy-in from **every** seat in **one atomic transaction** (all-or-nothing; if anyone
   is short, nobody is debited and the room does not start). Idempotent via
   `buyin:<matchId>:<userId>` — a duplicate START / reconnect / restart never double-debits.
+  A **durable match record** (migration 0012) is written in the SAME transaction, so a crash
+  between the debit commit and room persistence is recoverable: startup reconciliation refunds
+  any committed match with no active table exactly once (chips are never lost).
+- **Signed-in seats** — every bankroll PLAYER seat requires a resolved non-guest account,
+  stamped atomically at join; one account may hold only one player seat; guests may spectate
+  (they never receive private cards).
 - **Payout** — at `game_finished` each seat's **final stack** is credited back
   (`payout:<matchId>:<userId>`). Total paid == escrow (chip conservation). Idempotent;
   a rebroadcast / reconnect / restart never double-pays.

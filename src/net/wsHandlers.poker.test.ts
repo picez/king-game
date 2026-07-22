@@ -10,6 +10,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { handleClientMessage, type WsContext, type SessionRef } from '../../server/wsHandlers';
 import { removeMember, type ServerRoom } from './serverCore';
+import { withRoomLock, isRoomBusy, clearRoomLock } from '../../server/pokerEscrow';
 import { RoomSocialStore } from '../../server/roomSocial';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS } from './rateLimit';
 import type { ClientMessage, ErrorCode } from './messages';
@@ -100,5 +101,76 @@ describe('online Poker CREATE is bankroll-only (FAIL 4)', () => {
     run({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType: 'king' } as ClientMessage);
     await flush();
     expect(rooms.size).toBe(1); // King is unaffected by the poker economy gate
+  });
+});
+
+// A richer harness with a per-connection lifecycle + a controllable async account resolver,
+// for the cancellable CREATE/JOIN (FAIL 3) and the navigation-vs-lock guard (FAIL 4).
+function connHarness(account: string | null = 'acc-1') {
+  const { ctx, rooms, errors } = makeCtx();
+  const sessionRef: SessionRef = { value: null };
+  const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
+  let navSeq = 0; let open = true;
+  const lifecycle = { beginNav: () => ++navSeq, isCurrentNav: (t: number) => t === navSeq && open };
+  let resolveAccount!: (v: string | null) => void;
+  let accountPromise = new Promise<string | null>((r) => { resolveAccount = r; });
+  const run = (msg: ClientMessage) =>
+    handleClientMessage(ctx, socket, sessionRef, () => {}, msg, limiter, () => account, () => accountPromise, lifecycle);
+  return {
+    rooms, errors, sessionRef, run,
+    resolve: (v: string | null) => resolveAccount(v),
+    rearm: () => { accountPromise = new Promise<string | null>((r) => { resolveAccount = r; }); },
+    close: () => { open = false; },
+  };
+}
+
+describe('cancellable async CREATE/JOIN lifecycle (FAIL 3)', () => {
+  it('a delayed CREATE A superseded by CREATE B leaves no stale A room', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness('acc-1');
+    h.run(pokerCreate({ pokerSmallBlind: 100, pokerBigBlind: 200 }));           // A: nav 1, awaits account
+    h.run({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType: 'king' } as ClientMessage); // B: nav 2, creates now
+    expect(h.rooms.size).toBe(1);
+    h.resolve('acc-1'); await flush();
+    expect(h.rooms.size).toBe(1);                                              // A did NOT spawn a 2nd room
+    expect([...h.rooms.values()][0].gameType).toBe('king');                    // B is current
+  });
+
+  it('a socket close during auth creates no room', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness('acc-1');
+    h.run(pokerCreate({ pokerSmallBlind: 100, pokerBigBlind: 200 }));
+    h.close();
+    h.resolve('acc-1'); await flush();
+    expect(h.rooms.size).toBe(0);
+  });
+
+  it('two parallel CREATE create only ONE room', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness('acc-1');
+    h.run(pokerCreate({ pokerSmallBlind: 100, pokerBigBlind: 200 }));          // nav 1
+    h.rearm();
+    h.run(pokerCreate({ pokerSmallBlind: 100, pokerBigBlind: 200 }));          // nav 2
+    h.resolve('acc-1'); await flush();
+    expect(h.rooms.size).toBe(1);
+  });
+});
+
+describe('navigation refused during a bankroll lifecycle op (FAIL 4)', () => {
+  it('LEAVE is rejected while the room lock is held; the seat stays', async () => {
+    process.env.DATABASE_URL = 'postgres://fake';
+    const h = connHarness('acc-1');
+    h.run(pokerCreate({ pokerSmallBlind: 100, pokerBigBlind: 200 })); h.resolve('acc-1'); await flush();
+    const room = [...h.rooms.values()][0];
+    clearRoomLock(room.code);
+    let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+    const op = withRoomLock(room.code, async () => { await gate; });
+    expect(isRoomBusy(room.code)).toBe(true);
+    h.errors.length = 0;
+    h.run({ t: 'LEAVE_ROOM' } as ClientMessage);
+    expect(h.errors).toContain('ILLEGAL_ACTION');
+    expect(h.sessionRef.value).not.toBeNull();        // still seated (not silently detached)
+    release(); await op;
+    clearRoomLock(room.code);
   });
 });

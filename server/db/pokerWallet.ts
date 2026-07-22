@@ -17,9 +17,9 @@
 // UTC date, so a client clock/timezone change cannot unlock an extra claim.
 // ---------------------------------------------------------------------------
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { pokerWallets, pokerLedger, pokerMatchSettlements } from './schema';
+import { pokerWallets, pokerLedger, pokerMatchSettlements, pokerMatches } from './schema';
 import { getDb } from './client';
 import {
   DAILY_CLAIM_CHIPS, utcDateString, nextUtcMidnightMs,
@@ -122,6 +122,57 @@ export async function settleMatchTx(
   });
 }
 
+/** One seat's durable buy-in (seat→user→amount) inside a match record. */
+export interface DurableMatchSeat { seat: number; userId: string; amount: number; }
+/** A durable ACTIVE-match record (poker_matches), recoverable without any room JSON. */
+export interface DurableMatch { matchId: string; roomCode: string; buyIn: number; seats: DurableMatchSeat[] }
+
+/**
+ * Write the durable match record (Stage 37.7.2, FAIL 1). MUST be called inside the SAME
+ * transaction as the buy-in debits so the record + debits commit atomically — after a
+ * commit the match is always recoverable even if the room JSON is stale/missing. Idempotent
+ * (ON CONFLICT DO NOTHING) so a retry with the same matchId is safe.
+ */
+export async function recordMatchTx(
+  tx: PostgresJsDatabase, matchId: string, roomCode: string, buyIn: number, seats: DurableMatchSeat[],
+): Promise<void> {
+  await tx.insert(pokerMatches).values({ matchId, roomCode, buyIn, seats })
+    .onConflictDoNothing({ target: pokerMatches.matchId });
+}
+
+/** Parse a persisted `seats` JSONB into validated DurableMatchSeat[] (drops malformed entries). */
+function parseDurableSeats(raw: unknown): DurableMatchSeat[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DurableMatchSeat[] = [];
+  for (const e of raw) {
+    if (e && typeof e === 'object') {
+      const o = e as Record<string, unknown>;
+      if (typeof o.seat === 'number' && Number.isSafeInteger(o.seat) && o.seat >= 0
+        && typeof o.userId === 'string' && o.userId
+        && typeof o.amount === 'number' && Number.isSafeInteger(o.amount) && o.amount > 0) {
+        out.push({ seat: o.seat, userId: o.userId, amount: o.amount });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * All committed-but-UNRESOLVED matches (a poker_matches row with no settlement row) —
+ * the durable source of truth for crash recovery (FAIL 1), independent of room JSON.
+ */
+export async function listUnsettledMatches(): Promise<DurableMatch[]> {
+  const conn = await getDb();
+  if (!conn) return [];
+  const db = conn.db as PostgresJsDatabase;
+  const rows = await db.select({
+    matchId: pokerMatches.matchId, roomCode: pokerMatches.roomCode, buyIn: pokerMatches.buyIn, seats: pokerMatches.seats,
+  }).from(pokerMatches)
+    .leftJoin(pokerMatchSettlements, eq(pokerMatches.matchId, pokerMatchSettlements.matchId))
+    .where(isNull(pokerMatchSettlements.matchId));
+  return rows.map((r) => ({ matchId: r.matchId, roomCode: r.roomCode, buyIn: r.buyIn, seats: parseDurableSeats(r.seats) }));
+}
+
 /** Durable ledger/settlement state for a match — used for crash reconciliation (§16, FAIL 3). */
 export async function matchLedgerState(matchId: string): Promise<{ buyInCount: number; settlement: MatchOutcome | null }> {
   const conn = await getDb();
@@ -220,24 +271,27 @@ export async function dailyClaim(userId: string, now: Date): Promise<PokerClaimR
  * Runs INSIDE a caller-supplied transaction so a batch (e.g. buy-in for every seat)
  * commits all-or-nothing.
  *
- * ATOMICITY (Stage 37.7 race fix): the balance is mutated ONLY when THIS transaction
- * wins the ledger idempotency key. The safe order is:
- *   1. ensure + LOCK the wallet row (`FOR UPDATE`) — serializes concurrent ops on the user;
- *   2. read the current balance, compute + validate the next balance;
- *   3. INSERT the ledger row `ON CONFLICT DO NOTHING RETURNING id` — the gate;
- *   4. if the insert returned nothing → the key already exists → idempotent no-op,
- *      balance UNCHANGED (applied:false);
- *   5. only if the insert won the key → UPDATE the wallet balance.
- * Because BOTH the gate insert and the balance update happen under the row lock, two
- * concurrent calls with the same key serialize: the first applies once, the second's
- * insert conflicts and it never updates. (The earlier pre-check-then-update ordering
- * could double-apply — the pre-check SELECT saw no key, then both updated.)
+ * ATOMICITY: the balance is mutated ONLY when THIS transaction wins the ledger
+ * idempotency key. Safe order (Stage 37.7.2 idempotent-repeat fix):
+ *   1. validate the delta;
+ *   2. ensure + LOCK the wallet row (`FOR UPDATE`) — serializes concurrent ops on the user;
+ *   3. SELECT the existing ledger row by key. If it EXISTS → this operation already ran:
+ *      verify it is the SAME (user, reason, delta) and return applied:false IMMEDIATELY,
+ *      BEFORE any balance math. (Previously the balance was computed first, so an
+ *      idempotent REPEAT of a committed debit could spuriously throw InsufficientChipsError
+ *      once the live balance had since dropped — or a repeat credit could throw overflow —
+ *      even though the op should be a pure no-op.)
+ *   4. otherwise compute + validate the next balance (may legitimately throw for a NEW op);
+ *   5. INSERT the ledger row `ON CONFLICT DO NOTHING RETURNING` — the race belt (under the
+ *      row lock a conflict here is unreachable, but if it ever fires we re-read + no-op);
+ *   6. UPDATE the wallet balance.
+ * Because the read/insert/update all happen under the `FOR UPDATE` lock, two concurrent
+ * same-key calls serialize: the first applies once, the second finds the key and no-ops —
+ * exactly once, with no false Insufficient/Overflow on the repeat.
  *
- * Idempotent via `idempotencyKey`; a debit that would go negative throws
- * InsufficientChipsError; a credit overflowing the safe-integer range throws
- * ChipOverflowError; a non-safe/zero delta throws InvalidChipDeltaError; reusing a
- * key for a DIFFERENT (user, reason, delta) throws LedgerKeyReuseError. Any throw
- * rolls the caller's batch back.
+ * Errors: InsufficientChipsError (debit below zero), ChipOverflowError (credit past
+ * MAX_SAFE_INTEGER), InvalidChipDeltaError (non-safe/zero delta), LedgerKeyReuseError
+ * (same key, different op). Any throw rolls the caller's batch back.
  */
 export async function adjustWalletTx(
   tx: PostgresJsDatabase,
@@ -247,32 +301,39 @@ export async function adjustWalletTx(
   idempotencyKey: string,
   ref: { matchId?: string; roomCode?: string } = {},
 ): Promise<{ balance: number; applied: boolean }> {
-  // (2a) Validate the delta up front — a non-safe/zero delta is a programming error.
+  // (1) Validate the delta up front — a non-safe/zero delta is a programming error.
   validateChipDelta(delta);
-  // (1) Ensure + LOCK the wallet row. This serialization is what makes the gate safe.
+  // (2) Ensure + LOCK the wallet row. This serialization is what makes the gate safe.
   await tx.insert(pokerWallets).values({ userId, balance: 0 }).onConflictDoNothing();
   const [w] = await tx.select().from(pokerWallets).where(eq(pokerWallets.userId, userId)).for('update').limit(1);
   const cur = w?.balance ?? 0;
 
-  // (2b) Compute + validate the next balance BEFORE claiming the key.
-  const next = computeNextBalance(userId, cur, delta);
-
-  // (3) The GATE: claim the idempotency key by inserting the ledger row.
-  const inserted = await tx.insert(pokerLedger).values({
-    userId, reason, delta, balanceAfter: next, idempotencyKey,
-    matchId: ref.matchId ?? null, roomCode: ref.roomCode ?? null,
-  }).onConflictDoNothing({ target: pokerLedger.idempotencyKey }).returning({ id: pokerLedger.id });
-
-  if (inserted.length === 0) {
-    // (4) Key already used → idempotent no-op. Guard against accidental reuse of the
-    // same key for a DIFFERENT logical operation (would silently swallow a real op).
-    const [prior] = await tx.select().from(pokerLedger)
-      .where(eq(pokerLedger.idempotencyKey, idempotencyKey)).limit(1);
+  // (3) IDEMPOTENT-REPEAT fast path: if this key already applied, no-op BEFORE any balance
+  // math (so a repeat can never spuriously throw Insufficient/Overflow).
+  const [prior] = await tx.select().from(pokerLedger)
+    .where(eq(pokerLedger.idempotencyKey, idempotencyKey)).limit(1);
+  if (prior) {
     ensureSameLogicalOp(prior, { userId, reason, delta, idempotencyKey });
     return { balance: cur, applied: false };
   }
 
-  // (5) We own the key → apply the balance change.
+  // (4) A genuinely new op → compute + validate the next balance (may throw).
+  const next = computeNextBalance(userId, cur, delta);
+
+  // (5) The GATE: claim the idempotency key (race belt under the lock).
+  const inserted = await tx.insert(pokerLedger).values({
+    userId, reason, delta, balanceAfter: next, idempotencyKey,
+    matchId: ref.matchId ?? null, roomCode: ref.roomCode ?? null,
+  }).onConflictDoNothing({ target: pokerLedger.idempotencyKey }).returning({ id: pokerLedger.id });
+  if (inserted.length === 0) {
+    // Unreachable under the row lock, but stay safe: re-read + no-op (never double-apply).
+    const [raced] = await tx.select().from(pokerLedger)
+      .where(eq(pokerLedger.idempotencyKey, idempotencyKey)).limit(1);
+    ensureSameLogicalOp(raced, { userId, reason, delta, idempotencyKey });
+    return { balance: cur, applied: false };
+  }
+
+  // (6) We own the key → apply the balance change.
   await tx.update(pokerWallets).set({ balance: next, updatedAt: new Date() }).where(eq(pokerWallets.userId, userId));
   return { balance: next, applied: true };
 }

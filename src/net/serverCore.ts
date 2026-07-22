@@ -148,6 +148,10 @@ export interface ServerRoom {
   pokerBlindGrowth?: number;
   /** Bankroll escrow lifecycle (§16 F/G); undefined until START_GAME debits buy-ins. */
   pokerEscrow?: PokerEscrow;
+  /** Stage 37.7.2 (FAIL 5): the persisted escrow was present but MALFORMED. The escrow is
+   *  dropped (undefined) but this flag blocks room deletion + drives DB reconciliation, so a
+   *  corrupt record never silently loses chips. Cleared once the DB confirms nothing is owed. */
+  pokerEscrowCorrupt?: boolean;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -386,7 +390,7 @@ export function setTimer(room: ServerRoom, hostClientId: string, turnTimerSec: n
 
 export function addMember(
   room: ServerRoom,
-  member: { clientId: string; reconnectToken: string; name: string; role?: SeatRole; password?: string; avatar?: string },
+  member: { clientId: string; reconnectToken: string; name: string; role?: SeatRole; password?: string; avatar?: string; userId?: string | null },
   hasher: PasswordHasher = DEFAULT_PASSWORD_HASHER,
 ): OpResult {
   // Protected rooms require the correct password before anything else.
@@ -398,6 +402,16 @@ export function addMember(
     return { ok: false, error: 'GAME_ALREADY_STARTED' };
   }
   const role: SeatRole = member.role === 'spectator' ? 'spectator' : 'player';
+  // Bankroll poker (§16, 37.7.2 FAIL 2): a PLAYER seat requires a resolved non-guest
+  // account (the caller passes the authoritative userId; guests/anon → null), and one
+  // account can hold at most one player seat. Guests may still SPECTATE (no private cards).
+  const isBankroll = room.gameType === 'poker' && typeof room.pokerBuyIn === 'number' && room.pokerBuyIn > 0;
+  if (isBankroll && role === 'player') {
+    if (!member.userId) return { ok: false, error: 'NOT_SIGNED_IN' };
+    if ([...room.members.values()].some((m) => m.role === 'player' && m.userId === member.userId)) {
+      return { ok: false, error: 'NOT_SIGNED_IN' }; // this account already holds a player seat
+    }
+  }
   // A room is full at the game's catalog maxPlayers (Stage 9.10), capped by MAX_PLAYERS.
   if (role === 'player' && activePlayers(room).length >= roomCapacity(room)) {
     return { ok: false, error: 'ROOM_FULL' };
@@ -415,7 +429,9 @@ export function addMember(
     connected: true,
     type: 'human',
     avatar: sanitizeAvatar(member.avatar, member.name),
-    userId: null,
+    // Stage 37.7.2: the authoritative account id is stamped ATOMICALLY at join for a
+    // bankroll seat (not via a later attachIdentity), so the escrow identity is fixed.
+    userId: member.userId ?? null,
   });
   assignSeats(room);
   return { ok: true };
@@ -1287,6 +1303,8 @@ export interface PersistedRoom {
   pokerBuyIn?: number;
   pokerBlindGrowth?: number;
   pokerEscrow?: PokerEscrow;
+  /** Persist the corrupt-escrow marker so a restart keeps failing closed (§16, 37.7.2). */
+  pokerEscrowCorrupt?: boolean;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1323,6 +1341,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerBuyIn: room.pokerBuyIn,
     pokerBlindGrowth: room.pokerBlindGrowth,
     pokerEscrow: room.pokerEscrow,
+    pokerEscrowCorrupt: room.pokerEscrowCorrupt,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1346,26 +1365,44 @@ function posIntOrUndef(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v > 0 ? v : undefined;
 }
 
-/** Restore the poker escrow object from persisted JSON, or undefined if malformed. */
-function deserializePokerEscrow(v: unknown): PokerEscrow | undefined {
-  if (typeof v !== 'object' || v === null) return undefined;
+const ESCROW_STATUSES = ['pending', 'funded', 'settling', 'settled', 'cancelled'] as const;
+const MAX_ID_LEN = 200;
+
+/**
+ * STRICTLY restore the poker escrow from persisted JSON (Stage 37.7.2, FAIL 5). Returns
+ * `{ escrow }` when fully valid, `{ corrupt: true }` when the field was PRESENT but
+ * malformed (a negative/out-of-range/duplicate seat, empty/duplicate userId, a
+ * zero/negative amount, an amount ≠ buyIn, an over/under-sized seat list, an overflowing
+ * total, a bad matchId/buyIn/status, …), or `{}` when absent. A malformed record NEVER
+ * silently becomes "no escrow" (which could delete a room with chips owed) — the caller
+ * marks the room corrupt so it fails closed + is reconciled against the DB.
+ */
+function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: PokerEscrow; corrupt?: boolean } {
+  if (v === undefined || v === null) return {}; // legitimately absent
+  if (typeof v !== 'object') return { corrupt: true };
   const o = v as Record<string, unknown>;
-  if (typeof o.matchId !== 'string' || !o.matchId) return undefined;
-  if (typeof o.buyIn !== 'number' || !Number.isSafeInteger(o.buyIn) || o.buyIn <= 0) return undefined;
+  if (typeof o.matchId !== 'string' || !o.matchId || o.matchId.length > MAX_ID_LEN) return { corrupt: true };
+  if (typeof o.buyIn !== 'number' || !Number.isSafeInteger(o.buyIn) || o.buyIn <= 0) return { corrupt: true };
   const status = o.status;
-  if (status !== 'pending' && status !== 'funded' && status !== 'settling' && status !== 'settled' && status !== 'cancelled') return undefined;
+  if (!ESCROW_STATUSES.includes(status as (typeof ESCROW_STATUSES)[number])) return { corrupt: true };
+  if (!Array.isArray(o.seats) || o.seats.length < 2 || o.seats.length > 6 || o.seats.length > playerCount) return { corrupt: true };
   const seats: PokerEscrowSeat[] = [];
-  if (Array.isArray(o.seats)) {
-    for (const raw of o.seats) {
-      if (typeof raw !== 'object' || raw === null) continue;
-      const s = raw as Record<string, unknown>;
-      if (typeof s.seat === 'number' && typeof s.userId === 'string' && typeof s.amount === 'number'
-        && Number.isSafeInteger(s.seat) && Number.isSafeInteger(s.amount)) {
-        seats.push({ seat: s.seat, userId: s.userId, amount: s.amount });
-      }
-    }
+  const seatSet = new Set<number>();
+  const userSet = new Set<string>();
+  let total = 0;
+  for (const raw of o.seats) {
+    if (!raw || typeof raw !== 'object') return { corrupt: true };
+    const s = raw as Record<string, unknown>;
+    if (typeof s.seat !== 'number' || !Number.isSafeInteger(s.seat) || s.seat < 0 || s.seat >= playerCount) return { corrupt: true };
+    if (typeof s.userId !== 'string' || !s.userId || s.userId.length > MAX_ID_LEN) return { corrupt: true };
+    if (typeof s.amount !== 'number' || !Number.isSafeInteger(s.amount) || s.amount <= 0 || s.amount !== o.buyIn) return { corrupt: true };
+    if (seatSet.has(s.seat) || userSet.has(s.userId)) return { corrupt: true }; // duplicate seat / account
+    seatSet.add(s.seat); userSet.add(s.userId);
+    total += s.amount;
+    if (total > Number.MAX_SAFE_INTEGER) return { corrupt: true };
+    seats.push({ seat: s.seat, userId: s.userId, amount: s.amount });
   }
-  return { matchId: o.matchId, buyIn: o.buyIn, status, seats };
+  return { escrow: { matchId: o.matchId, buyIn: o.buyIn, status: status as PokerEscrow['status'], seats } };
 }
 
 /**
@@ -1406,6 +1443,13 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     });
   }
 
+  // Strict escrow restore (FAIL 5): a malformed record → corrupt flag (fails closed),
+  // never a silent "no escrow" that could delete a room with chips owed.
+  const escrowResult = deserializePokerEscrow(o.pokerEscrow, o.playerCount as number);
+  if (escrowResult.corrupt) {
+    console.error(`[Poker] room ${String(o.code)} has a MALFORMED persisted escrow — failing closed for DB reconciliation`);
+  }
+
   return {
     code: o.code,
     mode: 'server_authoritative',
@@ -1427,7 +1471,8 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerBigBlind: posIntOrUndef(o.pokerBigBlind),
     pokerBuyIn: posIntOrUndef(o.pokerBuyIn),
     pokerBlindGrowth: typeof o.pokerBlindGrowth === 'number' && Number.isSafeInteger(o.pokerBlindGrowth) && o.pokerBlindGrowth >= 0 ? o.pokerBlindGrowth : undefined,
-    pokerEscrow: deserializePokerEscrow(o.pokerEscrow),
+    pokerEscrow: escrowResult.escrow,
+    pokerEscrowCorrupt: escrowResult.corrupt,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,
