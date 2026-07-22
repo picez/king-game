@@ -546,6 +546,26 @@ async function handleGetPokerStats(req: IncomingMessage, res: ServerResponse, us
 }
 
 /**
+ * GET /api/me/poker-wallet — the caller's chip balance + daily-claim eligibility.
+ * Non-guest session required (bankroll is tied to a durable account). Uses the
+ * SERVER clock for the UTC-date eligibility, so a client clock cannot spoof it.
+ */
+async function handleGetPokerWallet(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getWalletView } = await import('./db/pokerWallet');
+  json(res, 200, { wallet: await getWalletView(userId, new Date()) }, corsHeaders(req));
+}
+
+/**
+ * POST /api/me/poker-wallet/daily-claim — grant 1,000,000 chips, at most once per
+ * UTC day. Atomic + idempotent server-side (a concurrent double-POST yields exactly
+ * one grant; a repeat the same day returns the balance + next eligibility, granted:false).
+ */
+async function handlePostPokerDailyClaim(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { dailyClaim } = await import('./db/pokerWallet');
+  json(res, 200, { wallet: await dailyClaim(userId, new Date()) }, corsHeaders(req));
+}
+
+/**
  * Public per-game leaderboard (no session required — only public, score-level
  * fields). If a session cookie is present we resolve it ONLY to mark the
  * caller's own row (`self`) for highlighting; the user id itself is never
@@ -967,6 +987,17 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/poker/stats' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetPokerStats(req, res, u);
+    }
+
+    // Poker chip wallet (Stage 37.7) — non-guest account only; needs Postgres. Local
+    // free-play Poker never calls these, so a no-DB server just reports it unavailable.
+    if (path === '/api/me/poker-wallet' && method === 'GET') {
+      if (!isDbEnabled()) return json(res, 503, { error: 'economy_unavailable' }, corsHeaders(req));
+      const u = await requireAccount(); if (!u) return; return await handleGetPokerWallet(req, res, u);
+    }
+    if (path === '/api/me/poker-wallet/daily-claim' && method === 'POST') {
+      if (!isDbEnabled()) return json(res, 503, { error: 'economy_unavailable' }, corsHeaders(req));
+      const u = await requireAccount(); if (!u) return; return await handlePostPokerDailyClaim(req, res, u);
     }
 
     json(res, 404, { error: 'not_found' }, corsHeaders(req));

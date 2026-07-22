@@ -1242,4 +1242,17 @@ export const UK: Record<string, string> = {
   'net.forgetSaved': 'Забути збережену гру',
   'online.leaveGame': 'Вийти з гри',
   'online.leaveGameConfirm': 'Вийти з гри? Ви зможете повернутися пізніше.',
+  // ===== Poker chip wallet (Stage 37.7) =====
+  'wallet.title': 'Покерні фішки',
+  'wallet.subtitle': 'Ваш баланс фішок для онлайн-столів покеру',
+  'wallet.balance': 'Баланс',
+  'wallet.claim': 'Отримати 1 000 000',
+  'wallet.claiming': 'Нараховуємо…',
+  'wallet.claimedTitle': 'Отримано сьогодні',
+  'wallet.availableTomorrow': 'Наступні фішки — завтра',
+  'wallet.grantedToast': '+1 000 000 фішок нараховано',
+  'wallet.signInRequired': 'Увійдіть, щоб отримувати щоденні покерні фішки.',
+  'wallet.unavailable': 'Економіка фішок зараз недоступна.',
+  'wallet.error': 'Не вдалося завантажити фішки. Спробуйте ще раз.',
+  'wallet.retry': 'Повторити',
 };

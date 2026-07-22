@@ -40,14 +40,18 @@ describe('poker stats are wired into the online finish path (Stage 37.4)', () =>
 });
 
 describe('poker stats add NO migration but DO feed achievements (Stage 37.4)', () => {
-  it('the latest DB migration is still 0009 (poker stats reuse the free-text game_type)', () => {
+  it('poker STATS add no stats migration (they reuse the shared game_type tables)', () => {
+    // Poker STATS reuse the shared games/game_players/user_stats tables via the
+    // free-text `game_type='poker'` — no stats migration. The ONLY poker-referencing
+    // migration is the Stage 37.7 wallet economy (poker_wallets / poker_ledger), which
+    // is a SEPARATE concern and must NOT touch the stats tables.
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
-    const last = files[files.length - 1];
-    expect(last).toBe('0009_friends.sql');
-    for (const f of files) {
-      expect(read(join('server/db/migrations', f)), `${f} must not reference poker`).not.toMatch(/poker/i);
-    }
+    const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker/i));
+    expect(pokerMigrations).toEqual(['0010_poker_wallet.sql']);
+    // The wallet migration creates ONLY wallet/ledger tables — never the stats tables.
+    const wallet = read('server/db/migrations/0010_poker_wallet.sql');
+    expect(wallet).not.toMatch(/CREATE TABLE[^;]*\b(games|game_players|user_stats)\b/i);
   });
 
   it('the achievements AllStats type has a poker field, so All-Rounder counts poker', () => {

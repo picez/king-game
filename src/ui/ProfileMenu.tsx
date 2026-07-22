@@ -35,6 +35,7 @@ import PreferansLeaderboardPanel from './components/PreferansLeaderboardPanel';
 import FiftyOneStatsPanel from './components/FiftyOneStatsPanel';
 import FiftyOneLeaderboardPanel from './components/FiftyOneLeaderboardPanel';
 import PokerStatsPanel from './components/PokerStatsPanel';
+import PokerWalletPanel from './components/PokerWalletPanel';
 import PokerLeaderboardPanel from './components/PokerLeaderboardPanel';
 
 interface Props {
@@ -381,11 +382,14 @@ export default function ProfileMenu({
 
       <div className="drawer__panel" role="tabpanel">
         {tab === 'profile' && (
+          <>
+          <PokerWalletPanel base={account.base} signedIn={account.signedIn} />
           <ProfilePanel account={account}
             name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
             defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer}
             favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame}
             customServer={customServer} onCustomServer={onCustomServer} />
+          </>
         )}
         {tab === 'friends' && (
           <FriendsPanel base={account.base} signedIn={account.signedIn}

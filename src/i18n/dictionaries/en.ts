@@ -1242,4 +1242,17 @@ export const EN: Record<string, string> = {
   'net.forgetSaved': 'Forget saved game',
   'online.leaveGame': 'Leave game',
   'online.leaveGameConfirm': 'Leave game? You can resume later.',
+  // ===== Poker chip wallet (Stage 37.7) =====
+  'wallet.title': 'Poker chips',
+  'wallet.subtitle': 'Your chip balance for online Poker tables',
+  'wallet.balance': 'Balance',
+  'wallet.claim': 'Get 1,000,000',
+  'wallet.claiming': 'Claiming…',
+  'wallet.claimedTitle': 'Claimed today',
+  'wallet.availableTomorrow': 'Next chips available tomorrow',
+  'wallet.grantedToast': '+1,000,000 chips added',
+  'wallet.signInRequired': 'Sign in to claim daily Poker chips.',
+  'wallet.unavailable': 'The chip economy is unavailable right now.',
+  'wallet.error': "Couldn't load your chips. Try again.",
+  'wallet.retry': 'Retry',
 };

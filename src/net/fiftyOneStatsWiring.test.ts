@@ -41,11 +41,13 @@ describe('51 stats are wired into the online finish path (Stage 30.6)', () => {
 });
 
 describe('51 stats add NO migration but DO feed achievements (Stage 30.7 release)', () => {
-  it('the latest DB migration is still 0009 (51 stats reuse the free-text game_type)', () => {
+  it('no migration is needed for 51 stats (they reuse the free-text game_type)', () => {
+    // 51 stats add NO migration of their own — they reuse the shared
+    // games/game_players/user_stats tables via the free-text `game_type='fifty-one'`.
+    // (Later stages may add UNRELATED migrations — e.g. the Stage 37.7 Poker wallet —
+    // so we assert the 51-stats invariant directly, not a fixed latest-migration number.)
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
-    const last = files[files.length - 1];
-    expect(last).toBe('0009_friends.sql');
     // No migration file mentions fifty-one / 51 stats.
     for (const f of files) {
       expect(read(join('server/db/migrations', f)), `${f} must not reference fifty-one`).not.toMatch(/fifty-one/);

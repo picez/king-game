@@ -1242,4 +1242,17 @@ export const AR: Record<string, string> = {
   'net.forgetSaved': 'تجاهل اللعبة المحفوظة',
   'online.leaveGame': 'مغادرة اللعبة',
   'online.leaveGameConfirm': 'مغادرة اللعبة؟ يمكنك المتابعة لاحقًا.',
+  // ===== Poker chip wallet (Stage 37.7) =====
+  'wallet.title': 'رقائق البوكر',
+  'wallet.subtitle': 'رصيد رقائقك لطاولات البوكر عبر الإنترنت',
+  'wallet.balance': 'الرصيد',
+  'wallet.claim': 'احصل على 1,000,000',
+  'wallet.claiming': 'جارٍ الإضافة…',
+  'wallet.claimedTitle': 'تم الاستلام اليوم',
+  'wallet.availableTomorrow': 'الرقائق التالية متاحة غدًا',
+  'wallet.grantedToast': 'تمت إضافة 1,000,000 رقاقة',
+  'wallet.signInRequired': 'سجّل الدخول للحصول على رقائق البوكر اليومية.',
+  'wallet.unavailable': 'اقتصاد الرقائق غير متاح حاليًا.',
+  'wallet.error': 'تعذّر تحميل رقائقك. حاول مرة أخرى.',
+  'wallet.retry': 'إعادة',
 };

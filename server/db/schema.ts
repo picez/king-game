@@ -11,7 +11,7 @@
 // imported and the server runs on file/memory storage exactly as before.
 // ---------------------------------------------------------------------------
 
-import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey, unique, customType } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, jsonb, timestamp, uuid, primaryKey, unique, customType, bigint, date } from 'drizzle-orm/pg-core';
 import type { PersistedRoom } from '../../src/net/serverCore';
 
 /** Postgres `bytea` column (Node Buffer <-> bytea), for the processed avatar blob. */
@@ -260,3 +260,45 @@ export type GamesTable = typeof games;
 export type GamePlayersTable = typeof gamePlayers;
 export type RoundsTable = typeof rounds;
 export type UserStatsTable = typeof userStats;
+
+// ---------------------------------------------------------------------------
+// Stage 37.7 — Poker chip wallet + append-only ledger (bankroll economy; opt-in).
+//
+// `poker_wallets` is a per-user chip balance + the last daily-claim UTC date. The
+// balance is server-authoritative BIGINT and can never go negative (DB CHECK).
+// `poker_ledger` is IMMUTABLE — one row per balance change (daily claim / table
+// buy-in / payout / cancel refund), each with a UNIQUE `idempotencyKey` so a
+// concurrent double claim, a duplicate START_GAME, or a rebroadcast finish can
+// never double-credit/-debit. LOCAL free-play Poker never touches these tables.
+// See migration 0010 + POKER_RULES.md (economy).
+// ---------------------------------------------------------------------------
+
+export const pokerWallets = pgTable('poker_wallets', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  /** Authoritative chip balance (never negative). `mode: 'number'` — values stay safe integers. */
+  balance: bigint('balance', { mode: 'number' }).notNull().default(0),
+  /** UTC calendar date of the last successful daily claim (null = never). */
+  lastClaimDate: date('last_claim_date'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const pokerLedger = pgTable('poker_ledger', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** daily_claim | table_buy_in | table_payout | table_cancel_refund */
+  reason: text('reason').notNull(),
+  /** Signed chip change applied by this entry. */
+  delta: bigint('delta', { mode: 'number' }).notNull(),
+  /** Balance after this entry (audit; never negative). */
+  balanceAfter: bigint('balance_after', { mode: 'number' }).notNull(),
+  /** Unique per logical operation → idempotent economy (double-run no-ops). */
+  idempotencyKey: text('idempotency_key').notNull().unique(),
+  /** Optional economy-match reference + room code (audit). */
+  matchId: text('match_id'),
+  roomCode: text('room_code'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PokerWalletsTable = typeof pokerWallets;
+export type PokerLedgerTable = typeof pokerLedger;

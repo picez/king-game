@@ -609,6 +609,35 @@
 .profile-section-tile__sub { font-size: 0.76rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-section-tile .notif-badge { top: 50%; transform: translateY(-50%); inset-inline-end: 10px; }
 
+/* Poker chip wallet card (Stage 37.7) — top of the Profile → account screen. Uses
+   logical properties so it mirrors cleanly under RTL. */
+.wallet-card {
+  display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.8rem;
+  padding: 0.85rem 0.9rem; border-radius: 14px;
+  background: linear-gradient(135deg, rgba(212,175,55,0.14), var(--panel-2));
+  border: 1px solid var(--border);
+}
+.wallet-card__head { display: flex; align-items: center; gap: 0.6rem; }
+.wallet-card__chip { font-size: 1.6rem; flex: 0 0 auto; }
+.wallet-card__titles { min-width: 0; }
+.wallet-card__title { margin: 0; font-size: 1rem; font-weight: 700; }
+.wallet-card__sub { margin: 0.1rem 0 0; font-size: 0.76rem; color: var(--text-muted); }
+.wallet-card__balance {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
+  padding: 0.5rem 0.7rem; border-radius: 10px; background: var(--panel);
+  border: 1px solid var(--border);
+}
+.wallet-card__balance-label { font-size: 0.8rem; color: var(--text-muted); }
+.wallet-card__balance-value {
+  font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: var(--gold, #d4af37);
+}
+.wallet-card__claim { width: 100%; }
+.wallet-card__muted { margin: 0; font-size: 0.85rem; color: var(--text-muted); }
+.wallet-card__muted--claimed { color: var(--text); opacity: 0.85; }
+.wallet-card__granted { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--gold, #d4af37); }
+.wallet-card__row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+
 /* Section header (drill-in): back button + title (+ optional refresh). */
 .profile-section-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
 .profile-section-head__title { margin: 0; font-size: 1.05rem; display: inline-flex; align-items: center; gap: 0.4rem; }
