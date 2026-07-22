@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
 import {
-  createRoom, addMember, reconnectMember, reclaimMemberByUserId, findUserRoomCodes,
+  createRoom, addMember, removeMember, reconnectMember, reclaimMemberByUserId, findUserRoomCodes,
   kickMember, addBot, setTimer,
   startGame, applyActionRequest, listRoomSummaries, sanitizedStateFor, roomTimerInfo,
   type ServerRoom, type ServerMember,
@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitBuyIns, refundBuyIns, withRoomLock, isRoomBusy } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitBuyIns, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats } from './pokerEscrow';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -157,7 +157,7 @@ export function handleClientMessage(
       // Shared room creation, given resolved poker stakes (empty for other games). Runs
       // the rate-limit + leave + createRoom + welcome. Kept as a closure so the ONLINE
       // BANKROLL Poker path can await its auth/stakes gate first without duplicating this.
-      const finishCreate = (poker: { pokerSmallBlind?: number; pokerBigBlind?: number; pokerBuyIn?: number; pokerBlindGrowth?: number }): void => {
+      const finishCreate = (poker: { pokerSmallBlind?: number; pokerBigBlind?: number; pokerBuyIn?: number; pokerBlindGrowth?: number }, hostUserId?: string | null): void => {
         // (FAIL 3) Only complete if this is still the latest navigation + the socket is open.
         if (!lifecycle.isCurrentNav(nav)) return;
         // (FAIL 4) Re-check right before we leave the current room.
@@ -177,7 +177,8 @@ export function handleClientMessage(
           pokerBuyIn: poker.pokerBuyIn, pokerBlindGrowth: poker.pokerBlindGrowth,
           playerCount,
           modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
-          host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },
+          // (FAIL 7) The Poker host's account id is stamped ATOMICALLY at creation.
+          host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar, userId: hostUserId ?? null },
           password: msg.password, salt: randomUUID(), hasher: scryptPasswordHasher, turnTimerSec: msg.turnTimerSec,
         });
         ctx.rooms.set(code, room);
@@ -204,7 +205,7 @@ export function handleClientMessage(
         void (async () => {
           const uid = await getAccountUserId(); // resolved NON-GUEST account, or null
           if (!uid) return sendError(socket, 'NOT_SIGNED_IN', 'Sign in to host an online Poker table');
-          finishCreate({ pokerSmallBlind: preset.smallBlind, pokerBigBlind: preset.bigBlind, pokerBuyIn: preset.buyIn, pokerBlindGrowth: growth });
+          finishCreate({ pokerSmallBlind: preset.smallBlind, pokerBigBlind: preset.bigBlind, pokerBuyIn: preset.buyIn, pokerBlindGrowth: growth }, uid);
         })();
         break;
       }
@@ -248,6 +249,14 @@ export function handleClientMessage(
       const finishJoin = (userId: string | null): void => {
         if (!lifecycle.isCurrentNav(nav)) return;                         // superseded / socket closed
         if (navWouldBreakBankroll()) return sendError(socket, 'ILLEGAL_ACTION', 'Your table is mid-hand — try again in a moment');
+        // (FAIL 2) The target room must STILL be the same live instance in the map (it may
+        // have been deleted/replaced while the async auth was pending).
+        if (ctx.rooms.get(reqCode) !== room) return sendError(socket, 'ROOM_NOT_FOUND', 'That room is no longer available');
+        // (FAIL 1) Never add a PLAYER to a bankroll target room while a lifecycle op
+        // (start/debit/rematch/settlement/teardown) is in flight — the escrow seats are frozen.
+        if (wantsPlayerSeat && isBankrollRoom(room) && isRoomBusy(room.code)) {
+          return sendError(socket, 'ILLEGAL_ACTION', 'That table is starting — try again in a moment');
+        }
         const clientId = randomUUID();
         const reconnectToken = randomUUID(); // plaintext minted here; only its hash is stored (БЕЗ-4)
         const res = addMember(room, {
@@ -259,6 +268,12 @@ export function handleClientMessage(
           const message = res.error === 'BAD_PASSWORD' ? 'Wrong or missing room password'
             : res.error === 'NOT_SIGNED_IN' ? 'Sign in to take a Poker seat (one seat per account)' : 'Cannot join room';
           return sendError(socket, res.error!, message);
+        }
+        // (FAIL 2 belt) If the room vanished between addMember and finalize, ROLL BACK the
+        // membership so no seat/socket/token leaks into a ghost room.
+        if (ctx.rooms.get(reqCode) !== room) {
+          removeMember(room, clientId);
+          return sendError(socket, 'ROOM_NOT_FOUND', 'That room is no longer available');
         }
         finalizeJoin(clientId, reconnectToken);
       };
@@ -279,6 +294,7 @@ export function handleClientMessage(
     }
 
     case 'RECONNECT': {
+      lifecycle.beginNav(); // (FAIL 6) a session transition cancels any in-flight async CREATE/JOIN
       const reqCode = String(msg.code || '').toUpperCase();
       const room = ctx.rooms.get(reqCode);
       if (!room) {
@@ -312,6 +328,7 @@ export function handleClientMessage(
     }
 
     case 'RECLAIM_ROOM': {
+      lifecycle.beginNav(); // (FAIL 6) cancel any in-flight async CREATE/JOIN
       // Cross-device reclaim (Stage 36.0): resume THIS signed-in account's own seat in
       // `code` from another device — no reconnect token needed. Server-authoritative:
       // it matches the connection's resolved userId (from the cookie), NEVER a client
@@ -359,6 +376,8 @@ export function handleClientMessage(
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
       if (!room.members.get(clientId)?.isHost) return sendError(socket, 'NOT_HOST', 'Only the host may start');
+      // (37.7.3 FAIL 5) A frozen room (corrupt durable match) can't start anything.
+      if (room.pokerFrozen) return sendError(socket, 'ILLEGAL_ACTION', 'This table is frozen for review');
       // Bankroll poker (§16 F): debit every seat's buy-in ATOMICALLY before starting, all
       // SERIALIZED per room (withRoomLock) so it can't race a leave/kick/settings/second
       // start. Already started → no-op. If the debit commits but startGame then fails, the
@@ -372,6 +391,14 @@ export function handleClientMessage(
           if (!debit.ok) {
             const code = /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
             sendError(socket, code, debit.error);
+            return;
+          }
+          // (FAIL 1) The funded escrow seats MUST equal the room's current seated players —
+          // a seat that slipped in/out after the escrow was formed would desync the paid set
+          // from the game state. If they diverge, refund and abort (never start such a game).
+          if (!escrowMatchesRoomSeats(room)) {
+            await refundBuyIns(room);
+            sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
             return;
           }
           const res = startGame(room, { now: Date.now() });
@@ -400,6 +427,8 @@ export function handleClientMessage(
     case 'ACTION_REQUEST': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
+      // (37.7.3 FAIL 5) A frozen/cancelled bankroll room accepts no gameplay actions.
+      if (room.pokerFrozen || room.pokerMatchCancelled) return sendError(socket, 'ILLEGAL_ACTION', 'This match has been cancelled');
       // `msg.action` is UNTRUSTED (arbitrary JSON). `applyActionRequest` validates and
       // never mutates on rejection, but wrap it so any residual throw becomes a safe
       // BAD_MESSAGE rejection instead of an uncaught exception that could tear down the
@@ -480,6 +509,7 @@ export function handleClientMessage(
       if (sessionRef.value && isBankrollRoom(sessionRef.value.room) && isRoomBusy(sessionRef.value.room.code)) {
         return sendError(socket, 'ILLEGAL_ACTION', 'Table is starting — try again in a moment');
       }
+      lifecycle.beginNav(); // (FAIL 6) an explicit leave cancels any in-flight async CREATE/JOIN
       if (sessionRef.value) ctx.handleLeave(sessionRef.value.room, sessionRef.value.clientId);
       sessionRef.value = null;
       break;

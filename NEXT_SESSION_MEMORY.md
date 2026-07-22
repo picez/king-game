@@ -107,3 +107,22 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Run `npm run verify` for runtime changes; `git diff --check`; confirm `libc=0`.
 - Commit and push to `origin/main` unless user says otherwise.
 - Do not bump version/tag unless doing an explicit release stage.
+
+### Stage 37.7.3 — target-room JOIN serialization + durable fail-closed (COMPLETE, Unreleased)
+- No new migration (poker_matches 0012 reused). All fixes verified on real PostgreSQL (Docker).
+- **FAIL 1:** `finishJoin` re-checks `isRoomBusy(target)` before addMember (player seats);
+  START_GAME verifies `escrowMatchesRoomSeats(room)` before startGame (refund+abort on divergence).
+- **FAIL 2:** `finishJoin` checks `ctx.rooms.get(reqCode) === room` before+after addMember; rollback
+  membership on a vanished room → no ghost member/session/welcome.
+- **FAIL 3:** `parseDurableMatch` is all-or-nothing; `listUnsettledMatches` → `{ valid, corrupt }`;
+  reconciliation never settles a corrupt record (operator alert).
+- **FAIL 4:** `recordMatchTx` throws `DurableMatchConflictError` (rolls back tx) on matchId with
+  different roomCode/buyIn/canonical-seats; exact repeat idempotent.
+- **FAIL 5:** bootstrap cancels (gameState cleared → lobby) or FREEZES (corrupt durable) a bankroll
+  room with a game state but no live funded escrow; `pokerMatchCancelled`/`pokerFrozen` flags block
+  rescheduleAdvance + ACTION_REQUEST + START; `hasUnsettledEscrow` keeps frozen rooms.
+- **FAIL 6:** `beginNav()` now also on RECONNECT/RECLAIM/LEAVE (+ socket close) → cancels pending async CREATE/JOIN.
+- **FAIL 7:** `createRoom` host option takes `userId`; Poker CREATE stamps host account id atomically.
+- `validatePayoutConservation` also validates seat range + exact escrow-seat==player-seat set.
+- Real PostgreSQL: verify PASS 2844; DB-focused run 139 poker tests, 0 skipped. libc 0; latest
+  migration 0012; game count 7; achievements 52; no version bump.

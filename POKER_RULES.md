@@ -325,3 +325,8 @@ These are intentional MVP scope cuts, safe to revisit later:
 - Incomplete (below-min) all-in raises do not reopen action.
 - No rake. No time-bank beyond the shared optional turn timer.
 - Single table only (no multi-table tournament).
+
+**Recovery states (§16, Stage 37.7.3).** On restart a bankroll match whose buy-ins were
+refunded is terminally **cancelled** (the room returns to a clean lobby); a room whose durable
+match record is itself corrupt is **frozen** (no gameplay, kept for operator review) — a
+refunded match never continues as a free game, and a corrupt record is never partially settled.

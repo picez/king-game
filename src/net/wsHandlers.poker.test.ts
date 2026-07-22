@@ -174,3 +174,93 @@ describe('navigation refused during a bankroll lifecycle op (FAIL 4)', () => {
     clearRoomLock(room.code);
   });
 });
+
+// Shared-ctx harness: multiple connections on ONE rooms map (for JOIN vs target-room tests).
+function sharedHarness() {
+  const { ctx, rooms, errors } = makeCtx();
+  const welcomed: string[] = [];
+  ctx.welcome = (_s, m) => { welcomed.push(m.clientId); };
+  function conn(account: string | null = 'acc-1') {
+    const sessionRef: SessionRef = { value: null };
+    const limiter = new ConnectionLimiter(DEFAULT_RATE_LIMITS, 0);
+    let navSeq = 0; let open = true;
+    const lifecycle = { beginNav: () => ++navSeq, isCurrentNav: (t: number) => t === navSeq && open };
+    let resolveAccount!: (v: string | null) => void;
+    let accountPromise = new Promise<string | null>((r) => { resolveAccount = r; });
+    const run = (msg: ClientMessage) =>
+      handleClientMessage(ctx, socket, sessionRef, () => {}, msg, limiter, () => account, () => accountPromise, lifecycle);
+    return {
+      sessionRef, run,
+      resolve: (v: string | null) => resolveAccount(v),
+      rearm: () => { accountPromise = new Promise<string | null>((r) => { resolveAccount = r; }); },
+      close: () => { open = false; },
+    };
+  }
+  return { ctx, rooms, errors, welcomed, conn };
+}
+
+async function makeBankrollRoom(h: ReturnType<typeof sharedHarness>, hostAcc = 'host-1') {
+  process.env.DATABASE_URL = 'postgres://fake';
+  const host = h.conn(hostAcc);
+  host.run(pokerCreate({ pokerSmallBlind: 25, pokerBigBlind: 50 }));
+  host.resolve(hostAcc); await flush();
+  const room = [...h.rooms.values()][0];
+  return { host, room };
+}
+
+describe('target-room JOIN serialization + host identity (Stage 37.7.3)', () => {
+  it('FAIL 7: the Poker host member has an authoritative userId immediately after CREATE', async () => {
+    const h = sharedHarness();
+    const { room } = await makeBankrollRoom(h, 'host-xyz');
+    const host = [...room.members.values()].find((m) => m.isHost)!;
+    expect(host.userId).toBe('host-xyz');
+  });
+
+  it('FAIL 1: a player JOIN is rejected while the target bankroll room is busy (seats unchanged)', async () => {
+    const h = sharedHarness();
+    const { room } = await makeBankrollRoom(h);
+    clearRoomLock(room.code);
+    let release!: () => void; const gate = new Promise<void>((r) => { release = r; });
+    const op = withRoomLock(room.code, async () => { await gate; });   // room busy (debit in flight)
+    expect(isRoomBusy(room.code)).toBe(true);
+    const before = room.members.size;
+    const joiner = h.conn('joiner-1');
+    h.errors.length = 0;
+    joiner.run({ t: 'JOIN_ROOM', code: room.code, name: 'Joiner' } as ClientMessage);
+    joiner.resolve('joiner-1'); await flush();
+    expect(h.errors).toContain('ILLEGAL_ACTION');
+    expect(room.members.size).toBe(before);                            // no seat added mid-debit
+    expect(joiner.sessionRef.value).toBeNull();
+    release(); await op; clearRoomLock(room.code);
+  });
+
+  it('FAIL 2: a delayed JOIN whose target room was deleted creates no ghost member/session', async () => {
+    const h = sharedHarness();
+    const { room } = await makeBankrollRoom(h);
+    const joiner = h.conn('joiner-2');
+    joiner.run({ t: 'JOIN_ROOM', code: room.code, name: 'Joiner' } as ClientMessage); // awaits auth
+    h.rooms.delete(room.code);                                         // room torn down during auth
+    h.welcomed.length = 0; h.errors.length = 0;
+    joiner.resolve('joiner-2'); await flush();
+    expect(h.errors).toContain('ROOM_NOT_FOUND');
+    expect(room.members.size).toBe(1);                                 // only the host; no ghost joiner
+    expect(joiner.sessionRef.value).toBeNull();
+    expect(h.welcomed).toHaveLength(0);                                // never welcomed into a ghost room
+  });
+});
+
+describe('pending navigation is cancelled by every session transition (FAIL 6)', () => {
+  for (const transition of ['RECONNECT', 'RECLAIM_ROOM', 'LEAVE_ROOM'] as const) {
+    it(`a pending CREATE superseded by ${transition} does not create a room`, async () => {
+      process.env.DATABASE_URL = 'postgres://fake';
+      const h = sharedHarness();
+      const c = h.conn('acc-1');
+      c.run(pokerCreate({ pokerSmallBlind: 25, pokerBigBlind: 50 }));  // nav 1, awaits auth
+      const msg = transition === 'LEAVE_ROOM' ? { t: 'LEAVE_ROOM' } : { t: transition, code: 'ZZZZ', reconnectToken: 'x' };
+      c.run(msg as ClientMessage);                                     // bumps nav → cancels the CREATE
+      c.resolve('acc-1'); await flush();
+      expect(h.rooms.size).toBe(0);
+      expect(c.sessionRef.value).toBeNull();
+    });
+  }
+});

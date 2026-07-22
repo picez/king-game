@@ -702,6 +702,8 @@ function handleLeave(room: ServerRoom, clientId: string): void {
 
 /** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
 function rescheduleAdvance(room: ServerRoom): void {
+  // (37.7.3 FAIL 5) A frozen room (corrupt durable match) or a cancelled match never advances.
+  if (room.pokerFrozen || room.pokerMatchCancelled) return;
   const screen = publicScreenOf(room);
   const acting = actingMember(room);
   // Drive public screens, bot turns, and — after a restart — a disconnected
@@ -1010,19 +1012,22 @@ async function bootstrap(): Promise<void> {
     // persisted orphanSince if present) so an abandoned table is swept on schedule.
     recomputeOrphan(room, Date.now());
     rooms.set(room.code, room);
-    rescheduleAdvance(room);
     restoredRooms.push(room);
     restored++;
+    // (37.7.3 FAIL 5) DEFER the advance for a bankroll room with an unsettled/corrupt escrow
+    // until reconciliation decides whether it is a live funded match, a cancelled match, or
+    // a frozen one — a refunded match must NOT auto-advance a free game.
+    if (!(isBankrollRoom(room) && hasUnsettledEscrow(room))) rescheduleAdvance(room);
   }
 
-  // Bankroll crash recovery (§16, 37.7.1 + 37.7.2). Two passes:
-  //  (a) reconcile each restored room's TRANSIENT escrow (pending/settling) against the
-  //      durable DB ledger/settlement — committed debit → funded, uncommitted → dropped,
-  //      committed settlement → settled/cancelled, else back to funded;
-  //  (b) DB-authoritative orphan scan (FAIL 1): find committed-but-unresolved matches with
-  //      NO active started room (crashed between the debit commit and room persistence, so
-  //      the room JSON never recorded the escrow) and refund each exactly once. Awaited so
-  //      chips are settled BEFORE the room-cleanup sweep runs.
+  // Bankroll crash recovery (§16, 37.7.1 → 37.7.3). Passes:
+  //  (a) reconcile each restored room's TRANSIENT escrow (pending/settling) vs the DB;
+  //  (b) DB-authoritative orphan scan (FAIL 1): refund committed matches with no active room;
+  //  (c) resolve corrupt-escrow rooms (refund by room code, or FREEZE if the durable record
+  //      is itself corrupt — never a partial settlement);
+  //  (d) FAIL 5: for a bankroll room that still has a game state but is NOT a live funded
+  //      match, terminally CANCEL it (its buy-ins were refunded → clear the game to a clean
+  //      lobby) or leave it FROZEN — never let a refunded match continue as a free game.
   if (isDbEnabled()) {
     await Promise.all(restoredRooms
       .filter((r) => isBankrollRoom(r) && hasUnsettledEscrow(r))
@@ -1030,8 +1035,6 @@ async function bootstrap(): Promise<void> {
     const activeMatchIds = new Set<string>();
     for (const r of restoredRooms) {
       const esc = r.pokerEscrow;
-      // A live started match owns its buy-ins → keep funded (only funded/settling WITH a
-      // game state count as active; a funded escrow without a game is treated as orphaned).
       if (isBankrollRoom(r) && esc && (esc.status === 'funded' || esc.status === 'settling') && r.gameState) {
         activeMatchIds.add(esc.matchId);
       }
@@ -1042,9 +1045,30 @@ async function bootstrap(): Promise<void> {
     } catch (err) {
       console.error('[King] orphaned-debit reconciliation failed:', String((err as Error)?.message ?? err).slice(0, 200));
     }
-    // Clear the corrupt-escrow flag on rooms whose durable matches are now all resolved.
-    await Promise.all(restoredRooms.filter((r) => r.pokerEscrowCorrupt)
-      .map((r) => reconcileCorruptRoom(r).then((ok) => { if (rooms.has(r.code)) persistRoom(r); return ok; }).catch(() => false)));
+    // (c) Corrupt-escrow rooms: refund by room code, or FREEZE when the durable record is corrupt.
+    await Promise.all(restoredRooms.filter((r) => r.pokerEscrowCorrupt).map(async (r) => {
+      const ok = await reconcileCorruptRoom(r).catch(() => false);
+      if (!ok) { r.pokerFrozen = true; console.error(`[King] room ${r.code} FROZEN for operator review (corrupt durable match)`); }
+      if (rooms.has(r.code)) persistRoom(r);
+    }));
+    // (d) Cancel/advance bankroll rooms that carried a game state across the restart.
+    for (const r of restoredRooms) {
+      if (!isBankrollRoom(r) || !r.gameState) continue;
+      const esc = r.pokerEscrow;
+      if (esc && (esc.status === 'funded' || esc.status === 'settling')) { rescheduleAdvance(r); continue; } // live funded match
+      if (r.pokerFrozen) continue; // frozen → no advance, kept for operator
+      // The match's buy-ins were refunded (orphan/cancel) → the old game cannot continue for
+      // real chips: terminally cancel it back to a clean lobby.
+      r.pokerMatchCancelled = true;
+      r.gameState = null;
+      r.started = false;
+      clearRoomTimers(r.code);
+      if (rooms.has(r.code)) persistRoom(r);
+      console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
+    }
+  } else {
+    // No economy (no DB): advance the deferred bankroll rooms best-effort (nothing to settle).
+    for (const r of restoredRooms) if (isBankrollRoom(r) && hasUnsettledEscrow(r)) rescheduleAdvance(r);
   }
 
   // Explicit startup sweep: delete already-expired rooms right away (and remove

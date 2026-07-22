@@ -152,6 +152,13 @@ export interface ServerRoom {
    *  dropped (undefined) but this flag blocks room deletion + drives DB reconciliation, so a
    *  corrupt record never silently loses chips. Cleared once the DB confirms nothing is owed. */
   pokerEscrowCorrupt?: boolean;
+  /** Stage 37.7.3 (FAIL 5): the bankroll MATCH was terminally CANCELLED on recovery (its
+   *  buy-ins were refunded), so the old game state must not continue for real chips. The room
+   *  returns to a clean lobby (gameState cleared). */
+  pokerMatchCancelled?: boolean;
+  /** Stage 37.7.3 (FAIL 5): a room with a CORRUPT durable match that can't be safely settled
+   *  is FROZEN — no gameplay/advance/start — and kept for operator review (never partially settled). */
+  pokerFrozen?: boolean;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -279,7 +286,7 @@ export function createRoom(opts: {
   code: string;
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
-  host: { clientId: string; reconnectToken: string; name: string; avatar?: string };
+  host: { clientId: string; reconnectToken: string; name: string; avatar?: string; userId?: string | null };
   /** Which game to host (default King). */
   gameType?: GameType;
   /** Durak variant; ignored for King. */
@@ -351,7 +358,9 @@ export function createRoom(opts: {
     connected: true,
     type: 'human',
     avatar: sanitizeAvatar(opts.host.avatar, opts.host.name),
-    userId: null,
+    // Stage 37.7.3 (FAIL 7): the host's authoritative account id is stamped ATOMICALLY at
+    // room creation when supplied (bankroll Poker), never relying on a later attachIdentity.
+    userId: opts.host.userId ?? null,
   });
   assignSeats(room);
   return room;
@@ -1305,6 +1314,9 @@ export interface PersistedRoom {
   pokerEscrow?: PokerEscrow;
   /** Persist the corrupt-escrow marker so a restart keeps failing closed (§16, 37.7.2). */
   pokerEscrowCorrupt?: boolean;
+  /** Persist the terminal-cancel / frozen recovery markers (§16, 37.7.3). */
+  pokerMatchCancelled?: boolean;
+  pokerFrozen?: boolean;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1342,6 +1354,8 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerBlindGrowth: room.pokerBlindGrowth,
     pokerEscrow: room.pokerEscrow,
     pokerEscrowCorrupt: room.pokerEscrowCorrupt,
+    pokerMatchCancelled: room.pokerMatchCancelled,
+    pokerFrozen: room.pokerFrozen,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1473,6 +1487,8 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerBlindGrowth: typeof o.pokerBlindGrowth === 'number' && Number.isSafeInteger(o.pokerBlindGrowth) && o.pokerBlindGrowth >= 0 ? o.pokerBlindGrowth : undefined,
     pokerEscrow: escrowResult.escrow,
     pokerEscrowCorrupt: escrowResult.corrupt,
+    pokerMatchCancelled: o.pokerMatchCancelled === true ? true : undefined,
+    pokerFrozen: o.pokerFrozen === true ? true : undefined,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

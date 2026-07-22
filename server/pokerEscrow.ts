@@ -182,6 +182,7 @@ export function validatePayoutConservation(esc: PokerEscrow, state: PokerState):
   if (!esc || typeof esc.matchId !== 'string' || !esc.matchId) return { ok: false, error: 'bad escrow' };
   if (!Number.isSafeInteger(esc.buyIn) || esc.buyIn <= 0) return { ok: false, error: 'bad buyIn' };
   if (!Array.isArray(esc.seats) || esc.seats.length < 2 || esc.seats.length > 6) return { ok: false, error: 'bad seat count' };
+  const playerCount = typeof state.playerCount === 'number' ? state.playerCount : stacks.length;
   const users = new Set<string>();
   let payoutTotal = 0;
   let escrowTotal = 0;
@@ -189,6 +190,8 @@ export function validatePayoutConservation(esc: PokerEscrow, state: PokerState):
   for (const s of esc.seats) {
     if (typeof s.userId !== 'string' || !s.userId || users.has(s.userId)) return { ok: false, error: 'bad/duplicate user' };
     users.add(s.userId);
+    // (37.7.3) Seat must be a safe integer in range of the actual stacks/player set.
+    if (!Number.isSafeInteger(s.seat) || s.seat < 0 || s.seat >= stacks.length || s.seat >= playerCount) return { ok: false, error: 'seat out of range' };
     if (!Number.isSafeInteger(s.amount) || s.amount <= 0 || s.amount !== esc.buyIn) return { ok: false, error: 'bad seat amount' };
     if (seen.has(s.seat)) return { ok: false, error: 'duplicate seat' };
     seen.add(s.seat);
@@ -200,6 +203,9 @@ export function validatePayoutConservation(esc: PokerEscrow, state: PokerState):
     escrowTotal += s.amount;
     if (payoutTotal > Number.MAX_SAFE_INTEGER || escrowTotal > Number.MAX_SAFE_INTEGER) return { ok: false, error: 'overflow' };
   }
+  // (37.7.3) The escrow seat set must EXACTLY match the state's player seat set — every
+  // player seat present, none extra/missing — so no unpaid/extra participant slips through.
+  if (seen.size !== playerCount) return { ok: false, error: 'escrow seats != player seats' };
   if (payoutTotal !== escrowTotal) return { ok: false, error: 'payout != escrow' };
   return { ok: true };
 }
@@ -263,10 +269,26 @@ export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
   }
 }
 
+/**
+ * True when the room's CURRENT seated players exactly match the funded escrow's seat/user
+ * composition (Stage 37.7.3, FAIL 1). Checked right before startGame so a seat that slipped
+ * in after the escrow was formed (or one that left) can never start a game whose state seats
+ * diverge from the funded/paid seats.
+ */
+export function escrowMatchesRoomSeats(room: ServerRoom): boolean {
+  const esc = room.pokerEscrow;
+  if (!esc) return false;
+  const current = bankrollParticipants(room);
+  if (current.length !== esc.seats.length) return false;
+  const curKey = current.map((p) => `${p.seat}:${p.userId}`).sort().join('|');
+  const escKey = esc.seats.map((s) => `${s.seat}:${s.userId}`).sort().join('|');
+  return curKey === escKey;
+}
+
 /** True when a room still holds unsettled escrow — a funded/in-flight match OR a corrupt
  *  persisted escrow (§16, 37.7.2 FAIL 5): both block deletion until the DB says nothing is owed. */
 export function hasUnsettledEscrow(room: ServerRoom): boolean {
-  if (room.pokerEscrowCorrupt) return true;
+  if (room.pokerEscrowCorrupt || room.pokerFrozen) return true; // corrupt/frozen → keep for operator
   const esc = room.pokerEscrow;
   return !!esc && esc.status !== 'settled' && esc.status !== 'cancelled';
 }
@@ -280,13 +302,14 @@ export function hasUnsettledEscrow(room: ServerRoom): boolean {
 export async function reconcileCorruptRoom(room: ServerRoom): Promise<boolean> {
   if (!room.pokerEscrowCorrupt) return true;
   if (!isDbEnabled()) return false; // funded-but-corrupt, no economy → keep for retry
-  let matches: DurableMatch[];
+  let matches: { valid: DurableMatch[]; corrupt: { matchId: string; roomCode: string; reason: string }[] };
   try { matches = await listUnsettledMatches(); } catch { return false; }
-  for (const m of matches.filter((mm) => mm.roomCode === room.code)) {
-    if (m.seats.length < 2 || m.seats.some((s) => s.amount !== m.buyIn)) {
-      console.error(`[Poker] corrupt room ${room.code} match ${m.matchId} has malformed durable seats — operator review`);
-      return false; // fail closed
-    }
+  // A CORRUPT durable record for this room can't be safely refunded → freeze for operator.
+  if (matches.corrupt.some((c) => c.roomCode === room.code)) {
+    console.error(`[Poker] room ${room.code} has a CORRUPT durable match record — frozen for operator review (no partial settlement)`);
+    return false; // fail closed
+  }
+  for (const m of matches.valid.filter((mm) => mm.roomCode === room.code)) {
     if (!(await refundDurableMatch(m))) return false;
   }
   room.pokerEscrowCorrupt = false; // every match for this room is resolved
@@ -318,23 +341,33 @@ async function refundDurableMatch(match: DurableMatch): Promise<boolean> {
  * refunds nothing new (the settlement gate + ledger keys no-op). Malformed durable seats fail
  * closed (skipped + alerted for operator review) rather than silently losing chips.
  */
-export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<{ refunded: string[] }> {
-  if (!isDbEnabled()) return { refunded: [] };
-  let matches: DurableMatch[];
-  try { matches = await listUnsettledMatches(); } catch { return { refunded: [] }; }
+export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<{ refunded: string[]; corrupt: string[] }> {
+  if (!isDbEnabled()) return { refunded: [], corrupt: [] };
+  let matches: { valid: DurableMatch[]; corrupt: { matchId: string; roomCode: string; reason: string }[] };
+  try { matches = await listUnsettledMatches(); } catch { return { refunded: [], corrupt: [] }; }
   const refunded: string[] = [];
-  for (const m of matches) {
+  // CORRUPT durable records are NEVER settled/refunded (all-or-nothing, FAIL 3) — left
+  // unresolved with an operator alert. A partial refund could leave a debited user short.
+  for (const c of matches.corrupt) {
+    console.error(`[Poker] orphaned match ${c.matchId} (room ${c.roomCode}) is CORRUPT (${c.reason}) — LEFT UNRESOLVED for operator review`);
+  }
+  for (const m of matches.valid) {
     if (activeMatchIds.has(m.matchId)) continue; // an active started room owns this → keep funded
-    if (m.seats.length < 2 || m.seats.some((s) => s.amount !== m.buyIn)) {
-      console.error(`[Poker] orphaned match ${m.matchId} (room ${m.roomCode}) has malformed durable seats — SKIPPED for operator review`);
-      continue; // fail closed
-    }
     if (await refundDurableMatch(m)) {
       refunded.push(m.matchId);
       console.log(`[Poker] crash-recovery refund for orphaned match ${m.matchId} (room ${m.roomCode})`);
     }
   }
-  return { refunded };
+  return { refunded, corrupt: matches.corrupt.map((c) => c.matchId) };
+}
+
+/** True when a room has a CORRUPT durable match record (unsafe to settle — operator review). */
+export async function roomHasCorruptDurableMatch(roomCode: string): Promise<boolean> {
+  if (!isDbEnabled()) return false;
+  try {
+    const { corrupt } = await listUnsettledMatches();
+    return corrupt.some((c) => c.roomCode === roomCode);
+  } catch { return false; }
 }
 
 /**

@@ -126,51 +126,101 @@ export async function settleMatchTx(
 export interface DurableMatchSeat { seat: number; userId: string; amount: number; }
 /** A durable ACTIVE-match record (poker_matches), recoverable without any room JSON. */
 export interface DurableMatch { matchId: string; roomCode: string; buyIn: number; seats: DurableMatchSeat[] }
+/** A durable match row that failed validation — settlement/refund is UNSAFE (operator review). */
+export interface CorruptMatch { matchId: string; roomCode: string; reason: string }
+
+/** Thrown when a matchId is re-recorded with DIFFERENT metadata (roomCode/buyIn/seats). */
+export class DurableMatchConflictError extends Error {
+  constructor(public readonly matchId: string) {
+    super('durable_match_conflict');
+    this.name = 'DurableMatchConflictError';
+  }
+}
+
+/** Canonical order-independent key for a seat set (sorted by seat), to compare two records. */
+function canonicalSeatsKey(seats: DurableMatchSeat[]): string {
+  return [...seats].sort((a, b) => a.seat - b.seat).map((s) => `${s.seat}:${s.userId}:${s.amount}`).join('|');
+}
 
 /**
  * Write the durable match record (Stage 37.7.2, FAIL 1). MUST be called inside the SAME
- * transaction as the buy-in debits so the record + debits commit atomically — after a
- * commit the match is always recoverable even if the room JSON is stale/missing. Idempotent
- * (ON CONFLICT DO NOTHING) so a retry with the same matchId is safe.
+ * transaction as the buy-in debits so the record + debits commit atomically. Idempotent for
+ * the SAME logical match (identical roomCode/buyIn/canonical seats). Stage 37.7.3 (FAIL 4):
+ * a re-record of the same matchId with DIFFERENT metadata throws DurableMatchConflictError —
+ * rolling back the whole transaction (no new debit) rather than silently accepting the
+ * conflicting record.
  */
 export async function recordMatchTx(
   tx: PostgresJsDatabase, matchId: string, roomCode: string, buyIn: number, seats: DurableMatchSeat[],
 ): Promise<void> {
-  await tx.insert(pokerMatches).values({ matchId, roomCode, buyIn, seats })
-    .onConflictDoNothing({ target: pokerMatches.matchId });
-}
-
-/** Parse a persisted `seats` JSONB into validated DurableMatchSeat[] (drops malformed entries). */
-function parseDurableSeats(raw: unknown): DurableMatchSeat[] {
-  if (!Array.isArray(raw)) return [];
-  const out: DurableMatchSeat[] = [];
-  for (const e of raw) {
-    if (e && typeof e === 'object') {
-      const o = e as Record<string, unknown>;
-      if (typeof o.seat === 'number' && Number.isSafeInteger(o.seat) && o.seat >= 0
-        && typeof o.userId === 'string' && o.userId
-        && typeof o.amount === 'number' && Number.isSafeInteger(o.amount) && o.amount > 0) {
-        out.push({ seat: o.seat, userId: o.userId, amount: o.amount });
-      }
-    }
-  }
-  return out;
+  const inserted = await tx.insert(pokerMatches).values({ matchId, roomCode, buyIn, seats })
+    .onConflictDoNothing({ target: pokerMatches.matchId })
+    .returning({ matchId: pokerMatches.matchId });
+  if (inserted.length > 0) return; // fresh insert
+  // Conflict: an existing row for this matchId. It must be the SAME logical match.
+  const [existing] = await tx.select().from(pokerMatches).where(eq(pokerMatches.matchId, matchId)).limit(1);
+  if (!existing) return; // vanished between insert + select (shouldn't happen); treat as fresh
+  const existingSeats = parseDurableMatch({ matchId, roomCode: existing.roomCode, buyIn: existing.buyIn, seats: existing.seats });
+  const sameMeta = existing.roomCode === roomCode && existing.buyIn === buyIn
+    && existingSeats !== null && canonicalSeatsKey(existingSeats.seats) === canonicalSeatsKey(seats);
+  if (!sameMeta) throw new DurableMatchConflictError(matchId);
 }
 
 /**
- * All committed-but-UNRESOLVED matches (a poker_matches row with no settlement row) —
- * the durable source of truth for crash recovery (FAIL 1), independent of room JSON.
+ * STRICT all-or-nothing parse of a durable match (Stage 37.7.3, FAIL 3). Returns the
+ * validated DurableMatch, or NULL if ANYTHING is malformed — never a partial seat set (a
+ * partial refund would leave a debited user permanently short while the settlement row marks
+ * the whole match resolved). Requires: matchId/roomCode non-empty bounded; buyIn positive
+ * safe int; 2–6 seats; each seat a safe int ≥0, unique; userId non-empty bounded, unique;
+ * amount === buyIn positive safe int; total within safe-integer range.
  */
-export async function listUnsettledMatches(): Promise<DurableMatch[]> {
+export function parseDurableMatch(raw: { matchId: string; roomCode: string; buyIn: number; seats: unknown }): DurableMatch | null {
+  const { matchId, roomCode, buyIn } = raw;
+  if (typeof matchId !== 'string' || !matchId || matchId.length > 200) return null;
+  if (typeof roomCode !== 'string' || !roomCode || roomCode.length > 200) return null;
+  if (typeof buyIn !== 'number' || !Number.isSafeInteger(buyIn) || buyIn <= 0) return null;
+  if (!Array.isArray(raw.seats) || raw.seats.length < 2 || raw.seats.length > 6) return null;
+  const seats: DurableMatchSeat[] = [];
+  const seatSet = new Set<number>();
+  const userSet = new Set<string>();
+  let total = 0;
+  for (const e of raw.seats) {
+    if (!e || typeof e !== 'object') return null;
+    const o = e as Record<string, unknown>;
+    if (typeof o.seat !== 'number' || !Number.isSafeInteger(o.seat) || o.seat < 0) return null;
+    if (typeof o.userId !== 'string' || !o.userId || o.userId.length > 200) return null;
+    if (typeof o.amount !== 'number' || !Number.isSafeInteger(o.amount) || o.amount <= 0 || o.amount !== buyIn) return null;
+    if (seatSet.has(o.seat) || userSet.has(o.userId)) return null; // duplicate seat/user
+    seatSet.add(o.seat); userSet.add(o.userId);
+    total += o.amount;
+    if (total > Number.MAX_SAFE_INTEGER) return null;
+    seats.push({ seat: o.seat, userId: o.userId, amount: o.amount });
+  }
+  return { matchId, roomCode, buyIn, seats };
+}
+
+/**
+ * All committed-but-UNRESOLVED matches, split into VALID (safe to refund) and CORRUPT (a
+ * malformed durable record — must be left unresolved for operator review, NEVER partially
+ * settled). The durable source of truth for crash recovery, independent of room JSON.
+ */
+export async function listUnsettledMatches(): Promise<{ valid: DurableMatch[]; corrupt: CorruptMatch[] }> {
   const conn = await getDb();
-  if (!conn) return [];
+  if (!conn) return { valid: [], corrupt: [] };
   const db = conn.db as PostgresJsDatabase;
   const rows = await db.select({
     matchId: pokerMatches.matchId, roomCode: pokerMatches.roomCode, buyIn: pokerMatches.buyIn, seats: pokerMatches.seats,
   }).from(pokerMatches)
     .leftJoin(pokerMatchSettlements, eq(pokerMatches.matchId, pokerMatchSettlements.matchId))
     .where(isNull(pokerMatchSettlements.matchId));
-  return rows.map((r) => ({ matchId: r.matchId, roomCode: r.roomCode, buyIn: r.buyIn, seats: parseDurableSeats(r.seats) }));
+  const valid: DurableMatch[] = [];
+  const corrupt: CorruptMatch[] = [];
+  for (const r of rows) {
+    const parsed = parseDurableMatch(r);
+    if (parsed) valid.push(parsed);
+    else corrupt.push({ matchId: r.matchId, roomCode: r.roomCode, reason: 'malformed durable seats' });
+  }
+  return { valid, corrupt };
 }
 
 /** Durable ledger/settlement state for a match — used for crash reconciliation (§16, FAIL 3). */

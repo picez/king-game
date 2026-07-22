@@ -320,3 +320,57 @@ describe.skipIf(!TEST_DATABASE_URL)('adjustWalletTx idempotent-repeat fix (Stage
     await conn!.sql`DELETE FROM users WHERE id = ${U}`;
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)('durable match record integrity (Stage 37.7.3, integration)', () => {
+  it('FAIL 4: recordMatchTx exact repeat is idempotent; conflicting metadata throws + rolls back all debits', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const db = conn!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
+    const U1 = await users.createAccountUser({ email: null, name: 'CflU1', emailVerified: false });
+    const U2 = await users.createAccountUser({ email: null, name: 'CflU2', emailVerified: false });
+    await wallet.dailyClaim(U1, DAY);
+    const matchId = `cfl-${U1}`;
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${matchId}`;
+    const seats = [{ seat: 0, userId: U1, amount: 5000 }, { seat: 1, userId: U2, amount: 5000 }];
+    await db.transaction((tx) => wallet.recordMatchTx(tx, matchId, 'ROOMA', 5000, seats));
+    // Exact repeat with a DIFFERENT seat order → idempotent success (canonical compare).
+    await db.transaction((tx) => wallet.recordMatchTx(tx, matchId, 'ROOMA', 5000, [seats[1], seats[0]]));
+    // Conflicting metadata (different buyIn) → throws + the whole tx (incl. a debit) rolls back.
+    await expect(db.transaction(async (tx) => {
+      await wallet.recordMatchTx(tx, matchId, 'ROOMA', 9999, [{ seat: 0, userId: U1, amount: 9999 }, { seat: 1, userId: U2, amount: 9999 }]);
+      await wallet.adjustWalletTx(tx, U1, -100, 'table_buy_in', `cflx:${U1}`);
+    })).rejects.toBeInstanceOf(wallet.DurableMatchConflictError);
+    expect((await wallet.getWalletView(U1, DAY)).balance).toBe(1_000_000); // debit rolled back
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${matchId}`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
+  });
+
+  it('FAIL 3/5: a CORRUPT durable match is left unresolved (no partial refund, no settlement row)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const escrow = await import('../../server/pokerEscrow');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const U1 = await users.createAccountUser({ email: null, name: 'CorrU1', emailVerified: false });
+    const U2 = await users.createAccountUser({ email: null, name: 'CorrU2', emailVerified: false });
+    await wallet.dailyClaim(U1, DAY); await wallet.dailyClaim(U2, DAY);
+    const matchId = `corr-${U1}`;
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${matchId}`;
+    // A durable row where ONE seat's amount != buyIn → the whole match is corrupt.
+    const badSeats = JSON.stringify([{ seat: 0, userId: U1, amount: 5000 }, { seat: 1, userId: U2, amount: 4999 }]);
+    await conn!.sql`INSERT INTO poker_matches (match_id, room_code, buy_in, seats) VALUES (${matchId}, 'ROOMC', 5000, ${badSeats}::jsonb)`;
+    const res = await escrow.reconcileOrphanedDebits(new Set());
+    expect(res.corrupt).toContain(matchId);
+    expect(res.refunded).not.toContain(matchId);
+    // No settlement row was written (never partially settled) and no wallet was credited.
+    const s = await conn!.sql`SELECT count(*)::int AS n FROM poker_match_settlements WHERE match_id = ${matchId}`;
+    expect((s as Array<{ n: number }>)[0].n).toBe(0);
+    expect((await wallet.getWalletView(U1, DAY)).balance).toBe(1_000_000);
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${matchId}`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
+  });
+});

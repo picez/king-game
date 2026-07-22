@@ -547,3 +547,30 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Idempotent-repeat wallet fix (FAIL 6):** `adjustWalletTx` short-circuits on an existing
   ledger key before any balance math, so a repeat after the balance dropped / near overflow is a
   clean `applied:false` no-op. Proven with a real concurrent PostgreSQL same-key test.
+
+### Target-room JOIN serialization + durable fail-closed (Stage 37.7.3)
+
+- **Target-room JOIN vs debit (FAIL 1):** a bankroll PLAYER join re-checks `isRoomBusy(target)`
+  right before `addMember` (after the async auth) — a seat can't be added while the target's
+  start/debit/rematch/settlement/teardown is in flight. START_GAME additionally verifies
+  `escrowMatchesRoomSeats` before dealing (refund + abort on any divergence), so the game state
+  seats always equal the funded/paid seats.
+- **Stale/deleted target after auth (FAIL 2):** `finishJoin` verifies `ctx.rooms.get(code) === room`
+  before + after `addMember`; a deleted/replaced room → ROOM_NOT_FOUND, membership rolled back —
+  never welcomed into a ghost room.
+- **All-or-nothing durable parse (FAIL 3):** `parseDurableMatch` rejects the WHOLE record on any
+  malformed seat (no partial refund). `listUnsettledMatches` returns `{ valid, corrupt }`;
+  reconciliation never writes a terminal settlement for a corrupt record — it is left unresolved
+  with an operator alert.
+- **Durable metadata conflict (FAIL 4):** `recordMatchTx` throws `DurableMatchConflictError` (rolling
+  back the whole transaction, no debit) when a matchId is re-recorded with different
+  roomCode/buyIn/canonical seats; an exact repeat is idempotent.
+- **Corrupt/refunded active room (FAIL 5):** on restart a bankroll room with a game state but no
+  live funded escrow is terminally CANCELLED (buy-ins refunded → game cleared to a clean lobby) or
+  FROZEN (corrupt durable record → no gameplay/advance/start, kept for operator). `rescheduleAdvance`
+  and ACTION_REQUEST/START are blocked for frozen/cancelled rooms.
+- **Navigation cancellation on all transitions (FAIL 6):** CREATE/JOIN/RECONNECT/RECLAIM/LEAVE +
+  socket close all bump the per-connection nav revision, so a delayed CREATE/JOIN callback can't
+  resurrect a room/member/session after any transition.
+- **Host identity atomic at CREATE (FAIL 7):** the Poker host's account id is passed into `createRoom`
+  and stamped on the host member at creation — never dependent on a later attachIdentity.

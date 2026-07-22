@@ -44,6 +44,14 @@ also reported at `GET /health/diagnostics` (`version` field).
     async CREATE/JOIN are **cancellable** (no stale/duplicate rooms); navigation can't reshape a
     table mid-lifecycle-op; malformed persisted escrow **fails closed**; and an idempotent wallet
     repeat can no longer falsely throw Insufficient/Overflow (verified on a real PostgreSQL).
+  - **Target-room JOIN serialization + durable fail-closed (Stage 37.7.3):** a JOIN into a
+    **busy** bankroll table is refused (target checked, not just the current room), and START
+    verifies the escrow seats still equal the seated players; a delayed JOIN whose target was
+    deleted creates no ghost; the durable-seats parser is **all-or-nothing** (a corrupt record is
+    left unresolved, never partially refunded); `recordMatchTx` rejects conflicting matchId
+    metadata; a recovered room whose buy-ins were refunded is **cancelled/frozen** (never a free
+    continuation); every session transition cancels a pending async CREATE/JOIN; and the Poker
+    host's account id is stamped atomically at creation. All verified on a real PostgreSQL.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip
