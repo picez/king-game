@@ -6,7 +6,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
 - Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
 - Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
-- Latest DB migration: `0009`; do not add migrations casually.
+- Latest DB migration: `0010_poker_wallet` (Stage 37.7 part 1 — Poker chip wallet + ledger). Was `0009`; do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
@@ -26,6 +26,24 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Online state must remain server-authoritative and redacted; never leak hands, reconnect tokens, user ids, or private auth data in room lists.
 - **Poker Host routing fixed (Stage 37.6):** picking Poker used to create a KING room — `StartMenu.host()` added `gameType` only via per-game conditional spreads and had no Poker branch, so `CREATE_ROOM` omitted `gameType` and the server defaulted to `?? 'king'`. Now `host()` builds the intent via a shared pure `buildCreateIntent()` (in `src/net/online.ts`) that ALWAYS carries the selected `gameType` for all 7 games; options stay per-game. Regression: `src/net/hostRouting.test.ts` (7-game matrix + full path to PokerState). No Poker rules/engine change.
 - **Turn timer is authoritative (Stage 37.5):** the room owns `turnDeadlineAt` + `turnTimerRevision` (persisted); minted ONLY on a real gameplay transition (`beginTurnDeadline`), never on connection events. Every `STATE_UPDATE` carries `RoomTimerInfo {deadlineAt, revision, serverNow}`; the client derives remaining from the deadline vs `Date.now()` (skew-safe, no local per-second decrement). Server arms ONE absolute-deadline `setTimeout` with a revision guard (no stale double-move); `resolveHumanFireAt` handles the room-timer-vs-substitute precedence (substitute is server-only, starts on disconnect, cancels on reconnect, never extends the room timer). Reload/reconnect never resets/extends. `applyTimeoutAction` audited across all 7 games (no botAction null-gap; Durak defence got a `TAKE_CARDS` fallback).
+
+## Stage 37.7 — Poker bankroll/economy (IN PROGRESS, multi-commit)
+- **Part 1 DONE (commit `eeb47d5`):** server-authoritative chip **wallet + daily claim
+  + append-only ledger** (migration `0010`). 1,000,000 chips once/UTC-day, atomic +
+  idempotent (concurrent double-POST → one grant); `poker_wallets`/`poker_ledger`,
+  BIGINT + CHECK≥0; `GET /api/me/poker-wallet` + `POST …/daily-claim` (non-guest only);
+  `PokerWalletPanel` on Profile→account; EN/UK/DE/AR; `adjustWalletTx` primitive
+  (buy-in/payout/refund) implemented + tested but NOT yet wired. Local free-play is a
+  sandbox (no debit). `POKER_RULES.md §16`.
+- **Remaining 37.7 increments (NOT started):** (C) online escrow — buy-in debit at
+  START_GAME + stack payout at finish + cancellation refund, all idempotent via the
+  ledger; (D/E) typed table config through create-intent→CREATE_ROOM→ServerRoom
+  (stakes presets, buy-in=100×BB, blind-growth-every-N with the exact off-by-one),
+  reducer per-hand blinds; human-only bankroll rooms (no bots); (F) real oval poker-
+  table UI (2–6 seats) **with reviewed screenshots**; (G) server-driven showdown review
+  (winner + combo label + exact 5 winning cards ~7s); (H) in-table hand-rankings help
+  modal; (I) collapsible action log; (J) inventory/Host/Join UX. Keep game count 7,
+  achievements 52, Stage 37.5 timer + 37.6 routing intact.
 
 ## Open / likely next work
 - Owner may bring real bug reports from daily play; fix those before speculative polish.

@@ -233,6 +233,39 @@ and **burn cards**. Per viewer:
 
 ---
 
+## §16 Chip wallet & economy (Stage 37.7)
+
+Poker has a **server-authoritative chip economy** for online tables. It is DB-gated
+(Postgres): with no `DATABASE_URL` there is no economy and **local free-play Poker is
+unaffected** (local chips are a sandbox — the player picks a starting stack, nothing is
+debited or credited).
+
+**Wallet (implemented).** Every non-guest account has a chip wallet:
+
+- **Balance** — a server-authoritative `BIGINT`, **never negative** (enforced in code
+  and by a DB `CHECK`). Stored in `poker_wallets` (migration 0010).
+- **Daily claim** — a signed-in player may claim **exactly 1,000,000 chips once per UTC
+  calendar day**. Eligibility uses the **server** clock, so a client clock/timezone
+  change cannot unlock an extra claim. The grant is **atomic and idempotent**: a
+  concurrent double request yields exactly one grant; a repeat the same day returns the
+  balance and next-eligibility without crediting again.
+- **Ledger** — every balance change appends one immutable row to `poker_ledger`
+  (`reason` ∈ `daily_claim | table_buy_in | table_payout | table_cancel_refund`, signed
+  `delta`, `balance_after`, a `UNIQUE idempotency_key`, optional match/room refs). The
+  unique key is what makes each logical operation idempotent (a replay no-ops).
+- **API** — `GET /api/me/poker-wallet` (balance + eligibility) and
+  `POST /api/me/poker-wallet/daily-claim` (grant), both non-guest-only. The Profile →
+  account screen shows the balance and a **Get 1,000,000** button (or “claimed today /
+  available tomorrow”).
+
+**Online bankroll tables (planned — upcoming Stage 37.7 increments).** Not yet wired:
+host-selected stakes presets, a **100 big-blind buy-in** debited at match start and the
+final stack credited back at finish (both idempotent, via the `adjustWalletTx`
+primitive already implemented and tested), human-only bankroll rooms (no bots),
+cancellation refunds on orphan cleanup, blind-growth escalation, and the new
+poker-table UI + showdown review. Until those land, online Poker still runs on the
+fixed 1000-stack / 10-20-blind MVP from §1–§2 with no wallet debit.
+
 ## Appendix A — MVP simplifications (explicit)
 
 These are intentional MVP scope cuts, safe to revisit later:

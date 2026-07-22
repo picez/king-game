@@ -11,6 +11,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Poker chip wallet + daily claim (Stage 37.7, part 1).** The server-authoritative
+  chip economy that online bankroll tables will build on. Every signed-in (non-guest)
+  account has a chip **wallet** (`GET /api/me/poker-wallet`) and can **claim exactly
+  1,000,000 chips once per UTC day** (`POST /api/me/poker-wallet/daily-claim`), shown on
+  Profile → account as the balance + a **Get 1,000,000** button. Balances are `BIGINT`
+  and **never negative**; every change appends an **immutable, idempotent ledger** row
+  (migration 0010: `poker_wallets` + `poker_ledger`). The claim is atomic — a concurrent
+  double request grants once, a repeat the same day no-ops. DB-gated: **local free-play
+  Poker is a sandbox and is unaffected** (no wallet debit). Online-table buy-in/escrow/
+  payout/refund, blind growth, the poker-table UI and showdown review are **upcoming
+  37.7 increments**. EN/UK/DE/AR copy. [`POKER_RULES.md §16`](POKER_RULES.md)
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip
