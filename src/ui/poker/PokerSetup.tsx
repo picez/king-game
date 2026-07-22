@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import GameHelpModal from '../components/GameHelpModal';
-import { MAX_PLAYERS, MIN_PLAYERS } from '../../games/poker/rules';
+import { MAX_PLAYERS, MIN_PLAYERS, LOCAL_MIN_STACK, LOCAL_MAX_STACK } from '../../games/poker/rules';
 import type { PlayerType } from '../../models/types';
 
 export interface PokerSeatConfig {
@@ -10,12 +10,19 @@ export interface PokerSeatConfig {
   name: string;
 }
 
+/** Local starting-stack options (§16 C). Free sandbox — never touches the wallet. */
+export interface PokerLocalOptions {
+  startingStack: number;
+}
+
 interface Props {
-  onStart: (seats: PokerSeatConfig[]) => void;
+  onStart: (seats: PokerSeatConfig[], opts: PokerLocalOptions) => void;
   onExit: () => void;
 }
 
 const PLAYER_COUNTS = Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, i) => MIN_PLAYERS + i); // 2..6
+/** Starting-stack presets for local free play (§16 C). */
+const STACK_PRESETS = [1000, 5000, 10000, 50000, 100000, 1000000];
 
 /** Default config for `count` seats: seat 0 human ("Player 1"), the rest bots. */
 function defaultSeats(count: number, prev: PokerSeatConfig[] = []): PokerSeatConfig[] {
@@ -34,8 +41,19 @@ export default function PokerSetup({ onStart, onExit }: Props) {
   const [count, setCount] = useState<number>(4);
   const [seats, setSeats] = useState<PokerSeatConfig[]>(() => defaultSeats(4));
   const [showHelp, setShowHelp] = useState(false);
+  const [stack, setStack] = useState<number>(1000);           // local starting stack (default 1000)
+  const [customStack, setCustomStack] = useState<string>(''); // free text for a custom stack
 
   const humanCount = useMemo(() => seats.slice(0, count).filter((s) => s.type === 'human').length, [seats, count]);
+
+  /** Resolve the effective starting stack: a valid custom value wins, else the preset. */
+  const effectiveStack = useMemo(() => {
+    const raw = Number(customStack);
+    if (customStack.trim() !== '' && Number.isFinite(raw) && Number.isSafeInteger(raw)) {
+      return Math.max(LOCAL_MIN_STACK, Math.min(LOCAL_MAX_STACK, raw));
+    }
+    return stack;
+  }, [customStack, stack]);
 
   function setSeatCount(n: number) {
     setCount(n);
@@ -100,6 +118,32 @@ export default function PokerSetup({ onStart, onExit }: Props) {
           ))}
         </ul>
 
+        <label className="field__label">{t('poker.startingStack')}</label>
+        <div className="poker-setup__counts poker-setup__stacks" role="group" aria-label={t('poker.startingStack')}>
+          {STACK_PRESETS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`btn ${n === effectiveStack ? 'btn--primary' : 'btn--ghost'} poker-setup__count`}
+              aria-pressed={n === effectiveStack}
+              onClick={() => { setStack(n); setCustomStack(''); }}
+            >
+              {n.toLocaleString()}
+            </button>
+          ))}
+        </div>
+        <input
+          className="poker-setup__name poker-setup__custom-stack"
+          type="number"
+          inputMode="numeric"
+          min={LOCAL_MIN_STACK}
+          max={LOCAL_MAX_STACK}
+          placeholder={`${t('poker.stackCustom')} (${LOCAL_MIN_STACK.toLocaleString()}–${LOCAL_MAX_STACK.toLocaleString()})`}
+          value={customStack}
+          onChange={(e) => setCustomStack(e.target.value)}
+          aria-label={t('poker.stackCustom')}
+        />
+
         <p className="poker-setup__blinds">🪙 {t('poker.blindsNote')}</p>
         {humanCount === 0 && <p className="poker-setup__warn">⚠️ {t('poker.setup.needHuman')}</p>}
 
@@ -111,7 +155,10 @@ export default function PokerSetup({ onStart, onExit }: Props) {
           type="button"
           className="btn btn--primary poker-setup__start"
           disabled={humanCount === 0}
-          onClick={() => onStart(seats.slice(0, count).map((s) => ({ type: s.type, name: s.type === 'human' ? (s.name.trim() || `Player`) : s.name })))}
+          onClick={() => onStart(
+            seats.slice(0, count).map((s) => ({ type: s.type, name: s.type === 'human' ? (s.name.trim() || `Player`) : s.name })),
+            { startingStack: effectiveStack },
+          )}
         >
           {t('poker.start')}
         </button>

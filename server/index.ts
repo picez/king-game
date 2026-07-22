@@ -116,6 +116,10 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // overridable via TRICK_ADVANCE_MS env (clamped to a sane range).
 const TRICK_ADVANCE_MS = resolveTrickAdvanceMs(process.env.TRICK_ADVANCE_MS);
 const ROUND_ADVANCE_MS = 10000; // give everyone time to read the round scores
+// Poker showdown-review pauses (§16 G): server-driven, so every client shows the same
+// review for the same time before the next hand is auto-dealt.
+const POKER_SHOWDOWN_REVIEW_MS = 7000;
+const POKER_FOLDWIN_REVIEW_MS = 2500;
 // Pause before a server-side bot makes its move, so play does not snap instantly.
 const BOT_DELAY_MS = Number(process.env.BOT_DELAY_MS ?? 800);
 
@@ -550,7 +554,14 @@ function armRoomTimer(room: ServerRoom, now: number): void {
   clearRoomTimers(room.code); // clears the pending setTimeout handle only — not the deadlines
 
   const screen = publicScreenOf(room);
-  const delay = screen === 'trick_complete' ? TRICK_ADVANCE_MS
+  // Poker showdown review (§16 G) is SERVER-DRIVEN: a contested showdown pauses ~7s so
+  // everyone can read the winner + combination + the highlighted five; a fold-win (no
+  // reveal) uses a shorter pause. Auto-advance then deals the next hand exactly once.
+  const pokerReview = (room.gameType === 'poker' && screen === 'round_scoring')
+    ? (((room.gameState as PokerState | null)?.lastHand?.showdown) ? POKER_SHOWDOWN_REVIEW_MS : POKER_FOLDWIN_REVIEW_MS)
+    : null;
+  const delay = pokerReview != null ? pokerReview
+    : screen === 'trick_complete' ? TRICK_ADVANCE_MS
     : screen === 'round_scoring' ? ROUND_ADVANCE_MS
     : null;
   if (delay != null) {

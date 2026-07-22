@@ -34,6 +34,10 @@ interface Props {
   /** Optional per-turn timer node (Stage 29.7) — rendered inside this control cluster
    *  (next to voice/emoji/chat) instead of over the table. Null/undefined = timer off. */
   timerSlot?: ReactNode;
+  /** Optional GENERIC utility control (Stage 37.7 §16 I) — a game-agnostic ReactNode
+   *  rendered in the corner button row next to chat/emoji/voice (e.g. a Poker action-log
+   *  toggle). No game dependency lives in RoomSocial; the caller supplies the node. */
+  utilitySlot?: ReactNode;
 }
 
 const REACTION_TTL_MS = 2600;
@@ -57,7 +61,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null }: Props) {
   const { t } = useI18n();
   const [reactOpen, setReactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -216,6 +220,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           </div>
         )}
         <div className="social-controls__row">
+          {utilitySlot}
           {voiceButton}
           <button type="button" className="social-fab"
             aria-expanded={reactOpen} aria-label={t('social.reactions')}

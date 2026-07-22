@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { buildCreateIntent } from '../net/online';
+import PokerStakesPicker, { type PokerStakesSelection } from './poker/PokerStakesPicker';
 import { useRoomList } from '../hooks/useRoomList';
 import { useMyRooms } from '../hooks/useMyRooms';
 import type { RoomSummary } from '../net/messages';
@@ -92,6 +93,9 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   // 51 elimination score (Stage 30.15): the running-penalty threshold a seat is out at.
   // Default 510 (unchanged); the host may lower it to 410/310/210 for shorter matches.
   const [fiftyOneEliminationScore, setFiftyOneEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
+  // Poker online bankroll stakes (Stage 37.7 §16 J): host-chosen stakes + growth +
+  // wallet affordability, reported by the PokerStakesPicker. Null until it mounts.
+  const [pokerStakes, setPokerStakes] = useState<PokerStakesSelection | null>(null);
   const [defaultTimer, setDefaultTimer] = useState<number>(() => loadDefaultTimer());
   // Favorite game (Stage 13.3): the persisted default that pre-selects the picker.
   const [favoriteGame, setFavoriteGame] = useState<GameType>(() => loadFavoriteGame());
@@ -239,6 +243,10 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       password: pw || undefined,
       durakVariant, debercMatchSize, debercPlayers,
       tarneebVariant, tarneebTargetScore, fiftyOneEliminationScore,
+      // Poker bankroll stakes (§16): the buy-in is re-derived + validated server-side.
+      pokerSmallBlind: pokerStakes?.smallBlind,
+      pokerBigBlind: pokerStakes?.bigBlind,
+      pokerBlindGrowth: pokerStakes?.blindGrowth,
     }));
   }
 
@@ -598,6 +606,9 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 <div className="field">
                   <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
                 </div>
+              )}
+              {gameType === 'poker' && (
+                <PokerStakesPicker base="" signedIn onChange={setPokerStakes} />
               )}
               {gameType === 'fifty-one' && (
                 <div className="field">

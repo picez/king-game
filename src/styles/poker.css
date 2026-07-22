@@ -160,6 +160,137 @@
 .poker-log__name { opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .poker-log__act { flex-shrink: 0; font-weight: 600; }
 
+/* ===========================================================================
+ * Oval poker table (Stage 37.7 §16 F). Seats are absolutely positioned around an
+ * ellipse; the viewer is always bottom-centre. Physical left/top (NOT logical) so
+ * the geometry is identical under LTR + Arabic RTL (seat identity never mirrors).
+ * ======================================================================== */
+.poker-topbar__meta { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.poker-blinds-now { font-size: 0.72rem; opacity: 0.8; }
+.poker-help-btn {
+  border: none; background: var(--surface-2, rgba(0, 0, 0, 0.2)); color: inherit;
+  border-radius: 999px; min-width: 44px; min-height: 44px; width: 2.25rem; height: 2.25rem;
+  font-size: 1rem; cursor: pointer;
+}
+
+.poker-table-wrap { width: 100%; display: flex; justify-content: center; }
+.poker-table {
+  position: relative;
+  /* Width is VIEWPORT-relative (min(100%, 93vw)) so the felt + its edge seats can never
+     exceed the screen regardless of the flex container's computed width; height is a
+     viewport clamp (NOT aspect-ratio, which used to blow the width past the container). */
+  width: min(100%, 93vw);
+  box-sizing: border-box;
+  height: clamp(360px, 58vh, 520px);
+  margin-inline: auto;
+  border-radius: 46% / 40%;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.08), transparent 60%),
+    var(--felt, #0b5d3b);
+  border: 6px solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+@media (min-width: 620px) { .poker-table { width: min(680px, 90vw); height: clamp(380px, 62vh, 560px); } }
+
+/* Centre: board + pot + street. */
+.poker-center {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 90%;
+}
+.poker-center .poker-board { background: transparent; min-height: auto; padding: 0.2rem; }
+.poker-center__info { display: flex; gap: 0.8rem; align-items: center; }
+.poker-center .poker-pot { font-size: 1.1rem; font-weight: 800; }
+.poker-center .poker-street-label { opacity: 0.85; }
+
+/* Seat pods. */
+.poker-pod {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  width: 4.5rem; padding: 0.3rem 0.28rem; border-radius: 0.6rem;
+  background: rgba(0, 0, 0, 0.42); border: 2px solid transparent; text-align: center;
+}
+.poker-pod--me { background: rgba(0, 0, 0, 0.55); }
+.poker-pod--acting { border-color: var(--accent, #e8b84b); box-shadow: 0 0 12px var(--accent, #e8b84b); }
+.poker-pod--folded { opacity: 0.45; }
+.poker-pod--out { opacity: 0.3; }
+.poker-pod__badges { display: flex; gap: 0.15rem; min-height: 0.9rem; flex-wrap: wrap; justify-content: center; }
+.poker-pod__cards { display: flex; gap: 0.15rem; }
+.poker-pod__name { font-size: 0.72rem; font-weight: 600; max-width: 5.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+.poker-pod__stack { font-size: 0.72rem; color: #ffe9a8; font-weight: 700; }
+.poker-pod__tag { font-size: 0.64rem; opacity: 0.85; color: #fff; }
+.poker-pod__bet {
+  position: absolute; top: -0.6rem; inset-inline-end: -0.4rem;
+  background: var(--accent, #e8b84b); color: #1a1a1a; font-weight: 700; font-size: 0.66rem;
+  padding: 0.05rem 0.3rem; border-radius: 0.6rem;
+}
+.poker-card--win { outline: 3px solid var(--accent, #e8b84b); outline-offset: 1px; box-shadow: 0 0 8px var(--accent, #e8b84b); }
+
+/* Showdown review (§16 G). */
+.poker-review {
+  display: flex; flex-direction: column; gap: 0.5rem; align-items: center;
+  padding: 0.6rem; border-radius: 0.75rem; background: var(--surface-1, rgba(255, 255, 255, 0.08));
+}
+.poker-review__headline { font-weight: 800; font-size: 1.05rem; }
+.poker-review__pots { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; width: 100%; max-width: 26rem; }
+.poker-review__pot {
+  display: flex; gap: 0.6rem; align-items: center; justify-content: space-between; width: 100%;
+  padding: 0.35rem 0.55rem; border-radius: 0.5rem; border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  background: transparent; color: inherit; cursor: pointer; min-height: 40px;
+}
+.poker-review__pot.is-selected { border-color: var(--accent, #e8b84b); background: rgba(232, 184, 75, 0.12); }
+.poker-review__pot-winners { opacity: 0.9; font-size: 0.8rem; }
+.poker-review__winners { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; }
+.poker-review__winner { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.poker-review__winner-name { font-weight: 700; }
+.poker-review__winner-cat { font-size: 0.8rem; color: var(--accent, #e8b84b); }
+.poker-review__five { display: flex; gap: 0.2rem; }
+.poker-review__losers { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; opacity: 0.55; font-size: 0.76rem; }
+
+/* Hand-rankings help modal (§16 H). */
+.poker-help-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.6); padding: 1rem;
+}
+.poker-help {
+  width: 100%; max-width: 30rem; max-height: 88vh; overflow-y: auto;
+  background: var(--panel, #14202a); border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  border-radius: 0.9rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem;
+}
+.poker-help__head { display: flex; align-items: center; justify-content: space-between; }
+.poker-help__title { margin: 0; font-size: 1.1rem; }
+.poker-help__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.poker-help__rank { display: flex; gap: 0.6rem; align-items: baseline; }
+.poker-help__no { font-weight: 800; opacity: 0.6; min-width: 1.2rem; }
+.poker-help__body { display: flex; flex-direction: column; gap: 0.05rem; }
+.poker-help__name { font-weight: 700; }
+.poker-help__desc { font-size: 0.82rem; opacity: 0.85; }
+.poker-help__example { font-size: 0.82rem; opacity: 0.7; letter-spacing: 0.02em; }
+.poker-help__notes { margin: 0.3rem 0 0; padding-inline-start: 1.1rem; font-size: 0.82rem; opacity: 0.85; display: flex; flex-direction: column; gap: 0.25rem; }
+.poker-help__done { min-height: 44px; }
+
+/* Collapsible action log (§16 I). */
+.poker-logbox { display: flex; flex-direction: column; gap: 0.3rem; }
+.poker-log-toggle {
+  align-self: flex-start; background: none; border: none; color: inherit; cursor: pointer;
+  font-size: 0.8rem; opacity: 0.85; display: inline-flex; align-items: center; gap: 0.35rem; min-height: 32px;
+}
+.poker-log-toggle.has-unread { opacity: 1; font-weight: 700; }
+.poker-log-dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--accent, #e8b84b); display: inline-block; }
+.poker-log__empty { opacity: 0.6; margin: 0; }
+
+/* Local starting-stack selector (§16 C). */
+.poker-setup__stacks { margin-bottom: 0.4rem; }
+.poker-setup__custom-stack { width: 100%; margin-bottom: 0.4rem; }
+
+/* Online bankroll stakes picker (§16 J). */
+.poker-stakes__grid { flex-wrap: wrap; }
+.poker-stakes__grid .segmented__tab { flex: 1 1 4rem; }
+.poker-stakes__buyin { margin: 0.4rem 0 0.2rem; font-size: 0.9rem; }
+.poker-stakes__growth-note { opacity: 0.8; }
+.poker-stakes__balance { margin: 0.2rem 0; font-size: 0.85rem; opacity: 0.9; }
+.poker-stakes__balance.is-short { color: #e0a020; }
+.poker-stakes__warn { color: #e0a020; font-size: 0.85rem; }
+
 /* Setup / handover / finished */
 .poker-setup__counts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .poker-setup__count { flex: 1 1 2.5rem; min-height: 44px; }

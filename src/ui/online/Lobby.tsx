@@ -190,8 +190,13 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
               // Rummy meta + the elimination score (Stage 30.15; default 510 for legacy rooms).
               <>🀄 {t('fiftyOne.metaShort')} · ☠ {room.fiftyOneEliminationScore ?? 510}</>
             ) : room.gameType === 'poker' ? (
-              // Poker (Stage 37.4) is No-Limit Hold'em — no King-style mode; show its meta.
-              <>♠️ {t('poker.metaShort')}</>
+              // Poker: bankroll rooms (§16) show stakes + buy-in + growth; a free room its meta.
+              room.pokerBigBlind ? (
+                <>♠️ {room.pokerSmallBlind}/{room.pokerBigBlind} · 🪙 {room.pokerBuyIn}
+                  {room.pokerBlindGrowth ? ` · 📈 ${t('poker.stakes.growthEvery').replace('{n}', String(room.pokerBlindGrowth))}` : ''}</>
+              ) : (
+                <>♠️ {t('poker.metaShort')}</>
+              )
             ) : (
               room.modeSelectionType === 'dealer_choice' ? t('form.dealerChoice') : t('form.fixedOrder')
             )}

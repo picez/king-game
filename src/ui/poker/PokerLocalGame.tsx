@@ -7,7 +7,7 @@ import { localBotNames } from '../../games/botIdentities';
 import { useI18n } from '../../i18n';
 import type { PlayerType } from '../../models/types';
 import type { PokerAction, PokerState } from '../../games/poker/types';
-import PokerSetup, { type PokerSeatConfig } from './PokerSetup';
+import PokerSetup, { type PokerSeatConfig, type PokerLocalOptions } from './PokerSetup';
 import PokerGameScreen from './PokerGameScreen';
 import PokerFinished from './PokerFinished';
 import { needsHandover, viewerFor } from './passAndPlay';
@@ -55,7 +55,7 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     return () => { if (botTimer.current) clearTimeout(botTimer.current); };
   }, [state, apply]);
 
-  function start(seats: PokerSeatConfig[]) {
+  function start(seats: PokerSeatConfig[], opts: PokerLocalOptions) {
     // Assign bot identities to the AI seats; humans keep their chosen names (which may
     // duplicate — the acting human is always resolved by SEAT, never by name).
     const takenNames = seats.filter((s) => s.type === 'human').map((s) => s.name);
@@ -65,7 +65,12 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     const playerTypes: PlayerType[] = seats.map((s) => s.type);
     prevActor.current = -1;
     setViewerSeat(null);
-    apply({ type: 'START_GAME', playerNames, playerTypes, playerCount: seats.length });
+    // Local free sandbox (§16 C): the chosen starting stack flows into the SAME pure
+    // reducer — bots get the same stack; blinds stay 10/20; NO wallet is touched.
+    apply({
+      type: 'START_GAME', playerNames, playerTypes, playerCount: seats.length,
+      options: { startingStack: opts.startingStack, mode: 'local_free' },
+    });
   }
 
   function playAgain() {
