@@ -596,3 +596,20 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Recovery UX:** `RoomSnapshot.pokerRecovery` carries a minimal PUBLIC status (`cancelled` / `frozen`)
   — never a userId/matchId/escrow — and is omitted once a fresh match starts; the no-DB case surfaces via
   the `ECONOMY_UNAVAILABLE` error on any action.
+
+### Recovery retry + real recovery UI (Stage 37.7.5)
+
+- **Fresh paid start after a terminal escrow (FAIL 1):** `debitFreshStart` (used by START_GAME)
+  handles BOTH the initial start AND a retry after a recovery/refund — a TERMINAL escrow
+  (settled/cancelled) is never reused: a brand-new matchId + escrow is minted and a new atomic
+  debit runs (old ledger/settlement untouched). A `funded` escrow is idempotent; `pending`/
+  `settling` is rejected; a FROZEN room is rejected (never bypassed). The terminal/absent escrow
+  is cleared ONLY once its settlement is confirmed; `pokerMatchCancelled` is cleared ONLY after a
+  successful debit+start; concurrency is handled by `withRoomLock` + the started/gameState guard.
+- **Failure-safe rematch (FAIL 2):** if the rematch debit commits but `restartGame` fails, the
+  buy-in is refunded once and the room becomes a persisted, broadcast CANCELLED lobby
+  (`pokerMatchCancelled`, cleared state, rematch readiness reset) from which a fresh START works.
+- **Real recovery UI (FAIL 3):** `PokerRecoveryBanner` renders the PUBLIC `RoomSnapshot.pokerRecovery`
+  status in the online Lobby and the poker game view — `cancelled` (previous match cancelled, buy-ins
+  refunded, start a new match) / `frozen` (economy recovering; Start disabled). No userId/matchId/escrow;
+  EN/UK/DE/AR; wraps on 360/390 + Arabic RTL. The banner clears once a fresh match starts.

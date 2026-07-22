@@ -59,6 +59,13 @@ also reported at `GET /health/diagnostics` (`version` field).
     kept for a DB-backed restart, never cancelled without DB proof); durable seats are bounded to
     0–5; `recordMatchTx` validates fresh metadata before insert; a canceled async CREATE/JOIN sends
     no stale error; and a minimal public recovery banner (cancelled/frozen) leaks no economy data.
+  - **Recovery retry + real recovery UI (Stage 37.7.5):** START after a refund/recovery now works —
+    a new `debitFreshStart` mints a **brand-new matchId + escrow** over a terminal (settled/cancelled)
+    escrow and debits once (old ledger untouched); a rematch whose restart fails refunds once and
+    leaves a persisted cancelled lobby a fresh start can use; and the public recovery status is finally
+    **shown in the UI** — a `PokerRecoveryBanner` in the lobby/table (cancelled → start a new match /
+    frozen → Start disabled), EN/UK/DE/AR, wrapping cleanly on 360/390 + Arabic RTL, with no economy
+    data leaked. Verified end-to-end on a real PostgreSQL.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

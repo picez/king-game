@@ -4,3 +4,4 @@ export { default as PokerOnlineGame } from './PokerOnlineGame';
 export { default as PokerSetup } from './PokerSetup';
 export { default as PokerGameScreen } from './PokerGameScreen';
 export { default as PokerFinished } from './PokerFinished';
+export { default as PokerRecoveryBanner } from './PokerRecoveryBanner';

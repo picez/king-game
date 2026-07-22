@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitBuyIns, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable } from './pokerEscrow';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -392,7 +392,9 @@ export function handleClientMessage(
           if (room.started || room.gameState) return; // duplicate START → no-op
           const seats = validateBankrollSeats(room);
           if (!seats.ok) { sendError(socket, 'NOT_SIGNED_IN', seats.error); return; }
-          const debit = await debitBuyIns(room);
+          // (37.7.5 FAIL 1) A fresh paid start — handles the initial start AND a retry after a
+          // recovery/refund (a terminal cancelled/settled escrow → a brand-new matchId + debit).
+          const debit = await debitFreshStart(room);
           if (!debit.ok) {
             const code = /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
             sendError(socket, code, debit.error);

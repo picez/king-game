@@ -377,7 +377,19 @@ function handleRematch(session: SessionRef, decline: boolean): void {
         recordedFinish.delete(room.code);
         clearRematch(room);
         const res = restartGame(room, { now: Date.now() });
-        if (!res.ok) { await refundBuyIns(room); broadcastRematch(room); return; }
+        if (!res.ok) {
+          // (37.7.5 FAIL 2) Rematch failure safety: the debit committed but the restart failed
+          // → refund once (idempotent) and leave a clean, persisted CANCELLED lobby so a fresh
+          // START_GAME can begin a brand-new paid match. restartGame already cleared the state.
+          await refundBuyIns(room);
+          room.pokerMatchCancelled = true;
+          room.started = false;
+          room.gameState = null;
+          clearRematch(room);
+          persistRoom(room);
+          broadcastRoom(room); // actual snapshot (recovery banner) — not just REMATCH_STATE
+          return;
+        }
         room.pokerMatchCancelled = undefined; // (37.7.4 FAIL 1) a rematch never inherits stale recovery flags
         logLatestDeal(room);
         broadcastRoom(room);

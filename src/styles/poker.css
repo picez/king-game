@@ -282,6 +282,19 @@
 .poker-setup__stacks { margin-bottom: 0.4rem; }
 .poker-setup__custom-stack { width: 100%; margin-bottom: 0.4rem; }
 
+/* Recovery banner (§16, 37.7.5) — wraps, RTL-safe, no overflow on 360/390. */
+.poker-recovery-banner {
+  margin: 0 0 0.6rem; padding: 0.6rem 0.8rem; border-radius: 0.6rem;
+  font-size: 0.9rem; line-height: 1.35; text-align: start;
+  overflow-wrap: anywhere; word-break: break-word;
+}
+.poker-recovery-banner--cancelled {
+  background: rgba(80, 160, 90, 0.16); border: 1px solid rgba(80, 160, 90, 0.5); color: var(--text, inherit);
+}
+.poker-recovery-banner--frozen {
+  background: rgba(224, 160, 32, 0.16); border: 1px solid rgba(224, 160, 32, 0.55); color: var(--text, inherit);
+}
+
 /* Online bankroll stakes picker (§16 J). */
 .poker-stakes__grid { flex-wrap: wrap; }
 .poker-stakes__grid .segmented__tab { flex: 1 1 4rem; }

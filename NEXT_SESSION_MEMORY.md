@@ -141,3 +141,20 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **FAIL 5:** async CREATE checks `isCurrentNav` before `sendError` (JOIN already did) → silent on cancel/close.
 - **UX:** `RoomSnapshot.pokerRecovery` ('cancelled'|'frozen', public-only, no economy metadata); cleared on new start.
 - verify PASS 2852; libc 0; latest migration 0012; game count 7; achievements 52; no version bump.
+
+### Stage 37.7.5 — recovery retry + real recovery UI (COMPLETE, Unreleased)
+- No new migration. Real PostgreSQL (Docker): 176 poker DB tests, 0 skipped.
+- **FAIL 1:** ROOT CAUSE — START used `debitBuyIns` which rejects any non-pending/funded escrow
+  ("already settled"), so a normal START after a refund (escrow cancelled) failed. FIX: new
+  `debitFreshStart(room)` (used by START_GAME) mints a NEW matchId + escrow over a TERMINAL
+  (settled/cancelled) or absent escrow, runs a fresh atomic debit; funded → idempotent; pending/
+  settling → rejected; frozen → rejected; clears terminal escrow only when resolved. debitBuyIns kept
+  (initial-only idempotency for tests). Integration: cancelled/settled escrow → fresh start new matchId,
+  one new debit, old refund ledger intact, payout once; injected-failure retry; frozen fails closed;
+  concurrent duplicate START → one match/one debit (withRoomLock + started/gameState guard).
+- **FAIL 2:** rematch restart-failure → refund once + persisted broadcast CANCELLED lobby (pokerMatchCancelled,
+  state cleared, rematch reset) → fresh START works.
+- **FAIL 3:** `PokerRecoveryBanner` (src/ui/poker) rendered in Lobby + OnlineGame poker branch; reads
+  `RoomSnapshot.pokerRecovery` ('cancelled'|'frozen'); frozen disables Start. Behavioral render test
+  (renderToStaticMarkup) + 360/RTL screenshot verified. EN/UK/DE/AR keys `poker.recovery.*`.
+- verify PASS 2858; libc 0; latest migration 0012; game count 7; achievements 52; no version bump.

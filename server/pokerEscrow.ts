@@ -165,6 +165,35 @@ export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
   return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
 }
 
+/**
+ * Debit the buy-in for a START_GAME (Stage 37.7.5, FAIL 1) — handles BOTH the initial start
+ * (no escrow) AND a fresh paid start after a recovery/refund (the room carries a TERMINAL
+ * escrow: settled or cancelled). A terminal escrow is NEVER reused: a brand-new matchId +
+ * escrow is minted and a new atomic debit runs, so the old match's ledger/settlement stay
+ * intact. Guarantees preserved:
+ *   • a `funded` escrow (a duplicate START of the SAME match) → idempotent ok, no re-debit;
+ *   • a `pending`/`settling` escrow (a debit/settlement in flight) → rejected, no double debit;
+ *   • a FROZEN room (corrupt durable) → rejected (never bypassed via a fresh start);
+ *   • the resolved/absent escrow is cleared ONLY once it is terminal (settlement confirmed).
+ * Concurrency is handled by the caller (withRoomLock + a started/gameState guard).
+ */
+export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
+  if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
+  if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
+  const esc = room.pokerEscrow;
+  if (esc?.status === 'funded') return { ok: true };                                   // idempotent duplicate START
+  if (esc?.status === 'pending' || esc?.status === 'settling') {
+    return { ok: false, error: 'A previous action is still in progress — try again in a moment' };
+  }
+  // esc is undefined (initial) OR terminal (settled/cancelled) → a BRAND-NEW paid match.
+  const valid = validateBankrollSeats(room);
+  if (!valid.ok) return valid;
+  room.pokerEscrow = undefined;                      // clear ONLY a resolved/absent escrow → mint fresh
+  const buyIn = room.pokerBuyIn!;
+  const matchId = randomUUID();
+  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
+}
+
 // --- Payout conservation (FAIL 7; pure, unit-testable) ----------------------
 
 export type ConservationCheck = { ok: true } | { ok: false; error: string };

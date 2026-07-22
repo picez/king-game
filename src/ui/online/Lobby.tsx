@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { RoomSnapshot } from '../../net/messages';
+import { PokerRecoveryBanner } from '../poker';
 import { useI18n } from '../../i18n';
 import { getGameCatalogEntry, DEFAULT_GAME_TYPE } from '../../games/catalog';
 import { buildInviteLink } from '../../net/invite';
@@ -298,15 +299,20 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
           )}
         </div>
 
+        {/* Poker recovery banner (§16, 37.7.5) — PUBLIC status only (no economy internals). */}
+        <PokerRecoveryBanner status={room.pokerRecovery} />
+
         {error && <p className="lobby-error">{error}</p>}
 
         {isHost ? (
-          <button className="btn btn--primary btn--large" disabled={!enough} onClick={onStart}>
-            {teamsFull ? t('lobby.teamsReady')
-              : !enough ? (strictTeams && showTeamGrid
-                ? t('lobby.needTeams')
-                : `${t('wait.waitingFor')} ${needed - players.length} ${t('lobby.waitingMore')}`)
-                : t('btn.start')}
+          <button className="btn btn--primary btn--large" disabled={!enough || room.pokerRecovery === 'frozen'} onClick={onStart}>
+            {room.pokerRecovery === 'frozen' ? t('poker.recovery.frozenShort')
+              : teamsFull ? t('lobby.teamsReady')
+                : !enough ? (strictTeams && showTeamGrid
+                  ? t('lobby.needTeams')
+                  : `${t('wait.waitingFor')} ${needed - players.length} ${t('lobby.waitingMore')}`)
+                  : room.pokerRecovery === 'cancelled' ? t('poker.recovery.startNew')
+                    : t('btn.start')}
           </button>
         ) : (
           <p className="setup-hint">{t('lobby.waitingHost')}</p>
