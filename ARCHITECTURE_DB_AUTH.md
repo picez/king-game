@@ -1075,3 +1075,19 @@ refresh tokens (`kind='mobile_refresh'`) move to a later mobile stage.
 This sequencing keeps `KING_RULES.md` authoritative, the server authoritative,
 privacy intact, and guest/local play untouched — exactly the constraints this
 project cares about.
+
+## §2.11 Poker chip wallet + ledger (Stage 37.7)
+
+Migration `0010_poker_wallet` adds the bankroll economy (DB-gated; local free-play never
+touches it). `poker_wallets` = per-user `BIGINT balance` (DB `CHECK balance >= 0`) +
+`last_claim_date`. `poker_ledger` = an **append-only, immutable** row per balance change
+(`reason` ∈ daily_claim | table_buy_in | table_payout | table_cancel_refund, signed
+`delta`, `balance_after`, a **UNIQUE `idempotency_key`**, optional match/room refs).
+
+Every mutation (`server/db/pokerWallet.ts`) is atomic + idempotent: a `FOR UPDATE` row
+lock serializes concurrent ops, and the **ledger INSERT ... ON CONFLICT DO NOTHING
+RETURNING is the gate** — the balance is updated ONLY when this transaction wins the key,
+so a concurrent double claim / duplicate START / replayed finish can never
+double-credit/-debit. Daily claim = exactly 1,000,000 chips once per **server** UTC date.
+Escrow keys: `daily:<user>:<date>`, `buyin|payout|refund:<matchId>:<user>`. Wallet
+endpoints require a non-guest account (`requireAccount`).

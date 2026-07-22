@@ -11,17 +11,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
-- **Poker chip wallet + daily claim (Stage 37.7, part 1).** The server-authoritative
-  chip economy that online bankroll tables will build on. Every signed-in (non-guest)
-  account has a chip **wallet** (`GET /api/me/poker-wallet`) and can **claim exactly
-  1,000,000 chips once per UTC day** (`POST /api/me/poker-wallet/daily-claim`), shown on
-  Profile → account as the balance + a **Get 1,000,000** button. Balances are `BIGINT`
-  and **never negative**; every change appends an **immutable, idempotent ledger** row
-  (migration 0010: `poker_wallets` + `poker_ledger`). The claim is atomic — a concurrent
-  double request grants once, a repeat the same day no-ops. DB-gated: **local free-play
-  Poker is a sandbox and is unaffected** (no wallet debit). Online-table buy-in/escrow/
-  payout/refund, blind growth, the poker-table UI and showdown review are **upcoming
-  37.7 increments**. EN/UK/DE/AR copy. [`POKER_RULES.md §16`](POKER_RULES.md)
+- **Poker bankroll economy + real table UI (Stage 37.7).** A full bankroll layer for
+  online Poker plus a reworked table.
+  - **Chip wallet + daily claim.** Every signed-in (non-guest) account has a chip
+    **wallet** (`GET /api/me/poker-wallet`) and can **claim exactly 1,000,000 chips once
+    per UTC day** (`POST /api/me/poker-wallet/daily-claim`), shown on Profile → account.
+    Balances are `BIGINT`, **never negative**; every change appends an **immutable,
+    idempotent ledger** row (migration 0010: `poker_wallets` + `poker_ledger`).
+  - **Configurable tables.** The host picks one of **8 stakes presets** (25/50 …
+    3200/6400); the **buy-in is always 100 big blinds**, derived server-side. Optional
+    **blind growth** every N hands (Off/3/5/10 or custom 1–100). **Local** free-play adds
+    a **starting-stack selector** (1k–1M presets + custom) and never touches the wallet.
+  - **Atomic escrow.** At match start every seat's buy-in is debited in one
+    all-or-nothing transaction; final stacks are paid back at finish; an abandoned funded
+    table is refunded — all **idempotent** (reconnect/restart-safe) and payout/refund
+    mutually exclusive. Bankroll rooms are **authenticated-humans-only** (no bots).
+  - **New oval table UI** with 2–6 seats positioned around the felt, dealer button,
+    central pot/board, per-seat stacks/bets/state, a **showdown review** that highlights
+    the exact five winning cards + the localized combination (server-paced ~7 s), an
+    in-table **hand-rankings Help** modal, and a **collapsible action log**. RTL-stable
+    seat geometry. EN/UK/DE/AR. [`POKER_RULES.md §16`](POKER_RULES.md)
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

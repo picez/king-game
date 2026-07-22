@@ -258,19 +258,58 @@ debited or credited).
   account screen shows the balance and a **Get 1,000,000** button (or “claimed today /
   available tomorrow”).
 
-**Online bankroll tables (planned — upcoming Stage 37.7 increments).** Not yet wired:
-host-selected stakes presets, a **100 big-blind buy-in** debited at match start and the
-final stack credited back at finish (both idempotent, via the `adjustWalletTx`
-primitive already implemented and tested), human-only bankroll rooms (no bots),
-cancellation refunds on orphan cleanup, blind-growth escalation, and the new
-poker-table UI + showdown review. Until those land, online Poker still runs on the
-fixed 1000-stack / 10-20-blind MVP from §1–§2 with no wallet debit.
+### Local free-play (§16 C)
+
+Local pass-and-play Poker is a **free sandbox** — it NEVER touches the wallet. The host
+picks a **starting stack** (presets 1,000 / 5,000 / 10,000 / 50,000 / 100,000 / 1,000,000,
+or a custom safe integer 1,000–10,000,000; default 1,000); every seat (human + bots)
+starts with it; the blinds stay 10/20. Bots are allowed locally.
+
+### Online bankroll tables (§16 B/D/E/F/G)
+
+Online Poker is a **bankroll** game backed by the wallet (when Postgres + a signed-in host):
+
+- **Stakes** — the host picks one of **8 approved presets** (blinds 25/50 … 3200/6400).
+  The **buy-in is always 100 big blinds** (5,000 … 640,000) and is **derived
+  server-side** from the whitelisted preset — a client never supplies a buy-in.
+- **Blind growth** — the host may grow blinds every **N** completed hands (Off, or a safe
+  integer 1–100; UI presets Off/3/5/10). Exact off-by-one: hands 1…N post the base
+  blinds, hand **N+1** posts **×2**, hand **2N+1** posts **×4** (level = ⌊(hand−1)/N⌋,
+  multiplier = 2^level, overflow-capped). The CURRENT blinds are authoritative on the
+  state; reconnect/restore/rematch never advance the level; an aborted hand never counts.
+- **Human-only** — a bankroll room is **authenticated-humans-only**: every seat needs a
+  userId, no bots (ADD_BOT is refused), no duplicate account seat, ≥2 players to start.
+- **Buy-in escrow** — at START_GAME the server mints an **economy match id** and debits
+  the buy-in from **every** seat in **one atomic transaction** (all-or-nothing; if anyone
+  is short, nobody is debited and the room does not start). Idempotent via
+  `buyin:<matchId>:<userId>` — a duplicate START / reconnect / restart never double-debits.
+- **Payout** — at `game_finished` each seat's **final stack** is credited back
+  (`payout:<matchId>:<userId>`). Total paid == escrow (chip conservation). Idempotent;
+  a rebroadcast / reconnect / restart never double-pays.
+- **Cancellation refund** — if a **funded** table is orphaned/torn down **before**
+  finishing, each buy-in is refunded once (`refund:<matchId>:<userId>`). Payout and
+  refund are **mutually exclusive**. A room is deleted only after settlement/refund is
+  confirmed (a DB failure keeps it for a retry — a paid table is never dropped with chips
+  owed).
+- **Rematch** = a **new** economy match id + a fresh buy-in + fresh balance check.
+- **No rake, no ante, no rebuy** (a busted seat is out; the match ends when one player
+  holds all the chips).
+
+### Showdown review (§16 G)
+
+A CONTESTED showdown is reviewed for a **server-driven ~7 s** (a fold-win uses a shorter
+~2.5 s pause), then the next hand is auto-dealt exactly once (online). The evaluator
+exposes the **exact five winning cards** per pot; the review highlights them, names the
+localized combination, dims non-winners, keeps folded hands hidden, shows side pots as
+separate rows (tap to highlight that pot's five), and shows all tied winners on a split.
+A fold-win reveals nothing and shows no combination.
 
 ## Appendix A — MVP simplifications (explicit)
 
 These are intentional MVP scope cuts, safe to revisit later:
 
-- Fixed blinds (no escalation), no ante, no straddle.
+- No ante, no straddle. (Blinds ARE configurable + can escalate for online bankroll —
+  see §16; local free-play uses fixed 10/20.)
 - No muck at showdown — every showdown-eligible hand is revealed.
 - Incomplete (below-min) all-in raises do not reopen action.
 - No rake. No time-bank beyond the shared optional turn timer.

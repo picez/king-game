@@ -27,23 +27,32 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Poker Host routing fixed (Stage 37.6):** picking Poker used to create a KING room — `StartMenu.host()` added `gameType` only via per-game conditional spreads and had no Poker branch, so `CREATE_ROOM` omitted `gameType` and the server defaulted to `?? 'king'`. Now `host()` builds the intent via a shared pure `buildCreateIntent()` (in `src/net/online.ts`) that ALWAYS carries the selected `gameType` for all 7 games; options stay per-game. Regression: `src/net/hostRouting.test.ts` (7-game matrix + full path to PokerState). No Poker rules/engine change.
 - **Turn timer is authoritative (Stage 37.5):** the room owns `turnDeadlineAt` + `turnTimerRevision` (persisted); minted ONLY on a real gameplay transition (`beginTurnDeadline`), never on connection events. Every `STATE_UPDATE` carries `RoomTimerInfo {deadlineAt, revision, serverNow}`; the client derives remaining from the deadline vs `Date.now()` (skew-safe, no local per-second decrement). Server arms ONE absolute-deadline `setTimeout` with a revision guard (no stale double-move); `resolveHumanFireAt` handles the room-timer-vs-substitute precedence (substitute is server-only, starts on disconnect, cancels on reconnect, never extends the room timer). Reload/reconnect never resets/extends. `applyTimeoutAction` audited across all 7 games (no botAction null-gap; Durak defence got a `TAKE_CARDS` fallback).
 
-## Stage 37.7 — Poker bankroll/economy (IN PROGRESS, multi-commit)
-- **Part 1 DONE (commit `eeb47d5`):** server-authoritative chip **wallet + daily claim
-  + append-only ledger** (migration `0010`). 1,000,000 chips once/UTC-day, atomic +
-  idempotent (concurrent double-POST → one grant); `poker_wallets`/`poker_ledger`,
-  BIGINT + CHECK≥0; `GET /api/me/poker-wallet` + `POST …/daily-claim` (non-guest only);
-  `PokerWalletPanel` on Profile→account; EN/UK/DE/AR; `adjustWalletTx` primitive
-  (buy-in/payout/refund) implemented + tested but NOT yet wired. Local free-play is a
-  sandbox (no debit). `POKER_RULES.md §16`.
-- **Remaining 37.7 increments (NOT started):** (C) online escrow — buy-in debit at
-  START_GAME + stack payout at finish + cancellation refund, all idempotent via the
-  ledger; (D/E) typed table config through create-intent→CREATE_ROOM→ServerRoom
-  (stakes presets, buy-in=100×BB, blind-growth-every-N with the exact off-by-one),
-  reducer per-hand blinds; human-only bankroll rooms (no bots); (F) real oval poker-
-  table UI (2–6 seats) **with reviewed screenshots**; (G) server-driven showdown review
-  (winner + combo label + exact 5 winning cards ~7s); (H) in-table hand-rankings help
-  modal; (I) collapsible action log; (J) inventory/Host/Join UX. Keep game count 7,
-  achievements 52, Stage 37.5 timer + 37.6 routing intact.
+## Stage 37.7 — Poker bankroll/economy + real table UI (COMPLETE, Unreleased)
+- **Migration `0010_poker_wallet`**: `poker_wallets` (BIGINT balance CHECK≥0 + last_claim_date)
+  + immutable `poker_ledger` (reason/delta/balance_after/unique idempotency_key/match+room refs).
+- **Wallet + daily claim**: 1,000,000 chips once/UTC-day, atomic + idempotent (`FOR UPDATE`
+  lock + ledger-insert-as-gate — the race fix; balance mutates ONLY when this tx wins the
+  key). `GET/POST /api/me/poker-wallet[/daily-claim]` (non-guest). `PokerWalletPanel` on Profile.
+- **Escrow** (`server/pokerEscrow.ts`): human-only/no-bot/no-dup/≥2 validation; atomic
+  all-or-nothing buy-in debit at START_GAME (async, re-entrancy guarded); payout of final
+  stacks at finish (conserves escrow); refund on orphan/teardown; payout/refund mutually
+  exclusive via a `settling` transient; escrow persisted in room JSON (restart-safe). Wired
+  in wsHandlers START_GAME + ADD_BOT reject, index.ts maybeRecordFinished (payout) +
+  cleanupRooms/handleLeave (`deleteRoomWithSettlement`).
+- **Config**: 8 stakes presets + buy-in=100×BB (`src/games/poker/stakes.ts`, server whitelist);
+  blind growth every N (off-by-one in `currentBlinds`, hands 1..N base, N+1 ×2, 2N+1 ×4);
+  threaded intent→CREATE_ROOM→ServerRoom→snapshot/summary→serialize→buildPokerStartAction.
+  Local starting-stack selector (PokerSetup, mode local_free, NO wallet).
+- **UI**: oval table `PokerGameScreen` (2–6 seats via pure `pokerSeatLayout`, viewer bottom,
+  RTL-stable), `PokerShowdownReview` (exact-5 highlight from evaluator `HandScore.cards` →
+  `winningFiveBySeat`; server-paced ~7s/2.5s), `PokerHandRankings` help, collapsible log,
+  `PokerStakesPicker` host UX, Lobby stakes display. **Screenshots rendered + reviewed** (SSR
+  harness `scripts/poker-shots.tsx` + headless Edge; seat-clip/width bugs fixed).
+- Commits: `c6ba07c` (wallet race fix), `d7d6d78` (config/engine/escrow), `bac3d62` (UI),
+  + wallet foundation `eeb47d5`/`f3f2b0a`. Game count **7**, achievements **52**, migration
+  **0010**, no dep/version bump. Stage 37.5 timer + 37.6 routing intact.
+- **DB integration tests NOT RUN** (no TEST_DATABASE_URL): wallet + escrow integration suites
+  are SKIPPED; deterministic guard/fake-tx/unit coverage stands in. Manual prod smoke owed.
 
 ## Open / likely next work
 - Owner may bring real bug reports from daily play; fix those before speculative polish.

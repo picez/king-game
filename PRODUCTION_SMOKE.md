@@ -695,3 +695,18 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 **If every box is checked, the deploy is production-ready.** Anything unexpected →
 see [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) (deploy/ffmpeg/DB) or
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md) (feature detail).
+
+## Poker bankroll economy smoke (Stage 37.7)
+
+Requires Postgres (migration 0010 applied) + a signed-in account.
+
+1. Sign in → Profile → account → tap **Get 1,000,000**; balance shows 1,000,000; the
+   button becomes "claimed today / available tomorrow". Reload → balance persists; a
+   second claim does not add chips.
+2. Host an online Poker room: pick a stakes preset + growth; confirm the buy-in (100 BB)
+   and your balance are shown. With two signed-in devices, seat both and Start → each
+   wallet drops by the buy-in exactly once (check after a reconnect too).
+3. Play to a showdown → the review highlights the exact winning five + names the combo,
+   ~7 s, then the next hand deals. Finish the match → the winner's wallet gains the escrow.
+4. Abandon a funded table (all leave) → each buy-in is refunded once (balances restored).
+5. Verify a bot cannot be added to a bankroll room and a signed-out user sees a sign-in hint.

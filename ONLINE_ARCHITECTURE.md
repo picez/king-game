@@ -479,3 +479,24 @@ start menu warns if a `ws://` address is used on an HTTPS page (mixed content).
 | End-to-end online QA (real WS, restart restore)    | ✅ `npm run e2e`, `QA_CHECKLIST.md` |
 | Rate limiting · per-account auth · Redis/DB store  | ⏳ next step  |
 | AI opponents online                              | ⏳ next step       |
+
+## Poker bankroll escrow lifecycle (Stage 37.7 §16)
+
+An online poker room with a server-derived `pokerBuyIn` is a **bankroll** room
+(authenticated-humans-only; ADD_BOT refused). `server/pokerEscrow.ts` orchestrates the
+wallet ledger over the room lifecycle:
+
+- **START_GAME** (async, re-entrancy guarded): validate seats (all human+userId, no dup,
+  ≥2), mint a server `matchId`, debit every seat's buy-in in ONE all-or-nothing
+  transaction, then `startGame` + the usual broadcast/timer/persist. Insufficient chips →
+  `INSUFFICIENT_CHIPS`, room NOT started. Escrow (`matchId`/`buyIn`/status/seat→user map)
+  is persisted in the room JSON (no room migration) so a restart can settle/refund.
+- **game_finished** (`maybeRecordFinished`): credit each seat's final stack (payout ==
+  escrow). Idempotent via the ledger + escrow status.
+- **orphan/teardown** (`cleanupRooms` / `handleLeave` → `deleteRoomWithSettlement`): a
+  funded, unfinished table is refunded before deletion; a settlement failure KEEPS the
+  room for a retry. Payout and refund are mutually exclusive (a `settling` transient).
+
+The showdown review is server-paced: the poker `round_scoring` advance waits ~7 s for a
+contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. The Stage
+37.5 turn timer is untouched (escrow hooks sit outside the deadline/arming mechanics).

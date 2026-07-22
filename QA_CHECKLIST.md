@@ -1404,3 +1404,19 @@ transient (~2.6 s), opaque, and by design never over the hand/trick.
 - Chat/reactions are in-memory only and disappear after a server restart.
 - Disconnected humans are AI-substituted after a delay, but there is no admin
   moderation console yet.
+
+## Poker bankroll economy (Stage 37.7)
+
+- [ ] Profile → account shows the chip balance + "Get 1,000,000"; claiming adds exactly
+      1,000,000; a second claim the same day is disabled ("available tomorrow").
+- [ ] Local Poker: starting-stack selector (presets + custom) works; bots get the same
+      stack; wallet balance is unchanged by local play.
+- [ ] Host online Poker: stakes preset + growth picker; balance + derived buy-in shown;
+      insufficient balance / signed-out warnings; Lobby + room browser show stakes/buy-in/growth.
+- [ ] Start a bankroll match: buy-in debited from every seat; ADD_BOT hidden/refused; a
+      short-stacked seat blocks the start with no partial debit.
+- [ ] Finish a match: winner credited; balances conserve the escrow; stats recorded once.
+- [ ] Abandon a funded table: buy-ins refunded once (no double refund/payout).
+- [ ] Table UI: 2/4/6 seats readable at 360/390/tablet/desktop; showdown highlights the
+      exact five + names the combo; folded hands stay hidden; Help modal complete in 4 langs;
+      action log default-closed with an unread dot; Arabic RTL keeps seat geometry stable.

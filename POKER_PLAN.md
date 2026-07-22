@@ -106,3 +106,23 @@ PLATFORM SEAMS (mostly derive from GAME_TYPES)
 - [ ] Diff review for privacy leaks; mobile 360/390 + RTL source audit.
 - [ ] Focused commit(s) + push to `main`.
 ```
+
+## Stage 37.7 — bankroll economy + real table UI (COMPLETE, Unreleased)
+
+Implemented (see POKER_RULES.md §16 for rules):
+- **Wallet** (migration 0010): `poker_wallets` + append-only `poker_ledger`; daily
+  1,000,000 claim; atomic + idempotent (`server/db/pokerWallet.ts`). API
+  `GET/POST /api/me/poker-wallet[/daily-claim]`; `PokerWalletPanel` on Profile.
+- **Config** (`src/games/poker/stakes.ts`): 8 stakes presets, buy-in = 100 BB (server
+  whitelist); blind growth every N (off-by-one in `currentBlinds`); local starting-stack
+  selector. Threaded intent→CREATE_ROOM→ServerRoom→snapshot/summary→serialize→START_GAME.
+- **Escrow** (`server/pokerEscrow.ts`): human-only validation; atomic buy-in debit at
+  START_GAME; payout at finish; refund on teardown; idempotent + payout/refund exclusive;
+  persisted in room JSON; restart-safe.
+- **Engine**: `PokerOptions` gains base blinds + growth + mode; state carries current
+  blinds; `HandScore.cards` + `PokerHandResult.winningFiveBySeat` for the showdown five.
+- **UI**: oval `PokerGameScreen` (pure `pokerSeatLayout`), `PokerShowdownReview`,
+  `PokerHandRankings`, collapsible log, `PokerStakesPicker`, Lobby stakes. Screenshots
+  reviewed via `scripts/poker-shots.tsx` + headless Chromium.
+
+No dep/version bump; game count 7; achievements 52; Stage 37.5 timer + 37.6 routing intact.
