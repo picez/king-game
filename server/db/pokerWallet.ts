@@ -40,6 +40,57 @@ export class InsufficientChipsError extends Error {
   }
 }
 
+/** Thrown when a caller passes a non-safe-integer / zero delta to adjustWalletTx. */
+export class InvalidChipDeltaError extends Error {
+  constructor(public readonly delta: unknown) {
+    super('invalid_chip_delta');
+    this.name = 'InvalidChipDeltaError';
+  }
+}
+
+/** Thrown when a credit would push the balance above Number.MAX_SAFE_INTEGER. */
+export class ChipOverflowError extends Error {
+  constructor(public readonly userId: string, public readonly balance: number, public readonly delta: number) {
+    super('chip_overflow');
+    this.name = 'ChipOverflowError';
+  }
+}
+
+/** Thrown when an idempotency key is reused for a DIFFERENT (user, reason, delta). */
+export class LedgerKeyReuseError extends Error {
+  constructor(public readonly idempotencyKey: string) {
+    super('ledger_key_reuse');
+    this.name = 'LedgerKeyReuseError';
+  }
+}
+
+// --- Pure guards (deterministically unit-testable without a DB) -------------
+
+/** Rejects a non-safe-integer or zero delta (a programming error). */
+export function validateChipDelta(delta: number): void {
+  if (typeof delta !== 'number' || !Number.isFinite(delta) || !Number.isSafeInteger(delta) || delta === 0) {
+    throw new InvalidChipDeltaError(delta);
+  }
+}
+
+/** Computes cur+delta, throwing before any DB write if it would go negative or overflow. */
+export function computeNextBalance(userId: string, cur: number, delta: number): number {
+  const next = cur + delta;
+  if (next < 0) throw new InsufficientChipsError(userId, -delta, cur);
+  if (next > Number.MAX_SAFE_INTEGER) throw new ChipOverflowError(userId, cur, delta);
+  return next;
+}
+
+/** Throws if an idempotency key's existing row is a DIFFERENT (user, reason, delta). */
+export function ensureSameLogicalOp(
+  prior: { userId: string; reason: string; delta: number } | undefined,
+  req: { userId: string; reason: string; delta: number; idempotencyKey: string },
+): void {
+  if (prior && (prior.userId !== req.userId || prior.reason !== req.reason || prior.delta !== req.delta)) {
+    throw new LedgerKeyReuseError(req.idempotencyKey);
+  }
+}
+
 /** Builds the public view from a wallet row + the server's current instant. Pure. */
 function toView(balance: number, lastClaimDate: string | null, now: Date): PokerWalletView {
   const claimedToday = lastClaimDate === utcDateString(now);
@@ -98,12 +149,26 @@ export async function dailyClaim(userId: string, now: Date): Promise<PokerClaimR
 /**
  * Append-only ledger primitive used by the table economy (buy-in / payout / refund).
  * Runs INSIDE a caller-supplied transaction so a batch (e.g. buy-in for every seat)
- * commits all-or-nothing. Idempotent via `idempotencyKey`: if that key already
- * exists this is a no-op returning the current balance (applied:false). A debit that
- * would go negative throws InsufficientChipsError (caller rolls the batch back).
+ * commits all-or-nothing.
  *
- * NOTE: buy-in/payout/refund WIRING lands in a later Stage 37.7 increment; this is
- * the reviewed, tested primitive they build on.
+ * ATOMICITY (Stage 37.7 race fix): the balance is mutated ONLY when THIS transaction
+ * wins the ledger idempotency key. The safe order is:
+ *   1. ensure + LOCK the wallet row (`FOR UPDATE`) — serializes concurrent ops on the user;
+ *   2. read the current balance, compute + validate the next balance;
+ *   3. INSERT the ledger row `ON CONFLICT DO NOTHING RETURNING id` — the gate;
+ *   4. if the insert returned nothing → the key already exists → idempotent no-op,
+ *      balance UNCHANGED (applied:false);
+ *   5. only if the insert won the key → UPDATE the wallet balance.
+ * Because BOTH the gate insert and the balance update happen under the row lock, two
+ * concurrent calls with the same key serialize: the first applies once, the second's
+ * insert conflicts and it never updates. (The earlier pre-check-then-update ordering
+ * could double-apply — the pre-check SELECT saw no key, then both updated.)
+ *
+ * Idempotent via `idempotencyKey`; a debit that would go negative throws
+ * InsufficientChipsError; a credit overflowing the safe-integer range throws
+ * ChipOverflowError; a non-safe/zero delta throws InvalidChipDeltaError; reusing a
+ * key for a DIFFERENT (user, reason, delta) throws LedgerKeyReuseError. Any throw
+ * rolls the caller's batch back.
  */
 export async function adjustWalletTx(
   tx: PostgresJsDatabase,
@@ -113,20 +178,32 @@ export async function adjustWalletTx(
   idempotencyKey: string,
   ref: { matchId?: string; roomCode?: string } = {},
 ): Promise<{ balance: number; applied: boolean }> {
-  // Idempotency short-circuit — this logical operation already ran.
-  const existing = await tx.select({ id: pokerLedger.id }).from(pokerLedger)
-    .where(eq(pokerLedger.idempotencyKey, idempotencyKey)).limit(1);
+  // (2a) Validate the delta up front — a non-safe/zero delta is a programming error.
+  validateChipDelta(delta);
+  // (1) Ensure + LOCK the wallet row. This serialization is what makes the gate safe.
   await tx.insert(pokerWallets).values({ userId, balance: 0 }).onConflictDoNothing();
   const [w] = await tx.select().from(pokerWallets).where(eq(pokerWallets.userId, userId)).for('update').limit(1);
   const cur = w?.balance ?? 0;
-  if (existing.length > 0) return { balance: cur, applied: false };
 
-  const next = cur + delta;
-  if (next < 0) throw new InsufficientChipsError(userId, -delta, cur);
-  await tx.update(pokerWallets).set({ balance: next, updatedAt: new Date() }).where(eq(pokerWallets.userId, userId));
-  await tx.insert(pokerLedger).values({
+  // (2b) Compute + validate the next balance BEFORE claiming the key.
+  const next = computeNextBalance(userId, cur, delta);
+
+  // (3) The GATE: claim the idempotency key by inserting the ledger row.
+  const inserted = await tx.insert(pokerLedger).values({
     userId, reason, delta, balanceAfter: next, idempotencyKey,
     matchId: ref.matchId ?? null, roomCode: ref.roomCode ?? null,
-  }).onConflictDoNothing({ target: pokerLedger.idempotencyKey });
+  }).onConflictDoNothing({ target: pokerLedger.idempotencyKey }).returning({ id: pokerLedger.id });
+
+  if (inserted.length === 0) {
+    // (4) Key already used → idempotent no-op. Guard against accidental reuse of the
+    // same key for a DIFFERENT logical operation (would silently swallow a real op).
+    const [prior] = await tx.select().from(pokerLedger)
+      .where(eq(pokerLedger.idempotencyKey, idempotencyKey)).limit(1);
+    ensureSameLogicalOp(prior, { userId, reason, delta, idempotencyKey });
+    return { balance: cur, applied: false };
+  }
+
+  // (5) We own the key → apply the balance change.
+  await tx.update(pokerWallets).set({ balance: next, updatedAt: new Date() }).where(eq(pokerWallets.userId, userId));
   return { balance: next, applied: true };
 }

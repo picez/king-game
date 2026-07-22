@@ -88,4 +88,42 @@ describe.skipIf(!TEST_DATABASE_URL)('poker wallet repository (integration)', () 
 
     await conn!.sql`DELETE FROM users WHERE id = ${U}`;
   });
+
+  it('CONCURRENT same-key debit/payout mutate the balance exactly once (race fix)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const db = conn!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
+
+    const U = await users.createAccountUser({ email: null, name: 'WalletRace', emailVerified: false });
+    await wallet.dailyClaim(U, DAY); // 1,000,000
+
+    // Two concurrent buy-in debits with the SAME idempotency key → debit once.
+    const key = `buyin:race:${U}`;
+    const [d1, d2] = await Promise.all([
+      db.transaction((tx) => wallet.adjustWalletTx(tx, U, -20000, 'table_buy_in', key, { matchId: 'race' })),
+      db.transaction((tx) => wallet.adjustWalletTx(tx, U, -20000, 'table_buy_in', key, { matchId: 'race' })),
+    ]);
+    expect([d1.applied, d2.applied].filter(Boolean).length).toBe(1); // exactly one applied
+    expect((await wallet.getWalletView(U, DAY)).balance).toBe(980_000); // debited ONCE
+    const led = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE idempotency_key = ${key}`;
+    expect((led as Array<{ n: number }>)[0].n).toBe(1); // exactly one ledger row
+
+    // Two concurrent payouts with the same key → credit once.
+    const pkey = `payout:race:${U}`;
+    const [p1, p2] = await Promise.all([
+      db.transaction((tx) => wallet.adjustWalletTx(tx, U, 40000, 'table_payout', pkey, { matchId: 'race' })),
+      db.transaction((tx) => wallet.adjustWalletTx(tx, U, 40000, 'table_payout', pkey, { matchId: 'race' })),
+    ]);
+    expect([p1.applied, p2.applied].filter(Boolean).length).toBe(1);
+    expect((await wallet.getWalletView(U, DAY)).balance).toBe(1_020_000); // credited ONCE
+
+    // Reusing a key for a DIFFERENT (reason/delta) is rejected.
+    await expect(db.transaction((tx) => wallet.adjustWalletTx(tx, U, 999, 'table_payout', key)))
+      .rejects.toBeInstanceOf(wallet.LedgerKeyReuseError);
+
+    await conn!.sql`DELETE FROM users WHERE id = ${U}`;
+  });
 });
