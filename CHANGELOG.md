@@ -31,6 +31,11 @@ also reported at `GET /health/diagnostics` (`version` field).
     the exact five winning cards + the localized combination (server-paced ~7 s), an
     in-table **hand-rankings Help** modal, and a **collapsible action log**. RTL-stable
     seat geometry. EN/UK/DE/AR. [`POKER_RULES.md §16`](POKER_RULES.md)
+  - **Lifecycle hardening (Stage 37.7.1):** online Poker is **bankroll-only** (no free/guest
+    table); **rematch is a brand-new paid match**; payout ↔ refund are **DB-authoritative
+    mutually exclusive** (migration 0011 `poker_match_settlements`); a restored transient
+    escrow is **reconciled** on restart; every lifecycle op is **serialized per room**; and
+    payouts are refused unless Σ(final stacks) == Σ(buy-ins).
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

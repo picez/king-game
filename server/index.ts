@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow } from './pokerEscrow';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -363,7 +363,27 @@ function handleRematch(session: SessionRef, decline: boolean): void {
 
   markRematchReady(room, s.clientId);
   if (allHumansReady(room)) {
-    // Let the fresh game record its OWN finish (the previous finish is already recorded once).
+    // Bankroll poker (§16, 37.7.1): a rematch is a BRAND-NEW paid match. Serialize with the
+    // room lock (so the previous match's payout resolves first), debit a FRESH buy-in with a
+    // NEW matchId, and only restart on a successful debit. A committed debit whose restart
+    // then fails is refunded immediately. Insufficient chips → no restart, no charge.
+    if (isBankrollRoom(room)) {
+      void withRoomLock(room.code, async () => {
+        if (!isRoomFinished(room)) return;                 // already restarted / changed → no double debit
+        const debit = await debitRematch(room);
+        if (!debit.ok) { clearRematch(room); broadcastRematch(room); return; }
+        recordedFinish.delete(room.code);
+        clearRematch(room);
+        const res = restartGame(room, { now: Date.now() });
+        if (!res.ok) { await refundBuyIns(room); broadcastRematch(room); return; }
+        logLatestDeal(room);
+        broadcastRoom(room);
+        broadcastAndAdvance(room, { turnAdvanced: true });
+        persistRoom(room);
+      });
+      return;
+    }
+    // Non-bankroll: let the fresh game record its OWN finish (the previous is recorded once).
     recordedFinish.delete(room.code);
     clearRematch(room);
     const res = restartGame(room, { now: Date.now() });
@@ -462,7 +482,8 @@ function maybeRecordFinished(room: ServerRoom): void {
   // pass it, but payout must not be coupled to stats). Idempotent: the escrow status +
   // ledger keys make a rebroadcast/reconnect/restart never double-pay.
   if (isBankrollRoom(room) && room.gameType === 'poker') {
-    void payoutStacks(room, state as PokerState).then(() => persistRoom(room)).catch(() => {});
+    // Serialize with the room lock so a rematch debit queues AFTER this payout resolves.
+    void withRoomLock(room.code, () => payoutStacks(room, state as PokerState)).then(() => persistRoom(room)).catch(() => {});
   }
 
   // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
@@ -812,7 +833,21 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
       }
     }
   };
-  void resolveSessionUserId(request).then(async (uid) => {
+  // Stage 37.7.1: the identity resolution promise — awaited by the bankroll-Poker CREATE
+  // gate so it can't race this async resolution (a guest / unresolved session must not be
+  // able to host a bankroll table). `getAccountUserId` resolves to a NON-GUEST userId or null.
+  const identityReady: Promise<string | null> = resolveSessionUserId(request);
+  const getAccountUserId = async (): Promise<string | null> => {
+    let uid: string | null;
+    try { uid = await identityReady; } catch { return null; }
+    if (!uid) return null;
+    try {
+      const { getProfile } = await import('./db/users');
+      const prof = await getProfile(uid);
+      return prof && !prof.isGuest ? uid : null;
+    } catch { return null; }
+  };
+  void identityReady.then(async (uid) => {
     resolvedUserId = uid;
     // Friends presence (Stage 25.1/25.2): a signed-in socket makes that user "online" on
     // this instance (in-memory; no room/gameplay effect). On the offline→online transition,
@@ -849,7 +884,7 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
-    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter, () => resolvedUserId);
+    handleClientMessage(wsCtx, socket, sessionRef, attachIdentity, msg, limiter, () => resolvedUserId, getAccountUserId);
   });
 
   socket.on('close', () => {
@@ -884,6 +919,7 @@ function purgeRoom(code: string): void {
   clearRoomTimers(code);
   recordedFinish.delete(code);
   social.delete(code);
+  clearRoomLock(code); // release the per-room bankroll lifecycle lock (§16, 37.7.1)
   rooms.delete(code);
   storage.deleteRoom(code); // also drop it from the persistence file
 }
@@ -897,15 +933,20 @@ function purgeRoom(code: string): void {
  */
 function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
   if (!isBankrollRoom(room) || !hasUnsettledEscrow(room)) { purgeRoom(code); return; }
-  void (async () => {
+  // Serialize with any in-flight start/payout/rematch for this room, then reconcile a
+  // restored transient escrow (pending/settling) before settling.
+  void withRoomLock(code, async () => {
+    if (!rooms.has(code)) return;                        // already purged by another op
+    await reconcileEscrow(room);
+    if (!hasUnsettledEscrow(room)) { purgeRoom(code); return; }
     const state = room.gameState as PokerState | null;
     const finished = !!state && getGameDefinition('poker')?.isFinished(state) === true;
-    let resolved: boolean;
-    if (finished && state) { await payoutStacks(room, state); resolved = room.pokerEscrow?.status === 'settled'; }
-    else { resolved = await refundBuyIns(room); }
-    if (resolved) { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
+    if (finished && state) await payoutStacks(room, state);
+    else await refundBuyIns(room);
+    const st = room.pokerEscrow?.status;
+    if (st === 'settled' || st === 'cancelled') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
     else { persistRoom(room); } // keep for a retry on the next sweep
-  })();
+  });
 }
 
 function cleanupRooms(): number {
@@ -953,6 +994,13 @@ async function bootstrap(): Promise<void> {
     recomputeOrphan(room, Date.now());
     rooms.set(room.code, room);
     rescheduleAdvance(room);
+    // Bankroll crash recovery (§16, 37.7.1): reconcile a restored TRANSIENT escrow
+    // (pending/settling) against the durable DB ledger/settlement so it can't hang — a
+    // committed debit → funded, an uncommitted one → dropped; a committed settlement →
+    // settled/cancelled, else back to funded. Serialized + best-effort (never blocks boot).
+    if (isBankrollRoom(room) && hasUnsettledEscrow(room)) {
+      void withRoomLock(room.code, () => reconcileEscrow(room)).then(() => { if (rooms.has(room.code)) persistRoom(room); }).catch(() => {});
+    }
     restored++;
   }
   // Explicit startup sweep: delete already-expired rooms right away (and remove

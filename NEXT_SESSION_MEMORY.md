@@ -6,7 +6,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
 - Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
 - Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
-- Latest DB migration: `0010_poker_wallet` (Stage 37.7 part 1 — Poker chip wallet + ledger). Was `0009`; do not add migrations casually.
+- Latest DB migration: `0011_poker_settlement` (Stage 37.7.1 — payout/refund mutual-exclusion gate); `0010_poker_wallet` = wallet + ledger. Do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
@@ -53,6 +53,22 @@ Use this file as the first read after archiving this chat. It is intentionally s
   **0010**, no dep/version bump. Stage 37.5 timer + 37.6 routing intact.
 - **DB integration tests NOT RUN** (no TEST_DATABASE_URL): wallet + escrow integration suites
   are SKIPPED; deterministic guard/fake-tx/unit coverage stands in. Manual prod smoke owed.
+
+### Stage 37.7.1 — bankroll lifecycle hardening (COMPLETE, Unreleased)
+- **Migration `0011_poker_settlement`** (`poker_match_settlements`): DB-authoritative payout↔refund
+  mutual-exclusion gate (`settleMatchTx` claims the row in the SAME tx as the wallet mutation).
+- **Online Poker is bankroll-only**: CREATE rejects no-DB / no-stakes / guest (async `getAccountUserId`
+  awaits session resolution + non-guest). No free online table; local stays free.
+- **Rematch = new paid match** (`debitRematch`): prev escrow must be resolved; mints new matchId;
+  atomic fresh debit; stale settled escrow never reused; insufficient → no restart/charge.
+- **Per-room serialization** (`withRoomLock`/`isRoomBusy`): start/debit/rematch/payout/refund/teardown
+  serialized; leave/kick/set-timer refused for a bankroll table while busy; debit-then-start-fail → refund.
+- **Crash reconciliation** (`reconcileEscrow` on restore): transient pending/settling reconciled vs
+  ledger/settlement; committed debit→funded, uncommitted→dropped; committed settlement→settled/cancelled.
+- **Payout conservation** (`validatePayoutConservation`): Σ final stacks == Σ buy-ins + safe-int/≥0, else fail closed.
+- Tests: `pokerEscrowHardening.test.ts` (conservation/settlement-decision/lock), `wsHandlers.poker.test.ts`
+  (CREATE gate), extended `pokerEscrow.integration.test.ts` (payout/refund mutex, rematch, reconcile — DB, SKIPPED).
+  verify PASS 2795; libc 0; latest migration 0011; game count 7; achievements 52; no version bump.
 
 ## Open / likely next work
 - Owner may bring real bug reports from daily play; fix those before speculative polish.

@@ -267,7 +267,9 @@ starts with it; the blinds stay 10/20. Bots are allowed locally.
 
 ### Online bankroll tables (§16 B/D/E/F/G)
 
-Online Poker is a **bankroll** game backed by the wallet (when Postgres + a signed-in host):
+Online Poker is a **bankroll-only** game backed by the wallet — there is **no free online
+table**. Hosting requires the chip economy (Postgres), a whitelisted stakes preset, and a
+**signed-in non-guest** creator (all re-validated server-side; local pass-and-play stays free):
 
 - **Stakes** — the host picks one of **8 approved presets** (blinds 25/50 … 3200/6400).
   The **buy-in is always 100 big blinds** (5,000 … 640,000) and is **derived
@@ -288,9 +290,12 @@ Online Poker is a **bankroll** game backed by the wallet (when Postgres + a sign
   a rebroadcast / reconnect / restart never double-pays.
 - **Cancellation refund** — if a **funded** table is orphaned/torn down **before**
   finishing, each buy-in is refunded once (`refund:<matchId>:<userId>`). Payout and
-  refund are **mutually exclusive**. A room is deleted only after settlement/refund is
-  confirmed (a DB failure keeps it for a retry — a paid table is never dropped with chips
-  owed).
+  refund are **DB-authoritatively mutually exclusive** — a per-match settlement row
+  (migration 0011) is claimed inside the same transaction as the wallet mutations, so a
+  crash/restart can never make both mint chips. A room is deleted only after
+  settlement/refund is confirmed (a DB failure keeps it for a retry). A restored transient
+  escrow is **reconciled** against the durable ledger on restart, and every lifecycle op is
+  **serialized per room** (a debit never races a leave/kick/settings/second-start).
 - **Rematch** = a **new** economy match id + a fresh buy-in + fresh balance check.
 - **No rake, no ante, no rebuy** (a busted seat is out; the match ends when one player
   holds all the chips).

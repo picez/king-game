@@ -300,5 +300,19 @@ export const pokerLedger = pgTable('poker_ledger', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Stage 37.7.1 — per-match settlement gate. One row per economy match records the
+ * single terminal outcome ('payout' | 'cancel_refund'). Claimed inside the settlement
+ * transaction so payout and refund are MUTUALLY EXCLUSIVE across a crash/restart (the
+ * per-user ledger keys differ, so only this shared PK can enforce it). See migration 0011.
+ */
+export const pokerMatchSettlements = pgTable('poker_match_settlements', {
+  matchId: text('match_id').primaryKey(),
+  /** payout | cancel_refund — the outcome that won the resolution gate. */
+  outcome: text('outcome').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type PokerWalletsTable = typeof pokerWallets;
 export type PokerLedgerTable = typeof pokerLedger;
+export type PokerMatchSettlementsTable = typeof pokerMatchSettlements;

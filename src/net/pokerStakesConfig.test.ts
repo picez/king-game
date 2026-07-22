@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { buildCreateIntent, firstConnectMessage } from './online';
 import { createRoom, snapshot, roomSummary, serializeRoom, deserializeRoom } from './serverCore';
 import { buildPokerStartAction } from '../games/poker/definition';
@@ -107,5 +109,17 @@ describe('buildPokerStartAction threads bankroll options (startingStack = buy-in
     });
     const action = buildPokerStartAction(snapshot(room)) as { options?: unknown };
     expect(action.options).toBeUndefined();
+  });
+});
+
+describe('StartMenu wires real account props into the Poker stakes picker (FAIL 5)', () => {
+  const src = readFileSync(join(process.cwd(), 'src/ui/StartMenu.tsx'), 'utf8');
+  it('passes account.signedIn + account.base (never a hardcoded signedIn=true)', () => {
+    expect(src).toMatch(/<PokerStakesPicker\s+base=\{account\.base\}\s+signedIn=\{account\.signedIn\}/);
+    expect(src).not.toMatch(/<PokerStakesPicker[^>]*base=""/);
+  });
+  it('blocks hosting online Poker unless the wallet can afford the buy-in', () => {
+    // host() early-returns for poker when the picker has not reported an affordable selection.
+    expect(src).toMatch(/gameType === 'poker' && !\(pokerStakes && pokerStakes\.affordable\)/);
   });
 });

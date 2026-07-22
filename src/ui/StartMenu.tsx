@@ -231,6 +231,10 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
     if (!name.trim() || !url.trim()) return;
     // Tarneeb (and any future game) with no online support cannot be hosted yet.
     if (!GAME_CATALOG[gameType].supportsOnline) return;
+    // Online Poker is bankroll-only (§16, 37.7.1): block hosting unless signed in with a
+    // loaded wallet that can afford the buy-in. The server re-validates + derives the
+    // buy-in regardless; this is the friendly client gate.
+    if (gameType === 'poker' && !(pokerStakes && pokerStakes.affordable)) return;
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
     // The AUTHORITATIVE selected `gameType` is always carried (Stage 37.6) — the pure
@@ -608,7 +612,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 </div>
               )}
               {gameType === 'poker' && (
-                <PokerStakesPicker base="" signedIn onChange={setPokerStakes} />
+                <PokerStakesPicker base={account.base} signedIn={account.signedIn} onChange={setPokerStakes} />
               )}
               {gameType === 'fifty-one' && (
                 <div className="field">
@@ -649,7 +653,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 <p className="lobby-error">{t('tarneeb.onlineSoon')}</p>
               )}
               <button className="btn btn--primary btn--large" onClick={host}
-                disabled={!GAME_CATALOG[gameType].supportsOnline}>{t('btn.create')}</button>
+                disabled={!GAME_CATALOG[gameType].supportsOnline || (gameType === 'poker' && !(pokerStakes && pokerStakes.affordable))}>{t('btn.create')}</button>
             </>
           )}
 

@@ -500,3 +500,26 @@ wallet ledger over the room lifecycle:
 The showdown review is server-paced: the poker `round_scoring` advance waits ~7 s for a
 contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. The Stage
 37.5 turn timer is untouched (escrow hooks sit outside the deadline/arming mechanics).
+
+### Bankroll lifecycle hardening (Stage 37.7.1)
+
+- **Online Poker is bankroll-only.** CREATE_ROOM for poker rejects unless the chip economy
+  (Postgres) is on, the stakes are a whitelisted preset, AND the creator is a signed-in
+  NON-GUEST (awaited via `getAccountUserId`, so it can't race the async session resolution).
+  There is no free online Poker table; local pass-and-play stays free.
+- **Per-room serialization** (`withRoomLock`): one start/debit/rematch/payout/refund/teardown
+  flow per room at a time; the synchronous handlers (leave/kick/set-timer) refuse to reshape
+  a bankroll table's composition while a lifecycle op is in flight (`isRoomBusy`). A committed
+  debit whose start/restart then fails is refunded immediately.
+- **Rematch = a brand-new paid match** (`debitRematch`): requires the previous escrow fully
+  resolved (payout/refund), then mints a NEW matchId + fresh escrow and debits atomically;
+  a stale settled/cancelled escrow is never reused; insufficient chips → no restart, no charge.
+- **DB settlement gate** (`settleMatchTx`, migration 0011): payout ↔ refund mutual exclusion is
+  DB-authoritative (not just an in-memory flag).
+- **Crash reconciliation** (`reconcileEscrow`, on restore): a restored transient
+  pending/settling escrow is reconciled against the durable ledger/settlement — committed
+  debit → funded, uncommitted → dropped; committed settlement → settled/cancelled, else back
+  to funded (retryable). No partial settlement; invalid escrow fails closed.
+- **Payout conservation** (`validatePayoutConservation`): before any credit, every final stack
+  must be a finite non-negative safe integer and Σ(final stacks) must equal Σ(buy-ins), else
+  fail closed (no wallet mutation).

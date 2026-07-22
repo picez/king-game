@@ -1091,3 +1091,13 @@ so a concurrent double claim / duplicate START / replayed finish can never
 double-credit/-debit. Daily claim = exactly 1,000,000 chips once per **server** UTC date.
 Escrow keys: `daily:<user>:<date>`, `buyin|payout|refund:<matchId>:<user>`. Wallet
 endpoints require a non-guest account (`requireAccount`).
+
+### §2.11.1 Match settlement gate (Stage 37.7.1)
+
+Migration `0011_poker_settlement` adds `poker_match_settlements` (`match_id` PRIMARY KEY,
+`outcome` CHECK IN ('payout','cancel_refund')). The settlement code CLAIMS this row
+(`INSERT ... ON CONFLICT DO NOTHING`) inside the SAME transaction as the wallet payout/
+refund mutations (`settleMatchTx`), so payout and refund are MUTUALLY EXCLUSIVE across a
+crash/restart — the per-user `payout:<m>:<u>` / `refund:<m>:<u>` ledger keys differ, so
+only this shared PK can enforce whole-match exclusion. A repeat of the same outcome is an
+idempotent no-op; the opposite outcome after resolution aborts with no wallet change.

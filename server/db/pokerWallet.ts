@@ -17,9 +17,9 @@
 // UTC date, so a client clock/timezone change cannot unlock an extra claim.
 // ---------------------------------------------------------------------------
 
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { pokerWallets, pokerLedger } from './schema';
+import { pokerWallets, pokerLedger, pokerMatchSettlements } from './schema';
 import { getDb } from './client';
 import {
   DAILY_CLAIM_CHIPS, utcDateString, nextUtcMidnightMs,
@@ -62,6 +62,75 @@ export class LedgerKeyReuseError extends Error {
     super('ledger_key_reuse');
     this.name = 'LedgerKeyReuseError';
   }
+}
+
+/** The terminal outcome of an economy match — mutually exclusive (§16, migration 0011). */
+export type MatchOutcome = 'payout' | 'cancel_refund';
+
+/** Thrown when a match was already resolved with the OPPOSITE outcome (no wallet change). */
+export class SettlementConflictError extends Error {
+  constructor(public readonly matchId: string, public readonly resolved: MatchOutcome, public readonly requested: MatchOutcome) {
+    super('settlement_conflict');
+    this.name = 'SettlementConflictError';
+  }
+}
+
+/**
+ * DB-authoritative settlement gate (§16 F/G). Atomically CLAIMS a match's terminal
+ * outcome and runs the wallet mutations in the SAME transaction, so payout and refund
+ * can NEVER both mint chips for one match — even across a crash/restart:
+ *   • the first outcome to insert the settlement row wins → `mutate` runs;
+ *   • a repeat of the SAME outcome is an idempotent no-op (the per-user ledger keys
+ *     already exist, so `mutate`'s adjustWalletTx calls no-op) → returns the winner;
+ *   • the OPPOSITE outcome after resolution throws SettlementConflictError → NO wallet
+ *     mutation (the whole transaction rolls back).
+ * `mutate` MUST use per-(match,user) ledger keys so its re-run under the same outcome is
+ * safe. Returns the winning outcome.
+ */
+/**
+ * Pure decision for the settlement gate (deterministically unit-testable). Given whether
+ * THIS transaction freshly claimed the match row and the existing outcome on a conflict,
+ * returns the winning outcome — or throws SettlementConflictError when the match was
+ * already resolved with the OPPOSITE outcome.
+ */
+export function resolveSettlementOutcome(matchId: string, claimedFresh: boolean, existing: MatchOutcome | null, requested: MatchOutcome): MatchOutcome {
+  if (claimedFresh) return requested;
+  const winner = existing ?? requested;
+  if (winner !== requested) throw new SettlementConflictError(matchId, winner, requested);
+  return winner; // idempotent repeat of the same outcome
+}
+
+export async function settleMatchTx(
+  matchId: string,
+  outcome: MatchOutcome,
+  mutate: (tx: PostgresJsDatabase) => Promise<void>,
+): Promise<MatchOutcome> {
+  const db = await database();
+  return db.transaction(async (tx) => {
+    const claimed = await tx.insert(pokerMatchSettlements).values({ matchId, outcome })
+      .onConflictDoNothing({ target: pokerMatchSettlements.matchId })
+      .returning({ outcome: pokerMatchSettlements.outcome });
+    let existing: MatchOutcome | null = null;
+    if (claimed.length === 0) {
+      const [row] = await tx.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
+      existing = (row?.outcome as MatchOutcome) ?? null;
+    }
+    const winner = resolveSettlementOutcome(matchId, claimed.length > 0, existing, outcome); // throws on opposite
+    // Same outcome (fresh claim OR idempotent repeat) → apply the mutations.
+    await mutate(tx);
+    return winner;
+  });
+}
+
+/** Durable ledger/settlement state for a match — used for crash reconciliation (§16, FAIL 3). */
+export async function matchLedgerState(matchId: string): Promise<{ buyInCount: number; settlement: MatchOutcome | null }> {
+  const conn = await getDb();
+  if (!conn) return { buyInCount: 0, settlement: null };
+  const db = conn.db as PostgresJsDatabase;
+  const buyins = await db.select({ id: pokerLedger.id }).from(pokerLedger)
+    .where(and(eq(pokerLedger.matchId, matchId), eq(pokerLedger.reason, 'table_buy_in' satisfies PokerLedgerReason)));
+  const [s] = await db.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
+  return { buyInCount: buyins.length, settlement: (s?.outcome as MatchOutcome) ?? null };
 }
 
 // --- Pure guards (deterministically unit-testable without a DB) -------------
