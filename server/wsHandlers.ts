@@ -21,6 +21,9 @@ import {
 import { isGameType, getGameCatalogEntry } from '../src/games/catalog';
 import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
+import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
+import { isDbEnabled } from './db/client';
+import { isBankrollRoom, validateBankrollSeats, debitBuyIns } from './pokerEscrow';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -120,6 +123,25 @@ export function handleClientMessage(
       // 51 elimination score (Stage 30.15): normalised to an allowed preset here (a missing/invalid
       // value → the default 510), so the room stores a sane value the lobby can display pre-start.
       const fiftyOneEliminationScore = gameType === 'fifty-one' ? normalizeEliminationScore(msg.fiftyOneEliminationScore) : undefined;
+      // Poker online bankroll stakes (§16 B/D). A bankroll room requires Postgres (the
+      // wallet economy) AND an APPROVED stakes preset; the buy-in is DERIVED server-side
+      // (100 BB) — never taken from the client. Growth is validated to 0/1..100. A poker
+      // room created with no stakes (or on a no-DB server) stays the free MVP table.
+      let pokerSmallBlind: number | undefined;
+      let pokerBigBlind: number | undefined;
+      let pokerBuyIn: number | undefined;
+      let pokerBlindGrowth: number | undefined;
+      if (gameType === 'poker' && isDbEnabled()
+        && (msg.pokerSmallBlind !== undefined || msg.pokerBigBlind !== undefined)) {
+        const preset = findStakesPreset(msg.pokerSmallBlind, msg.pokerBigBlind);
+        if (!preset) return sendError(socket, 'BAD_MESSAGE', 'Invalid poker stakes');
+        const growth = validateBlindGrowth(msg.pokerBlindGrowth ?? 0);
+        if (growth === null) return sendError(socket, 'BAD_MESSAGE', 'Invalid blind growth');
+        pokerSmallBlind = preset.smallBlind;
+        pokerBigBlind = preset.bigBlind;
+        pokerBuyIn = preset.buyIn;       // server-derived (100 BB)
+        pokerBlindGrowth = growth;
+      }
       // Bound room churn (БЕЗ-1): stricter than the general message limit. Checked
       // after validation, before we leave the current room, so a throttled create
       // leaves the connection's existing room intact.
@@ -140,6 +162,10 @@ export function handleClientMessage(
         tarneebVariant,
         tarneebTargetScore,
         fiftyOneEliminationScore,
+        pokerSmallBlind,
+        pokerBigBlind,
+        pokerBuyIn,
+        pokerBlindGrowth,
         playerCount,
         modeSelectionType: msg.modeSelectionType === 'dealer_choice' ? 'dealer_choice' : 'fixed',
         host: { clientId, reconnectToken: hashReconnectToken(reconnectToken), name: msg.name, avatar: msg.avatar },
@@ -286,6 +312,28 @@ export function handleClientMessage(
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
       if (!room.members.get(clientId)?.isHost) return sendError(socket, 'NOT_HOST', 'Only the host may start');
+      // Bankroll poker (§16 F): debit every seat's buy-in ATOMICALLY before starting.
+      // This is the only async START path — it is re-entrancy guarded (a second START
+      // during the debit is a no-op) and the room is NOT started if any seat is short.
+      if (isBankrollRoom(room)) {
+        void (async () => {
+          const seats = validateBankrollSeats(room);
+          if (!seats.ok) { sendError(socket, 'NOT_SIGNED_IN', seats.error); return; }
+          const debit = await debitBuyIns(room);
+          if (!debit.ok) {
+            const code = /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
+            sendError(socket, code, debit.error);
+            return;
+          }
+          const res = startGame(room, { now: Date.now() });
+          if (!res.ok) { sendError(socket, res.error!, 'Cannot start game'); return; }
+          ctx.logLatestDeal(room);
+          ctx.broadcastRoom(room);
+          ctx.broadcastAndAdvance(room, { turnAdvanced: true });
+          ctx.persistRoom(room);
+        })();
+        break;
+      }
       const res = startGame(room, { now: Date.now() });
       if (!res.ok) return sendError(socket, res.error!, 'Cannot start game');
       ctx.logLatestDeal(room);
@@ -346,6 +394,9 @@ export function handleClientMessage(
     case 'ADD_BOT': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
+      // Bankroll poker tables are human-only (§16 E) — a bot has no wallet/buy-in, so
+      // reject ADD_BOT outright (the Poker lobby also hides the control for these rooms).
+      if (isBankrollRoom(room)) return sendError(socket, 'NOT_SIGNED_IN', 'Bankroll tables are human-only');
       // addBot itself rejects non-host / started / full. A bot never reconnects,
       // but we still store only a hashed token so no plaintext lives at rest (БЕЗ-4).
       const res = addBot(room, clientId, { clientId: randomUUID(), reconnectToken: hashReconnectToken(randomUUID()) });

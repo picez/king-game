@@ -23,11 +23,26 @@ export interface PokerCard {
   rank: Rank | null;
 }
 
-/** Blind + stack configuration (fixed for the MVP; §1). */
+/**
+ * Blind + stack configuration (§1, §16). `smallBlind`/`bigBlind` are the BASE blinds
+ * — the level-0 amounts a hand starts from. When `blindGrowthEveryHands > 0` the
+ * blinds actually POSTED grow every N hands (§16 D); the per-hand CURRENT blinds are
+ * derived by `currentBlinds()` and stored on the state (`smallBlindCurrent` /
+ * `bigBlindCurrent`). Local free-play uses a configurable `startingStack` (default
+ * 1000) with fixed 10/20 base blinds; online bankroll uses `startingStack = buyIn`
+ * (100 big blinds) with a host-chosen stakes preset. The pure core never reads a DB.
+ */
 export interface PokerOptions {
   startingStack: number;
+  /** Base (level-0) small blind. */
   smallBlind: number;
+  /** Base (level-0) big blind. */
   bigBlind: number;
+  /** Grow blinds every N COMPLETED hands (0 = never). Off-by-one: hands 1..N base,
+   *  hand N+1 → ×2, hand 2N+1 → ×4 (§16 D). */
+  blindGrowthEveryHands: number;
+  /** Informational only — the pure core behaves identically either way (no DB). */
+  mode?: 'local_free' | 'online_bankroll';
 }
 
 /** The streets of one hand (§4). */
@@ -86,6 +101,13 @@ export interface PokerHandResult {
   revealedSeats: number[];
   /** The best-hand category label per revealed seat (for the UI); keyed by seat. */
   categoryBySeat: Record<number, HandCategory>;
+  /**
+   * The EXACT five card ids forming each revealed seat's best hand (§16 I), keyed by
+   * seat. Determined by the evaluator (never the UI); used to highlight the winning
+   * five at showdown. Suits never affect strength/ties, but the id list is
+   * deterministic. Empty on a fold-win (no reveal).
+   */
+  winningFiveBySeat: Record<number, string[]>;
   /** The pot layers and their winners. */
   pots: PokerPotAward[];
   /** Seats eliminated (stack hit 0) by this hand. */
@@ -145,6 +167,11 @@ export interface PokerState {
   handNumber: number;
   /** The current street of the hand in progress (§4). */
   street: PokerStreet;
+
+  /** CURRENT small blind posted this hand (base × growth level; §16 D). Authoritative. */
+  smallBlindCurrent: number;
+  /** CURRENT big blind posted this hand (base × growth level; §16 D). Authoritative. */
+  bigBlindCurrent: number;
 
   /** Running chip stack per seat — the match currency (persists across hands). */
   stacksBySeat: number[];

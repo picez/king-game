@@ -24,6 +24,8 @@ export function humanError(code: ErrorCode | null | undefined): string {
     case 'ROOM_NOT_FOUND':       return 'Room not found';
     case 'GAME_ALREADY_STARTED': return 'Game already started';
     case 'NAME_TAKEN':           return 'This name is already used in this room. Please choose another name.';
+    case 'INSUFFICIENT_CHIPS':   return 'Not enough poker chips for the buy-in';
+    case 'NOT_SIGNED_IN':        return 'Bankroll tables need all seats signed in (no bots)';
     default:                     return 'Could not join room';
   }
 }
@@ -36,7 +38,7 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 2 | 3 | 4 | 5 | 6; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
+  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 2 | 3 | 4 | 5 | 6; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string }
@@ -63,6 +65,12 @@ export interface CreateIntentParams {
   tarneebVariant?: TarneebVariant;
   tarneebTargetScore?: number;
   fiftyOneEliminationScore?: number;
+  // Poker online bankroll (§16): host-chosen base blinds + growth. The buy-in is
+  // ALWAYS derived server-side (100 big blinds) — never supplied by the client.
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  /** 0 = Off; else a safe integer 1..100 (grow blinds every N hands). */
+  pokerBlindGrowth?: number;
 }
 
 /**
@@ -88,6 +96,7 @@ export function buildCreateIntent(p: CreateIntentParams): CreateIntent {
     ...(p.gameType === 'deberc' ? { matchSize: p.debercMatchSize, playerCount: p.debercPlayers } : {}),
     ...(p.gameType === 'tarneeb' ? { tarneebVariant: p.tarneebVariant, tarneebTargetScore: p.tarneebTargetScore } : {}),
     ...(p.gameType === 'fifty-one' ? { fiftyOneEliminationScore: p.fiftyOneEliminationScore } : {}),
+    ...(p.gameType === 'poker' ? { pokerSmallBlind: p.pokerSmallBlind, pokerBigBlind: p.pokerBigBlind, pokerBlindGrowth: p.pokerBlindGrowth } : {}),
   };
 }
 
@@ -112,6 +121,10 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
       ...(intent.tarneebVariant ? { tarneebVariant: intent.tarneebVariant } : {}),
       ...(intent.tarneebTargetScore ? { tarneebTargetScore: intent.tarneebTargetScore } : {}),
       ...(intent.fiftyOneEliminationScore ? { fiftyOneEliminationScore: intent.fiftyOneEliminationScore } : {}),
+      ...(intent.pokerSmallBlind ? { pokerSmallBlind: intent.pokerSmallBlind } : {}),
+      ...(intent.pokerBigBlind ? { pokerBigBlind: intent.pokerBigBlind } : {}),
+      // Growth 0 (Off) is meaningful, so forward whenever it's a number (not just truthy).
+      ...(typeof intent.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: intent.pokerBlindGrowth } : {}),
       ...(intent.password ? { password: intent.password } : {}),
       ...(intent.avatar ? { avatar: intent.avatar } : {}),
       ...(intent.turnTimerSec ? { turnTimerSec: intent.turnTimerSec } : {}),

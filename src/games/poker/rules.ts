@@ -40,9 +40,10 @@ function isFiniteSafeInt(v: unknown): boolean {
 function isValidStartOptions(v: unknown): boolean {
   if (v === null || typeof v !== 'object' || Array.isArray(v)) return false;
   const o = v as Record<string, unknown>;
-  for (const k of ['startingStack', 'smallBlind', 'bigBlind']) {
+  for (const k of ['startingStack', 'smallBlind', 'bigBlind', 'blindGrowthEveryHands']) {
     if (o[k] !== undefined && !(typeof o[k] === 'number' && Number.isFinite(o[k] as number))) return false;
   }
+  if (o.mode !== undefined && o.mode !== 'local_free' && o.mode !== 'online_bankroll') return false;
   return true;
 }
 
@@ -77,8 +78,12 @@ export function isPokerAction(value: unknown): value is PokerAction {
   }
 }
 
-/** Fixed MVP configuration (§1). */
-export const DEFAULT_OPTIONS: PokerOptions = { startingStack: 1000, smallBlind: 10, bigBlind: 20 };
+/** Default local free-play configuration (§1): 1000 stack, 10/20 blinds, no growth. */
+export const DEFAULT_OPTIONS: PokerOptions = { startingStack: 1000, smallBlind: 10, bigBlind: 20, blindGrowthEveryHands: 0 };
+
+/** Legal local starting-stack range (§16 C). Presets 1k/5k/10k/50k/100k/1M + custom. */
+export const LOCAL_MIN_STACK = 1_000;
+export const LOCAL_MAX_STACK = 10_000_000;
 
 /** Clamp/validate a requested player count into the legal 2–6 range. */
 export function normalizePlayerCount(n: number | undefined, fallback: number): number {
@@ -89,11 +94,36 @@ export function normalizePlayerCount(n: number | undefined, fallback: number): n
 /** Merge partial options over the fixed defaults (keeps positive, finite values). */
 export function normalizeOptions(opts: Partial<PokerOptions> | undefined): PokerOptions {
   const pick = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : d);
-  return {
+  // Growth is 0 (off) or a safe integer 1..100; anything malformed → 0 (off).
+  const growthRaw = opts?.blindGrowthEveryHands;
+  const growth = (typeof growthRaw === 'number' && Number.isFinite(growthRaw) && Number.isSafeInteger(growthRaw)
+    && growthRaw >= 1 && growthRaw <= 100) ? growthRaw : 0;
+  const out: PokerOptions = {
     startingStack: pick(opts?.startingStack, DEFAULT_OPTIONS.startingStack),
     smallBlind: pick(opts?.smallBlind, DEFAULT_OPTIONS.smallBlind),
     bigBlind: pick(opts?.bigBlind, DEFAULT_OPTIONS.bigBlind),
+    blindGrowthEveryHands: growth,
   };
+  if (opts?.mode === 'local_free' || opts?.mode === 'online_bankroll') out.mode = opts.mode;
+  return out;
+}
+
+/**
+ * The CURRENT blinds for a given 1-based hand number under the base options (§16 D).
+ * Off-by-one: with `blindGrowthEveryHands = N`, hands 1..N post the base blinds, hand
+ * N+1 posts ×2, hand 2N+1 posts ×4, i.e. level = floor((hand-1)/N), multiplier = 2^level.
+ * `blindGrowthEveryHands = 0` → always the base blinds. Overflow-safe: the multiplier is
+ * capped so the big blind stays a safe integer.
+ */
+export function currentBlinds(options: PokerOptions, handNumber: number): { smallBlind: number; bigBlind: number } {
+  const base = { smallBlind: options.smallBlind, bigBlind: options.bigBlind };
+  const n = options.blindGrowthEveryHands;
+  if (!n || n < 1 || handNumber < 1) return base;
+  const level = Math.floor((handNumber - 1) / n);
+  // Cap the multiplier so bigBlind * 2^level stays within the safe-integer range.
+  const maxLevel = Math.max(0, Math.floor(Math.log2(Number.MAX_SAFE_INTEGER / Math.max(1, options.bigBlind))));
+  const mult = Math.pow(2, Math.min(level, maxLevel));
+  return { smallBlind: options.smallBlind * mult, bigBlind: options.bigBlind * mult };
 }
 
 /** Seats still in the match (chips remaining / not eliminated), ascending. */
@@ -211,7 +241,9 @@ export function legalActions(state: PokerState, seat: number): LegalActions {
 
   // A "bet" needs no outstanding wager; a "raise" faces one.
   const canBet = canAct && state.currentBet === 0;
-  const minBet = Math.min(committed + state.options.bigBlind, maxTo);
+  // Minimum opening bet is one CURRENT big blind (grows with the blind level, §16 D).
+  const bb = state.bigBlindCurrent || state.options.bigBlind;
+  const minBet = Math.min(committed + bb, maxTo);
   // Raise faces a bet, needs more chips than a pure call, AND the seat must still
   // hold its raise RIGHT — an incomplete (below-min) all-in does not re-open it for a
   // seat that already acted, so they may only call the extra or fold (§5/§6).

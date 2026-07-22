@@ -17,6 +17,7 @@ import {
   actableSeats,
   activeSeats,
   bigBlindSeat,
+  currentBlinds,
   firstToActPostflop,
   firstToActPreflop,
   inHandSeats,
@@ -90,6 +91,8 @@ function startGame(action: Extract<PokerAction, { type: 'START_GAME' }>, rng: Rn
     buttonSeat,
     handNumber: 0,
     street: 'preflop',
+    smallBlindCurrent: options.smallBlind,
+    bigBlindCurrent: options.bigBlind,
     stacksBySeat: Array.from({ length: playerCount }, () => options.startingStack),
     holeCardsBySeat: Array.from({ length: playerCount }, () => []),
     board: [],
@@ -129,6 +132,13 @@ function normalizeSeat(seat: number | undefined, playerCount: number, fallback: 
 function dealHand(s: PokerState, buttonSeat: number, rng: Rng): void {
   s.buttonSeat = buttonSeat;
   s.handNumber += 1;
+  // Blind level depends ONLY on the completed-hand count (§16 D). Computed once here
+  // and stored authoritatively; every posting/min-raise/legality site reads the
+  // CURRENT blinds, never the base options. Reconnect/restore recompute the same value
+  // from (base options, handNumber) so they never advance the level.
+  const cb = currentBlinds(s.options, s.handNumber);
+  s.smallBlindCurrent = cb.smallBlind;
+  s.bigBlindCurrent = cb.bigBlind;
   s.street = 'preflop';
   s.phase = 'betting';
   s.board = [];
@@ -141,7 +151,7 @@ function dealHand(s: PokerState, buttonSeat: number, rng: Rng): void {
   s.actedBySeat = s.actedBySeat.map(() => false);
   s.revealedBySeat = s.revealedBySeat.map(() => false);
   s.currentBet = 0;
-  s.minRaise = s.options.bigBlind;
+  s.minRaise = cb.bigBlind;
   s.lastHand = null;
   s.actionLog = [];
 
@@ -155,18 +165,18 @@ function dealHand(s: PokerState, buttonSeat: number, rng: Rng): void {
 
   // Post the blinds (forced — they do NOT count as "acted", so the BB keeps its
   // option to act when the round returns to it). Logged as public 'blind' entries.
-  const sbPaid = Math.min(s.options.smallBlind, s.stacksBySeat[sb]);
+  const sbPaid = Math.min(cb.smallBlind, s.stacksBySeat[sb]);
   commit(s, sb, sbPaid);
   logAction(s, sb, 'blind', sbPaid);
   const bb = bigBlindSeat(s);
-  const bbPaid = Math.min(s.options.bigBlind, s.stacksBySeat[bb]);
+  const bbPaid = Math.min(cb.bigBlind, s.stacksBySeat[bb]);
   commit(s, bb, bbPaid);
   logAction(s, bb, 'blind', bbPaid);
-  // The nominal pre-flop bring-in is the FULL big blind even if the BB posted a
-  // short all-in for less (§ short-BB): others must still complete to the big blind,
+  // The nominal pre-flop bring-in is the FULL (current) big blind even if the BB posted
+  // a short all-in for less (§ short-BB): others must still complete to the big blind,
   // while side pots cap the short BB to its actual contribution (§8).
-  s.currentBet = s.options.bigBlind;
-  s.minRaise = s.options.bigBlind;
+  s.currentBet = cb.bigBlind;
+  s.minRaise = cb.bigBlind;
   openRaiseRights(s);
   s.toActSeat = firstToActPreflop(s);
 
@@ -332,7 +342,7 @@ function closeStreet(s: PokerState, rng: Rng): void {
   // committedBySeat is already folded into contributedBySeat by commit(); reset it.
   s.committedBySeat = s.committedBySeat.map(() => 0);
   s.currentBet = 0;
-  s.minRaise = s.options.bigBlind;
+  s.minRaise = s.bigBlindCurrent || s.options.bigBlind;
 
   if (inHandSeats(s).length <= 1) { resolveFoldWin(s); return; }
 
@@ -417,7 +427,7 @@ function resolveFoldWin(s: PokerState): void {
     wonBySeat[winner] += pot.amount;
   }
   recordHandTelemetry(s, pots, false, []);
-  finishHand(s, { showdown: false, revealedSeats: [], categoryBySeat: {}, pots, wonBySeat });
+  finishHand(s, { showdown: false, revealedSeats: [], categoryBySeat: {}, winningFiveBySeat: {}, pots, wonBySeat });
 }
 
 /** Showdown: build side pots, evaluate eligible hands, award, reveal (§8/§9/§10). */
@@ -449,10 +459,15 @@ function resolveShowdown(s: PokerState): void {
   const revealedSeats = revealed.slice();
   for (const seat of revealedSeats) s.revealedBySeat[seat] = true;
   const categoryBySeat: Record<number, HandCategory> = {};
-  for (const seat of revealedSeats) categoryBySeat[seat] = scores[seat].category;
+  const winningFiveBySeat: Record<number, string[]> = {};
+  for (const seat of revealedSeats) {
+    categoryBySeat[seat] = scores[seat].category;
+    // The exact five card ids of this seat's best hand (evaluator-decided, §16 I).
+    winningFiveBySeat[seat] = scores[seat].cards.map((c) => c.id);
+  }
 
   recordHandTelemetry(s, pots, true, revealedSeats.map((seat) => ({ seat, score: scores[seat] })));
-  finishHand(s, { showdown: true, revealedSeats, categoryBySeat, pots, wonBySeat });
+  finishHand(s, { showdown: true, revealedSeats, categoryBySeat, winningFiveBySeat, pots, wonBySeat });
 }
 
 /** Fold per-seat telemetry for a completed hand. */

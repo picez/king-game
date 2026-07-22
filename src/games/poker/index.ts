@@ -6,6 +6,7 @@ export * from './deck';
 export * from './handEval';
 export * from './pots';
 export * from './rules';
+export * from './stakes';
 export * from './engine';
 export * from './ai';
 export * from './redact';

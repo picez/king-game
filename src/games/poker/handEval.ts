@@ -39,6 +39,9 @@ export interface HandScore {
   category: HandCategory;
   /** Fully-ordered comparison key: [categoryWeight, ...tie-break ranks]. */
   key: number[];
+  /** The EXACT five cards that produced this score (§16 I). Suits never affect the
+   *  key/ties, but the winning-five is deterministic for highlighting. */
+  cards: PokerCard[];
 }
 
 /** Compare two hand scores. >0 → a wins, <0 → b wins, 0 → exact tie (split). */
@@ -84,6 +87,7 @@ export function scoreFive(cards: PokerCard[]): HandScore {
   const make = (category: HandCategory, ...tie: number[]): HandScore => ({
     category,
     key: [CATEGORY_WEIGHT[category], ...tie],
+    cards: cards.slice(), // the exact five scored (§16 I)
   });
 
   if (isFlush && straightHigh) {

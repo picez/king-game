@@ -21,22 +21,36 @@ import type { PokerAction, PokerState } from './types';
 const entry = GAME_CATALOG['poker'];
 
 /**
- * START_GAME from a room snapshot. Poker seats every player individually (no
- * teams); the player count comes from the seated members (2–6). Blinds/stack are
- * fixed for the MVP, so no per-room option is threaded (unlike 51). Reached on the
- * online host path exactly like the released games.
+ * START_GAME from a room snapshot. Poker seats every player individually (no teams);
+ * the player count comes from the seated members (2–6). For an ONLINE BANKROLL room
+ * (§16) the host-chosen stakes ride the snapshot: the starting stack = the buy-in (100
+ * BB), the base blinds are the chosen preset, and blind growth is the chosen interval
+ * — threaded here as START_GAME `options` (like 51). A room with no poker stakes (a
+ * legacy/no-economy room) sends no options → the engine uses the fixed MVP defaults.
  */
-function buildPokerStartAction(room: RoomSnapshot): PokerAction {
+export function buildPokerStartAction(room: RoomSnapshot): PokerAction {
   const players = room.members
     .filter((m) => m.role === 'player')
     .slice()
     .sort((a, b) => (a.seatIndex ?? 0) - (b.seatIndex ?? 0));
-  return {
+  const action: Extract<PokerAction, { type: 'START_GAME' }> = {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
     playerCount: players.length,
   };
+  // Bankroll stakes → per-room options (startingStack = buy-in). Base blinds + growth
+  // come from the room; the reducer derives the CURRENT blinds per hand.
+  if (room.pokerBigBlind && room.pokerSmallBlind && room.pokerBuyIn) {
+    action.options = {
+      startingStack: room.pokerBuyIn,
+      smallBlind: room.pokerSmallBlind,
+      bigBlind: room.pokerBigBlind,
+      blindGrowthEveryHands: typeof room.pokerBlindGrowth === 'number' ? room.pokerBlindGrowth : 0,
+      mode: 'online_bankroll',
+    };
+  }
+  return action;
 }
 
 /** Bot move for the current actor, or null when no seat is acting (between hands). */

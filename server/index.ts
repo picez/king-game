@@ -51,6 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow } from './pokerEscrow';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -452,6 +453,14 @@ function maybeRecordFinished(room: ServerRoom): void {
   const def = getGameDefinition(room.gameType);
   if (!def?.recordsStats || !def.isFinished(state)) return;
 
+  // Bankroll poker PAYOUT (§16 G): the match is finished → credit each seat's final
+  // stack. Independent of the stats gate below (bankroll tables are human-only, so they
+  // pass it, but payout must not be coupled to stats). Idempotent: the escrow status +
+  // ledger keys make a rebroadcast/reconnect/restart never double-pay.
+  if (isBankrollRoom(room) && room.gameType === 'poker') {
+    void payoutStacks(room, state as PokerState).then(() => persistRoom(room)).catch(() => {});
+  }
+
   // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
   // table with ANY bot, or with fewer than 2 humans, is never recorded (applies
   // to every game type). This blocks farming stats against bots, online or not.
@@ -647,11 +656,9 @@ function handleLeave(room: ServerRoom, clientId: string): void {
   // or be promoted to host).
   const hasHuman = [...room.members.values()].some((m) => m.type === 'human');
   if (empty || !hasHuman) {
-    clearRoomTimers(room.code);
-    recordedFinish.delete(room.code);
-    social.delete(room.code);
-    rooms.delete(room.code);
-    storage.deleteRoom(room.code);
+    // Settle bankroll escrow before dropping the room (refund if unfinished, else
+    // ensure payout); a settlement failure keeps the room for a retry sweep (§16 G).
+    deleteRoomWithSettlement(room.code, room);
     return;
   }
   removeRematchReady(room, clientId);
@@ -861,14 +868,41 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
 // Remove idle rooms (and their persistence + timers). Returns how many were
 // deleted. Called once at startup (so expired rooms go immediately, not only
 // after the first interval) and then periodically.
+/** Synchronously drop a room from memory + the persistence file. */
+function purgeRoom(code: string): void {
+  clearRoomTimers(code);
+  recordedFinish.delete(code);
+  social.delete(code);
+  rooms.delete(code);
+  storage.deleteRoom(code); // also drop it from the persistence file
+}
+
+/**
+ * Delete a room, first SETTLING any unsettled bankroll escrow (§16 G): a finished
+ * match pays out; an unfinished funded match refunds every buy-in. Deletion happens
+ * ONLY after settlement is confirmed — if the DB op fails, the room (and its escrow)
+ * are kept + persisted so the next sweep retries (a paid table is never destroyed with
+ * chips still owed). Non-bankroll / already-settled rooms delete synchronously.
+ */
+function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
+  if (!isBankrollRoom(room) || !hasUnsettledEscrow(room)) { purgeRoom(code); return; }
+  void (async () => {
+    const state = room.gameState as PokerState | null;
+    const finished = !!state && getGameDefinition('poker')?.isFinished(state) === true;
+    let resolved: boolean;
+    if (finished && state) { await payoutStacks(room, state); resolved = room.pokerEscrow?.status === 'settled'; }
+    else { resolved = await refundBuyIns(room); }
+    if (resolved) { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
+    else { persistRoom(room); } // keep for a retry on the next sweep
+  })();
+}
+
 function cleanupRooms(): number {
   const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS, ORPHAN_ROOM_TTL_MS);
   for (const code of expired) {
-    clearRoomTimers(code);
-    recordedFinish.delete(code);
-    social.delete(code);
-    rooms.delete(code);
-    storage.deleteRoom(code); // also drop it from the persistence file
+    const room = rooms.get(code);
+    if (room) deleteRoomWithSettlement(code, room);
+    else purgeRoom(code);
     console.log(`[King] auto-cleaned idle room ${code}`);
   }
   // Reclaim per-IP tracking for hosts with no open sockets (bounded memory).

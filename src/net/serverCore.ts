@@ -97,6 +97,30 @@ export interface ServerMember {
   avatarImageUrl?: string | null;
 }
 
+/** One debited seat in a bankroll poker match (for payout/refund reconciliation). */
+export interface PokerEscrowSeat {
+  seat: number;
+  userId: string;
+  amount: number;
+}
+
+/**
+ * Escrow lifecycle for an ONLINE bankroll poker match (§16 F/G). Undefined on any
+ * non-bankroll room. Persisted in the room JSON so a restart can settle/refund
+ * without duplicating a debit. `status`:
+ *  - 'pending'   → START_GAME accepted, debit transaction in flight (re-entrancy guard);
+ *  - 'funded'    → every seat debited; the match is live;
+ *  - 'settling'  → payout transaction in flight;
+ *  - 'settled'   → final stacks credited (mutually exclusive with 'cancelled');
+ *  - 'cancelled' → buy-ins refunded on orphan/teardown (mutually exclusive with 'settled').
+ */
+export interface PokerEscrow {
+  matchId: string;
+  buyIn: number;
+  status: 'pending' | 'funded' | 'settling' | 'settled' | 'cancelled';
+  seats: PokerEscrowSeat[];
+}
+
 export interface ServerRoom {
   code: string;
   mode: ServerMode;
@@ -116,6 +140,14 @@ export interface ServerRoom {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
+  /** Poker online bankroll config (§16): host-chosen base blinds, server-derived buy-in
+   *  (100 BB), and blind growth (0 = off). Undefined for local/other games/legacy. */
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  pokerBuyIn?: number;
+  pokerBlindGrowth?: number;
+  /** Bankroll escrow lifecycle (§16 F/G); undefined until START_GAME debits buy-ins. */
+  pokerEscrow?: PokerEscrow;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -256,6 +288,12 @@ export function createRoom(opts: {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); ignored for other games. */
   fiftyOneEliminationScore?: number;
+  /** Poker online bankroll (§16): base blinds + server-derived buy-in + growth. The
+   *  caller (wsHandlers) validates the stakes preset + growth and derives the buy-in. */
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  pokerBuyIn?: number;
+  pokerBlindGrowth?: number;
   /** Optional join password; when set, `salt` must be supplied by the caller. */
   password?: string;
   salt?: string;
@@ -279,6 +317,10 @@ export function createRoom(opts: {
     tarneebVariant: opts.tarneebVariant,
     tarneebTargetScore: opts.tarneebTargetScore,
     fiftyOneEliminationScore: opts.fiftyOneEliminationScore,
+    pokerSmallBlind: opts.pokerSmallBlind,
+    pokerBigBlind: opts.pokerBigBlind,
+    pokerBuyIn: opts.pokerBuyIn,
+    pokerBlindGrowth: opts.pokerBlindGrowth,
     members: new Map(),
     playerCount: opts.playerCount,
     modeSelectionType: opts.modeSelectionType,
@@ -1097,6 +1139,12 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
     fiftyOneEliminationScore: room.fiftyOneEliminationScore,
+    // Poker bankroll stakes (§16): PUBLIC blinds/buy-in/growth only — never escrow
+    // internals (match id, seat→user map, wallet balances).
+    ...(room.pokerSmallBlind ? { pokerSmallBlind: room.pokerSmallBlind } : {}),
+    ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
+    ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
+    ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -1139,6 +1187,11 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     ...(room.tarneebTargetScore ? { tarneebTargetScore: room.tarneebTargetScore } : {}),
     // Only present for 51 → other games' summaries are unchanged.
     ...(room.fiftyOneEliminationScore ? { fiftyOneEliminationScore: room.fiftyOneEliminationScore } : {}),
+    // Poker bankroll: PUBLIC stakes only (blinds/buy-in/growth) — never escrow/wallet data.
+    ...(room.pokerSmallBlind ? { pokerSmallBlind: room.pokerSmallBlind } : {}),
+    ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
+    ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
+    ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
     hasPassword: roomHasPassword(room),
@@ -1228,6 +1281,12 @@ export interface PersistedRoom {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
+  /** Poker bankroll config + escrow (§16). Legacy/local/other-game saves lack these. */
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  pokerBuyIn?: number;
+  pokerBlindGrowth?: number;
+  pokerEscrow?: PokerEscrow;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1259,6 +1318,11 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
     fiftyOneEliminationScore: room.fiftyOneEliminationScore,
+    pokerSmallBlind: room.pokerSmallBlind,
+    pokerBigBlind: room.pokerBigBlind,
+    pokerBuyIn: room.pokerBuyIn,
+    pokerBlindGrowth: room.pokerBlindGrowth,
+    pokerEscrow: room.pokerEscrow,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1275,6 +1339,33 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     turnDeadlineAt: room.turnDeadlineAt,
     substituteDeadlineAt: room.substituteDeadlineAt,
   };
+}
+
+/** A finite positive integer, or undefined. Used to restore poker economy scalars. */
+function posIntOrUndef(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) && Number.isSafeInteger(v) && v > 0 ? v : undefined;
+}
+
+/** Restore the poker escrow object from persisted JSON, or undefined if malformed. */
+function deserializePokerEscrow(v: unknown): PokerEscrow | undefined {
+  if (typeof v !== 'object' || v === null) return undefined;
+  const o = v as Record<string, unknown>;
+  if (typeof o.matchId !== 'string' || !o.matchId) return undefined;
+  if (typeof o.buyIn !== 'number' || !Number.isSafeInteger(o.buyIn) || o.buyIn <= 0) return undefined;
+  const status = o.status;
+  if (status !== 'pending' && status !== 'funded' && status !== 'settling' && status !== 'settled' && status !== 'cancelled') return undefined;
+  const seats: PokerEscrowSeat[] = [];
+  if (Array.isArray(o.seats)) {
+    for (const raw of o.seats) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const s = raw as Record<string, unknown>;
+      if (typeof s.seat === 'number' && typeof s.userId === 'string' && typeof s.amount === 'number'
+        && Number.isSafeInteger(s.seat) && Number.isSafeInteger(s.amount)) {
+        seats.push({ seat: s.seat, userId: s.userId, amount: s.amount });
+      }
+    }
+  }
+  return { matchId: o.matchId, buyIn: o.buyIn, status, seats };
 }
 
 /**
@@ -1330,6 +1421,13 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     // 51 elimination score (Stage 30.15): re-normalise on restore; a missing/legacy value stays
     // undefined (buildStartAction then applies the default 510), a bad value snaps to a preset.
     fiftyOneEliminationScore: o.fiftyOneEliminationScore != null ? normalizeEliminationScore(o.fiftyOneEliminationScore as number) : undefined,
+    // Poker bankroll config + escrow (§16): restore verbatim (validated), so a restart
+    // can settle/refund without re-deriving. blindGrowth 0 (off) is meaningful → keep it.
+    pokerSmallBlind: posIntOrUndef(o.pokerSmallBlind),
+    pokerBigBlind: posIntOrUndef(o.pokerBigBlind),
+    pokerBuyIn: posIntOrUndef(o.pokerBuyIn),
+    pokerBlindGrowth: typeof o.pokerBlindGrowth === 'number' && Number.isSafeInteger(o.pokerBlindGrowth) && o.pokerBlindGrowth >= 0 ? o.pokerBlindGrowth : undefined,
+    pokerEscrow: deserializePokerEscrow(o.pokerEscrow),
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

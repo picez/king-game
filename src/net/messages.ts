@@ -83,6 +83,12 @@ export interface RoomSnapshot {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
+  /** Poker online bankroll base blinds + derived buy-in + growth (§16); undefined for
+   *  other games / local / legacy rooms. `pokerBuyIn` is server-derived (100 BB). */
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  pokerBuyIn?: number;
+  pokerBlindGrowth?: number;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -122,6 +128,12 @@ export interface RoomSummary {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
+  /** Poker online bankroll stakes for the browser (§16): PUBLIC blinds + derived
+   *  buy-in + growth only — never any wallet balance / userId / match id. */
+  pokerSmallBlind?: number;
+  pokerBigBlind?: number;
+  pokerBuyIn?: number;
+  pokerBlindGrowth?: number;
   playerCount: 2 | 3 | 4 | 5 | 6;
   occupiedSeats: number;
   hasPassword: boolean;
@@ -167,7 +179,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /**
@@ -331,6 +343,10 @@ export type ErrorCode =
   | 'NOT_FRIENDS'
   /** Friend room-invite failed: the sender is not currently in a room (Stage 25.7). */
   | 'NOT_IN_ROOM'
+  /** Bankroll poker (§16): a seat lacks the buy-in / the wallet economy failed. */
+  | 'INSUFFICIENT_CHIPS'
+  /** Bankroll poker (§16): the table is human-only / a seat is not signed in. */
+  | 'NOT_SIGNED_IN'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------
