@@ -44,6 +44,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Poker Host routing: selecting Poker created a King room (Stage 37.6).** `StartMenu.host()` added the
+  chosen `gameType` only via per-game conditional spreads (durak / deberc / tarneeb / preferans / fifty-one)
+  and had **no branch for Poker**, so `CREATE_ROOM` went out with no `gameType` and the server applied its
+  legacy `?? 'king'` default — a real King room + King reducer/UI under a "Poker" label. The create-intent is
+  now built by a shared pure `buildCreateIntent(...)` that **always carries the authoritative selected
+  `gameType`** for all seven games (game-specific *options* stay per-game), so no game can silently fall back
+  to King. No rules/engine/UI change to Poker itself (the confirmed fault was purely Host routing); no DB
+  migration, dependency, or version change.
+
 - **Authoritative room turn timer for all 7 games (Stage 37.5).** Fixes two production bugs: (1) the timer
   could reach 0 without the server auto-action firing (the timeout silently stopped on a no-op and never
   re-scheduled); (2) a reload / reconnect / reclaim mid-turn restarted the client countdown from full and

@@ -48,9 +48,16 @@ describe('StartMenu — game chosen in the Host/Local sheets (Stage 9.9)', () =>
     // It is not hardcoded to the old 4-game list anymore.
     expect(src).not.toContain("(['king', 'durak', 'deberc', 'tarneeb'] as const).map((id) => ({");
   });
-  it('hosts the selected game online, passing gameType + variant for Durak', () => {
-    expect(src).toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
-    expect(src).toContain('setDurakVariant');
+  it('hosts the selected game online via the shared create-intent builder (Stage 37.6)', () => {
+    // host() delegates to the pure `buildCreateIntent`, which ALWAYS carries the
+    // authoritative selected `gameType` (King and Poker included) and rides the Durak
+    // variant along — so no game can silently fall back to a King room. The brittle
+    // per-game `gameType: '<game>' as const` spreads are gone.
+    expect(src).toContain('buildCreateIntent(');
+    expect(src).toContain('gameType, name: name.trim()'); // gameType passed for every game
+    expect(src).toContain('durakVariant');                 // Durak's variant option still forwarded
+    expect(src).toContain('setDurakVariant');              // the picker state is unchanged
+    expect(src).not.toContain("gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant }");
   });
   it('shows the Durak variants subtitle and no Durak Experimental note (released, Stage 9.13)', () => {
     expect(src).toMatch(/durak\.variantsShort/);     // Simple · Transfer subtitle kept

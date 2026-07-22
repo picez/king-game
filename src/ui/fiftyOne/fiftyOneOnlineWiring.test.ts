@@ -56,7 +56,8 @@ describe('FiftyOneGameScreen defers the round advance to the server when online'
 describe('StartMenu + Lobby host + label a 51 room (Stage 30.5)', () => {
   it("StartMenu sends gameType 'fifty-one' + the elimination score on create (else it would default to King)", () => {
     const menu = read('../StartMenu.tsx');
-    expect(menu).toContain("gameType === 'fifty-one' ? { gameType: 'fifty-one' as const, fiftyOneEliminationScore }");
+    expect(menu).toContain("buildCreateIntent(");
+    expect(menu).toContain("fiftyOneEliminationScore"); // 51 elimination score rides along in the shared builder (Stage 37.6)
   });
   it('Lobby labels a 51 room by its Rummy meta + elimination score, not a King mode term', () => {
     const lobby = read('../online/Lobby.tsx');

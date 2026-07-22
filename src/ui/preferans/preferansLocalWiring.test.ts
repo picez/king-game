@@ -50,7 +50,8 @@ describe('StartMenu — Preferans is local-only (experimental), host stays disab
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
     // Preferans online is enabled (19.5) — host() now sends its gameType. The online
     // routing itself is guarded by preferansOnlineWiring.test.
-    expect(menu).toContain("gameType === 'preferans' ? { gameType: 'preferans' as const }");
+    expect(menu).toContain("buildCreateIntent(");
+    expect(menu).toContain("gameType, name: name.trim()"); // gameType carried for Preferans via the shared builder (Stage 37.6)
   });
 });
 

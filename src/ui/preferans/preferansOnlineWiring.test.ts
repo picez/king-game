@@ -57,7 +57,8 @@ describe('PreferansGameScreen supports online (read-only) mode (Stage 19.5)', ()
 describe('StartMenu hosts Preferans online (released, Stage 19.7)', () => {
   const menu = read('../StartMenu.tsx');
   it("host() sends gameType 'preferans'; the Host sheet has no experimental flag", () => {
-    expect(menu).toContain("gameType === 'preferans' ? { gameType: 'preferans' as const }");
+    expect(menu).toContain("buildCreateIntent(");
+    expect(menu).toContain("gameType, name: name.trim()"); // gameType carried for Preferans via the shared builder (Stage 37.6)
     // Released: no experimental note on the Preferans host sheet anymore.
     expect(menu).not.toContain("t('preferans.onlineExperimental')");
     // The generic supportsOnline guard stays (passes for Preferans).

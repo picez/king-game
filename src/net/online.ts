@@ -44,6 +44,53 @@ export type OnlineIntent =
    *  `code` from ANOTHER device — no token (the server matches the session userId). */
   | { kind: 'reclaim'; code: string };
 
+/** The create arm of an OnlineIntent. */
+export type CreateIntent = Extract<OnlineIntent, { kind: 'create' }>;
+
+/** The host picker's choices, mapped 1:1 into a create-intent by `buildCreateIntent`. */
+export interface CreateIntentParams {
+  gameType: GameType;
+  name: string;
+  modeSelectionType: 'fixed' | 'dealer_choice';
+  avatar?: string;
+  /** 0/undefined = off. */
+  turnTimerSec?: number;
+  password?: string;
+  // Game-specific options (each applied only for its own game).
+  durakVariant?: DurakVariant;
+  debercMatchSize?: DebercMatchSize;
+  debercPlayers?: 3 | 4;
+  tarneebVariant?: TarneebVariant;
+  tarneebTargetScore?: number;
+  fiftyOneEliminationScore?: number;
+}
+
+/**
+ * Build the create-intent from the host picker's choices. Pure + unit-tested so a new
+ * game can never silently fall back to King again (Stage 37.6): the AUTHORITATIVE
+ * selected `gameType` is ALWAYS carried for every game — King and Poker included —
+ * instead of being added by a per-game conditional spread that a new game can forget.
+ * Only genuinely game-specific OPTIONS (Durak variant, Deberc match/seat count, Tarneeb
+ * variant/target, 51 elimination score) stay per-game. `firstConnectMessage` then
+ * forwards `gameType` into `CREATE_ROOM`, so the server no longer applies its
+ * `?? 'king'` legacy default to a real selection.
+ */
+export function buildCreateIntent(p: CreateIntentParams): CreateIntent {
+  return {
+    kind: 'create',
+    name: p.name,
+    modeSelectionType: p.modeSelectionType,
+    avatar: p.avatar,
+    gameType: p.gameType, // ← shared: the selected game reaches CREATE_ROOM for ALL 7 games
+    ...(p.turnTimerSec && p.turnTimerSec > 0 ? { turnTimerSec: p.turnTimerSec } : {}),
+    ...(p.password ? { password: p.password } : {}),
+    ...(p.gameType === 'durak' ? { variant: p.durakVariant } : {}),
+    ...(p.gameType === 'deberc' ? { matchSize: p.debercMatchSize, playerCount: p.debercPlayers } : {}),
+    ...(p.gameType === 'tarneeb' ? { tarneebVariant: p.tarneebVariant, tarneebTargetScore: p.tarneebTargetScore } : {}),
+    ...(p.gameType === 'fifty-one' ? { fiftyOneEliminationScore: p.fiftyOneEliminationScore } : {}),
+  };
+}
+
 /**
  * The one message a fresh connection sends to realise the user's intent.
  * Pure so it can be unit-tested and so the hook sends it in exactly one place

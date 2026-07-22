@@ -30,7 +30,7 @@ describe('Tarneeb match-target selector (Scope B — UI)', () => {
   it('the online Host sheet renders a target-score picker and threads it into CREATE_ROOM', () => {
     expect(menu).toContain('TARGET_SCORE_PRESETS');
     expect(menu).toContain('setTarneebTargetScore');
-    expect(menu).toContain('tarneebTargetScore }'); // included in the tarneeb create spread
+    expect(menu).toContain('tarneebTargetScore'); // threaded into the shared create-intent builder (Stage 37.6)
     expect(menu).toContain("t('tarneeb.targetScore')");
   });
 

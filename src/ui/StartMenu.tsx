@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
+import { buildCreateIntent } from '../net/online';
 import { useRoomList } from '../hooks/useRoomList';
 import { useMyRooms } from '../hooks/useMyRooms';
 import type { RoomSummary } from '../net/messages';
@@ -228,18 +229,17 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
     if (!GAME_CATALOG[gameType].supportsOnline) return;
     saveNickname(name); saveAvatar(avatar);
     const pw = password.trim();
-    onOnlineWithAuth(url.trim(), {
-      kind: 'create', name: name.trim(), modeSelectionType, avatar,
-      ...(gameType === 'durak' ? { gameType: 'durak' as const, variant: durakVariant } : {}),
-      ...(gameType === 'deberc' ? { gameType: 'deberc' as const, matchSize: debercMatchSize, playerCount: debercPlayers } : {}),
-      ...(gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore } : {}),
-      ...(gameType === 'preferans' ? { gameType: 'preferans' as const } : {}),
-      // 51 (Stage 30.5): no extra options — a 4-seat room by default; the host may
-      // start once 2–4 seats are filled (bots or humans).
-      ...(gameType === 'fifty-one' ? { gameType: 'fifty-one' as const, fiftyOneEliminationScore } : {}),
-      ...(defaultTimer > 0 ? { turnTimerSec: defaultTimer } : {}),
-      ...(pw ? { password: pw } : {}),
-    });
+    // The AUTHORITATIVE selected `gameType` is always carried (Stage 37.6) — the pure
+    // builder maps the picker's choices, so a new game (Poker) can never silently fall
+    // back to a King room via a missing per-game conditional spread. Game-specific
+    // OPTIONS stay per-game inside the builder.
+    onOnlineWithAuth(url.trim(), buildCreateIntent({
+      gameType, name: name.trim(), modeSelectionType, avatar,
+      turnTimerSec: defaultTimer,
+      password: pw || undefined,
+      durakVariant, debercMatchSize, debercPlayers,
+      tarneebVariant, tarneebTargetScore, fiftyOneEliminationScore,
+    }));
   }
 
   function join() {

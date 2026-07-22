@@ -55,7 +55,8 @@ describe('StartMenu — Tarneeb is selectable local AND online (released)', () =
   });
   it("host() sends gameType 'tarneeb' and still guards non-online games", () => {
     // Stage 29.8: the create spread also threads the chosen match target.
-    expect(menu).toContain("gameType === 'tarneeb' ? { gameType: 'tarneeb' as const, tarneebVariant, tarneebTargetScore }");
+    expect(menu).toContain("buildCreateIntent(");
+    expect(menu).toContain("tarneebVariant, tarneebTargetScore"); // Tarneeb options ride along in the shared builder (Stage 37.6)
     // The generic supportsOnline guard stays (defensive; passes for Tarneeb now).
     expect(menu).toContain('if (!GAME_CATALOG[gameType].supportsOnline) return;');
   });
