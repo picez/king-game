@@ -675,3 +675,29 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Single recovery banner (FAIL 3):** the banner is owned by `PokerOnlineGame` (it renders it above the
   active table; `PokerFinished` renders the one on the finish screen) — `OnlineGame`'s poker branch no
   longer renders its own, so a frozen/recovery finished table shows the banner **exactly once**.
+
+### Settlement-before-stats + permanent invalid freeze + real rematch request handler (Stage 37.7.8)
+
+- **Settlement-before-stats (FAIL 1):** the old `maybeRecordFinished` ran payout (fire-and-forget) and
+  stats (fire-and-forget) in PARALLEL, so a bankroll match's stats could be written before — or without —
+  a confirmed payout. Extracted `server/pokerFinish.ts` `settleAndRecordBankrollPokerFinish(room, state, deps)`
+  makes it ONE serialized flow (under `withRoomLock`): payout first, then `recordConfirmedPokerStats` ONLY on
+  `paid`/`already_paid`. `retry_pending` → stats deferred (the sweep records them after a later paid);
+  `already_refunded` → cancelled table, no stats; `invalid` → frozen, no stats. Bankroll poker no longer falls
+  through to the generic (pre-payout) stats path; the six other games + local poker are unchanged. Stats stay
+  idempotent (per-room signature + `games.game_key`) — no dup on rebroadcast/reconnect/restart/retry.
+- **Permanent invalid freeze (FAIL 2):** `payoutStacks` → `invalid` is a fail-CLOSED operator condition
+  (impossible conservation / structurally-broken escrow), NOT a transient DB error. `freezeRoomForOperator`
+  sets `pokerFrozen` (logs the room code + a safe reason ONCE), and `payoutPending`/`settlementPending` now
+  return **false** for a frozen room, so `retryPendingSettlements` never re-attempts the impossible payout
+  (no 45s log spam). `deleteRoomWithSettlement` keeps a frozen room (never auto-pays/refunds/purges). A frozen
+  room blocks START/ACTION/REMATCH, exposes only the public `frozen` recovery status (no escrow/economy leak),
+  and survives serialize→restore.
+- **Real REMATCH request handler (FAIL 3):** the request-level authorization + readiness routing moved to
+  `server/pokerRematch.ts` `handleRematchRequest(session, decline, deps)` (index.ts routes `REMATCH_READY`/
+  `REMATCH_DECLINE` to it). Unit-tested with spies: seated-human authorization (spectator/AI/unknown → no-op),
+  first-human-Ready progress, last-human-Ready → exactly one `runBankrollRematch` under the lock, the
+  no-double-restart `isRoomFinished` re-check, DECLINE, and `pokerRecoveryBlocked` → honest recovery broadcast
+  with no false readiness. A real-PostgreSQL case confirms READY starts a genuine new paid match (one debit/seat).
+- **Fault-seam hygiene (FAIL 4):** every suite using `__setRefundFailure`/`__setPayoutFailure` resets both in
+  an `afterEach`, so a mid-test failure can never cascade into later suites.

@@ -118,7 +118,9 @@ export function __setPayoutFailure(v: boolean): void { injectedPayoutFailure = v
  * refunded. Distinct from `payoutPending` (a FINISHED game whose payout is not yet confirmed).
  */
 export function settlementPending(room: ServerRoom): boolean {
-  return isBankrollRoom(room) && room.pokerEscrow?.status === 'funded' && !room.gameState;
+  // A FROZEN room (corrupt durable / invalid payout — 37.7.8) is a PERMANENT operator condition,
+  // never an auto-retryable pending state.
+  return !room.pokerFrozen && isBankrollRoom(room) && room.pokerEscrow?.status === 'funded' && !room.gameState;
 }
 
 /**
@@ -129,7 +131,9 @@ export function settlementPending(room: ServerRoom): boolean {
  * until the payout settles.
  */
 export function payoutPending(room: ServerRoom): boolean {
-  if (!isBankrollRoom(room)) return false;
+  // A FROZEN room (37.7.8: an `invalid` payout is a PERMANENT operator condition) must NEVER be
+  // treated as an auto-retryable payout — the settlement sweep must skip it (no 45s log spam).
+  if (room.pokerFrozen || !isBankrollRoom(room)) return false;
   const esc = room.pokerEscrow;
   if (!esc || (esc.status !== 'funded' && esc.status !== 'settling')) return false;
   const state = room.gameState as PokerState | null;

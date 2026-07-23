@@ -212,3 +212,30 @@ Use this file as the first read after archiving this chat. It is intentionally s
   worker-crash run — rerun until 0 crashes.
 - New keys `poker.recovery.payoutPending` (EN/UK/DE/AR); `PokerRecoveryStatus`/`RoomSnapshot.pokerRecovery`
   gained `'payout_pending'`. verify PASS 2870/59; libc 0; migration 0012; games 7; achievements 52; v0.4.8.
+
+### Stage 37.7.8 — settlement-before-stats + permanent invalid freeze + real rematch request handler (COMPLETE, Unreleased)
+- Worked from HEAD `d100808`. No new migration; no version bump. Real PostgreSQL (Docker): all poker DB suites
+  0 skipped (73 poker tests green); verify PASS **2885 passed | 64 skipped (2949)**, 0 worker crashes.
+- **FAIL 1 — stats could beat payout.** Old `maybeRecordFinished` ran payout (fire-and-forget) + stats
+  (fire-and-forget) in PARALLEL. Extracted `server/pokerFinish.ts`: `settleAndRecordBankrollPokerFinish(room,
+  state, deps)` runs payout THEN stats as ONE serialized flow under `withRoomLock`; `recordConfirmedPokerStats`
+  (human-only gate + `pokerFinishSignature` dedup + seatUsers) records ONLY on `paid`/`already_paid`.
+  `retry_pending`→stats deferred to the sweep; `already_refunded`→cancel table, no stats; `invalid`→freeze, no
+  stats. Bankroll poker returns BEFORE the generic pre-payout stats block (which stays for the other 6 games +
+  non-bankroll poker; keeps `gt==='poker'`/`recordFinishedPokerGame`/`pokerFinishSignature` strings in index.ts
+  so pokerStatsWiring test passes). `retryPendingSettlements` payout branch now also uses settle+record (a
+  retry that finally pays out records stats).
+- **FAIL 2 — `invalid` is PERMANENT, not transient.** `freezeRoomForOperator(room, reason)` sets `pokerFrozen`
+  (logs room code + safe reason ONCE). `payoutPending`/`settlementPending` now return **false** when
+  `room.pokerFrozen` → sweep never re-attempts the impossible payout (no 45s spam). `deleteRoomWithSettlement`
+  keeps a frozen room (no auto pay/refund/purge). Frozen already blocks START/ACTION (wsHandlers) + REMATCH
+  (`pokerRecoveryBlocked`); snapshot exposes only public `frozen`; survives serialize/restore.
+- **FAIL 3 — real request handler extracted.** `server/pokerRematch.ts` `handleRematchRequest(session, decline,
+  deps)`; `handleRematch` in index.ts just wires real deps. Spy tests: seated-human auth (spectator/AI/unknown
+  no-op), first-ready progress, last-ready → one `runBankrollRematch` under lock, no-double-restart re-check,
+  decline, recovery-blocked → honest broadcast. Real-PG: READY → genuine new paid match (one debit/seat).
+- **FAIL 4 — seam reset.** `afterEach` resets `__setRefundFailure(false)`+`__setPayoutFailure(false)` in every
+  suite using them (pokerEscrow/pokerRecovery/pokerRematch.lifecycle/pokerFinish/pokerRematchRequest).
+- New files: `server/pokerFinish.ts`, tests `pokerFinish.integration.test.ts` (FAIL1, DB), `pokerFrozenInvalid.test.ts`
+  (FAIL2, pure), `pokerRematchRequest.test.ts` (FAIL3, spies + 1 DB). No i18n/schema change. libc 0; migration 0012;
+  games 7; achievements 52; v0.4.8.

@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { ServerRoom, ServerMember } from './serverCore';
+
+// FAIL 4 (37.7.8): the fault-injection seams are GLOBAL module state — always reset after each
+// test so a failure before a manual reset can never cascade into later suites.
+afterEach(async () => {
+  const escrow = await import('../../server/pokerEscrow');
+  escrow.__setRefundFailure(false); escrow.__setPayoutFailure(false);
+});
 
 // Optional integration test for the Stage 37.7 / 37.7.1 bankroll escrow lifecycle.
 // SKIPPED unless TEST_DATABASE_URL points at a migrated Postgres (through 0011).

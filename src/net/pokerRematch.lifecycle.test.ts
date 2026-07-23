@@ -1,6 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { ServerRoom, ServerMember } from './serverCore';
 import type { PokerState } from '../games/poker/types';
+
+// FAIL 4 (37.7.8): always reset the global fault seams so a failure can't cascade.
+afterEach(async () => {
+  const escrow = await import('../../server/pokerEscrow');
+  escrow.__setRefundFailure(false); escrow.__setPayoutFailure(false);
+});
 
 // Stage 37.7.7 FAIL 2 (integration, real Postgres): the REAL bankroll rematch lifecycle helper
 // `runBankrollRematch` — debit a fresh match → restart → refund-on-failure → broadcast — driven

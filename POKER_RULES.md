@@ -358,3 +358,15 @@ pending** table (funded + NO game → retry the refund), and a **payout-pending*
 **refunded**, it is turned into an honest cancelled table and never paid or continued as a paid game.
 A **rematch** is a brand-new paid match only after the previous payout is confirmed; while any recovery
 is pending the rematch is refused with an honest banner, never a silent readiness reset.
+
+**Settlement-before-stats + permanent invalid freeze (§16, Stage 37.7.8).** A bankroll match's
+**stats / rating / achievements are recorded ONLY after a confirmed payout** (`paid`/`already_paid`) —
+payout and stats run as one serialized flow (never in parallel, never before). A **transient** payout
+failure (`retry_pending`) defers the stats: the settlement sweep records them after it finally pays
+out, so stats can never precede a payout that later proves refunded. An **already-refunded** finished
+match records no stats and becomes a cancelled table. An **invalid** payout — an *impossible*
+conservation / structurally-broken escrow, a **permanent fail-closed operator condition** rather than a
+transient DB error — no longer loops the sweep forever: the table is **permanently frozen** for operator
+review. A frozen table blocks start / action / rematch, exposes only the public *frozen* recovery status
+(never stacks / matchId / userId / escrow / corruption detail), logs the room code + a safe reason once,
+and stays frozen across serialize/restore. It is never auto-paid, auto-refunded, or purged.

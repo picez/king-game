@@ -16,6 +16,9 @@
 import type { ServerRoom } from '../src/net/serverCore';
 import type { DebitResult } from './pokerEscrow';
 
+/** A minimal room-session reference (mirrors server/wsHandlers `SessionRef`). */
+export interface RematchSession { value: { room: ServerRoom; clientId: string } | null; }
+
 /** Injected dependencies for the bankroll rematch lifecycle (all side effects are deps). */
 export interface BankrollRematchDeps {
   /** Debit a FRESH buy-in for a new match id (rejects unless the previous escrow is resolved). */
@@ -83,4 +86,66 @@ export async function runBankrollRematch(room: ServerRoom, deps: BankrollRematch
   deps.advance(room);
   deps.persist(room);
   return 'restarted';
+}
+
+// --- REMATCH request-level handler (Stage 37.7.8, FAIL 3) --------------------
+// The REMATCH_READY / REMATCH_DECLINE message is routed in server/index.ts (NOT in
+// wsHandlers.handleClientMessage). This extracts the request-level authorization + readiness
+// routing so it is unit-testable with spies: who may rematch (a seated human), decline, one-human
+// vs all-humans readiness, recovery-blocked, the per-room lock, and the no-double-restart guard.
+
+/** Injected dependencies for the request-level rematch handler. */
+export interface RematchRequestDeps {
+  isRoomFinished: (room: ServerRoom) => boolean;
+  /** Frozen / settlement-pending / payout-pending / economy-unavailable → can't rematch yet. */
+  pokerRecoveryBlocked: (room: ServerRoom) => boolean;
+  isBankrollRoom: (room: ServerRoom) => boolean;
+  broadcastRoom: (room: ServerRoom) => void;
+  broadcastRematch: (room: ServerRoom) => void;
+  markReady: (room: ServerRoom, clientId: string) => void;
+  removeReady: (room: ServerRoom, clientId: string) => void;
+  allHumansReady: (room: ServerRoom) => boolean;
+  withRoomLock: (code: string, fn: () => Promise<void>) => Promise<unknown>;
+  /** The (already-tested) bankroll rematch lifecycle for this room (outcome ignored here). */
+  runRematch: (room: ServerRoom) => Promise<unknown>;
+  /** The non-bankroll restart path (King/Durak/…): restart + broadcast + advance. */
+  restartNonBankroll: (room: ServerRoom) => void;
+}
+
+export type RematchRequestOutcome =
+  | 'ignored'            // not finished / not a seated human / recovery-blocked
+  | 'declined'           // readiness removed
+  | 'progress'           // readiness marked, still waiting on other humans
+  | 'restart_scheduled'  // all humans ready → the lifecycle was scheduled under the lock
+  | 'recovery_broadcast';// finished but recovery-blocked → honest snapshot, no readiness
+
+/**
+ * Handle one REMATCH_READY (`decline=false`) or REMATCH_DECLINE (`decline=true`). Only a seated
+ * human of a FINISHED, non-recovery room may take part. When every connected human is ready, the
+ * bankroll lifecycle (or the non-bankroll restart) runs — serialized + guarded so a duplicate
+ * message after the restart is a no-op (never a second debit).
+ */
+export function handleRematchRequest(session: RematchSession, decline: boolean, deps: RematchRequestDeps): RematchRequestOutcome {
+  const s = session.value;
+  if (!s) return 'ignored';
+  const room = s.room;
+  if (!deps.isRoomFinished(room)) return 'ignored';        // only once the game is over
+  if (deps.pokerRecoveryBlocked(room)) { deps.broadcastRoom(room); return 'recovery_broadcast'; }
+  const me = room.members.get(s.clientId);
+  if (!me || me.role !== 'player' || me.type !== 'human') return 'ignored'; // spectators / bots / unknown
+
+  if (decline) { deps.removeReady(room, s.clientId); deps.broadcastRematch(room); return 'declined'; }
+
+  deps.markReady(room, s.clientId);
+  if (!deps.allHumansReady(room)) { deps.broadcastRematch(room); return 'progress'; }
+
+  if (deps.isBankrollRoom(room)) {
+    void deps.withRoomLock(room.code, async () => {
+      if (!deps.isRoomFinished(room)) return;              // already restarted/changed → no double debit
+      await deps.runRematch(room);
+    });
+    return 'restart_scheduled';
+  }
+  deps.restartNonBankroll(room);
+  return 'restart_scheduled';
 }

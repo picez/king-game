@@ -52,7 +52,8 @@ import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
 import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending } from './pokerEscrow';
-import { runBankrollRematch } from './pokerRematch';
+import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
+import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats } from './pokerFinish';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -353,52 +354,37 @@ function broadcastRematch(room: ServerRoom): void {
  * clears the pending readiness. Best-effort + silent on invalid state; no token/session/email.
  */
 function handleRematch(session: SessionRef, decline: boolean): void {
-  const s = session.value;
-  if (!s) return;
-  const room = s.room;
-  if (!isRoomFinished(room)) return;                 // only offerable once the game is over
-  // (37.7.4/37.7.6/37.7.7) A frozen / settlement-pending / PAYOUT-pending / economy-unavailable
-  // room can't rematch yet. Broadcast the honest recovery snapshot so the user sees WHY (e.g.
-  // the previous match's payout is still settling) instead of a silent no-op.
-  if (pokerRecoveryBlocked(room)) { broadcastRoom(room); return; }
-  const me = room.members.get(s.clientId);
-  if (!me || me.role !== 'player' || me.type !== 'human') return;
-
-  if (decline) { removeRematchReady(room, s.clientId); broadcastRematch(room); return; }
-
-  markRematchReady(room, s.clientId);
-  if (allHumansReady(room)) {
-    // Bankroll poker (§16, 37.7.1/37.7.7): a rematch is a BRAND-NEW paid match. Serialize with
-    // the room lock (so the previous match's payout resolves FIRST), then run the extracted,
-    // unit-tested lifecycle helper: debit a fresh match → restart → refund-on-failure → broadcast.
-    if (isBankrollRoom(room)) {
-      void withRoomLock(room.code, async () => {
-        if (!isRoomFinished(room)) return;                 // already restarted / changed → no double debit
-        await runBankrollRematch(room, {
-          debitRematch, refundBuyIns,
-          restartGame: (r) => restartGame(r, { now: Date.now() }),
-          clearRematch, broadcastRematch, broadcastRoom,
-          advance: (r) => broadcastAndAdvance(r, { turnAdvanced: true }),
-          persist: persistRoom,
-          forgetFinish: (r) => recordedFinish.delete(r.code),
-          logDeal: logLatestDeal,
-        });
-      });
-      return;
-    }
+  // (37.7.8 FAIL 3) The request-level authorization + readiness routing lives in the extracted,
+  // unit-tested `handleRematchRequest`; index.ts only wires the real side effects.
+  handleRematchRequest(session, decline, {
+    isRoomFinished, pokerRecoveryBlocked, isBankrollRoom,
+    broadcastRoom, broadcastRematch,
+    markReady: markRematchReady, removeReady: removeRematchReady,
+    allHumansReady, withRoomLock,
+    // Bankroll poker (§16, 37.7.1/37.7.7): a rematch is a BRAND-NEW paid match — the extracted,
+    // unit-tested lifecycle helper (debit → restart → refund-on-failure → broadcast).
+    runRematch: (room) => runBankrollRematch(room, {
+      debitRematch, refundBuyIns,
+      restartGame: (r) => restartGame(r, { now: Date.now() }),
+      clearRematch, broadcastRematch, broadcastRoom,
+      advance: (r) => broadcastAndAdvance(r, { turnAdvanced: true }),
+      persist: persistRoom,
+      forgetFinish: (r) => recordedFinish.delete(r.code),
+      logDeal: logLatestDeal,
+    }),
     // Non-bankroll: let the fresh game record its OWN finish (the previous is recorded once).
-    recordedFinish.delete(room.code);
-    clearRematch(room);
-    const res = restartGame(room, { now: Date.now() });
-    if (res.ok) {
-      logLatestDeal(room);
-      broadcastRoom(room);
-      broadcastAndAdvance(room, { turnAdvanced: true }); // a fresh game → a fresh deadline
-      persistRoom(room);
-    }
-    return; // the fresh STATE_UPDATE clears the finish screen — no REMATCH_STATE needed
-  }
-  broadcastRematch(room);
+    restartNonBankroll: (room) => {
+      recordedFinish.delete(room.code);
+      clearRematch(room);
+      const res = restartGame(room, { now: Date.now() });
+      if (res.ok) {
+        logLatestDeal(room);
+        broadcastRoom(room);
+        broadcastAndAdvance(room, { turnAdvanced: true }); // a fresh game → a fresh deadline
+        persistRoom(room);
+      }
+    },
+  });
 }
 
 /** Human-readable text for an invite failure (the client also has i18n via the code). */
@@ -471,6 +457,36 @@ function clearRoomTimers(code: string): void {
  * affects gameplay (rules/redaction untouched); bots/unidentified seats are
  * skipped. Fire-and-forget so the WS path is never blocked on the DB.
  */
+/**
+ * PERMANENTLY freeze a bankroll room for operator review (Stage 37.7.8). Used for an `invalid`
+ * payout (bad conservation / structurally-invalid escrow) — a fail-CLOSED, non-transient condition,
+ * NOT a retryable DB error. Logs the room code + a SAFE reason ONCE (no stacks / matchId / userId /
+ * escrow / corruption detail); the public snapshot only ever exposes `frozen`.
+ */
+function freezeRoomForOperator(room: ServerRoom, reason: string): void {
+  if (room.pokerFrozen) return; // already frozen → don't re-log
+  room.pokerFrozen = true;
+  console.error(`[Poker] room ${room.code} FROZEN for operator review — ${reason}`);
+}
+
+/** The shared deps for the settle-then-record bankroll poker finish flow (37.7.8). */
+function bankrollFinishDeps(): import('./pokerFinish').BankrollFinishDeps {
+  return {
+    payoutStacks,
+    persist: persistRoom,
+    broadcast: broadcastRoom,
+    clearRematch,
+    freeze: freezeRoomForOperator,
+    recordStats: (room, state) => recordConfirmedPokerStats(room, state, {
+      alreadyRecorded: (code, sig) => recordedFinish.get(code) === sig,
+      markRecorded: (code, sig) => { recordedFinish.set(code, sig); },
+      unmarkRecorded: (code) => { recordedFinish.delete(code); },
+      record: async (code, st, seatUsers) =>
+        (await import('./db/pokerStats')).recordFinishedPokerGame(code, st, seatUsers),
+    }),
+  };
+}
+
 function maybeRecordFinished(room: ServerRoom): void {
   const state = room.gameState;
   if (!state || !isDbEnabled()) return;
@@ -480,27 +496,14 @@ function maybeRecordFinished(room: ServerRoom): void {
   const def = getGameDefinition(room.gameType);
   if (!def?.recordsStats || !def.isFinished(state)) return;
 
-  // Bankroll poker PAYOUT (§16 G): the match is finished → credit each seat's final
-  // stack. Independent of the stats gate below (bankroll tables are human-only, so they
-  // pass it, but payout must not be coupled to stats). Idempotent: the escrow status +
-  // ledger keys make a rebroadcast/reconnect/restart never double-pay.
+  // (37.7.8) Bankroll poker: SETTLEMENT-BEFORE-STATS. Payout AND stats run as ONE serialized flow
+  // under the room lock — stats are recorded ONLY after a confirmed payout (paid/already_paid), never
+  // in parallel and never before. `already_refunded` → cancelled lobby (no stats); `retry_pending` →
+  // deferred to the settlement sweep; `invalid` → permanent operator freeze. Bankroll poker NEVER
+  // falls through to the generic (pre-payout) stats path below.
   if (isBankrollRoom(room) && room.gameType === 'poker') {
-    // Serialize with the room lock so a rematch debit queues AFTER this payout resolves.
-    void withRoomLock(room.code, async () => {
-      const result = await payoutStacks(room, state as PokerState);
-      // (37.7.7) A finished match the DB gate says was already REFUNDED must NEVER be shown/continued
-      // as a paid game → turn it into an honest cancelled lobby (no stacks paid). A transient failure
-      // (retry_pending) leaves the funded escrow for the settlement sweep; the broadcast surfaces the
-      // payout-pending recovery status (which suppresses rematch until the payout is confirmed).
-      if (result === 'already_refunded') {
-        room.started = false;
-        room.gameState = null;
-        room.pokerMatchCancelled = true;
-        clearRematch(room);
-      }
-      persistRoom(room);
-      broadcastRoom(room); // reflect paid → rematch enabled, or payout_pending / cancelled
-    }).catch(() => {});
+    void withRoomLock(room.code, () => settleAndRecordBankrollPokerFinish(room, state as PokerState, bankrollFinishDeps())).catch(() => {});
+    return;
   }
 
   // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
@@ -975,6 +978,9 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
       if (await reconcileCorruptRoom(room)) purgeRoom(code); else persistRoom(room);
       return;
     }
+    // (37.7.8) An `invalid`-payout FROZEN room is a PERMANENT operator condition — never auto-pay,
+    // auto-refund, or purge it. Keep it (escrow intact) for review.
+    if (room.pokerFrozen) { persistRoom(room); return; }
     await reconcileEscrow(room);
     if (!hasUnsettledEscrow(room)) { purgeRoom(code); return; }
     const state = room.gameState as PokerState | null;
@@ -1016,20 +1022,11 @@ function retryPendingSettlements(): void {
     } else if (payoutPending(room)) {
       void withRoomLock(room.code, async () => {
         if (!rooms.has(room.code) || !payoutPending(room)) return;
-        const result = await payoutStacks(room, room.gameState as PokerState);
-        if (result === 'paid' || result === 'already_paid') {
-          persistRoom(room);
-          broadcastRoom(room); // payout confirmed → recovery clears → rematch enabled
-          console.log(`[King] payout-pending resolved for room ${room.code}`);
-        } else if (result === 'already_refunded') {
-          room.started = false;
-          room.gameState = null;
-          room.pokerMatchCancelled = true;
-          clearRematch(room);
-          persistRoom(room);
-          broadcastRoom(room);
-        }
-        // retry_pending / invalid → leave funded for the next sweep
+        // (37.7.8) Retry the payout AND, only on a confirmed payout, record the deferred stats — the
+        // same settle-then-record flow as the finish path. `invalid` freezes the room permanently
+        // (payoutPending now excludes frozen, so the sweep will never retry it again).
+        const { result } = await settleAndRecordBankrollPokerFinish(room, room.gameState as PokerState, bankrollFinishDeps());
+        if (result === 'paid' || result === 'already_paid') console.log(`[King] payout-pending resolved for room ${room.code}`);
       });
     }
   }

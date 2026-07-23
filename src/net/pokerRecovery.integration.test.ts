@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { WsContext, SessionRef } from '../../server/wsHandlers';
 import { RoomSocialStore } from '../../server/roomSocial';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS } from './rateLimit';
@@ -21,6 +21,12 @@ async function waitFor(pred: () => boolean, tries = 100): Promise<void> {
   for (let i = 0; i < tries && !pred(); i++) await flush();
   expect(pred(), 'condition not reached within timeout').toBe(true);
 }
+
+// FAIL 4 (37.7.8): always reset the global fault seams so a failure can't cascade.
+afterEach(async () => {
+  const escrow = await import('../../server/pokerEscrow');
+  escrow.__setRefundFailure(false); escrow.__setPayoutFailure(false);
+});
 
 describe.skipIf(!TEST_DATABASE_URL)('recovery-cancelled lobby → new paid match is playable (FAIL 1)', () => {
   it('START clears the flag, debits once, unblocks actions/advance; the new match pays out', async () => {

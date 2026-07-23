@@ -92,6 +92,16 @@ also reported at `GET /health/diagnostics` (`version` field).
     banner instead of a silent readiness reset. The rematch lifecycle was extracted into a unit-tested
     helper (`runBankrollRematch`) and verified end-to-end on real PostgreSQL. The recovery banner is now
     rendered **exactly once** per state (the duplicate on the finished screen is gone). EN/UK/DE/AR.
+  - **Settlement-before-stats + permanent invalid freeze (Stage 37.7.8):** a bankroll match's
+    **stats/rating/achievements are now recorded only after a confirmed payout** — never before, never
+    in parallel. Payout and stats run as one serialized flow: a transient payout failure defers the
+    stats (the sweep records them after it finally pays out), an **already-refunded** match records
+    nothing (and becomes a cancelled table), and an **invalid** payout (impossible conservation — a
+    fail-closed operator condition, not a transient error) now **permanently freezes** the table for
+    review instead of retrying the impossible payout every sweep. A frozen table blocks start/action/
+    rematch, shows only the public *frozen* status (no economy leak), and survives restart. The
+    request-level rematch handler was also extracted so the real REMATCH_READY/DECLINE path
+    (authorization, one-vs-all readiness, decline, recovery-blocked, no double-restart) is unit-tested.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip
