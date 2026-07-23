@@ -725,3 +725,31 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   `!pokerRecoveryBlocked` + `allHumansReady`. A DECLINE / disconnect / recovery change that lands while the rematch
   is queued behind a busy lock aborts `runRematch` (no new debit) with an honest `broadcastRematch`/`broadcastRoom`,
   and two queued last-Ready tasks still run the lifecycle at most once (the finished re-check stops the second).
+
+### Paid-finish recovery + teardown correctness (Stage 37.7.10)
+
+- **Bootstrap classifies a PAID finish (FAIL 1):** the restart recovery pass treated any escrow that wasn't
+  `funded`/`settling` — INCLUDING a `settled` (paid) escrow — as a refund, wiping the finished state (and losing
+  owed stats). Extracted `server/pokerBootstrap.ts` `classifyBootstrapRecovery(room, isFinished)` (pure) +
+  `applyBootstrapRecovery`: a restored bankroll room with a game state is now `live` / `payout_pending` /
+  `paid_finish` (settled + finished → keep the result; index.ts sets `pokerStatsPending` so the sweep finalizes
+  stats idempotently, NEVER re-paying) / `cancelled` (refunded) / `frozen`. This also fixes the crash-window where
+  a room persisted `settling` but the durable payout had committed — `reconcileEscrow` promotes it to `settled`,
+  which now classifies as `paid_finish`, not a cancel.
+- **Teardown uses the settle→stats lifecycle (FAIL 2):** `deleteRoomWithSettlement` ran a RAW `payoutStacks`→purge
+  for a finished room and never recorded stats (owed stats lost on teardown). Extracted
+  `server/pokerFinish.ts` `settleRoomForDeletion(room, deps)`: a FINISHED match runs the SAME
+  `settleAndRecordBankrollPokerFinish` (payout → stats) as finish/sweep and returns `'purge'` ONLY when fully
+  resolved (escrow terminal, not frozen, no owed stats); a transient payout/stats `failed` returns `'keep'` (room
+  persisted for the next sweep). Hard invariant: a paid finished room is never purged with stats owed, and a stats
+  retry never re-runs the payout. The delete guard also keeps a room that still carries a finished game.
+- **Immutable stats attribution (FAIL 3):** `recordConfirmedPokerStats` derived `seatUsers` + the human-only gate
+  from the CURRENT `room.members`, which `handleLeave` empties BEFORE teardown — so a valid paid match recorded
+  `skipped` (and cleared the owed flag) once players left. For a bankroll match it now takes the seat→userId
+  snapshot from the persisted **`pokerEscrow.seats`** (authenticated participants captured at buy-in; ≥2, no bots
+  by construction) and keys stats identity on the escrow `matchId`. A missing/malformed escrow for a bankroll room
+  that owes stats returns `failed` (retryable) — never a silent `skipped` that would drop the record. Non-bankroll
+  poker keeps the membership-based fallback.
+- **Persist/broadcast ordering:** the paid finish now computes the stats outcome and sets the final recovery flag
+  (`stats_pending` or cleared) BEFORE the single persist+broadcast, so the table never flickers "rematch enabled"
+  between a confirmed payout and a stats-pending state.

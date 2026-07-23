@@ -385,3 +385,17 @@ behind a busy room lock is **re-validated under the lock** before it starts: the
 finished, the room must not have become recovery-blocked, and every required human must still be ready —
 so a **decline / disconnect / recovery change** that lands while the rematch is queued cancels it (an
 honest readiness/recovery broadcast is sent) instead of starting a match and debiting new buy-ins.
+
+**Paid-finish recovery + teardown (§16, Stage 37.7.10).** On a restart, a restored bankroll table that
+still carries a game state is classified against the durable settlement (after reconciliation): a LIVE
+match, a payout still owed (**payout-pending**), a **PAID finish** (a settled escrow + a finished game →
+keep the result and finalize its stats), a **refund** (cancelled escrow → clean lobby, no stats), or a
+**frozen** table. A settled/paid finish is never mistaken for a refund, and the payout is never re-run —
+only the (idempotent) stats write is completed, exactly once. Room **teardown** (all players left / TTL
+expiry) uses the *same* settle→stats lifecycle: a finished paid table records its owed stats before the
+room is deleted, a transient stats failure keeps the table for a later retry, and the payout is never
+repeated. A finished paid match's stats are attributed from the **immutable participant snapshot**
+captured at buy-in (the persisted escrow seats: seat → authenticated userId), never the current
+connected membership — so a valid match is still recorded after its players have left, and a
+malformed/absent participant snapshot is retried, never silently skipped. The finished screen never
+briefly shows "rematch available" between a confirmed payout and its results being finalized.

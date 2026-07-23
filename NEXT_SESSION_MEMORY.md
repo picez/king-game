@@ -266,3 +266,27 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `pokerStatsPending.test.ts` (pure), `pokerStatsPending.integration.test.ts`, extended `pokerRematchRequest.test.ts`
   (deferred-lock TOCTOU). Updated `pokerFinish.integration.test.ts` to the `.stats` contract. libc 0; migration 0012;
   games 7; achievements 52; v0.4.8. HEAD after commit: see git log (Stage 37.7.9).
+
+### Stage 37.7.10 — paid-finish recovery + teardown correctness (COMPLETE, Unreleased)
+- Worked from HEAD `894ad6e`. No new migration; no version bump. Real PostgreSQL (Docker): all poker suites 0 skipped
+  (**238 poker tests green**); verify PASS **2902 passed | 77 skipped** on the STABLE rerun (first run had 9 flaky
+  forks worker-crashes — NOT a PASS; rerun 0 crashes, E2E PASS). All 3 FAILs reproduced RED first.
+- **FAIL 1 — bootstrap wiped a restored PAID finish.** index.ts recovery pass (d) treated any non-funded/settling
+  escrow (INCLUDING `settled`) as a refund → `pokerMatchCancelled`+gameState=null → stats lost; crash-window
+  (persisted `settling` + durable payout) also mis-cancelled after reconcile→settled. FIX: new `server/pokerBootstrap.ts`
+  `classifyBootstrapRecovery(room, isFinished)` (pure) + `applyBootstrapRecovery`; index.ts pass (d) uses them.
+  `settled`+finished → `paid_finish` (keep state; index sets `pokerStatsPending` → sweep finalizes stats idempotently,
+  NO re-payout); `cancelled` only for refunded/absent escrow. `payout_pending`/`live`/`frozen` distinguished.
+- **FAIL 2 — teardown raw payout→purge bypass.** `deleteRoomWithSettlement` ran raw `payoutStacks`→purge (no stats).
+  FIX: `server/pokerFinish.ts` `settleRoomForDeletion(room, deps)` runs the SAME `settleAndRecordBankrollPokerFinish`
+  for a finished match; purges ONLY when escrow terminal + not frozen + no owed stats; transient `failed` → `keep`
+  (persist, retry, payout never repeated). Delete guard now also enters the lock for any finished bankroll game.
+- **FAIL 3 — stats attribution from current members lost after LEAVE.** `handleLeave` empties members BEFORE teardown
+  → `recordConfirmedPokerStats` saw <2 humans → `skipped` (cleared owed flag). FIX: for a bankroll room it derives
+  `seatUsers` + participant policy from IMMUTABLE `pokerEscrow.seats` (seat→userId, ≥2, no bots by construction) and
+  identity from escrow `matchId`; missing/malformed escrow → `failed` (retryable), never silent `skipped`. Non-bankroll
+  keeps the membership fallback. Also: paid branch computes stats + sets final recovery flag BEFORE the single
+  broadcast (no rematch-enabled flicker).
+- New files: `server/pokerBootstrap.ts`; tests `pokerBootstrap.test.ts` (pure), `pokerBootstrapRecovery.integration.test.ts`,
+  `pokerTeardown.integration.test.ts`, `pokerStatsAttribution.integration.test.ts`. No i18n/schema change; `pokerStatsPending`
+  already persisted (37.7.9). libc 0; migration 0012; games 7; achievements 52; v0.4.8.

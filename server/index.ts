@@ -53,7 +53,8 @@ import { handleClientMessage, type WsContext, type SessionRef } from './wsHandle
 import { getGameDefinition } from '../src/games/registry';
 import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending } from './pokerEscrow';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
-import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats } from './pokerFinish';
+import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
+import { classifyBootstrapRecovery, applyBootstrapRecovery } from './pokerBootstrap';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -974,9 +975,12 @@ function purgeRoom(code: string): void {
  * chips still owed). Non-bankroll / already-settled rooms delete synchronously.
  */
 function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
-  // (37.7.9) A settled-but-STATS-PENDING room has no chips owed but still owes a stats write — keep
-  // it (flush the stats under the lock) rather than purging and losing the record.
-  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending)) { purgeRoom(code); return; }
+  // (37.7.10 FAIL 2) A bankroll room needs the lock-serialized settlement flow when it still owes
+  // chips (unsettled escrow), owes a stats write (stats-pending), OR carries a FINISHED match whose
+  // payout+stats must be finalized before deletion — a finished paid room is NEVER purged on a raw
+  // early exit that skips the stats write. Everything else deletes synchronously.
+  const isFinishedPoker = isBankrollRoom(room) && !!room.gameState && getGameDefinition('poker')?.isFinished(room.gameState) === true;
+  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending && !isFinishedPoker)) { purgeRoom(code); return; }
   // Serialize with any in-flight start/payout/rematch for this room, then reconcile a
   // restored transient escrow (pending/settling) before settling.
   void withRoomLock(code, async () => {
@@ -990,24 +994,15 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
     // (37.7.8) An `invalid`-payout FROZEN room is a PERMANENT operator condition — never auto-pay,
     // auto-refund, or purge it. Keep it (escrow intact) for review.
     if (room.pokerFrozen) { persistRoom(room); return; }
-    // (37.7.9) Escrow is settled but stats are owed → flush the stats before purging; keep the room
-    // (never re-pay) if the write still fails, so the sweep can complete it later.
-    if (!hasUnsettledEscrow(room) && room.pokerStatsPending) {
-      const s = room.gameState as PokerState | null;
-      const stats = s ? await recordConfirmedPokerStats(room, s, statsRecorderDeps()) : 'skipped';
-      if (stats !== 'failed') { room.pokerStatsPending = undefined; purgeRoom(code); }
-      else persistRoom(room);
-      return;
-    }
-    await reconcileEscrow(room);
-    if (!hasUnsettledEscrow(room)) { purgeRoom(code); return; }
-    const state = room.gameState as PokerState | null;
-    const finished = !!state && getGameDefinition('poker')?.isFinished(state) === true;
-    if (finished && state) await payoutStacks(room, state);
-    else await refundBuyIns(room);
-    const st = room.pokerEscrow?.status;
-    if (st === 'settled' || st === 'cancelled') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
-    else { persistRoom(room); } // keep for a retry on the next sweep
+    // (37.7.10) Settle THEN record (same lifecycle as finish/sweep) — a finished paid match records
+    // its owed stats before purge; a transient payout/stats failure keeps the room for the next sweep.
+    const fate = await settleRoomForDeletion(room, {
+      reconcileEscrow, hasUnsettledEscrow,
+      isFinished: (s) => getGameDefinition('poker')?.isFinished(s) === true,
+      settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, bankrollFinishDeps()),
+      refundBuyIns, persist: persistRoom,
+    });
+    if (fate === 'purge') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
   });
 }
 
@@ -1152,20 +1147,24 @@ async function bootstrap(): Promise<void> {
       if (!ok) { r.pokerFrozen = true; console.error(`[King] room ${r.code} FROZEN for operator review (corrupt durable match)`); }
       if (rooms.has(r.code)) persistRoom(r);
     }));
-    // (d) Cancel/advance bankroll rooms that carried a game state across the restart.
+    // (d) Classify + apply recovery for each bankroll room that carried a game state across the
+    // restart — LIVE, PAYOUT-pending, PAID finish (finalize stats, never cancel), CANCELLED, or FROZEN.
     for (const r of restoredRooms) {
       if (!isBankrollRoom(r) || !r.gameState) continue;
-      const esc = r.pokerEscrow;
-      if (esc && (esc.status === 'funded' || esc.status === 'settling')) { rescheduleAdvance(r); continue; } // live funded match
-      if (r.pokerFrozen) continue; // frozen → no advance, kept for operator
-      // The match's buy-ins were refunded (orphan/cancel) → the old game cannot continue for
-      // real chips: terminally cancel it back to a clean lobby.
-      r.pokerMatchCancelled = true;
-      r.gameState = null;
-      r.started = false;
-      clearRoomTimers(r.code);
-      if (rooms.has(r.code)) persistRoom(r);
-      console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
+      const recovery = classifyBootstrapRecovery(r, (s) => getGameDefinition('poker')?.isFinished(s) === true);
+      applyBootstrapRecovery(r, recovery, {
+        rescheduleAdvance,
+        persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },
+        clearTimers: (room) => clearRoomTimers(room.code),
+      });
+      if (recovery === 'paid_finish') {
+        // (37.7.10 FAIL 1) A durable PAID finish restored across a crash → keep the finished state
+        // and finalize stats: mark stats-pending (idempotent via the durable game_key) so the sweep
+        // records them exactly once. NEVER cancel a paid match.
+        r.pokerStatsPending = true;
+        if (rooms.has(r.code)) persistRoom(r);
+      }
+      if (recovery === 'cancelled') console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
     }
   } else {
     // (37.7.4 FAIL 2) No economy (no DB): a restored bankroll room with unsettled escrow FAILS

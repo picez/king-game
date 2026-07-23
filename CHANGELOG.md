@@ -114,6 +114,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     after a player **declined / disconnected** or the table entered a recovery state while it waited —
     the lock body now **re-validates** finished + not-recovery-blocked + everyone-still-ready before
     starting, so withdrawn consent is never acted on.
+  - **Paid-finish recovery + teardown correctness (Stage 37.7.10):** three more real defects fixed.
+    (1) On a real server **restart**, a restored bankroll table whose match was already **paid out**
+    (settled) was mis-classified as a refund — its finished result was wiped and the owed stats lost;
+    bootstrap now distinguishes a live match, a payout still owed, a **paid finish** (keep the result,
+    finalize stats), a refund, and a frozen table, so a settled/paid finish is never cancelled. (2) When
+    the last players **left** a finished table, teardown paid out and deleted the room without ever
+    recording the stats; teardown now runs the **same settle→stats lifecycle** as a normal finish and
+    never deletes a paid table until its stats are recorded (a transient failure keeps the table for a
+    retry; the payout is never repeated). (3) A finished match's stats were attributed from the *current*
+    seats, so a valid human-vs-human match recorded **nothing** once players left — attribution now comes
+    from the **immutable participant snapshot** captured at buy-in, so both players are always credited
+    correctly. The finished screen also no longer flickers "rematch available" for an instant between the
+    payout and the results being finalized.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

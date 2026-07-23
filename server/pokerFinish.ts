@@ -49,23 +49,41 @@ export interface ConfirmedStatsDeps {
  * (retry owed) from a duplicate/skip (already resolved).
  */
 export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerState, deps: ConfirmedStatsDeps): Promise<StatsResult> {
-  // Owner rule: rating/stats count ONLY human-vs-human games (any bot or <2 humans → skip).
-  const players = [...room.members.values()].filter((m) => m.role === 'player');
-  const humanPlayers = players.filter((m) => m.type === 'human').length;
-  const botPlayers = players.filter((m) => m.type === 'ai').length;
-  if (botPlayers > 0 || humanPlayers < 2) return 'skipped';
+  const esc = room.pokerEscrow;
+  const isBankroll = room.gameType === 'poker' && typeof room.pokerBuyIn === 'number' && room.pokerBuyIn > 0;
 
   const seatUsers: SeatUsers = new Map<number, string | null>();
-  for (const m of room.members.values()) {
-    if (m.role === 'player' && m.type === 'human' && m.seatIndex != null && m.userId) {
-      seatUsers.set(m.seatIndex, m.userId);
+  let matchId: string | null = null;
+
+  if (isBankroll) {
+    // (37.7.10 FAIL 3) A finished PAID match's participants are IMMUTABLE — take the seat→userId
+    // snapshot from the persisted escrow.seats, NOT the current room membership (which is emptied by
+    // handleLeave BEFORE teardown). The escrow (authenticated humans, ≥2, no bots — validated at the
+    // debit) IS the historical participant set. A missing/malformed escrow for a bankroll room that
+    // still owes stats must NOT silently become a policy `skipped` (which would clear the owed flag) —
+    // fail so the owed stats keep being retried.
+    if (!esc || !Array.isArray(esc.seats) || esc.seats.length < 2 || !esc.matchId) return 'failed';
+    for (const s of esc.seats) {
+      if (typeof s.userId !== 'string' || !s.userId) return 'failed'; // malformed → don't drop owed stats
+      seatUsers.set(s.seat, s.userId);
     }
+    matchId = esc.matchId;
+  } else {
+    // Non-bankroll poker: no escrow → the owner rule (human-only, ≥2) is checked against membership,
+    // and identity falls back to the content signature. (Bankroll is the only confirmed-stats caller
+    // in practice; this keeps a safe fallback.)
+    const players = [...room.members.values()].filter((m) => m.role === 'player');
+    const humanPlayers = players.filter((m) => m.type === 'human').length;
+    const botPlayers = players.filter((m) => m.type === 'ai').length;
+    if (botPlayers > 0 || humanPlayers < 2) return 'skipped';
+    for (const m of room.members.values()) {
+      if (m.role === 'player' && m.type === 'human' && m.seatIndex != null && m.userId) seatUsers.set(m.seatIndex, m.userId);
+    }
+    if (seatUsers.size === 0) return 'skipped';
   }
-  if (seatUsers.size === 0) return 'skipped';
 
   // STABLE identity: the escrow matchId for a bankroll match (unique per paid match), or a content
   // signature fallback for a non-bankroll table. The marker + the durable games.game_key both key on it.
-  const matchId = room.pokerEscrow?.matchId ?? null;
   const identity = matchId ?? pokerFinishSignature(state);
   if (deps.alreadyRecorded(room.code, identity)) return 'already_exists'; // in-memory dedup (same process)
 
@@ -77,6 +95,57 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
     deps.unmarkRecorded(room.code); // transient DB error → allow a later retry
     return 'failed';
   }
+}
+
+/** Injected side effects for the room-deletion settlement flow (37.7.10 FAIL 2). */
+export interface TeardownDeps {
+  /** Reconcile a restored transient (pending/settling) escrow vs the durable DB settlement. */
+  reconcileEscrow: (room: ServerRoom) => Promise<void>;
+  /** True when the room still holds unsettled escrow (chips owed). */
+  hasUnsettledEscrow: (room: ServerRoom) => boolean;
+  /** True when `state` is a finished poker game. */
+  isFinished: (state: PokerState) => boolean;
+  /** The FULL settle-then-record finish flow (payout → stats), same as the finish/sweep path. */
+  settleAndRecord: (room: ServerRoom, state: PokerState) => Promise<BankrollFinishOutcome>;
+  /** Refund an unfinished funded match. */
+  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
+  /** Persist the room (when kept for a retry). */
+  persist: (room: ServerRoom) => void;
+}
+
+/**
+ * Decide the fate of a bankroll room being torn down. A FINISHED match runs the SAME
+ * settle-then-record lifecycle as the normal finish/sweep (payout → stats) — never a raw
+ * `payoutStacks`→purge that would lose the owed stats (the pre-37.7.10 bug). An UNFINISHED funded
+ * match is refunded. Returns `'purge'` ONLY when fully resolved (escrow terminal, not frozen, and no
+ * owed stats); otherwise `'keep'` (kept + persisted for the next sweep). Call inside `withRoomLock`.
+ *
+ * HARD INVARIANT: a paid finished match is NEVER purged while its stats outcome is a transient
+ * `failed`; and the stats retry NEVER re-runs the payout.
+ */
+export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps): Promise<'purge' | 'keep'> {
+  await deps.reconcileEscrow(room);
+  const state = room.gameState as PokerState | null;
+  const finished = !!state && deps.isFinished(state);
+
+  if (finished && state) {
+    // Pay out (idempotent) + record stats + set the recovery flags (stats-pending / cancelled / frozen).
+    await deps.settleAndRecord(room, state);
+    if (room.pokerFrozen) { deps.persist(room); return 'keep'; }            // invalid payout → operator review
+    const esc = room.pokerEscrow;
+    const escTerminal = !esc || esc.status === 'settled' || esc.status === 'cancelled';
+    if (escTerminal && !room.pokerStatsPending) return 'purge';             // fully resolved
+    deps.persist(room);
+    return 'keep';                                                          // transient payout/stats failure → retry
+  }
+
+  // Unfinished: nothing owed → purge; otherwise refund the funded match.
+  if (!deps.hasUnsettledEscrow(room)) return 'purge';
+  await deps.refundBuyIns(room);
+  const st = room.pokerEscrow?.status;
+  if (st === 'settled' || st === 'cancelled') return 'purge';
+  deps.persist(room);
+  return 'keep';
 }
 
 /** Injected side effects for the settle-then-record finish flow. */
@@ -116,8 +185,10 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
   switch (result) {
     case 'paid':
     case 'already_paid': {
-      deps.persist(room);
-      deps.broadcast(room); // paid → recovery clears → rematch enabled
+      // (37.7.10 ordering) Determine the stats outcome and set the FINAL recovery flag BEFORE any
+      // broadcast — otherwise a broadcast between "paid" and "stats-pending" would briefly show the
+      // table as rematch-enabled. Payout is already settled in the DB; a single persist+broadcast at
+      // the end reflects the true post-finish state (clear → rematch enabled, or stats_pending).
       const stats = await deps.recordStats(room, state);
       if (stats === 'failed') {
         // Money is out but stats aren't durably recorded → STATS-PENDING (retryable, blocks rematch).
