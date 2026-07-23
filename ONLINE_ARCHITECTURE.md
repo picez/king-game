@@ -645,3 +645,33 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Testability (FAIL 4):** a test-only seam `__setRefundFailure(v)` deterministically injects a transient
   refund failure, so the failure path has real fault-injection regression tests (escrow-level + START-handler
   level on real PostgreSQL) instead of an unverified fire-and-forget branch.
+
+### Payout-failure recovery + verified rematch lifecycle (Stage 37.7.7)
+
+- **Payout returns an explicit result (FAIL 1):** `payoutStacks` now returns `PayoutResult`
+  (`paid` | `already_paid` | `already_refunded` | `retry_pending` | `invalid`) instead of void, so
+  every caller drives the finished-table recovery lifecycle. A **transient** failure (`retry_pending`)
+  leaves the escrow `funded`; `already_refunded` (the DB gate says the match was refunded) is honored —
+  the finished table is turned into an honest cancelled lobby, never paid or continued as a paid game.
+- **`payout_pending` is a DERIVED public state — no new field/migration.** `payoutPending(room)` =
+  *bankroll room + escrow `funded`/`settling` + a FINISHED poker game*; `snapshot()` derives
+  `RoomSnapshot.pokerRecovery = 'payout_pending'` from the same shape (checked before `settlement_pending`).
+  `pokerRecoveryBlocked` now also covers it. Three states are kept **distinct** so cleanup/retry never
+  mis-settles: a **live** match (funded + UNFINISHED game — untouched), **settlement-pending** (funded +
+  NO game — retry the refund), and **payout-pending** (funded/settling + FINISHED game — retry the payout).
+- **Symmetric background sweep:** `retryPendingSettlements()` (in `cleanupRooms`) handles BOTH — it retries
+  the refund for settlement-pending rooms and the **payout** (with the authoritative final `PokerState`) for
+  payout-pending rooms, paying out exactly once (settlement gate + ledger keys), then broadcasts so the
+  recovery clears and rematch re-enables. `maybeRecordFinished`'s payout also broadcasts its result.
+- **Rematch waits for a confirmed payout (FAIL 1):** `handleRematch` broadcasts the honest recovery snapshot
+  (instead of silently returning) when `pokerRecoveryBlocked`, and the debit-rejected branch broadcasts too —
+  a Ready press while the payout is pending shows *why*, never a silent readiness reset.
+- **Extracted, unit-tested rematch lifecycle (FAIL 2):** the bankroll rematch body moved to
+  `server/pokerRematch.ts` → `runBankrollRematch(room, deps)` (dependency-injected: `debitRematch`,
+  `refundBuyIns`, `restartGame`, and broadcast/persist/advance callbacks). It is verified on real PostgreSQL:
+  success (fresh matchId, one new debit each, restart+broadcast+advance+persist, dedup no double-debit),
+  debit-rejected (previous not settled → no charge, honest broadcast), and restart-fail+refund-fail
+  (→ settlement-pending, never a false cancelled; a retry then allows a fresh start with a different matchId).
+- **Single recovery banner (FAIL 3):** the banner is owned by `PokerOnlineGame` (it renders it above the
+  active table; `PokerFinished` renders the one on the finish screen) — `OnlineGame`'s poker branch no
+  longer renders its own, so a frozen/recovery finished table shows the banner **exactly once**.

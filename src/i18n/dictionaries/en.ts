@@ -374,6 +374,7 @@ export const EN: Record<string, string> = {
   'poker.recovery.startNew': 'Start a new match',
   'poker.recovery.frozenShort': 'Temporarily unavailable',
   'poker.recovery.settlementPending': 'The previous match is still being settled. This table is temporarily unavailable and will retry automatically.',
+  'poker.recovery.payoutPending': 'The finished match is still paying out. A rematch will be available once the payout is confirmed.',
   'poker.mainPot': 'Main pot',
   'poker.sidePot': 'Side pot',
   'poker.split': 'Split',

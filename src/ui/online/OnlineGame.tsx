@@ -25,7 +25,7 @@ import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
 import type { PreferansState } from '../../games/preferans/types';
 import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
-import { PokerOnlineGame, PokerRecoveryBanner } from '../poker';
+import { PokerOnlineGame } from '../poker';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
@@ -379,8 +379,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'poker') {
     return (
       <>
-        {/* Recovery banner (§16, 37.7.5/37.7.6) — covers a FROZEN / settlement-pending table. */}
-        <PokerRecoveryBanner status={net.room?.pokerRecovery} />
+        {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state). */}
         <PokerOnlineGame
           state={net.state as unknown as PokerState}
           myPlayerId={net.myPlayerId}

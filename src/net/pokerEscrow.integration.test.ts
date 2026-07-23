@@ -554,3 +554,91 @@ describe.skipIf(!TEST_DATABASE_URL)('refund=false fail-closed + settlement retry
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)('payout-failure recovery (Stage 37.7.7, integration)', () => {
+  const FINISHED = { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2 } as unknown as import('../games/poker/types').PokerState;
+
+  it('a transient payout failure leaves the match PAYOUT-pending + retryable; a retry pays exactly once', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const escrow = await import('../../server/pokerEscrow');
+    const { createRoom, addMember, snapshot } = await import('./serverCore');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const A = await users.createAccountUser({ email: null, name: 'PayoA', emailVerified: false });
+    const B = await users.createAccountUser({ email: null, name: 'PayoB', emailVerified: false });
+    await wallet.dailyClaim(A, DAY); await wallet.dailyClaim(B, DAY);
+
+    const r = createRoom({ code: 'PAYO1', playerCount: 2, modeSelectionType: 'fixed', gameType: 'poker', host: { clientId: 'a', reconnectToken: 't', name: 'A', userId: A }, pokerSmallBlind: 25, pokerBigBlind: 50, pokerBuyIn: 5000 });
+    addMember(r, { clientId: 'b', reconnectToken: 't', name: 'B', userId: B });
+    expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
+    const M = r.pokerEscrow!.matchId;
+    r.started = true; r.gameState = FINISHED as unknown as typeof r.gameState;
+
+    // Transient payout failure → retry_pending, escrow stays FUNDED, PAYOUT-pending (not refund-pending).
+    escrow.__setPayoutFailure(true);
+    expect(await escrow.payoutStacks(r, FINISHED)).toBe('retry_pending');
+    expect(r.pokerEscrow!.status).toBe('funded');
+    expect(escrow.payoutPending(r)).toBe(true);
+    expect(escrow.settlementPending(r)).toBe(false);   // has a finished game → NOT refund-pending
+    // Public snapshot = payout_pending, and NO economy internals leak.
+    const snap = snapshot(r, 'a') as unknown as { pokerRecovery?: string; pokerEscrow?: unknown };
+    expect(snap.pokerRecovery).toBe('payout_pending');
+    expect(snap.pokerEscrow).toBeUndefined();
+    // No payout ledger yet; balances still only reflect the buy-in.
+    const n0 = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`;
+    expect((n0 as Array<{ n: number }>)[0].n).toBe(0);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
+
+    // DB recovers → a retry pays out EXACTLY once (escrow → settled, recovery clears).
+    escrow.__setPayoutFailure(false);
+    expect(await escrow.payoutStacks(r, FINISHED)).toBe('paid');
+    expect(r.pokerEscrow!.status).toBe('settled');
+    expect(escrow.payoutPending(r)).toBe(false);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000); // +10000 (seat 0 winner)
+    expect((await wallet.getWalletView(B, DAY)).balance).toBe(995_000);   // busted → no credit
+    // Idempotent repeat is already_paid — no second payout row.
+    expect(await escrow.payoutStacks(r, FINISHED)).toBe('already_paid');
+    const n1 = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`;
+    expect((n1 as Array<{ n: number }>)[0].n).toBe(1);
+    // A rematch is now allowed (previous match settled) → a brand-new matchId, one fresh debit.
+    const rematch = await escrow.debitRematch(r);
+    expect(rematch).toEqual({ ok: true });
+    expect(r.pokerEscrow!.matchId).not.toBe(M);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000); // 1,005,000 - 5000
+
+    escrow.__setPayoutFailure(false);
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id IN (${M}, ${r.pokerEscrow!.matchId})`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+
+  it('a finished match the DB gate says was already REFUNDED pays NOTHING (payout↔refund mutex)', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const escrow = await import('../../server/pokerEscrow');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const A = await users.createAccountUser({ email: null, name: 'RefpA', emailVerified: false });
+    const B = await users.createAccountUser({ email: null, name: 'RefpB', emailVerified: false });
+    await wallet.dailyClaim(A, DAY); await wallet.dailyClaim(B, DAY);
+    const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+    r.gameType = 'poker';
+
+    expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
+    const M = r.pokerEscrow!.matchId;
+    // The match got refunded first (escrow → cancelled), then a stray finish tries to pay.
+    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(r.pokerEscrow!.status).toBe('cancelled');
+    expect(await escrow.payoutStacks(r, FINISHED)).toBe('already_refunded'); // never pays a refunded match
+    // Both balances reflect the REFUND (buy-in returned), never a payout.
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
+    expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);
+    const np = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`;
+    expect((np as Array<{ n: number }>)[0].n).toBe(0);
+
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${M}`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+});

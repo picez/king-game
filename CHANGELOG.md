@@ -79,6 +79,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     — the shared ready-up `RematchControls` on the finish screen starts a new **paid** match only after
     the previous one has settled (suppressed entirely under recovery). EN/UK/DE/AR. Fault-injection +
     real-PostgreSQL tests confirm no double debit/refund/payout and the payout↔refund mutex holds.
+  - **Payout-failure recovery + verified rematch lifecycle (Stage 37.7.7):** the finished-table
+    **payout** now has the same recovery safety the refund path already had. `payoutStacks` returns an
+    explicit result (paid / already-paid / already-refunded / retry-pending / invalid); a **transient
+    payout failure** leaves the escrow funded and surfaces a new honest **“payout pending”** state
+    (a background sweep retries it with the authoritative final hand and pays out **exactly once**), so
+    a finished paid table can no longer hang without paying or offering a misleading rematch. A finished
+    match the settlement gate reports as **already refunded** is turned into an honest cancelled table
+    (never shown/continued as paid). **Live match / refund-pending / payout-pending** are now distinct
+    (a live game is never refunded by cleanup). Online **rematch waits for the confirmed payout** — the
+    ready-up controls are hidden while any recovery is pending and a rematch is refused with an honest
+    banner instead of a silent readiness reset. The rematch lifecycle was extracted into a unit-tested
+    helper (`runBankrollRematch`) and verified end-to-end on real PostgreSQL. The recovery banner is now
+    rendered **exactly once** per state (the duplicate on the finished screen is gone). EN/UK/DE/AR.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

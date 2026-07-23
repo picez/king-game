@@ -101,25 +101,44 @@ async function db(): Promise<PostgresJsDatabase | null> {
   return conn ? (conn.db as PostgresJsDatabase) : null;
 }
 
-// Test-only seam (Stage 37.7.6, FAIL 4): deterministically simulate a TRANSIENT refund
-// failure (refundBuyIns returns false, escrow stays funded) without a broken DB, so the
-// refund=false fail-closed path is a real, verified regression instead of an untested branch.
+// Test-only seams (Stage 37.7.6 FAIL 4 / 37.7.7 FAIL 1): deterministically simulate a
+// TRANSIENT settlement failure — a refund/payout that returns "not confirmed" and leaves the
+// escrow FUNDED — without a broken DB, so the fail-closed retry paths are real, verified
+// regressions instead of untested branches.
 let injectedRefundFailure = false;
 export function __setRefundFailure(v: boolean): void { injectedRefundFailure = v; }
+let injectedPayoutFailure = false;
+export function __setPayoutFailure(v: boolean): void { injectedPayoutFailure = v; }
 
 /**
  * True when a bankroll room holds a FUNDED escrow but has NO live game — a debit whose
  * game never started and whose refund/settlement is not yet confirmed (§16, 37.7.6). Such a
- * room is SETTLEMENT-PENDING: it must not be treated as a playable/cancelled table, must
- * reject gameplay/rematch, and its funded escrow is retried until refunded.
+ * room is SETTLEMENT-PENDING (refund/failed-start pending): it must not be treated as a
+ * playable/cancelled table, must reject gameplay/rematch, and its escrow is retried until
+ * refunded. Distinct from `payoutPending` (a FINISHED game whose payout is not yet confirmed).
  */
 export function settlementPending(room: ServerRoom): boolean {
   return isBankrollRoom(room) && room.pokerEscrow?.status === 'funded' && !room.gameState;
 }
 
-/** Recovery states that block gameplay/rematch (frozen, settlement-pending, or no economy). */
+/**
+ * True when a bankroll room holds an unresolved escrow (`funded`/`settling`) for a FINISHED
+ * poker game whose payout is not yet confirmed (§16, 37.7.7). Distinct from a LIVE match
+ * (funded + UNFINISHED game) and from a refund/failed-start pending room (funded + NO game).
+ * A payout-pending table must block rematch and be retried with the authoritative final state
+ * until the payout settles.
+ */
+export function payoutPending(room: ServerRoom): boolean {
+  if (!isBankrollRoom(room)) return false;
+  const esc = room.pokerEscrow;
+  if (!esc || (esc.status !== 'funded' && esc.status !== 'settling')) return false;
+  const state = room.gameState as PokerState | null;
+  return !!state && state.phase === 'game_finished';
+}
+
+/** Recovery states that block gameplay/rematch (frozen, settlement-/payout-pending, or no economy). */
 export function pokerRecoveryBlocked(room: ServerRoom): boolean {
-  return !!room.pokerFrozen || settlementPending(room) || bankrollEconomyUnavailable(room);
+  return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || bankrollEconomyUnavailable(room);
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
@@ -271,20 +290,38 @@ export function validatePayoutConservation(esc: PokerEscrow, state: PokerState):
 }
 
 /**
- * Credit each participant's authoritative FINAL stack at game_finished. Conservation is
- * validated first (fail closed). The DB settlement gate makes this mutually exclusive
- * with a refund: if the match was already refunded, this becomes a no-op that just marks
- * the local escrow cancelled. Idempotent; a rebroadcast/reconnect/restart never double-pays.
+ * Explicit outcome of a payout attempt (§16, 37.7.7) so callers can drive the finished-table
+ * recovery lifecycle instead of guessing from a void:
+ *   • paid            — the payout committed this call (escrow → settled);
+ *   • already_paid    — the escrow was already settled (idempotent no-op);
+ *   • already_refunded— the DB gate says the match was REFUNDED (escrow → cancelled): never
+ *                       show/continue it as a paid game (the caller cancels the finished table);
+ *   • retry_pending   — a TRANSIENT failure (DB down / injected): escrow left FUNDED, retryable;
+ *   • invalid         — conservation/economy check failed CLOSED (no wallet mutation, left funded).
  */
-export async function payoutStacks(room: ServerRoom, state: PokerState): Promise<void> {
+export type PayoutResult = 'paid' | 'already_paid' | 'already_refunded' | 'retry_pending' | 'invalid';
+
+/**
+ * Credit each participant's authoritative FINAL stack at game_finished. Conservation is
+ * validated first (fail closed). The DB settlement gate makes this mutually exclusive with a
+ * refund: if the match was already refunded, this pays nothing and reports `already_refunded`.
+ * Idempotent; a rebroadcast/reconnect/restart/retry never double-pays. A transient DB failure
+ * leaves the escrow FUNDED so the finished-table settlement sweep can retry it.
+ */
+export async function payoutStacks(room: ServerRoom, state: PokerState): Promise<PayoutResult> {
   const esc = room.pokerEscrow;
-  if (!esc || esc.status !== 'funded' || !isDbEnabled()) return;
+  if (!esc) return 'invalid';                                          // nothing escrowed
+  if (esc.status === 'settled') return 'already_paid';                 // idempotent
+  if (esc.status === 'cancelled') return 'already_refunded';           // already refunded (mutex)
+  if (esc.status !== 'funded') return 'retry_pending';                 // pending/settling in flight → retry
+  if (!isDbEnabled()) return 'retry_pending';                          // economy down → retry when DB is back
   const conserve = validatePayoutConservation(esc, state);
   if (!conserve.ok) {
     console.error(`[Poker] payout REFUSED for match ${esc.matchId} — ${conserve.error} (escrow left funded)`);
-    return; // fail closed: leave funded, no wallet mutation
+    return 'invalid'; // fail closed: leave funded, no wallet mutation
   }
   esc.status = 'settling'; // in-memory fast-path hint (the DB gate is authoritative)
+  if (injectedPayoutFailure) { esc.status = 'funded'; return 'retry_pending'; } // test seam: transient payout failure
   try {
     await settleMatchTx(esc.matchId, 'payout', async (tx) => {
       for (const s of esc.seats) {
@@ -295,9 +332,11 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
       }
     });
     esc.status = 'settled';
+    return 'paid';
   } catch (err) {
-    if (err instanceof SettlementConflictError) { esc.status = 'cancelled'; return; } // already refunded → do not pay
+    if (err instanceof SettlementConflictError) { esc.status = 'cancelled'; return 'already_refunded'; } // already refunded → do not pay
     esc.status = 'funded'; // transient DB error → retryable
+    return 'retry_pending';
   }
 }
 

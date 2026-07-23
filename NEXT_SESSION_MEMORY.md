@@ -185,3 +185,30 @@ Use this file as the first read after archiving this chat. It is intentionally s
   fresh, one net debit, old ledger intact, payout once) + `pokerRecovery.integration.test.ts` (START handler:
   SETTLEMENT_PENDING + honest snapshot, no new match; retry→fresh) + `pokerRecoveryUi.test.ts` (FAIL 2/3 UI).
 - verify PASS 2846; libc 0; latest migration 0012; game count 7; achievements 52; version 0.4.8 (no bump).
+
+### Stage 37.7.7 — payout-failure recovery + verified rematch lifecycle (COMPLETE, Unreleased)
+- Worked from HEAD `e622989`. No new migration; no version bump. Real PostgreSQL (Docker): all poker DB
+  suites 0 skipped; verify PASS (stable rerun, **0 worker crashes**).
+- **FAIL 1 — payout had no recovery lifecycle.** `payoutStacks` now returns `PayoutResult`
+  (`paid`|`already_paid`|`already_refunded`|`retry_pending`|`invalid`), not void. Transient failure →
+  `retry_pending` (escrow left `funded`); `already_refunded` → honest cancelled table (never paid). New
+  `payoutPending(room)` = bankroll + escrow funded/settling + FINISHED game; `pokerRecoveryBlocked` covers it;
+  `snapshot()` derives `pokerRecovery:'payout_pending'` (checked before settlement_pending). Sweep unified into
+  `retryPendingSettlements()` (refund for settlement-pending, PAYOUT for payout-pending, exactly once).
+  `maybeRecordFinished` broadcasts the payout result; a Ready press while pending broadcasts the honest snapshot
+  (no silent reset). Distinguish LIVE (funded+unfinished, untouched) / refund-pending (funded+no game) /
+  payout-pending (funded/settling+finished). Test seam `__setPayoutFailure(v)`.
+- **FAIL 2 — rematch lifecycle now testable + verified.** Extracted `server/pokerRematch.ts`
+  `runBankrollRematch(room, deps)` (DI: debitRematch/refundBuyIns/restartGame + broadcast/persist/advance
+  callbacks); `handleRematch` calls it. Real-PG tests: success (fresh matchId, one debit each, broadcast/advance/
+  persist, dedup), debit_rejected (previous unsettled → no charge, honest broadcast), restart-fail+refund-fail
+  → settlement_pending (not false cancelled) → retry → fresh start different matchId. NOTE: `REMATCH_READY` is
+  routed in `server/index.ts` (NOT `wsHandlers.handleClientMessage`), so drive rematch via the helper, not that fn.
+- **FAIL 3 — duplicate recovery banner removed.** Banner now owned by `PokerOnlineGame` (active table) +
+  `PokerFinished` (finish screen); `OnlineGame` poker branch no longer renders its own. UI test counts exactly one.
+- **FAIL 4 — test-count explained.** 37.7.6's `2846` was a flaky forks-pool run with 2 "worker exited
+  unexpectedly" crashes (dropped ~17 tallies). Clean baseline at e622989 = **2863 passed | 54 skipped (2917)**;
+  after 37.7.7 = **2870 passed | 59 skipped (2929)** (+7 UI passed, +5 DB-gated skipped). Never accept a
+  worker-crash run — rerun until 0 crashes.
+- New keys `poker.recovery.payoutPending` (EN/UK/DE/AR); `PokerRecoveryStatus`/`RoomSnapshot.pokerRecovery`
+  gained `'payout_pending'`. verify PASS 2870/59; libc 0; migration 0012; games 7; achievements 52; v0.4.8.

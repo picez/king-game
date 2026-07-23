@@ -1170,10 +1170,16 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
     ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
     ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
-    // Minimal PUBLIC recovery status (§16, 37.7.4/37.7.6) — no economy internals. Precedence:
-    // frozen (corrupt/operator) > settlement_pending (a FUNDED escrow with no live game = a
-    // debit whose refund/settlement is not yet confirmed) > cancelled (resolved, start fresh).
+    // Minimal PUBLIC recovery status (§16, 37.7.4/37.7.6/37.7.7) — no economy internals.
+    // Precedence: frozen (corrupt/operator) > payout_pending (a FINISHED game whose payout is
+    // not yet confirmed: funded/settling escrow + finished state) > settlement_pending (a FUNDED
+    // escrow with NO live game = a failed-start/refund pending) > cancelled (resolved, start fresh).
+    // A LIVE match (funded escrow + UNFINISHED game) yields NO recovery status.
     ...(room.pokerFrozen ? { pokerRecovery: 'frozen' as const }
+      : (room.gameType === 'poker'
+          && (room.pokerEscrow?.status === 'funded' || room.pokerEscrow?.status === 'settling')
+          && (room.gameState as { phase?: string } | null)?.phase === 'game_finished')
+        ? { pokerRecovery: 'payout_pending' as const }
       : (room.gameType === 'poker' && room.pokerEscrow?.status === 'funded' && !room.gameState) ? { pokerRecovery: 'settlement_pending' as const }
         : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
     playerCount: room.playerCount,

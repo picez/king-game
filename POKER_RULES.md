@@ -344,3 +344,17 @@ The recovery table UI is **read-only** in the frozen and settlement-pending stat
 next-hand controls). **Rematch** on the finish screen starts a brand-new **paid** match (a fresh
 matchId, one new debit) via the shared ready-up control — and only after the previous match has
 settled; it is suppressed entirely while the table is in any recovery state.
+
+**Payout-pending (§16, Stage 37.7.7).** Symmetric to settlement-pending, but for the *finished*
+table: if the end-of-match **payout** cannot be confirmed (a transient DB failure), the escrow stays
+**funded** and the finished table is **payout-pending** — publicly shown as *“the finished match is
+still paying out; a rematch will be available once the payout is confirmed”* (derived as *bankroll
+room + funded/settling escrow + a FINISHED game*; no economy data leaked). A background sweep retries
+the payout with the authoritative final hand and pays out **exactly once**; the table is read-only and
+**rematch is blocked** until the payout settles. Three states are kept distinct so cleanup never
+mis-settles: a **live** match (funded + UNFINISHED game, never touched), a **refund/failed-start
+pending** table (funded + NO game → retry the refund), and a **payout-pending** table (funded/settling
++ FINISHED game → retry the payout). If the settlement gate reports a finished match was already
+**refunded**, it is turned into an honest cancelled table and never paid or continued as a paid game.
+A **rematch** is a brand-new paid match only after the previous payout is confirmed; while any recovery
+is pending the rematch is refused with an honest banner, never a silent readiness reset.

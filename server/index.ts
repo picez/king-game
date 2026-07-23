@@ -51,7 +51,8 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending } from './pokerEscrow';
+import { runBankrollRematch } from './pokerRematch';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -356,8 +357,10 @@ function handleRematch(session: SessionRef, decline: boolean): void {
   if (!s) return;
   const room = s.room;
   if (!isRoomFinished(room)) return;                 // only offerable once the game is over
-  // (37.7.4/37.7.6) A frozen / settlement-pending / economy-unavailable room can't rematch.
-  if (pokerRecoveryBlocked(room)) return;
+  // (37.7.4/37.7.6/37.7.7) A frozen / settlement-pending / PAYOUT-pending / economy-unavailable
+  // room can't rematch yet. Broadcast the honest recovery snapshot so the user sees WHY (e.g.
+  // the previous match's payout is still settling) instead of a silent no-op.
+  if (pokerRecoveryBlocked(room)) { broadcastRoom(room); return; }
   const me = room.members.get(s.clientId);
   if (!me || me.role !== 'player' || me.type !== 'human') return;
 
@@ -365,37 +368,21 @@ function handleRematch(session: SessionRef, decline: boolean): void {
 
   markRematchReady(room, s.clientId);
   if (allHumansReady(room)) {
-    // Bankroll poker (§16, 37.7.1): a rematch is a BRAND-NEW paid match. Serialize with the
-    // room lock (so the previous match's payout resolves first), debit a FRESH buy-in with a
-    // NEW matchId, and only restart on a successful debit. A committed debit whose restart
-    // then fails is refunded immediately. Insufficient chips → no restart, no charge.
+    // Bankroll poker (§16, 37.7.1/37.7.7): a rematch is a BRAND-NEW paid match. Serialize with
+    // the room lock (so the previous match's payout resolves FIRST), then run the extracted,
+    // unit-tested lifecycle helper: debit a fresh match → restart → refund-on-failure → broadcast.
     if (isBankrollRoom(room)) {
       void withRoomLock(room.code, async () => {
         if (!isRoomFinished(room)) return;                 // already restarted / changed → no double debit
-        const debit = await debitRematch(room);
-        if (!debit.ok) { clearRematch(room); broadcastRematch(room); return; }
-        recordedFinish.delete(room.code);
-        clearRematch(room);
-        const res = restartGame(room, { now: Date.now() });
-        if (!res.ok) {
-          // (37.7.5/37.7.6) Rematch failure safety: the debit committed but restart failed →
-          // attempt a refund. Mark CANCELLED only when the refund is CONFIRMED; a failed refund
-          // leaves a funded escrow (settlement-pending) that keeps retrying — NEVER a false
-          // "refunded/cancelled". restartGame already cleared the game state either way.
-          const refunded = await refundBuyIns(room);
-          room.started = false;
-          room.gameState = null;
-          if (refunded) room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
-          clearRematch(room);
-          persistRoom(room);
-          broadcastRoom(room); // honest public snapshot (cancelled OR settlement_pending)
-          return;
-        }
-        room.pokerMatchCancelled = undefined; // (37.7.4 FAIL 1) a rematch never inherits stale recovery flags
-        logLatestDeal(room);
-        broadcastRoom(room);
-        broadcastAndAdvance(room, { turnAdvanced: true });
-        persistRoom(room);
+        await runBankrollRematch(room, {
+          debitRematch, refundBuyIns,
+          restartGame: (r) => restartGame(r, { now: Date.now() }),
+          clearRematch, broadcastRematch, broadcastRoom,
+          advance: (r) => broadcastAndAdvance(r, { turnAdvanced: true }),
+          persist: persistRoom,
+          forgetFinish: (r) => recordedFinish.delete(r.code),
+          logDeal: logLatestDeal,
+        });
       });
       return;
     }
@@ -499,7 +486,21 @@ function maybeRecordFinished(room: ServerRoom): void {
   // ledger keys make a rebroadcast/reconnect/restart never double-pay.
   if (isBankrollRoom(room) && room.gameType === 'poker') {
     // Serialize with the room lock so a rematch debit queues AFTER this payout resolves.
-    void withRoomLock(room.code, () => payoutStacks(room, state as PokerState)).then(() => persistRoom(room)).catch(() => {});
+    void withRoomLock(room.code, async () => {
+      const result = await payoutStacks(room, state as PokerState);
+      // (37.7.7) A finished match the DB gate says was already REFUNDED must NEVER be shown/continued
+      // as a paid game → turn it into an honest cancelled lobby (no stacks paid). A transient failure
+      // (retry_pending) leaves the funded escrow for the settlement sweep; the broadcast surfaces the
+      // payout-pending recovery status (which suppresses rematch until the payout is confirmed).
+      if (result === 'already_refunded') {
+        room.started = false;
+        room.gameState = null;
+        room.pokerMatchCancelled = true;
+        clearRematch(room);
+      }
+      persistRoom(room);
+      broadcastRoom(room); // reflect paid → rematch enabled, or payout_pending / cancelled
+    }).catch(() => {});
   }
 
   // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
@@ -987,24 +988,50 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
 }
 
 /**
- * Retry the refund for any SETTLEMENT-PENDING bankroll room (a funded escrow whose game
- * never started because a prior refund failed transiently, §16, 37.7.6). Once the DB
- * recovers the refund succeeds → the room becomes a resolved CANCELLED lobby a fresh START
- * can use. Serialized per room; idempotent (the settlement gate + ledger keys no-op).
+ * Retry the pending settlement for any bankroll room whose last DB settlement failed
+ * transiently (§16, 37.7.6/37.7.7). Two SYMMETRIC cases, distinguished so a live match is
+ * NEVER touched:
+ *   • SETTLEMENT-pending (funded escrow + NO game): a failed-start/refund → retry the REFUND;
+ *     on success the room becomes a resolved CANCELLED lobby a fresh START can use.
+ *   • PAYOUT-pending (funded/settling escrow + a FINISHED game): a failed payout → retry the
+ *     PAYOUT with the authoritative final state; on success the escrow settles and rematch is
+ *     re-enabled. If the DB gate reports the match was refunded, cancel the finished table
+ *     honestly (never pay/continue it as a paid game).
+ * A LIVE match (funded + UNFINISHED game) matches neither and is left running. Serialized per
+ * room; idempotent (the settlement gate + ledger keys no-op on a repeat).
  */
-function retrySettlementPending(): void {
+function retryPendingSettlements(): void {
   for (const room of rooms.values()) {
-    if (!settlementPending(room)) continue;
-    void withRoomLock(room.code, async () => {
-      if (!rooms.has(room.code) || !settlementPending(room)) return;
-      const refunded = await refundBuyIns(room);
-      if (refunded) {
-        room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
-        persistRoom(room);
-        broadcastRoom(room);
-        console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
-      }
-    });
+    if (settlementPending(room)) {
+      void withRoomLock(room.code, async () => {
+        if (!rooms.has(room.code) || !settlementPending(room)) return;
+        const refunded = await refundBuyIns(room);
+        if (refunded) {
+          room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
+          persistRoom(room);
+          broadcastRoom(room);
+          console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
+        }
+      });
+    } else if (payoutPending(room)) {
+      void withRoomLock(room.code, async () => {
+        if (!rooms.has(room.code) || !payoutPending(room)) return;
+        const result = await payoutStacks(room, room.gameState as PokerState);
+        if (result === 'paid' || result === 'already_paid') {
+          persistRoom(room);
+          broadcastRoom(room); // payout confirmed → recovery clears → rematch enabled
+          console.log(`[King] payout-pending resolved for room ${room.code}`);
+        } else if (result === 'already_refunded') {
+          room.started = false;
+          room.gameState = null;
+          room.pokerMatchCancelled = true;
+          clearRematch(room);
+          persistRoom(room);
+          broadcastRoom(room);
+        }
+        // retry_pending / invalid → leave funded for the next sweep
+      });
+    }
   }
 }
 
@@ -1016,7 +1043,7 @@ function cleanupRooms(): number {
     else purgeRoom(code);
     console.log(`[King] auto-cleaned idle room ${code}`);
   }
-  retrySettlementPending(); // (37.7.6) resolve any funded orphan whose refund failed transiently
+  retryPendingSettlements(); // (37.7.6/37.7.7) resolve any refund/payout that failed transiently
   // Reclaim per-IP tracking for hosts with no open sockets (bounded memory).
   ipLimiter.sweep(Date.now());
   return expired.length;
