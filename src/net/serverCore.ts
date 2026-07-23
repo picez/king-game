@@ -159,6 +159,11 @@ export interface ServerRoom {
   /** Stage 37.7.3 (FAIL 5): a room with a CORRUPT durable match that can't be safely settled
    *  is FROZEN — no gameplay/advance/start — and kept for operator review (never partially settled). */
   pokerFrozen?: boolean;
+  /** Stage 37.7.9 (FAIL 2): a bankroll match was PAID (money is out) but its stats write then failed
+   *  TRANSIENTLY. Persisted + restart-surviving: the settlement sweep retries the STATS write (never
+   *  re-pays), and a new paid rematch is blocked until it resolves. Cleared once stats are recorded
+   *  (or the durable row already exists / no stats are owed). */
+  pokerStatsPending?: boolean;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -1181,6 +1186,9 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
           && (room.gameState as { phase?: string } | null)?.phase === 'game_finished')
         ? { pokerRecovery: 'payout_pending' as const }
       : (room.gameType === 'poker' && room.pokerEscrow?.status === 'funded' && !room.gameState) ? { pokerRecovery: 'settlement_pending' as const }
+      // stats_pending (37.7.9): the match was PAID but its stats write is still owed — money is out,
+      // so it is NOT payout_pending. Blocks a new paid rematch; carries no economy internals.
+      : (room.gameType === 'poker' && room.pokerStatsPending) ? { pokerRecovery: 'stats_pending' as const }
         : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1329,6 +1337,8 @@ export interface PersistedRoom {
   /** Persist the terminal-cancel / frozen recovery markers (§16, 37.7.3). */
   pokerMatchCancelled?: boolean;
   pokerFrozen?: boolean;
+  /** Persist the stats-pending marker so a paid finish's owed stats survive a restart (§16, 37.7.9). */
+  pokerStatsPending?: boolean;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1368,6 +1378,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerEscrowCorrupt: room.pokerEscrowCorrupt,
     pokerMatchCancelled: room.pokerMatchCancelled,
     pokerFrozen: room.pokerFrozen,
+    pokerStatsPending: room.pokerStatsPending,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1501,6 +1512,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerEscrowCorrupt: escrowResult.corrupt,
     pokerMatchCancelled: o.pokerMatchCancelled === true ? true : undefined,
     pokerFrozen: o.pokerFrozen === true ? true : undefined,
+    pokerStatsPending: o.pokerStatsPending === true ? true : undefined,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

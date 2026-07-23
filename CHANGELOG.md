@@ -102,6 +102,18 @@ also reported at `GET /health/diagnostics` (`version` field).
     rematch, shows only the public *frozen* status (no economy leak), and survives restart. The
     request-level rematch handler was also extracted so the real REMATCH_READY/DECLINE path
     (authorization, one-vs-all readiness, decline, recovery-blocked, no double-restart) is unit-tested.
+  - **Finish/rematch correctness hardening (Stage 37.7.9):** three real defects fixed. (1) Two
+    consecutive paid matches in the same room that ended with an **identical result** collided on the
+    durable stats key, silently dropping the second match's stats — bankroll stats identity now comes
+    from the **stable unique escrow match id** (hashed; never exposed), so every paid match is recorded
+    once. (2) A payout that **succeeded** but whose stats write then failed transiently could lose the
+    stats forever (the escrow was already settled, so nothing retried) — a paid finish with an owed
+    stats write is now a **persisted stats-pending** state that blocks a new paid rematch (but never
+    re-pays), is retried by the background sweep until it records **exactly once**, and survives a
+    restart. (3) A rematch queued behind a busy room lock could still start (and debit new buy-ins)
+    after a player **declined / disconnected** or the table entered a recovery state while it waited —
+    the lock body now **re-validates** finished + not-recovery-blocked + everyone-still-ready before
+    starting, so withdrawn consent is never acted on.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

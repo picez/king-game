@@ -141,7 +141,13 @@ export function handleRematchRequest(session: RematchSession, decline: boolean, 
 
   if (deps.isBankrollRoom(room)) {
     void deps.withRoomLock(room.code, async () => {
+      // (37.7.9 FAIL 3) TOCTOU: consent/recovery/readiness were checked BEFORE the lock; while this
+      // callback waited behind a busy lock a player may have DECLINEd / disconnected, or the room may
+      // have entered a recovery state. Re-validate EVERYTHING under the lock — never act on stale
+      // consent. Any failing check aborts with an honest broadcast; runRematch (and its debit) never runs.
       if (!deps.isRoomFinished(room)) return;              // already restarted/changed → no double debit
+      if (deps.pokerRecoveryBlocked(room)) { deps.broadcastRoom(room); return; } // recovery changed while queued
+      if (!deps.allHumansReady(room)) { deps.broadcastRematch(room); return; }    // consent withdrawn while queued
       await deps.runRematch(room);
     });
     return 'restart_scheduled';

@@ -94,7 +94,7 @@ export interface RoomSnapshot {
   /** Minimal PUBLIC recovery status (§16, 37.7.4) — NEVER any userId/matchId/escrow. Lets the
    *  client show a banner: the previous match was cancelled (buy-ins refunded) or the table is
    *  frozen (temporarily unavailable). Omitted once a fresh match starts. */
-  pokerRecovery?: 'cancelled' | 'frozen' | 'settlement_pending' | 'payout_pending';
+  pokerRecovery?: 'cancelled' | 'frozen' | 'settlement_pending' | 'payout_pending' | 'stats_pending';
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';

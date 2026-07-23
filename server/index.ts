@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending } from './pokerEscrow';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats } from './pokerFinish';
 import { durakFinishSignature } from '../src/net/durakStats';
@@ -469,6 +469,19 @@ function freezeRoomForOperator(room: ServerRoom, reason: string): void {
   console.error(`[Poker] room ${room.code} FROZEN for operator review — ${reason}`);
 }
 
+/** The confirmed-stats recorder deps (37.7.8/37.7.9) — shared by the finish flow AND the sweep. */
+function statsRecorderDeps(): import('./pokerFinish').ConfirmedStatsDeps {
+  return {
+    // (37.7.9 FAIL 1) The dedup marker + the durable games.game_key both key on the STABLE escrow
+    // matchId, so two identical-outcome matches in the same room never collide.
+    alreadyRecorded: (code, identity) => recordedFinish.get(code) === identity,
+    markRecorded: (code, identity) => { recordedFinish.set(code, identity); },
+    unmarkRecorded: (code) => { recordedFinish.delete(code); },
+    record: async (code, st, seatUsers, matchId) =>
+      (await import('./db/pokerStats')).recordFinishedPokerGame(code, st, seatUsers, matchId),
+  };
+}
+
 /** The shared deps for the settle-then-record bankroll poker finish flow (37.7.8). */
 function bankrollFinishDeps(): import('./pokerFinish').BankrollFinishDeps {
   return {
@@ -477,13 +490,7 @@ function bankrollFinishDeps(): import('./pokerFinish').BankrollFinishDeps {
     broadcast: broadcastRoom,
     clearRematch,
     freeze: freezeRoomForOperator,
-    recordStats: (room, state) => recordConfirmedPokerStats(room, state, {
-      alreadyRecorded: (code, sig) => recordedFinish.get(code) === sig,
-      markRecorded: (code, sig) => { recordedFinish.set(code, sig); },
-      unmarkRecorded: (code) => { recordedFinish.delete(code); },
-      record: async (code, st, seatUsers) =>
-        (await import('./db/pokerStats')).recordFinishedPokerGame(code, st, seatUsers),
-    }),
+    recordStats: (room, state) => recordConfirmedPokerStats(room, state, statsRecorderDeps()),
   };
 }
 
@@ -967,7 +974,9 @@ function purgeRoom(code: string): void {
  * chips still owed). Non-bankroll / already-settled rooms delete synchronously.
  */
 function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
-  if (!isBankrollRoom(room) || !hasUnsettledEscrow(room)) { purgeRoom(code); return; }
+  // (37.7.9) A settled-but-STATS-PENDING room has no chips owed but still owes a stats write — keep
+  // it (flush the stats under the lock) rather than purging and losing the record.
+  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending)) { purgeRoom(code); return; }
   // Serialize with any in-flight start/payout/rematch for this room, then reconcile a
   // restored transient escrow (pending/settling) before settling.
   void withRoomLock(code, async () => {
@@ -981,6 +990,15 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
     // (37.7.8) An `invalid`-payout FROZEN room is a PERMANENT operator condition — never auto-pay,
     // auto-refund, or purge it. Keep it (escrow intact) for review.
     if (room.pokerFrozen) { persistRoom(room); return; }
+    // (37.7.9) Escrow is settled but stats are owed → flush the stats before purging; keep the room
+    // (never re-pay) if the write still fails, so the sweep can complete it later.
+    if (!hasUnsettledEscrow(room) && room.pokerStatsPending) {
+      const s = room.gameState as PokerState | null;
+      const stats = s ? await recordConfirmedPokerStats(room, s, statsRecorderDeps()) : 'skipped';
+      if (stats !== 'failed') { room.pokerStatsPending = undefined; purgeRoom(code); }
+      else persistRoom(room);
+      return;
+    }
     await reconcileEscrow(room);
     if (!hasUnsettledEscrow(room)) { purgeRoom(code); return; }
     const state = room.gameState as PokerState | null;
@@ -1003,8 +1021,11 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
  *     PAYOUT with the authoritative final state; on success the escrow settles and rematch is
  *     re-enabled. If the DB gate reports the match was refunded, cancel the finished table
  *     honestly (never pay/continue it as a paid game).
- * A LIVE match (funded + UNFINISHED game) matches neither and is left running. Serialized per
+ * A LIVE match (funded + UNFINISHED game) matches none and is left running. Serialized per
  * room; idempotent (the settlement gate + ledger keys no-op on a repeat).
+ *   • STATS-pending (37.7.9 FAIL 2): a PAID match (settled) whose stats write failed transiently →
+ *     retry ONLY the stats write (never re-pay). On success/duplicate the flag clears + rematch
+ *     re-enables. This survives restart (the flag is persisted).
  */
 function retryPendingSettlements(): void {
   for (const room of rooms.values()) {
@@ -1027,6 +1048,20 @@ function retryPendingSettlements(): void {
         // (payoutPending now excludes frozen, so the sweep will never retry it again).
         const { result } = await settleAndRecordBankrollPokerFinish(room, room.gameState as PokerState, bankrollFinishDeps());
         if (result === 'paid' || result === 'already_paid') console.log(`[King] payout-pending resolved for room ${room.code}`);
+      });
+    } else if (statsPending(room)) {
+      void withRoomLock(room.code, async () => {
+        if (!rooms.has(room.code) || !statsPending(room)) return;
+        // (37.7.9 FAIL 2) The payout already settled — retry ONLY the stats write, NEVER the payout.
+        const state = room.gameState as PokerState | null;
+        if (!state) { room.pokerStatsPending = undefined; persistRoom(room); return; } // no finished state → nothing to record
+        const stats = await recordConfirmedPokerStats(room, state, statsRecorderDeps());
+        if (stats !== 'failed') {
+          room.pokerStatsPending = undefined; // recorded / already_exists / skipped → resolved
+          persistRoom(room);
+          broadcastRoom(room); // recovery clears → rematch re-enabled
+          console.log(`[King] stats-pending resolved for room ${room.code} (${stats})`);
+        }
       });
     }
   }

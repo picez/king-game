@@ -375,6 +375,7 @@ export const AR: Record<string, string> = {
   'poker.recovery.frozenShort': 'غير متاح مؤقتًا',
   'poker.recovery.settlementPending': 'لا تزال المباراة السابقة قيد التسوية. هذه الطاولة غير متاحة مؤقتًا وستُعيد المحاولة تلقائيًا.',
   'poker.recovery.payoutPending': 'لا تزال المباراة المنتهية تُوزّع الأرباح. ستتوفّر إعادة المباراة بمجرد تأكيد الدفع.',
+  'poker.recovery.statsPending': 'تمت تسوية المباراة؛ جارٍ إنهاء النتائج. ستتوفّر إعادة المباراة بعد لحظة.',
   'poker.mainPot': 'القِدر الرئيسي',
   'poker.sidePot': 'قِدر جانبي',
   'poker.split': 'تقاسم',

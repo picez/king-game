@@ -36,8 +36,16 @@ async function database(): Promise<PostgresJsDatabase> {
   return conn.db as PostgresJsDatabase;
 }
 
-/** Deterministic per-game identity: room code + winner seat + hands + winners. */
-function gameKey(roomCode: string, summary: PokerFinishedSummary): string {
+/**
+ * Deterministic per-game identity (§16, 37.7.9 FAIL 1). For a BANKROLL match, identity MUST come
+ * from the STABLE UNIQUE escrow `matchId` (hashed with the game type) — two consecutive paid
+ * matches/rematches in the SAME room can finish with an IDENTICAL outcome, so a content-only key
+ * (winner/hands/winners) would collide and silently drop the second match's stats. The raw matchId
+ * is never stored/exposed — only its `poker|<matchId>` hash. Non-bankroll poker (no matchId) keeps
+ * the content-based fallback (room code + outcome).
+ */
+function gameKey(roomCode: string, summary: PokerFinishedSummary, matchId?: string | null): string {
+  if (matchId) return createHash('sha256').update(`${POKER}|match|${matchId}`).digest('hex');
   const outcome = `${summary.winnerSeat ?? 'none'}|${summary.handsPlayed}`;
   const winners = [...summary.winners].sort().join(',');
   return createHash('sha256').update(`${POKER}|${roomCode}|${outcome}|${winners}`).digest('hex');
@@ -87,6 +95,7 @@ export async function recordFinishedPokerGame(
   roomCode: string,
   state: PokerState,
   seatUsers: SeatUsers,
+  matchId?: string | null,
 ): Promise<RecordResult> {
   if (!isFinishedPokerGame(state)) return { recorded: false };
 
@@ -95,7 +104,7 @@ export async function recordFinishedPokerGame(
 
   const deltas = computePokerStatDeltas(summary);
   const deltaByPlayer = new Map(deltas.map((d) => [d.playerId, d]));
-  const key = gameKey(roomCode, summary);
+  const key = gameKey(roomCode, summary, matchId);
   const winnerUserId = summary.winnerSeat != null ? (seatUsers.get(summary.winnerSeat) ?? null) : null;
 
   const db = await database();

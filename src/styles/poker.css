@@ -293,7 +293,8 @@
 }
 .poker-recovery-banner--frozen,
 .poker-recovery-banner--settlement_pending,
-.poker-recovery-banner--payout_pending {
+.poker-recovery-banner--payout_pending,
+.poker-recovery-banner--stats_pending {
   background: rgba(224, 160, 32, 0.16); border: 1px solid rgba(224, 160, 32, 0.55); color: var(--text, inherit);
 }
 

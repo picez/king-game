@@ -239,3 +239,30 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - New files: `server/pokerFinish.ts`, tests `pokerFinish.integration.test.ts` (FAIL1, DB), `pokerFrozenInvalid.test.ts`
   (FAIL2, pure), `pokerRematchRequest.test.ts` (FAIL3, spies + 1 DB). No i18n/schema change. libc 0; migration 0012;
   games 7; achievements 52; v0.4.8.
+
+### Stage 37.7.9 — finish/rematch correctness hardening (COMPLETE, Unreleased)
+- Worked from HEAD `c19d823`. No new migration (pokerStatsPending is a persisted room-JSON field, not a schema
+  change); no version bump. Real PostgreSQL (Docker): all poker suites 0 skipped (**220 poker tests green**);
+  verify PASS **2894 passed | 67 skipped (2961)**, 0 worker crashes (rerun; first run had 5 flaky forks crashes).
+  3 FAILs reproduced RED first, then fixed.
+- **FAIL 1 — same-room same-outcome stats collision.** `games.game_key` was content-only (room+winner+hands+winners)
+  → two identical-outcome paid matches/rematches collided, 2nd silently dropped. FIX: `gameKey(roomCode, summary,
+  matchId?)` → `sha256('poker|match|<matchId>')` for bankroll (stable escrow matchId; hash only, never exposed);
+  content fallback for non-bankroll. `recordFinishedPokerGame(...,matchId?)`; `recordConfirmedPokerStats` uses
+  `room.pokerEscrow.matchId` for BOTH the durable key and the in-memory marker.
+- **FAIL 2 — transient stats failure after paid lost forever.** Escrow already `settled` → payoutPending false →
+  sweep never revisited. FIX: `recordConfirmedPokerStats`→ 4-way `StatsResult` (recorded/already_exists/skipped/
+  failed); a `failed` write after paid sets **persisted `room.pokerStatsPending`** (serialize/restore). New
+  `statsPending(room)` predicate feeds `pokerRecoveryBlocked` (blocks new paid rematch, NEVER re-pays) + derived
+  public `pokerRecovery:'stats_pending'` (money out → not payout_pending; no leak). `retryPendingSettlements`
+  stats-pending branch retries ONLY the stats write until resolved → clears flag; `deleteRoomWithSettlement`
+  flushes owed stats before purge. Durable `game_key` = exactly-once even with a fresh marker. i18n key
+  `poker.recovery.statsPending` ×4 + banner + PokerOnlineGame blocked + CSS.
+- **FAIL 3 — queued-rematch TOCTOU.** `handleRematchRequest` checked readiness/recovery before `withRoomLock`,
+  re-checked only `isRoomFinished` inside. FIX: re-validate UNDER the lock — finished + `!pokerRecoveryBlocked`
+  + `allHumansReady`; a decline/disconnect/recovery-change while queued aborts `runRematch` (no new debit) with an
+  honest broadcast; two queued last-Ready → lifecycle at most once.
+- New files: `server/pokerFinish.ts` (StatsResult), tests `pokerStatsIdentity.integration.test.ts`,
+  `pokerStatsPending.test.ts` (pure), `pokerStatsPending.integration.test.ts`, extended `pokerRematchRequest.test.ts`
+  (deferred-lock TOCTOU). Updated `pokerFinish.integration.test.ts` to the `.stats` contract. libc 0; migration 0012;
+  games 7; achievements 52; v0.4.8. HEAD after commit: see git log (Stage 37.7.9).

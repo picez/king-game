@@ -9,16 +9,17 @@
 
 import { useI18n } from '../../i18n';
 
-export type PokerRecoveryStatus = 'cancelled' | 'frozen' | 'settlement_pending' | 'payout_pending';
+export type PokerRecoveryStatus = 'cancelled' | 'frozen' | 'settlement_pending' | 'payout_pending' | 'stats_pending';
 
 const KEY: Record<PokerRecoveryStatus, string> = {
   cancelled: 'poker.recovery.cancelled',
   frozen: 'poker.recovery.frozen',
   settlement_pending: 'poker.recovery.settlementPending',
   payout_pending: 'poker.recovery.payoutPending',
+  stats_pending: 'poker.recovery.statsPending',
 };
-const ICON: Record<PokerRecoveryStatus, string> = { cancelled: '♻️', frozen: '⏸️', settlement_pending: '⏳', payout_pending: '⏳' };
-const VALID = new Set<string>(['cancelled', 'frozen', 'settlement_pending', 'payout_pending']);
+const ICON: Record<PokerRecoveryStatus, string> = { cancelled: '♻️', frozen: '⏸️', settlement_pending: '⏳', payout_pending: '⏳', stats_pending: '⏳' };
+const VALID = new Set<string>(['cancelled', 'frozen', 'settlement_pending', 'payout_pending', 'stats_pending']);
 
 export default function PokerRecoveryBanner({ status }: { status?: PokerRecoveryStatus }) {
   const { t } = useI18n();

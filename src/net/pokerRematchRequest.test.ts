@@ -123,6 +123,67 @@ describe('FAIL 3 — a recovery-blocked room broadcasts honestly and starts noth
   });
 });
 
+// A DEFERRED lock: withRoomLock captures the callback but does NOT run it until release() is called.
+// This deterministically opens the TOCTOU window between "last Ready" and the lock body running.
+function deferredLock() {
+  let body: (() => Promise<void>) | null = null;
+  const withRoomLock = vi.fn((_c: string, fn: () => Promise<void>) => new Promise<void>((res) => { body = async () => { await fn(); res(); }; }));
+  return { withRoomLock, release: async () => { if (body) await body(); } };
+}
+
+describe('FAIL 3 — queued rematch re-validates consent/recovery/readiness UNDER the lock (TOCTOU)', () => {
+  it('a DECLINE after the lock is queued → runRematch never runs; honest REMATCH_STATE broadcast', async () => {
+    const r = TWO_HUMANS();
+    const lock = deferredLock();
+    let ready = true;
+    const d = deps({ withRoomLock: lock.withRoomLock, allHumansReady: vi.fn(() => ready), removeReady: vi.fn(() => { ready = false; }) });
+    expect(handleRematchRequest(session(r, 'p2'), false, d)).toBe('restart_scheduled'); // queued behind the busy lock
+    // A player declines while the callback is still queued.
+    handleRematchRequest(session(r, 'host'), true, d);
+    expect(ready).toBe(false);
+    await lock.release();
+    expect(d.runRematch).not.toHaveBeenCalled();      // stale consent is NOT acted on
+    expect(d.broadcastRematch).toHaveBeenCalled();     // honest progress broadcast instead
+  });
+
+  it('a DISCONNECT dropping allHumansReady before release → no runRematch/debit', async () => {
+    const r = TWO_HUMANS();
+    const lock = deferredLock();
+    let ready = true;
+    const d = deps({ withRoomLock: lock.withRoomLock, allHumansReady: vi.fn(() => ready) });
+    expect(handleRematchRequest(session(r, 'p2'), false, d)).toBe('restart_scheduled');
+    ready = false; // a human disconnected → readiness no longer complete
+    await lock.release();
+    expect(d.runRematch).not.toHaveBeenCalled();
+    expect(d.broadcastRematch).toHaveBeenCalled();
+  });
+
+  it('the room becomes recovery-blocked before the lock body runs → no runRematch, room snapshot', async () => {
+    const r = TWO_HUMANS();
+    const lock = deferredLock();
+    let blocked = false;
+    const d = deps({ withRoomLock: lock.withRoomLock, pokerRecoveryBlocked: vi.fn(() => blocked) });
+    expect(handleRematchRequest(session(r, 'p2'), false, d)).toBe('restart_scheduled');
+    blocked = true; // e.g. a payout/stats-pending recovery arose while queued
+    await lock.release();
+    expect(d.runRematch).not.toHaveBeenCalled();
+    expect(d.broadcastRoom).toHaveBeenCalled();
+  });
+
+  it('two queued last-Ready tasks → runRematch runs at most once (no double debit)', async () => {
+    const r = TWO_HUMANS();
+    let finished = true;
+    const bodies: Array<() => Promise<void>> = [];
+    const withRoomLock = vi.fn((_c: string, fn: () => Promise<void>) => new Promise<void>((res) => { bodies.push(async () => { await fn(); res(); }); }));
+    const runRematch = vi.fn(async () => { finished = false; }); // a successful restart ends the finished state
+    const d = deps({ withRoomLock, isRoomFinished: vi.fn(() => finished), runRematch });
+    handleRematchRequest(session(r, 'p2'), false, d);
+    handleRematchRequest(session(r, 'p2'), false, d); // a duplicate last-Ready races in
+    for (const b of bodies) await b();
+    expect(runRematch).toHaveBeenCalledOnce();          // second task sees !finished → no double debit
+  });
+});
+
 // --- Real PostgreSQL: READY routes to a genuine new PAID match ---------------
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const DAY = new Date(Date.UTC(2026, 6, 21, 12));
@@ -166,8 +227,9 @@ describe.skipIf(!TEST_DATABASE_URL)('FAIL 3 — READY routes to a real new paid 
       broadcastRoom: () => {}, broadcastRematch: () => {}, markReady: () => {}, removeReady: () => {},
       allHumansReady: () => true, withRoomLock, runRematch, restartNonBankroll: () => {},
     });
-    // Let the async lock body run.
-    for (let i = 0; i < 50 && r.pokerEscrow!.matchId === M0; i++) await new Promise((res) => setTimeout(res, 20));
+    // Let the async lock body run — wait until the fresh debit COMMITS (status funded), not merely
+    // until the matchId is minted (which happens before the DB transaction commits).
+    for (let i = 0; i < 100 && !(r.pokerEscrow!.matchId !== M0 && r.pokerEscrow!.status === 'funded'); i++) await new Promise((res) => setTimeout(res, 20));
 
     expect(r.pokerEscrow!.matchId).not.toBe(M0);         // a brand-new paid match
     expect(r.pokerEscrow!.status).toBe('funded');

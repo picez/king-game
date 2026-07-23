@@ -62,9 +62,9 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
       alreadyRecorded: (c, sig) => marker.get(c) === sig,
       markRecorded: (c, sig) => { marker.set(c, sig); },
       unmarkRecorded: (c) => { marker.delete(c); },
-      record: (c, st, su) => pokerStats.recordFinishedPokerGame(c, st, su),
+      record: (c, st, su, mid) => pokerStats.recordFinishedPokerGame(c, st, su, mid),
     });
-    const deps = (recordStats: (r: ServerRoom, s: PokerState) => Promise<boolean>) => ({
+    const deps = (recordStats: (r: ServerRoom, s: PokerState) => Promise<import('../../server/pokerFinish').StatsResult>) => ({
       payoutStacks: escrow.payoutStacks,
       persist: () => {}, broadcast: () => {}, clearRematch: () => {},
       freeze: (r: ServerRoom) => { r.pokerFrozen = true; },
@@ -92,11 +92,11 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
     await t.escrow.debitBuyIns(t.room);
     const M = t.room.pokerEscrow!.matchId;
     t.room.gameState = finished2p() as unknown as typeof t.room.gameState; // the room holds the finished game
-    const spy = vi.fn(async () => true);
+    const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
     t.escrow.__setPayoutFailure(true);
     const out = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p(), t.deps(spy));
     expect(out.result).toBe('retry_pending');
-    expect(out.statsRecorded).toBe(false);
+    expect(out.stats).toBeNull();
     expect(spy).not.toHaveBeenCalled();          // stats recorder NEVER invoked before payout
     expect(await t.payoutRows(M)).toBe(0);        // no payout
     expect(await t.gameRows()).toBe(0);           // no game/stats row
@@ -117,13 +117,13 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
     t.escrow.__setPayoutFailure(false);
     const paid = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p(), t.deps(t.realRecord));
     expect(paid.result).toBe('paid');
-    expect(paid.statsRecorded).toBe(true);
+    expect(paid.stats).toBe('recorded');
     expect(await t.payoutRows(M)).toBe(1);
     expect(await t.gameRows()).toBe(1);
     // A rebroadcast/reconnect/retry → already_paid, stats NOT written again.
     const again = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p(), t.deps(t.realRecord));
     expect(again.result).toBe('already_paid');
-    expect(again.statsRecorded).toBe(false);
+    expect(again.stats).toBe('already_exists');
     expect(await t.payoutRows(M)).toBe(1);        // still one payout
     expect(await t.gameRows()).toBe(1);           // still one game row
     await t.cleanup(M);
@@ -134,7 +134,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
     await t.escrow.debitBuyIns(t.room);
     const M = t.room.pokerEscrow!.matchId;
     await t.escrow.refundBuyIns(t.room);           // escrow → cancelled (mutex)
-    const spy = vi.fn(async () => true);
+    const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
     const out = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p(), t.deps(spy));
     expect(out.result).toBe('already_refunded');
     expect(spy).not.toHaveBeenCalled();
@@ -150,7 +150,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
     await t.escrow.debitBuyIns(t.room);
     const M = t.room.pokerEscrow!.matchId;
     t.room.gameState = finished2p([0, 9999]) as unknown as typeof t.room.gameState;
-    const spy = vi.fn(async () => true);
+    const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
     // Σ stacks (9999) ≠ Σ buy-ins (10000) → conservation fails closed → invalid.
     const out = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p([0, 9999]), t.deps(spy));
     expect(out.result).toBe('invalid');

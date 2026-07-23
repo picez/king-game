@@ -701,3 +701,27 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   with no false readiness. A real-PostgreSQL case confirms READY starts a genuine new paid match (one debit/seat).
 - **Fault-seam hygiene (FAIL 4):** every suite using `__setRefundFailure`/`__setPayoutFailure` resets both in
   an `afterEach`, so a mid-test failure can never cascade into later suites.
+
+### Finish/rematch correctness hardening (Stage 37.7.9)
+
+- **Stable stats identity (FAIL 1):** `games.game_key` for a BANKROLL match now derives from the stable unique
+  escrow `matchId` (`gameKey(roomCode, summary, matchId)` → `sha256('poker|match|<matchId>')`), not the match
+  CONTENT. Two consecutive paid matches in the same room with an identical outcome no longer collide (the second
+  was silently dropped by `onConflictDoNothing`). `recordFinishedPokerGame` takes an optional `matchId`; the
+  in-memory dedup marker also keys on it (`recordConfirmedPokerStats` uses `room.pokerEscrow.matchId`). Non-bankroll
+  poker keeps the content-based fallback. The raw matchId never reaches a snapshot/log (only its hash is stored).
+- **Persisted stats-pending (FAIL 2):** a payout can CONFIRM (escrow `settled`) and its stats write then fail
+  transiently — the old boolean lost it (nothing retried once settled). `recordConfirmedPokerStats` now returns a
+  4-way `StatsResult` (`recorded` | `already_exists` | `skipped` | `failed`), and a `failed` write after a paid
+  finish sets **persisted `room.pokerStatsPending`**. New predicate `statsPending(room)` (bankroll + flag, not
+  frozen) feeds `pokerRecoveryBlocked` (blocks a new paid rematch) and a DERIVED public `pokerRecovery:
+  'stats_pending'` (money is out → NOT payout_pending; no economy leak). `retryPendingSettlements` gained a
+  stats-pending branch that retries ONLY the stats write (never re-pays) until it resolves, then clears the flag
+  and re-enables rematch; `deleteRoomWithSettlement` flushes owed stats before purging. Survives serialize→restore
+  (the flag + escrow matchId persist; the durable `game_key` guarantees exactly-once even with a fresh in-memory
+  marker). The marker is set only AFTER every early-return gate and undone on a transient failure.
+- **Queued-rematch consent re-validation (FAIL 3):** `handleRematchRequest` checked readiness/recovery BEFORE
+  `withRoomLock` but re-checked only `isRoomFinished` inside. It now **re-validates under the lock**: finished +
+  `!pokerRecoveryBlocked` + `allHumansReady`. A DECLINE / disconnect / recovery change that lands while the rematch
+  is queued behind a busy lock aborts `runRematch` (no new debit) with an honest `broadcastRematch`/`broadcastRoom`,
+  and two queued last-Ready tasks still run the lifecycle at most once (the finished re-check stops the second).

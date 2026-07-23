@@ -140,9 +140,20 @@ export function payoutPending(room: ServerRoom): boolean {
   return !!state && state.phase === 'game_finished';
 }
 
-/** Recovery states that block gameplay/rematch (frozen, settlement-/payout-pending, or no economy). */
+/**
+ * True when a bankroll match was PAID (money is out, escrow settled) but its stats write is still
+ * owed (§16, 37.7.9 FAIL 2). Persisted + restart-surviving. It must BLOCK a new paid rematch (a
+ * fresh match would overwrite the finished state whose stats are unresolved) but must NEVER re-run
+ * the payout — the sweep retries only the STATS write. Distinct from `payoutPending` (money not yet
+ * out) and never treated as frozen (frozen is a permanent operator condition).
+ */
+export function statsPending(room: ServerRoom): boolean {
+  return !room.pokerFrozen && isBankrollRoom(room) && !!room.pokerStatsPending;
+}
+
+/** Recovery states that block a new paid rematch (frozen, settlement-/payout-/stats-pending, or no economy). */
 export function pokerRecoveryBlocked(room: ServerRoom): boolean {
-  return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || bankrollEconomyUnavailable(room);
+  return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || statsPending(room) || bankrollEconomyUnavailable(room);
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */

@@ -375,6 +375,7 @@ export const DE: Record<string, string> = {
   'poker.recovery.frozenShort': 'Vorübergehend nicht verfügbar',
   'poker.recovery.settlementPending': 'Das vorherige Match wird noch abgerechnet. Dieser Tisch ist vorübergehend nicht verfügbar und versucht es automatisch erneut.',
   'poker.recovery.payoutPending': 'Das beendete Match wird noch ausgezahlt. Ein Rematch ist verfügbar, sobald die Auszahlung bestätigt ist.',
+  'poker.recovery.statsPending': 'Das Match ist ausgezahlt; die Ergebnisse werden abgeschlossen. Ein Rematch ist gleich verfügbar.',
   'poker.mainPot': 'Hauptpot',
   'poker.sidePot': 'Side-Pot',
   'poker.split': 'Geteilt',

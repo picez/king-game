@@ -34,7 +34,7 @@ function seatOf(playerId: string | null): number | null {
  */
 export default function PokerOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, recovery }: Props) {
   const mySeat = seatOf(myPlayerId);
-  const blocked = recovery === 'frozen' || recovery === 'settlement_pending' || recovery === 'payout_pending';
+  const blocked = recovery === 'frozen' || recovery === 'settlement_pending' || recovery === 'payout_pending' || recovery === 'stats_pending';
   if (state.phase === 'game_finished') {
     // PokerFinished renders the (single) recovery banner itself; suppress rematch while blocked.
     return <PokerFinished state={state} mySeat={mySeat} onExit={onExit} rematch={blocked ? null : rematch} recovery={recovery} />;

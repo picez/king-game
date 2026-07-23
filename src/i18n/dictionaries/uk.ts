@@ -375,6 +375,7 @@ export const UK: Record<string, string> = {
   'poker.recovery.frozenShort': 'Тимчасово недоступно',
   'poker.recovery.settlementPending': 'Попередній матч ще розраховується. Стіл тимчасово недоступний і повторить спробу автоматично.',
   'poker.recovery.payoutPending': 'Завершений матч ще виплачує виграш. Реванш стане доступним після підтвердження виплати.',
+  'poker.recovery.statsPending': 'Матч виплачено; завершуємо підрахунок результатів. Реванш стане доступним за мить.',
   'poker.mainPot': 'Основний банк',
   'poker.sidePot': 'Бічний банк',
   'poker.split': 'Поділ',

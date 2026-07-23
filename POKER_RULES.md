@@ -370,3 +370,18 @@ transient DB error — no longer loops the sweep forever: the table is **permane
 review. A frozen table blocks start / action / rematch, exposes only the public *frozen* recovery status
 (never stacks / matchId / userId / escrow / corruption detail), logs the room code + a safe reason once,
 and stays frozen across serialize/restore. It is never auto-paid, auto-refunded, or purged.
+
+**Stable stats identity + stats-pending + queued-rematch consent (§16, Stage 37.7.9).** A bankroll
+match's durable stats identity is its **stable unique escrow match id** (stored only as a
+`poker|<matchId>` hash — the raw id never reaches a snapshot/log), so two consecutive paid matches in
+the SAME room that finish with an identical result are still recorded as two distinct games (a
+content-only key would have collided and dropped the second). If a payout **confirms** but its stats
+write then fails transiently, the finish becomes **stats-pending**: the money is already out (so it is
+never re-paid, and it is *not* payout-pending), the finished state + match id are kept, a new paid
+rematch is blocked, the public recovery status is a safe *stats_pending*, the state survives a restart,
+and the background sweep retries the stats write until it records **exactly once** — then the flag
+clears and rematch is re-enabled. Finally, a rematch that all humans readied for but which had to wait
+behind a busy room lock is **re-validated under the lock** before it starts: the game must still be
+finished, the room must not have become recovery-blocked, and every required human must still be ready —
+so a **decline / disconnect / recovery change** that lands while the rematch is queued cancels it (an
+honest readiness/recovery broadcast is sent) instead of starting a match and debiting new buy-ins.

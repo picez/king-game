@@ -18,34 +18,42 @@ import type { PayoutResult } from './pokerEscrow';
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
 
+/**
+ * The FOUR distinguishable outcomes of a confirmed-stats write (§16, 37.7.9 FAIL 2) — a boolean
+ * could not tell duplicate / skip / transient-failure apart, so a failure was silently lost:
+ *   • recorded       — a durable row was written by THIS call;
+ *   • already_exists — the durable row already existed (idempotent) → RESOLVED, no retry;
+ *   • skipped        — no stats owed by policy (bot table / <2 humans / no identified seats);
+ *   • failed         — a TRANSIENT DB error → the write is still owed (retry pending).
+ */
+export type StatsResult = 'recorded' | 'already_exists' | 'skipped' | 'failed';
+
 /** Injected side effects for recording confirmed bankroll poker stats (idempotent). */
 export interface ConfirmedStatsDeps {
-  /** True when this room already recorded a finish with this signature (dedup). */
-  alreadyRecorded: (roomCode: string, sig: string) => boolean;
-  /** Mark this room's finish signature as recorded (before the async write). */
-  markRecorded: (roomCode: string, sig: string) => void;
+  /** True when this room already recorded a finish with this stable match identity (dedup). */
+  alreadyRecorded: (roomCode: string, identity: string) => boolean;
+  /** Mark this room's stable match identity as recorded (only just before the async write). */
+  markRecorded: (roomCode: string, identity: string) => void;
   /** Undo the mark on a failed write so a later retry can record. */
   unmarkRecorded: (roomCode: string) => void;
-  /** The actual per-game recorder (idempotent via games.game_key). */
-  record: (roomCode: string, state: PokerState, seatUsers: SeatUsers) => Promise<RecordResult>;
+  /** The actual per-game recorder (idempotent via games.game_key, keyed by the stable matchId). */
+  record: (roomCode: string, state: PokerState, seatUsers: SeatUsers, matchId?: string | null) => Promise<RecordResult>;
 }
 
 /**
- * Record stats for a CONFIRMED-paid bankroll poker finish. Applies the same human-only gate,
- * per-room signature dedup, and seat→account mapping as the generic finish path, but is only ever
- * called AFTER a confirmed payout. Idempotent: a rebroadcast/reconnect/restart/retry never writes
- * twice (the signature marker + the recorder's own game_key both no-op). Returns whether it recorded.
+ * Record stats for a CONFIRMED-paid bankroll poker finish. Only ever called AFTER a confirmed
+ * payout. The dedup marker uses the STABLE escrow matchId (37.7.9 FAIL 1) — never a content
+ * signature that could collide across identical-outcome matches. The marker is set ONLY just
+ * before the write (after every early-return gate), and is undone on a transient failure so a
+ * retry can complete. Returns a 4-way `StatsResult` so the caller can tell a transient failure
+ * (retry owed) from a duplicate/skip (already resolved).
  */
-export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerState, deps: ConfirmedStatsDeps): Promise<boolean> {
+export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerState, deps: ConfirmedStatsDeps): Promise<StatsResult> {
   // Owner rule: rating/stats count ONLY human-vs-human games (any bot or <2 humans → skip).
   const players = [...room.members.values()].filter((m) => m.role === 'player');
   const humanPlayers = players.filter((m) => m.type === 'human').length;
   const botPlayers = players.filter((m) => m.type === 'ai').length;
-  if (botPlayers > 0 || humanPlayers < 2) return false;
-
-  const sig = pokerFinishSignature(state);
-  if (deps.alreadyRecorded(room.code, sig)) return false; // already recorded (rebroadcast/retry)
-  deps.markRecorded(room.code, sig);
+  if (botPlayers > 0 || humanPlayers < 2) return 'skipped';
 
   const seatUsers: SeatUsers = new Map<number, string | null>();
   for (const m of room.members.values()) {
@@ -53,14 +61,21 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
       seatUsers.set(m.seatIndex, m.userId);
     }
   }
-  if (seatUsers.size === 0) return false;
+  if (seatUsers.size === 0) return 'skipped';
 
+  // STABLE identity: the escrow matchId for a bankroll match (unique per paid match), or a content
+  // signature fallback for a non-bankroll table. The marker + the durable games.game_key both key on it.
+  const matchId = room.pokerEscrow?.matchId ?? null;
+  const identity = matchId ?? pokerFinishSignature(state);
+  if (deps.alreadyRecorded(room.code, identity)) return 'already_exists'; // in-memory dedup (same process)
+
+  deps.markRecorded(room.code, identity); // set the marker ONLY now — after every gate above
   try {
-    const res = await deps.record(room.code, state, seatUsers);
-    return !!res.recorded;
+    const res = await deps.record(room.code, state, seatUsers, matchId);
+    return res.recorded ? 'recorded' : 'already_exists'; // false = the durable row already existed
   } catch {
-    deps.unmarkRecorded(room.code); // allow a later retry (transient DB error)
-    return false;
+    deps.unmarkRecorded(room.code); // transient DB error → allow a later retry
+    return 'failed';
   }
 }
 
@@ -69,7 +84,7 @@ export interface BankrollFinishDeps {
   /** Pay out the finished match's final stacks (DB-authoritative; idempotent). */
   payoutStacks: (room: ServerRoom, state: PokerState) => Promise<PayoutResult>;
   /** Record confirmed stats (only called after paid/already_paid). */
-  recordStats: (room: ServerRoom, state: PokerState) => Promise<boolean>;
+  recordStats: (room: ServerRoom, state: PokerState) => Promise<StatsResult>;
   /** Persist the room. */
   persist: (room: ServerRoom) => void;
   /** Broadcast the public room snapshot (recovery status). */
@@ -82,13 +97,19 @@ export interface BankrollFinishDeps {
 
 export interface BankrollFinishOutcome {
   result: PayoutResult;
-  statsRecorded: boolean;
+  stats: StatsResult | null; // null when payout did not confirm (no stats attempted)
 }
 
 /**
  * Settle a FINISHED bankroll poker match, THEN record stats — never the reverse, and never in
  * parallel. Call inside `withRoomLock(room.code, …)`. Stats are recorded ONLY on a confirmed
  * payout; `already_refunded` cancels the finished table; `invalid` freezes it permanently.
+ *
+ * STATS-PENDING (§16, 37.7.9 FAIL 2): the payout is already `settled` (money is out), so if the
+ * stats write then fails TRANSIENTLY the escrow can't carry the retry (it is no longer funded). The
+ * room is marked `pokerStatsPending` — a PERSISTED, restart-surviving state that blocks a new paid
+ * rematch (but NEVER re-pays) and is retried by the settlement sweep until the stats are written
+ * (or the durable row already exists). Any resolved outcome clears the flag.
  */
 export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state: PokerState, deps: BankrollFinishDeps): Promise<BankrollFinishOutcome> {
   const result = await deps.payoutStacks(room, state);
@@ -97,8 +118,17 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
     case 'already_paid': {
       deps.persist(room);
       deps.broadcast(room); // paid → recovery clears → rematch enabled
-      const statsRecorded = await deps.recordStats(room, state);
-      return { result, statsRecorded };
+      const stats = await deps.recordStats(room, state);
+      if (stats === 'failed') {
+        // Money is out but stats aren't durably recorded → STATS-PENDING (retryable, blocks rematch).
+        room.pokerStatsPending = true;
+      } else if (room.pokerStatsPending) {
+        // recorded / already_exists / skipped → resolved: clear any prior stats-pending, re-enable rematch.
+        room.pokerStatsPending = undefined;
+      }
+      deps.persist(room);
+      deps.broadcast(room);
+      return { result, stats };
     }
     case 'already_refunded':
       // The DB gate says this match was refunded → NEVER pay/continue it as paid, and NEVER record
@@ -109,19 +139,19 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
       deps.clearRematch(room);
       deps.persist(room);
       deps.broadcast(room);
-      return { result, statsRecorded: false };
+      return { result, stats: null };
     case 'retry_pending':
       // Transient failure → escrow left funded (payout_pending). Stats are DEFERRED to the sweep
       // that eventually pays out (so they can never precede a payout that later proves refunded).
       deps.persist(room);
       deps.broadcast(room);
-      return { result, statsRecorded: false };
+      return { result, stats: null };
     case 'invalid':
       // PERMANENT fail-closed/operator condition (bad conservation/escrow) — NOT a transient DB
       // failure. Freeze the room so no sweep retries the impossible payout and no stats are written.
       deps.freeze(room, 'payout conservation invalid');
       deps.persist(room);
       deps.broadcast(room);
-      return { result, statsRecorded: false };
+      return { result, stats: null };
   }
 }
