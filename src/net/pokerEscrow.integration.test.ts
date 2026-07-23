@@ -499,3 +499,58 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
   });
 });
+
+describe.skipIf(!TEST_DATABASE_URL)('refund=false fail-closed + settlement retry (Stage 37.7.6, integration)', () => {
+  it('a funded orphan whose refund FAILS is settlement-pending, not cancelled; a later retry makes it fresh-startable', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const users = await import('../../server/db/users');
+    const wallet = await import('../../server/db/pokerWallet');
+    const escrow = await import('../../server/pokerEscrow');
+    const { getDb } = await import('../../server/db/client');
+    const conn = await getDb();
+    const A = await users.createAccountUser({ email: null, name: 'PendA', emailVerified: false });
+    const B = await users.createAccountUser({ email: null, name: 'PendB', emailVerified: false });
+    await wallet.dailyClaim(A, DAY); await wallet.dailyClaim(B, DAY);
+    const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+
+    // Fund a match, then simulate a failed start whose REFUND also fails (transient) → funded orphan.
+    expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
+    const m1 = r.pokerEscrow!.matchId;
+    escrow.__setRefundFailure(true);
+    expect(await escrow.refundBuyIns(r)).toBe(false);       // refund could NOT be confirmed
+    expect(r.pokerEscrow!.status).toBe('funded');           // escrow stays funded (retryable)
+    expect(escrow.settlementPending(r)).toBe(true);         // funded + no game → settlement pending
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
+
+    // A fresh START while refund STILL fails must NOT mint a new match (fail closed).
+    const blocked = await escrow.debitFreshStart(r);
+    expect(blocked.ok).toBe(false);
+    expect((blocked as { settlementPending?: boolean }).settlementPending).toBe(true);
+    expect(r.pokerEscrow!.matchId).toBe(m1);                // SAME match, no new one
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
+
+    // The transient failure clears → a fresh START now resolves the orphan (refund) + mints a NEW match.
+    escrow.__setRefundFailure(false);
+    const fresh = await escrow.debitFreshStart(r);
+    expect(fresh).toEqual({ ok: true });
+    expect(r.pokerEscrow!.matchId).not.toBe(m1);            // NEW matchId
+    expect(r.pokerEscrow!.status).toBe('funded');
+    // Net: -5000 (m1) +5000 (refund) -5000 (new) = 995,000 — exactly ONE net new debit.
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
+    // The OLD match's ledger is unchanged (buyin + refund rows intact) and settled cancel_refund.
+    const oldBuyin = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${m1} AND reason = 'table_buy_in'`;
+    const oldRefund = await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${m1} AND reason = 'table_cancel_refund'`;
+    expect((oldBuyin as Array<{ n: number }>)[0].n).toBe(2);
+    expect((oldRefund as Array<{ n: number }>)[0].n).toBe(2);
+
+    // The NEW match pays out exactly once.
+    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
+    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState);
+    expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000); // idempotent
+
+    escrow.__setRefundFailure(false); // safety
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id IN (${m1}, ${r.pokerEscrow!.matchId})`;
+    await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
+  });
+});

@@ -27,6 +27,7 @@ export function humanError(code: ErrorCode | null | undefined): string {
     case 'INSUFFICIENT_CHIPS':   return 'Not enough poker chips for the buy-in';
     case 'NOT_SIGNED_IN':        return 'Bankroll tables need all seats signed in (no bots)';
     case 'ECONOMY_UNAVAILABLE':  return 'The chip economy is temporarily unavailable — this table is paused';
+    case 'SETTLEMENT_PENDING':   return 'The previous match is still settling — this table is temporarily unavailable';
     default:                     return 'Could not join room';
   }
 }

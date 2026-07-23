@@ -74,6 +74,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
   // — never the ws / custom-server URL. Copy via the Clipboard API; Share via
   // navigator.share when supported (a cancelled share stays silent). Host + guests
   // can both invite.
+  // A frozen or settlement-pending Poker table blocks Start until the economy recovers (37.7.6).
+  const pokerRecoveryBlocked = room.pokerRecovery === 'frozen' || room.pokerRecovery === 'settlement_pending';
   const inviteLink = typeof window !== 'undefined' ? buildInviteLink(window.location.origin, room.code) : '';
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function' && !!inviteLink;
   const [copied, setCopied] = useState<null | 'code' | 'link'>(null);
@@ -305,8 +307,8 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
         {error && <p className="lobby-error">{error}</p>}
 
         {isHost ? (
-          <button className="btn btn--primary btn--large" disabled={!enough || room.pokerRecovery === 'frozen'} onClick={onStart}>
-            {room.pokerRecovery === 'frozen' ? t('poker.recovery.frozenShort')
+          <button className="btn btn--primary btn--large" disabled={!enough || pokerRecoveryBlocked} onClick={onStart}>
+            {pokerRecoveryBlocked ? t('poker.recovery.frozenShort')
               : teamsFull ? t('lobby.teamsReady')
                 : !enough ? (strictTeams && showTeamGrid
                   ? t('lobby.needTeams')

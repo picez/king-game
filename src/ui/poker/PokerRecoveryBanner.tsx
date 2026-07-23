@@ -9,12 +9,21 @@
 
 import { useI18n } from '../../i18n';
 
-export default function PokerRecoveryBanner({ status }: { status?: 'cancelled' | 'frozen' }) {
+export type PokerRecoveryStatus = 'cancelled' | 'frozen' | 'settlement_pending';
+
+const KEY: Record<PokerRecoveryStatus, string> = {
+  cancelled: 'poker.recovery.cancelled',
+  frozen: 'poker.recovery.frozen',
+  settlement_pending: 'poker.recovery.settlementPending',
+};
+const ICON: Record<PokerRecoveryStatus, string> = { cancelled: '♻️', frozen: '⏸️', settlement_pending: '⏳' };
+
+export default function PokerRecoveryBanner({ status }: { status?: PokerRecoveryStatus }) {
   const { t } = useI18n();
-  if (status !== 'cancelled' && status !== 'frozen') return null;
+  if (status !== 'cancelled' && status !== 'frozen' && status !== 'settlement_pending') return null;
   return (
     <p className={`poker-recovery-banner poker-recovery-banner--${status}`} role="status">
-      {status === 'cancelled' ? '♻️' : '⏸️'} {t(status === 'cancelled' ? 'poker.recovery.cancelled' : 'poker.recovery.frozen')}
+      {ICON[status]} {t(KEY[status])}
     </p>
   );
 }

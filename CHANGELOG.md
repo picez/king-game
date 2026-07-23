@@ -66,6 +66,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     **shown in the UI** — a `PokerRecoveryBanner` in the lobby/table (cancelled → start a new match /
     frozen → Start disabled), EN/UK/DE/AR, wrapping cleanly on 360/390 + Arabic RTL, with no economy
     data leaked. Verified end-to-end on a real PostgreSQL.
+  - **Refund-failure safety + read-only recovery table + Poker rematch (Stage 37.7.6):** every
+    place that refunds a buy-in on a failed start/rematch now **checks the refund result** instead
+    of assuming success — a refund that can't be confirmed (transient DB failure) keeps the escrow
+    **funded and retryable**, is surfaced honestly as **“Settlement pending — table temporarily
+    unavailable”** (never a false “refunded”), and a background sweep completes it exactly once; only
+    a **confirmed** refund flips the table to a fresh-startable cancelled lobby. A funded escrow that
+    reaches START from a clean lobby is treated as an **orphan** (never silently reused as a “fresh”
+    match) — it is refunded first, or the start **fails closed** as settlement-pending. The recovery
+    **table UI is now fully read-only** (frozen / settlement-pending hide every Fold/Check/Call/Bet/
+    Raise/All-in and next-hand control, banner explains why), and **online Poker finally has rematch**
+    — the shared ready-up `RematchControls` on the finish screen starts a new **paid** match only after
+    the previous one has settled (suppressed entirely under recovery). EN/UK/DE/AR. Fault-injection +
+    real-PostgreSQL tests confirm no double debit/refund/payout and the payout↔refund mutex holds.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

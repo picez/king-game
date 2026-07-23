@@ -373,6 +373,7 @@ export const UK: Record<string, string> = {
   'poker.recovery.frozen': 'Стіл тимчасово недоступний, поки відновлюється економіка фішок. Спробуйте трохи згодом.',
   'poker.recovery.startNew': 'Почати новий матч',
   'poker.recovery.frozenShort': 'Тимчасово недоступно',
+  'poker.recovery.settlementPending': 'Попередній матч ще розраховується. Стіл тимчасово недоступний і повторить спробу автоматично.',
   'poker.mainPot': 'Основний банк',
   'poker.sidePot': 'Бічний банк',
   'poker.split': 'Поділ',

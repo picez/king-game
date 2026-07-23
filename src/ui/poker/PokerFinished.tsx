@@ -1,15 +1,21 @@
 import { useI18n } from '../../i18n';
 import type { PokerState } from '../../games/poker/types';
+import RematchControls, { type RematchUi } from '../online/RematchControls';
+import PokerRecoveryBanner, { type PokerRecoveryStatus } from './PokerRecoveryBanner';
 
 interface Props {
   state: PokerState;
   mySeat: number | null;
   onPlayAgain?: () => void;
   onExit: () => void;
+  /** Online rematch controls (Stage 37.7.6); null/undefined for local play → local Play Again. */
+  rematch?: RematchUi | null;
+  /** Public recovery status (§16, 37.7.6). */
+  recovery?: PokerRecoveryStatus;
 }
 
 /** Match-over screen: the last player standing holds every chip (§11). */
-export default function PokerFinished({ state, mySeat, onPlayAgain, onExit }: Props) {
+export default function PokerFinished({ state, mySeat, onPlayAgain, onExit, rematch, recovery }: Props) {
   const { t } = useI18n();
   const winner = state.winnerSeat;
   const iWon = winner != null && winner === mySeat;
@@ -28,8 +34,14 @@ export default function PokerFinished({ state, mySeat, onPlayAgain, onExit }: Pr
             </li>
           ))}
         </ul>
+        {/* Recovery (§16, 37.7.6): a frozen/settlement-pending finished table shows the banner
+            and offers NO rematch (the rematch controls are suppressed by the caller). */}
+        <PokerRecoveryBanner status={recovery} />
         <div className="poker-finished__actions">
-          {onPlayAgain && <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('poker.playAgain')}</button>}
+          {/* Online (Stage 37.7.6): shared rematch readiness starts a new PAID match; local: Play Again. */}
+          {rematch
+            ? <RematchControls {...rematch} />
+            : onPlayAgain && <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('poker.playAgain')}</button>}
           <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
         </div>
       </div>

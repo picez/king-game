@@ -379,13 +379,15 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   if (net.room?.gameType === 'poker') {
     return (
       <>
-        {/* Recovery banner (§16, 37.7.5) — covers a FROZEN table that still has a game state. */}
+        {/* Recovery banner (§16, 37.7.5/37.7.6) — covers a FROZEN / settlement-pending table. */}
         <PokerRecoveryBanner status={net.room?.pokerRecovery} />
         <PokerOnlineGame
           state={net.state as unknown as PokerState}
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
+          rematch={rematchUi}
+          recovery={net.room?.pokerRecovery}
         />
         {renderSocial(true, undefined, timerEl)}
       </>

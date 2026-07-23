@@ -13,7 +13,7 @@ describe('Lobby — behaviour preserved through the polish', () => {
   it('keeps Leave / Start(+disabled reason) / Add bot / Timer / Kick', () => {
     expect(lb).toContain('lobby-leave');
     expect(lb).toContain('onLeave');
-    expect(lb).toContain("disabled={!enough || room.pokerRecovery === 'frozen'}"); // +frozen (37.7.5)
+    expect(lb).toContain("disabled={!enough || pokerRecoveryBlocked}"); // +frozen (37.7.5)
     expect(lb).toContain("t('wait.waitingFor')");            // start disabled reason
     expect(lb).toContain('onAddBot');
     expect(lb).toContain('onSetTimer');

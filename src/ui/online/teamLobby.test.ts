@@ -55,7 +55,7 @@ describe('start readiness adapts, but the gate + add-bot are unchanged', () => {
     expect(lb).toContain("teamsFull ? t('lobby.teamsReady')");
     expect(lb).toContain("t('lobby.needTeams')");           // Tarneeb waiting label
     // The server-min gate is unchanged; a frozen Poker recovery room ALSO disables Start (37.7.5).
-    expect(lb).toContain("disabled={!enough || room.pokerRecovery === 'frozen'}");
+    expect(lb).toContain("disabled={!enough || pokerRecoveryBlocked}");
   });
   it('add-bot + kick + timer are all still wired', () => {
     expect(lb).toContain('onAddBot');

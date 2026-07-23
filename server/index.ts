@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending } from './pokerEscrow';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -356,8 +356,8 @@ function handleRematch(session: SessionRef, decline: boolean): void {
   if (!s) return;
   const room = s.room;
   if (!isRoomFinished(room)) return;                 // only offerable once the game is over
-  // (37.7.4 FAIL 2) A frozen room or one with the economy unavailable can't rematch.
-  if (room.pokerFrozen || bankrollEconomyUnavailable(room)) return;
+  // (37.7.4/37.7.6) A frozen / settlement-pending / economy-unavailable room can't rematch.
+  if (pokerRecoveryBlocked(room)) return;
   const me = room.members.get(s.clientId);
   if (!me || me.role !== 'player' || me.type !== 'human') return;
 
@@ -378,16 +378,17 @@ function handleRematch(session: SessionRef, decline: boolean): void {
         clearRematch(room);
         const res = restartGame(room, { now: Date.now() });
         if (!res.ok) {
-          // (37.7.5 FAIL 2) Rematch failure safety: the debit committed but the restart failed
-          // → refund once (idempotent) and leave a clean, persisted CANCELLED lobby so a fresh
-          // START_GAME can begin a brand-new paid match. restartGame already cleared the state.
-          await refundBuyIns(room);
-          room.pokerMatchCancelled = true;
+          // (37.7.5/37.7.6) Rematch failure safety: the debit committed but restart failed →
+          // attempt a refund. Mark CANCELLED only when the refund is CONFIRMED; a failed refund
+          // leaves a funded escrow (settlement-pending) that keeps retrying — NEVER a false
+          // "refunded/cancelled". restartGame already cleared the game state either way.
+          const refunded = await refundBuyIns(room);
           room.started = false;
           room.gameState = null;
+          if (refunded) room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
           clearRematch(room);
           persistRoom(room);
-          broadcastRoom(room); // actual snapshot (recovery banner) — not just REMATCH_STATE
+          broadcastRoom(room); // honest public snapshot (cancelled OR settlement_pending)
           return;
         }
         room.pokerMatchCancelled = undefined; // (37.7.4 FAIL 1) a rematch never inherits stale recovery flags
@@ -985,6 +986,28 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
   });
 }
 
+/**
+ * Retry the refund for any SETTLEMENT-PENDING bankroll room (a funded escrow whose game
+ * never started because a prior refund failed transiently, §16, 37.7.6). Once the DB
+ * recovers the refund succeeds → the room becomes a resolved CANCELLED lobby a fresh START
+ * can use. Serialized per room; idempotent (the settlement gate + ledger keys no-op).
+ */
+function retrySettlementPending(): void {
+  for (const room of rooms.values()) {
+    if (!settlementPending(room)) continue;
+    void withRoomLock(room.code, async () => {
+      if (!rooms.has(room.code) || !settlementPending(room)) return;
+      const refunded = await refundBuyIns(room);
+      if (refunded) {
+        room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
+        persistRoom(room);
+        broadcastRoom(room);
+        console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
+      }
+    });
+  }
+}
+
 function cleanupRooms(): number {
   const expired = roomsToExpire(rooms.values(), Date.now(), ROOM_TTL_MS, ROOM_HARD_TTL_MS, ORPHAN_ROOM_TTL_MS);
   for (const code of expired) {
@@ -993,6 +1016,7 @@ function cleanupRooms(): number {
     else purgeRoom(code);
     console.log(`[King] auto-cleaned idle room ${code}`);
   }
+  retrySettlementPending(); // (37.7.6) resolve any funded orphan whose refund failed transiently
   // Reclaim per-IP tracking for hosts with no open sockets (bounded memory).
   ipLimiter.sweep(Date.now());
   return expired.length;

@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked } from './pokerEscrow';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -396,28 +396,36 @@ export function handleClientMessage(
           // recovery/refund (a terminal cancelled/settled escrow → a brand-new matchId + debit).
           const debit = await debitFreshStart(room);
           if (!debit.ok) {
-            const code = /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
+            // (37.7.6 FAIL 1) An unresolved funded orphan → SETTLEMENT PENDING, not a chip error.
+            const code = debit.settlementPending ? 'SETTLEMENT_PENDING'
+              : /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
             sendError(socket, code, debit.error);
+            if (debit.settlementPending) { ctx.broadcastRoom(room); ctx.persistRoom(room); } // honest public state
             return;
           }
-          // (FAIL 1) The funded escrow seats MUST equal the room's current seated players —
-          // a seat that slipped in/out after the escrow was formed would desync the paid set
-          // from the game state. If they diverge, refund and abort (never start such a game).
+          // (FAIL 1) The funded escrow seats MUST equal the room's current seated players — a seat
+          // that slipped in/out after the escrow was formed would desync the paid set. If they
+          // diverge, refund and abort. (37.7.6) Only claim "refunded / cancelled" when the refund
+          // is CONFIRMED; otherwise the room is settlement-pending (funded, retried), NOT cancelled.
           if (!escrowMatchesRoomSeats(room)) {
-            await refundBuyIns(room);
-            room.pokerMatchCancelled = true; // back to a safe cancelled lobby (FAIL 1)
-            sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
-            ctx.persistRoom(room);
+            const refunded = await refundBuyIns(room);
+            if (refunded) {
+              room.pokerMatchCancelled = true;
+              sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
+            } else {
+              sendError(socket, 'SETTLEMENT_PENDING', 'The table changed and settlement is pending — try again in a moment');
+            }
+            ctx.broadcastRoom(room); ctx.persistRoom(room);
             return;
           }
           const res = startGame(room, { now: Date.now() });
           if (!res.ok) {
-            // Debit committed but the game did not start → refund immediately (idempotent) and
-            // leave the room in a safe cancelled lobby (a failed start must NOT hide status).
-            await refundBuyIns(room);
-            room.pokerMatchCancelled = true;
-            sendError(socket, res.error!, 'Cannot start game');
-            ctx.persistRoom(room);
+            // Debit committed but the game did not start → attempt refund. Mark cancelled ONLY if
+            // the refund is confirmed; a failed refund leaves a funded escrow (settlement-pending).
+            const refunded = await refundBuyIns(room);
+            if (refunded) { room.pokerMatchCancelled = true; sendError(socket, res.error!, 'Cannot start game — buy-ins refunded'); }
+            else sendError(socket, 'SETTLEMENT_PENDING', 'Could not start and settlement is pending — try again in a moment');
+            ctx.broadcastRoom(room); ctx.persistRoom(room);
             return;
           }
           // (FAIL 1) The new paid match is live → clear ANY recovery-cancelled flag ONLY now,
@@ -442,10 +450,11 @@ export function handleClientMessage(
     case 'ACTION_REQUEST': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
       const { room, clientId } = sessionRef.value;
-      // (37.7.3 FAIL 5) A frozen/cancelled bankroll room accepts no gameplay actions.
+      // (37.7.3/37.7.4/37.7.6) A frozen / cancelled / settlement-pending / economy-unavailable
+      // bankroll room accepts NO gameplay actions.
       if (room.pokerFrozen || room.pokerMatchCancelled) return sendError(socket, 'ILLEGAL_ACTION', 'This match has been cancelled');
-      // (37.7.4 FAIL 2) No chip economy → a funded bankroll table accepts no actions.
       if (bankrollEconomyUnavailable(room)) return sendError(socket, 'ECONOMY_UNAVAILABLE', 'The chip economy is unavailable — this table is paused');
+      if (settlementPending(room)) return sendError(socket, 'SETTLEMENT_PENDING', 'The previous match is still settling — try again in a moment');
       // `msg.action` is UNTRUSTED (arbitrary JSON). `applyActionRequest` validates and
       // never mutates on rejection, but wrap it so any residual throw becomes a safe
       // BAD_MESSAGE rejection instead of an uncaught exception that could tear down the

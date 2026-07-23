@@ -373,6 +373,7 @@ export const AR: Record<string, string> = {
   'poker.recovery.frozen': 'هذه الطاولة غير متاحة مؤقتًا ريثما يتعافى اقتصاد الرقائق. يُرجى المحاولة بعد قليل.',
   'poker.recovery.startNew': 'ابدأ مباراة جديدة',
   'poker.recovery.frozenShort': 'غير متاح مؤقتًا',
+  'poker.recovery.settlementPending': 'لا تزال المباراة السابقة قيد التسوية. هذه الطاولة غير متاحة مؤقتًا وستُعيد المحاولة تلقائيًا.',
   'poker.mainPot': 'القِدر الرئيسي',
   'poker.sidePot': 'قِدر جانبي',
   'poker.split': 'تقاسم',

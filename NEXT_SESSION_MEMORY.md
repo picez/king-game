@@ -158,3 +158,30 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `RoomSnapshot.pokerRecovery` ('cancelled'|'frozen'); frozen disables Start. Behavioral render test
   (renderToStaticMarkup) + 360/RTL screenshot verified. EN/UK/DE/AR keys `poker.recovery.*`.
 - verify PASS 2858; libc 0; latest migration 0012; game count 7; achievements 52; no version bump.
+
+### Stage 37.7.6 — refund-failure safety + read-only recovery table + Poker rematch (COMPLETE, Unreleased)
+- Worked from HEAD `bc84723`. No new migration; no version bump. Real PostgreSQL (Docker): all 3 poker
+  DB suites (29 tests) 0 skipped; verify PASS 2846.
+- **FAIL 1 — refund result was ignored.** `refundBuyIns` returns boolean (`true`=confirmed/already-terminal,
+  `false`=NOT committed, escrow stays `funded`). All start/rematch failure paths now BRANCH on it: only
+  `true` sets `pokerMatchCancelled` + public "refunded"; `false` keeps funded, mints NO new matchId, refuses
+  START/ACTION/REMATCH, persists+broadcasts an honest **settlement-pending** state. `debitFreshStart` no longer
+  treats a `funded` escrow as idempotent-ok — a funded escrow at START is an **orphan**: it refunds first, or
+  returns `{ok:false, settlementPending:true}` (START handler → `SETTLEMENT_PENDING`, fail closed). New
+  `settlementPending(room)` = bankroll + funded escrow + no gameState; `pokerRecoveryBlocked(room)` = frozen ∨
+  pending ∨ economy-unavailable. `retrySettlementPending()` in `cleanupRooms` sweeps + completes the refund once
+  after DB recovery, then flips to cancelled lobby.
+- **`settlement_pending` is DERIVED — no persisted field/migration.** `serverCore.snapshot()` derives
+  `pokerRecovery: 'settlement_pending'`; `RoomSnapshot.pokerRecovery` union grew to include it; redactor still
+  leaks no escrow/economy. New ErrorCode `SETTLEMENT_PENDING` + `poker.recovery.settlementPending` (EN/UK/DE/AR).
+- **FAIL 2 — read-only recovery table.** `PokerGameScreen` gained `readOnly`; `PokerOnlineGame` sets
+  `readOnly=(recovery==='frozen'||'settlement_pending')`, hiding ALL action controls + next-hand, showing a
+  paused note. Behavioral render test proves the actor sees no controls + dispatch never fires.
+- **FAIL 3 — Poker rematch wired.** `OnlineGame`→`PokerOnlineGame`→`PokerFinished` pass shared `rematchUi`;
+  `PokerFinished` renders shared `RematchControls` (online) / local Play Again; suppressed under any recovery;
+  new paid match only after prior settles. Behavioral render tests cover online/local/frozen.
+- **FAIL 4 — testable seam.** `__setRefundFailure(v)` in `server/pokerEscrow.ts` injects a transient refund
+  failure deterministically. Regression: `pokerEscrow.integration.test.ts` (orphan refund-fail→pending→retry→
+  fresh, one net debit, old ledger intact, payout once) + `pokerRecovery.integration.test.ts` (START handler:
+  SETTLEMENT_PENDING + honest snapshot, no new match; retry→fresh) + `pokerRecoveryUi.test.ts` (FAIL 2/3 UI).
+- verify PASS 2846; libc 0; latest migration 0012; game count 7; achievements 52; version 0.4.8 (no bump).

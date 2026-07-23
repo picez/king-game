@@ -1170,8 +1170,12 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
     ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
     ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
-    // Minimal PUBLIC recovery status (§16, 37.7.4) — no economy internals. Frozen wins over cancelled.
-    ...(room.pokerFrozen ? { pokerRecovery: 'frozen' as const } : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
+    // Minimal PUBLIC recovery status (§16, 37.7.4/37.7.6) — no economy internals. Precedence:
+    // frozen (corrupt/operator) > settlement_pending (a FUNDED escrow with no live game = a
+    // debit whose refund/settlement is not yet confirmed) > cancelled (resolved, start fresh).
+    ...(room.pokerFrozen ? { pokerRecovery: 'frozen' as const }
+      : (room.gameType === 'poker' && room.pokerEscrow?.status === 'funded' && !room.gameState) ? { pokerRecovery: 'settlement_pending' as const }
+        : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,

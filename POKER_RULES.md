@@ -330,3 +330,17 @@ These are intentional MVP scope cuts, safe to revisit later:
 refunded is terminally **cancelled** (the room returns to a clean lobby); a room whose durable
 match record is itself corrupt is **frozen** (no gameplay, kept for operator review) — a
 refunded match never continues as a free game, and a corrupt record is never partially settled.
+
+**Settlement-pending + rematch (§16, Stage 37.7.6).** A third, *transient* recovery state sits
+between funded and cancelled: if a failed start/rematch tries to refund the buy-ins but the refund
+**cannot be confirmed** (a transient DB failure), the escrow stays **funded** and the table is
+**settlement-pending** — publicly shown as *“the previous match is still settling; this table is
+temporarily unavailable”* (derived as *bankroll room + funded escrow + no game state*; no economy
+data leaked). Gameplay, START, actions and rematch are all refused while pending; a background sweep
+retries the refund and, only once it is **confirmed**, flips the table to a clean cancelled lobby
+that a fresh paid match can start from. A funded escrow that reaches START from a clean lobby is an
+**orphan** and is refunded first (or the start fails closed) — it is never reused as a “fresh” match.
+The recovery table UI is **read-only** in the frozen and settlement-pending states (no betting or
+next-hand controls). **Rematch** on the finish screen starts a brand-new **paid** match (a fresh
+matchId, one new debit) via the shared ready-up control — and only after the previous match has
+settled; it is suppressed entirely while the table is in any recovery state.

@@ -373,6 +373,7 @@ export const DE: Record<string, string> = {
   'poker.recovery.frozen': 'Dieser Tisch ist vorübergehend nicht verfügbar, während sich die Chip-Ökonomie erholt. Bitte versuche es gleich erneut.',
   'poker.recovery.startNew': 'Neues Match starten',
   'poker.recovery.frozenShort': 'Vorübergehend nicht verfügbar',
+  'poker.recovery.settlementPending': 'Das vorherige Match wird noch abgerechnet. Dieser Tisch ist vorübergehend nicht verfügbar und versucht es automatisch erneut.',
   'poker.mainPot': 'Hauptpot',
   'poker.sidePot': 'Side-Pot',
   'poker.split': 'Geteilt',

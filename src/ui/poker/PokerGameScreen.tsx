@@ -15,6 +15,9 @@ interface Props {
   onExit: () => void;
   /** Online rooms auto-advance between hands on the server; local waits for a tap. */
   online?: boolean;
+  /** Stage 37.7.6 (FAIL 2): a frozen / settlement-pending bankroll table is fully READ-ONLY —
+   *  no bet/fold/check/call/raise/all-in controls and no manual next-hand. */
+  readOnly?: boolean;
 }
 
 /** i18n label per action-log kind (reuses the action labels; blind/raise are log-only). */
@@ -31,10 +34,10 @@ const LOG_KIND_KEY: Record<PokerActionKind, string> = {
  * mobile-safe, and the action log is collapsible (default closed). A Help button opens
  * the hand-rankings modal.
  */
-export default function PokerGameScreen({ state, mySeat, apply, onExit, online }: Props) {
+export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly }: Props) {
   const { t } = useI18n();
   const pot = state.contributedBySeat.reduce((a, b) => a + b, 0);
-  const myTurn = state.phase === 'betting' && mySeat != null && state.toActSeat === mySeat;
+  const myTurn = state.phase === 'betting' && mySeat != null && state.toActSeat === mySeat && !readOnly;
   const la = useMemo(() => (myTurn ? legalActions(state, mySeat!) : null), [state, myTurn, mySeat]);
   const sb = smallBlindSeat(state);
   const bb = bigBlindSeat(state);
@@ -108,16 +111,22 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online }
       {/* Showdown / fold-win review (§16 G). Local shows a Next button; online is
           server-paced (auto-advances) so the overlay is display-only. */}
       {inReview && (
-        <PokerShowdownReview state={state} mySeat={mySeat} onNext={online ? undefined : () => apply({ type: 'START_NEXT_HAND' })} />
+        <PokerShowdownReview state={state} mySeat={mySeat} onNext={(online || readOnly) ? undefined : () => apply({ type: 'START_NEXT_HAND' })} />
       )}
 
       {/* Collapsible public action log (§16 I) — default closed, with an unread dot. */}
       <PokerLog state={state} />
 
-      {/* Action row (mobile-safe, wraps) */}
-      {myTurn && la && <PokerActions la={la} pot={pot} apply={apply} />}
-      {state.phase === 'betting' && !myTurn && (
-        <p className="poker-waiting">{t('poker.waiting').replace('{name}', state.players[state.toActSeat]?.name ?? '')}</p>
+      {/* (37.7.6 FAIL 2) A frozen / settlement-pending table is READ-ONLY: no action controls. */}
+      {readOnly ? (
+        <p className="poker-waiting poker-waiting--paused">⏸️ {t('poker.recovery.frozenShort')}</p>
+      ) : (
+        <>
+          {myTurn && la && <PokerActions la={la} pot={pot} apply={apply} />}
+          {state.phase === 'betting' && !myTurn && (
+            <p className="poker-waiting">{t('poker.waiting').replace('{name}', state.players[state.toActSeat]?.name ?? '')}</p>
+          )}
+        </>
       )}
     </div>
   );

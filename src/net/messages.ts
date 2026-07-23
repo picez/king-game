@@ -83,6 +83,8 @@ export interface RoomSnapshot {
   tarneebTargetScore?: number;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
+  /** Poker recovery public status (§16, 37.7.6): 'settlement_pending' added — the previous
+   *  match's refund is not yet confirmed (temporarily unavailable, retries automatically). */
   /** Poker online bankroll base blinds + derived buy-in + growth (§16); undefined for
    *  other games / local / legacy rooms. `pokerBuyIn` is server-derived (100 BB). */
   pokerSmallBlind?: number;
@@ -92,7 +94,7 @@ export interface RoomSnapshot {
   /** Minimal PUBLIC recovery status (§16, 37.7.4) — NEVER any userId/matchId/escrow. Lets the
    *  client show a banner: the previous match was cancelled (buy-ins refunded) or the table is
    *  frozen (temporarily unavailable). Omitted once a fresh match starts. */
-  pokerRecovery?: 'cancelled' | 'frozen';
+  pokerRecovery?: 'cancelled' | 'frozen' | 'settlement_pending';
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -353,6 +355,9 @@ export type ErrorCode =
   | 'NOT_SIGNED_IN'
   /** Bankroll poker (§16, 37.7.4): the chip economy (DB) is unavailable — table frozen. */
   | 'ECONOMY_UNAVAILABLE'
+  /** Bankroll poker (§16, 37.7.6): the previous match's settlement (refund) is not yet
+   *  confirmed — the table is temporarily unavailable and retries automatically. */
+  | 'SETTLEMENT_PENDING'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

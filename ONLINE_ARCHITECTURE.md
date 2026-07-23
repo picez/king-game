@@ -613,3 +613,35 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   status in the online Lobby and the poker game view — `cancelled` (previous match cancelled, buy-ins
   refunded, start a new match) / `frozen` (economy recovering; Start disabled). No userId/matchId/escrow;
   EN/UK/DE/AR; wraps on 360/390 + Arabic RTL. The banner clears once a fresh match starts.
+
+### Refund-failure safety + read-only recovery table + rematch (Stage 37.7.6)
+
+- **Refund result is always honored (FAIL 1):** `refundBuyIns` returns a boolean — `true` only when
+  the refund is CONFIRMED (or the escrow was already terminal), `false` when it could not be committed
+  (the escrow is left `funded` for retry). Every start/rematch failure path that used to *assume* a
+  refund now branches on that boolean: only a `true` result sets `pokerMatchCancelled` + the public
+  "refunded" state; a `false` result keeps the escrow funded, mints **no** new matchId, refuses START/
+  ACTION/REMATCH, and persists+broadcasts an honest **settlement-pending** state.
+- **`settlement_pending` is a DERIVED public state — no new field/migration.** `snapshot()` derives
+  `RoomSnapshot.pokerRecovery = 'settlement_pending'` from *bankroll room + `pokerEscrow.status ==
+  'funded'` + no `gameState`* (predicate `settlementPending(room)`; `pokerRecoveryBlocked(room)` =
+  frozen ∨ settlement-pending ∨ economy-unavailable). No economy fields ever leave the server.
+- **A funded escrow at START is an ORPHAN, never a "fresh" start.** `debitFreshStart` no longer treats
+  a `funded` escrow as idempotent-ok (which could have reused an old failed match from a clean lobby):
+  it **refunds the orphan first**; if that refund fails it returns `{ ok:false, settlementPending:true }`
+  and the START handler emits `SETTLEMENT_PENDING` (fail closed). Only a confirmed refund falls through
+  to mint a brand-new matchId + debit.
+- **Background retry:** `retrySettlementPending()` (in `cleanupRooms`) sweeps settlement-pending rooms
+  under `withRoomLock`, re-attempts `refundBuyIns`, and — only on success — flips the room to a cancelled
+  lobby (persist + broadcast). Completes exactly once; safe after a DB recovery.
+- **Read-only recovery table (FAIL 2):** `PokerGameScreen` takes a `readOnly` prop; `PokerOnlineGame`
+  passes `readOnly = (recovery === 'frozen' || 'settlement_pending')`, hiding **every** action control
+  (Fold/Check/Call/Bet/Raise/All-in + next-hand) and showing a paused note instead — the banner explains
+  why. Lobby Start is likewise disabled for any recovery-blocked room.
+- **Poker rematch wired end-to-end (FAIL 3):** `OnlineGame` → `PokerOnlineGame` → `PokerFinished` now
+  pass the shared `rematchUi`; `PokerFinished` renders the shared `RematchControls` (online) / local Play
+  Again (local). A new **paid** match starts only after the previous one settles; rematch is suppressed
+  whenever the table is in any recovery state.
+- **Testability (FAIL 4):** a test-only seam `__setRefundFailure(v)` deterministically injects a transient
+  refund failure, so the failure path has real fault-injection regression tests (escrow-level + START-handler
+  level on real PostgreSQL) instead of an unverified fire-and-forget branch.

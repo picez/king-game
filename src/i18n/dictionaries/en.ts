@@ -373,6 +373,7 @@ export const EN: Record<string, string> = {
   'poker.recovery.frozen': 'This table is temporarily unavailable while the chip economy recovers. Please try again shortly.',
   'poker.recovery.startNew': 'Start a new match',
   'poker.recovery.frozenShort': 'Temporarily unavailable',
+  'poker.recovery.settlementPending': 'The previous match is still being settled. This table is temporarily unavailable and will retry automatically.',
   'poker.mainPot': 'Main pot',
   'poker.sidePot': 'Side pot',
   'poker.split': 'Split',

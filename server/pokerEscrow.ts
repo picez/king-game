@@ -94,11 +94,32 @@ export function validateBankrollSeats(room: ServerRoom): SeatValidation {
   return { ok: true, seats };
 }
 
-export type DebitResult = { ok: true } | { ok: false; error: string };
+export type DebitResult = { ok: true } | { ok: false; error: string; settlementPending?: boolean };
 
 async function db(): Promise<PostgresJsDatabase | null> {
   const conn = await getDb();
   return conn ? (conn.db as PostgresJsDatabase) : null;
+}
+
+// Test-only seam (Stage 37.7.6, FAIL 4): deterministically simulate a TRANSIENT refund
+// failure (refundBuyIns returns false, escrow stays funded) without a broken DB, so the
+// refund=false fail-closed path is a real, verified regression instead of an untested branch.
+let injectedRefundFailure = false;
+export function __setRefundFailure(v: boolean): void { injectedRefundFailure = v; }
+
+/**
+ * True when a bankroll room holds a FUNDED escrow but has NO live game — a debit whose
+ * game never started and whose refund/settlement is not yet confirmed (§16, 37.7.6). Such a
+ * room is SETTLEMENT-PENDING: it must not be treated as a playable/cancelled table, must
+ * reject gameplay/rematch, and its funded escrow is retried until refunded.
+ */
+export function settlementPending(room: ServerRoom): boolean {
+  return isBankrollRoom(room) && room.pokerEscrow?.status === 'funded' && !room.gameState;
+}
+
+/** Recovery states that block gameplay/rematch (frozen, settlement-pending, or no economy). */
+export function pokerRecoveryBlocked(room: ServerRoom): boolean {
+  return !!room.pokerFrozen || settlementPending(room) || bankrollEconomyUnavailable(room);
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
@@ -181,11 +202,21 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
   if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
   const esc = room.pokerEscrow;
-  if (esc?.status === 'funded') return { ok: true };                                   // idempotent duplicate START
   if (esc?.status === 'pending' || esc?.status === 'settling') {
     return { ok: false, error: 'A previous action is still in progress — try again in a moment' };
   }
-  // esc is undefined (initial) OR terminal (settled/cancelled) → a BRAND-NEW paid match.
+  // (37.7.6 FAIL 1) A FUNDED escrow reaching START is an ORPHAN — the caller only starts from a
+  // clean lobby (its started/gameState guard already passed), so a funded escrow here belongs to
+  // a prior match whose game never started (a failed start whose refund also failed). It must NOT
+  // be reused as a "fresh" match. Resolve it first: refund the orphan. If that fails, fail CLOSED
+  // as settlement-pending (never mint a new match while the old one is unresolved).
+  if (esc?.status === 'funded') {
+    const resolved = await refundBuyIns(room); // funded → attempt refund of the orphan
+    if (!resolved) return { ok: false, error: 'Settlement pending — please try again in a moment', settlementPending: true };
+    // resolved → escrow is now terminal (cancelled/settled); fall through to mint a fresh match.
+  }
+  // esc is undefined (initial) OR terminal (settled/cancelled, incl. the just-resolved orphan) →
+  // a BRAND-NEW paid match.
   const valid = validateBankrollSeats(room);
   if (!valid.ok) return valid;
   room.pokerEscrow = undefined;                      // clear ONLY a resolved/absent escrow → mint fresh
@@ -282,6 +313,7 @@ export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
   if (esc.status === 'settled' || esc.status === 'cancelled') return true; // already resolved
   if (esc.status === 'pending') return false;                        // debit in flight → keep for reconcile
   if (!isDbEnabled()) return false;                                  // economy off but funded → keep for retry
+  if (injectedRefundFailure) { esc.status = 'funded'; return false; } // test seam: transient refund failure
   esc.status = 'settling';
   try {
     await settleMatchTx(esc.matchId, 'cancel_refund', async (tx) => {
