@@ -416,3 +416,36 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **30 poker suites / 275 tests, 0 skipped, 8/8 clean consecutive runs**;
   `npm run verify` twice stably (**289 files / 3048 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.14:** "retried on the next sweep/restart" was only true for RESTART — the periodic sweep never
+  reconciled an unresolved escrow, so such a room stayed blocked for the life of the process.
+
+### Stage 37.7.14 — runtime recovery sweep + settlement precedence + corrupt durable freeze (COMPLETE, Unreleased)
+- Worked from HEAD `e87f27d`. No new migration, no version bump, other 6 games untouched. All 5 RED probes reproduced
+  first by replaying the production sweep/bootstrap wiring verbatim.
+- **RED evidence.** (1) bound `pending` after a transient boot failure: sweep branch = **`no_branch`**, escrow stays
+  `pending`, room unplayable until restart. (2) `pending` + UNBOUND: sweep branch = `unbound` → `gameState = null`,
+  `binding = undefined`, escrow STILL `pending` (refund refused) — evidence destroyed with nothing refunded.
+  (3) `pending` + committed payout → `reconcileEscrow` returned **`funded`** (must be `settled`). (4) `pending` +
+  committed `cancel_refund` → returned **`funded`** (must be `cancelled`). (5) bound funded room + malformed durable
+  `poker_matches` row → `recovery = live`, `advanced = [room]`, `frozen = undefined`.
+- **FIX 1 — `runRoomRecoverySweep(room, deps)`** in `server/pokerBootstrap.ts`, used by `server/index.ts` AND the tests.
+  Under `withRoomLock`: frozen → no-op; escrow not transient → idle; else reconcile → `classifyBootstrapRecovery` →
+  shared apply. Returns `{reconciled, recovery, changed}`; `changed=false` while unproven (no mutation, no 45s log
+  spam). Entry guard is `escrowUnresolved(room)`, tested FIRST in `retryPendingSettlements` — reconciliation has
+  PRECEDENCE over unbound/refund/payout/stats routing. `unboundEscrowGame` and `payoutPending` narrowed to **`funded`
+  only**. A revived room stops matching once resolved ⇒ `rescheduleAdvance` fires exactly once.
+- **FIX 2 — settlement precedence in `reconcileEscrow`.** A durable settlement row now wins for EVERY transient status:
+  `payout` → `settled`, `cancel_refund` → `cancelled`; only with no row does the buy-in ledger decide (full → funded,
+  zero → proven_uncommitted, partial → corrupt_partial; settling+no row → funded).
+- **FIX 3 — corrupt DURABLE match freezes its room.** `reconcileOrphanedDebits` gained **`corruptRoomCodes`** (room
+  codes only) and `runBootstrapEconomyRecovery` step (e2) freezes those rooms BEFORE apply (classification then
+  short-circuits to `frozen`). Distinct from `pokerEscrowCorrupt` (malformed room JSON) — this is a VALID room escrow
+  with a malformed `poker_matches` row. No advance/refund/payout/stats/purge; all evidence kept; log once; snapshot
+  `frozen`. `BootstrapEconomyReport.corruptDurableRooms` exposes it to tests only.
+- **New tests:** `src/net/pokerRuntimeSweep.integration.test.ts` (10 real-PG cases through BOTH production entry
+  points — incl. non-regression for live/payout_pending/stats_pending/unbound and for non-poker + LOCAL poker) and a
+  pure `runRoomRecoverySweep` precedence/guard matrix in `pokerBootstrap.test.ts`. The suite lock now covers **14**
+  poker DB files.
+- **Gates:** real Docker PostgreSQL — **31 poker suites / 285 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**290 files / 3064 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

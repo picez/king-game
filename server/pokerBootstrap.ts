@@ -263,8 +263,9 @@ export interface BootstrapEconomyDeps extends BootstrapRecoveryDeps {
   isBankrollRoom: (room: ServerRoom) => boolean;
   /** True when the room still holds unsettled escrow (or a corrupt/frozen one). */
   hasUnsettledEscrow: (room: ServerRoom) => boolean;
-  /** DB-authoritative orphan scan: refunds every committed match NOT in the protected set. */
-  reconcileOrphanedDebits: (protectedMatchIds: Set<string>) => Promise<{ refunded: string[]; corrupt: string[] }>;
+  /** DB-authoritative orphan scan: refunds every committed match NOT in the protected set, and
+   *  reports the room codes owning a MALFORMED durable record (37.7.14 FAIL 3). */
+  reconcileOrphanedDebits: (protectedMatchIds: Set<string>) => Promise<{ refunded: string[]; corrupt: string[]; corruptRoomCodes?: string[] }>;
   /** Resolve a room whose PERSISTED escrow was malformed; false → freeze for operator review. */
   reconcileCorruptRoom: (room: ServerRoom) => Promise<boolean>;
   /** The per-room lifecycle mutex. */
@@ -285,6 +286,8 @@ export interface BootstrapEconomyReport {
   protectedMatchIds: Set<string>;
   /** Match ids the orphan scan actually refunded. */
   orphanRefunded: string[];
+  /** Room codes frozen because their DURABLE match record is malformed (37.7.14 FAIL 3). */
+  corruptDurableRooms: string[];
 }
 
 /**
@@ -325,10 +328,12 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
 
   // (d) DB-authoritative orphan scan — ONLY now, and only for unprotected matches.
   let orphanRefunded: string[] = [];
+  let corruptRoomCodes: string[] = [];
   try {
-    const { refunded } = await deps.reconcileOrphanedDebits(protectedMatchIds);
-    orphanRefunded = refunded;
-    if (refunded.length) deps.log(`crash recovery: refunded ${refunded.length} orphaned poker match(es)`);
+    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds);
+    orphanRefunded = scan.refunded;
+    corruptRoomCodes = scan.corruptRoomCodes ?? [];
+    if (scan.refunded.length) deps.log(`crash recovery: refunded ${scan.refunded.length} orphaned poker match(es)`);
   } catch (err) {
     deps.logError(`orphaned-debit reconciliation failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
   }
@@ -339,6 +344,22 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
     if (!ok) deps.freeze(r, 'corrupt durable match');
     if (deps.roomExists(r)) deps.persist(r);
   }));
+
+  // (e2) (37.7.14 FAIL 3) A restored room whose DURABLE match record is malformed must be FROZEN
+  // BEFORE the apply pass. `pokerEscrowCorrupt` above only covers a malformed persisted room JSON;
+  // this is the opposite shape — a structurally VALID room escrow whose `poker_matches` row cannot be
+  // parsed. Its participant evidence is unsafe, so the table can never be classified/applied as
+  // `live`: it is never advanced, refunded, paid, recorded or purged, and everything is kept for the
+  // operator. Freezing here makes the (f) pass a no-op for it (classification short-circuits to
+  // `frozen`), and the freeze is logged exactly once so repeated boots do not spam.
+  const corruptRooms = new Set(corruptRoomCodes);
+  for (const r of bankroll) {
+    if (!corruptRooms.has(r.code) || r.pokerFrozen) continue;
+    deps.clearTimers(r);
+    deps.freeze(r, 'corrupt durable match record');
+    recoveries.set(r.code, 'frozen');
+    if (deps.roomExists(r)) deps.persist(r);
+  }
 
   // (f) Apply the recovery decided in (b), serialized per room.
   for (const r of bankroll) {
@@ -354,5 +375,53 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
     if (recovery === 'cancelled') deps.log(`bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
     if (recovery === 'recovery_pending') deps.log(`bankroll match UNRESOLVED on recovery (room ${r.code}) — held for the next reconciliation`);
   }
-  return { recoveries, reconciled, protectedMatchIds, orphanRefunded };
+  return {
+    recoveries, reconciled, protectedMatchIds, orphanRefunded,
+    corruptDurableRooms: bankroll.filter((r) => corruptRooms.has(r.code)).map((r) => r.code),
+  };
+}
+
+/** The outcome of ONE runtime recovery sweep for a room (37.7.14 FAIL 1). */
+export interface RecoverySweepOutcome {
+  /** The reconciliation outcome, or null when nothing needed reconciling. */
+  reconciled: EscrowReconcileResult | null;
+  /** The classification applied, or null when the room carries no game state. */
+  recovery: BootstrapRecovery | null;
+  /** True when this sweep PROVED something new (→ the caller broadcasts/logs; false = still unproven). */
+  changed: boolean;
+}
+
+/**
+ * (37.7.14 FAIL 1) RUNTIME recovery sweep for ONE room — the periodic counterpart of the bootstrap
+ * pass, and the fix for a room that could only be unstuck by a server restart.
+ *
+ * Stage 37.7.13 said an unresolved (`pending`/`settling`) escrow would be "retried on the next
+ * sweep". It was not: `retryPendingSettlements` never called `reconcileEscrow`, and its predicates
+ * (`settlementPending`/`payoutPending`) require a FUNDED escrow, so an unresolved room simply stayed
+ * blocked for the life of the process — while the FIRST branch, `unboundEscrowGame`, did match a
+ * `pending`/`settling` unbound room and dropped its state + binding before any durable proof.
+ *
+ * RECONCILIATION HAS PRECEDENCE over every unbound/refund/payout/stats route. Call inside
+ * `withRoomLock(room.code, …)`. Reuses the SHARED classify/apply policy — no second copy of the
+ * recovery branching in `server/index.ts`. Because the entry condition is "escrow is transient", a
+ * resolved room stops matching, so a `live` room is re-armed EXACTLY once (never every sweep tick).
+ */
+export async function runRoomRecoverySweep(room: ServerRoom, deps: BootstrapRecoveryDeps): Promise<RecoverySweepOutcome> {
+  const idle: RecoverySweepOutcome = { reconciled: null, recovery: null, changed: false };
+  if (!isBankrollRoomShape(room)) return idle;
+  if (room.pokerFrozen) return { reconciled: null, recovery: 'frozen', changed: false }; // permanent operator state
+  const status = room.pokerEscrow?.status;
+  if (status !== 'pending' && status !== 'settling') return idle; // durable → the funded retries apply
+
+  const reconciled = (await deps.reconcileEscrow(room)) ?? 'noop';
+  const proven = reconciled !== 'retry_pending';
+  if (!room.gameState) {
+    // No state to classify. A PARTIAL debit still can't be settled either way → freeze; anything else
+    // just carries its now-proven escrow status into the normal funded/settled/cancelled handling.
+    if (reconciled === 'corrupt_partial') { deps.clearTimers(room); deps.freeze(room, 'partial durable buy-in record'); }
+    deps.persist(room);
+    return { reconciled, recovery: null, changed: proven };
+  }
+  const recovery = await recoverRestoredBankrollRoom(room, deps, reconciled);
+  return { reconciled, recovery, changed: proven };
 }

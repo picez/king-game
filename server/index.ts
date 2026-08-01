@@ -55,7 +55,7 @@ import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRe
 import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
-import { runBootstrapEconomyRecovery, shouldDeferBootstrapAdvance } from './pokerBootstrap';
+import { runBootstrapEconomyRecovery, runRoomRecoverySweep, shouldDeferBootstrapAdvance } from './pokerBootstrap';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -1044,7 +1044,21 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
  */
 function retryPendingSettlements(): void {
   for (const room of rooms.values()) {
-    if (unboundEscrowGame(room)) {
+    if (escrowUnresolved(room)) {
+      // (37.7.14 FAIL 1) RECONCILIATION HAS PRECEDENCE. A `pending`/`settling` escrow's durable
+      // outcome is unknown, so nothing may be refunded/paid/recorded — and no state or binding may be
+      // dropped — until it is proven. This branch is what Stage 37.7.13's "retried on the next sweep"
+      // actually needs: the shared bootstrap classify/apply policy, run in-process under the room
+      // lock. Once resolved the room stops matching here, so a revived `live` table is re-armed
+      // exactly once rather than on every 45s tick.
+      void withRoomLock(room.code, async () => {
+        if (!rooms.has(room.code) || !escrowUnresolved(room)) return;
+        const out = await runRoomRecoverySweep(room, bootstrapRecoveryDeps());
+        if (!out.changed) return;                    // still unproven → stay inert, no log spam
+        broadcastRoom(room);
+        console.log(`[King] unresolved poker escrow reconciled for room ${room.code} (${out.reconciled}${out.recovery ? ` → ${out.recovery}` : ''})`);
+      });
+    } else if (unboundEscrowGame(room)) {
       // (37.7.12 FAIL 1) A LIVE escrow whose match never produced the room's current state (a
       // crashed rematch). Drop the stale state and refund the fresh buy-in — never pay/record it.
       void withRoomLock(room.code, async () => {

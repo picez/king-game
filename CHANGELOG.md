@@ -168,6 +168,21 @@ also reported at `GET /health/diagnostics` (`version` field).
     actions, is never deleted, and is retried — and only becomes a cancelled lobby once the database
     **proves** nothing was ever charged. A half-charged table is frozen for review rather than being
     guessed at in either direction.
+  - **Tables that were "still settling" now really do recover by themselves (Stage 37.7.14):** three
+    more real defects fixed, one of them another **correction to the previous entry**. (1) Stage
+    37.7.13 said such a table would be retried "on the next pass". It was not — the periodic
+    background check never re-asked the database, so a table caught by a momentary database problem
+    stayed unplayable until the server was restarted. Worse, for a table whose buy-in belonged to a
+    hand that never started, that same background check threw away the table's record of which hand
+    it was **before** the database had confirmed anything. The background check now re-asks the
+    database first, and nothing is refunded, paid, recorded or cleared until the answer is in; a
+    revived table resumes exactly once. (2) When a table's saved file said "buy-in still in progress"
+    but the database had **already** paid out (or already refunded) that match, the payout/refund was
+    ignored and the table could resume a hand whose chips were gone. A committed payout or refund now
+    always wins over whatever the saved file says. (3) A table whose durable buy-in record was
+    **damaged** could still be resumed as a normal game; it is now frozen for review before anything
+    else happens — never advanced, never paid, refunded, recorded or deleted, with everything kept
+    intact for the operator and only an opaque "paused" status shown to players.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

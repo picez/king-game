@@ -893,3 +893,50 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   (a Postgres ADVISORY lock on a reserved connection, so it serializes across vitest workers and self-releases if a
   worker dies), registered by all 13 poker DB files, plus `scopedOrphanScan` (protects every match the suite does not
   own) as second-order defence. 8/8 clean poker-suite runs after the change.
+
+### Runtime recovery sweep + settlement precedence + corrupt durable freeze (Stage 37.7.14)
+
+- **CORRECTION to 37.7.13.** That stage documented that an unresolved (`pending`/`settling`) escrow is "retried on the
+  next sweep/restart". The RESTART half was true; the SWEEP half was not. `retryPendingSettlements` never called
+  `reconcileEscrow`, and `settlementPending`/`payoutPending` both require a FUNDED escrow, so an unresolved room matched
+  no branch at all and stayed blocked for the life of the process (RED: sweep branch = `no_branch`, escrow still
+  `pending`). Worse, the FIRST branch — `unboundEscrowGame` — accepted `pending`/`settling`, so
+  `resolveUnboundEscrowGame` dropped `gameState` + `pokerGameMatchId` and only THEN called `refundBuyIns`, which refuses
+  a pending debit: the generation evidence was destroyed with nothing refunded (RED: `gameState = null`,
+  `binding = undefined`, escrow still `pending`). For a `settling` escrow a payout may already have committed.
+- **`runRoomRecoverySweep(room, deps)` (FAIL 1 fix).** A new production helper in `server/pokerBootstrap.ts`, called by
+  `server/index.ts` AND by `pokerRuntimeSweep.integration.test.ts` — no second copy of the recovery branching in
+  index.ts. Under `withRoomLock`: frozen → no-op; escrow not transient → idle (the funded retries own it); otherwise
+  `reconcileEscrow` → `classifyBootstrapRecovery` → the SHARED apply policy (via `recoverRestoredBankrollRoom`, or a
+  direct freeze for `corrupt_partial` when the room has no game state). It returns
+  `{ reconciled, recovery, changed }`; `changed` is false while the outcome is unproven, so an unresolved room neither
+  mutates nor log-spams every 45 s. Because the ENTRY condition is "escrow is transient", a revived room stops matching
+  once resolved — `rescheduleAdvance` fires EXACTLY once, never on every tick.
+- **Reconciliation PRECEDENCE.** `retryPendingSettlements` now tests `escrowUnresolved(room)` FIRST, ahead of
+  `unboundEscrowGame` / `settlementPending` / `payoutPending` / `statsPending`. To make that airtight, `unboundEscrowGame`
+  and `payoutPending` were narrowed from `!settled && !cancelled` / `funded|settling` to **`funded` only**: an unproven
+  escrow can no longer be routed into a refund or a payout, and `payoutStacks` would have answered `retry_pending` for a
+  `settling` escrow anyway.
+- **Settlement precedence in `reconcileEscrow` (FAIL 2 fix).** The durable settlement row is now consulted for EVERY
+  transient status, not just `settling`: `payout` → `settled`, `cancel_refund` → `cancelled`. Only with NO settlement row
+  does the buy-in ledger decide (`pending`: full → `funded`, zero → `proven_uncommitted`, partial → `corrupt_partial`;
+  `settling` → retryable `funded`). RED: a `pending` escrow with a committed payout reconciled to **`funded`**, so an
+  unfinished bound state was classified `live` and could resume an already-PAID match — bypassing the 37.7.11
+  `settled` + unfinished → `incoherent_paid` invariant; a committed `cancel_refund` was likewise ignored.
+- **Corrupt durable match freezes its room (FAIL 3 fix).** `reconcileOrphanedDebits` returned `corrupt` match ids that
+  `runBootstrapEconomyRecovery` discarded, so a room with a structurally VALID escrow (hence `pokerEscrowCorrupt` false)
+  but a malformed `poker_matches` row was classified `live` and re-armed (RED: `recovery = live`, `advanced = [room]`).
+  The scan result gained **`corruptRoomCodes`** (room codes only — no matchId/userId/seats/balances), and a new pipeline
+  step (e2) freezes those rooms BEFORE the apply pass; classification then short-circuits to `frozen`, so nothing is
+  advanced, refunded, paid, recorded or purged, and state/binding/escrow/durable evidence are all preserved. The freeze
+  logs once (`corrupt durable match record`) and the public snapshot shows only `frozen`. Note this is the OPPOSITE
+  shape to `pokerEscrowCorrupt` (a malformed persisted room JSON) — both are now covered.
+- **Regression suite:** `src/net/pokerRuntimeSweep.integration.test.ts` (real PostgreSQL) drives BOTH production entry
+  points across: a bound pending room revived by the sweep (advance exactly once, teardown `keep`, actions rejected
+  while unproven); a pending room with NO game state; a pending UNBOUND escrow (evidence kept until proven, then
+  refunded exactly once, balances back to pre-rematch); pending + durable payout with an unfinished state
+  (→ `incoherent_paid`, frozen) and with a finished state (→ `paid_finish`, stats exactly once, payout never repeated);
+  pending + durable refund (→ `cancelled` only on that proof); `settling` parity; the corrupt-durable freeze with full
+  privacy + idempotence checks; plus explicit non-regression for the healthy live / payout_pending / stats_pending /
+  unbound flows and for non-poker + LOCAL free poker rooms (never touched). `pokerBootstrap.test.ts` adds a pure
+  precedence/guard matrix for `runRoomRecoverySweep`.

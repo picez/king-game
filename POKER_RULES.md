@@ -361,6 +361,35 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   sweep/restart — then zero debit → cancelled, a full bound debit → live/finish, a full but
   unbound debit → refunded once. A **partial** durable debit (only some seats charged) can be
   settled neither way and is **frozen** for operator review.
+  **Correction (Stage 37.7.14):** as shipped, that retry never happened — the periodic sweep
+  did not reconcile an unresolved escrow at all, so such a table stayed blocked until the
+  process restarted. Fixed by the runtime sweep below.
+- **The runtime sweep reconciles, and reconciliation has PRECEDENCE** (Stage 37.7.14). The
+  periodic settlement sweep now handles an unresolved (`pending`/`settling`) escrow FIRST,
+  under the room lock, through the SAME classify/apply policy as bootstrap: reconcile →
+  classify → apply. Only after a proven outcome may anything else run — `live` re-arms the
+  advance exactly once, a paid finish finalizes stats, a proven-uncommitted debit becomes a
+  clean cancelled lobby, a proven funded **unbound** debit is refunded once, an unproven one
+  stays inert, and a partial/corrupt one freezes. Nothing is refunded, paid, recorded, purged
+  — and NO game state or generation binding is dropped — while the outcome is unknown. In
+  particular `unboundEscrowGame` and `payoutPending` now require a **funded** escrow, so an
+  unresolved table can never be routed into the refund/payout paths first.
+- **A committed settlement outranks the room's transient status** (Stage 37.7.14). When
+  reconciling ANY transient escrow, a durable `payout` settlement row → `settled` and a
+  durable `cancel_refund` row → `cancelled`, whatever the saved room JSON says. Only with no
+  settlement row does the buy-in ledger decide (full → `funded`, zero → `proven_uncommitted`,
+  partial → `corrupt_partial`; a `settling` escrow with no row → retryable `funded`). This
+  closes a crash window where a `pending` escrow with a committed payout was promoted to
+  `funded`, letting an already-PAID match resume as `live` and bypass the §16 `settled` +
+  unfinished → frozen invariant.
+- **A corrupt DURABLE match freezes its room** (Stage 37.7.14). The startup scan now reports
+  which rooms own a malformed `poker_matches` record, and those rooms are **frozen before the
+  recovery apply pass** — even when the persisted room escrow itself is structurally valid
+  (so the older `pokerEscrowCorrupt` flag does not catch them). Such a table is never
+  classified or applied as `live`: no advance, no timer, no actions, no rematch, no refund, no
+  payout, no stats and no purge; state, binding, escrow and the durable evidence are all kept.
+  Players see only the opaque `frozen` status; the operator log carries the room code and a
+  safe reason (never a matchId, userId, seats or balances) and is written exactly once.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

@@ -3,8 +3,9 @@ import type { ServerRoom, PokerEscrow } from './serverCore';
 import type { PokerState } from '../games/poker/types';
 import {
   classifyBootstrapRecovery, applyBootstrapRecovery, recoverRestoredBankrollRoom,
-  shouldDeferBootstrapAdvance, settlementProtectedMatchId,
+  shouldDeferBootstrapAdvance, settlementProtectedMatchId, runRoomRecoverySweep,
 } from '../../server/pokerBootstrap';
+import type { EscrowReconcileResult } from '../../server/pokerEscrow';
 
 // Stage 37.7.10 FAIL 1 (pure): a restored bankroll room that carried a game state across a restart is
 // classified correctly — a SETTLED (paid) escrow + finished game is a PAID FINISH (finalize stats,
@@ -143,6 +144,88 @@ describe('FAIL 1 (37.7.11) — shouldDeferBootstrapAdvance: no bankroll room adv
   it('does not defer non-bankroll rooms (the other 6 games / local free poker are unchanged)', () => {
     expect(shouldDeferBootstrapAdvance(room(undefined, LIVE, { gameType: 'king', pokerBuyIn: undefined }))).toBe(false);
     expect(shouldDeferBootstrapAdvance(room(undefined, LIVE, { pokerBuyIn: undefined }))).toBe(false);
+  });
+});
+
+describe('FAIL 1 (37.7.14) — runRoomRecoverySweep: reconciliation has PRECEDENCE at runtime', () => {
+  const sweepDeps = (reconcile: EscrowReconcileResult = 'funded') => ({
+    ...applyDeps(),
+    reconcileEscrow: vi.fn(async (r: ServerRoom) => {
+      if (reconcile === 'funded' && r.pokerEscrow) r.pokerEscrow.status = 'funded';
+      if (reconcile === 'proven_uncommitted') r.pokerEscrow = undefined;
+      return reconcile;
+    }),
+    isFinished: isFin,
+    refundBuyIns: vi.fn(async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return true; }),
+  });
+
+  it('only a TRANSIENT escrow is swept — a durable one is left to the funded retries', async () => {
+    for (const status of ['funded', 'settled', 'cancelled'] as const) {
+      const d = sweepDeps();
+      expect(await runRoomRecoverySweep(room(esc(status), LIVE), d)).toEqual({ reconciled: null, recovery: null, changed: false });
+      expect(d.reconcileEscrow).not.toHaveBeenCalled();
+    }
+    // Not a bankroll room at all (the other 6 games / local free poker) → never touched.
+    const d = sweepDeps();
+    expect(await runRoomRecoverySweep(room(esc('pending'), LIVE, { pokerBuyIn: undefined }), d)).toEqual({ reconciled: null, recovery: null, changed: false });
+    expect(d.reconcileEscrow).not.toHaveBeenCalled();
+  });
+
+  it('a FROZEN room is a permanent operator state — no reconciliation, no settlement', async () => {
+    const d = sweepDeps();
+    const r = room(esc('pending'), LIVE, { pokerFrozen: true });
+    expect(await runRoomRecoverySweep(r, d)).toEqual({ reconciled: null, recovery: 'frozen', changed: false });
+    expect(d.reconcileEscrow).not.toHaveBeenCalled();
+    expect(d.refundBuyIns).not.toHaveBeenCalled();
+    expect(r.gameState).not.toBeNull();
+  });
+
+  it('a proven funded + bound state goes live EXACTLY once (a resolved room stops matching)', async () => {
+    const r = room(esc('pending'), LIVE, { started: true });
+    const d = sweepDeps('funded');
+    expect(await runRoomRecoverySweep(r, d)).toEqual({ reconciled: 'funded', recovery: 'live', changed: true });
+    expect(d.rescheduleAdvance).toHaveBeenCalledOnce();
+    // The escrow is durable now, so the next tick is a no-op — no 45s advance storm.
+    const d2 = sweepDeps('funded');
+    expect(await runRoomRecoverySweep(r, d2)).toEqual({ reconciled: null, recovery: null, changed: false });
+    expect(d2.rescheduleAdvance).not.toHaveBeenCalled();
+  });
+
+  it('an UNPROVEN outcome changes nothing and reports changed:false (no log spam)', async () => {
+    const r = room(esc('pending'), LIVE, { started: true });
+    const d = sweepDeps('retry_pending');
+    expect(await runRoomRecoverySweep(r, d)).toEqual({ reconciled: 'retry_pending', recovery: 'recovery_pending', changed: false });
+    expect(r.gameState).not.toBeNull();
+    expect(r.pokerGameMatchId).toBe('m1');
+    expect(r.pokerEscrow!.status).toBe('pending');
+    expect(r.pokerMatchCancelled).toBeUndefined();
+    expect(r.pokerFrozen).toBeUndefined();
+    expect(d.rescheduleAdvance).not.toHaveBeenCalled();
+    expect(d.refundBuyIns).not.toHaveBeenCalled();
+  });
+
+  it('a room with NO game state is still reconciled; a PARTIAL debit freezes it', async () => {
+    const r = room(esc('pending'), null);
+    const d = sweepDeps('funded');
+    expect(await runRoomRecoverySweep(r, d)).toEqual({ reconciled: 'funded', recovery: null, changed: true });
+    expect(r.pokerEscrow!.status).toBe('funded'); // → the normal settlement-pending refund retry owns it
+    expect(r.pokerFrozen).toBeUndefined();
+
+    const bad = room(esc('pending'), null);
+    const d2 = sweepDeps('corrupt_partial');
+    expect(await runRoomRecoverySweep(bad, d2)).toEqual({ reconciled: 'corrupt_partial', recovery: null, changed: true });
+    expect(bad.pokerFrozen).toBe(true);
+    expect(d2.refundBuyIns).not.toHaveBeenCalled();
+  });
+
+  it('a PROVEN-uncommitted debit becomes a clean cancelled lobby', async () => {
+    const r = room(esc('pending'), LIVE, { started: true });
+    const d = sweepDeps('proven_uncommitted');
+    expect(await runRoomRecoverySweep(r, d)).toEqual({ reconciled: 'proven_uncommitted', recovery: 'cancelled', changed: true });
+    expect(r.gameState).toBeNull();
+    expect(r.pokerGameMatchId).toBeUndefined();
+    expect(r.pokerMatchCancelled).toBe(true);
+    expect(d.refundBuyIns).not.toHaveBeenCalled(); // nothing was ever charged
   });
 });
 

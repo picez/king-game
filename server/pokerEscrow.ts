@@ -141,7 +141,10 @@ export function payoutPending(room: ServerRoom): boolean {
   // treated as an auto-retryable payout — the settlement sweep must skip it (no 45s log spam).
   if (room.pokerFrozen || !isBankrollRoom(room)) return false;
   const esc = room.pokerEscrow;
-  if (!esc || (esc.status !== 'funded' && esc.status !== 'settling')) return false;
+  // (37.7.14 FAIL 1) FUNDED only. A `settling` escrow is UNRESOLVED — its durable outcome may already
+  // be a committed payout or refund — so it must be RECONCILED first (`escrowUnresolved` has
+  // precedence in the sweep); `payoutStacks` would only answer `retry_pending` for it anyway.
+  if (!esc || esc.status !== 'funded') return false;
   // (37.7.12 FAIL 1) The finished state must belong to THIS escrow generation. A fresh rematch debit
   // sitting next to the PREVIOUS match's finished state is NOT a payout-pending match — paying it
   // would hand the new buy-ins out on a hand that was never dealt. It is an unbound debit instead.
@@ -162,7 +165,12 @@ export function payoutPending(room: ServerRoom): boolean {
 export function unboundEscrowGame(room: ServerRoom): boolean {
   if (room.pokerFrozen || !isBankrollRoom(room)) return false;
   const esc = room.pokerEscrow;
-  if (!esc || esc.status === 'settled' || esc.status === 'cancelled') return false;
+  // (37.7.14 FAIL 1) FUNDED only. A `pending`/`settling` escrow is UNRESOLVED: refunding it is
+  // impossible (`refundBuyIns` refuses a pending debit) and `resolveUnboundEscrowGame` would DROP the
+  // game state + binding first — destroying the only evidence of which match produced it, before the
+  // durable outcome had been proven (and, for `settling`, possibly after a payout already committed).
+  // Reconciliation has precedence: only a PROVEN funded escrow can be an unplayed stale generation.
+  if (!esc || esc.status !== 'funded') return false;
   return escrowGameBinding(room) === 'unbound';
 }
 
@@ -483,6 +491,16 @@ async function refundDurableMatch(match: DurableMatch): Promise<boolean> {
   }
 }
 
+/** The result of the DB-authoritative orphan/durable scan (37.7.14 FAIL 3 added the room association). */
+export interface OrphanScanResult {
+  /** Match ids this scan refunded (idempotent; a repeat boot refunds nothing new). */
+  refunded: string[];
+  /** Match ids whose durable record is MALFORMED — never settled either way. */
+  corrupt: string[];
+  /** The room codes those corrupt records belong to, so the caller can freeze them BEFORE recovery. */
+  corruptRoomCodes: string[];
+}
+
 /**
  * Startup crash-recovery (FAIL 1), DB-authoritative and INDEPENDENT of room JSON. Scans all
  * committed-but-unresolved matches (a durable poker_matches row with no settlement row) and,
@@ -492,10 +510,10 @@ async function refundDurableMatch(match: DurableMatch): Promise<boolean> {
  * refunds nothing new (the settlement gate + ledger keys no-op). Malformed durable seats fail
  * closed (skipped + alerted for operator review) rather than silently losing chips.
  */
-export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<{ refunded: string[]; corrupt: string[] }> {
-  if (!isDbEnabled()) return { refunded: [], corrupt: [] };
+export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<OrphanScanResult> {
+  if (!isDbEnabled()) return { refunded: [], corrupt: [], corruptRoomCodes: [] };
   let matches: { valid: DurableMatch[]; corrupt: { matchId: string; roomCode: string; reason: string }[] };
-  try { matches = await listUnsettledMatches(); } catch { return { refunded: [], corrupt: [] }; }
+  try { matches = await listUnsettledMatches(); } catch { return { refunded: [], corrupt: [], corruptRoomCodes: [] }; }
   const refunded: string[] = [];
   // CORRUPT durable records are NEVER settled/refunded (all-or-nothing, FAIL 3) — left
   // unresolved with an operator alert. A partial refund could leave a debited user short.
@@ -509,7 +527,16 @@ export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Prom
       console.log(`[Poker] crash-recovery refund for orphaned match ${m.matchId} (room ${m.roomCode})`);
     }
   }
-  return { refunded, corrupt: matches.corrupt.map((c) => c.matchId) };
+  return {
+    refunded,
+    corrupt: matches.corrupt.map((c) => c.matchId),
+    // (37.7.14 FAIL 3) The ROOM association for every corrupt durable match. The scan used to report
+    // only ids, so the caller could not tell WHICH restored room owned an unsafe record — a room with
+    // a structurally VALID escrow (so `pokerEscrowCorrupt` is false) but a malformed `poker_matches`
+    // row was classified `live` and resumed. Room codes carry no economy detail (no matchId/userId/
+    // seats/balances), so they are safe to hand back for the freeze decision.
+    corruptRoomCodes: [...new Set(matches.corrupt.map((c) => c.roomCode))],
+  };
 }
 
 /** True when a room has a CORRUPT durable match record (unsafe to settle — operator review). */
@@ -556,14 +583,20 @@ export async function reconcileEscrow(room: ServerRoom): Promise<EscrowReconcile
   if (injectedReconcileFailure) return 'retry_pending';                     // test seam: transient read failure
   let state;
   try { state = await matchLedgerState(esc.matchId); } catch { return 'retry_pending'; } // transient → retry later
+  // (37.7.14 FAIL 2) SETTLEMENT PRECEDENCE. A committed settlement row is the authoritative outcome
+  // of the match, whatever TRANSIENT status the restored room JSON happens to carry. The old code
+  // only consulted `state.settlement` for a `settling` escrow: a `pending` escrow whose buy-ins were
+  // committed AND whose payout/refund had already landed was promoted to `funded`, so an unfinished
+  // bound state was then classified `live` and could resume an ALREADY-PAID match — bypassing the
+  // 37.7.11 `settled` + unfinished → `incoherent_paid` invariant — or resume an already-REFUNDED one.
+  if (state.settlement === 'payout') { esc.status = 'settled'; return 'settled'; }
+  if (state.settlement === 'cancel_refund') { esc.status = 'cancelled'; return 'cancelled'; }
+  // No settlement row → the buy-in ledger decides.
   if (esc.status === 'pending') {
     if (state.buyInCount === esc.seats.length) { esc.status = 'funded'; return 'funded'; }  // debit committed
     if (state.buyInCount === 0) { room.pokerEscrow = undefined; return 'proven_uncommitted'; } // PROVEN nothing charged
     return 'corrupt_partial'; // partial debit → left pending, fail closed (never a silent cancel)
   }
-  // settling
-  if (state.settlement === 'payout') { esc.status = 'settled'; return 'settled'; }
-  if (state.settlement === 'cancel_refund') { esc.status = 'cancelled'; return 'cancelled'; }
-  esc.status = 'funded'; // settlement never committed → retryable
+  esc.status = 'funded'; // settling + settlement never committed → retryable
   return 'funded';
 }
