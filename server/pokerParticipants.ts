@@ -72,16 +72,26 @@ export function validatePaidMatchParticipants(esc: PokerEscrow | undefined, stat
   // `playerCount` is authoritative when present and must agree with the actual player list.
   const playerCount = typeof state.playerCount === 'number' ? state.playerCount : players.length;
   if (!Number.isSafeInteger(playerCount) || playerCount !== players.length) return { ok: false, error: 'playerCount != players' };
-  if (stacks.length < playerCount) return { ok: false, error: 'stacks != playerCount' };
+  // (37.7.12 FAIL 2) EXACT length — a longer stack array meant an extra, unaccounted seat could sit
+  // outside the escrow while every per-seat check still passed.
+  if (stacks.length !== playerCount) return { ok: false, error: 'stacks != playerCount' };
 
-  // State player seats: safe, in range, unique, human-only (a bankroll table never seats a bot).
+  // State player seats: safe, in range, unique, human-only (a bankroll table never seats a bot),
+  // with unique non-empty player ids (37.7.12 FAIL 2 — duplicates collapse per-player attribution).
   const stateSeats = new Set<number>();
+  const playerIds = new Set<string>();
   for (const p of players) {
     const seat = (p as { seatIndex?: unknown }).seatIndex;
     if (!Number.isSafeInteger(seat as number) || (seat as number) < 0 || (seat as number) >= stacks.length) return { ok: false, error: 'player seat out of range' };
     if (stateSeats.has(seat as number)) return { ok: false, error: 'duplicate player seat' };
     stateSeats.add(seat as number);
-    if ((p as { type?: unknown }).type === 'ai') return { ok: false, error: 'bot seat in a bankroll match' };
+    // (37.7.12 FAIL 2) POSITIVE check: only an explicit `human` seat is allowed. The old `!== 'ai'`
+    // test let `undefined` / `'bot'` / any unknown value through as if it were a human.
+    if ((p as { type?: unknown }).type !== 'human') return { ok: false, error: 'non-human seat in a bankroll match' };
+    const id = (p as { id?: unknown }).id;
+    if (typeof id !== 'string' || !id) return { ok: false, error: 'bad player id' };
+    if (playerIds.has(id)) return { ok: false, error: 'duplicate player id' };
+    playerIds.add(id);
   }
   if (stateSeats.size !== playerCount) return { ok: false, error: 'player seats != playerCount' };
 
@@ -107,4 +117,44 @@ export function validatePaidMatchParticipants(esc: PokerEscrow | undefined, stat
   if (winner != null && !seatUsers.has(winner as number)) return { ok: false, error: 'winner not a participant' };
 
   return { ok: true, participants: { matchId: esc.matchId, seatUsers, seatCount: seatUsers.size } };
+}
+
+/**
+ * (37.7.12 FAIL 2) The STRICTER layer: everything `validatePaidMatchParticipants` checks PLUS the
+ * invariants that only a FINISHED paid match can satisfy. Used by every economy finish path (payout
+ * + stats); the participant layer above stays usable for state-agnostic identity checks.
+ *
+ * A valid finished paid match has:
+ *   • `phase === 'game_finished'` — a mid-hand state is never payable/recordable;
+ *   • exactly one `winnerSeat`, a participant (never null/undefined);
+ *   • the winner holding the WHOLE conserved escrow (Σ buy-ins) and every other seat exactly 0
+ *     (POKER_RULES §11: the match ends when a single player holds all the chips).
+ */
+export function validateFinishedPaidMatch(esc: PokerEscrow | undefined, state: PokerState | null | undefined): ParticipantCheck {
+  const identity = validatePaidMatchParticipants(esc, state);
+  if (!identity.ok) return identity;
+  const s = state as PokerState;
+  if ((s as { phase?: unknown }).phase !== 'game_finished') return { ok: false, error: 'state not finished' };
+
+  const winner = (s as { winnerSeat?: unknown }).winnerSeat;
+  if (typeof winner !== 'number' || !Number.isSafeInteger(winner) || !identity.participants.seatUsers.has(winner)) {
+    return { ok: false, error: 'no single winner' };
+  }
+
+  const stacks = s.stacksBySeat;
+  let escrowTotal = 0;
+  for (const seat of esc!.seats) {
+    escrowTotal += seat.amount;
+    if (escrowTotal > Number.MAX_SAFE_INTEGER) return { ok: false, error: 'overflow' };
+  }
+  for (const [seat] of identity.participants.seatUsers) {
+    const stack = stacks[seat];
+    if (typeof stack !== 'number' || !Number.isSafeInteger(stack) || stack < 0) return { ok: false, error: 'invalid final stack' };
+    if (seat === winner) {
+      if (stack !== escrowTotal) return { ok: false, error: 'winner stack != escrow total' };
+    } else if (stack !== 0) {
+      return { ok: false, error: 'loser stack not zero' };
+    }
+  }
+  return identity;
 }

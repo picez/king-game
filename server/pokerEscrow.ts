@@ -21,7 +21,8 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ServerRoom, PokerEscrow, PokerEscrowSeat } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
 import { getDb, isDbEnabled } from './db/client';
-import { validatePaidMatchParticipants } from './pokerParticipants';
+import { validateFinishedPaidMatch } from './pokerParticipants';
+import { gameBoundToEscrow, escrowGameBinding } from './pokerBinding';
 import {
   adjustWalletTx, settleMatchTx, matchLedgerState, recordMatchTx, listUnsettledMatches,
   InsufficientChipsError, SettlementConflictError, type DurableMatch,
@@ -137,8 +138,28 @@ export function payoutPending(room: ServerRoom): boolean {
   if (room.pokerFrozen || !isBankrollRoom(room)) return false;
   const esc = room.pokerEscrow;
   if (!esc || (esc.status !== 'funded' && esc.status !== 'settling')) return false;
+  // (37.7.12 FAIL 1) The finished state must belong to THIS escrow generation. A fresh rematch debit
+  // sitting next to the PREVIOUS match's finished state is NOT a payout-pending match — paying it
+  // would hand the new buy-ins out on a hand that was never dealt. It is an unbound debit instead.
+  if (!gameBoundToEscrow(room)) return false;
   const state = room.gameState as PokerState | null;
   return !!state && state.phase === 'game_finished';
+}
+
+/**
+ * (37.7.12 FAIL 1) True when a bankroll room holds a LIVE (pending/funded/settling) escrow whose
+ * match did NOT produce the room's current game state — the crashed-rematch shape: a fresh buy-in
+ * was debited, the process died before `restartGame`, and the persisted room still carries the
+ * previous match's state. Such a match never started: it must be REFUNDED (never paid, never
+ * recorded), and its stale state dropped. Distinct from a live match, a payout-pending finish, and
+ * a refund-pending room (funded + NO game). A `unknown` binding (a legacy save with no marker) is
+ * NOT included here — it cannot be proven either way and is frozen for review instead.
+ */
+export function unboundEscrowGame(room: ServerRoom): boolean {
+  if (room.pokerFrozen || !isBankrollRoom(room)) return false;
+  const esc = room.pokerEscrow;
+  if (!esc || esc.status === 'settled' || esc.status === 'cancelled') return false;
+  return escrowGameBinding(room) === 'unbound';
 }
 
 /**
@@ -152,9 +173,11 @@ export function statsPending(room: ServerRoom): boolean {
   return !room.pokerFrozen && isBankrollRoom(room) && !!room.pokerStatsPending;
 }
 
-/** Recovery states that block a new paid rematch (frozen, settlement-/payout-/stats-pending, or no economy). */
+/** Recovery states that block a new paid rematch (frozen, settlement-/payout-/stats-pending, an
+ *  unbound fresh debit awaiting its refund, or no economy). */
 export function pokerRecoveryBlocked(room: ServerRoom): boolean {
-  return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || statsPending(room) || bankrollEconomyUnavailable(room);
+  return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || statsPending(room)
+    || unboundEscrowGame(room) || bankrollEconomyUnavailable(room);
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
@@ -265,31 +288,16 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
 export type ConservationCheck = { ok: true } | { ok: false; error: string };
 
 /**
- * Validate that paying every escrow seat its FINAL stack conserves the escrow exactly,
- * before any wallet mutation. Structural escrow ↔ state participant identity comes from the
- * ONE SHARED strict validator (37.7.11 FAIL 2) — canonical matchId/seat/user/buy-in metadata,
- * exact correspondence with the state's player seats, human-only seats, a participant winner —
- * so the payout path and the stats path can never disagree about who played this match. On top
- * of it: every final stack must be a non-negative safe integer and Σ(final stacks) must equal
- * Σ(buy-ins). Any mismatch / overflow / bad seat fails CLOSED (no wallet is touched).
+ * Validate that paying every escrow seat its FINAL stack conserves the escrow exactly, before any
+ * wallet mutation. Delegates to the ONE SHARED strict validator (37.7.11 FAIL 2, strengthened in
+ * 37.7.12 FAIL 2): canonical matchId/seat/user/buy-in metadata, exact correspondence with the
+ * state's player seats, explicitly human seats with unique ids, `phase === 'game_finished'`, and
+ * the finished-match invariant that ONE winner holds the whole conserved escrow while every other
+ * seat holds exactly 0. Any mismatch fails CLOSED (no wallet is touched).
  */
 export function validatePayoutConservation(esc: PokerEscrow, state: PokerState): ConservationCheck {
-  const identity = validatePaidMatchParticipants(esc, state);
-  if (!identity.ok) return { ok: false, error: identity.error };
-  const stacks = state.stacksBySeat;
-  let payoutTotal = 0;
-  let escrowTotal = 0;
-  for (const s of esc.seats) {
-    const stack = stacks[s.seat];
-    if (typeof stack !== 'number' || !Number.isSafeInteger(stack) || stack < 0) {
-      return { ok: false, error: 'invalid final stack' };
-    }
-    payoutTotal += stack;
-    escrowTotal += s.amount;
-    if (payoutTotal > Number.MAX_SAFE_INTEGER || escrowTotal > Number.MAX_SAFE_INTEGER) return { ok: false, error: 'overflow' };
-  }
-  if (payoutTotal !== escrowTotal) return { ok: false, error: 'payout != escrow' };
-  return { ok: true };
+  const check = validateFinishedPaidMatch(esc, state);
+  return check.ok ? { ok: true } : { ok: false, error: check.error };
 }
 
 /**

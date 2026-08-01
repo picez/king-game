@@ -35,6 +35,7 @@ describe.skipIf(!TEST_DATABASE_URL)('stats attribution survives members leaving 
     addMember(room, { clientId: 'b', reconnectToken: 't', name: 'B', userId: U2 });
     room.started = true; room.gameState = finished2p() as unknown as typeof room.gameState;
     await escrow.debitBuyIns(room);
+    (await import('../../server/pokerBinding')).bindGameToEscrow(room); // (37.7.12) as a successful START does
     const M = room.pokerEscrow!.matchId;
     await escrow.payoutStacks(room, finished2p()); // paid; escrow settled + escrow.seats = [U1@0, U2@1]
 
@@ -83,7 +84,8 @@ describe.skipIf(!TEST_DATABASE_URL)('stats attribution survives members leaving 
     const { recordConfirmedPokerStats } = await import('../../server/pokerFinish');
     let writes = 0;
     const deps = { alreadyRecorded: () => false, markRecorded: () => {}, unmarkRecorded: () => {}, record: async () => { writes++; return { recorded: true }; } };
-    const base = { code: 'ATTR2', gameType: 'poker', pokerBuyIn: 5000, members: new Map() } as unknown as ServerRoom;
+    // (37.7.12) bound to match id 'm' so these cases still exercise the MALFORMED escrow, not the binding.
+    const base = { code: 'ATTR2', gameType: 'poker', pokerBuyIn: 5000, members: new Map(), pokerGameMatchId: 'm' } as unknown as ServerRoom;
     // (37.7.11 FAIL 2) These were `failed` in 37.7.10 — i.e. retried forever by the sweep. A
     // structurally broken escrow can never become valid on a retry, so it is now the distinct
     // `invalid` outcome: PERMANENT freeze, owed state kept, no write, no log spam. Still never

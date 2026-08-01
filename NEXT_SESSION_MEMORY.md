@@ -324,3 +324,48 @@ Use this file as the first read after archiving this chat. It is intentionally s
   malformed matrix); extended `pokerBootstrap.test.ts`, `pokerBootstrapRecovery.integration.test.ts` (production helper +
   incoherent-paid case), `pokerTeardown.integration.test.ts` (incoherent + structurally-invalid teardown).
   libc 0; migration 0012; games 7; achievements 52; v0.4.8.
+
+### Stage 37.7.12 — durable gameState ↔ escrow-generation binding (COMPLETE, Unreleased)
+- Worked from HEAD `1d6e21f`. No new migration (reuses the room JSON), no version bump, other 6 games untouched.
+  Both FAILs reproduced RED first on the unpatched code.
+- **RED proof (FAIL 1).** Real-PG probe: settle M0 → keep its finished state → durable debit M1 (as a rematch) →
+  persist the crash snapshot (escrow M1 + M0's state) → production bootstrap/reconcile/sweep ⇒
+  `recovery=payout_pending`, **`table_payout` rows for M1 = 1**, `refund` rows for M1 = 0, `games` = 2 (M0's result
+  recorded a second time under M1's identity). Root cause: `performDebit` swaps `room.pokerEscrow` to M1 BEFORE the
+  DB debit resolves and long before `restartGame`, and the socket close handler persists WITHOUT the room lock.
+- **FIX.** Server-only persisted **`ServerRoom.pokerGameMatchId`** + new **`server/pokerBinding.ts`**
+  (`escrowGameBinding` → `not_bankroll|no_game|no_escrow|bound|unbound|unknown`, `gameBoundToEscrow`,
+  `bindGameToEscrow` — only for a **funded** escrow with a state, `clearGameBinding`, `resolveUnboundEscrowGame`).
+  Bound at exactly 2 sites: `wsHandlers` START and `runBankrollRematch`, each AFTER a successful debit AND a
+  successful start/restart. Cleared with the state everywhere. Serialized/restored (non-empty string only); NEVER in
+  `RoomSnapshot`/`RoomSummary`/messages; never logged. **The room lock is not a substitute** — it serializes inside
+  one process; the binding survives the crash boundary.
+- **Gate `pokerGameMatchId === pokerEscrow.matchId` added to:** `payoutPending`, `settleAndRecordBankrollPokerFinish`
+  (new `FinishResult` value **`unbound_state`**, no wallet touched), `recordConfirmedPokerStats` (→ `invalid`),
+  `classifyBootstrapRecovery`, `settleRoomForDeletion`, and bootstrap **`activeMatchIds`** (an unbound durable debit is
+  deliberately NOT active → the orphan scan refunds it once instead of protecting it).
+- **Unbound lifecycle:** new `unboundEscrowGame(room)` (in `pokerRecoveryBlocked` → no timers/actions/rematch) +
+  `resolveUnboundEscrowGame` (drop stale state+binding, clear timers, idempotent `refundBuyIns` → `refunded` ⇒
+  `pokerMatchCancelled` honest lobby, or `settlement_pending` ⇒ funded escrow + no state, retried by the sweep, never
+  purged). Callers: `recoverRestoredBankrollRoom` (classification **`unbound_debit`**), `retryPendingSettlements`,
+  `settleRoomForDeletion` (`purge` only after a CONFIRMED refund).
+- **Fail-closed:** **`unknown_binding`** (legacy save: state + live escrow, no marker) → **frozen**, generation never
+  guessed; `settled` + `unbound` → frozen; a `pending` escrow surviving reconcile → `cancelled` (nothing charged).
+- **Six crash windows all green** (`src/net/pokerRematchCrash.integration.test.ts`, real PG): pending-uncommitted →
+  0/0/0; pending-committed → 1 refund, 0 payout, 0 stats; funded + old state → 1 refund, balances back to pre-rematch,
+  then a fresh **M2 starts and finishes normally**; bound live state → `live`; bound finished state → payout+stats
+  exactly once; missing binding → frozen, nothing written. M0's payout/stats never duplicated.
+- **FAIL 2 — strict FINISHED paid-state validation.** `validatePaidMatchParticipants` tightened (`stacksBySeat.length`
+  **exactly** `playerCount`; POSITIVE `type === 'human'` instead of `!== 'ai'`, which let `undefined`/`'bot'`/unknown
+  through; unique non-empty player ids) and new **`validateFinishedPaidMatch`** adds the finished-only invariants
+  (`phase === 'game_finished'`, exactly one participant `winnerSeat`, winner stack == Σ buy-ins, all other stacks 0).
+  Both `validatePayoutConservation` and `recordConfirmedPokerStats` delegate to it → payout and stats can never
+  disagree; the layer split keeps live gameplay validation untouched. Every malformed shape ⇒ `invalid`: no payout,
+  no stats/games/game_players/user_stats row, permanent freeze, no repeat payout/refund, teardown `keep`.
+- New files: `server/pokerBinding.ts`, `src/net/pokerBinding.test.ts` (pure binding/classification/privacy matrix),
+  `src/net/pokerRematchCrash.integration.test.ts` (real-PG crash windows). Extended: `pokerBootstrap.test.ts`,
+  `pokerDurableParse.test.ts`, `pokerEscrowHardening.test.ts`, `pokerFinish/Recovery/Teardown/StatsAttribution/
+  StatsPending/Escrow*.integration` suites, `pokerRematch.lifecycle.test.ts`, `pokerRematchRequest.test.ts`.
+- **Gates:** real Docker PostgreSQL — **29 poker suites / 267 tests, 0 skipped**; `npm run verify` run twice stably
+  (**288 files / 3040 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check` clean; libc 0; no package/lock
+  drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

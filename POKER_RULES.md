@@ -320,6 +320,34 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   malformed restored match can never write a partial attribution. A structural failure is
   **permanent** (`invalid` → frozen, no stats, no retry), distinct from a **transient** DB
   failure (retried) and from a **duplicate** durable row (resolved).
+- **The chips follow the hand that was actually dealt** (Stage 37.7.12). A paid rematch
+  debits its buy-ins BEFORE the new hand exists, so a crash can persist the **new** escrow
+  next to the **previous** match's finished state. Every table therefore records durably
+  **which match produced its current game state** (a server-only `pokerGameMatchId`, set
+  only after a successful debit AND a successful start/restart, cleared with the state,
+  persisted in the room JSON, never in any public snapshot/summary/message and never
+  logged). **Every economy path — payout, stats, payout-pending, bootstrap classification,
+  teardown and the orphan-scan's "active match" set — requires
+  `pokerGameMatchId === pokerEscrow.matchId`.** A per-room lock does not replace this: the
+  lock serializes work inside one process, the binding survives the crash boundary.
+  - **Unbound live escrow** (a fresh buy-in whose hand never started, restored beside an
+    older state) → the stale state is dropped and the buy-in is **refunded idempotently**;
+    payout = 0 and stats/game rows = 0 for that match. A confirmed refund leaves an honest
+    **cancelled** lobby (a new match can be started there); a transient refund failure
+    leaves **settlement-pending**, which keeps being retried and blocks deletion. No timer,
+    action or rematch runs meanwhile.
+  - **Unbound settled escrow** (paid, but the state belongs to another generation) →
+    **frozen**, exactly like an incoherent paid state.
+  - **No binding at all** (a legacy save) → **frozen for operator review**; the generation
+    is never guessed, and no payout/refund/stats is written against an unproven state.
+- **A payable finished state must be provably final** (Stage 37.7.12). On top of the
+  participant check, every economy finish path requires: `phase === 'game_finished'`,
+  `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`
+  with a unique non-empty player id, exactly one `winnerSeat` that is a participant, the
+  winner holding the **whole conserved escrow** (Σ buy-ins), and every other seat holding
+  exactly `0`. A failure is `invalid` → nothing paid, nothing recorded, room frozen.
+  Live-gameplay validation is unaffected: the participant/binding check and the
+  finished-paid-state check are separate layers.
 - **No rake, no ante, no rebuy** (a busted seat is out; the match ends when one player
   holds all the chips).
 

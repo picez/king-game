@@ -793,3 +793,55 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   recovery path" was inaccurate. The orchestration is now `server/pokerBootstrap.ts` **`recoverRestoredBankrollRoom(room, deps)`**
   (reconcile → classify → apply/persist/advance decision) — `server/index.ts` pass (d) calls it under `withRoomLock`, and the
   integration suite calls the SAME function plus `shouldDeferBootstrapAdvance`, so the test can no longer drift from production.
+
+### Durable gameState ↔ escrow-generation binding (Stage 37.7.12)
+
+- **The crash window (FAIL 1).** `runBankrollRematch` calls `debitRematch` → `performDebit` replaces `room.pokerEscrow`
+  with M1 (`pending`) and only THEN awaits the DB debit; `restartGame` runs afterwards. While the debit is in flight the
+  room holds **escrow M1 + the FINISHED state of M0**, and the socket close handler persists the room without taking the
+  room lock — so exactly that pair can reach the room JSON. If the process dies before `restartGame`, bootstrap saw
+  `reconcileEscrow` promote M1 `pending → funded`, `isFinished(state)` true → **`payout_pending`**, and the sweep paid
+  **M1's fresh buy-ins to M0's winner** and wrote a second stats/game row for M0's result under M1's identity — a
+  redistributed buy-in for a hand that was never dealt. RED reproduction: `src/net/pokerRematchCrash.integration.test.ts`
+  (real PostgreSQL) showed `recovery=payout_pending`, `table_payout` rows for M1 = 1, `refund` rows for M1 = 0, `games` = 2.
+- **The binding.** New server-only persisted field **`ServerRoom.pokerGameMatchId`** + `server/pokerBinding.ts`:
+  - `bindGameToEscrow(room)` — sets it ONLY when the room is bankroll, has a game state, and the escrow is **`funded`**
+    with a matchId. Called at exactly two places: `wsHandlers` START (after a successful debit AND a successful
+    `startGame`) and `runBankrollRematch` (after a successful debit AND a successful `restartGame`).
+  - `clearGameBinding(room)` — called wherever the game state is dropped (failed start/rematch refund, `cancelled`
+    bootstrap recovery, the finish path's refund branch, the unbound resolution).
+  - `escrowGameBinding(room)` — the pure classifier: `not_bankroll` / `no_game` / `no_escrow` / `bound` / `unbound` /
+    `unknown` (a legacy save: state + escrow, no marker). `gameBoundToEscrow(room)` = `=== 'bound'`.
+  - Persistence: `serializeRoom`/`deserializeRoom` carry it (restored only as a non-empty string). It is **never** in
+    `RoomSnapshot`/`RoomSummary`/any public message and **never logged** (only room codes + safe reasons are).
+  - A per-room lock is NOT a substitute: the lock serializes work inside one process, the binding is what survives the
+    crash/restore boundary where the damage happens.
+- **Every economy path requires `pokerGameMatchId === pokerEscrow.matchId`.** `payoutPending` (so an unbound pair is not
+  a payable finish), `settleAndRecordBankrollPokerFinish` (hard gate → new `FinishResult` value **`unbound_state`**, no
+  wallet touched), `recordConfirmedPokerStats` (→ `invalid`), `classifyBootstrapRecovery`, `settleRoomForDeletion`, and
+  the bootstrap **`activeMatchIds`** set fed to `reconcileOrphanedDebits` (an unbound durable debit is deliberately NOT
+  "active", so the orphan scan refunds it once through the failed-start lifecycle instead of protecting it).
+- **The unbound lifecycle.** New predicate `unboundEscrowGame(room)` (live escrow + `unbound` binding; folded into
+  `pokerRecoveryBlocked`, so no timers/actions/rematch) and `resolveUnboundEscrowGame(room, deps)`: drop the stale state
+  + binding, clear timers, `refundBuyIns` (idempotent) → `refunded` (→ `pokerMatchCancelled`, an honest lobby a fresh
+  START can reuse) or `settlement_pending` (transient DB failure → escrow stays funded with no state, retried by
+  `retryPendingSettlements`, and `hasUnsettledEscrow` keeps the room from being purged). Driven from three production
+  callers: `recoverRestoredBankrollRoom` (classification **`unbound_debit`**), the settlement sweep, and
+  `settleRoomForDeletion` (`purge` only after a CONFIRMED refund, else `keep`).
+- **Fail-closed for what can't be proven.** Classification **`unknown_binding`** (a legacy save with a state + a live
+  escrow but no marker) freezes the room for operator review — the generation is never guessed. `settled` + `unbound`
+  is likewise frozen (an incoherent paid state). A `pending` escrow that survived reconcile (uncommitted debit) is
+  classified `cancelled`: nothing was charged, so nothing is paid, refunded or recorded.
+- **Six crash windows covered** (`pokerRematchCrash.integration.test.ts`, real PostgreSQL): (1) M1 `pending`, debit NOT
+  committed → reconcile drops it, 0 payout / 0 refund / 0 stats; (2) M1 `pending`, debit committed → exactly one refund,
+  0 payout, 0 stats; (3) M1 `funded` + M0's state → refund once, 0 payout, 0 stats, balances back to pre-rematch, and a
+  fresh M2 then starts and finishes normally; (4) new state + matching binding → the live match restores as `live`;
+  (5) matching finished state → payout + stats exactly once; (6) missing binding → frozen, no payout/refund/stats.
+- **Strict FINISHED paid-state validation (FAIL 2).** `validatePaidMatchParticipants` stayed the participant/identity
+  layer but was tightened (`stacksBySeat.length` **exactly** `playerCount`; a POSITIVE `type === 'human'` test instead
+  of the old `!== 'ai'`, which let `undefined`/`'bot'`/any unknown value pass; unique non-empty player ids). The new
+  **`validateFinishedPaidMatch`** layers the finished-only invariants on top: `phase === 'game_finished'`, exactly one
+  participant `winnerSeat`, the winner's stack == Σ buy-ins and every other stack == `0`. `validatePayoutConservation`
+  and `recordConfirmedPokerStats` both delegate to it, so payout and stats can never disagree; the split keeps live,
+  payout-independent gameplay validation untouched. Every malformed shape is `invalid` → nothing paid, nothing recorded,
+  room frozen permanently, teardown `keep`.

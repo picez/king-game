@@ -15,6 +15,7 @@
 
 import type { ServerRoom } from '../src/net/serverCore';
 import type { DebitResult } from './pokerEscrow';
+import { bindGameToEscrow, clearGameBinding } from './pokerBinding';
 
 /** A minimal room-session reference (mirrors server/wsHandlers `SessionRef`). */
 export interface RematchSession { value: { room: ServerRoom; clientId: string } | null; }
@@ -74,12 +75,17 @@ export async function runBankrollRematch(room: ServerRoom, deps: BankrollRematch
     const refunded = await deps.refundBuyIns(room);
     room.started = false;
     room.gameState = null;
+    clearGameBinding(room); // (37.7.12) the state is gone → so is its escrow-generation binding
     if (refunded) room.pokerMatchCancelled = true;
     deps.clearRematch(room);
     deps.persist(room);
     deps.broadcastRoom(room); // honest public snapshot (cancelled OR settlement_pending)
     return refunded ? 'cancelled' : 'settlement_pending';
   }
+  // (37.7.12 FAIL 1) The fresh escrow REALLY produced this state → bind them durably. Until this
+  // line the room held the NEW escrow next to the PREVIOUS match's state; a crash in that window is
+  // exactly what used to pay the new buy-ins out on the old result.
+  bindGameToEscrow(room);
   room.pokerMatchCancelled = undefined; // a fresh match never inherits a stale recovery flag
   deps.logDeal(room);
   deps.broadcastRoom(room);

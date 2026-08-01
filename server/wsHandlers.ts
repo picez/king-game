@@ -24,6 +24,7 @@ import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
 import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked } from './pokerEscrow';
+import { bindGameToEscrow } from './pokerBinding';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
@@ -428,6 +429,9 @@ export function handleClientMessage(
             ctx.broadcastRoom(room); ctx.persistRoom(room);
             return;
           }
+          // (37.7.12 FAIL 1) This funded escrow really did produce this game state → bind them
+          // durably, so no later recovery can settle THIS state against a DIFFERENT match id.
+          bindGameToEscrow(room);
           // (FAIL 1) The new paid match is live → clear ANY recovery-cancelled flag ONLY now,
           // atomically after a successful debit+start, so gameplay/timer/advance are unblocked.
           room.pokerMatchCancelled = undefined;

@@ -159,6 +159,13 @@ export interface ServerRoom {
   /** Stage 37.7.3 (FAIL 5): a room with a CORRUPT durable match that can't be safely settled
    *  is FROZEN — no gameplay/advance/start — and kept for operator review (never partially settled). */
   pokerFrozen?: boolean;
+  /** Stage 37.7.12 (FAIL 1): the escrow GENERATION that actually produced `gameState`. Set ONLY after
+   *  a successful debit + successful start/restart, cleared whenever the game state is dropped. Every
+   *  economy finish path (payout / stats / payout-pending / bootstrap / teardown / orphan protection)
+   *  requires `pokerGameMatchId === pokerEscrow.matchId`, so a fresh rematch debit can never be paid
+   *  out — or recorded — against the PREVIOUS match's finished state after a crash. SERVER-ONLY:
+   *  persisted in the room JSON, never in a snapshot/summary/message, never logged. */
+  pokerGameMatchId?: string;
   /** Stage 37.7.9 (FAIL 2): a bankroll match was PAID (money is out) but its stats write then failed
    *  TRANSIENTLY. Persisted + restart-surviving: the settlement sweep retries the STATS write (never
    *  re-pays), and a new paid rematch is blocked until it resolves. Cleared once stats are recorded
@@ -1339,6 +1346,8 @@ export interface PersistedRoom {
   pokerFrozen?: boolean;
   /** Persist the stats-pending marker so a paid finish's owed stats survive a restart (§16, 37.7.9). */
   pokerStatsPending?: boolean;
+  /** Persist the state↔escrow generation binding (§16, 37.7.12) — SERVER-ONLY, never public. */
+  pokerGameMatchId?: string;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1379,6 +1388,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerMatchCancelled: room.pokerMatchCancelled,
     pokerFrozen: room.pokerFrozen,
     pokerStatsPending: room.pokerStatsPending,
+    pokerGameMatchId: room.pokerGameMatchId,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1513,6 +1523,10 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerMatchCancelled: o.pokerMatchCancelled === true ? true : undefined,
     pokerFrozen: o.pokerFrozen === true ? true : undefined,
     pokerStatsPending: o.pokerStatsPending === true ? true : undefined,
+    // (37.7.12) The state↔escrow generation binding. Restored ONLY as a non-empty string; anything
+    // else (missing = a legacy save, or a malformed value) stays undefined and the recovery pass
+    // then FAILS CLOSED rather than guessing which match produced the persisted state.
+    pokerGameMatchId: typeof o.pokerGameMatchId === 'string' && o.pokerGameMatchId ? o.pokerGameMatchId : undefined,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

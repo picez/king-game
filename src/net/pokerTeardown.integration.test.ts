@@ -39,6 +39,7 @@ describe.skipIf(!TEST_DATABASE_URL)('teardown settles THEN records stats (Stage 
     addMember(room, { clientId: 'b', reconnectToken: 't', name: 'B', userId: U2 });
     room.started = true; room.gameState = finished2p() as unknown as typeof room.gameState;
     await escrow.debitBuyIns(room);
+    (await import('../../server/pokerBinding')).bindGameToEscrow(room); // (37.7.12) as a successful START does
     const M = room.pokerEscrow!.matchId;
     const marker = new Map<string, string>();
     let statsThrows = false;
@@ -52,7 +53,7 @@ describe.skipIf(!TEST_DATABASE_URL)('teardown settles THEN records stats (Stage 
       }),
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin, settleAndRecord, refundBuyIns: escrow.refundBuyIns, persist: () => {}, freeze,
+      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin, settleAndRecord, refundBuyIns: escrow.refundBuyIns, persist: () => {}, freeze, clearTimers: () => {},
     });
     const payoutRows = async () => ((await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`) as Array<{ n: number }>)[0].n;
     const gameRows = async () => ((await conn!.sql`SELECT count(*)::int AS n FROM games WHERE room_code = ${code}`) as Array<{ n: number }>)[0].n;

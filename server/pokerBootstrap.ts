@@ -17,15 +17,18 @@
 import type { ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
 import { isBankrollRoomShape } from './pokerParticipants';
+import { escrowGameBinding, clearGameBinding, resolveUnboundEscrowGame } from './pokerBinding';
 
 export type BootstrapRecovery =
   | 'not_bankroll'    // not a bankroll room (or no game state) — nothing to classify
   | 'frozen'          // already frozen (corrupt/invalid) — kept for operator, no advance
-  | 'incoherent_paid' // settled escrow + UNFINISHED game — a paid match with no final state → freeze
-  | 'live'            // funded/settling escrow + UNFINISHED game — a live match to advance
-  | 'payout_pending'  // funded/settling escrow + FINISHED game — payout not yet confirmed
-  | 'paid_finish'     // settled escrow + FINISHED game — a PAID finish; finalize stats (never cancel)
-  | 'cancelled';      // refunded/cancelled escrow — the old game can't continue for chips
+  | 'incoherent_paid' // settled escrow + UNFINISHED (or unbound) game — paid, final state lost → freeze
+  | 'unbound_debit'   // LIVE escrow whose match never produced this state — refund the fresh debit
+  | 'unknown_binding' // a legacy save: a game state + escrow but NO generation marker → freeze
+  | 'live'            // funded/settling escrow + BOUND UNFINISHED game — a live match to advance
+  | 'payout_pending'  // funded/settling escrow + BOUND FINISHED game — payout not yet confirmed
+  | 'paid_finish'     // settled escrow + BOUND FINISHED game — a PAID finish; finalize stats
+  | 'cancelled';      // refunded/cancelled/uncommitted escrow — the old game can't continue for chips
 
 /**
  * (37.7.11 FAIL 1) TRUE when the initial restore loop must NOT arm timers/advance for this room and
@@ -51,16 +54,26 @@ export function classifyBootstrapRecovery(room: ServerRoom, isFinished: (s: Poke
   if (room.pokerFrozen) return 'frozen';
   const esc = room.pokerEscrow;
   const finished = isFinished(room.gameState as PokerState);
-  if (esc && (esc.status === 'funded' || esc.status === 'settling')) return finished ? 'payout_pending' : 'live';
-  // (37.7.10 FAIL 1) A `settled` escrow is a durable PAID payout — a finished game here is a PAID
-  // FINISH whose stats must be finalized (NEVER a refund/cancel).
-  // (37.7.11 FAIL 1) A `settled` escrow with an UNFINISHED game is an INCOHERENT PAID state: the
-  // durable payout committed, but the persisted room JSON still holds a pre-finish state, so the
-  // authoritative final state is gone. Resuming it would run a match whose chips are already paid
-  // out (and could pay/refund twice); it fails CLOSED into a frozen operator state instead.
-  if (esc && esc.status === 'settled') return finished ? 'paid_finish' : 'incoherent_paid';
-  // A `cancelled` (or absent) escrow means the buy-ins were refunded → the old game can't continue.
-  return 'cancelled';
+  // A `cancelled` (or absent/uncommitted) escrow means the buy-ins were refunded or never charged →
+  // the old game can't continue. (`pending` survives reconcile only on a transient DB error.)
+  if (!esc || esc.status === 'cancelled' || esc.status === 'pending') return 'cancelled';
+
+  // (37.7.12 FAIL 1) WHICH escrow generation produced this state decides everything below. A state
+  // from a different generation must never be paid out or recorded against the current escrow.
+  const binding = escrowGameBinding(room);
+  if (binding === 'unknown') return 'unknown_binding'; // legacy save → can't prove it → fail closed
+
+  if (esc.status === 'settled') {
+    // (37.7.10 FAIL 1) A `settled` escrow is a durable PAID payout — a BOUND finished game here is a
+    // PAID FINISH whose stats must be finalized (NEVER a refund/cancel).
+    // (37.7.11 FAIL 1) `settled` + UNFINISHED — and (37.7.12) `settled` + a state from ANOTHER
+    // generation — are INCOHERENT PAID states: the payout committed but the authoritative final state
+    // is gone. They fail CLOSED into a frozen operator state instead of resuming or cancelling.
+    return (finished && binding === 'bound') ? 'paid_finish' : 'incoherent_paid';
+  }
+  // funded / settling: only the generation that produced this state may continue or be paid.
+  if (binding !== 'bound') return 'unbound_debit';
+  return finished ? 'payout_pending' : 'live';
 }
 
 /** Injected side effects for applying a bootstrap recovery classification. */
@@ -98,6 +111,15 @@ export function applyBootstrapRecovery(room: ServerRoom, recovery: BootstrapReco
       room.pokerStatsPending = true;
       deps.persist(room);
       break;
+    case 'unknown_binding':
+      // (37.7.12 FAIL 1) A legacy save carries a game state + a live escrow but no record of WHICH
+      // match produced it. Guessing could pay a fresh buy-in for an old result (or refund a real live
+      // match), so it fails CLOSED exactly like an incoherent paid state: no advance, no settlement,
+      // no purge — frozen for operator review with the escrow + state kept intact.
+      deps.clearTimers(room);
+      deps.freeze(room, 'unknown match generation for the persisted game');
+      deps.persist(room);
+      break;
     case 'incoherent_paid':
       // (37.7.11 FAIL 1) Fail CLOSED: no advance, no timers, no gameplay/rematch, no settlement —
       // and NOT `pokerMatchCancelled` (nothing was refunded). Frozen is persisted, so it survives a
@@ -110,10 +132,12 @@ export function applyBootstrapRecovery(room: ServerRoom, recovery: BootstrapReco
     case 'cancelled':
       room.pokerMatchCancelled = true;
       room.gameState = null;
+      clearGameBinding(room); // (37.7.12) the binding dies with the state
       room.started = false;
       deps.clearTimers(room);
       deps.persist(room);
       break;
+    // 'unbound_debit' needs a DB refund → handled by `recoverRestoredBankrollRoom` (async).
     // 'frozen' / 'not_bankroll' → no-op.
   }
   return recovery;
@@ -125,6 +149,8 @@ export interface BootstrapRecoveryDeps extends BootstrapApplyDeps {
   reconcileEscrow: (room: ServerRoom) => Promise<void>;
   /** True when `state` is a finished poker game. */
   isFinished: (state: PokerState) => boolean;
+  /** Refund a buy-in (used for an UNBOUND fresh debit whose game never started); true = CONFIRMED. */
+  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
 }
 
 /**
@@ -141,5 +167,12 @@ export async function recoverRestoredBankrollRoom(room: ServerRoom, deps: Bootst
   if (!isBankrollRoomShape(room) || !room.gameState) return 'not_bankroll';
   await deps.reconcileEscrow(room); // no-op unless the escrow is still pending/settling
   const recovery = classifyBootstrapRecovery(room, deps.isFinished);
+  if (recovery === 'unbound_debit') {
+    // (37.7.12 FAIL 1) A fresh buy-in whose game never started, restored next to the PREVIOUS match's
+    // state: drop the stale state and refund the new escrow (idempotent). A transient refund failure
+    // leaves an honest settlement-pending room the sweep retries. Never paid, never recorded.
+    await resolveUnboundEscrowGame(room, { refundBuyIns: deps.refundBuyIns, persist: deps.persist, clearTimers: deps.clearTimers });
+    return recovery;
+  }
   return applyBootstrapRecovery(room, recovery, deps);
 }

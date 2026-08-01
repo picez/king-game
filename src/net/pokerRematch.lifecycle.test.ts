@@ -16,8 +16,8 @@ afterEach(async () => {
 
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const DAY = new Date(Date.UTC(2026, 6, 21, 12));
-const FINISHED = { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2, winnerSeat: null, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as unknown as PokerState;
-const LIVE = { phase: 'betting', stacksBySeat: [4950, 4950], playerCount: 2, winnerSeat: null, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as unknown as PokerState;
+const FINISHED = { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2, winnerSeat: 0, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as unknown as PokerState;
+const LIVE = { phase: 'betting', stacksBySeat: [4950, 4950], playerCount: 2, winnerSeat: 0, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as unknown as PokerState;
 
 function member(over: Partial<ServerMember>): ServerMember {
   return {

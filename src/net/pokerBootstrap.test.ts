@@ -16,10 +16,12 @@ const isFin = (s: PokerState) => s.phase === 'game_finished';
 const FINISHED = { phase: 'game_finished' } as unknown as PokerState;
 const LIVE = { phase: 'betting' } as unknown as PokerState;
 
+/** A restored bankroll room. By default its state is BOUND to escrow `m1` (37.7.12) — i.e. that
+ *  escrow generation really produced this state, which every economy path now requires. */
 function room(escrow: PokerEscrow | undefined, gameState: PokerState | null, over: Partial<ServerRoom> = {}): ServerRoom {
-  return { code: 'B1', gameType: 'poker', pokerBuyIn: 5000, pokerEscrow: escrow, gameState, ...over } as unknown as ServerRoom;
+  return { code: 'B1', gameType: 'poker', pokerBuyIn: 5000, pokerEscrow: escrow, gameState, pokerGameMatchId: 'm1', ...over } as unknown as ServerRoom;
 }
-const esc = (status: PokerEscrow['status']): PokerEscrow => ({ matchId: 'm1', buyIn: 5000, status, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] });
+const esc = (status: PokerEscrow['status'], matchId = 'm1'): PokerEscrow => ({ matchId, buyIn: 5000, status, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] });
 const applyDeps = () => ({ rescheduleAdvance: vi.fn(), persist: vi.fn(), clearTimers: vi.fn(), freeze: vi.fn((r: ServerRoom) => { r.pokerFrozen = true; }) });
 
 describe('FAIL 1 — classifyBootstrapRecovery', () => {
@@ -37,7 +39,19 @@ describe('FAIL 1 — classifyBootstrapRecovery', () => {
     expect(classifyBootstrapRecovery(room(esc('funded'), FINISHED), isFin)).toBe('payout_pending');
     expect(classifyBootstrapRecovery(room(esc('settling'), FINISHED), isFin)).toBe('payout_pending');
   });
-  it('cancelled/absent escrow → cancelled', () => {
+  it('(37.7.12) an UNBOUND live escrow → unbound_debit; a MISSING binding → unknown_binding', () => {
+    expect(classifyBootstrapRecovery(room(esc('funded', 'm2'), FINISHED), isFin)).toBe('unbound_debit');
+    expect(classifyBootstrapRecovery(room(esc('funded', 'm2'), LIVE), isFin)).toBe('unbound_debit');
+    expect(classifyBootstrapRecovery(room(esc('settling', 'm2'), FINISHED), isFin)).toBe('unbound_debit');
+    // A PAID escrow whose state is from another generation can't be paid OR refunded → frozen.
+    expect(classifyBootstrapRecovery(room(esc('settled', 'm2'), FINISHED), isFin)).toBe('incoherent_paid');
+    // No binding at all (a legacy save) → never guessed.
+    expect(classifyBootstrapRecovery(room(esc('funded'), LIVE, { pokerGameMatchId: undefined }), isFin)).toBe('unknown_binding');
+    // A legacy PAID room is `unknown_binding` too (both freeze; this one is the more precise reason).
+    expect(classifyBootstrapRecovery(room(esc('settled'), FINISHED, { pokerGameMatchId: undefined }), isFin)).toBe('unknown_binding');
+  });
+  it('cancelled/absent/pending escrow → cancelled', () => {
+    expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin)).toBe('cancelled');
     expect(classifyBootstrapRecovery(room(esc('cancelled'), FINISHED), isFin)).toBe('cancelled');
     expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin)).toBe('cancelled');
   });
@@ -103,10 +117,11 @@ describe('FAIL 1 (37.7.11) — shouldDeferBootstrapAdvance: no bankroll room adv
 });
 
 describe('FAIL 1 (37.7.11) — recoverRestoredBankrollRoom orchestration (the function index.ts runs)', () => {
-  const deps = (over: Partial<{ reconcile: (r: ServerRoom) => Promise<void> }> = {}) => ({
+  const deps = (over: Partial<{ reconcile: (r: ServerRoom) => Promise<void>; refund: (r: ServerRoom) => Promise<boolean> }> = {}) => ({
     ...applyDeps(),
     reconcileEscrow: over.reconcile ?? (async () => {}),
     isFinished: isFin,
+    refundBuyIns: vi.fn(over.refund ?? (async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return true; })),
   });
 
   it('reconciles BEFORE classifying — a settling escrow promoted to settled becomes paid_finish', async () => {
@@ -139,6 +154,44 @@ describe('FAIL 1 (37.7.11) — recoverRestoredBankrollRoom orchestration (the fu
     ] as Array<[PokerEscrow, PokerState, string]>) {
       const d = deps();
       expect(await recoverRestoredBankrollRoom(room(status, state), d)).toBe(expected);
+      expect(d.rescheduleAdvance).not.toHaveBeenCalled();
+    }
+  });
+
+  it('(37.7.12 FAIL 1) an UNBOUND live escrow (a crashed rematch debit) is refunded, never paid', async () => {
+    // escrow M1 (funded) next to the PREVIOUS match's finished state (bound to m1 ≠ m2).
+    const r = room(esc('funded', 'm2'), FINISHED, { started: true });
+    const d = deps();
+    expect(await recoverRestoredBankrollRoom(r, d)).toBe('unbound_debit');
+    expect(d.refundBuyIns).toHaveBeenCalledOnce();     // the fresh, unplayed buy-in is refunded
+    expect(d.rescheduleAdvance).not.toHaveBeenCalled();
+    expect(r.gameState).toBeNull();                    // the previous generation's state is dropped
+    expect(r.pokerGameMatchId).toBeUndefined();
+    expect(r.started).toBe(false);
+    expect(r.pokerMatchCancelled).toBe(true);          // refund CONFIRMED → honest cancelled lobby
+    expect(r.pokerFrozen).toBeUndefined();
+    expect(d.clearTimers).toHaveBeenCalledOnce();
+  });
+
+  it('(37.7.12) an UNBOUND escrow whose refund FAILS stays settlement-pending (funded, no game), never cancelled', async () => {
+    const r = room(esc('funded', 'm2'), FINISHED, { started: true });
+    const d = deps({ refund: async () => false });
+    expect(await recoverRestoredBankrollRoom(r, d)).toBe('unbound_debit');
+    expect(r.gameState).toBeNull();
+    expect(r.pokerEscrow!.status).toBe('funded');      // still owed → the sweep retries
+    expect(r.pokerMatchCancelled).toBeUndefined();     // NEVER a false "refunded"
+    expect(r.pokerFrozen).toBeUndefined();
+  });
+
+  it('(37.7.12) a legacy room with NO binding freezes — the generation is never guessed', async () => {
+    for (const [status, state] of [[esc('funded'), LIVE], [esc('funded'), FINISHED], [esc('settled'), FINISHED]] as Array<[PokerEscrow, PokerState]>) {
+      const r = room(status, state, { pokerGameMatchId: undefined, started: true });
+      const d = deps();
+      const rec = await recoverRestoredBankrollRoom(r, d);
+      expect(rec === 'unknown_binding' || rec === 'incoherent_paid').toBe(true);
+      expect(r.pokerFrozen).toBe(true);                // frozen for review
+      expect(r.gameState).not.toBeNull();              // nothing destroyed
+      expect(d.refundBuyIns).not.toHaveBeenCalled();   // and nothing settled either way
       expect(d.rescheduleAdvance).not.toHaveBeenCalled();
     }
   });

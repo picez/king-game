@@ -29,7 +29,7 @@ function member(over: Partial<ServerMember>): ServerMember {
  *  escrow ↔ STATE participant identity, so a payout fixture needs a real player list.) */
 function payState(stacks: number[]): import('../games/poker/types').PokerState {
   return {
-    phase: 'game_finished', stacksBySeat: stacks, playerCount: stacks.length, winnerSeat: null,
+    phase: 'game_finished', stacksBySeat: stacks, playerCount: stacks.length, winnerSeat: stacks.indexOf(Math.max(...stacks)),
     players: stacks.map((_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
   } as unknown as import('../games/poker/types').PokerState;
 }
@@ -590,6 +590,7 @@ describe.skipIf(!TEST_DATABASE_URL)('payout-failure recovery (Stage 37.7.7, inte
     expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
     const M = r.pokerEscrow!.matchId;
     r.started = true; r.gameState = FINISHED as unknown as typeof r.gameState;
+    (await import('../../server/pokerBinding')).bindGameToEscrow(r); // (37.7.12) as a successful START does
 
     // Transient payout failure → retry_pending, escrow stays FUNDED, PAYOUT-pending (not refund-pending).
     escrow.__setPayoutFailure(true);

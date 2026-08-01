@@ -84,12 +84,17 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
       await conn!.sql`DELETE FROM poker_matches WHERE match_id = ${matchId}`;
       await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
     };
-    return { escrow, wallet, settleAndRecordBankrollPokerFinish, realRecord, deps, room, U1, U2, payoutRows, gameRows, cleanup, conn };
+    // (37.7.12) Bind the room's state to the funded escrow, exactly as a successful START does —
+    // every economy finish path now requires that generation binding.
+    const { bindGameToEscrow } = await import('../../server/pokerBinding');
+    const bind = () => { if (!room.gameState) room.gameState = finished2p() as unknown as typeof room.gameState; bindGameToEscrow(room); };
+    return { escrow, wallet, settleAndRecordBankrollPokerFinish, realRecord, deps, room, U1, U2, payoutRows, gameRows, cleanup, conn, bind };
   }
 
   it('retry_pending → NO payout ledger, NO stats/game row, NO stats recorder call', async () => {
     const t = await setup('FIN_RP');
     await t.escrow.debitBuyIns(t.room);
+    t.bind();
     const M = t.room.pokerEscrow!.matchId;
     t.room.gameState = finished2p() as unknown as typeof t.room.gameState; // the room holds the finished game
     const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
@@ -108,6 +113,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
   it('retry then paid → payout once + stats once; a repeat (rebroadcast) never duplicates', async () => {
     const t = await setup('FIN_PAID');
     await t.escrow.debitBuyIns(t.room);
+    t.bind();
     const M = t.room.pokerEscrow!.matchId;
     // First attempt fails transiently → no stats.
     t.escrow.__setPayoutFailure(true);
@@ -132,6 +138,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
   it('already_refunded → NO payout, NO stats; room becomes a cancelled lobby', async () => {
     const t = await setup('FIN_REF');
     await t.escrow.debitBuyIns(t.room);
+    t.bind();
     const M = t.room.pokerEscrow!.matchId;
     await t.escrow.refundBuyIns(t.room);           // escrow → cancelled (mutex)
     const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
@@ -148,6 +155,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
   it('invalid conservation → NO payout, NO stats; room is permanently FROZEN', async () => {
     const t = await setup('FIN_INV');
     await t.escrow.debitBuyIns(t.room);
+    t.bind();
     const M = t.room.pokerEscrow!.matchId;
     t.room.gameState = finished2p([0, 9999]) as unknown as typeof t.room.gameState;
     const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');

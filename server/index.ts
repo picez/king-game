@@ -51,7 +51,8 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame } from './pokerEscrow';
+import { gameBoundToEscrow, resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
 import { recoverRestoredBankrollRoom, shouldDeferBootstrapAdvance } from './pokerBootstrap';
@@ -492,6 +493,7 @@ function bootstrapRecoveryDeps(): import('./pokerBootstrap').BootstrapRecoveryDe
     persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },
     clearTimers: (room) => clearRoomTimers(room.code),
     freeze: freezeRoomForOperator,
+    refundBuyIns,
   };
 }
 
@@ -1015,6 +1017,7 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
       isFinished: (s) => getGameDefinition('poker')?.isFinished(s) === true,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, bankrollFinishDeps()),
       refundBuyIns, persist: persistRoom, freeze: freezeRoomForOperator,
+      clearTimers: (r) => clearRoomTimers(r.code),
     });
     if (fate === 'purge') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
   });
@@ -1038,7 +1041,18 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
  */
 function retryPendingSettlements(): void {
   for (const room of rooms.values()) {
-    if (settlementPending(room)) {
+    if (unboundEscrowGame(room)) {
+      // (37.7.12 FAIL 1) A LIVE escrow whose match never produced the room's current state (a
+      // crashed rematch). Drop the stale state and refund the fresh buy-in — never pay/record it.
+      void withRoomLock(room.code, async () => {
+        if (!rooms.has(room.code) || !unboundEscrowGame(room)) return;
+        const res = await resolveUnboundEscrowGame(room, {
+          refundBuyIns, persist: persistRoom, clearTimers: (r) => clearRoomTimers(r.code),
+        });
+        broadcastRoom(room);
+        console.log(`[King] unplayed rematch debit resolved for room ${room.code} (${res})`);
+      });
+    } else if (settlementPending(room)) {
       void withRoomLock(room.code, async () => {
         if (!rooms.has(room.code) || !settlementPending(room)) return;
         const refunded = await refundBuyIns(room);
@@ -1156,7 +1170,11 @@ async function bootstrap(): Promise<void> {
     const activeMatchIds = new Set<string>();
     for (const r of restoredRooms) {
       const esc = r.pokerEscrow;
-      if (isBankrollRoom(r) && esc && (esc.status === 'funded' || esc.status === 'settling') && r.gameState) {
+      // (37.7.12 FAIL 1) A durable match counts as ACTIVE only when the room's CURRENT state was
+      // really produced by THAT match. A fresh rematch debit sitting next to the previous match's
+      // state is NOT active — leaving it out lets the orphan scan refund it exactly once (the
+      // failed-start lifecycle) instead of protecting a match that never dealt a hand.
+      if (isBankrollRoom(r) && esc && (esc.status === 'funded' || esc.status === 'settling') && r.gameState && gameBoundToEscrow(r)) {
         activeMatchIds.add(esc.matchId);
       }
     }

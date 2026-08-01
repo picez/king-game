@@ -62,9 +62,9 @@ describe.skipIf(!TEST_DATABASE_URL)('recovery-cancelled lobby → new paid match
     const run = (ref: SessionRef, msg: ClientMessage, uid: string) =>
       handleClientMessage(ctx, socket, ref, () => {}, msg, limiter, () => uid, async () => uid);
 
-    // START the new paid match.
+    // START the new paid match (fire-and-forget under withRoomLock → poll, don't sleep).
     run(hostRef, { t: 'START_GAME' } as ClientMessage, U1);
-    await flush();
+    await waitFor(() => room.pokerEscrow?.status === 'funded' && room.gameState != null);
 
     // New buy-in debited EXACTLY once from each participant.
     expect((await wallet.getWalletView(U1, DAY)).balance).toBe(995_000);
@@ -87,7 +87,7 @@ describe.skipIf(!TEST_DATABASE_URL)('recovery-cancelled lobby → new paid match
     expect(advanceTurns).toBeGreaterThan(before); // action applied → advanced (not rejected)
 
     // The NEW match settles: pay out final stacks (winner takes the escrow). Conserves.
-    await escrow.payoutStacks(room, { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2, winnerSeat: null, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as PokerState);
+    await escrow.payoutStacks(room, { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2, winnerSeat: 0, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as PokerState);
     expect(room.pokerEscrow?.status).toBe('settled');
     expect(room.pokerEscrow!.matchId).toBe(newMatchId);
     // U1 (seat 0) paid the 10000 escrow: 995,000 + 10,000 = 1,005,000.
@@ -138,7 +138,10 @@ describe.skipIf(!TEST_DATABASE_URL)('START over a REAL terminal escrow + concurr
   it('a cancelled lobby with a REAL terminal escrow starts a NEW paid match on START (flag cleared)', async () => {
     const { wallet, conn, U1, U2, room, start } = await setup('REALTERM', true);
     const oldMatch = room.pokerEscrow!.matchId; // cancelled match id
-    start(); await flush();
+    start();
+    // The START handler is fire-and-forget inside withRoomLock — poll instead of a fixed delay
+    // (a 20 ms sleep is not enough once the DB is busy with the rest of the poker suites).
+    await waitFor(() => room.pokerEscrow?.status === 'funded' && room.gameState != null);
     expect(room.pokerEscrow!.matchId).not.toBe(oldMatch);   // brand-new match
     expect(room.pokerEscrow!.status).toBe('funded');
     expect(room.pokerMatchCancelled).toBeUndefined();       // cleared only after success
@@ -153,7 +156,8 @@ describe.skipIf(!TEST_DATABASE_URL)('START over a REAL terminal escrow + concurr
   it('concurrent duplicate START_GAME creates ONE match and one debit', async () => {
     const { wallet, conn, U1, U2, room, start } = await setup('CONC', false);
     start(); start(); // two rapid STARTs (serialized by withRoomLock; 2nd sees started/gameState → no-op)
-    await flush(); await flush();
+    await waitFor(() => room.pokerEscrow?.status === 'funded' && room.gameState != null);
+    await flush(); // let the second (no-op) START drain too
     expect(room.gameState).not.toBeNull();
     expect(room.pokerEscrow!.status).toBe('funded');
     // Debited exactly once per player.

@@ -17,7 +17,8 @@ import type { PokerState } from '../src/games/poker/types';
 import type { PayoutResult } from './pokerEscrow';
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
-import { validatePaidMatchParticipants, isBankrollRoomShape } from './pokerParticipants';
+import { validateFinishedPaidMatch, isBankrollRoomShape } from './pokerParticipants';
+import { gameBoundToEscrow, clearGameBinding, resolveUnboundEscrowGame, escrowGameBinding } from './pokerBinding';
 
 /**
  * The distinguishable outcomes of a confirmed-stats write (§16, 37.7.9 FAIL 2; `invalid` added in
@@ -63,14 +64,18 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
   let matchId: string | null = null;
 
   if (isBankroll) {
+    // (37.7.12 FAIL 1) The state must belong to THIS escrow generation. A stale state from the
+    // previous match (a crashed rematch) must NEVER be recorded under the new match's identity —
+    // that is how M0's result got a second, wrong stats row keyed on M1.
+    if (!gameBoundToEscrow(room)) return 'invalid';
     // (37.7.10 FAIL 3) A finished PAID match's participants are IMMUTABLE — take the seat→userId
     // snapshot from the persisted escrow.seats, NOT the current room membership (which is emptied by
     // handleLeave BEFORE teardown). The escrow IS the historical participant set.
-    // (37.7.11 FAIL 2) That snapshot now goes through the SHARED STRICT validator — the same one the
-    // payout uses — so a malformed escrow can never collapse duplicate seats into a Map and write a
-    // partial attribution. A structural failure is `invalid` (permanent, freeze, owed state kept),
-    // NEVER a policy `skipped` (which would clear the owed flag) and never an endless transient retry.
-    const identity = validatePaidMatchParticipants(esc, state);
+    // (37.7.11/37.7.12 FAIL 2) That snapshot goes through the SHARED STRICT finished-match validator —
+    // the same one the payout uses — so a malformed escrow/state can never collapse duplicate seats
+    // into a Map and write a partial attribution. A structural failure is `invalid` (permanent,
+    // freeze, owed state kept), NEVER a policy `skipped` and never an endless transient retry.
+    const identity = validateFinishedPaidMatch(esc, state);
     if (!identity.ok) return 'invalid';
     for (const [seat, userId] of identity.participants.seatUsers) seatUsers.set(seat, userId);
     matchId = identity.participants.matchId;
@@ -119,6 +124,8 @@ export interface TeardownDeps {
   persist: (room: ServerRoom) => void;
   /** PERMANENTLY freeze the room for operator review (logs the room code + a safe reason ONCE). */
   freeze: (room: ServerRoom, reason: string) => void;
+  /** Clear the room's server timers (used by the unbound-debit resolution). */
+  clearTimers: (room: ServerRoom) => void;
 }
 
 /**
@@ -137,6 +144,25 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
   await deps.reconcileEscrow(room);
   const state = room.gameState as PokerState | null;
   const finished = !!state && deps.isFinished(state);
+
+  if (isBankrollRoomShape(room) && state) {
+    const binding = escrowGameBinding(room);
+    const escStatus = room.pokerEscrow?.status;
+    // (37.7.12 FAIL 1) The current escrow did NOT produce this state (a crashed rematch: fresh debit
+    // + the previous match's state). Never settle from it — drop the stale state and REFUND the
+    // fresh buy-in; purge only once the refund is CONFIRMED.
+    if (binding === 'unbound' && escStatus !== 'settled' && escStatus !== 'cancelled') {
+      const res = await resolveUnboundEscrowGame(room, { refundBuyIns: deps.refundBuyIns, persist: deps.persist, clearTimers: deps.clearTimers });
+      return res === 'refunded' ? 'purge' : 'keep';
+    }
+    // (37.7.12) A legacy save with NO binding, or a PAID escrow whose state is from another
+    // generation, cannot be settled safely → freeze for operator review (never purged, never paid).
+    if (binding === 'unknown' || (binding === 'unbound' && escStatus === 'settled')) {
+      deps.freeze(room, 'unknown match generation for the persisted game');
+      deps.persist(room);
+      return 'keep';
+    }
+  }
 
   // (37.7.11 FAIL 1) A PAID (settled) escrow with an UNFINISHED state is INCOHERENT: the money is
   // already out, but the room JSON carries a pre-finish state, so the true final state was lost. It
@@ -185,8 +211,15 @@ export interface BankrollFinishDeps {
   freeze: (room: ServerRoom, reason: string) => void;
 }
 
+/**
+ * (37.7.12 FAIL 1) `unbound_state` — the room's game state was produced by a DIFFERENT escrow
+ * generation than the current escrow, so this flow refuses to pay OR record anything. It is not a
+ * payout outcome at all: the caller resolves it through the unbound refund lifecycle.
+ */
+export type FinishResult = PayoutResult | 'unbound_state';
+
 export interface BankrollFinishOutcome {
-  result: PayoutResult;
+  result: FinishResult;
   stats: StatsResult | null; // null when payout did not confirm (no stats attempted)
 }
 
@@ -202,6 +235,10 @@ export interface BankrollFinishOutcome {
  * (or the durable row already exists). Any resolved outcome clears the flag.
  */
 export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state: PokerState, deps: BankrollFinishDeps): Promise<BankrollFinishOutcome> {
+  // (37.7.12 FAIL 1) HARD GATE: only the escrow generation that actually produced this state may be
+  // settled from it. An unbound pair (a fresh rematch debit + the previous match's state) leaves the
+  // wallet untouched here — the caller runs the unbound refund lifecycle instead.
+  if (isBankrollRoomShape(room) && !gameBoundToEscrow(room)) return { result: 'unbound_state', stats: null };
   const result = await deps.payoutStacks(room, state);
   switch (result) {
     case 'paid':
@@ -234,6 +271,7 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
       // stats. Turn the finished table into an honest cancelled lobby.
       room.started = false;
       room.gameState = null;
+      clearGameBinding(room); // (37.7.12) the binding always dies with the state it described
       room.pokerMatchCancelled = true;
       deps.clearRematch(room);
       deps.persist(room);

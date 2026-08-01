@@ -68,7 +68,7 @@ describe('escrowMatchesRoomSeats (FAIL 1)', () => {
 
 describe('validatePayoutConservation seat-set match (FAIL 5 strengthening)', () => {
   const state = (stacks: number[], playerCount: number): PokerState => ({
-    stacksBySeat: stacks, playerCount, winnerSeat: null,
+    phase: 'game_finished', stacksBySeat: stacks, playerCount, winnerSeat: stacks.indexOf(Math.max(...stacks)),
     players: Array.from({ length: playerCount }, (_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
   } as unknown as PokerState);
   it('rejects when the escrow is missing a player seat (seat set != player set)', () => {

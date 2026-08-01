@@ -138,6 +138,20 @@ also reported at `GET /health/diagnostics` (`version` field).
     bot seat, an impossible winner) could still reach the stats writer and store a **partial, wrong
     result**. Payout and stats now share **one strict participant check**, so such a match records
     nothing at all and is frozen for review instead of being retried forever.
+  - **A table's chips are tied to the hand that was actually dealt (Stage 37.7.12):** two more real
+    defects fixed. (1) A **rematch** takes the new buy-ins *before* the new hand is dealt. If the
+    server died in that window, the saved table held the **new buy-ins next to the previous hand's
+    final result** — and recovery paid the fresh money out to the *previous* winner and recorded the
+    old result a second time, all without a single card being dealt. Every table now durably records
+    **which paid match produced its current hand**, and no payout, no result and no stats can ever be
+    written unless the two match. A buy-in whose hand never started is **refunded exactly once**
+    instead (a transient failure keeps retrying, and such a table is never deleted before the refund
+    is confirmed); afterwards the table is a clean lobby a new match can use. An older saved table
+    with no such record is **frozen for review** rather than guessed at. (2) The strict paid-match
+    check now also proves the hand is genuinely **finished**: a mid-hand table, a missing/unknown
+    winner, a non-human or duplicated seat, a stray extra seat, or final stacks where the winner does
+    not hold exactly the whole pot are all rejected — nothing is paid, nothing is recorded, and the
+    table is frozen for review.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

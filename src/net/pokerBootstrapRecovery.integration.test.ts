@@ -42,6 +42,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
     const escrow = await import('../../server/pokerEscrow');
     const pokerStats = await import('../../server/db/pokerStats');
     const { recoverRestoredBankrollRoom, shouldDeferBootstrapAdvance } = await import('../../server/pokerBootstrap');
+    const { bindGameToEscrow } = await import('../../server/pokerBinding');
     const { recordConfirmedPokerStats, settleRoomForDeletion, settleAndRecordBankrollPokerFinish } = await import('../../server/pokerFinish');
     const { createRoom, addMember, serializeRoom, deserializeRoom, snapshot } = await import('./serverCore');
     const { getDb } = await import('../../server/db/client');
@@ -63,7 +64,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
       if (!shouldDeferBootstrapAdvance(room)) advance(room); // restore loop: `if (!shouldDefer…) rescheduleAdvance(room)`
       const recovery = await recoverRestoredBankrollRoom(room, {
         reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin,
-        rescheduleAdvance: advance, persist, clearTimers, freeze,
+        rescheduleAdvance: advance, persist, clearTimers, freeze, refundBuyIns: escrow.refundBuyIns,
       });
       return recovery;
     }
@@ -92,7 +93,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
       }),
-      refundBuyIns: escrow.refundBuyIns, persist, freeze,
+      refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
     });
 
     async function bankrollRoom(code: string, state: PokerState) {
@@ -103,6 +104,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
       addMember(room, { clientId: 'b', reconnectToken: 't', name: 'B', userId: U2 });
       room.started = true; room.gameState = state as unknown as typeof room.gameState;
       await escrow.debitBuyIns(room);
+      bindGameToEscrow(room); // (37.7.12) as a successful START does
       return { room, U1, U2, M: room.pokerEscrow!.matchId };
     }
     const gameRows = async (code: string) => ((await conn!.sql`SELECT count(*)::int AS n FROM games WHERE room_code = ${code}`) as Array<{ n: number }>)[0].n;

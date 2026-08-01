@@ -43,6 +43,7 @@ describe.skipIf(!TEST_DATABASE_URL)('stats-pending recovery after a paid finish 
     addMember(room, { clientId: 'b', reconnectToken: 't', name: 'B', userId: U2 });
     room.started = true; room.gameState = finished2p() as unknown as typeof room.gameState;
     await escrow.debitBuyIns(room);
+    (await import('../../server/pokerBinding')).bindGameToEscrow(room); // (37.7.12) as a successful START does
     const M = room.pokerEscrow!.matchId;
 
     const payoutRows = async () => ((await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`) as Array<{ n: number }>)[0].n;
@@ -123,6 +124,7 @@ describe.skipIf(!TEST_DATABASE_URL)('stats-pending recovery after a paid finish 
     addMember(room, { clientId: 'b', reconnectToken: 't', name: 'B', userId: U2 });
     room.started = true; room.gameState = finished2p() as unknown as typeof room.gameState;
     await escrow.debitBuyIns(room);
+    (await import('../../server/pokerBinding')).bindGameToEscrow(room); // (37.7.12) as a successful START does
     const M = room.pokerEscrow!.matchId;
     room.pokerStatsPending = true; // pretend a prior stats attempt failed
     const marker = new Map<string, string>();
