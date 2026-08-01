@@ -12,7 +12,14 @@ const esc = (seats: Array<[number, string, number]>): PokerEscrow => ({
   matchId: 'm1', buyIn: seats[0]?.[2] ?? 0, status: 'funded',
   seats: seats.map(([seat, userId, amount]) => ({ seat, userId, amount })),
 });
-const stateWith = (stacks: number[]): PokerState => ({ stacksBySeat: stacks } as PokerState);
+// (37.7.11) The shared strict validator also checks the escrow ↔ STATE participant identity, so a
+// conservation fixture must carry a realistic player list (human seats 0…n-1), not stacks alone.
+const stateWith = (stacks: number[]): PokerState => ({
+  stacksBySeat: stacks,
+  playerCount: stacks.length,
+  players: stacks.map((_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
+  winnerSeat: null,
+} as unknown as PokerState);
 
 describe('validatePayoutConservation (FAIL 7)', () => {
   it('accepts when Σ final stacks == Σ buy-ins', () => {

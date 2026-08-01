@@ -25,6 +25,14 @@ function member(over: Partial<ServerMember>): ServerMember {
     type: over.type ?? 'human', avatar: '🙂', userId: over.userId ?? null,
   } as ServerMember;
 }
+/** A realistic FINISHED heads-up state. (37.7.11: the shared payout validator checks the
+ *  escrow ↔ STATE participant identity, so a payout fixture needs a real player list.) */
+function payState(stacks: number[]): import('../games/poker/types').PokerState {
+  return {
+    phase: 'game_finished', stacksBySeat: stacks, playerCount: stacks.length, winnerSeat: null,
+    players: stacks.map((_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
+  } as unknown as import('../games/poker/types').PokerState;
+}
 function room(members: ServerMember[], buyIn = 5000): ServerRoom {
   return { code: 'ESC1', gameType: 'poker', pokerBuyIn: buyIn, members: new Map(members.map((m) => [m.clientId, m])) } as unknown as ServerRoom;
 }
@@ -56,7 +64,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll escrow (integration)', () =>
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
 
     // Payout the final stacks: A busts (0), B wins the whole escrow (10000). Conserves.
-    const state = { stacksBySeat: [0, 10000] } as import('../../src/games/poker/types').PokerState;
+    const state = payState([0, 10000]);
     await escrow.payoutStacks(r, state);
     expect(r.pokerEscrow?.status).toBe('settled');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);        // busted → no credit
@@ -91,7 +99,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll escrow (integration)', () =>
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);
 
     // A payout after a cancelled match is a no-op (mutual exclusion).
-    const state = { stacksBySeat: [0, 10000] } as import('../../src/games/poker/types').PokerState;
+    const state = payState([0, 10000]);
     await escrow.payoutStacks(r, state);
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000); // NOT paid
 
@@ -139,7 +147,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
 
   it('payout then refund attempt: refund is DB-gate blocked (no double credit)', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('MutexP');
-    await escrow.payoutStacks(r, { stacksBySeat: [0, 10000] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([0, 10000]));
     expect(r.pokerEscrow?.status).toBe('settled');
     // A refund AFTER payout resolves as "already paid" (returns true) and mutates nothing.
     expect(await escrow.refundBuyIns(r)).toBe(true);
@@ -152,7 +160,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
     const { wallet, escrow, conn, A, B, r } = await twoFunded('MutexR');
     expect(await escrow.refundBuyIns(r)).toBe(true);
     expect(r.pokerEscrow?.status).toBe('cancelled');
-    await escrow.payoutStacks(r, { stacksBySeat: [0, 10000] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([0, 10000]));
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);    // refunded, not paid
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);    // refunded, not paid
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
@@ -161,7 +169,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
   it('rematch mints a NEW matchId and debits a fresh buy-in exactly once', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('Rematch');
     const firstMatch = r.pokerEscrow!.matchId;
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([10000, 0]));
     expect(r.pokerEscrow?.status).toBe('settled');
     // A stale (settled) escrow can NOT be reused by the initial-start path.
     expect((await escrow.debitBuyIns(r)).ok).toBe(false);
@@ -180,7 +188,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
   it('rematch is refused when a participant cannot afford the new buy-in', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('RematchPoor');
     // A wins nothing and busts; after settle A has 995,000. Drain A so a 5000 buy-in fails.
-    await escrow.payoutStacks(r, { stacksBySeat: [0, 10000] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([0, 10000]));
     const { getDb } = await import('../../server/db/client');
     const db = (await getDb())!.db as import('drizzle-orm/postgres-js').PostgresJsDatabase;
     // Spend A down to 0 via a huge buy-in on a throwaway match.
@@ -199,7 +207,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
     await escrow.reconcileEscrow(r);
     expect(r.pokerEscrow?.status).toBe('funded');
     // Now pay out, then simulate a crashed 'settling' → reconciles to 'settled' via settlement row.
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([10000, 0]));
     r.pokerEscrow!.status = 'settling';
     await escrow.reconcileEscrow(r);
     expect(r.pokerEscrow?.status).toBe('settled');
@@ -214,7 +222,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
   it('payout conservation mismatch fails closed (no wallet mutation, escrow stays funded)', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('Conserve');
     // Σ final stacks (9999) != Σ buy-ins (10000) → refuse.
-    await escrow.payoutStacks(r, { stacksBySeat: [9999, 0] } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([9999, 0]));
     expect(r.pokerEscrow?.status).toBe('funded');                 // not settled
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000); // unchanged (debited only)
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(995_000);
@@ -271,7 +279,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integ
     const { wallet, escrow, conn, A, B } = await ctx('CrashRe');
     const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
     await escrow.debitBuyIns(r);
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0] } as import('../games/poker/types').PokerState); // A wins
+    await escrow.payoutStacks(r, payState([10000, 0])); // A wins
     const rematch = await escrow.debitRematch(r); // fresh paid match
     expect(rematch.ok).toBe(true);
     const rematchId = r.pokerEscrow!.matchId;
@@ -458,10 +466,10 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     expect(stillRows).toEqual(oldRefundRows);
 
     // The NEW match completes → payout EXACTLY once.
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([10000, 0]));
     expect(r.pokerEscrow?.status).toBe('settled');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState); // idempotent
+    await escrow.payoutStacks(r, payState([10000, 0])); // idempotent
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
 
     await conn!.sql`DELETE FROM poker_matches WHERE match_id IN (${firstMatch}, ${r.pokerEscrow!.matchId})`;
@@ -488,7 +496,7 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     const { wallet, escrow, conn, A, B, r } = await two('SettledRetry');
     await escrow.debitBuyIns(r);
     const m1 = r.pokerEscrow!.matchId;
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState); // settled
+    await escrow.payoutStacks(r, payState([10000, 0])); // settled
     expect(r.pokerEscrow?.status).toBe('settled');
     expect(await escrow.debitFreshStart(r)).toEqual({ ok: true });
     expect(r.pokerEscrow!.matchId).not.toBe(m1);
@@ -551,9 +559,9 @@ describe.skipIf(!TEST_DATABASE_URL)('refund=false fail-closed + settlement retry
     expect((oldRefund as Array<{ n: number }>)[0].n).toBe(2);
 
     // The NEW match pays out exactly once.
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([10000, 0]));
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
-    await escrow.payoutStacks(r, { stacksBySeat: [10000, 0], playerCount: 2 } as import('../games/poker/types').PokerState);
+    await escrow.payoutStacks(r, payState([10000, 0]));
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000); // idempotent
 
     escrow.__setRefundFailure(false); // safety
@@ -563,7 +571,7 @@ describe.skipIf(!TEST_DATABASE_URL)('refund=false fail-closed + settlement retry
 });
 
 describe.skipIf(!TEST_DATABASE_URL)('payout-failure recovery (Stage 37.7.7, integration)', () => {
-  const FINISHED = { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2 } as unknown as import('../games/poker/types').PokerState;
+  const FINISHED = payState([10000, 0]);
 
   it('a transient payout failure leaves the match PAYOUT-pending + retryable; a retry pays exactly once', async () => {
     process.env.DATABASE_URL = TEST_DATABASE_URL;

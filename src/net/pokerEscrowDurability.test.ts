@@ -94,7 +94,10 @@ describe('addMember bankroll account gate (FAIL 2)', () => {
 });
 
 describe('validatePayoutConservation checks escrow validity too (FAIL 5)', () => {
-  const state = (stacks: number[]): PokerState => ({ stacksBySeat: stacks } as PokerState);
+  const state = (stacks: number[]): PokerState => ({
+    stacksBySeat: stacks, playerCount: stacks.length, winnerSeat: null,
+    players: stacks.map((_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
+  } as unknown as PokerState);
   it('rejects a structurally invalid escrow (amount != buyIn) even if stacks look fine', () => {
     const esc: PokerEscrow = { matchId: 'm', buyIn: 20000, status: 'funded', seats: [{ seat: 0, userId: 'u1', amount: 19999 }, { seat: 1, userId: 'u2', amount: 20000 }] };
     expect(validatePayoutConservation(esc, state([40000, 0])).ok).toBe(false);

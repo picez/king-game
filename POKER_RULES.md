@@ -303,6 +303,23 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   escrow is **reconciled** against the durable ledger on restart, and every lifecycle op is
   **serialized per room** (a debit never races a leave/kick/settings/second-start).
 - **Rematch** = a **new** economy match id + a fresh buy-in + fresh balance check.
+- **Paid state is recovered fail-closed** (Stage 37.7.11). After a restart the server
+  classifies every restored bankroll table BEFORE arming any timer, bot step or advance —
+  no bankroll table resumes ahead of that decision. A table whose payout is durably
+  **settled** but whose saved state is **not finished** is an **incoherent paid state**
+  (the money is out; the authoritative final state was lost): it is **frozen for operator
+  review** — never resumed, never re-paid, never refunded, never deleted, and publicly
+  visible only as the opaque `frozen` recovery status. It is NOT a cancelled match (nothing
+  was refunded).
+- **One strict participant check guards both payout and stats** (Stage 37.7.11). The paid
+  match's escrow (match id, seat → account, buy-in per seat) must correspond EXACTLY to the
+  finished state: 2–6 seats, safe in-range seat indices, no duplicate seat, no duplicate
+  account, every amount == the buy-in, the escrow seat set == the state's player seat set,
+  **no bot seat**, and any declared winner among the participants. This runs before any
+  wallet mutation AND before any stats row — including for an already-`settled` escrow, so a
+  malformed restored match can never write a partial attribution. A structural failure is
+  **permanent** (`invalid` → frozen, no stats, no retry), distinct from a **transient** DB
+  failure (retried) and from a **duplicate** durable row (resolved).
 - **No rake, no ante, no rebuy** (a busted seat is out; the match ends when one player
   holds all the chips).
 

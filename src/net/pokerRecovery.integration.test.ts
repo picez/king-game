@@ -87,7 +87,7 @@ describe.skipIf(!TEST_DATABASE_URL)('recovery-cancelled lobby → new paid match
     expect(advanceTurns).toBeGreaterThan(before); // action applied → advanced (not rejected)
 
     // The NEW match settles: pay out final stacks (winner takes the escrow). Conserves.
-    await escrow.payoutStacks(room, { stacksBySeat: [10000, 0], playerCount: 2 } as PokerState);
+    await escrow.payoutStacks(room, { phase: 'game_finished', stacksBySeat: [10000, 0], playerCount: 2, winnerSeat: null, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as PokerState);
     expect(room.pokerEscrow?.status).toBe('settled');
     expect(room.pokerEscrow!.matchId).toBe(newMatchId);
     // U1 (seat 0) paid the 10000 escrow: 995,000 + 10,000 = 1,005,000.

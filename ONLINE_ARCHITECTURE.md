@@ -753,3 +753,43 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
 - **Persist/broadcast ordering:** the paid finish now computes the stats outcome and sets the final recovery flag
   (`stats_pending` or cleared) BEFORE the single persist+broadcast, so the table never flickers "rematch enabled"
   between a confirmed payout and a stats-pending state.
+
+### Fail-closed recovery of incoherent paid matches (Stage 37.7.11)
+
+- **`settled` + UNFINISHED is INCOHERENT, not `live` (FAIL 1).** `classifyBootstrapRecovery` returned `live` for a
+  restored bankroll room whose escrow was already `settled` (durable payout committed) but whose persisted state was
+  still mid-hand — the real crash window is: finish in memory → payout commits → room JSON still holds the pre-finish
+  state → crash → `reconcileEscrow` promotes `settling` to `settled`. The match would then resume, arm timers, accept
+  `ACTION_REQUEST`, and could be paid/refunded again. New classification **`incoherent_paid`** → `applyBootstrapRecovery`
+  clears the room timers and **freezes** it permanently (`pokerFrozen`, logged once with the room code + a safe reason).
+  It is NOT `pokerMatchCancelled` (nothing was refunded) and the state is kept as evidence. Frozen already blocks
+  START/ACTION (wsHandlers) and REMATCH (`pokerRecoveryBlocked`), is excluded from `payoutPending`/`settlementPending`/
+  `statsPending` (no sweep retry, no log spam), keeps `hasUnsettledEscrow` true (never purged), survives serialize→restore,
+  and surfaces publicly only as `pokerRecovery: 'frozen'`.
+- **No bankroll room advances before classification (FAIL 1).** The restore loop deferred the advance only for
+  `hasUnsettledEscrow` rooms, so a `settled`/`cancelled`/stats-pending room was advanced BEFORE the recovery pass ran.
+  New pure predicate **`shouldDeferBootstrapAdvance(room)`** (true for every bankroll room) gates that line in
+  `bootstrap()`; only classification `live` re-arms it. Non-bankroll rooms (the other 6 games, local poker) are unchanged.
+- **`settleRoomForDeletion` no longer purges a paid-but-unfinished room (FAIL 1).** It froze nothing and saw
+  `hasUnsettledEscrow === false`, so it returned `purge` and destroyed the evidence of a paid match. It now returns
+  `keep` for a frozen room, and freezes + keeps a `settled` escrow with an unfinished state. `deleteRoomWithSettlement`'s
+  synchronous fast-path guard also widened from "a FINISHED game" to "**any carried game state**", so such a room can no
+  longer skip the lock-serialized settlement flow entirely.
+- **ONE shared strict participant validator (FAIL 2).** New `server/pokerParticipants.ts`
+  `validatePaidMatchParticipants(escrow, state)` is the single source of truth for a paid match's identity:
+  non-empty matchId, safe `buyIn > 0`, 2–6 seats, safe in-range seat indices, no duplicate seat, no duplicate account,
+  `amount === buyIn`, `playerCount` consistent with `players`/`stacksBySeat`, the escrow seat set EXACTLY equal to the
+  state's player seat set, **no `ai` seat**, and a participant winner. `validatePayoutConservation` now delegates its
+  structural half to it (then checks Σ stacks == Σ buy-ins), and `recordConfirmedPokerStats` uses it to build `seatUsers`
+  — no weaker second copy of the rules. `payoutStacks` also stopped short-circuiting a `settled` escrow to `already_paid`
+  without validation: `already_paid` is the caller's green light to record stats, so it now runs the same check first.
+- **`invalid` is a distinct, PERMANENT stats outcome (FAIL 2).** `StatsResult` gained `invalid` (structurally impossible →
+  freeze, keep the owed flag, never write, never retry), kept apart from `failed` (transient → retried), `already_exists`
+  (durable duplicate → resolved) and `skipped` (policy). `settleAndRecordBankrollPokerFinish` and the `retryPendingSettlements`
+  stats branch both freeze on `invalid`; a malformed escrow that owes stats can never silently become `skipped`.
+- **Test evidence gap closed.** Stage 37.7.10's `pokerBootstrapRecovery.integration.test.ts` re-created the bootstrap
+  orchestration inside the test (`recover()`), so it did NOT exercise the production path — which is why the early
+  `rescheduleAdvance` and the `settled` + unfinished classification went unnoticed. Its claim of driving the "production
+  recovery path" was inaccurate. The orchestration is now `server/pokerBootstrap.ts` **`recoverRestoredBankrollRoom(room, deps)`**
+  (reconcile → classify → apply/persist/advance decision) — `server/index.ts` pass (d) calls it under `withRoomLock`, and the
+  integration suite calls the SAME function plus `shouldDeferBootstrapAdvance`, so the test can no longer drift from production.

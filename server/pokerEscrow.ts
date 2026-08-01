@@ -21,6 +21,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type { ServerRoom, PokerEscrow, PokerEscrowSeat } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
 import { getDb, isDbEnabled } from './db/client';
+import { validatePaidMatchParticipants } from './pokerParticipants';
 import {
   adjustWalletTx, settleMatchTx, matchLedgerState, recordMatchTx, listUnsettledMatches,
   InsufficientChipsError, SettlementConflictError, type DurableMatch,
@@ -265,41 +266,28 @@ export type ConservationCheck = { ok: true } | { ok: false; error: string };
 
 /**
  * Validate that paying every escrow seat its FINAL stack conserves the escrow exactly,
- * before any wallet mutation. Every final stack must be a finite, non-negative safe
- * integer, and Σ(final stacks) must equal Σ(buy-ins). Any mismatch / overflow / bad
- * seat fails CLOSED (no wallet is touched).
+ * before any wallet mutation. Structural escrow ↔ state participant identity comes from the
+ * ONE SHARED strict validator (37.7.11 FAIL 2) — canonical matchId/seat/user/buy-in metadata,
+ * exact correspondence with the state's player seats, human-only seats, a participant winner —
+ * so the payout path and the stats path can never disagree about who played this match. On top
+ * of it: every final stack must be a non-negative safe integer and Σ(final stacks) must equal
+ * Σ(buy-ins). Any mismatch / overflow / bad seat fails CLOSED (no wallet is touched).
  */
 export function validatePayoutConservation(esc: PokerEscrow, state: PokerState): ConservationCheck {
+  const identity = validatePaidMatchParticipants(esc, state);
+  if (!identity.ok) return { ok: false, error: identity.error };
   const stacks = state.stacksBySeat;
-  if (!Array.isArray(stacks)) return { ok: false, error: 'no stacks' };
-  // (FAIL 5) The escrow itself must be structurally valid — not just the stacks.
-  if (!esc || typeof esc.matchId !== 'string' || !esc.matchId) return { ok: false, error: 'bad escrow' };
-  if (!Number.isSafeInteger(esc.buyIn) || esc.buyIn <= 0) return { ok: false, error: 'bad buyIn' };
-  if (!Array.isArray(esc.seats) || esc.seats.length < 2 || esc.seats.length > 6) return { ok: false, error: 'bad seat count' };
-  const playerCount = typeof state.playerCount === 'number' ? state.playerCount : stacks.length;
-  const users = new Set<string>();
   let payoutTotal = 0;
   let escrowTotal = 0;
-  const seen = new Set<number>();
   for (const s of esc.seats) {
-    if (typeof s.userId !== 'string' || !s.userId || users.has(s.userId)) return { ok: false, error: 'bad/duplicate user' };
-    users.add(s.userId);
-    // (37.7.3) Seat must be a safe integer in range of the actual stacks/player set.
-    if (!Number.isSafeInteger(s.seat) || s.seat < 0 || s.seat >= stacks.length || s.seat >= playerCount) return { ok: false, error: 'seat out of range' };
-    if (!Number.isSafeInteger(s.amount) || s.amount <= 0 || s.amount !== esc.buyIn) return { ok: false, error: 'bad seat amount' };
-    if (seen.has(s.seat)) return { ok: false, error: 'duplicate seat' };
-    seen.add(s.seat);
     const stack = stacks[s.seat];
-    if (typeof stack !== 'number' || !Number.isFinite(stack) || !Number.isSafeInteger(stack) || stack < 0) {
+    if (typeof stack !== 'number' || !Number.isSafeInteger(stack) || stack < 0) {
       return { ok: false, error: 'invalid final stack' };
     }
     payoutTotal += stack;
     escrowTotal += s.amount;
     if (payoutTotal > Number.MAX_SAFE_INTEGER || escrowTotal > Number.MAX_SAFE_INTEGER) return { ok: false, error: 'overflow' };
   }
-  // (37.7.3) The escrow seat set must EXACTLY match the state's player seat set — every
-  // player seat present, none extra/missing — so no unpaid/extra participant slips through.
-  if (seen.size !== playerCount) return { ok: false, error: 'escrow seats != player seats' };
   if (payoutTotal !== escrowTotal) return { ok: false, error: 'payout != escrow' };
   return { ok: true };
 }
@@ -326,7 +314,19 @@ export type PayoutResult = 'paid' | 'already_paid' | 'already_refunded' | 'retry
 export async function payoutStacks(room: ServerRoom, state: PokerState): Promise<PayoutResult> {
   const esc = room.pokerEscrow;
   if (!esc) return 'invalid';                                          // nothing escrowed
-  if (esc.status === 'settled') return 'already_paid';                 // idempotent
+  if (esc.status === 'settled') {
+    // (37.7.11 FAIL 2) An already-PAID escrow used to short-circuit to `already_paid` WITHOUT any
+    // structural check — so a restored/malformed settled escrow reached the stats recorder and could
+    // write a partial attribution. `already_paid` is the caller's green light to record stats, so it
+    // must satisfy the SAME strict participant validation as a fresh payout. A structurally
+    // incoherent paid match fails CLOSED as `invalid` (permanent freeze, never stats, never re-paid).
+    const conserve = validatePayoutConservation(esc, state);
+    if (!conserve.ok) {
+      console.error(`[Poker] settled match ${esc.matchId} FAILED validation — ${conserve.error} (no stats, frozen for review)`);
+      return 'invalid';
+    }
+    return 'already_paid';                                             // idempotent
+  }
   if (esc.status === 'cancelled') return 'already_refunded';           // already refunded (mutex)
   if (esc.status !== 'funded') return 'retry_pending';                 // pending/settling in flight → retry
   if (!isDbEnabled()) return 'retry_pending';                          // economy down → retry when DB is back

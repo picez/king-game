@@ -67,7 +67,10 @@ describe('escrowMatchesRoomSeats (FAIL 1)', () => {
 });
 
 describe('validatePayoutConservation seat-set match (FAIL 5 strengthening)', () => {
-  const state = (stacks: number[], playerCount: number): PokerState => ({ stacksBySeat: stacks, playerCount } as PokerState);
+  const state = (stacks: number[], playerCount: number): PokerState => ({
+    stacksBySeat: stacks, playerCount, winnerSeat: null,
+    players: Array.from({ length: playerCount }, (_, seat) => ({ id: `p${seat}`, name: `P${seat}`, seatIndex: seat, type: 'human' })),
+  } as unknown as PokerState);
   it('rejects when the escrow is missing a player seat (seat set != player set)', () => {
     const esc: PokerEscrow = { matchId: 'm', buyIn: 5000, status: 'funded', seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] };
     // 3-player state but escrow only covers 2 seats → fail closed.

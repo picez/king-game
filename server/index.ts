@@ -54,7 +54,7 @@ import { getGameDefinition } from '../src/games/registry';
 import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending } from './pokerEscrow';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
-import { classifyBootstrapRecovery, applyBootstrapRecovery } from './pokerBootstrap';
+import { recoverRestoredBankrollRoom, shouldDeferBootstrapAdvance } from './pokerBootstrap';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -480,6 +480,18 @@ function statsRecorderDeps(): import('./pokerFinish').ConfirmedStatsDeps {
     unmarkRecorded: (code) => { recordedFinish.delete(code); },
     record: async (code, st, seatUsers, matchId) =>
       (await import('./db/pokerStats')).recordFinishedPokerGame(code, st, seatUsers, matchId),
+  };
+}
+
+/** The shared deps for the per-room bootstrap recovery orchestration (37.7.10/37.7.11). */
+function bootstrapRecoveryDeps(): import('./pokerBootstrap').BootstrapRecoveryDeps {
+  return {
+    reconcileEscrow,
+    isFinished: (state) => getGameDefinition('poker')?.isFinished(state) === true,
+    rescheduleAdvance,
+    persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },
+    clearTimers: (room) => clearRoomTimers(room.code),
+    freeze: freezeRoomForOperator,
   };
 }
 
@@ -976,11 +988,13 @@ function purgeRoom(code: string): void {
  */
 function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
   // (37.7.10 FAIL 2) A bankroll room needs the lock-serialized settlement flow when it still owes
-  // chips (unsettled escrow), owes a stats write (stats-pending), OR carries a FINISHED match whose
-  // payout+stats must be finalized before deletion — a finished paid room is NEVER purged on a raw
-  // early exit that skips the stats write. Everything else deletes synchronously.
-  const isFinishedPoker = isBankrollRoom(room) && !!room.gameState && getGameDefinition('poker')?.isFinished(room.gameState) === true;
-  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending && !isFinishedPoker)) { purgeRoom(code); return; }
+  // chips (unsettled escrow), owes a stats write (stats-pending), OR still carries a game state whose
+  // payout+stats must be finalized before deletion — a paid room is NEVER purged on a raw early exit
+  // that skips the stats write. (37.7.11 FAIL 1: the guard covers ANY carried game state, not just a
+  // FINISHED one — a `settled` escrow with an UNFINISHED state has no unsettled escrow, so it used to
+  // purge synchronously and destroy the evidence of a paid match.) Everything else deletes synchronously.
+  const carriesGame = isBankrollRoom(room) && !!room.gameState;
+  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending && !carriesGame)) { purgeRoom(code); return; }
   // Serialize with any in-flight start/payout/rematch for this room, then reconcile a
   // restored transient escrow (pending/settling) before settling.
   void withRoomLock(code, async () => {
@@ -1000,7 +1014,7 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
       reconcileEscrow, hasUnsettledEscrow,
       isFinished: (s) => getGameDefinition('poker')?.isFinished(s) === true,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, bankrollFinishDeps()),
-      refundBuyIns, persist: persistRoom,
+      refundBuyIns, persist: persistRoom, freeze: freezeRoomForOperator,
     });
     if (fate === 'purge') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }
   });
@@ -1051,6 +1065,15 @@ function retryPendingSettlements(): void {
         const state = room.gameState as PokerState | null;
         if (!state) { room.pokerStatsPending = undefined; persistRoom(room); return; } // no finished state → nothing to record
         const stats = await recordConfirmedPokerStats(room, state, statsRecorderDeps());
+        if (stats === 'invalid') {
+          // (37.7.11 FAIL 2) Structurally incoherent paid match — a retry can never fix it. Freeze
+          // PERMANENTLY (keeps the owed flag as evidence; `statsPending` excludes frozen rooms, so
+          // this branch never runs again → no 45s log spam) and never write a partial attribution.
+          freezeRoomForOperator(room, 'paid match participants invalid');
+          persistRoom(room);
+          broadcastRoom(room);
+          return;
+        }
         if (stats !== 'failed') {
           room.pokerStatsPending = undefined; // recorded / already_exists / skipped → resolved
           persistRoom(room);
@@ -1110,10 +1133,12 @@ async function bootstrap(): Promise<void> {
     rooms.set(room.code, room);
     restoredRooms.push(room);
     restored++;
-    // (37.7.3 FAIL 5) DEFER the advance for a bankroll room with an unsettled/corrupt escrow
-    // until reconciliation decides whether it is a live funded match, a cancelled match, or
-    // a frozen one — a refunded match must NOT auto-advance a free game.
-    if (!(isBankrollRoom(room) && hasUnsettledEscrow(room))) rescheduleAdvance(room);
+    // (37.7.3 FAIL 5; widened 37.7.11 FAIL 1) DEFER the advance for EVERY bankroll room until the
+    // economy recovery classification decides whether it is a live funded match, a payout/stats
+    // finalization, a refunded match, or an incoherent paid one. The old guard deferred only
+    // `hasUnsettledEscrow` rooms, so an already-SETTLED (paid) room was advanced/timed here BEFORE
+    // recovery ever looked at it. Only `recoverRestoredBankrollRoom` may re-arm it now.
+    if (!shouldDeferBootstrapAdvance(room)) rescheduleAdvance(room);
   }
 
   // Bankroll crash recovery (§16, 37.7.1 → 37.7.3). Passes:
@@ -1148,22 +1173,18 @@ async function bootstrap(): Promise<void> {
       if (rooms.has(r.code)) persistRoom(r);
     }));
     // (d) Classify + apply recovery for each bankroll room that carried a game state across the
-    // restart — LIVE, PAYOUT-pending, PAID finish (finalize stats, never cancel), CANCELLED, or FROZEN.
+    // restart — LIVE, PAYOUT-pending, PAID finish (finalize stats, never cancel), INCOHERENT paid
+    // (frozen), CANCELLED, or already FROZEN. Serialized per room and run through the SAME helper
+    // the recovery tests drive (37.7.11), so production and test can never diverge.
     for (const r of restoredRooms) {
       if (!isBankrollRoom(r) || !r.gameState) continue;
-      const recovery = classifyBootstrapRecovery(r, (s) => getGameDefinition('poker')?.isFinished(s) === true);
-      applyBootstrapRecovery(r, recovery, {
-        rescheduleAdvance,
-        persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },
-        clearTimers: (room) => clearRoomTimers(room.code),
-      });
-      if (recovery === 'paid_finish') {
-        // (37.7.10 FAIL 1) A durable PAID finish restored across a crash → keep the finished state
-        // and finalize stats: mark stats-pending (idempotent via the durable game_key) so the sweep
-        // records them exactly once. NEVER cancel a paid match.
-        r.pokerStatsPending = true;
-        if (rooms.has(r.code)) persistRoom(r);
-      }
+      const recovery = await withRoomLock(r.code, () => recoverRestoredBankrollRoom(r, bootstrapRecoveryDeps()))
+        .catch((err) => {
+          // A reconciliation failure leaves the room UNCLASSIFIED — no advance was armed (the restore
+          // loop deferred it), so it stays inert until the next sweep/restart resolves it.
+          console.error(`[King] bootstrap recovery failed for room ${r.code}: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+          return null;
+        });
       if (recovery === 'cancelled') console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
     }
   } else {

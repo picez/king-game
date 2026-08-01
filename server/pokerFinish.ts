@@ -17,16 +17,23 @@ import type { PokerState } from '../src/games/poker/types';
 import type { PayoutResult } from './pokerEscrow';
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
+import { validatePaidMatchParticipants, isBankrollRoomShape } from './pokerParticipants';
 
 /**
- * The FOUR distinguishable outcomes of a confirmed-stats write (§16, 37.7.9 FAIL 2) — a boolean
- * could not tell duplicate / skip / transient-failure apart, so a failure was silently lost:
+ * The distinguishable outcomes of a confirmed-stats write (§16, 37.7.9 FAIL 2; `invalid` added in
+ * 37.7.11 FAIL 2) — a boolean could not tell duplicate / skip / transient-failure apart, so a
+ * failure was silently lost:
  *   • recorded       — a durable row was written by THIS call;
  *   • already_exists — the durable row already existed (idempotent) → RESOLVED, no retry;
  *   • skipped        — no stats owed by policy (bot table / <2 humans / no identified seats);
- *   • failed         — a TRANSIENT DB error → the write is still owed (retry pending).
+ *   • failed         — a TRANSIENT DB error → the write is still owed (retry pending);
+ *   • invalid        — the paid match's escrow ↔ state participant identity is STRUCTURALLY
+ *                      incoherent (duplicate/out-of-range seat, wrong amount, seat set mismatch,
+ *                      a bot seat, an impossible winner…). A retry can never fix it, so this is a
+ *                      PERMANENT operator condition: freeze, never write stats, never clear the
+ *                      owed state, never re-pay.
  */
-export type StatsResult = 'recorded' | 'already_exists' | 'skipped' | 'failed';
+export type StatsResult = 'recorded' | 'already_exists' | 'skipped' | 'failed' | 'invalid';
 
 /** Injected side effects for recording confirmed bankroll poker stats (idempotent). */
 export interface ConfirmedStatsDeps {
@@ -58,16 +65,15 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
   if (isBankroll) {
     // (37.7.10 FAIL 3) A finished PAID match's participants are IMMUTABLE — take the seat→userId
     // snapshot from the persisted escrow.seats, NOT the current room membership (which is emptied by
-    // handleLeave BEFORE teardown). The escrow (authenticated humans, ≥2, no bots — validated at the
-    // debit) IS the historical participant set. A missing/malformed escrow for a bankroll room that
-    // still owes stats must NOT silently become a policy `skipped` (which would clear the owed flag) —
-    // fail so the owed stats keep being retried.
-    if (!esc || !Array.isArray(esc.seats) || esc.seats.length < 2 || !esc.matchId) return 'failed';
-    for (const s of esc.seats) {
-      if (typeof s.userId !== 'string' || !s.userId) return 'failed'; // malformed → don't drop owed stats
-      seatUsers.set(s.seat, s.userId);
-    }
-    matchId = esc.matchId;
+    // handleLeave BEFORE teardown). The escrow IS the historical participant set.
+    // (37.7.11 FAIL 2) That snapshot now goes through the SHARED STRICT validator — the same one the
+    // payout uses — so a malformed escrow can never collapse duplicate seats into a Map and write a
+    // partial attribution. A structural failure is `invalid` (permanent, freeze, owed state kept),
+    // NEVER a policy `skipped` (which would clear the owed flag) and never an endless transient retry.
+    const identity = validatePaidMatchParticipants(esc, state);
+    if (!identity.ok) return 'invalid';
+    for (const [seat, userId] of identity.participants.seatUsers) seatUsers.set(seat, userId);
+    matchId = identity.participants.matchId;
   } else {
     // Non-bankroll poker: no escrow → the owner rule (human-only, ≥2) is checked against membership,
     // and identity falls back to the content signature. (Bankroll is the only confirmed-stats caller
@@ -111,6 +117,8 @@ export interface TeardownDeps {
   refundBuyIns: (room: ServerRoom) => Promise<boolean>;
   /** Persist the room (when kept for a retry). */
   persist: (room: ServerRoom) => void;
+  /** PERMANENTLY freeze the room for operator review (logs the room code + a safe reason ONCE). */
+  freeze: (room: ServerRoom, reason: string) => void;
 }
 
 /**
@@ -124,9 +132,22 @@ export interface TeardownDeps {
  * `failed`; and the stats retry NEVER re-runs the payout.
  */
 export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps): Promise<'purge' | 'keep'> {
+  // (37.7.8/37.7.11) A FROZEN room is a PERMANENT operator condition — never auto-settle or purge it.
+  if (room.pokerFrozen) { deps.persist(room); return 'keep'; }
   await deps.reconcileEscrow(room);
   const state = room.gameState as PokerState | null;
   const finished = !!state && deps.isFinished(state);
+
+  // (37.7.11 FAIL 1) A PAID (settled) escrow with an UNFINISHED state is INCOHERENT: the money is
+  // already out, but the room JSON carries a pre-finish state, so the true final state was lost. It
+  // must never be purged (that destroys the only evidence of a paid match), never refunded, and never
+  // re-paid — freeze it permanently for operator review. Note `hasUnsettledEscrow` is FALSE here,
+  // which is exactly why the old code fell through to `purge`.
+  if (!finished && isBankrollRoomShape(room) && room.pokerEscrow?.status === 'settled') {
+    deps.freeze(room, 'paid match with no finished state');
+    deps.persist(room);
+    return 'keep';
+  }
 
   if (finished && state) {
     // Pay out (idempotent) + record stats + set the recovery flags (stats-pending / cancelled / frozen).
@@ -193,6 +214,13 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
       if (stats === 'failed') {
         // Money is out but stats aren't durably recorded → STATS-PENDING (retryable, blocks rematch).
         room.pokerStatsPending = true;
+      } else if (stats === 'invalid') {
+        // (37.7.11 FAIL 2) The paid match's participant identity is structurally incoherent — a retry
+        // can never fix it. Keep the owed-stats fact (evidence, blocks purge) and freeze PERMANENTLY:
+        // `statsPending` excludes frozen rooms, so the sweep stops retrying (no log spam) and no
+        // partial attribution is ever written.
+        room.pokerStatsPending = true;
+        deps.freeze(room, 'paid match participants invalid');
       } else if (room.pokerStatsPending) {
         // recorded / already_exists / skipped → resolved: clear any prior stats-pending, re-enable rematch.
         room.pokerStatsPending = undefined;

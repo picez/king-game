@@ -127,6 +127,17 @@ also reported at `GET /health/diagnostics` (`version` field).
     from the **immutable participant snapshot** captured at buy-in, so both players are always credited
     correctly. The finished screen also no longer flickers "rematch available" for an instant between the
     payout and the results being finalized.
+  - **Fail-closed recovery of incoherent paid tables (Stage 37.7.11):** two more real defects fixed.
+    (1) After a crash, a table whose chips were **already paid out** but whose saved state was still
+    *mid-hand* was restored as a **live game** — it could take timers, bot steps and player actions
+    after the money had left, and a teardown would have deleted it outright. Such a table is now
+    recognised as an **incoherent paid state** and **frozen for review**: never resumed, never paid or
+    refunded again, never deleted, and shown to players only as a paused table. No table of any kind
+    resumes now until the chip-recovery check has classified it. (2) A **structurally impossible**
+    paid match (seats that don't match the finished hand, a duplicated seat/account, a wrong buy-in, a
+    bot seat, an impossible winner) could still reach the stats writer and store a **partial, wrong
+    result**. Payout and stats now share **one strict participant check**, so such a match records
+    nothing at all and is frozen for review instead of being retried forever.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

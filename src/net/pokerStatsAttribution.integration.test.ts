@@ -78,18 +78,24 @@ describe.skipIf(!TEST_DATABASE_URL)('stats attribution survives members leaving 
     await conn!.sql`DELETE FROM users WHERE id IN (${U1}, ${U2})`;
   });
 
-  it('a bankroll room with a malformed/absent escrow FAILS (retryable), never silently skips owed stats', async () => {
+  it('a bankroll room with a malformed/absent escrow is INVALID (never a silent skip, never a partial write)', async () => {
     process.env.DATABASE_URL = TEST_DATABASE_URL;
     const { recordConfirmedPokerStats } = await import('../../server/pokerFinish');
-    const deps = { alreadyRecorded: () => false, markRecorded: () => {}, unmarkRecorded: () => {}, record: async () => ({ recorded: true }) };
+    let writes = 0;
+    const deps = { alreadyRecorded: () => false, markRecorded: () => {}, unmarkRecorded: () => {}, record: async () => { writes++; return { recorded: true }; } };
     const base = { code: 'ATTR2', gameType: 'poker', pokerBuyIn: 5000, members: new Map() } as unknown as ServerRoom;
+    // (37.7.11 FAIL 2) These were `failed` in 37.7.10 — i.e. retried forever by the sweep. A
+    // structurally broken escrow can never become valid on a retry, so it is now the distinct
+    // `invalid` outcome: PERMANENT freeze, owed state kept, no write, no log spam. Still never
+    // `skipped` (which would have cleared the owed stats).
     // No escrow at all.
-    expect(await recordConfirmedPokerStats(base, finished2p(), deps)).toBe('failed');
+    expect(await recordConfirmedPokerStats(base, finished2p(), deps)).toBe('invalid');
     // Escrow with <2 seats.
     const oneSeat = { ...base, pokerEscrow: { matchId: 'm', buyIn: 5000, status: 'settled', seats: [{ seat: 0, userId: 'u1', amount: 5000 }] } } as unknown as ServerRoom;
-    expect(await recordConfirmedPokerStats(oneSeat, finished2p(), deps)).toBe('failed');
+    expect(await recordConfirmedPokerStats(oneSeat, finished2p(), deps)).toBe('invalid');
     // Escrow seat with an empty userId.
     const badUser = { ...base, pokerEscrow: { matchId: 'm', buyIn: 5000, status: 'settled', seats: [{ seat: 0, userId: '', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] } } as unknown as ServerRoom;
-    expect(await recordConfirmedPokerStats(badUser, finished2p(), deps)).toBe('failed');
+    expect(await recordConfirmedPokerStats(badUser, finished2p(), deps)).toBe('invalid');
+    expect(writes).toBe(0); // no durable write was ever attempted
   });
 });

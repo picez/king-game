@@ -290,3 +290,37 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - New files: `server/pokerBootstrap.ts`; tests `pokerBootstrap.test.ts` (pure), `pokerBootstrapRecovery.integration.test.ts`,
   `pokerTeardown.integration.test.ts`, `pokerStatsAttribution.integration.test.ts`. No i18n/schema change; `pokerStatsPending`
   already persisted (37.7.9). libc 0; migration 0012; games 7; achievements 52; v0.4.8.
+- **CORRECTION (made in 37.7.11):** that stage's `pokerBootstrapRecovery.integration.test.ts` did NOT drive the production
+  bootstrap path — it re-created the reconcile→classify→apply sequence inside a local `recover()` helper. That is why it
+  missed the early `rescheduleAdvance` in the restore loop and the `settled`+unfinished misclassification.
+
+### Stage 37.7.11 — fail-closed recovery of incoherent paid matches (COMPLETE, Unreleased)
+- Worked from HEAD `d5af053`. No new migration; no version bump. Real PostgreSQL (Docker): all poker suites 0 skipped.
+  Both FAILs reproduced RED first (9 failing probes against the unpatched code).
+- **FAIL 1 — already-paid but UNFINISHED room resumed as `live`.** `classifyBootstrapRecovery` returned `live` for a
+  `settled` escrow + unfinished state (crash window: finish → payout commits → room JSON still pre-finish → crash →
+  `reconcileEscrow` promotes settling→settled). FIX: new classification **`incoherent_paid`** → clear timers + **permanent
+  `pokerFrozen`** (logged once, safe reason), state kept as evidence, NOT `pokerMatchCancelled`. Blocks START/ACTION/REMATCH,
+  excluded from every sweep predicate, `hasUnsettledEscrow` true (never purged), survives restore, public snapshot only
+  `frozen`. Restore loop now defers the advance for **every** bankroll room via pure `shouldDeferBootstrapAdvance(room)`
+  (previously only `hasUnsettledEscrow`), so nothing advances before classification. `settleRoomForDeletion` keeps a frozen
+  room and freezes+keeps a settled-but-unfinished one; `deleteRoomWithSettlement`'s sync fast-path guard widened from
+  "finished game" to **any carried game state**.
+- **FAIL 2 — a settled payout skipped structural validation before stats.** `payoutStacks` short-circuited `settled` →
+  `already_paid` with no checks, and the stats recorder only checked escrow-exists/≥2 seats/matchId/non-empty userIds.
+  FIX: new **`server/pokerParticipants.ts` `validatePaidMatchParticipants(escrow, state)`** — the ONE strict validator
+  (matchId, safe buyIn, 2–6 seats, in-range/unique seats, unique accounts, `amount===buyIn`, playerCount vs players vs
+  stacks, exact escrow-seat == player-seat set, no `ai` seat, participant winner). `validatePayoutConservation` delegates
+  its structural half to it; `recordConfirmedPokerStats` builds `seatUsers` from it; `payoutStacks` validates a `settled`
+  escrow before returning `already_paid`. New **`StatsResult: 'invalid'`** = permanent (freeze, owed flag kept, no write,
+  no retry), distinct from transient `failed` / durable `already_exists` / policy `skipped`; handled in
+  `settleAndRecordBankrollPokerFinish` and the index stats sweep. NOTE: 37.7.10's malformed-escrow cases that returned
+  `failed` now return `invalid` (still never `skipped`).
+- **Production orchestration seam:** `server/pokerBootstrap.ts` **`recoverRestoredBankrollRoom(room, deps)`** (reconcile →
+  classify → apply/persist/advance) is called by `server/index.ts` pass (d) under `withRoomLock` AND by the integration
+  suite — tests can no longer re-implement the branching.
+- Synthetic payout fixtures in older suites (`{stacksBySeat}` only) were given real player lists — the strict validator
+  now checks the STATE side too. New file `server/pokerParticipants.ts`; new test `pokerParticipants.test.ts` (20-case
+  malformed matrix); extended `pokerBootstrap.test.ts`, `pokerBootstrapRecovery.integration.test.ts` (production helper +
+  incoherent-paid case), `pokerTeardown.integration.test.ts` (incoherent + structurally-invalid teardown).
+  libc 0; migration 0012; games 7; achievements 52; v0.4.8.
