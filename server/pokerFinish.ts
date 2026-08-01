@@ -14,7 +14,7 @@
 
 import type { ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
-import type { PayoutResult } from './pokerEscrow';
+import type { PayoutResult, EscrowReconcileResult } from './pokerEscrow';
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
 import { validateFinishedPaidMatch, isBankrollRoomShape } from './pokerParticipants';
@@ -111,7 +111,7 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
 /** Injected side effects for the room-deletion settlement flow (37.7.10 FAIL 2). */
 export interface TeardownDeps {
   /** Reconcile a restored transient (pending/settling) escrow vs the durable DB settlement. */
-  reconcileEscrow: (room: ServerRoom) => Promise<void>;
+  reconcileEscrow: (room: ServerRoom) => Promise<EscrowReconcileResult | void>;
   /** True when the room still holds unsettled escrow (chips owed). */
   hasUnsettledEscrow: (room: ServerRoom) => boolean;
   /** True when `state` is a finished poker game. */
@@ -141,9 +141,22 @@ export interface TeardownDeps {
 export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps): Promise<'purge' | 'keep'> {
   // (37.7.8/37.7.11) A FROZEN room is a PERMANENT operator condition — never auto-settle or purge it.
   if (room.pokerFrozen) { deps.persist(room); return 'keep'; }
-  await deps.reconcileEscrow(room);
+  const reconcile = (await deps.reconcileEscrow(room)) ?? 'noop';
   const state = room.gameState as PokerState | null;
   const finished = !!state && deps.isFinished(state);
+
+  // (37.7.13 FAIL 2) A PARTIAL durable debit can be settled neither way → freeze, never purge.
+  if (reconcile === 'corrupt_partial') {
+    deps.freeze(room, 'partial durable buy-in record');
+    deps.persist(room);
+    return 'keep';
+  }
+  // (37.7.13 FAIL 2) A transient escrow whose durable outcome is UNKNOWN is never settled or purged:
+  // it may already be paid, refunded, or never charged. Keep the room (and its evidence) for a retry.
+  if (isBankrollRoomShape(room) && (room.pokerEscrow?.status === 'pending' || room.pokerEscrow?.status === 'settling')) {
+    deps.persist(room);
+    return 'keep';
+  }
 
   if (isBankrollRoomShape(room) && state) {
     const binding = escrowGameBinding(room);

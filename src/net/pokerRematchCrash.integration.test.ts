@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import type { ServerRoom } from './serverCore';
 import type { PokerState, PokerPlayer, PokerTelemetry } from '../games/poker/types';
+import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 
 // Stage 37.7.12 FAIL 1 (integration, real Postgres). A paid REMATCH debits a NEW escrow (M1) before
 // the new hand exists; a socket close persists the room in that window (the close handler does not
@@ -36,6 +37,11 @@ afterEach(async () => {
   const escrow = await import('../../server/pokerEscrow');
   escrow.__setRefundFailure(false); escrow.__setPayoutFailure(false);
 });
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW escrow for the OLD result (Stage 37.7.12 FAIL 1)', () => {
   /** Plays M0 to a paid + recorded finish, then exposes the production recovery entry points. */
@@ -254,19 +260,17 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     const M1 = t.room.pokerEscrow!.matchId;
     const restored = t.deserializeRoom(t.serializeRoom(t.room))!; // unbound: M1 + the M0 state
 
-    // The production activeMatchIds rule (index.ts bootstrap): funded/settling + state + BOUND.
-    const activeIds = new Set<string>();
-    for (const r of [restored]) {
-      const e = r.pokerEscrow;
-      if (e && (e.status === 'funded' || e.status === 'settling') && r.gameState && t.gameBoundToEscrow(r)) activeIds.add(e.matchId);
-    }
-    expect(activeIds.has(M1)).toBe(false);                 // an unplayed debit is NOT an active match
-    const { refunded } = await t.escrow.reconcileOrphanedDebits(activeIds);
+    // (37.7.13) The PRODUCTION protection rule — the same `settlementProtectedMatchId` the bootstrap
+    // pipeline uses, no longer a copy of it in the test.
+    const { settlementProtectedMatchId, classifyBootstrapRecovery } = await import('../../server/pokerBootstrap');
+    const protectedId = settlementProtectedMatchId(restored, classifyBootstrapRecovery(restored, isFin));
+    expect(protectedId).toBeNull();                         // an unplayed debit is NOT an active match
+    const { refunded } = await scopedOrphanScan((m) => m.matchId === M1);
     expect(refunded).toContain(M1);                         // → refunded exactly once by the orphan scan
     expect(await t.ledger(M1, 'table_cancel_refund')).toBe(2);
     expect(await t.ledger(M1, 'table_payout')).toBe(0);
     // A repeat scan refunds nothing new; a BOUND live match is protected instead.
-    const second = await t.escrow.reconcileOrphanedDebits(new Set<string>());
+    const second = await scopedOrphanScan((m) => m.matchId === M1);
     expect(second.refunded).not.toContain(M1);
     expect(await t.gameRows()).toBe(1);
     expect(await t.balances()).toEqual(t.balAfterM0);

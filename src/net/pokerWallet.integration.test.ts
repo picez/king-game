@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 
 // Optional integration test for the Stage 37.7 Poker wallet repository.
 // SKIPPED unless TEST_DATABASE_URL points at a migrated Postgres (through 0010):
@@ -13,6 +14,11 @@ import { describe, it, expect } from 'vitest';
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const DAY = new Date(Date.UTC(2026, 6, 21, 12, 0, 0));       // 2026-07-21 (fixed UTC date)
 const NEXT_DAY = new Date(Date.UTC(2026, 6, 22, 12, 0, 0));  // 2026-07-22
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('poker wallet repository (integration)', () => {
   it('claims once per UTC day; concurrent double-claim → one grant; ledger idempotent', async () => {

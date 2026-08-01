@@ -3,7 +3,7 @@ import type { ServerRoom, PokerEscrow } from './serverCore';
 import type { PokerState } from '../games/poker/types';
 import {
   classifyBootstrapRecovery, applyBootstrapRecovery, recoverRestoredBankrollRoom,
-  shouldDeferBootstrapAdvance,
+  shouldDeferBootstrapAdvance, settlementProtectedMatchId,
 } from '../../server/pokerBootstrap';
 
 // Stage 37.7.10 FAIL 1 (pure): a restored bankroll room that carried a game state across a restart is
@@ -35,14 +35,17 @@ describe('FAIL 1 — classifyBootstrapRecovery', () => {
   it('funded escrow + UNFINISHED game → live', () => {
     expect(classifyBootstrapRecovery(room(esc('funded'), LIVE), isFin)).toBe('live');
   });
-  it('funded/settling escrow + FINISHED game → payout_pending', () => {
+  it('funded escrow + FINISHED game → payout_pending', () => {
     expect(classifyBootstrapRecovery(room(esc('funded'), FINISHED), isFin)).toBe('payout_pending');
-    expect(classifyBootstrapRecovery(room(esc('settling'), FINISHED), isFin)).toBe('payout_pending');
+    // (37.7.13) A `settling` escrow that SURVIVED reconciliation is UNPROVEN, not payable.
+    expect(classifyBootstrapRecovery(room(esc('settling'), FINISHED), isFin)).toBe('recovery_pending');
   });
   it('(37.7.12) an UNBOUND live escrow → unbound_debit; a MISSING binding → unknown_binding', () => {
     expect(classifyBootstrapRecovery(room(esc('funded', 'm2'), FINISHED), isFin)).toBe('unbound_debit');
     expect(classifyBootstrapRecovery(room(esc('funded', 'm2'), LIVE), isFin)).toBe('unbound_debit');
-    expect(classifyBootstrapRecovery(room(esc('settling', 'm2'), FINISHED), isFin)).toBe('unbound_debit');
+    // (37.7.13) …but only once the durable outcome is PROVEN — an unreconciled `settling` escrow is
+    // held unresolved first, and becomes `unbound_debit` on the boot that resolves it to funded.
+    expect(classifyBootstrapRecovery(room(esc('settling', 'm2'), FINISHED), isFin)).toBe('recovery_pending');
     // A PAID escrow whose state is from another generation can't be paid OR refunded → frozen.
     expect(classifyBootstrapRecovery(room(esc('settled', 'm2'), FINISHED), isFin)).toBe('incoherent_paid');
     // No binding at all (a legacy save) → never guessed.
@@ -50,10 +53,37 @@ describe('FAIL 1 — classifyBootstrapRecovery', () => {
     // A legacy PAID room is `unknown_binding` too (both freeze; this one is the more precise reason).
     expect(classifyBootstrapRecovery(room(esc('settled'), FINISHED, { pokerGameMatchId: undefined }), isFin)).toBe('unknown_binding');
   });
-  it('cancelled/absent/pending escrow → cancelled', () => {
-    expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin)).toBe('cancelled');
+  it('(37.7.13) `cancelled` needs DURABLE PROOF — a surviving pending escrow never qualifies', () => {
+    // Proven: a durable refund row, or a reconciliation that PROVED zero committed buy-ins.
     expect(classifyBootstrapRecovery(room(esc('cancelled'), FINISHED), isFin)).toBe('cancelled');
+    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin, 'proven_uncommitted')).toBe('cancelled');
     expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin)).toBe('cancelled');
+    // Unproven: a `pending` escrow that SURVIVED reconciliation. It used to be read as "nothing was
+    // charged" and wiped the state/binding — the money may in fact already be out.
+    expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin)).toBe('recovery_pending');
+    expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin, 'retry_pending')).toBe('recovery_pending');
+    expect(classifyBootstrapRecovery(room(esc('funded'), LIVE), isFin, 'retry_pending')).toBe('recovery_pending');
+    // A PARTIAL durable debit can be settled neither way → permanent operator state.
+    expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin, 'corrupt_partial')).toBe('corrupt_debit');
+  });
+
+  it('(37.7.13) settlementProtectedMatchId protects everything live, unproven or frozen', () => {
+    const live = room(esc('funded'), LIVE);
+    expect(settlementProtectedMatchId(live, 'live')).toBe('m1');
+    expect(settlementProtectedMatchId(room(esc('funded'), FINISHED), 'payout_pending')).toBe('m1');
+    // The FAIL 1 regression: an unknown/unproven binding must be protected, never orphan-refunded.
+    expect(settlementProtectedMatchId(room(esc('funded'), LIVE, { pokerGameMatchId: undefined }), 'unknown_binding')).toBe('m1');
+    expect(settlementProtectedMatchId(room(esc('pending'), LIVE), 'recovery_pending')).toBe('m1');
+    expect(settlementProtectedMatchId(room(esc('pending'), LIVE), 'corrupt_debit')).toBe('m1');
+    expect(settlementProtectedMatchId(room(esc('funded'), LIVE, { pokerFrozen: true }), 'frozen')).toBe('m1');
+    // Even a room with NO game state is protected while its durable outcome is UNPROVEN.
+    expect(settlementProtectedMatchId(room(esc('funded'), null), 'not_bankroll', 'retry_pending')).toBe('m1');
+    // NOT protected: an explicitly stale generation, a resolved match, a plain funded orphan.
+    expect(settlementProtectedMatchId(room(esc('funded', 'm2'), FINISHED), 'unbound_debit')).toBeNull();
+    expect(settlementProtectedMatchId(room(esc('settled'), FINISHED), 'paid_finish')).toBeNull();
+    expect(settlementProtectedMatchId(room(esc('cancelled'), FINISHED), 'cancelled')).toBeNull();
+    expect(settlementProtectedMatchId(room(esc('funded'), null), 'not_bankroll')).toBeNull();
+    expect(settlementProtectedMatchId(room(undefined, LIVE), 'cancelled')).toBeNull();
   });
   it('frozen room → frozen; non-bankroll / no game → not_bankroll', () => {
     expect(classifyBootstrapRecovery(room(esc('settled'), FINISHED, { pokerFrozen: true }), isFin)).toBe('frozen');

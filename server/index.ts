@@ -51,11 +51,11 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame } from './pokerEscrow';
-import { gameBoundToEscrow, resolveUnboundEscrowGame } from './pokerBinding';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved } from './pokerEscrow';
+import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
-import { recoverRestoredBankrollRoom, shouldDeferBootstrapAdvance } from './pokerBootstrap';
+import { runBootstrapEconomyRecovery, shouldDeferBootstrapAdvance } from './pokerBootstrap';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -749,6 +749,9 @@ function rescheduleAdvance(room: ServerRoom): void {
   // (37.7.4 FAIL 2) A funded bankroll room with the economy unavailable (no DB) fails closed —
   // no auto-advance/timer/bot until a DB-backed restart can reconcile it.
   if (bankrollEconomyUnavailable(room)) return;
+  // (37.7.13 FAIL 2) An UNRESOLVED transient escrow (the durable outcome is unknown) never advances
+  // or arms a timer — the hand may already be paid, refunded, or never charged at all.
+  if (escrowUnresolved(room)) return;
   const screen = publicScreenOf(room);
   const acting = actingMember(room);
   // Drive public screens, bot turns, and — after a restart — a disconnected
@@ -1164,47 +1167,18 @@ async function bootstrap(): Promise<void> {
   //      match, terminally CANCEL it (its buy-ins were refunded → clear the game to a clean
   //      lobby) or leave it FROZEN — never let a refunded match continue as a free game.
   if (isDbEnabled()) {
-    await Promise.all(restoredRooms
-      .filter((r) => isBankrollRoom(r) && hasUnsettledEscrow(r))
-      .map((r) => withRoomLock(r.code, () => reconcileEscrow(r)).then(() => { if (rooms.has(r.code)) persistRoom(r); }).catch(() => {})));
-    const activeMatchIds = new Set<string>();
-    for (const r of restoredRooms) {
-      const esc = r.pokerEscrow;
-      // (37.7.12 FAIL 1) A durable match counts as ACTIVE only when the room's CURRENT state was
-      // really produced by THAT match. A fresh rematch debit sitting next to the previous match's
-      // state is NOT active — leaving it out lets the orphan scan refund it exactly once (the
-      // failed-start lifecycle) instead of protecting a match that never dealt a hand.
-      if (isBankrollRoom(r) && esc && (esc.status === 'funded' || esc.status === 'settling') && r.gameState && gameBoundToEscrow(r)) {
-        activeMatchIds.add(esc.matchId);
-      }
-    }
-    try {
-      const { refunded } = await reconcileOrphanedDebits(activeMatchIds);
-      if (refunded.length) console.log(`[King] crash recovery: refunded ${refunded.length} orphaned poker match(es)`);
-    } catch (err) {
-      console.error('[King] orphaned-debit reconciliation failed:', String((err as Error)?.message ?? err).slice(0, 200));
-    }
-    // (c) Corrupt-escrow rooms: refund by room code, or FREEZE when the durable record is corrupt.
-    await Promise.all(restoredRooms.filter((r) => r.pokerEscrowCorrupt).map(async (r) => {
-      const ok = await reconcileCorruptRoom(r).catch(() => false);
-      if (!ok) { r.pokerFrozen = true; console.error(`[King] room ${r.code} FROZEN for operator review (corrupt durable match)`); }
-      if (rooms.has(r.code)) persistRoom(r);
-    }));
-    // (d) Classify + apply recovery for each bankroll room that carried a game state across the
-    // restart — LIVE, PAYOUT-pending, PAID finish (finalize stats, never cancel), INCOHERENT paid
-    // (frozen), CANCELLED, or already FROZEN. Serialized per room and run through the SAME helper
-    // the recovery tests drive (37.7.11), so production and test can never diverge.
-    for (const r of restoredRooms) {
-      if (!isBankrollRoom(r) || !r.gameState) continue;
-      const recovery = await withRoomLock(r.code, () => recoverRestoredBankrollRoom(r, bootstrapRecoveryDeps()))
-        .catch((err) => {
-          // A reconciliation failure leaves the room UNCLASSIFIED — no advance was armed (the restore
-          // loop deferred it), so it stays inert until the next sweep/restart resolves it.
-          console.error(`[King] bootstrap recovery failed for room ${r.code}: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
-          return null;
-        });
-      if (recovery === 'cancelled') console.log(`[King] bankroll match cancelled on recovery (room ${r.code}) — buy-ins were refunded`);
-    }
+    // (37.7.13 FAIL 1) The WHOLE pipeline — reconcile → classify → derive settlement protection FROM
+    // those classifications → orphan scan → corrupt-room pass → apply — lives in ONE shared helper
+    // the integration tests drive too. It used to be inlined here, and the orphan scan ran BEFORE any
+    // classification against a set built from a room SHAPE test, so a room that classification would
+    // have FROZEN (an unknown/unproven binding) was refunded by the scan seconds earlier.
+    await runBootstrapEconomyRecovery(restoredRooms, {
+      ...bootstrapRecoveryDeps(),
+      isBankrollRoom, hasUnsettledEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, withRoomLock,
+      roomExists: (r) => rooms.has(r.code),
+      log: (m) => console.log(`[King] ${m}`),
+      logError: (m) => console.error(`[King] ${m}`),
+    });
   } else {
     // (37.7.4 FAIL 2) No economy (no DB): a restored bankroll room with unsettled escrow FAILS
     // CLOSED — it is NOT advanced/timed and NOT cancelled/refunded (that needs DB proof). Its

@@ -111,6 +111,10 @@ let injectedRefundFailure = false;
 export function __setRefundFailure(v: boolean): void { injectedRefundFailure = v; }
 let injectedPayoutFailure = false;
 export function __setPayoutFailure(v: boolean): void { injectedPayoutFailure = v; }
+// (37.7.13 FAIL 2) Simulate a TRANSIENT reconciliation read failure — the durable outcome of a
+// restored `pending`/`settling` escrow cannot be read, so it must stay UNRESOLVED (never guessed).
+let injectedReconcileFailure = false;
+export function __setReconcileFailure(v: boolean): void { injectedReconcileFailure = v; }
 
 /**
  * True when a bankroll room holds a FUNDED escrow but has NO live game — a debit whose
@@ -163,6 +167,19 @@ export function unboundEscrowGame(room: ServerRoom): boolean {
 }
 
 /**
+ * (37.7.13 FAIL 2) True when a bankroll room carries a TRANSIENT escrow (`pending`/`settling`)
+ * whose durable outcome is NOT yet known — reconciliation has not run, failed transiently, or found
+ * a partial/corrupt debit. "Pending" is NOT proof that nothing was charged: such a room must never
+ * advance, accept actions, start a timer, rematch, settle or be purged; it stays inert (with its
+ * state + escrow evidence intact) until a later reconciliation proves the outcome.
+ */
+export function escrowUnresolved(room: ServerRoom): boolean {
+  if (room.pokerFrozen || !isBankrollRoom(room)) return false;
+  const st = room.pokerEscrow?.status;
+  return st === 'pending' || st === 'settling';
+}
+
+/**
  * True when a bankroll match was PAID (money is out, escrow settled) but its stats write is still
  * owed (§16, 37.7.9 FAIL 2). Persisted + restart-surviving. It must BLOCK a new paid rematch (a
  * fresh match would overwrite the finished state whose stats are unresolved) but must NEVER re-run
@@ -174,10 +191,10 @@ export function statsPending(room: ServerRoom): boolean {
 }
 
 /** Recovery states that block a new paid rematch (frozen, settlement-/payout-/stats-pending, an
- *  unbound fresh debit awaiting its refund, or no economy). */
+ *  unbound fresh debit awaiting its refund, an UNRESOLVED transient escrow, or no economy). */
 export function pokerRecoveryBlocked(room: ServerRoom): boolean {
   return !!room.pokerFrozen || settlementPending(room) || payoutPending(room) || statsPending(room)
-    || unboundEscrowGame(room) || bankrollEconomyUnavailable(room);
+    || unboundEscrowGame(room) || escrowUnresolved(room) || bankrollEconomyUnavailable(room);
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
@@ -505,27 +522,48 @@ export async function roomHasCorruptDurableMatch(roomCode: string): Promise<bool
 }
 
 /**
+ * (37.7.13 FAIL 2) The EXPLICIT outcome of a reconciliation attempt. `reconcileEscrow` used to
+ * return `void`, so every caller had to infer the outcome from the resulting escrow status — and a
+ * surviving `pending` was read as "nothing was charged" even when it really meant "the durable
+ * outcome could not be read". These values make the difference impossible to miss:
+ *   • noop               — nothing to reconcile (no escrow / not bankroll / already durable);
+ *   • funded             — the debit is durably committed (or a settlement never committed → retry);
+ *   • settled            — a durable PAYOUT settlement row exists;
+ *   • cancelled          — a durable REFUND settlement row exists;
+ *   • proven_uncommitted — the DB PROVED zero committed buy-ins → the escrow was dropped;
+ *   • retry_pending      — TRANSIENT: the durable outcome is UNKNOWN (DB read failed / no economy);
+ *   • corrupt_partial    — only SOME seats have a durable buy-in → unsafe to settle either way.
+ */
+export type EscrowReconcileResult =
+  | 'noop' | 'funded' | 'settled' | 'cancelled' | 'proven_uncommitted' | 'retry_pending' | 'corrupt_partial';
+
+/**
  * Crash reconciliation (FAIL 3): reconcile a RESTORED transient escrow against the durable
  * DB state so a pending/settling escrow can never hang forever.
- *   • pending  → all buy-ins committed → funded; none → drop (nothing was charged);
- *                a partial (impossible under the atomic debit) fails closed (left pending).
+ *   • pending  → all buy-ins committed → funded; PROVEN none → drop (nothing was charged);
+ *                a partial fails closed (`corrupt_partial`, escrow left pending).
  *   • settling → a committed settlement row → settled/cancelled; none → back to funded (retry).
  * An invalid/incoherent escrow is left as-is (no wallet mutation). Call inside withRoomLock.
+ *
+ * (37.7.13) Returns the EXPLICIT outcome above — a caller must never re-derive it from the escrow
+ * status, because a surviving `pending` can mean either "unknown" or "corrupt", never "cancelled".
  */
-export async function reconcileEscrow(room: ServerRoom): Promise<void> {
+export async function reconcileEscrow(room: ServerRoom): Promise<EscrowReconcileResult> {
   const esc = room.pokerEscrow;
-  if (!esc || !isBankrollRoom(room) || !isDbEnabled()) return;
-  if (esc.status !== 'pending' && esc.status !== 'settling') return; // funded/settled/cancelled are durable
+  if (!esc || !isBankrollRoom(room)) return 'noop';
+  if (esc.status !== 'pending' && esc.status !== 'settling') return 'noop'; // funded/settled/cancelled are durable
+  if (!isDbEnabled()) return 'retry_pending';                               // no economy → outcome UNKNOWN
+  if (injectedReconcileFailure) return 'retry_pending';                     // test seam: transient read failure
   let state;
-  try { state = await matchLedgerState(esc.matchId); } catch { return; } // transient DB error → retry later
+  try { state = await matchLedgerState(esc.matchId); } catch { return 'retry_pending'; } // transient → retry later
   if (esc.status === 'pending') {
-    if (state.buyInCount === esc.seats.length) esc.status = 'funded';   // debit committed
-    else if (state.buyInCount === 0) room.pokerEscrow = undefined;      // debit never committed → nothing charged
-    // else: partial (should be impossible) → leave pending, fail closed.
-    return;
+    if (state.buyInCount === esc.seats.length) { esc.status = 'funded'; return 'funded'; }  // debit committed
+    if (state.buyInCount === 0) { room.pokerEscrow = undefined; return 'proven_uncommitted'; } // PROVEN nothing charged
+    return 'corrupt_partial'; // partial debit → left pending, fail closed (never a silent cancel)
   }
   // settling
-  if (state.settlement === 'payout') esc.status = 'settled';
-  else if (state.settlement === 'cancel_refund') esc.status = 'cancelled';
-  else esc.status = 'funded'; // settlement never committed → retryable
+  if (state.settlement === 'payout') { esc.status = 'settled'; return 'settled'; }
+  if (state.settlement === 'cancel_refund') { esc.status = 'cancelled'; return 'cancelled'; }
+  esc.status = 'funded'; // settlement never committed → retryable
+  return 'funded';
 }

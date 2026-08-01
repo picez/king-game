@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import type { ServerRoom, ServerMember } from './serverCore';
+import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 
 // FAIL 4 (37.7.8): the fault-injection seams are GLOBAL module state — always reset after each
 // test so a failure before a manual reset can never cascade into later suites.
@@ -36,6 +37,11 @@ function payState(stacks: number[]): import('../games/poker/types').PokerState {
 function room(members: ServerMember[], buyIn = 5000): ServerRoom {
   return { code: 'ESC1', gameType: 'poker', pokerBuyIn: buyIn, members: new Map(members.map((m) => [m.clientId, m])) } as unknown as ServerRoom;
 }
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('poker bankroll escrow (integration)', () => {
   it('debits atomically, is duplicate-safe, pays out conserving the escrow', async () => {
@@ -253,12 +259,12 @@ describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integ
     const matchId = r.pokerEscrow!.matchId;
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
     // Bootstrap finds the durable unresolved match with NO active room → refunds it once.
-    const res1 = await escrow.reconcileOrphanedDebits(new Set());
+    const res1 = await scopedOrphanScan((m) => m.matchId === matchId);
     expect(res1.refunded).toContain(matchId);
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);
     // A SECOND boot scan refunds nothing new (idempotent).
-    const res2 = await escrow.reconcileOrphanedDebits(new Set());
+    const res2 = await scopedOrphanScan((m) => m.matchId === matchId);
     expect(res2.refunded).not.toContain(matchId);
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
@@ -269,7 +275,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integ
     const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
     expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
     const matchId = r.pokerEscrow!.matchId;
-    const res = await escrow.reconcileOrphanedDebits(new Set([matchId])); // active room owns it
+    const res = await scopedOrphanScan((m) => m.matchId === matchId, [matchId]); // active room owns it
     expect(res.refunded).not.toContain(matchId);
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000); // still debited (live match)
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
@@ -284,7 +290,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integ
     expect(rematch.ok).toBe(true);
     const rematchId = r.pokerEscrow!.matchId;
     // Crash before persist → boot scan refunds the rematch buy-in once.
-    const res = await escrow.reconcileOrphanedDebits(new Set());
+    const res = await scopedOrphanScan((m) => m.matchId === rematchId);
     expect(res.refunded).toContain(rematchId);
     // A: 1M − 5000 (m1) + 10000 (payout) − 5000 (rematch) + 5000 (refund) = 1,005,000.
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_005_000);
@@ -378,7 +384,7 @@ describe.skipIf(!TEST_DATABASE_URL)('durable match record integrity (Stage 37.7.
     // A durable row where ONE seat's amount != buyIn → the whole match is corrupt.
     const badSeats = JSON.stringify([{ seat: 0, userId: U1, amount: 5000 }, { seat: 1, userId: U2, amount: 4999 }]);
     await conn!.sql`INSERT INTO poker_matches (match_id, room_code, buy_in, seats) VALUES (${matchId}, 'ROOMC', 5000, ${badSeats}::jsonb)`;
-    const res = await escrow.reconcileOrphanedDebits(new Set());
+    const res = await scopedOrphanScan((m) => m.matchId === matchId);
     expect(res.corrupt).toContain(matchId);
     expect(res.refunded).not.toContain(matchId);
     // No settlement row was written (never partially settled) and no wallet was credited.

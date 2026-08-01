@@ -340,6 +340,27 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
     **frozen**, exactly like an incoherent paid state.
   - **No binding at all** (a legacy save) → **frozen for operator review**; the generation
     is never guessed, and no payout/refund/stats is written against an unproven state.
+    **Correction (Stage 37.7.13):** as originally shipped this guarantee did NOT hold in
+    production — the startup orphan-debit sweep ran BEFORE classification, so such a room's
+    buy-ins were refunded before it was frozen. Fixed by the startup ordering below.
+- **Startup settles only what classification has proven** (Stage 37.7.13). The boot sequence
+  is **reconcile → classify → derive settlement protection from those classifications →
+  orphan-debit scan → corrupt-room pass → apply recovery**. The protected set is no longer a
+  room *shape* test computed before any classification: every match that is live, frozen, or
+  whose durable outcome is UNPROVEN is protected from the global scan — including a room with
+  no game state whose reconciliation failed. Only an explicitly stale generation (a fresh debit
+  whose hand never started) is treated as an orphan and refunded exactly once.
+- **A transient escrow is never assumed to be uncharged** (Stage 37.7.13). Reconciliation
+  reports an EXPLICIT outcome — `funded`, `settled`, `cancelled`, `proven_uncommitted`,
+  `retry_pending`, `corrupt_partial`, `noop` — instead of leaving callers to infer it from the
+  escrow status. `cancelled` now requires durable proof: a committed refund row, or a
+  reconciliation that PROVED zero committed buy-ins. A `pending`/`settling` escrow that
+  SURVIVES reconciliation is **`recovery_pending`**: the room keeps its state, binding and
+  escrow, does not advance, arms no timer, accepts no action, cannot rematch, is never purged,
+  and is publicly the opaque `settlement_pending` status. It is retried on the next
+  sweep/restart — then zero debit → cancelled, a full bound debit → live/finish, a full but
+  unbound debit → refunded once. A **partial** durable debit (only some seats charged) can be
+  settled neither way and is **frozen** for operator review.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

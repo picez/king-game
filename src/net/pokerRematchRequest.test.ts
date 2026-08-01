@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom, ServerMember } from './serverCore';
 import { handleRematchRequest, type RematchRequestDeps, type RematchSession } from '../../server/pokerRematch';
 
@@ -34,6 +35,11 @@ function deps(over: Partial<RematchRequestDeps> = {}): RematchRequestDeps & Reco
 }
 
 const TWO_HUMANS = () => room([member({ clientId: 'host', seatIndex: 0 }), member({ clientId: 'p2', seatIndex: 1 })]);
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe('FAIL 3 — request-level REMATCH readiness routing', () => {
   it('first human Ready (not all ready yet) → progress broadcast only, no lifecycle', () => {

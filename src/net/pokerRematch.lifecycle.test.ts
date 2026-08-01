@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom, ServerMember } from './serverCore';
 import type { PokerState } from '../games/poker/types';
 
@@ -36,6 +37,11 @@ function spyDeps(over: Partial<import('../../server/pokerRematch').BankrollRemat
     ...over,
   };
 }
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7, integration)', () => {
   it('success: previous match settled → fresh matchId, ONE new debit each, restart + broadcast/advance/persist', async () => {

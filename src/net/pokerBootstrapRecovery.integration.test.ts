@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeAll, afterAll } from 'vitest';
+import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom } from './serverCore';
 import type { PokerState, PokerPlayer, PokerTelemetry } from '../games/poker/types';
 import type { ClientMessage, ErrorCode } from './messages';
@@ -33,6 +34,11 @@ afterEach(async () => {
   const escrow = await import('../../server/pokerEscrow');
   escrow.__setRefundFailure(false); escrow.__setPayoutFailure(false);
 });
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored bankroll room (Stage 37.7.10/37.7.11 FAIL 1)', () => {
   async function ctx() {

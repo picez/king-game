@@ -152,6 +152,22 @@ also reported at `GET /health/diagnostics` (`version` field).
     winner, a non-human or duplicated seat, a stray extra seat, or final stacks where the winner does
     not hold exactly the whole pot are all rejected — nothing is paid, nothing is recorded, and the
     table is frozen for review.
+  - **Startup settlement ordering + honest "still settling" tables (Stage 37.7.13):** two more real
+    defects fixed, one of them a **correction to the previous entry**. (1) Stage 37.7.12 stated that a
+    table whose paid match cannot be identified is frozen *without any payout or refund*. In
+    production that did not actually hold: on startup the automatic "refund abandoned buy-ins" sweep
+    ran **before** the tables had been classified, so such a table's buy-ins were refunded seconds
+    before it was frozen — leaving a frozen table whose money had already gone back. Startup now
+    classifies every table first and only then sweeps, and every table that is live, frozen, or whose
+    outcome is not yet proven is **protected** from that sweep. Only a buy-in that is *provably*
+    nobody's — an explicitly stale one whose hand never started — is still refunded, exactly once.
+    (2) A table whose buy-in was still **in flight** when the server stopped could be declared a
+    clean **cancelled** match even though the server had not been able to check whether the chips
+    were actually taken (a temporary database problem, or a half-written charge). Such a table is now
+    held as **"still settling"** instead: it keeps its hand and its record, plays nothing, accepts no
+    actions, is never deleted, and is retried — and only becomes a cancelled lobby once the database
+    **proves** nothing was ever charged. A half-charged table is frozen for review rather than being
+    guessed at in either direction.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

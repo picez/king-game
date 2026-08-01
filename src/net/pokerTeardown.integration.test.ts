@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
+import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom } from './serverCore';
 import type { PokerState, PokerPlayer, PokerTelemetry } from '../games/poker/types';
 import type { StatsResult, BankrollFinishOutcome } from '../../server/pokerFinish';
@@ -20,6 +21,11 @@ function unfinished2p(): PokerState {
   return { ...finished2p(), phase: 'betting', street: 'flop', stacksBySeat: [4000, 6000], winnerSeat: null, eliminatedBySeat: [false, false] } as unknown as PokerState;
 }
 const isFin = (s: PokerState) => s.phase === 'game_finished';
+
+
+// Poker DB integration files share one Postgres and the orphan scan is cluster-wide —
+// serialize them on the shared advisory lock (see pokerDbSuite.testutil).
+withPokerDbSuiteLock(beforeAll, afterAll);
 
 describe.skipIf(!TEST_DATABASE_URL)('teardown settles THEN records stats (Stage 37.7.10 FAIL 2)', () => {
   async function setup(code: string) {

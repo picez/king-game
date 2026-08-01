@@ -369,3 +369,50 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **29 poker suites / 267 tests, 0 skipped**; `npm run verify` run twice stably
   (**288 files / 3040 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check` clean; libc 0; no package/lock
   drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.13:** the claim "unknown binding freezes without payout/refund" did NOT hold in production —
+  the startup orphan scan ran BEFORE classification and refunded such a room first.
+
+### Stage 37.7.13 — bootstrap settlement ordering + ambiguous pending recovery (COMPLETE, Unreleased)
+- Worked from HEAD `5c7b535`. No new migration (room JSON only), no version bump, other 6 games untouched.
+  Both FAILs reproduced RED first (a temporary probe replaying the OLD index.ts ordering verbatim).
+- **RED (FAIL 1).** Legacy room = live poker state + funded durable escrow + NO `pokerGameMatchId`. Old
+  `server/index.ts` order: reconcile → `activeMatchIds` from a room SHAPE test (funded|settling + gameState +
+  `gameBoundToEscrow`) → `reconcileOrphanedDebits` → classify/apply. `unknown` binding fails the shape test ⇒ NOT
+  protected ⇒ the global scan refunded it (**`table_cancel_refund` = 2**) seconds before recovery froze it ⇒ room
+  `funded` + `pokerFrozen` in memory while the DB says refunded. 37.7.12's test missed it (it drove only the per-room
+  helper, never the global scan).
+- **RED (FAIL 2).** A PARTIAL durable debit (one seat's ledger row deleted) survives reconcile as `pending`;
+  `classifyBootstrapRecovery` mapped `pending` → **`cancelled`**, wiping gameState + binding and setting
+  `pokerMatchCancelled` while the durable outcome was UNKNOWN.
+- **FIX 1 — one shared pipeline.** `server/pokerBootstrap.ts` **`runBootstrapEconomyRecovery(rooms, deps)`**: reconcile
+  (keeping the explicit outcome) → classify → **`settlementProtectedMatchId(room, recovery, reconcile)`** → orphan scan
+  → corrupt-room pass → apply (`recoverRestoredBankrollRoom(room, deps, reconciled)` reuses the SAME reconciliation).
+  `server/index.ts` and `pokerBootstrapOrdering.integration.test.ts` both call it — a test can no longer skip the scan.
+  PROTECTED = live / payout_pending / paid_finish / incoherent_paid / unknown_binding / recovery_pending /
+  corrupt_debit / frozen + any `pending`|`settling` escrow or `retry_pending`|`corrupt_partial` reconciliation (even
+  with NO gameState). NOT protected = `unbound_debit` (explicitly stale → failed-start refund once), resolved escrow,
+  plain funded orphan with no game.
+- **FIX 2 — explicit reconciliation result.** `reconcileEscrow` now returns **`EscrowReconcileResult`** =
+  `noop|funded|settled|cancelled|proven_uncommitted|retry_pending|corrupt_partial` (was `void`). New classifications
+  **`recovery_pending`** (unproven → keep state+binding+escrow, clear timers only, NOT cancelled, NOT frozen, retried)
+  and **`corrupt_debit`** (partial debit → permanent freeze). `cancelled` now needs durable proof (a `cancelled` escrow
+  or `proven_uncommitted`). New predicate **`escrowUnresolved(room)`** → in `pokerRecoveryBlocked`, guards
+  `rescheduleAdvance` + `ACTION_REQUEST` (`SETTLEMENT_PENDING`); teardown returns `keep` (never purge/settle) and
+  freezes `corrupt_partial`; `snapshot` reports the opaque `settlement_pending`. Test seam `__setReconcileFailure`.
+- **Regression matrix** (`src/net/pokerBootstrapOrdering.integration.test.ts`, real PG, full pipeline): A unknown
+  binding → protected, frozen, 0 refund/payout/stats, balances still debited, no settlement row, teardown keep, WS
+  START/ACTION rejected, repeat boot idempotent, freeze logged once, snapshot leak-free; B explicit unbound → refunded
+  exactly once, old state never a paid finish, repeat boot idempotent; C bound live → protected, resumes once;
+  D transient pending → nothing cleared/declared/settled, protected, no advance, actions rejected, teardown keep, then
+  the retry restores it `live`; E proven zero debit → the ONLY path to `cancelled`; F partial debit → frozen,
+  0 settlement, idempotent; G ordering spies → the scan runs ONCE, AFTER classification, with exactly
+  {bound, unknown, unproven} and NOT the unbound match; only the classified live match advances.
+- **Test-suite isolation (pre-existing flake, now fixed).** `reconcileOrphanedDebits` is cluster-wide, so one
+  integration FILE's scan refunded another concurrently-running file's in-flight match — reproduced on the 37.7.12
+  baseline (1 failure in 6 poker runs). New `src/net/pokerDbSuite.testutil.ts`: `withPokerDbSuiteLock(beforeAll,
+  afterAll)` (Postgres ADVISORY lock on a RESERVED connection → serializes across vitest workers, self-releasing) added
+  to all 13 poker DB files, + `scopedOrphanScan` (protects every match the suite doesn't own). `pokerRematchCrash`'s
+  hand-rolled activeMatchIds rule replaced by the production `settlementProtectedMatchId`.
+- **Gates:** real Docker PostgreSQL — **30 poker suites / 275 tests, 0 skipped, 8/8 clean consecutive runs**;
+  `npm run verify` twice stably (**289 files / 3048 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

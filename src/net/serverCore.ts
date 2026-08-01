@@ -1192,7 +1192,13 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
           && (room.pokerEscrow?.status === 'funded' || room.pokerEscrow?.status === 'settling')
           && (room.gameState as { phase?: string } | null)?.phase === 'game_finished')
         ? { pokerRecovery: 'payout_pending' as const }
-      : (room.gameType === 'poker' && room.pokerEscrow?.status === 'funded' && !room.gameState) ? { pokerRecovery: 'settlement_pending' as const }
+      // (37.7.13) An UNRESOLVED transient escrow (`pending`/`settling`: the durable outcome is not
+      // yet known) is publicly the SAME opaque "still settling, will retry" status — it must never
+      // look like a normal playable table, and it leaks no economy internals either way.
+      : (room.gameType === 'poker'
+          && ((room.pokerEscrow?.status === 'funded' && !room.gameState)
+            || room.pokerEscrow?.status === 'pending' || room.pokerEscrow?.status === 'settling'))
+        ? { pokerRecovery: 'settlement_pending' as const }
       // stats_pending (37.7.9): the match was PAID but its stats write is still owed — money is out,
       // so it is NOT payout_pending. Blocks a new paid rematch; carries no economy internals.
       : (room.gameType === 'poker' && room.pokerStatsPending) ? { pokerRecovery: 'stats_pending' as const }
