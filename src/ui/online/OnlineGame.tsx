@@ -369,20 +369,37 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // server drives bots + the public round_complete advance (seeded
   // START_NEXT_ROUND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'fifty-one') {
-    return (
+    // Stage 38.0.4 (owner FAIL): the fixed corner cluster sat ON TOP of the laid-out
+    // melds on a phone. Fifty-One therefore renders the SAME generic docked RoomSocial
+    // Poker uses — in normal flow inside the game screen, between the public melds and
+    // the prompt/actions/hand — and owns which single surface is open.
+    const fiftyOneSocial = (
       <>
-        <FiftyOneOnlineGame
-          state={net.state as unknown as FiftyOneState}
-          myPlayerId={net.myPlayerId}
-          dispatch={net.dispatch}
-          onExit={leaveGameToMenu}
-          rematch={rematchUi}
-          disconnectedSeats={disconnectedSeats}
+        {inviteToast}
+        <RoomSocial
+          reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
+          onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
+          notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
+          handVisible={false}
+          voiceButton={<VoiceControl voice={voice} variant="compact" />}
+          mySeatIndex={mySeatIndex} seatCount={seatCount}
+          timerSlot={timerEl}
+          variant="docked"
+          openPanel={socialPanel}
+          onPanelChange={setSocialPanel}
         />
-        {/* Like Tarneeb/Preferans: no Leave-game pill (the board ✕ leaves,
-            reconnectable); social keeps the compact emoji/chat corner + timer. */}
-        {renderSocial(true, undefined, timerEl)}
       </>
+    );
+    return (
+      <FiftyOneOnlineGame
+        state={net.state as unknown as FiftyOneState}
+        myPlayerId={net.myPlayerId}
+        dispatch={net.dispatch}
+        onExit={leaveGameToMenu}
+        rematch={rematchUi}
+        disconnectedSeats={disconnectedSeats}
+        socialSlot={fiftyOneSocial}
+      />
     );
   }
 

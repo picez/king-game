@@ -42,6 +42,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Poker mobile layout (Stage 38.0.3)** — two defects the owner hit in production,
   both reproduced as measured rectangle intersections before being fixed.
   - **The social buttons no longer cover the betting controls.** The history / voice /
@@ -389,6 +409,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Poker Host routing: selecting Poker created a King room (Stage 37.6).** `StartMenu.host()` added the
   chosen `gameType` only via per-game conditional spreads (durak / deberc / tarneeb / preferans / fifty-one)
   and had **no branch for Poker**, so `CREATE_ROOM` went out with no `gameType` and the server applied its
@@ -482,6 +522,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Same-user reconnect from another device (Stage 36.0).** A signed-in player can now resume their **own**
   active room from a **different device**. New server-authoritative paths match the account by the
   **session-cookie userId** (never a client-claimed value): `RECLAIM_ROOM` takes over the caller's own seat
@@ -515,6 +575,26 @@ also reported at `GET /health/diagnostics` (`version` field).
   dependency/version change.
 
 ### Fixed
+
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
 
 - **Android TWA debug build blocker (Stage 33.13).** The committed `android-twa/twa-manifest.json` was
   missing `splashScreenFadeOutDuration`, so **Bubblewrap 1.24+** generated an `app/build.gradle` with
@@ -645,6 +725,26 @@ also reported at `GET /health/diagnostics` (`version` field).
   submission, no version bump.**
 
 ### Fixed
+
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
 
 - **Android TWA build command (Stage 33.4 triage).** Corrected the build runbook: `bubblewrap init
   --manifest` takes the **Web App Manifest URL** (`…/manifest.webmanifest`), not the repo's
@@ -978,6 +1078,26 @@ Tarneeb (Solo + Pairs) and Deberc are easier to read. **No rules/scoring change,
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Reactions/stickers now float over the sender's ACTUAL seat in Tarneeb (Stage 29.5, owner).** The
   floating-reaction anchor assumed every table seats players clockwise with `rel = fromSeat − mySeat`,
   but Tarneeb deliberately **mirrors** its seats on screen (its engine order is counter-clockwise by
@@ -1013,6 +1133,26 @@ change, no DB migration** (0009 stays the latest), **no dependency changes**. `/
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Durak trump/deck enlarged (Stage 29.2, owner).** The face-up trump + draw pile are ~22% larger
   and more readable, scoped to the Durak screen (Deberc's own deck sizing is untouched). CSS only.
 - **Durak — the last defended card is now visible (Stage 29.2, owner).** A bout resolves in the same
@@ -1041,6 +1181,26 @@ trump/stock). **No DB migration** (0009 stays the latest), **no dependency chang
 or trump-obligation change. `/health/diagnostics` `version` reads `0.3.3`.
 
 ### Fixed
+
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
 
 - **Tarneeb Solo scoring — exact-bid double + overtricks (Stage 29.0, owner clarification).** Tarneeb
   **Solo** now scores a made contract like **Pairs** (§8): an **exact** make scores **bid×2** (e.g.
@@ -1098,6 +1258,26 @@ latest), **no dependency changes**, no gameplay-rule changes to Tarneeb Pairs / 
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Tarneeb Solo hardening (Stage 28.5 QA pass).** Two real drifts found after the 28.4 release,
   both fixed: (1) the **room browser** hard-coded "· 2 teams" for every Tarneeb room, mislabelling
   Solo rooms — it now shows the room's actual **Pairs / Solo** mode from `tarneebVariant` (which the
@@ -1132,6 +1312,26 @@ latest), **no dependency changes**, no gameplay-rule changes to Tarneeb Pairs / 
   the local-only playable prototype is the next stage. See `TARNEEB_SOLO_PLAN.md`.
 
 ### Fixed
+
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
 
 - **Static file-like 404s + HEAD (Stage 28.1b).** A missing path with a file extension
   (`/cards/faces/AS.png`, `/assets/typo.js`) previously fell through to the SPA `index.html`, so it
@@ -1240,6 +1440,26 @@ reads `0.3.1`.
 
 ### Fixed
 
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
+
 - **Friend invite "Join" now works** (Stage 26.1): tapping **Join room** on an invite actually
   joins the inviter's room instead of doing nothing — at the menu it joins directly; from inside
   another room it confirms before leaving; in the same room it dismisses. The `?room=` deep-link
@@ -1279,6 +1499,26 @@ Postgres + migration `0009_friends.sql`.
   `voice.ice: stun_only|turn_configured`.
 
 ### Fixed
+
+- **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
+  reproduced as measured rectangles before being fixed.
+  - **A laid-out meld no longer loses its last card.** The block was capped at 18rem while
+    four cards plus their gaps need about 320px, and the card row was `nowrap` with an
+    inner horizontal scroll — so a 4-card meld was clipped (measured at 360px: the fourth
+    card spanned 278..350 inside a row that ended at 318) and a 7-card run showed only
+    four cards. Melds now take the available width, the card size is viewport-responsive
+    with the face aspect preserved, and a long run WRAPS onto the next line inside its own
+    block. Every card of every meld is fully visible with a positive gap, nothing overlaps
+    and nothing hides behind a scrollbar.
+  - **The social buttons no longer sit on the cards.** Online Fifty-One now renders the
+    same generic docked RoomSocial that Poker uses — in normal flow between the public
+    melds and the prompt/actions/hand — so the microphone, reactions and chat cannot cover
+    the table. Only one panel is open at a time; local play gets no social controls at all;
+    the other games keep their floating cluster unchanged.
+  - New gate `npm run layout:fiftyone` renders the real screen in a real browser and fails
+    on any clipped/overlapping card, inner scroll, social-over-content intersection or page
+    overflow — with `--legacy` reproducing the old CSS: **249 violations → 0** over 24
+    checks at 360/390/desktop, 2/3/4 players, LTR and Arabic RTL.
 
 - **Account / auth resilience** (Stage 24.2–24.5): a transient DB blip on `/api/me` no longer
   dead-ends the Profile (falls back to a guest view); a missing migration surfaces a clear

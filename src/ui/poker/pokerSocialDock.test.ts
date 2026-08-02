@@ -129,8 +129,8 @@ describe('wiring', () => {
   });
 
   it('poker no longer mounts the floating cluster via renderSocial', () => {
-    // The other six games still do — exactly six such mounts remain.
-    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(5);
+    // Four games still do; Fifty-One docks its own cluster too since Stage 38.0.4.
+    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(4);
     expect(online).not.toMatch(/renderSocial\([^)]*PokerActionLog/);
   });
 

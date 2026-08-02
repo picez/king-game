@@ -25,7 +25,11 @@ describe('Timer rides in the social cluster, not a table overlay (Scope A)', () 
     // stopped in Stage 38.0.3: it renders its OWN docked RoomSocial (in flow, so the
     // cluster cannot cover its bottom action controls) and passes the same timer node
     // through that component's timerSlot. Both paths are asserted.
-    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(5);
+    // durak, deberc, tarneeb and preferans still go through renderSocial. Poker (38.0.3)
+    // and Fifty-One (38.0.4) dock their own RoomSocial in flow — a fixed cluster was
+    // measured covering their bottom controls / laid-out melds — and thread the SAME timer
+    // node through that component's timerSlot. Both paths are asserted.
+    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(4);
     expect(online).toMatch(/variant="docked"[\s\S]*timerSlot=\{timerEl\}|timerSlot=\{timerEl\}[\s\S]*variant="docked"/);
     // The old fixed table overlay is gone.
     expect(online).not.toContain('turn-timer--overlay');

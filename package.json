@@ -20,6 +20,7 @@
     "e2e": "tsx scripts/e2e-online.mjs",
     "social-shots": "node scripts/social-shots.mjs",
     "layout:poker": "node scripts/poker-layout-qa.mjs",
+    "layout:fiftyone": "node scripts/fiftyone-layout-qa.mjs",
     "soak": "tsx scripts/durak-soak.mjs",
     "soak:deberc": "tsx scripts/deberc-soak.mjs",
     "start": "NODE_ENV=production tsx server/index.ts",

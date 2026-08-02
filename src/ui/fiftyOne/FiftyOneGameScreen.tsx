@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import GameHelpModal from '../components/GameHelpModal';
@@ -26,6 +26,14 @@ interface Props {
    * rejected as NOT_YOUR_TURN). Local play (default) keeps the manual button.
    */
   online?: boolean;
+  /**
+   * Generic social/utility controls rendered IN NORMAL FLOW between the public melds and
+   * the prompt/actions area (Stage 38.0.4). The owner FAIL was the FIXED corner cluster
+   * sitting on top of the laid-out melds on a phone; giving those controls their own
+   * layout row makes the overlap structurally impossible. Game-agnostic node — the caller
+   * (OnlineGame) decides what goes in it; LOCAL play passes nothing.
+   */
+  socialSlot?: ReactNode;
 }
 
 const RUN_POS: Record<Rank, number> = {
@@ -88,7 +96,7 @@ function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { sui
   );
 }
 
-export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false }: Props) {
+export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false, socialSlot }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -378,6 +386,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           );
         })}
       </div>
+
+      {/* Social / utility controls — IN FLOW, so they can never cover the melds above
+          or the prompt/actions/hand below (Stage 38.0.4). */}
+      {socialSlot && <div className="fiftyone-social-dock">{socialSlot}</div>}
 
       <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
         <span>{prompt}</span>

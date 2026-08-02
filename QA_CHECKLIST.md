@@ -1522,3 +1522,26 @@ and the local screen). Baseline before the fix: 1484 violations; now 0.
       rebuy taken at the table.
 - [ ] **Layout** at 360/390 and in Arabic RTL: the panel never covers the table, the social
       toolbar or the buttons.
+
+## Fifty-One mobile table (Stage 38.0.4)
+
+Automated gate: `npm run layout:fiftyone` (add `--legacy` to reproduce the old defect).
+24 checks across 360/390/desktop × 2/3/4 players × LTR/RTL, with and without the social
+dock. Baseline before the fix: 249 violations; now 0.
+
+- [ ] **A 4-card meld shows all four cards** at 360 and 390 — no card cut off at the edge,
+      no sideways scrolling inside the meld block.
+- [ ] **A long run (6–7 cards) wraps** onto a second line inside its own block and does not
+      touch the meld below it.
+- [ ] **Cards never overlap** and keep a visible gap; a joker's badge stays inside its own
+      card; duplicate cards from the second deck each get their own slot.
+- [ ] **Owner name, score and the Add / Replace-joker buttons** stay attached to their meld
+      and are comfortable to tap.
+- [ ] **The social buttons sit in a row between the melds and the prompt**, not on top of
+      the cards. Opening chat or reactions pushes content instead of covering it, and only
+      one panel is open at a time.
+- [ ] **Local Fifty-One shows no social controls at all.**
+- [ ] **Your hand and the action buttons** stay reachable at 360/390; no sideways page
+      scroll; nothing hidden behind the Android navigation bar.
+- [ ] **Arabic RTL:** the interface mirrors but a run keeps its low→high order and the card
+      artwork is not mirrored.

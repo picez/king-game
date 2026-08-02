@@ -822,3 +822,32 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Tests:** `src/net/pokerRebuy.integration.test.ts` (17 real-PG tests covering the
   20-scenario matrix) + `src/net/pokerRebuyProtocol.test.ts` (20 pure). Real PG: **62 poker
   files / 650 tests, 0 skipped**.
+
+### Stage 38.0.4 — Fifty-One mobile meld layout + docked social (COMPLETE, Unreleased)
+- Worked from HEAD `a8b9bbc`. UI/CSS only: no Poker/wallet/escrow/rebuy/payout/migration
+  change, no new migration (latest stays 0013), version 0.4.8, games 7, achievements 52.
+- **RED (measured, reproducible):** new `scripts/fiftyone-layout-qa.mjs` +
+  `scripts/layout-harness/fiftyone.{html,tsx}` render the REAL FiftyOneGameScreen in a real
+  browser. `--legacy` re-applies the pre-fix CSS, so the RED is reproducible on demand:
+  **249 violations / 18 checks** — 42 card-clipped, 29 meld-inner-scroll, 12 touch-target,
+  1 social-over-content. Concrete: at 360 a 4-card meld's last card spanned `278..350`
+  inside a row ending at `318`, and its `scrollWidth 307 > 275` visible.
+- **Root cause:** `.fiftyone-meld { max-width: min(100%, 18rem) }` (288px) versus four
+  fixed 72px cards + three 6.4px gaps + 12.8px padding = ~320px, with
+  `.fiftyone-meld__cards { flex-wrap: nowrap; overflow-x: auto }` hiding the remainder.
+- **FIX 1 (melds):** the 18rem cap is gone (`flex: 1 1 16rem; max-width: 100%`), the row
+  WRAPS (`flex-wrap: wrap`, no `overflow-x`), the card width is
+  `clamp(52px, 17vw, 72px)` and the height is `calc(var(--f51-meld-card-w) * 1.5946)` so
+  the 74×118 face aspect is exact. `direction: ltr` still protects run order under RTL;
+  `.fiftyone-meld__ctrls button` gained 44px tap targets.
+- **FIX 2 (social):** `FiftyOneGameScreen.socialSlot` (generic ReactNode) renders
+  `.fiftyone-social-dock` between the melds and the prompt; `OnlineGame`'s fifty-one branch
+  builds the SAME docked `RoomSocial` Poker uses (`variant="docked"` + controlled
+  `openPanel`) and passes it through `FiftyOneOnlineGame`. It no longer calls
+  `renderSocial` — four games still do (durak/deberc/tarneeb/preferans). Local 51 passes
+  nothing. RoomSocial still has zero game imports.
+- **Tests:** `src/ui/fiftyOne/fiftyOneMobileLayout.test.ts` (17). Updated for the new
+  contract: the 30.14 CSS guard in `fiftyOneLocalWiring.test.ts` (inner scroll → wrap,
+  fixed 72px → clamp), the three renderSocial mount counters (5 → 4), and the 51 UI
+  isolation guard now ignores the `react-dom/server` SSR renderer (a rendering library,
+  not transport). verify PASS 3134/174; `npm run layout:fiftyone` 24/24 clean.

@@ -59,8 +59,11 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*gap:\s*var\(--f51-meld-gap\)/);
     expect(css).toMatch(/--f51-meld-gap:\s*0?\.\d+rem/);
     expect(css).not.toMatch(/\.fiftyone-meld__cards[^}]*margin[^:]*:\s*-/);
-    // Long melds scroll INSIDE the block (never overflow the screen / the controls).
-    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*overflow-x:\s*auto/);
+    // Stage 38.0.4: long melds no longer scroll INSIDE the block — that inner scroll is
+    // exactly what clipped a 4-card meld on a phone. They WRAP in normal flow instead,
+    // so every card stays visible.
+    expect(block).toMatch(/\.fiftyone-meld__cards\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(block).not.toMatch(/\.fiftyone-meld__cards\s*\{[^}]*overflow-x:\s*auto/);
     // Full card face (contain) so meld-card indices are not cover-cropped.
     expect(css).toContain('.fiftyone-meld__cards .card--art .card__art { object-fit: contain; }');
     // EVERY row child is a fixed, non-shrinking, in-flow box — no negative margin, no
@@ -68,10 +71,11 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*flex:\s*0 0 var\(--f51-meld-card-w\)[^}]*\}/);
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*margin:\s*0[^}]*\}/);
     expect(block).toMatch(/\.fiftyone-meld__cards > \*\s*\{[^}]*transform:\s*none[^}]*\}/);
-    // Cards are ENLARGED (Stage 36.0: 72px) — one variable sizes the slot AND the card,
-    // so the two can never disagree; still readable at 360 without page overflow.
-    expect(css).toMatch(/--f51-meld-card-w:\s*72px/);
-    expect(css).toMatch(/--f51-meld-card-h:\s*112px/);
+    // Cards are big but RESPONSIVE (Stage 38.0.4): one variable still sizes the slot AND
+    // the card, so the two can never disagree, and the height is derived from the width so
+    // the face aspect is exact. The old fixed 72px could not fit four cards at 360.
+    expect(css).toMatch(/--f51-meld-card-w:\s*clamp\(\s*\d+px/);
+    expect(css).toMatch(/--f51-meld-card-h:\s*calc\(var\(--f51-meld-card-w\)/);
     expect(block).toMatch(/\.fiftyone-meld__cards \.card\s*\{[^}]*width:\s*var\(--f51-meld-card-w\)/);
     // Add / Replace joker live in their OWN row under the cards, never over them —
     // the row is a plain flex sibling of the card row, so it cannot overlay it.

@@ -86,7 +86,9 @@ describe('51 pure core + UI stay isolated (source guards)', () => {
   it('the UI imports no server/ws/db transport directly (client-only; dispatch is injected)', () => {
     for (const file of readdirSync(join(process.cwd(), UI_DIR))) {
       if (!file.endsWith('.tsx') && !file.endsWith('.ts')) continue;
-      const src = read(join(UI_DIR, file));
+      // `react-dom/server` is the SSR RENDERER used by the layout regression tests — a
+      // rendering library, not server/ws/db transport. Everything else stays forbidden.
+      const src = read(join(UI_DIR, file)).replace(/^.*react-dom\/server.*$/gm, '');
       expect(src, `${file} must not import server`).not.toMatch(/from '.*\/server/);
       expect(src, `${file} must not import net transport`).not.toMatch(/from '.*\/net\/(wsHandlers|serverCore|online)/);
       expect(src, `${file} must not import db`).not.toMatch(/from '.*\/db/);

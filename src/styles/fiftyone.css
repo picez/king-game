@@ -63,13 +63,19 @@
 
 /* Public melds. The card size is a variable so the whole block (slot, card, joker
    badge) is sized from ONE number — they can never disagree and overlap (30.14).
-   72×112 keeps the 74×118 card aspect, so `contain` letterboxes almost nothing;
-   long runs scroll INSIDE the block (overflow-x) so bigger cards never overflow the
-   page. Stage 36.0: EVERY meld card is a `.fiftyone-meldcard` slot span, so one rule
-   governs the slot for normal cards, bare jokers and represented jokers alike. */
+   Stage 36.0: EVERY meld card is a `.fiftyone-meldcard` slot span, so one rule governs
+   the slot for normal cards, bare jokers and represented jokers alike.
+
+   Stage 38.0.4 (owner FAIL on a real phone): the block was capped at 18rem while four
+   72px cards plus their gaps need ~320px, and the row was `nowrap` + `overflow-x: auto`
+   — so a 4-card meld was CLIPPED and its last card was only reachable through a hidden
+   inner scroll (measured: the 4th card spanned 278..350 inside a row that ended at 318).
+   The card width is now VIEWPORT-RESPONSIVE and long runs WRAP in normal flow, so every
+   card of every meld is fully visible without any inner scrolling. The height is derived
+   from the width so the 74×118 face aspect is preserved exactly. */
 .fiftyone-melds {
-  --f51-meld-card-w: 72px;
-  --f51-meld-card-h: 112px;
+  --f51-meld-card-w: clamp(52px, 17vw, 72px);
+  --f51-meld-card-h: calc(var(--f51-meld-card-w) * 1.5946);
   --f51-meld-gap: 0.4rem;
   display: flex;
   flex-wrap: wrap;
@@ -85,25 +91,25 @@
   padding: 0.4rem;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.22);
-  /* Shrink-in-row + never wider than the viewport, so several melds stay compact. */
+  /* Take the row when the screen is narrow (one meld per line) and share it on a wide
+     one — never an artificial cap that clips cards (Stage 38.0.4). */
   min-width: 0;
-  max-width: min(100%, 18rem);
+  flex: 1 1 16rem;
+  max-width: 100%;
 }
 .fiftyone-meld__owner { font-size: 0.74rem; opacity: 0.85; }
-/* Card row: one line, clear positive gaps (never negative → no overlap/clipping),
-   and horizontal scroll INSIDE the meld block if a run is long — so a meld can never
-   overflow the screen or collide with the controls. LTR keeps cards low→high even
-   under RTL (the card artwork itself is not mirrored). */
+/* Card row: clear positive gaps (never negative → no overlap/clipping) and WRAPPING
+   (Stage 38.0.4) — a long run continues on the next line INSIDE its own block, in normal
+   flow, instead of hiding behind an inner scrollbar. `direction: ltr` keeps cards
+   low→high even under RTL (the card artwork itself is never mirrored). */
 .fiftyone-meld__cards {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: var(--f51-meld-gap);
   align-items: flex-start;
   max-width: 100%;
-  overflow-x: auto;
   padding-bottom: 0.15rem;
   direction: ltr;
-  scrollbar-width: thin;
 }
 /* Every direct child of the row is a fixed, non-shrinking, in-flow box: no
    negative margins, no absolute stacking, no transform — so adjacent cards can
@@ -128,8 +134,15 @@
 .fiftyone-meld__cards .card .card__rank { font-size: 0.9rem; }
 .fiftyone-meld__cards .card .card__suit { font-size: 0.88rem; }
 .fiftyone-meld__cards .card .card__center { font-size: 1.6rem; }
-/* Add / Replace joker sit in their own row UNDER the cards — never over them. */
+/* Add / Replace joker sit in their own row UNDER the cards — never over them. Real tap
+   targets on a phone (Stage 38.0.4). */
 .fiftyone-meld__ctrls { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
+.fiftyone-meld__ctrls button { min-height: 44px; min-width: 44px; }
+
+/* The IN-FLOW social/utility dock (Stage 38.0.4). Online Fifty-One renders the shared
+   docked RoomSocial here — between the public melds and the prompt/actions/hand — so the
+   floating cluster can no longer sit on top of the laid-out cards. */
+.fiftyone-social-dock { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; }
 /* The uniform slot wrapper for EVERY meld card (Stage 36.0). Centres the inner .card
    (which is pinned to the same width via the var), so the wrapper IS the slot. */
 .fiftyone-meldcard { display: inline-flex; align-items: center; justify-content: center; }
