@@ -419,6 +419,7 @@ export const EN: Record<string, string> = {
   'poker.call': 'Call',
   'poker.raiseTo': 'Raise to',
   'poker.amount': 'Amount',
+  'poker.amountRange': 'Min {min} · Max {max}',
   'poker.allIn': 'All-in',
   'poker.preset.min': 'Min',
   'poker.preset.half': '½ Pot',

@@ -419,6 +419,7 @@ export const UK: Record<string, string> = {
   'poker.call': 'Колл',
   'poker.raiseTo': 'Підвищити до',
   'poker.amount': 'Сума',
+  'poker.amountRange': 'Мін {min} · Макс {max}',
   'poker.allIn': 'Ва-банк',
   'poker.preset.min': 'Мін',
   'poker.preset.half': '½ банку',

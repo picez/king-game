@@ -10,6 +10,7 @@ import type { PokerAction, PokerState } from '../../games/poker/types';
 import PokerSetup, { type PokerSeatConfig, type PokerLocalOptions } from './PokerSetup';
 import PokerGameScreen from './PokerGameScreen';
 import PokerFinished from './PokerFinished';
+import PokerActionLog from './PokerActionLog';
 import { needsHandover, viewerFor } from './passAndPlay';
 
 /** Pause between bot moves so humans can follow the betting unfold. */
@@ -18,31 +19,25 @@ const BOT_DELAY_MS = 750;
 /**
  * Local poker (No-Limit Texas Hold'em) — true PASS-AND-PLAY (§14). Any valid mix of
  * 2–6 human/bot seats. Owns the pure state via `pokerReducer`; bots auto-play ONLY on
- * AI seats. Before EACH private decision by a human, a handover screen hides the
- * table until that human confirms, so one player's hole cards are never exposed to
- * the next — the table is redacted for the acting human's seat only. Between hands and
- * during a bot's turn no player's private hand leaks. Fully separate from online state.
+ * AI seats.
+ *
+ * Stage 38.0.2 handover policy (owner-confirmed). The handover is a PRIVACY step
+ * between two humans, not a per-turn ritual:
+ *   • ONE human + bots → no handover screen at all; that human is the stable local
+ *     viewer and keeps their hole cards across every bot turn.
+ *   • Two or more humans → the confirmation STICKS to its seat, so human A → bots → A
+ *     never re-prompts, while A → bots → B (and A → B) shows the handover for B and
+ *     A's hand is already hidden. While a bot acts, no human's hand is on screen.
+ * The confirmed seat is tracked separately from the redacted viewer (`viewerFor`), so a
+ * bot interval can restore the same human automatically without ever revealing another.
+ * Fully separate from online state.
  */
 export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
   const { t } = useI18n();
   const [state, setState] = useState<PokerState | null>(null);
-  /** The human seat currently allowed to view the table (null = handover pending / public). */
-  const [viewerSeat, setViewerSeat] = useState<number | null>(null);
+  /** The LAST human seat that confirmed the handover (null = nobody holds the device yet). */
+  const [confirmedSeat, setConfirmedSeat] = useState<number | null>(null);
   const apply = useCallback((action: PokerAction) => setState((s) => pokerReducer(s, action)), []);
-
-  // Whenever the ACTING seat changes (a new turn, a bot's turn, or a new hand), the
-  // prior confirmation is dropped so the next human must confirm a fresh handover —
-  // in particular after any bot turn (bot → human ALWAYS re-prompts), even if it is
-  // the same human who acted before the bot. Combined with `viewerFor` returning null
-  // on a bot's turn, no player's hole cards are ever shown while a bot acts.
-  const prevActor = useRef<number | null>(-1);
-  useEffect(() => {
-    const actor = state ? getActingPokerSeat(state) : null;
-    if (actor !== prevActor.current) {
-      prevActor.current = actor;
-      setViewerSeat(null);
-    }
-  }, [state]);
 
   // Bot auto-play — ONLY on AI seats, during a live betting round.
   const botTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,8 +58,8 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     let b = 0;
     const playerNames = seats.map((s) => (s.type === 'human' ? s.name : botNames[b++]));
     const playerTypes: PlayerType[] = seats.map((s) => s.type);
-    prevActor.current = -1;
-    setViewerSeat(null);
+    // A fresh match never inherits a stale confirmation from the previous one.
+    setConfirmedSeat(null);
     // Local free sandbox (§16 C): the chosen starting stack flows into the SAME pure
     // reducer — bots get the same stack; blinds stay 10/20; NO wallet is touched.
     apply({
@@ -75,8 +70,7 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
 
   function playAgain() {
     setState(null);
-    prevActor.current = -1;
-    setViewerSeat(null);
+    setConfirmedSeat(null);
   }
 
   if (!state) return <PokerSetup onStart={start} onExit={onExit} />;
@@ -85,10 +79,10 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     return <PokerFinished state={pokerRedactStateFor(state, null)} mySeat={null} onPlayAgain={playAgain} onExit={onExit} />;
   }
 
-  // Handover: a human must confirm before their private view is shown — so the
-  // previous player's hand is already hidden and never seen by the next (§14). The
-  // acting human is resolved by SEAT (duplicate names are safe).
-  if (needsHandover(state, viewerSeat)) {
+  // Handover: shown ONLY when the device really changes hands between two humans —
+  // the previous player's hand is already hidden and never seen by the next (§14).
+  // The acting human is resolved by SEAT (duplicate names are safe).
+  if (needsHandover(state, confirmedSeat)) {
     const actor = state.toActSeat;
     return (
       <div className="screen poker-handover">
@@ -96,7 +90,7 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
           <p className="poker-handover__title">{t('poker.handover.title')}</p>
           <p className="poker-handover__pass">{t('poker.handover.pass').replace('{name}', state.players[actor].name)}</p>
           <p className="poker-handover__body">{t('poker.handover.body')}</p>
-          <button type="button" className="btn btn--primary" onClick={() => setViewerSeat(actor)}>
+          <button type="button" className="btn btn--primary" onClick={() => setConfirmedSeat(actor)}>
             {t('poker.handover.reveal')}
           </button>
         </div>
@@ -104,8 +98,18 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
     );
   }
 
-  // The seat whose hole cards the local screen may reveal (confirmed human, or none).
-  const seat = viewerFor(state, viewerSeat);
+  // The seat whose hole cards the local screen may reveal (solo human, the confirmed
+  // human actor, or none).
+  const seat = viewerFor(state, confirmedSeat);
   const view = pokerRedactStateFor(state, seat);
-  return <PokerGameScreen state={view} mySeat={seat} apply={apply} onExit={onExit} />;
+  return (
+    <>
+      <PokerGameScreen state={view} mySeat={seat} apply={apply} onExit={onExit} />
+      {/* Local has no RoomSocial, so the SAME compact history control gets its own
+          bottom-end cluster — styled/positioned like the online social cluster. */}
+      <div className="poker-local-utility">
+        <PokerActionLog state={view} variant="standalone" />
+      </div>
+    </>
+  );
 }

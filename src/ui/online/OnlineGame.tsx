@@ -25,7 +25,7 @@ import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
 import type { PreferansState } from '../../games/preferans/types';
 import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
-import { PokerOnlineGame } from '../poker';
+import { PokerOnlineGame, PokerActionLog } from '../poker';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
@@ -153,7 +153,11 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   const reactionsMirrored = net.room?.gameType === 'tarneeb';
   // The per-turn timer (non-King online games) rides in the social cluster (Stage 29.7),
   // next to voice/emoji/chat — never a table overlay. `null` when the host timer is off.
-  const renderSocial = (handVisible: boolean, onLeaveGame?: () => void, timerSlot?: ReactNode) => (
+  // `utilitySlot` is RoomSocial's GENERIC extra-control slot (it knows nothing about any
+  // game). Poker passes its compact action-history control there (Stage 38.0.2) so the
+  // button lives in the same cluster as chat/emoji/voice/timer instead of a block under
+  // the table — exactly one log control per table.
+  const renderSocial = (handVisible: boolean, onLeaveGame?: () => void, timerSlot?: ReactNode, utilitySlot?: ReactNode) => (
     <>
       {inviteToast}
       <RoomSocial
@@ -163,7 +167,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         handVisible={handVisible} onLeaveGame={onLeaveGame}
         voiceButton={<VoiceControl voice={voice} variant="compact" />}
         mySeatIndex={mySeatIndex} seatCount={seatCount} reactionsMirrored={reactionsMirrored}
-        timerSlot={timerSlot}
+        timerSlot={timerSlot} utilitySlot={utilitySlot}
       />
     </>
   );
@@ -377,18 +381,20 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // Online poker (Stage 37.4): render the poker screens (NOT King's GameRouter). The
   // server drives bots + the between-hands advance (seeded START_NEXT_HAND).
   if (net.room?.gameType === 'poker') {
+    const pokerState = net.state as unknown as PokerState;
     return (
       <>
         {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state). */}
         <PokerOnlineGame
-          state={net.state as unknown as PokerState}
+          state={pokerState}
           myPlayerId={net.myPlayerId}
           dispatch={net.dispatch}
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           recovery={net.room?.pokerRecovery}
         />
-        {renderSocial(true, undefined, timerEl)}
+        {/* The ONLY action-history control online — inside the social cluster (Stage 38.0.2). */}
+        {renderSocial(true, undefined, timerEl, <PokerActionLog state={pokerState} />)}
       </>
     );
   }

@@ -419,6 +419,7 @@ export const AR: Record<string, string> = {
   'poker.call': 'مجاراة',
   'poker.raiseTo': 'ارفع إلى',
   'poker.amount': 'المبلغ',
+  'poker.amountRange': 'الحد الأدنى {min} · الحد الأقصى {max}',
   'poker.allIn': 'كل الرقائق',
   'poker.preset.min': 'الأدنى',
   'poker.preset.half': 'نصف القدر',

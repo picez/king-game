@@ -39,8 +39,9 @@ describe('per-turn timer is game-agnostic and shown in every online game (Stage 
     expect(online).toContain('def.getActingPlayerId(state as never)');
     expect(online).toContain('active={actingId != null && actingId === myPlayerId}');
     // Threaded into each non-King branch's social cluster (Stage 29.7 — no longer a
-    // standalone table overlay); passed as the last renderSocial arg in all four.
-    const mounts = online.match(/renderSocial\([^)]*timerEl\)/g) ?? [];
+    // standalone table overlay). Poker appends a utilitySlot after it (Stage 38.0.2),
+    // so the timer is matched as an ARGUMENT, not necessarily the last one.
+    const mounts = online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? [];
     expect(mounts.length).toBe(6); // durak, deberc, tarneeb, preferans, fifty-one, poker (Stage 37.4)
     // No table overlay mount remains.
     expect(online).not.toMatch(/^\s*\{timerEl\}\s*$/m);

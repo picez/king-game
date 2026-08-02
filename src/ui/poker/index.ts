@@ -5,3 +5,6 @@ export { default as PokerSetup } from './PokerSetup';
 export { default as PokerGameScreen } from './PokerGameScreen';
 export { default as PokerFinished } from './PokerFinished';
 export { default as PokerRecoveryBanner } from './PokerRecoveryBanner';
+export { default as PokerActionLog } from './PokerActionLog';
+export { default as PokerWalletCard } from './PokerWalletCard';
+export { usePokerWallet, type PokerWalletStore } from './usePokerWallet';

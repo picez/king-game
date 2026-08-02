@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { legalActions, smallBlindSeat, bigBlindSeat } from '../../games/poker/rules';
-import type { PokerActionKind, PokerAction, PokerState } from '../../games/poker/types';
+import type { PokerAction, PokerState } from '../../games/poker/types';
 import PokerCardView from './PokerCardView';
 import PokerHandRankings from './PokerHandRankings';
 import PokerShowdownReview from './PokerShowdownReview';
 import { seatPosition } from './pokerSeatLayout';
+import { clampAmount, commitAmount, parseAmountInput, syncAmountToRange, wagerKindFor, type BetRange } from './betAmount';
 
 interface Props {
   state: PokerState;
@@ -20,19 +21,16 @@ interface Props {
   readOnly?: boolean;
 }
 
-/** i18n label per action-log kind (reuses the action labels; blind/raise are log-only). */
-const LOG_KIND_KEY: Record<PokerActionKind, string> = {
-  blind: 'poker.log.blind', fold: 'poker.fold', check: 'poker.check', call: 'poker.call',
-  bet: 'poker.bet', raise: 'poker.log.raise', allin: 'poker.allIn',
-};
-
 /**
  * The shared poker table (local + online) — an oval felt with 2–6 seats positioned
  * around it (§16 F). The viewer always sits at the bottom; the board, pot and street
  * live in the centre; opponents show card backs; a showdown review overlays the
- * authoritative result. Geometry is physical (stable under RTL), the action row is
- * mobile-safe, and the action log is collapsible (default closed). A Help button opens
- * the hand-rankings modal.
+ * authoritative result. Geometry is physical (stable under RTL) and the action row is
+ * mobile-safe. A Help button opens the hand-rankings modal.
+ *
+ * Stage 38.0.2: the action history is NO LONGER rendered here. It is a compact
+ * `PokerActionLog` control owned by the caller — RoomSocial's `utilitySlot` online,
+ * a matching bottom-end cluster locally — so exactly one log control exists per table.
  */
 export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly }: Props) {
   const { t } = useI18n();
@@ -114,9 +112,6 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
         <PokerShowdownReview state={state} mySeat={mySeat} onNext={(online || readOnly) ? undefined : () => apply({ type: 'START_NEXT_HAND' })} />
       )}
 
-      {/* Collapsible public action log (§16 I) — default closed, with an unread dot. */}
-      <PokerLog state={state} />
-
       {/* (37.7.6 FAIL 2) A frozen / settlement-pending table is READ-ONLY: no action controls. */}
       {readOnly ? (
         <p className="poker-waiting poker-waiting--paused">⏸️ {t('poker.recovery.frozenShort')}</p>
@@ -132,65 +127,53 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
   );
 }
 
-/** Collapsible public log of the current hand's actions (§16 I). Default CLOSED; shows
- *  an unread dot when new actions arrive while closed. No card/deck/burn/user data. */
-function PokerLog({ state }: { state: PokerState }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const log = state.actionLog ?? [];
-  const seenRef = useRef(0);
-  const unread = !open && log.length > seenRef.current;
-  useEffect(() => { if (open) seenRef.current = log.length; }, [open, log.length]);
-
-  const rows = log.slice(-30);
-  return (
-    <div className="poker-logbox">
-      <button
-        type="button"
-        className={`poker-log-toggle ${unread ? 'has-unread' : ''}`}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {open ? '▾' : '▸'} {t('poker.log.title')}
-        {unread && <span className="poker-log-dot" aria-label={t('poker.log.new')} />}
-      </button>
-      {open && (
-        log.length === 0
-          ? <p className="poker-log__empty">—</p>
-          : (
-            <ol className="poker-log__list">
-              {rows.map((e, i) => (
-                <li key={log.length - rows.length + i} className="poker-log__row">
-                  <span className="poker-log__name">{state.players[e.seat]?.name ?? `#${e.seat + 1}`}</span>
-                  <span className="poker-log__act">{t(LOG_KIND_KEY[e.kind])}{e.amount > 0 ? ` ${e.amount}` : ''}</span>
-                </li>
-              ))}
-            </ol>
-          )
-      )}
-    </div>
-  );
-}
-
-/** The mobile-safe bet/raise controls with min / half-pot / pot / all-in presets (§14). */
+/**
+ * The mobile-safe bet/raise controls: min / half-pot / pot / all-in presets, a slider
+ * AND a manual numeric field (Stage 38.0.2) — all three driving ONE amount through the
+ * pure `betAmount` helpers, so they can never disagree.
+ *
+ * The field may be blank WHILE editing (so a value can be retyped), but a commit
+ * (blur, Enter, or the Bet/Raise button) always runs strict finite/safe-integer
+ * validation and clamps into [raiseMin, maxTo] — an unusable draft falls back to the
+ * last valid amount, so no illegal action is ever dispatched. Enter in the field fires
+ * exactly the same action as the button. Reaching `maxTo` sends ALL_IN as before.
+ */
 function PokerActions({ la, pot, apply }: { la: ReturnType<typeof legalActions>; pot: number; apply: (a: PokerAction) => void }) {
   const { t } = useI18n();
   const raiseMin = la.canBet ? la.minBet : la.minRaiseTo;
-  const [amount, setAmount] = useState<number>(raiseMin);
+  const range = useMemo<BetRange>(() => ({ min: raiseMin, max: la.maxTo }), [raiseMin, la.maxTo]);
+  const [amount, setAmount] = useState<number>(() => clampAmount(raiseMin, { min: raiseMin, max: la.maxTo }));
+  /** The text in the numeric field. Kept in sync with `amount`; may be blank mid-edit. */
+  const [draft, setDraft] = useState<string>(() => String(clampAmount(raiseMin, { min: raiseMin, max: la.maxTo })));
   const canWager = la.canBet || la.canRaise;
 
-  const clamp = (v: number) => Math.max(raiseMin, Math.min(la.maxTo, v));
+  // The legal window can change under us (new street / new actor / short stack):
+  // re-clamp the held amount into the NEW range instead of keeping a stale one.
+  useEffect(() => {
+    setAmount((prev) => {
+      const next = syncAmountToRange(prev, range);
+      if (next !== prev) setDraft(String(next));
+      return next;
+    });
+  }, [range]);
+
+  /** Set both controls from a known-good numeric value (slider + presets). */
+  const setBoth = (v: number) => { const c = clampAmount(v, range); setAmount(c); setDraft(String(c)); };
+
   const presets: [string, number][] = [
     [t('poker.preset.min'), raiseMin],
-    [t('poker.preset.half'), clamp(raiseMin + Math.round(pot * 0.5))],
-    [t('poker.preset.pot'), clamp(raiseMin + pot)],
+    [t('poker.preset.half'), clampAmount(raiseMin + Math.round(pot * 0.5), range)],
+    [t('poker.preset.pot'), clampAmount(raiseMin + pot, range)],
     [t('poker.allIn'), la.maxTo],
   ];
 
+  /** Commit whatever is in the field, then dispatch. Returns the committed amount. */
   const sendWager = () => {
-    const v = clamp(amount);
-    if (v >= la.maxTo) apply({ type: 'ALL_IN' });
-    else if (la.canBet) apply({ type: 'BET', amount: v });
+    const v = commitAmount(draft, amount, range);
+    setAmount(v); setDraft(String(v));
+    const kind = wagerKindFor(v, range, la.canBet);
+    if (kind === 'ALL_IN') apply({ type: 'ALL_IN' });
+    else if (kind === 'BET') apply({ type: 'BET', amount: v });
     else apply({ type: 'RAISE', amount: v });
   };
 
@@ -205,20 +188,45 @@ function PokerActions({ la, pot, apply }: { la: ReturnType<typeof legalActions>;
         <div className="poker-actions__wager">
           <div className="poker-presets">
             {presets.map(([label, v]) => (
-              <button key={label} type="button" className="btn btn--ghost poker-preset" onClick={() => setAmount(v)}>{label}</button>
+              <button key={label} type="button" className="btn btn--ghost poker-preset" onClick={() => setBoth(v)}>{label}</button>
             ))}
+          </div>
+          <div className="poker-amount-row">
+            <input
+              className="input poker-amount-input"
+              type="number"
+              inputMode="numeric"
+              step={1}
+              min={range.min}
+              max={range.max}
+              value={draft}
+              aria-label={t('poker.amount')}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setDraft(raw);
+                // Live-sync the slider only for a parseable value; a blank/partial/invalid
+                // draft simply leaves the last valid amount in place (nothing jumps).
+                const parsed = parseAmountInput(raw);
+                if (parsed != null) setAmount(clampAmount(parsed, range));
+              }}
+              onBlur={() => setBoth(commitAmount(draft, amount, range))}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendWager(); } }}
+            />
+            <span className="poker-amount-range">
+              {t('poker.amountRange').replace('{min}', String(range.min)).replace('{max}', String(range.max))}
+            </span>
           </div>
           <input
             className="poker-slider"
             type="range"
-            min={raiseMin}
-            max={la.maxTo}
-            value={clamp(amount)}
-            onChange={(e) => setAmount(Number(e.target.value))}
+            min={range.min}
+            max={range.max}
+            value={clampAmount(amount, range)}
+            onChange={(e) => setBoth(Number(e.target.value))}
             aria-label={t('poker.amount')}
           />
           <button type="button" className="btn btn--primary poker-wager-go" onClick={sendWager}>
-            {la.canBet ? t('poker.bet') : t('poker.raiseTo')} {clamp(amount)}
+            {la.canBet ? t('poker.bet') : t('poker.raiseTo')} {clampAmount(amount, range)}
           </button>
         </div>
       )}
