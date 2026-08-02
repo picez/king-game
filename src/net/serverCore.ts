@@ -171,6 +171,21 @@ export interface ServerRoom {
    *  re-pays), and a new paid rematch is blocked until it resolves. Cleared once stats are recorded
    *  (or the durable row already exists / no stats are owed). */
   pokerStatsPending?: boolean;
+  /**
+   * §17 (Stage 38.0.3C) — the ONLINE between-hands rebuy window. An ABSOLUTE server
+   * deadline (epoch ms) minted exactly once when a new `rebuy_window` opens, plus a
+   * monotonic revision and the identity it belongs to (matchId + handNumber). Persisted,
+   * so a reload/reconnect/rebroadcast cannot extend it and a restart restores the SAME
+   * instant. SERVER-ONLY except the deadline, which the client needs for the countdown —
+   * `matchId` never leaves the server. Kept SEPARATE from the Stage 37.5 turn timer.
+   */
+  pokerRebuyDeadlineAt?: number;
+  pokerRebuyRevision?: number;
+  pokerRebuyMatchId?: string;
+  pokerRebuyHand?: number;
+  /** Seats with a rebuy debit IN FLIGHT (never persisted). A timeout close, the orphan
+   *  scan and teardown must not run past one of these. */
+  pokerRebuyInFlight?: Set<number>;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -981,13 +996,16 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     const def = getGameDefinition('poker');
     if (!def) return false;
     const state = room.gameState as PokerState;
-    // §17 — a busted seat pauses the match in `rebuy_window`. ONLINE rebuys are a
-    // server-authoritative economy operation (a real wallet debit), so this generic
-    // advance must NEVER open a window it cannot fund: for an online room it closes the
-    // window immediately, which reproduces the pre-§17 behaviour exactly (every busted
-    // seat is eliminated). The bankroll rebuy lifecycle replaces this branch when it
-    // takes ownership of the window; LOCAL play drives its own window from the UI.
+    // §17 (Stage 38.0.3C) — a `rebuy_window` on a BANKROLL table is owned by the online
+    // rebuy lifecycle in server/index.ts: it mints an absolute 20s deadline, takes the
+    // wallet debits and closes the window under the room lock once every eligible seat
+    // answered, the deadline passed, or a crash-recovered debit was reconciled. This
+    // generic advance must NEVER close that one — it would eliminate a seat whose chips
+    // are in flight. A NON-bankroll poker room has no economy at all, so there is nobody
+    // to charge and nothing to wait for: close it immediately and play on.
     if (state.phase === 'rebuy_window') {
+      const bankroll = typeof room.pokerBuyIn === 'number' && room.pokerBuyIn > 0;
+      if (bankroll) return false;
       const closed = def.reducer(state, { type: 'CLOSE_REBUY_WINDOW' });
       if (closed && closed !== state) { room.gameState = closed; return true; }
       return false;
@@ -1192,6 +1210,9 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     ...(room.pokerSmallBlind ? { pokerSmallBlind: room.pokerSmallBlind } : {}),
     ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
     ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
+    // §17: the client needs the ABSOLUTE deadline to render a countdown; the match id,
+    // the hand and every economy identifier stay server-side.
+    ...(room.pokerRebuyDeadlineAt ? { pokerRebuyDeadlineAt: room.pokerRebuyDeadlineAt } : {}),
     ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
     // Minimal PUBLIC recovery status (§16, 37.7.4/37.7.6/37.7.7) — no economy internals.
     // Precedence: frozen (corrupt/operator) > payout_pending (a FINISHED game whose payout is
@@ -1263,6 +1284,9 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     ...(room.pokerSmallBlind ? { pokerSmallBlind: room.pokerSmallBlind } : {}),
     ...(room.pokerBigBlind ? { pokerBigBlind: room.pokerBigBlind } : {}),
     ...(room.pokerBuyIn ? { pokerBuyIn: room.pokerBuyIn } : {}),
+    // §17: the client needs the ABSOLUTE deadline to render a countdown; the match id,
+    // the hand and every economy identifier stay server-side.
+    ...(room.pokerRebuyDeadlineAt ? { pokerRebuyDeadlineAt: room.pokerRebuyDeadlineAt } : {}),
     ...(typeof room.pokerBlindGrowth === 'number' ? { pokerBlindGrowth: room.pokerBlindGrowth } : {}),
     playerCount: room.playerCount,
     occupiedSeats,
@@ -1368,6 +1392,11 @@ export interface PersistedRoom {
   pokerStatsPending?: boolean;
   /** Persist the state↔escrow generation binding (§16, 37.7.12) — SERVER-ONLY, never public. */
   pokerGameMatchId?: string;
+  /** §17 — the persisted rebuy window (absolute deadline + identity). */
+  pokerRebuyDeadlineAt?: number;
+  pokerRebuyRevision?: number;
+  pokerRebuyMatchId?: string;
+  pokerRebuyHand?: number;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1409,6 +1438,10 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerFrozen: room.pokerFrozen,
     pokerStatsPending: room.pokerStatsPending,
     pokerGameMatchId: room.pokerGameMatchId,
+    pokerRebuyDeadlineAt: room.pokerRebuyDeadlineAt,
+    pokerRebuyRevision: room.pokerRebuyRevision,
+    pokerRebuyMatchId: room.pokerRebuyMatchId,
+    pokerRebuyHand: room.pokerRebuyHand,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1547,6 +1580,13 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     // else (missing = a legacy save, or a malformed value) stays undefined and the recovery pass
     // then FAILS CLOSED rather than guessing which match produced the persisted state.
     pokerGameMatchId: typeof o.pokerGameMatchId === 'string' && o.pokerGameMatchId ? o.pokerGameMatchId : undefined,
+    // (§17) The rebuy window's ABSOLUTE deadline + identity. Restored verbatim so a
+    // restart never re-mints (which would extend it); a malformed value stays undefined
+    // and the recovery pass then closes the window after reconciliation.
+    pokerRebuyDeadlineAt: typeof o.pokerRebuyDeadlineAt === 'number' && Number.isSafeInteger(o.pokerRebuyDeadlineAt) && o.pokerRebuyDeadlineAt > 0 ? o.pokerRebuyDeadlineAt : undefined,
+    pokerRebuyRevision: typeof o.pokerRebuyRevision === 'number' && Number.isSafeInteger(o.pokerRebuyRevision) && o.pokerRebuyRevision >= 0 ? o.pokerRebuyRevision : undefined,
+    pokerRebuyMatchId: typeof o.pokerRebuyMatchId === 'string' && o.pokerRebuyMatchId ? o.pokerRebuyMatchId : undefined,
+    pokerRebuyHand: typeof o.pokerRebuyHand === 'number' && Number.isSafeInteger(o.pokerRebuyHand) && o.pokerRebuyHand > 0 ? o.pokerRebuyHand : undefined,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

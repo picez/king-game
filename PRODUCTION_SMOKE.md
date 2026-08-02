@@ -713,16 +713,20 @@ Requires Postgres (migration 0010 applied) + a signed-in account.
 
 ## Poker between-hands rebuy — LOCAL only (Stage 38.0.3B)
 
-Nothing in this stage touches production money: the local rebuy is free and the online
-path still closes the window immediately (a busted online seat is eliminated exactly as
-before). The one production action required is the schema migration.
+The local rebuy is free. The ONLINE rebuy (Stage 38.0.3C) debits real chips, so migration
+0013 MUST be applied before the deploy — without it the ledger CHECK rejects a
+`table_rebuy` row, the transaction rolls back, nothing is debited and the player simply
+sees "rebuy unavailable" (safe, but the feature does not work).
 
 1. **Apply migration 0013** (see below) before/with the deploy. It only widens the
    `poker_ledger.reason` CHECK with `table_rebuy`; it writes no rows and is safe to
    re-run.
 2. **Local Poker:** bust a seat → the "Buy back in" panel appears; Add restores the
    starting stack; Continue deals on; Decline eliminates.
-3. **Online Poker:** unchanged — a busted seat is eliminated and the match continues or
-   ends as before. No rebuy UI is offered online yet.
+3. **Online Poker:** bust a seat on a bankroll table → the rebuy panel appears with your
+   balance and a 20-second countdown. Add → stack restored, wallet down by exactly one
+   buy-in, no reload needed. Double-tap charges once. Reload mid-window → the same
+   countdown instant. Decline (or silence) eliminates the seat; the match then continues or
+   finishes and pays the winner every buy-in PLUS every rebuy.
 4. `/health/diagnostics` still reports `db:"enabled"`, games 7, and the authenticated
    wallet endpoints keep working (balance + daily claim untouched).

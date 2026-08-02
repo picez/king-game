@@ -92,6 +92,15 @@ export interface NetworkGame {
   sendRematchReady: () => void;
   /** Cancel this client's rematch readiness. */
   sendRematchDecline: () => void;
+  /** §17 — ask the server to buy this seat back in. Carries NO payload: the server derives
+   *  the room, account, seat, match, hand and amount authoritatively. */
+  sendPokerRebuy: () => void;
+  /** §17 — decline the rebuy for this seat. */
+  sendPokerRebuyDecline: () => void;
+  /** §17 — the LAST private rebuy result for this client (own wallet balance), or null. */
+  pokerRebuy: PokerRebuyUi | null;
+  /** Clear a shown rebuy error/result. */
+  clearPokerRebuy: () => void;
   /** Bumped on every FRIEND_PRESENCE push so a friends list can re-fetch live. */
   presenceNonce: number;
   /**
@@ -123,6 +132,13 @@ export type VoiceServerMessage = Extract<ServerMessage, { t:
 export interface FriendInvite { fromUserId: string; fromName: string; code: string; gameType: string; at: number; }
 
 /** Rematch progress for the online finish screen (Stage 25.9) — public clientIds only. */
+/** §17 — this client's own rebuy request state (private; never another player's). */
+export interface PokerRebuyUi {
+  status: 'pending' | 'confirmed' | 'insufficient' | 'refused';
+  /** The requester's OWN wallet balance after a confirmed rebuy. */
+  balance: number | null;
+}
+
 export interface RematchProgress { ready: string[]; needed: number; }
 
 /** Is a game state (any of the 6 games) in its terminal/finished screen? */
@@ -154,6 +170,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
   const [friendInvite, setFriendInvite] = useState<FriendInvite | null>(null);
   const [rematch, setRematch] = useState<RematchProgress | null>(null);
+  // §17 — the LAST private rebuy result for THIS client. Never anyone else's balance.
+  const [pokerRebuy, setPokerRebuy] = useState<PokerRebuyUi | null>(null);
   const [presenceNonce, setPresenceNonce] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
@@ -273,11 +291,21 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         setPresenceNonce((n) => n + 1); // nudge any open friends list to re-fetch
         break;
       }
+      case 'POKER_REBUY_RESULT': {
+        // PRIVATE to this client: only the requester's own balance ever arrives here.
+        setPokerRebuy({ status: 'confirmed', balance: msg.balance });
+        break;
+      }
       case 'REMATCH_STATE': {
         setRematch({ ready: msg.ready, needed: msg.needed });
         break;
       }
       case 'ERROR': {
+        // §17 — a refused rebuy is a panel state, never the game error surface.
+        if (msg.code === 'INSUFFICIENT_CHIPS' || msg.code === 'REBUY_NOT_ALLOWED') {
+          setPokerRebuy({ status: msg.code === 'INSUFFICIENT_CHIPS' ? 'insufficient' : 'refused', balance: null });
+          break;
+        }
         // Non-fatal social limits + friend-invite failures → a small toast, not the game
         // error surface (Stage 25.7).
         if (msg.code === 'RATE_LIMITED' || msg.code === 'MESSAGE_BLOCKED'
@@ -391,6 +419,13 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
   const sendFriendInvite = useCallback((toUserId: string) => send({ t: 'FRIEND_INVITE', toUserId }), [send]);
   const sendRematchReady = useCallback(() => send({ t: 'REMATCH_READY' }), [send]);
+  // §17 — both intents are EMPTY by design; the server trusts nothing from the client.
+  const sendPokerRebuy = useCallback(() => {
+    setPokerRebuy({ status: 'pending', balance: null });
+    send({ t: 'POKER_REBUY_REQUEST' });
+  }, [send]);
+  const sendPokerRebuyDecline = useCallback(() => send({ t: 'POKER_REBUY_DECLINE' }), [send]);
+  const clearPokerRebuy = useCallback(() => setPokerRebuy(null), []);
   const sendRematchDecline = useCallback(() => send({ t: 'REMATCH_DECLINE' }), [send]);
   const sendVoiceJoin = useCallback(() => send({ t: 'VOICE_JOIN' }), [send]);
   const sendVoiceLeave = useCallback(() => send({ t: 'VOICE_LEAVE' }), [send]);
@@ -433,6 +468,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
     rematch, sendRematchReady, sendRematchDecline,
+    sendPokerRebuy, sendPokerRebuyDecline, pokerRebuy, clearPokerRebuy,
     connectionEpoch,
     sendVoiceJoin, sendVoiceLeave, sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendVoiceMute, registerVoiceListener,
   };

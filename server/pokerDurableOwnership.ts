@@ -15,7 +15,7 @@
 // satisfied before a room may be treated as a healthy terminal (or live) match.
 // ---------------------------------------------------------------------------
 
-import { buyInIdempotencyKey, type MatchDurableEvidence } from './db/pokerWallet';
+import { buyInIdempotencyKey, parseRebuyKey, type MatchDurableEvidence } from './db/pokerWallet';
 
 /** WHAT HAPPENED TO THE MONEY — the DB-authoritative terminal outcome (or none yet). */
 export type DurableFinancial = 'unresolved' | 'payout' | 'cancel_refund';
@@ -32,7 +32,11 @@ export type DurableFinancial = 'unresolved' | 'payout' | 'cancel_refund';
  */
 export type DurableStructure =
   | 'exact' | 'proven_uncommitted' | 'missing' | 'corrupt'
-  | 'metadata_mismatch' | 'ledger_partial' | 'ledger_mismatch';
+  | 'metadata_mismatch' | 'ledger_partial' | 'ledger_mismatch'
+  /** A `table_rebuy` row exists that this match cannot own: an unparseable/foreign key,
+   *  a hand that is not this match's, a non-participant account, a wrong delta or room,
+   *  or two rebuys for the same user in the same hand (§17). PERMANENT — freeze. */
+  | 'rebuy_mismatch';
 
 /** The COMBINED result — neither axis may be inferred from the other (37.7.16 FAIL 1). */
 export interface DurableOwnership { financial: DurableFinancial; structure: DurableStructure }
@@ -47,6 +51,65 @@ export interface ExpectedMatch {
 /** Canonical, order-independent key of a seat set — the comparison used for escrow ↔ durable seats. */
 function seatsKey(seats: ReadonlyArray<{ seat: number; userId: string; amount: number }>): string {
   return [...seats].map((s) => `${s.seat}:${s.userId}:${s.amount}`).sort().join('|');
+}
+
+/** ONE user's validated extra contribution: the rebuy debits this match provably owns. */
+export interface RebuyContribution { userId: string; hands: number[]; total: number }
+
+/**
+ * Validate + total the `table_rebuy` evidence for a match (§17). PURE. Returns null when
+ * ANY row fails, which the caller must treat as permanent corruption — never as "no
+ * rebuys", because that would silently under-pay a player who really did buy back in.
+ *
+ * Rules (all mandatory): the key parses FULLY (`rebuy:<matchId>:<hand>:<userId>`), names
+ * THIS match, a positive safe-integer hand and the SAME user as the row; the user is one
+ * of the initial durable participants; the delta is exactly `-buyIn`; the room code
+ * matches; and no user has two rebuys for the same hand.
+ */
+export function validateRebuyContributions(
+  roomCode: string,
+  expected: ExpectedMatch,
+  evidence: MatchDurableEvidence,
+): Map<string, RebuyContribution> | null {
+  const participants = new Set(expected.seats.map((s) => s.userId));
+  const byUser = new Map<string, RebuyContribution>();
+  const seen = new Set<string>();
+  for (const row of evidence.rebuys ?? []) {
+    const parsed = parseRebuyKey(row.idempotencyKey);
+    if (!parsed) return null;                                   // malformed / foreign key shape
+    if (parsed.matchId !== expected.matchId) return null;       // another match's rebuy
+    if (parsed.userId !== row.userId) return null;              // key ↔ row disagree
+    if (!participants.has(row.userId)) return null;             // not an initial participant
+    if (row.delta !== -expected.buyIn) return null;             // never a partial/inflated debit
+    if (row.roomCode !== roomCode) return null;                 // charged against another table
+    const dedupe = `${row.userId}:${parsed.handNumber}`;
+    if (seen.has(dedupe)) return null;                          // two rebuys for one user in one hand
+    seen.add(dedupe);
+    const cur = byUser.get(row.userId) ?? { userId: row.userId, hands: [], total: 0 };
+    cur.hands.push(parsed.handNumber);
+    cur.total += expected.buyIn;
+    byUser.set(row.userId, cur);
+  }
+  return byUser;
+}
+
+/**
+ * The FUNDED TOTAL of a match: every initial buy-in plus every validated rebuy (§17).
+ * This — not `buyIn × seats` — is what a payout must conserve once rebuys exist.
+ */
+export function fundedTotalFor(expected: ExpectedMatch, rebuys: Map<string, RebuyContribution>): number {
+  const initial = expected.seats.reduce((sum, s) => sum + s.amount, 0);
+  let extra = 0;
+  for (const c of rebuys.values()) extra += c.total;
+  return initial + extra;
+}
+
+/** One user's FULL contribution — their initial buy-in plus their validated rebuys. */
+export function contributionForUser(
+  expected: ExpectedMatch, rebuys: Map<string, RebuyContribution>, userId: string,
+): number {
+  const initial = expected.seats.filter((s) => s.userId === userId).reduce((sum, s) => sum + s.amount, 0);
+  return initial + (rebuys.get(userId)?.total ?? 0);
 }
 
 /** TRUE only for the one structure that permits a payout, a refund, stats or a resume. */
@@ -101,5 +164,8 @@ function durableStructure(roomCode: string, expected: ExpectedMatch, evidence: M
   // ONE transaction), so it is operator evidence — never "nothing was charged", which would let the
   // orphan scan credit a refund for money that was never taken.
   if (missing > 0) return 'ledger_partial';                                 // half-charged → operator
+
+  // §17 — the rebuy ledger must be just as exactly owned as the initial buy-ins.
+  if (validateRebuyContributions(roomCode, expected, evidence) === null) return 'rebuy_mismatch';
   return 'exact';
 }

@@ -130,6 +130,19 @@ export function validatePaidMatchParticipants(esc: PokerEscrow | undefined, stat
  *   • the winner holding the WHOLE conserved escrow (Σ buy-ins) and every other seat exactly 0
  *     (POKER_RULES §11: the match ends when a single player holds all the chips).
  */
+/**
+ * The chips a paid match is FUNDED with (§17): every initial buy-in PLUS one buy-in per
+ * rebuy the authoritative state applied. PURE. `state.appliedRebuys` is public gameplay
+ * evidence; the DURABLE ledger must agree, which the settlement guard
+ * (`validateRebuyContributions`) and the recovery pipeline enforce independently — a state
+ * claiming a rebuy the ledger does not have is frozen, never paid.
+ */
+export function fundedTotalOf(esc: PokerEscrow, state: PokerState | null | undefined): number {
+  const initial = esc.seats.reduce((sum, seat) => sum + seat.amount, 0);
+  const rebuys = (state as PokerState | undefined)?.appliedRebuys?.length ?? 0;
+  return initial + rebuys * esc.buyIn;
+}
+
 export function validateFinishedPaidMatch(esc: PokerEscrow | undefined, state: PokerState | null | undefined): ParticipantCheck {
   const identity = validatePaidMatchParticipants(esc, state);
   if (!identity.ok) return identity;
@@ -147,11 +160,22 @@ export function validateFinishedPaidMatch(esc: PokerEscrow | undefined, state: P
     escrowTotal += seat.amount;
     if (escrowTotal > Number.MAX_SAFE_INTEGER) return { ok: false, error: 'overflow' };
   }
+  // §17 — every applied rebuy added exactly one buy-in of real chips to the table, so the
+  // winner holds the FUNDED total, not just the initial escrow.
+  const applied = s.appliedRebuys ?? [];
+  for (const r of applied) {
+    if (!Number.isSafeInteger(r?.seat) || !identity.participants.seatUsers.has(r.seat)) {
+      return { ok: false, error: 'rebuy for a non-participant seat' };
+    }
+    if (!Number.isSafeInteger(r?.handNumber) || r.handNumber < 1) return { ok: false, error: 'invalid rebuy hand' };
+  }
+  const fundedTotal = fundedTotalOf(esc!, s);
+  if (!Number.isSafeInteger(fundedTotal) || fundedTotal < escrowTotal) return { ok: false, error: 'overflow' };
   for (const [seat] of identity.participants.seatUsers) {
     const stack = stacks[seat];
     if (typeof stack !== 'number' || !Number.isSafeInteger(stack) || stack < 0) return { ok: false, error: 'invalid final stack' };
     if (seat === winner) {
-      if (stack !== escrowTotal) return { ok: false, error: 'winner stack != escrow total' };
+      if (stack !== fundedTotal) return { ok: false, error: 'winner stack != funded total' };
     } else if (stack !== 0) {
       return { ok: false, error: 'loser stack not zero' };
     }

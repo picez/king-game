@@ -1237,3 +1237,39 @@ UI-only; protocol, server authority and redaction unchanged.
   each other/topbar/actions, cluster vs controls, open panels vs controls, board-card
   clipping, page overflow and 44px tap targets. `npm run layout:poker` exits non-zero on
   any violation.
+
+### Online between-hands rebuy (§17, Stage 38.0.3C)
+
+- **Protocol.** `POKER_REBUY_REQUEST` / `POKER_REBUY_DECLINE` carry an EMPTY payload. The
+  server derives the room from the socket's session, the userId from the authenticated
+  non-guest account, the seat from authoritative membership, the matchId from the BOUND
+  escrow, the hand from the authoritative state and the amount from `room.pokerBuyIn`, and
+  refuses when `state.options.startingStack !== room.pokerBuyIn`. Rebuys never travel as a
+  generic `ACTION_REQUEST` — the three pure actions are lifecycle actions.
+- **Window.** `pokerRebuyDeadlineAt` (absolute) + `pokerRebuyRevision` +
+  `pokerRebuyMatchId`/`pokerRebuyHand` are persisted; the deadline is minted once per
+  (match, hand) by `ensureRebuyDeadline`, so a reconnect/rebroadcast/restart cannot extend
+  it. `shouldCloseRebuyWindow` closes on the deadline OR once every eligible seat answered,
+  and NEVER while `pokerRebuyInFlight` is non-empty. Only the deadline reaches the public
+  snapshot — the match id and hand stay server-side. It is independent of the Stage 37.5
+  turn timer.
+- **Lock order** — `withRoomLock(code) → withEconomyBarrier → DB transaction`, never
+  inverted. The room lock serializes a request against the timeout and teardown; the
+  barrier against the global orphan scan; the transaction's wallet-row lock plus the UNIQUE
+  idempotency key make the debit itself atomic.
+- **Durable evidence.** One `table_rebuy` row per rebuy, key
+  `rebuy:<matchId>:<handNumber>:<userId>`, delta `-buyIn`, exact match and room.
+  `MatchDurableEvidence.rebuys` is read in the SAME REPEATABLE READ snapshot as the
+  buy-ins and the settlement; `validateRebuyContributions` parses each key FULLY and
+  rejects a foreign match, a non-participant, a wrong delta or room, or two rebuys for one
+  user in one hand — any of which is the `rebuy_mismatch` structure (permanent freeze).
+- **Conservation.** `fundedTotalOf` = initial buy-ins + one buy-in per applied rebuy. The
+  payout requires the winner to hold exactly that and cross-checks the durable rebuy count
+  against `state.appliedRebuys`; the refund credits each account `initial + its own rebuys`
+  under the existing one-key-per-user rule. Payout and refund stay mutually exclusive.
+- **Crash recovery.** `reconcileRebuys` compares the ledger with `state.appliedRebuys`:
+  a durable row missing from the state is applied exactly once when the room is exact,
+  bound and still paused on that hand; a state claiming a rebuy with no row, or any
+  unbindable/malformed evidence, freezes; a DB failure is `retry_pending` (never a decline,
+  a close, a payout or a purge). It runs BEFORE any expiry close, on bootstrap for every
+  restored room in a window, and its result gates the close.

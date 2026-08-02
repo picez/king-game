@@ -56,6 +56,11 @@ import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
 import { runBootstrapEconomyRecovery, runRuntimeEconomyRecovery, runRoomRecoverySweep, shouldDeferBootstrapAdvance } from './pokerBootstrap';
+import {
+  ensureRebuyDeadline, clearRebuyDeadline, shouldCloseRebuyWindow, closeRebuyWindow,
+  inOnlineRebuyWindow, resolveRebuySeat, rebuyRequestAllowed, performRebuy, performDecline,
+  reconcileRebuys, REBUY_WINDOW_MS, type RebuyDeps,
+} from './pokerRebuy';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -746,6 +751,110 @@ function handleLeave(room: ServerRoom, clientId: string): void {
 }
 
 /** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
+// ── §17 ONLINE between-hands rebuy window (Stage 38.0.3C) ───────────────────
+// The room, not a client, owns this window: an ABSOLUTE deadline minted once per
+// (matchId, handNumber), a wallet debit taken under `withRoomLock → withEconomyBarrier →
+// tx`, and a close that can only happen after every eligible seat answered, the deadline
+// passed, or a crash-recovered debit was reconciled. An in-flight debit always blocks it.
+
+function rebuyDeps(): RebuyDeps {
+  return {
+    persist: persistRoom,
+    broadcast: broadcastRoom,
+    freeze: freezeRoomForOperator,
+    now: () => Date.now(),
+  };
+}
+
+/** Timers armed per room code so a window always resolves even with no further traffic. */
+const rebuyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearRebuyTimer(code: string): void {
+  const t = rebuyTimers.get(code);
+  if (t) { clearTimeout(t); rebuyTimers.delete(code); }
+}
+
+/**
+ * Drive the window for one room: mint the deadline on entry, arm a single absolute-deadline
+ * timer, and close once it is allowed. Everything runs under the ROOM LOCK, so a timeout can
+ * never interleave with a rebuy request.
+ */
+function syncRebuyWindow(room: ServerRoom): void {
+  if (!inOnlineRebuyWindow(room)) {
+    if (room.pokerRebuyDeadlineAt) { clearRebuyDeadline(room); persistRoom(room); }
+    clearRebuyTimer(room.code);
+    return;
+  }
+  if (ensureRebuyDeadline(room, { now: () => Date.now() })) persistRoom(room);
+  clearRebuyTimer(room.code);
+  const fire = Math.max(0, (room.pokerRebuyDeadlineAt ?? Date.now()) - Date.now());
+  rebuyTimers.set(room.code, setTimeout(() => {
+    rebuyTimers.delete(room.code);
+    void resolveRebuyWindow(room.code);
+  }, fire));
+}
+
+/** Reconcile durable evidence, then close the window when it is allowed. Lock-serialized. */
+async function resolveRebuyWindow(code: string): Promise<void> {
+  const room = rooms.get(code);
+  if (!room) return;
+  await withRoomLock(code, async () => {
+    const live = rooms.get(code);
+    if (!live || !inOnlineRebuyWindow(live)) return;
+    // (§17 E) Reconciliation ALWAYS runs before an expiry close, so a debit that committed
+    // just before a crash/timeout is applied instead of being silently declined.
+    const rec = await reconcileRebuys(live, rebuyDeps());
+    if (rec === 'retry_pending') { syncRebuyWindow(live); return; }   // DB down → keep waiting
+    if (rec === 'frozen') { clearRebuyTimer(code); persistRoom(live); broadcastRoom(live); return; }
+    if (!shouldCloseRebuyWindow(live, Date.now())) { syncRebuyWindow(live); return; }
+    if (closeRebuyWindow(live)) {
+      persistRoom(live);
+      broadcastRoom(live);
+      rescheduleAdvance(live);
+      maybeRecordFinished(live);
+    }
+  }).catch(() => { /* a transient failure retries on the next tick/traffic */ });
+}
+
+/**
+ * Handle `POKER_REBUY_REQUEST` / `POKER_REBUY_DECLINE`. The payload is EMPTY — every value
+ * (room, user, seat, match, hand, amount) is derived here from authoritative state.
+ */
+async function handlePokerRebuy(
+  ref: SessionRef, socket: WebSocket, decline: boolean, accountUserId: () => Promise<string | null>,
+): Promise<void> {
+  const session = ref.value;
+  const refuse = (code: ErrorCode, msg: string) => sendError(socket, code, msg);
+  if (!session) { refuse('REBUY_NOT_ALLOWED', 'Rebuy is not available.'); return; }
+  const code = session.room.code;
+  if (session.room.gameType !== 'poker') { refuse('REBUY_NOT_ALLOWED', 'Rebuy is not available.'); return; }
+  // The account must be a signed-in NON-GUEST; a guest/spectator resolves to no seat below.
+  const userId = await accountUserId().catch(() => null);
+  await withRoomLock(code, async () => {
+    const live = rooms.get(code);
+    if (!live) { refuse('REBUY_NOT_ALLOWED', 'Rebuy is not available.'); return; }
+    const seat = resolveRebuySeat(live, userId);
+    if (!rebuyRequestAllowed(live, seat)) { refuse('REBUY_NOT_ALLOWED', 'Rebuy is not available.'); return; }
+    if (decline) {
+      if (performDecline(live, seat!, { persist: persistRoom, broadcast: broadcastRoom })) {
+        void resolveRebuyWindow(live.code);   // a decline can complete the window immediately
+      }
+      return;
+    }
+    const outcome = await performRebuy(live, userId!, seat!, rebuyDeps());
+    if (!outcome.ok) {
+      const err: ErrorCode = outcome.reason === 'insufficient' ? 'INSUFFICIENT_CHIPS'
+        : outcome.reason === 'not_allowed' ? 'REBUY_NOT_ALLOWED' : 'ECONOMY_UNAVAILABLE';
+      // Safe, bounded copy only — never a SQL error, a balance or an economy identifier.
+      refuse(err, err === 'INSUFFICIENT_CHIPS' ? 'Not enough chips in your wallet.' : 'Rebuy is not available.');
+      return;
+    }
+    // PRIVATE result: only the requester learns their new balance.
+    send(socket, { t: 'POKER_REBUY_RESULT', balance: outcome.balance, applied: !outcome.alreadyApplied });
+    void resolveRebuyWindow(live.code);
+  }).catch(() => { refuse('ECONOMY_UNAVAILABLE', 'The chip economy is unavailable.'); });
+}
+
 function rescheduleAdvance(room: ServerRoom): void {
   // (37.7.3 FAIL 5) A frozen room (corrupt durable match) or a cancelled match never advances.
   if (room.pokerFrozen || room.pokerMatchCancelled) return;
@@ -756,6 +865,9 @@ function rescheduleAdvance(room: ServerRoom): void {
   // or arms a timer — the hand may already be paid, refunded, or never charged at all.
   // (37.7.17 FAIL 2) Nor does a room that CLAIMS a match with no escrow at all.
   if (escrowUnresolved(room) || escrowlessClaim(room)) return;
+  // (§17) An ONLINE rebuy window is not a public screen to advance past — it is a paid
+  // decision point. Drive its deadline/close lifecycle instead and stop here.
+  if (inOnlineRebuyWindow(room)) { syncRebuyWindow(room); return; }
   const screen = publicScreenOf(room);
   const acting = actingMember(room);
   // Drive public screens, bot turns, and — after a restart — a disconnected
@@ -945,6 +1057,11 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(socket, resolvedUserId, sessionRef, msg.toUserId); return; }
     // Rematch / Play again (Stage 25.9): restart the same finished game in the same room.
     if (msg.t === 'REMATCH_READY' || msg.t === 'REMATCH_DECLINE') { handleRematch(sessionRef, msg.t === 'REMATCH_DECLINE'); return; }
+    // (§17) Rebuy intents carry NO payload and never travel as a generic ACTION_REQUEST.
+    if (msg.t === 'POKER_REBUY_REQUEST' || msg.t === 'POKER_REBUY_DECLINE') {
+      void handlePokerRebuy(sessionRef, socket, msg.t === 'POKER_REBUY_DECLINE', getAccountUserId);
+      return;
+    }
     // Voice signaling (Stage 25.3): a room-scoped relay handled here (needs the socket +
     // its room/clientId). No audio; the room dispatch never sees these.
     if (typeof msg.t === 'string' && msg.t.startsWith('VOICE_')) { handleVoiceMessage(socket, sessionRef, msg); return; }
@@ -1250,7 +1367,15 @@ async function bootstrap(): Promise<void> {
       currentRooms: () => [...rooms.values()],
       log: (m) => console.log(`[King] ${m}`),
       logError: (m) => console.error(`[King] ${m}`),
-    }).finally(() => { economyRecoveryInFlight = false; });
+    }).finally(() => { economyRecoveryInFlight = false; })
+      // (§17 E) A room restored INSIDE a rebuy window keeps its ABSOLUTE deadline (the
+      // persisted instant is restored verbatim, never re-minted). Reconciliation runs
+      // FIRST — a debit that committed just before the crash is applied exactly once —
+      // and only then may an already-expired window close.
+      .then(() => Promise.all(restoredRooms
+        .filter((r) => inOnlineRebuyWindow(r))
+        .map((r) => resolveRebuyWindow(r.code))))
+      .catch(() => { /* a transient failure retries on the runtime sweep */ });
   } else {
     // (37.7.4 FAIL 2) No economy (no DB): a restored bankroll room with unsettled escrow FAILS
     // CLOSED — it is NOT advanced/timed and NOT cancelled/refunded (that needs DB proof). Its

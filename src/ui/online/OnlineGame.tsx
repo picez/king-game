@@ -26,6 +26,8 @@ import type { PreferansState } from '../../games/preferans/types';
 import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
 import { PokerOnlineGame, PokerActionLogButton, PokerActionLogPanel, useLogUnread } from '../poker';
+import PokerRebuyPanel from '../poker/PokerRebuyPanel';
+import { rebuyWindowOf, canSeatRebuy } from '../../games/poker/rules';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
@@ -394,6 +396,28 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     // and the action row, and owns which single surface is open (history / chat /
     // reactions) so two panels can never stack on the same spot.
     const logOpen = socialPanel === 'utility';
+    // §17 — the between-hands rebuy. The client decides NOTHING: it renders the server's
+    // window, shows the countdown from the server's absolute deadline, and offers the
+    // buttons ONLY for this viewer's own eligible seat. Every other seat is public
+    // seat/name/decision — never a balance or an economy identifier.
+    const rebuyWin = rebuyWindowOf(pokerState);
+    const myRebuySeat = mySeatIndex != null && canSeatRebuy(pokerState, mySeatIndex) ? mySeatIndex : null;
+    const rebuySlot = rebuyWin ? (
+      <PokerRebuyPanel
+        state={pokerState}
+        amount={net.room?.pokerBuyIn ?? pokerState.options.startingStack}
+        actionableSeats={myRebuySeat != null ? [myRebuySeat] : []}
+        onRebuy={() => net.sendPokerRebuy()}
+        onDecline={() => net.sendPokerRebuyDecline()}
+        secondsLeft={net.room?.pokerRebuyDeadlineAt
+          ? Math.max(0, Math.ceil((net.room.pokerRebuyDeadlineAt - Date.now()) / 1000))
+          : null}
+        busySeat={net.pokerRebuy?.status === 'pending' ? myRebuySeat : null}
+        walletBalance={net.pokerRebuy?.balance ?? null}
+        insufficient={net.pokerRebuy?.status === 'insufficient'}
+        failed={net.pokerRebuy?.status === 'refused'}
+      />
+    ) : null;
     const social = (
       <>
         {inviteToast}
@@ -432,6 +456,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           rematch={rematchUi}
           recovery={net.room?.pokerRecovery}
           socialSlot={social}
+          rebuySlot={rebuySlot}
         />
       </>
     );

@@ -224,6 +224,37 @@ export function buyInIdempotencyKey(matchId: string, userId: string): string {
 export interface DurableBuyInRow { userId: string; delta: number; idempotencyKey: string; roomCode: string | null; }
 
 /**
+ * The canonical idempotency key of ONE between-hands rebuy debit (§17, Stage 38.0.3C).
+ * It is the SHARED contract between the debit writer and the recovery validator, exactly
+ * like `buyInIdempotencyKey` — and it is deliberately a DIFFERENT ledger reason, because
+ * durable ownership requires exactly one `table_buy_in` row per initial participant.
+ */
+export function rebuyIdempotencyKey(matchId: string, handNumber: number, userId: string): string {
+  return `rebuy:${matchId}:${handNumber}:${userId}`;
+}
+
+/**
+ * Strictly parse a rebuy key back into its parts. FULL parse — never a substring test —
+ * so a key that merely CONTAINS the match id (or carries extra segments) is rejected.
+ * `matchId` and `userId` are opaque ids that never contain ':' in this codebase (uuid /
+ * uuid), which is what makes the 4-segment split unambiguous.
+ */
+export function parseRebuyKey(key: string): { matchId: string; handNumber: number; userId: string } | null {
+  if (typeof key !== 'string') return null;
+  const parts = key.split(':');
+  if (parts.length !== 4) return null;
+  const [tag, matchId, hand, userId] = parts;
+  if (tag !== 'rebuy' || !matchId || !userId) return null;
+  if (!/^[0-9]+$/.test(hand)) return null;
+  const handNumber = Number(hand);
+  if (!Number.isSafeInteger(handNumber) || handNumber < 1) return null;
+  return { matchId, handNumber, userId };
+}
+
+/** One durable `table_rebuy` ledger row (§17). */
+export interface DurableRebuyRow { userId: string; delta: number; idempotencyKey: string; roomCode: string | null; }
+
+/**
  * (37.7.15 FAIL 2) The COMPLETE durable evidence for one economy match: its `poker_matches` row
  * (strictly parsed), EVERY `table_buy_in` ledger row, and the settlement outcome. `matchLedgerState`
  * returned only a COUNT + settlement, which cannot prove that the committed debits belong to the
@@ -239,6 +270,11 @@ export interface MatchDurableEvidence {
   matchRowCorrupt: boolean;
   /** Every `table_buy_in` ledger row recorded against this matchId. */
   buyIns: DurableBuyInRow[];
+  /** Every `table_rebuy` ledger row recorded against this matchId (§17). Read from the
+   *  SAME snapshot as the buy-ins, so a rebuy committing mid-read can never be observed
+   *  half-applied. Kept SEPARATE from `buyIns`: the initial-ownership rule (exactly one
+   *  buy-in per participant) must stay untouched. */
+  rebuys: DurableRebuyRow[];
   settlement: MatchOutcome | null;
 }
 
@@ -264,12 +300,17 @@ async function readEvidence(tx: PostgresJsDatabase, matchId: string, lock: boole
     userId: pokerLedger.userId, delta: pokerLedger.delta, idempotencyKey: pokerLedger.idempotencyKey, roomCode: pokerLedger.roomCode,
   }).from(pokerLedger)
     .where(and(eq(pokerLedger.matchId, matchId), eq(pokerLedger.reason, 'table_buy_in' satisfies PokerLedgerReason)));
+  const rebuyRows = await tx.select({
+    userId: pokerLedger.userId, delta: pokerLedger.delta, idempotencyKey: pokerLedger.idempotencyKey, roomCode: pokerLedger.roomCode,
+  }).from(pokerLedger)
+    .where(and(eq(pokerLedger.matchId, matchId), eq(pokerLedger.reason, 'table_rebuy' satisfies PokerLedgerReason)));
   const [s] = await tx.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
   return {
     matchRowExists: !!row,
     match: parsed,
     matchRowCorrupt: !!row && !parsed,
     buyIns: buyInRows.map((b) => ({ userId: b.userId, delta: b.delta, idempotencyKey: b.idempotencyKey, roomCode: b.roomCode })),
+    rebuys: rebuyRows.map((b) => ({ userId: b.userId, delta: b.delta, idempotencyKey: b.idempotencyKey, roomCode: b.roomCode })),
     settlement: (s?.outcome as MatchOutcome) ?? null,
   };
 }
@@ -281,7 +322,7 @@ async function readEvidence(tx: PostgresJsDatabase, matchId: string, lock: boole
  */
 export async function matchDurableEvidence(matchId: string): Promise<MatchDurableEvidence> {
   const conn = await getDb();
-  if (!conn) return { matchRowExists: false, match: null, matchRowCorrupt: false, buyIns: [], settlement: null };
+  if (!conn) return { matchRowExists: false, match: null, matchRowCorrupt: false, buyIns: [], rebuys: [], settlement: null };
   const db = conn.db as PostgresJsDatabase;
   return db.transaction(async (tx) => readEvidence(tx, matchId, false), { isolationLevel: 'repeatable read', accessMode: 'read only' });
 }
@@ -315,7 +356,7 @@ export async function settleMatchWithOwnershipTx(
   roomCode: string,
   expected: { matchId: string; buyIn: number; seats: ReadonlyArray<DurableMatchSeat> },
   outcome: MatchOutcome,
-  mutate: (tx: PostgresJsDatabase) => Promise<void>,
+  mutate: (tx: PostgresJsDatabase, evidence: MatchDurableEvidence) => Promise<void>,
   validate: (roomCode: string, expected: { matchId: string; buyIn: number; seats: ReadonlyArray<DurableMatchSeat> }, evidence: MatchDurableEvidence) => { structure: string },
 ): Promise<MatchOutcome> {
   const db = await database();
@@ -332,7 +373,9 @@ export async function settleMatchWithOwnershipTx(
       existing = (row?.outcome as MatchOutcome) ?? null;
     }
     const winner = resolveSettlementOutcome(expected.matchId, claimed.length > 0, existing, outcome);
-    await mutate(tx);
+    // The mutator receives the PROVEN evidence from this same locked snapshot, so a refund
+    // can credit `initial + validated rebuys` without a second (racy) read (§17).
+    await mutate(tx, evidence);
     return winner;
   });
 }

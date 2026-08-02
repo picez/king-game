@@ -90,6 +90,9 @@ export interface RoomSnapshot {
   pokerSmallBlind?: number;
   pokerBigBlind?: number;
   pokerBuyIn?: number;
+  /** §17 — the ABSOLUTE server deadline (epoch ms) of an open between-hands rebuy window.
+   *  Display only: the client renders a countdown from it and never decides anything. */
+  pokerRebuyDeadlineAt?: number;
   pokerBlindGrowth?: number;
   /** Minimal PUBLIC recovery status (§16, 37.7.4) — NEVER any userId/matchId/escrow. Lets the
    *  client show a banner: the previous match was cancelled (buy-ins refunded) or the table is
@@ -256,6 +259,17 @@ export type ClientMessage =
    */
   | { t: 'REMATCH_READY' }
   | { t: 'REMATCH_DECLINE' }
+  /**
+   * Between-hands REBUY for an ONLINE bankroll table (§17, Stage 38.0.3C). The payload is
+   * DELIBERATELY EMPTY: a rebuy moves real chips, so nothing about it may come from the
+   * client. The server derives the room from the socket's session, the userId from the
+   * authenticated non-guest account, the seat from authoritative membership, the matchId
+   * from the room's BOUND escrow, the hand number from the authoritative state, and the
+   * amount from `room.pokerBuyIn`. Any extra field is ignored (and asserted against in
+   * tests). Never routed through the generic ACTION_REQUEST path.
+   */
+  | { t: 'POKER_REBUY_REQUEST' }
+  | { t: 'POKER_REBUY_DECLINE' }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -263,6 +277,9 @@ export type ClientMessage =
 // ---------------------------------------------------------------------------
 
 export type ServerMessage =
+  /** §17 PRIVATE rebuy result — sent ONLY to the requester, so their wallet balance
+   *  refreshes without a reload. Never broadcast; carries no userId/matchId/ledger key. */
+  | { t: 'POKER_REBUY_RESULT'; balance: number; applied: boolean }
   /** Sent right after CREATE/JOIN/RECONNECT — carries the caller's identity. */
   | { t: 'WELCOME'; clientId: string; reconnectToken: string; room: RoomSnapshot }
   /** Lobby changed (someone joined/left, settings changed). */
@@ -349,7 +366,8 @@ export type ErrorCode =
   | 'NOT_FRIENDS'
   /** Friend room-invite failed: the sender is not currently in a room (Stage 25.7). */
   | 'NOT_IN_ROOM'
-  /** Bankroll poker (§16): a seat lacks the buy-in / the wallet economy failed. */
+  /** Bankroll poker (§16): a seat lacks the buy-in / the wallet economy failed. Also the
+   *  §17 rebuy refusal when the wallet cannot cover it — nothing is ever debited. */
   | 'INSUFFICIENT_CHIPS'
   /** Bankroll poker (§16): the table is human-only / a seat is not signed in. */
   | 'NOT_SIGNED_IN'
@@ -358,6 +376,9 @@ export type ErrorCode =
   /** Bankroll poker (§16, 37.7.6): the previous match's settlement (refund) is not yet
    *  confirmed — the table is temporarily unavailable and retries automatically. */
   | 'SETTLEMENT_PENDING'
+  /** A rebuy was refused: the window is closed/expired, the seat is not eligible, the
+   *  decision is already made, or the caller is not the seat's authenticated owner (§17). */
+  | 'REBUY_NOT_ALLOWED'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

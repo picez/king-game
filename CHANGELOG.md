@@ -26,8 +26,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     reason the online debit will use. It cannot reuse `table_buy_in`: durable ownership
     requires exactly one initial buy-in row per participant and treats any extra as
     corrupt evidence. Online bankroll tables are unchanged for now — the server closes the
-    window immediately there, exactly reproducing the previous behaviour, until the
-    wallet-backed online rebuy lands. [`POKER_RULES.md §17`](POKER_RULES.md)
+    reason cannot be `table_buy_in`: durable ownership requires exactly one initial buy-in
+    row per participant and treats any extra as corrupt evidence.
+  - **Online bankroll tables (Stage 38.0.3C):** the busted player gets a real, wallet-backed
+    rebuy. The window is server-authoritative and lasts **20 seconds** — an absolute
+    deadline that a reload, reconnect or restart cannot extend, closing early once everyone
+    has answered, treating silence as a decline, and never closing over a debit in flight.
+    The client sends an **empty** intent; the server derives the room, account, seat, match,
+    hand and amount. Each debit is one immutable ledger row, so a double tap or a replay
+    charges exactly once, and a crash between the debit and the table update is reconciled
+    exactly once. A payout now pays the **funded total** (buy-ins + rebuys) and a
+    cancellation refunds each account its buy-in plus its own rebuys; anything that cannot
+    be proven freezes the table instead of guessing. Only your own seat shows a balance —
+    everyone else sees a public decision status. [`POKER_RULES.md §17`](POKER_RULES.md)
 
 ### Fixed
 

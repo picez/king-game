@@ -270,7 +270,16 @@ bot — and an explicit **Continue** closes the window. No wallet, network or DB
 
 **Online bankroll play.** A real debit of `room.pokerBuyIn` from the player's own chip
 wallet, allowed only for their **own** authenticated zero-stack seat and only when the
-balance covers it.
+balance covers it. The window is **server-authoritative and lasts 20 seconds**: an
+absolute deadline is minted once per (match, hand), so a reload, reconnect or restart can
+never extend it; it closes early once every eligible seat has answered; an unanswered seat
+counts as a decline; and an in-flight debit always blocks the close. The client sends an
+EMPTY intent — the server derives the room, account, seat, match, hand and amount itself.
+Each debit is one immutable `table_rebuy` ledger row keyed
+`rebuy:<matchId>:<handNumber>:<userId>`, so a double tap, a replay or a reconnect can only
+ever charge once. A crash between the debit and the state update is reconciled exactly
+once from that row; anything that cannot be reconciled freezes the table for an operator
+rather than minting or dropping chips.
 
 **Never allowed:** a top-up while the stack is above 0; a rebuy during betting; a second
 rebuy for the same seat in the same window; after a decline or the deadline; for another
@@ -282,7 +291,10 @@ answered is eliminated then. Only after the close does the button move, the next
 deal (≥2 active seats) or the match finish (1 active seat).
 
 **Chip conservation** becomes `initial chips + every confirmed rebuy = stacks + committed
-+ pots`. A rebuy is the only way chips enter a match after the deal.
++ pots`. A rebuy is the only way chips enter a match after the deal. Online this extends to
+the money: a match's **funded total** is its initial buy-ins plus every validated rebuy, so
+a payout credits exactly that total and a cancellation refunds each account its buy-in plus
+its own rebuys. A rebuy never mints a new match id — a rematch still does.
 
 ## §15 Determinism & engine contract
 

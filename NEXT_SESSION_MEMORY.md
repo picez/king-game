@@ -789,3 +789,36 @@ Use this file as the first read after archiving this chat. It is intentionally s
 6. **PG matrix (20 scenarios)** listed in the Stage 38.0.3B prompt section J, plus the
    online UI (own seat only, wallet balance, countdown, disabled/loading, insufficient
    message, aria-live) and the public-snapshot leak test.
+
+### Stage 38.0.3C — ONLINE bankroll rebuy COMPLETE (Unreleased)
+- Worked from HEAD `a23b78d`. The §17 handoff from 38.0.3B is now **fully implemented**;
+  the temporary "online auto-closes the window" fallback is GONE for bankroll tables.
+  No new migration (0013 already existed), version 0.4.8, games 7, achievements 52.
+- **Protocol:** `POKER_REBUY_REQUEST` / `POKER_REBUY_DECLINE`, EMPTY payload. Server derives
+  room/user/seat/match/hand/amount; refuses if `state.options.startingStack !== room.pokerBuyIn`.
+  New ErrorCode `REBUY_NOT_ALLOWED`; `INSUFFICIENT_CHIPS` reused. Private reply
+  `POKER_REBUY_RESULT {balance, applied}` goes ONLY to the requester.
+- **Window:** `server/pokerRebuy.ts` owns it. `pokerRebuyDeadlineAt/Revision/MatchId/Hand`
+  persisted; minted once per (match, hand); early close when all answered; timeout =
+  decline; `pokerRebuyInFlight` (never persisted) blocks any close. Public snapshot exposes
+  ONLY `pokerRebuyDeadlineAt`. `serverCore.autoAdvance` closes a rebuy window only for a
+  NON-bankroll poker room; bankroll windows belong to index.ts (`syncRebuyWindow` /
+  `resolveRebuyWindow`, both under `withRoomLock`).
+- **Durable evidence:** `rebuyIdempotencyKey`/`parseRebuyKey` (FULL 4-segment parse),
+  `MatchDurableEvidence.rebuys` read in the same REPEATABLE READ snapshot,
+  `validateRebuyContributions` + new structure `rebuy_mismatch`, plus
+  `fundedTotalFor`/`contributionForUser`. `settleMatchWithOwnershipTx` now passes the proven
+  evidence into its mutator.
+- **Conservation:** `fundedTotalOf(esc, state)` in pokerParticipants; the winner must hold
+  the funded total; `payoutStacks` also cross-checks durable rebuy COUNT vs
+  `state.appliedRebuys`; `refundBuyInsResult` credits `initial + that user's rebuys`.
+- **Recovery:** `reconcileRebuys` — applies a committed-but-unapplied debit exactly once
+  (exact + bound + same hand + seat still eligible), freezes on a claim without a row / any
+  malformed/foreign/wrong-delta row, `retry_pending` on DB failure. Runs before every expiry
+  close and for every restored room at bootstrap.
+- **UI:** `PokerRebuyPanel` reused online via `PokerGameScreen.rebuySlot`; own seat only,
+  countdown from the server deadline, private balance from `POKER_REBUY_RESULT`,
+  disabled-while-pending, insufficient/refused states, aria-live.
+- **Tests:** `src/net/pokerRebuy.integration.test.ts` (17 real-PG tests covering the
+  20-scenario matrix) + `src/net/pokerRebuyProtocol.test.ts` (20 pure). Real PG: **62 poker
+  files / 650 tests, 0 skipped**.

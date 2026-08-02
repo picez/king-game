@@ -28,7 +28,7 @@ import {
   listUnsettledMatches, buyInIdempotencyKey, InsufficientChipsError, SettlementConflictError,
   DurableOwnershipError, type DurableMatch,
 } from './db/pokerWallet';
-import { validateDurableOwnership } from './pokerDurableOwnership';
+import { validateDurableOwnership, validateRebuyContributions } from './pokerDurableOwnership';
 
 /** A bankroll room = online poker with a server-derived buy-in (economy enabled). */
 export function isBankrollRoom(room: ServerRoom): boolean {
@@ -483,7 +483,16 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
     // (37.7.16 FAIL 3) The ownership proof happens INSIDE the settlement transaction (a preflight
     // SELECT would be TOCTOU): the durable row is locked, the buy-in ledger is read from the SAME
     // snapshot, and the settlement row is only claimed once the evidence is EXACT.
-    await settleMatchWithOwnershipTx(room.code, esc, 'payout', async (tx) => {
+    await settleMatchWithOwnershipTx(room.code, esc, 'payout', async (tx, evidence) => {
+      // §17 — the DURABLE rebuy ledger must agree with the state's public applied-rebuy
+      // list before a chip moves. `validateDurableOwnership` already proved each row is
+      // ownable; this proves the COUNT matches what the table actually played, so a state
+      // claiming a rebuy the ledger never recorded (or vice versa) can never be paid.
+      const contributions = validateRebuyContributions(room.code, esc, evidence);
+      if (contributions === null) throw new DurableOwnershipError('rebuy_mismatch');
+      let durableRebuys = 0;
+      for (const c of contributions.values()) durableRebuys += c.hands.length;
+      if (durableRebuys !== (state.appliedRebuys?.length ?? 0)) throw new DurableOwnershipError('rebuy_count_mismatch');
       for (const s of esc.seats) {
         const finalStack = state.stacksBySeat[s.seat] ?? 0;
         if (finalStack > 0) {
@@ -545,9 +554,15 @@ export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult
   try {
     // (37.7.16 FAIL 3) Same atomic ownership proof as the payout: a match whose durable record or
     // buy-in ledger was destroyed/altered after the start can never credit unproven accounts.
-    await settleMatchWithOwnershipTx(room.code, esc, 'cancel_refund', async (tx) => {
+    await settleMatchWithOwnershipTx(room.code, esc, 'cancel_refund', async (tx, evidence) => {
+      // §17 — a cancelled match returns each account's FULL contribution: their initial
+      // buy-in PLUS every rebuy they paid for. One refund key per user is still enough
+      // (the delta carries the whole validated amount), so a repeat stays idempotent.
+      const contributions = validateRebuyContributions(room.code, esc, evidence);
+      if (contributions === null) throw new DurableOwnershipError('rebuy_mismatch');
       for (const s of esc.seats) {
-        await adjustWalletTx(tx, s.userId, s.amount, 'table_cancel_refund', `refund:${esc.matchId}:${s.userId}`, { matchId: esc.matchId, roomCode: room.code });
+        const owed = s.amount + (contributions.get(s.userId)?.total ?? 0);
+        await adjustWalletTx(tx, s.userId, owed, 'table_cancel_refund', `refund:${esc.matchId}:${s.userId}`, { matchId: esc.matchId, roomCode: room.code });
       }
     }, validateDurableOwnership);
     esc.status = 'cancelled';

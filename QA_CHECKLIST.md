@@ -1503,5 +1503,22 @@ and the local screen). Baseline before the fix: 1484 violations; now 0.
 - [ ] **Layout.** At 360 and 390 the panel sits under the review and above the social
       toolbar — it covers neither the table, the toolbar nor any button; buttons are a
       comfortable tap size; Arabic RTL mirrors the text but not the seats.
-- [ ] **Online is unchanged for now:** a busted seat online is still eliminated
-      immediately (the wallet-backed online rebuy is not shipped yet).
+## Poker between-hands rebuy — ONLINE (Stage 38.0.3C)
+
+- [ ] **Your own seat only.** Bust online: a rebuy panel appears under the hand review with
+      your wallet balance, "Add {buy-in}", "Decline" and a 20-second countdown. Another
+      player's busted seat shows only their name + "Deciding…" — never a balance.
+- [ ] **The debit is real and single.** Press Add: your stack returns to one buy-in, your
+      wallet drops by exactly the buy-in and refreshes without a reload. Tapping twice
+      quickly still charges once.
+- [ ] **Not enough chips** → a clear message, nothing debited, the stack stays 0, and you
+      can still Decline (or claim daily chips and retry before the deadline).
+- [ ] **The deadline is the server's.** Reload or reconnect mid-window: the countdown
+      resumes at the same instant, never restarts. Silence at 0 counts as a decline.
+- [ ] **Everyone answered** → the window closes immediately; a seat that bought in plays
+      the next hand, a seat that declined is eliminated, and a last-player-standing match
+      finishes and pays out as before.
+- [ ] **The payout includes rebuys**: the winner's credit equals every buy-in plus every
+      rebuy taken at the table.
+- [ ] **Layout** at 360/390 and in Arabic RTL: the panel never covers the table, the social
+      toolbar or the buttons.
