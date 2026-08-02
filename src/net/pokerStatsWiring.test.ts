@@ -42,13 +42,16 @@ describe('poker stats are wired into the online finish path (Stage 37.4)', () =>
 describe('poker stats add NO migration but DO feed achievements (Stage 37.4)', () => {
   it('poker STATS add no stats migration (they reuse the shared game_type tables)', () => {
     // Poker STATS reuse the shared games/game_players/user_stats tables via the
-    // free-text `game_type='poker'` — no stats migration. The ONLY poker-referencing
-    // migrations are the Stage 37.7 ECONOMY ones (0010 wallet/ledger, 0011 settlement
-    // gate) — a SEPARATE concern that must NOT touch the stats tables.
+    // free-text `game_type='poker'` — no stats migration. Every poker-referencing
+    // migration is an ECONOMY one (0010 wallet/ledger, 0011 settlement gate, 0012
+    // durable matches, 0013 the `table_rebuy` ledger reason) — a SEPARATE concern that
+    // must NOT touch the stats tables.
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
     const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker/i));
-    expect(pokerMigrations).toEqual(['0010_poker_wallet.sql', '0011_poker_settlement.sql', '0012_poker_matches.sql']);
+    expect(pokerMigrations).toEqual([
+      '0010_poker_wallet.sql', '0011_poker_settlement.sql', '0012_poker_matches.sql', '0013_poker_rebuy.sql',
+    ]);
     // The economy migrations create ONLY wallet/ledger/settlement tables — never stats tables.
     for (const f of pokerMigrations) {
       expect(read(join('server/db/migrations', f)), f).not.toMatch(/CREATE TABLE[^;]*\b(games|game_players|user_stats)\b/i);

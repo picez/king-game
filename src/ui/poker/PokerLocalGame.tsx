@@ -11,6 +11,8 @@ import PokerSetup, { type PokerSeatConfig, type PokerLocalOptions } from './Poke
 import PokerGameScreen from './PokerGameScreen';
 import PokerFinished from './PokerFinished';
 import PokerActionLog from './PokerActionLog';
+import PokerRebuyPanel from './PokerRebuyPanel';
+import { rebuyWindowOf, rebuyAmount } from '../../games/poker/rules';
 import { needsHandover, viewerFor } from './passAndPlay';
 
 /** Pause between bot moves so humans can follow the betting unfold. */
@@ -105,9 +107,24 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
   // Local has no RoomSocial, so the SAME compact history control rides in the shared
   // in-flow social dock between the table and the action row (Stage 38.0.3) — a fixed
   // corner cluster provably covered the betting controls on a phone.
+  // §17 LOCAL rebuy: free, and the device owner decides for EVERY busted seat — human or
+  // bot — so a solo player can keep a bot in the game. No wallet, no network, no DB.
+  const win = rebuyWindowOf(view);
+  const rebuySlot = win ? (
+    <PokerRebuyPanel
+      state={view}
+      amount={rebuyAmount(view)}
+      actionableSeats={win.eligibleSeats}
+      onRebuy={(s) => apply({ type: 'REBUY', seat: s })}
+      onDecline={(s) => apply({ type: 'DECLINE_REBUY', seat: s })}
+      onContinue={() => apply({ type: 'CLOSE_REBUY_WINDOW' })}
+    />
+  ) : null;
+
   return (
     <PokerGameScreen
       state={view} mySeat={seat} apply={apply} onExit={onExit}
+      rebuySlot={rebuySlot}
       socialSlot={
         <div className="social-controls social-controls--docked">
           <div className="social-controls__row">

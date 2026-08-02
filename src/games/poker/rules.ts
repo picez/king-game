@@ -5,7 +5,7 @@
 // See POKER_RULES.md §2/§5/§6.
 // ---------------------------------------------------------------------------
 
-import type { PokerAction, PokerOptions, PokerState } from './types';
+import type { PokerAction, PokerOptions, PokerRebuyWindow, PokerState } from './types';
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
@@ -28,7 +28,13 @@ export function isValidWagerAmount(amount: unknown): amount is number {
  * mid-hand. The server boundary rejects these before the reducer runs.
  */
 export function isPokerLifecycleAction(action: { type: string }): boolean {
-  return action.type === 'START_GAME' || action.type === 'START_NEXT_HAND';
+  // CLOSE_REBUY_WINDOW is server/local-authoritative too: closing the window eliminates
+  // seats, so a seated client may never drive it through ACTION_REQUEST (§17). REBUY and
+  // DECLINE_REBUY are NOT lifecycle — they are per-seat player decisions, but online they
+  // travel on their own authenticated intents, never as a raw ACTION_REQUEST, because the
+  // server must debit a wallet before applying one.
+  return action.type === 'START_GAME' || action.type === 'START_NEXT_HAND'
+    || action.type === 'CLOSE_REBUY_WINDOW' || action.type === 'REBUY' || action.type === 'DECLINE_REBUY';
 }
 
 /** A finite, safe integer (no NaN / Infinity / fraction / string). */
@@ -61,7 +67,13 @@ export function isPokerAction(value: unknown): value is PokerAction {
   const a = value as { type?: unknown; amount?: unknown };
   switch (a.type) {
     case 'FOLD': case 'CHECK': case 'CALL': case 'ALL_IN': case 'START_NEXT_HAND':
+    case 'CLOSE_REBUY_WINDOW':
       return true;
+    // §17 — a rebuy action names a SEAT and nothing else. It carries no amount by
+    // design: the reducer derives the size from `options.startingStack`, so neither a
+    // client nor a caller can choose what a rebuy is worth.
+    case 'REBUY': case 'DECLINE_REBUY':
+      return isFiniteSafeInt((value as { seat?: unknown }).seat) && (value as { seat: number }).seat >= 0;
     case 'BET': case 'RAISE':
       return isValidWagerAmount(a.amount);
     case 'START_GAME': {
@@ -270,4 +282,50 @@ export function legalActions(state: PokerState, seat: number): LegalActions {
     maxTo,
     canAllIn,
   };
+}
+
+// --- Between-hands rebuy (§17) ----------------------------------------------
+
+/** The OPEN rebuy window, or null when the match is not paused on one. */
+export function rebuyWindowOf(state: PokerState): PokerRebuyWindow | null {
+  return state.phase === 'rebuy_window' ? (state.rebuyWindow ?? null) : null;
+}
+
+/**
+ * The chips one rebuy is worth. ALWAYS the configured starting stack — locally the stack
+ * the host picked, online the table's buy-in — so no client, action or caller supplies an
+ * amount. The server additionally asserts this equals `room.pokerBuyIn`.
+ */
+export function rebuyAmount(state: PokerState): number {
+  return state.options.startingStack;
+}
+
+/** Whether `seat` may still buy back in right now (eligible, busted, undecided). */
+export function canSeatRebuy(state: PokerState, seat: number): boolean {
+  const w = rebuyWindowOf(state);
+  if (!w) return false;
+  if (!Number.isSafeInteger(seat) || seat < 0 || seat >= state.playerCount) return false;
+  if (!w.eligibleSeats.includes(seat)) return false;
+  if (state.eliminatedBySeat[seat]) return false;
+  if (state.stacksBySeat[seat] !== 0) return false;
+  return (w.decisionBySeat[seat] ?? 'pending') === 'pending';
+}
+
+/** Eligible seats that still owe a decision (empty ⇒ the window may close early). */
+export function pendingRebuySeats(state: PokerState): number[] {
+  const w = rebuyWindowOf(state);
+  if (!w) return [];
+  return w.eligibleSeats.filter((seat: number) => (w.decisionBySeat[seat] ?? 'pending') === 'pending');
+}
+
+/** Seats that have bought back in during the CURRENT window. */
+export function reboughtSeats(state: PokerState): number[] {
+  const w = rebuyWindowOf(state);
+  if (!w) return [];
+  return w.eligibleSeats.filter((seat: number) => w.decisionBySeat[seat] === 'rebought');
+}
+
+/** Total chips added to the match by confirmed rebuys (chip-conservation term). */
+export function rebuyChipsAdded(state: PokerState): number {
+  return (state.appliedRebuys ?? []).length * state.options.startingStack;
 }

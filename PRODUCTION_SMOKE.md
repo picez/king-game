@@ -710,3 +710,19 @@ Requires Postgres (migration 0010 applied) + a signed-in account.
    ~7 s, then the next hand deals. Finish the match → the winner's wallet gains the escrow.
 4. Abandon a funded table (all leave) → each buy-in is refunded once (balances restored).
 5. Verify a bot cannot be added to a bankroll room and a signed-out user sees a sign-in hint.
+
+## Poker between-hands rebuy — LOCAL only (Stage 38.0.3B)
+
+Nothing in this stage touches production money: the local rebuy is free and the online
+path still closes the window immediately (a busted online seat is eliminated exactly as
+before). The one production action required is the schema migration.
+
+1. **Apply migration 0013** (see below) before/with the deploy. It only widens the
+   `poker_ledger.reason` CHECK with `table_rebuy`; it writes no rows and is safe to
+   re-run.
+2. **Local Poker:** bust a seat → the "Buy back in" panel appears; Add restores the
+   starting stack; Continue deals on; Decline eliminates.
+3. **Online Poker:** unchanged — a busted seat is eliminated and the match continues or
+   ends as before. No rebuy UI is offered online yet.
+4. `/health/diagnostics` still reports `db:"enabled"`, games 7, and the authenticated
+   wallet endpoints keep working (balance + daily claim untouched).

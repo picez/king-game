@@ -27,6 +27,9 @@ interface Props {
    * what goes in it (online: RoomSocial docked; local: the action-history control).
    */
   socialSlot?: ReactNode;
+  /** The between-hands rebuy panel (§17), rendered under the hand review so the showdown
+   *  result stays on screen while the busted seats decide. */
+  rebuySlot?: ReactNode;
 }
 
 /**
@@ -40,7 +43,7 @@ interface Props {
  * `PokerActionLog` control owned by the caller — RoomSocial's `utilitySlot` online,
  * a matching bottom-end cluster locally — so exactly one log control exists per table.
  */
-export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly, socialSlot }: Props) {
+export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly, socialSlot, rebuySlot }: Props) {
   const { t } = useI18n();
   const pot = state.contributedBySeat.reduce((a, b) => a + b, 0);
   const myTurn = state.phase === 'betting' && mySeat != null && state.toActSeat === mySeat && !readOnly;
@@ -48,7 +51,9 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
   const sb = smallBlindSeat(state);
   const bb = bigBlindSeat(state);
   const [showHelp, setShowHelp] = useState(false);
-  const inReview = state.phase === 'hand_complete';
+  // The hand review stays up through the rebuy window (§17) so the showdown that
+  // busted someone is still readable while they decide.
+  const inReview = state.phase === 'hand_complete' || state.phase === 'rebuy_window';
 
   return (
     <div className="screen poker-screen">
@@ -117,8 +122,16 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
       {/* Showdown / fold-win review (§16 G). Local shows a Next button; online is
           server-paced (auto-advances) so the overlay is display-only. */}
       {inReview && (
-        <PokerShowdownReview state={state} mySeat={mySeat} onNext={(online || readOnly) ? undefined : () => apply({ type: 'START_NEXT_HAND' })} />
+        <PokerShowdownReview
+          state={state} mySeat={mySeat}
+          onNext={(online || readOnly || state.phase === 'rebuy_window')
+            ? undefined
+            : () => apply({ type: 'START_NEXT_HAND' })}
+        />
       )}
+
+      {/* Between-hands rebuy (§17) — under the review, above the social/action rows. */}
+      {rebuySlot}
 
       {/* Social / utility toolbar — IN FLOW, so it can never cover the controls below. */}
       {socialSlot && <div className="poker-social-dock">{socialSlot}</div>}

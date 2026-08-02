@@ -32,6 +32,8 @@ const BASE = `http://localhost:${VITE_PORT}/scripts/layout-harness/index.html`;
 
 const args = process.argv.slice(2);
 const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
+/** `--only <substring>` narrows the matrix while iterating on one scenario family. */
+const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -39,6 +41,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** The captures worth keeping as owner evidence (a shot per check is far too slow). */
 const SHOT_SET = new Set([
   '360/4p-flop/closed', '390/4p-river/closed', '390/4p-rtl/closed',
+  '360/4p-rebuy/closed', '390/4p-rebuy/closed', '390/4p-rebuy-poor/closed',
+  '390/4p-rebuy-rtl/closed', '360/4p-rebuy-local/closed', '390/6p-rebuy/closed',
   '390/2p-river/closed', '390/6p-flop/closed', '390/6p-states/closed',
   '390/4p-river/history-open', '390/4p-river/chat-open', '390/4p-local/closed',
   'desktop/6p-river/closed', '360/4p-flop/history-open',
@@ -127,6 +131,9 @@ const PROBE = `JSON.stringify((() => {
     ...all('.poker-log-panel'), ...all('.chat-drawer'), ...all('.reaction-bar'),
     ...all('.poker-social-sheet'),
   ];
+  // The rebuy panel is IN FLOW: it must not intersect the table, the toolbar or the controls.
+  const rebuy = one('.poker-rebuy');
+  const rebuyBtns = [...document.querySelectorAll('.poker-rebuy button')];
   const localUtil = one('.poker-local-utility');
 
   const v = [];
@@ -158,6 +165,17 @@ const PROBE = `JSON.stringify((() => {
   for (const p of panels) {
     for (const c of critical) if (hit(p, c)) add('panel-over-control', overlap(p, c));
     if (hit(p, actions)) add('panel-over-actions', overlap(p, actions));
+  }
+
+  if (rebuy) {
+    if (hit(rebuy, table)) add('rebuy-over-table', overlap(rebuy, table));
+    if (hit(rebuy, actions)) add('rebuy-over-actions', overlap(rebuy, actions));
+    if (cluster && hit(rebuy, cluster)) add('rebuy-over-toolbar', overlap(rebuy, cluster));
+    for (const c of critical) if (hit(rebuy, c)) add('rebuy-over-control', overlap(rebuy, c));
+    for (const b of rebuyBtns) {
+      const r = rect(b);
+      if (live(r) && (r.w < 43.5 || r.h < 43.5)) add('rebuy-touch-target', Math.round(r.w) + 'x' + Math.round(r.h));
+    }
   }
 
   // 4. board cards must be inside the board and not squeezed away
@@ -216,6 +234,12 @@ function scenarios() {
   out.push({ name: '6p-states', q: 'seats=6&street=turn&states=1' });
   out.push({ name: '4p-states-rtl', q: 'seats=4&street=turn&states=1&dir=rtl&lang=ar' });
   out.push({ name: '4p-local', q: 'seats=4&street=flop&local=1' });
+  // §17 rebuy window — the panel must never cover the toolbar, table or controls.
+  out.push({ name: '4p-rebuy', q: 'seats=4&street=river&rebuy=1' });
+  out.push({ name: '6p-rebuy', q: 'seats=6&street=river&rebuy=1' });
+  out.push({ name: '4p-rebuy-local', q: 'seats=4&street=river&rebuy=1&local=1' });
+  out.push({ name: '4p-rebuy-poor', q: 'seats=4&street=river&rebuy=1&poor=1' });
+  out.push({ name: '4p-rebuy-rtl', q: 'seats=4&street=river&rebuy=1&dir=rtl&lang=ar' });
   return out;
 }
 
@@ -256,7 +280,7 @@ async function run() {
         { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile, screenWidth: vp.w, screenHeight: vp.h });
       console.log(`\n[${vp.tag} ${vp.w}x${vp.h}]`);
 
-      for (const sc of scenarios()) {
+      for (const sc of scenarios().filter((x) => !ONLY || x.name.includes(ONLY))) {
         const isLocal = sc.q.includes('local=1');
         await cdp.send('Page.navigate', { url: `${BASE}?${sc.q}` });
         // A native confirm() would block the renderer and wedge every later CDP call.
@@ -265,7 +289,9 @@ async function run() {
         // probing a half-mounted page would silently under-report.
         let mounted = false;
         for (let i = 0; i < 50; i++) {
-          if (await cdp.evaluate(`!!document.querySelector('.poker-actions')`)) { mounted = true; break; }
+          // During a rebuy window there are no betting controls at all (that is the
+          // point), so the panel is an equally valid readiness signal.
+          if (await cdp.evaluate(`!!document.querySelector('.poker-actions, .poker-rebuy')`)) { mounted = true; break; }
           await sleep(100);
         }
         await sleep(120);

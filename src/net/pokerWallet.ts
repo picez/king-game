@@ -10,7 +10,11 @@
 export const DAILY_CLAIM_CHIPS = 1_000_000;
 
 /** Ledger reasons (mirrors the DB CHECK). */
-export type PokerLedgerReason = 'daily_claim' | 'table_buy_in' | 'table_payout' | 'table_cancel_refund';
+/** Every reason a chip balance can change. `table_rebuy` (migration 0013, §17) is a
+ *  SEPARATE reason from `table_buy_in` on purpose: durable ownership requires exactly one
+ *  initial buy-in row per participant, so a rebuy written under that reason would be read
+ *  as a duplicate debit and freeze its own match. */
+export type PokerLedgerReason = 'daily_claim' | 'table_buy_in' | 'table_rebuy' | 'table_payout' | 'table_cancel_refund';
 
 /** The public wallet view returned by GET /api/me/poker-wallet + POST daily-claim. */
 export interface PokerWalletView {

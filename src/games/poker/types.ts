@@ -51,11 +51,40 @@ export type PokerStreet = 'preflop' | 'flop' | 'turn' | 'river';
 /**
  * Phases of a poker match:
  *  - 'betting'       → a betting round is in progress on the current street;
- *  - 'hand_complete' → the hand was resolved (pot(s) awarded); START_NEXT_HAND
- *                      deals the next hand. `lastHand` holds the public result;
+ *  - 'rebuy_window'  → the hand was resolved and at least one seat busted; those seats
+ *                      may buy back in before the match continues (§17). `lastHand`
+ *                      still holds the public result, so the showdown review stays on
+ *                      screen. NOBODY is eliminated and the match cannot finish until
+ *                      the window closes;
+ *  - 'hand_complete' → the hand was resolved (pot(s) awarded) and no decision is
+ *                      outstanding; START_NEXT_HAND deals the next hand;
  *  - 'game_finished' → a single player holds all the chips (winnerSeat set).
  */
-export type PokerPhase = 'betting' | 'hand_complete' | 'game_finished';
+export type PokerPhase = 'betting' | 'rebuy_window' | 'hand_complete' | 'game_finished';
+
+/** One seat's answer inside the current rebuy window. */
+export type PokerRebuyDecision = 'pending' | 'rebought' | 'declined';
+
+/**
+ * The between-hands rebuy window (§17). PUBLIC gameplay evidence ONLY — seats, the hand
+ * it belongs to and the decisions. It deliberately carries no userId, wallet balance,
+ * matchId or ledger key: the economy lives entirely on the server, and this object is
+ * broadcast to every client.
+ */
+export interface PokerRebuyWindow {
+  /** The hand that just finished. Together with a seat this IDENTIFIES a rebuy. */
+  handNumber: number;
+  /** Seats whose stack hit 0 in that hand and may buy back in. */
+  eligibleSeats: number[];
+  /** Decision per seat (index = seat); non-eligible seats stay 'pending' and are ignored. */
+  decisionBySeat: PokerRebuyDecision[];
+}
+
+/** One APPLIED rebuy — the public identity the server reconciles against the ledger. */
+export interface PokerAppliedRebuy {
+  handNumber: number;
+  seat: number;
+}
 
 /** The five best-hand categories, weakest→strongest (§9). Used by the evaluator. */
 export type HandCategory =
@@ -226,6 +255,20 @@ export interface PokerState {
 
   /** Per-match telemetry (see PokerTelemetry). */
   telemetry: PokerTelemetry;
+
+  /**
+   * The open between-hands rebuy window, or null (§17). Non-null ONLY in phase
+   * `rebuy_window`. Restored states from before Stage 38.0.3B may omit it — always read
+   * it defensively.
+   */
+  rebuyWindow?: PokerRebuyWindow | null;
+
+  /**
+   * Every rebuy APPLIED in this match, oldest first. Public identity only
+   * (hand + seat); chip conservation and the server's durable reconciliation are both
+   * derived from this list, so it must only ever grow by one entry per confirmed rebuy.
+   */
+  appliedRebuys?: PokerAppliedRebuy[];
 }
 
 export type PokerAction =
@@ -246,7 +289,14 @@ export type PokerAction =
   | { type: 'RAISE'; amount: number }
   /** Commit the entire remaining stack (call/bet/raise depending on amount). */
   | { type: 'ALL_IN' }
-  | { type: 'START_NEXT_HAND' };
+  | { type: 'START_NEXT_HAND' }
+  /** Buy back in during the rebuy window. Carries NO amount — the reducer derives it
+   *  from `options.startingStack`, so no caller (or client) can choose a size. */
+  | { type: 'REBUY'; seat: number }
+  /** Decline the rebuy for a seat (idempotent). */
+  | { type: 'DECLINE_REBUY'; seat: number }
+  /** Close the window: rebought seats continue, everyone else is eliminated. */
+  | { type: 'CLOSE_REBUY_WINDOW' };
 
 export interface PokerContext {
   rng?: Rng;

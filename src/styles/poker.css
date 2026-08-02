@@ -435,3 +435,33 @@
 /* Panel close buttons must still be a real tap target (Stage 38.0.3 — measured 42×35). */
 .poker-log-panel__head .btn,
 .chat-drawer--docked .chat-drawer__head .btn { min-width: 44px; min-height: 44px; }
+
+/* Between-hands REBUY panel (§17, Stage 38.0.3B). In flow, under the hand review and
+   above the social/action rows — it must never overlay the table or the controls. */
+.poker-rebuy {
+  display: flex; flex-direction: column; gap: 0.45rem;
+  padding: 0.6rem 0.7rem; border-radius: 0.75rem;
+  background: var(--surface-1, rgba(255, 255, 255, 0.07));
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.2));
+  text-align: start;
+}
+.poker-rebuy__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.poker-rebuy__title { font-weight: 800; }
+.poker-rebuy__countdown { font-variant-numeric: tabular-nums; font-weight: 700; }
+.poker-rebuy__hint { margin: 0; font-size: 0.82rem; opacity: 0.85; }
+.poker-rebuy__balance { margin: 0; font-size: 0.85rem; font-weight: 600; }
+.poker-rebuy__seats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.poker-rebuy__seat {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.3rem 0.4rem; border-radius: 0.5rem; background: var(--surface-2, rgba(0, 0, 0, 0.18));
+}
+.poker-rebuy__name { font-weight: 600; overflow-wrap: anywhere; }
+.poker-rebuy__state { font-size: 0.82rem; font-weight: 700; }
+.poker-rebuy__state--muted { opacity: 0.7; font-weight: 500; }
+.poker-rebuy__actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.poker-rebuy__actions .btn { min-height: 44px; }
+.poker-rebuy__continue { min-height: 44px; }
+.poker-rebuy__warn { margin: 0; font-size: 0.82rem; color: var(--danger-light, #ffb4a8); }
+.poker-rebuy__waiting { margin: 0; font-size: 0.82rem; opacity: 0.8; text-align: center; }
+/* The aria-live region carries no layout weight when empty. */
+.poker-rebuy__status:empty { display: none; }

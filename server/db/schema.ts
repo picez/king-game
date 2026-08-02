@@ -286,7 +286,8 @@ export const pokerWallets = pgTable('poker_wallets', {
 export const pokerLedger = pgTable('poker_ledger', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  /** daily_claim | table_buy_in | table_payout | table_cancel_refund */
+  /** daily_claim | table_buy_in | table_rebuy | table_payout | table_cancel_refund
+   *  (`table_rebuy` added by migration 0013 — the between-hands rebuy debit, §17). */
   reason: text('reason').notNull(),
   /** Signed chip change applied by this entry. */
   delta: bigint('delta', { mode: 'number' }).notNull(),

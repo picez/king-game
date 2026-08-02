@@ -60,6 +60,14 @@ function drive(room: ServerRoom, opts: { stopFinished?: boolean; cap?: number } 
   while (guard++ < cap) {
     const s = asP(room.gameState);
     if (def.isFinished(s)) break;
+    // §17 (Stage 38.0.3B): a busted seat pauses the match in `rebuy_window`, another
+    // public screen with no acting seat. ONLINE, `autoAdvance` closes it immediately
+    // (nobody buys back in through this generic path), so the drive loop advances it the
+    // same way it advances `hand_complete`.
+    if (s.phase === 'rebuy_window') {
+      autoAdvance(room, { seed: 5000 + guard });
+      continue;
+    }
     if (s.phase === 'hand_complete') {
       if (opts.stopFinished) break;
       autoAdvance(room, { seed: 5000 + guard });

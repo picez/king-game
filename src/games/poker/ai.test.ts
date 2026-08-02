@@ -61,12 +61,19 @@ describe('poker bot — full-match soak (engine terminates, chips conserved)', (
           const next = pokerReducer(s, action) as PokerState;
           expect(next, `bot deadlock at step ${steps}: ${JSON.stringify(action)}`).not.toBe(s);
           s = next;
+        } else if (s.phase === 'rebuy_window') {
+          // Stage 38.0.3B: a busted seat now pauses the match in a rebuy window. This soak
+          // models the LEGACY outcome — nobody buys back in — by closing the window, which
+          // is exactly what the local Continue button and the server's 20s timeout do.
+          s = pokerReducer(s, { type: 'CLOSE_REBUY_WINDOW' }) as PokerState;
         } else if (s.phase === 'hand_complete') {
           s = pokerReducer(s, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed * 1000 + steps) }) as PokerState;
         }
         // Chips are conserved and the state is well-formed at every step.
+        // No rebuy is taken in this soak, so the conservation target stays the initial total.
         const chips = s.stacksBySeat.reduce((a, b) => a + b, 0) + (s.phase === 'betting' ? s.contributedBySeat.reduce((a, b) => a + b, 0) : 0);
         expect(chips).toBe(total);
+        expect(s.appliedRebuys ?? []).toEqual([]);
         expect(checkPokerInvariants(s)).toEqual([]);
       }
       expect(s.phase).toBe('game_finished');

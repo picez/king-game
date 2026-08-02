@@ -9,6 +9,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **Poker between-hands rebuy — local play (Stage 38.0.3B).** A player whose stack hits 0
+  is no longer eliminated on the spot: the match pauses in an explicit rebuy window under
+  the hand review, and the busted seat can buy back in for exactly one starting stack.
+  - **Local tables:** free, and the device owner decides for **every** busted seat —
+    human *or* bot — so a solo player can keep an opponent in the game. An explicit
+    **Continue** closes the window; whoever declined (or was left undecided) is eliminated
+    then, and only then does the match end or deal on. No wallet, network or DB involved.
+  - The pure core gained the `rebuy_window` phase with `REBUY` / `DECLINE_REBUY` /
+    `CLOSE_REBUY_WINDOW`; the amount is always derived from the configured starting stack,
+    never from the action, and a duplicate or illegal action is a strict no-op. Chip
+    conservation now tracks `initial chips + confirmed rebuys`.
+  - **Migration 0013** widens the `poker_ledger.reason` CHECK with `table_rebuy` — the
+    reason the online debit will use. It cannot reuse `table_buy_in`: durable ownership
+    requires exactly one initial buy-in row per participant and treats any extra as
+    corrupt evidence. Online bankroll tables are unchanged for now — the server closes the
+    window immediately there, exactly reproducing the previous behaviour, until the
+    wallet-backed online rebuy lands. [`POKER_RULES.md §17`](POKER_RULES.md)
+
 ### Fixed
 
 - **Poker mobile layout (Stage 38.0.3)** — two defects the owner hit in production,

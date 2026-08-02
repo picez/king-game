@@ -1486,3 +1486,22 @@ and the local screen). Baseline before the fix: 1484 violations; now 0.
 - [ ] **Arabic RTL.** Text and the toolbar mirror; the SEAT geometry does not (you stay
       bottom-centre, Player 2 stays on the left).
 - [ ] **No sideways page scroll** at 360/390 in any of the above.
+
+## Poker between-hands rebuy — LOCAL (Stage 38.0.3B)
+
+- [ ] **A busted human can buy back in.** Local Poker, play until your stack hits 0: the
+      hand review stays up and a "Buy back in" panel appears under it with
+      "Add {starting stack}". Press it → your stack is restored to exactly the stack
+      chosen in the setup, the row shows "Bought in", and **Continue** deals the next hand.
+- [ ] **A busted BOT can be bought back in too.** Same panel lists the bot seat with its
+      own Add button; adding chips keeps the bot in the match.
+- [ ] **Declining eliminates.** Press Decline (or just press Continue without deciding):
+      that seat is marked out, and if only one seat remains the match finishes.
+- [ ] **No double chips.** Tapping Add twice quickly adds one stack, never two.
+- [ ] **Several busted seats** are listed together and resolve independently.
+- [ ] **New game / Play again** starts with no rebuy panel and no stale state.
+- [ ] **Layout.** At 360 and 390 the panel sits under the review and above the social
+      toolbar — it covers neither the table, the toolbar nor any button; buttons are a
+      comfortable tap size; Arabic RTL mirrors the text but not the seats.
+- [ ] **Online is unchanged for now:** a busted seat online is still eliminated
+      immediately (the wallet-backed online rebuy is not shipped yet).

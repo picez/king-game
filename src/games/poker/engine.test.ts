@@ -217,9 +217,18 @@ describe('poker hand loop & match finish (§2/§11)', () => {
     const r = pokerReducer(s, { type: 'CHECK' }) as PokerState;
     expect(r.stacksBySeat[0]).toBe(2000); // 1000 stack + 1000 pot
     expect(r.stacksBySeat[1]).toBe(0);
-    expect(r.phase).toBe('game_finished');
-    expect(r.winnerSeat).toBe(0);
-    expect(r.eliminatedBySeat[1]).toBe(true);
+    // Stage 38.0.3B (§17): busting no longer ends the match on the spot — seat 1 gets a
+    // rebuy window first, and NOBODY is eliminated while it is open.
+    expect(r.phase).toBe('rebuy_window');
+    expect(r.rebuyWindow?.eligibleSeats).toEqual([1]);
+    expect(r.eliminatedBySeat[1]).toBe(false);
+    expect(r.winnerSeat).toBe(null);
+    // Declining (or letting the window time out) is what finishes the match.
+    const closed = pokerReducer(r, { type: 'CLOSE_REBUY_WINDOW' }) as PokerState;
+    expect(closed.phase).toBe('game_finished');
+    expect(closed.winnerSeat).toBe(0);
+    expect(closed.eliminatedBySeat[1]).toBe(true);
+    expect(closed.lastHand?.newlyEliminated).toEqual([1]);
   });
 });
 

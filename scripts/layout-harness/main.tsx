@@ -25,6 +25,7 @@ import PokerGameScreen from '../../src/ui/poker/PokerGameScreen';
 import PokerActionLog, {
   PokerActionLogButton, PokerActionLogPanel, useLogUnread,
 } from '../../src/ui/poker/PokerActionLog';
+import PokerRebuyPanel from '../../src/ui/poker/PokerRebuyPanel';
 import { pokerReducer } from '../../src/games/poker/engine';
 import { pokerRedactStateFor } from '../../src/games/poker/redact';
 import type { PokerCard, PokerState, Rank, Suit } from '../../src/games/poker/types';
@@ -38,6 +39,10 @@ const lang = qs.get('lang') ?? (dir === 'rtl' ? 'ar' : 'en');
 const longNames = qs.get('names') === 'long';
 const withStates = qs.get('states') === '1';
 const localScreen = qs.get('local') === '1';
+/** `rebuy=1` pauses the fixture in an open between-hands rebuy window (§17). */
+const withRebuy = qs.get('rebuy') === '1';
+/** `poor=1` renders the online insufficient-wallet state. */
+const poorWallet = qs.get('poor') === '1';
 
 document.documentElement.dir = dir;
 document.documentElement.lang = lang;
@@ -74,6 +79,22 @@ function fixture(): PokerState {
   s.actionLog = Array.from({ length: 40 }, (_, i) => ({
     seat: i % seats, street: 'preflop' as const, kind: i % 2 ? 'call' as const : 'raise' as const, amount: 100 + i,
   }));
+  if (withRebuy) {
+    // Two seats busted on the last hand: the window is open and undecided.
+    s.phase = 'rebuy_window';
+    s.stacksBySeat = s.stacksBySeat.map((v, i) => (i === 1 || i === seats - 1 ? 0 : v));
+    s.committedBySeat = s.committedBySeat.map(() => 0);
+    s.lastHand = {
+      handNumber: 1, wonBySeat: s.stacksBySeat.map(() => 0), showdown: true,
+      revealedSeats: [], categoryBySeat: {}, winningFiveBySeat: {},
+      pots: [], newlyEliminated: [],
+    } as never;
+    s.rebuyWindow = {
+      handNumber: 1,
+      eligibleSeats: seats >= 3 ? [1, seats - 1] : [1],
+      decisionBySeat: Array.from({ length: seats }, () => 'pending' as const),
+    };
+  }
   if (withStates && seats >= 4) {
     s.foldedBySeat[1] = true;                    // folded pod
     s.allInBySeat[2] = true;                     // ALL-IN badge
@@ -93,10 +114,24 @@ function Harness() {
   const logOpen = panel === 'utility';
   const unread = useLogUnread(state.actionLog.length, logOpen);
 
+  const rebuySlot = withRebuy ? (
+    <PokerRebuyPanel
+      state={state}
+      amount={state.options.startingStack}
+      actionableSeats={localScreen ? (state.rebuyWindow?.eligibleSeats ?? []) : [1]}
+      onRebuy={noop} onDecline={noop}
+      onContinue={localScreen ? noop : undefined}
+      secondsLeft={localScreen ? null : 14}
+      walletBalance={localScreen ? null : 250000}
+      insufficient={poorWallet}
+    />
+  ) : null;
+
   if (localScreen) {
     return (
       <PokerGameScreen
         state={state} mySeat={0} apply={noop} onExit={noop}
+        rebuySlot={rebuySlot}
         socialSlot={
           <div className="social-controls social-controls--docked">
             <div className="social-controls__row">
@@ -125,7 +160,7 @@ function Harness() {
     />
   );
   return (
-    <PokerGameScreen state={state} mySeat={0} apply={noop} onExit={noop} online socialSlot={social} />
+    <PokerGameScreen state={state} mySeat={0} apply={noop} onExit={noop} online socialSlot={social} rebuySlot={rebuySlot} />
   );
 }
 

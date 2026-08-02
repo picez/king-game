@@ -715,3 +715,77 @@ Use this file as the first read after archiving this chat. It is intentionally s
   ALWAYS `state.options.startingStack` (local = chosen stack, online = buy-in), so the
   reducer never takes an amount from a client; the server must additionally assert it
   equals `room.pokerBuyIn` and fail closed on mismatch.
+
+### Stage 38.0.3B — between-hands rebuy: ENGINE + LOCAL shipped, ONLINE still open (PARTIAL)
+- Worked from HEAD `4aab82d`. **Migration 0013 + the pure rebuy state machine + the LOCAL
+  free rebuy are COMPLETE.** The ONLINE wallet-backed rebuy (protocol, 20s window, durable
+  evidence, recovery, PG suite, online UI) is **NOT implemented** — see the handoff below.
+  No version bump; games 7; achievements 52; latest migration now **0013**.
+- **RED (recorded, probe file deleted):** at 4aab82d a busted seat was eliminated inside
+  `finishHand`; the reducer had no rebuy action; `src/net/messages.ts` had no POKER_REBUY
+  intent; `poker_ledger.reason` CHECK listed only 4 values; `pokerDurableOwnership.ts`,
+  `pokerParticipants.ts`, `pokerEscrow.ts` and `pokerBootstrap.ts` contained no "rebuy"
+  at all. 7/7 probes green against the baseline.
+- **Migration `0013_poker_rebuy.sql`** — widens the `poker_ledger.reason` CHECK with
+  `table_rebuy`. Locates the constraint through `pg_constraint` (never a guessed name),
+  drops every reason-CHECK it finds and re-adds a canonical one, so re-running converges.
+  Verified on real PG: 0000–0013 apply, 0013 re-applies, all four legacy reasons still
+  insert, `table_rebuy` inserts, an unknown reason is rejected (SQLSTATE 23514).
+  **`table_buy_in` must NOT be reused** — `validateDurableOwnership` requires exactly one
+  initial buy-in row per participant and reads any extra as `ledger_mismatch` → freeze.
+- **Pure core (§17).** New phase **`rebuy_window`**; `PokerState.rebuyWindow`
+  (`handNumber`, `eligibleSeats`, `decisionBySeat`) + `appliedRebuys[{handNumber,seat}]` —
+  PUBLIC evidence only (no userId/matchId/balance/ledger key). Actions `REBUY {seat}`,
+  `DECLINE_REBUY {seat}`, `CLOSE_REBUY_WINDOW`; the amount is ALWAYS
+  `options.startingStack`, never from the action. `finishHand` no longer eliminates —
+  `closeRebuyWindow` does, and only then does the match finish / the button move.
+  `START_NEXT_HAND` is a no-op while a window is open. Every illegal/duplicate action
+  returns the SAME state reference. `totalChips` = `startingStack × (playerCount +
+  appliedRebuys.length)`; invariants also check window/`appliedRebuys` structure.
+  All three rebuy actions are `isPokerLifecycleAction` → a seated ACTION_REQUEST can
+  never drive them.
+- **ONLINE IS SAFE MEANWHILE:** `serverCore.autoAdvance` closes a `rebuy_window`
+  immediately for online rooms, which reproduces the pre-§17 behaviour byte-for-byte
+  (busted seat eliminated). No wallet can be touched by this stage.
+- **Local UI:** `PokerRebuyPanel` (presentational; derives nothing) + `PokerGameScreen.rebuySlot`
+  rendered UNDER the hand review; `PokerLocalGame` makes EVERY busted seat actionable
+  (human and bot) and closes with an explicit Continue. i18n `poker.rebuy.*` ×4 (14 keys,
+  online strings included). Layout gate extended with 6 rebuy scenarios (+ a `--only`
+  filter): **42/42 rebuy checks clean**, and the panel never overlaps table/toolbar/controls.
+- **Tests:** `src/games/poker/rebuy.test.ts` (25) + `src/ui/poker/pokerRebuyLocal.test.ts` (12).
+  Updated for the new phase: `ai.test.ts` soak + `engine.test.ts` finish + `pokerServerCore.test.ts`
+  drive loop (all now close the window) and `pokerStatsWiring` migration list.
+  verify PASS 3097/157; real-PG poker suites **38 files / 347 tests, 0 skipped**.
+
+#### HANDOFF — what the ONLINE rebuy still needs (nothing of it is started)
+1. **Protocol:** `POKER_REBUY_REQUEST` / `POKER_REBUY_DECLINE` in `src/net/messages.ts`,
+   payload EMPTY (no amount/seat/userId/matchId/balance/roomCode). Server derives room from
+   the session, userId from the non-guest account, seat from membership, matchId from the
+   BOUND escrow (`room.pokerGameMatchId`), amount from `room.pokerBuyIn`, hand from the
+   authoritative state; assert `state.options.startingStack === room.pokerBuyIn` and fail
+   closed otherwise.
+2. **Window:** 20s ABSOLUTE server deadline + revision keyed to (matchId, handNumber),
+   persisted in room JSON; reconnect/reload must not extend; restore keeps the same
+   deadline and closes an expired one; early close when every eligible human answered;
+   timeout = decline. Keep it SEPARATE from the Stage 37.5 turn timer.
+3. **Durable evidence:** key `rebuy:<matchId>:<handNumber>:<userId>`, reason `table_rebuy`,
+   delta `-buyIn`. Extend `MatchDurableEvidence` with `rebuys` read in the SAME
+   REPEATABLE READ snapshot in `readEvidence`; extend `validateDurableOwnership` with
+   strict rebuy rules (key matches match/hand/user, user ∈ initial durable seats, delta
+   exactly `-buyIn`, ≤1 per user per hand, exact roomCode; anything else → a new corrupt
+   structure value). Funded total = initial buy-ins + confirmed rebuys; update
+   `validateFinishedPaidMatch`/`validatePayoutConservation` (winner holds the FUNDED
+   TOTAL), `payoutStacks` and `refundBuyInsResult` (refund = initial + that user's rebuys).
+4. **Orchestration (ONE helper, e.g. `server/pokerRebuy.ts`):** room lock →
+   `withEconomyBarrier` (lock order `withRoomLock` → `withEconomyBarrier`, never inverted)
+   → tx {wallet row lock, balance check, insert ledger as the gate, debit} → after commit
+   apply the pure `REBUY` → persist immediately → broadcast → only then let the window close.
+5. **Crash recovery:** durable rebuy rows vs `state.appliedRebuys`; a durable row missing
+   from the room state is applied EXACTLY once when the room is exact+bound and still in
+   the same hand's window, else freeze; a room claiming a rebuy with no durable row →
+   freeze; wrong seat/user/amount/hand/key → freeze; DB down → `retry_pending`, never
+   decline/close. Protect an in-flight rebuy from the orphan scan, teardown, timeout close,
+   payout, refund, rematch and purge.
+6. **PG matrix (20 scenarios)** listed in the Stage 38.0.3B prompt section J, plus the
+   online UI (own seat only, wallet balance, countdown, disabled/loading, insufficient
+   message, aria-live) and the public-snapshot leak test.

@@ -16,9 +16,15 @@ export function allCards(state: PokerState): PokerCard[] {
   return cards;
 }
 
-/** Total chips that must be conserved (starting stack × seats). */
+/**
+ * Total chips that must be conserved: the initial stacks PLUS every confirmed rebuy
+ * (§17). A rebuy is the ONE legitimate way chips enter a match after the deal, so the
+ * conservation target grows by exactly one starting stack per applied rebuy — hard-coding
+ * `startingStack × playerCount` would report a false violation after the first rebuy.
+ */
 export function totalChips(state: PokerState): number {
-  return state.options.startingStack * state.playerCount;
+  const rebuys = (state.appliedRebuys ?? []).length;
+  return state.options.startingStack * (state.playerCount + rebuys);
 }
 
 /** Return the list of violated invariants; empty means the state is valid. */
@@ -40,8 +46,8 @@ export function checkPokerInvariants(state: PokerState): string[] {
   for (const [name, len] of perSeat) if (len !== n) errors.push(`${name} length ${len} != playerCount ${n}`);
 
   // Chip conservation. Chips in play sit in stacks plus (during a betting round)
-  // the pot formed by this hand's contributions; between hands every contributed
-  // chip has been redistributed back into stacks.
+  // the pot formed by this hand's contributions; between hands (including an open
+  // rebuy window) every contributed chip has been redistributed back into stacks.
   const potInPlay = state.phase === 'betting' ? sum(state.contributedBySeat) : 0;
   const chips = sum(state.stacksBySeat) + potInPlay;
   if (chips !== totalChips(state)) {
@@ -60,6 +66,31 @@ export function checkPokerInvariants(state: PokerState): string[] {
 
   // Board length is one of the legal street sizes.
   if (![0, 3, 4, 5].includes(state.board.length)) errors.push(`illegal board length ${state.board.length}`);
+
+  // A rebuy window is structurally consistent: it exists exactly in its own phase, its
+  // eligible seats are real, in range, not eliminated, and only 'rebought' seats hold
+  // chips again (§17).
+  const win = state.rebuyWindow ?? null;
+  if (state.phase === 'rebuy_window') {
+    if (!win) errors.push('rebuy_window phase without a window');
+    else {
+      for (const seat of win.eligibleSeats) {
+        if (!Number.isInteger(seat) || seat < 0 || seat >= n) { errors.push(`rebuy seat ${seat} out of range`); continue; }
+        if (state.eliminatedBySeat[seat]) errors.push(`rebuy seat ${seat} already eliminated`);
+        const decision = win.decisionBySeat[seat] ?? 'pending';
+        if (decision !== 'rebought' && state.stacksBySeat[seat] !== 0) {
+          errors.push(`rebuy seat ${seat} is undecided but not busted`);
+        }
+      }
+      if (new Set(win.eligibleSeats).size !== win.eligibleSeats.length) errors.push('duplicate rebuy-eligible seat');
+    }
+  } else if (win) {
+    errors.push(`rebuy window present in phase ${state.phase}`);
+  }
+  for (const r of state.appliedRebuys ?? []) {
+    if (!Number.isInteger(r.seat) || r.seat < 0 || r.seat >= n) errors.push(`applied rebuy seat ${r.seat} out of range`);
+    if (!Number.isInteger(r.handNumber) || r.handNumber < 1) errors.push(`applied rebuy hand ${r.handNumber} invalid`);
+  }
 
   // During betting the acting seat must be able to act.
   if (state.phase === 'betting') {

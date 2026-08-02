@@ -38,6 +38,8 @@ import type {
   PokerHandResult,
   PokerPlayer,
   PokerPotAward,
+  PokerRebuyDecision,
+  PokerRebuyWindow,
   PokerState,
   PokerTelemetry,
 } from './types';
@@ -114,6 +116,8 @@ function startGame(action: Extract<PokerAction, { type: 'START_GAME' }>, rng: Rn
     winnerSeat: null,
     actionLog: [],
     telemetry: freshTelemetry(playerCount),
+    rebuyWindow: null,
+    appliedRebuys: [],
   };
 
   dealHand(base, base.buttonSeat, rng);
@@ -496,16 +500,106 @@ function recordHandTelemetry(
   }
 }
 
-/** Store the hand result, eliminate busted seats, and end the hand or the match. */
+/**
+ * Store the hand result and decide what happens to the busted seats (§17).
+ *
+ * Stage 38.0.3B: a seat whose stack hit 0 is NO LONGER eliminated here. It becomes
+ * eligible for a between-hands REBUY, and the match pauses in `rebuy_window` until every
+ * eligible seat has answered (or the authoritative caller closes the window). Only
+ * `closeRebuyWindow` eliminates, moves the button or finishes the match — so a player who
+ * buys back in was never "out", and a match can never end while a rebuy is still open.
+ */
 function finishHand(s: PokerState, result: Omit<PokerHandResult, 'handNumber' | 'newlyEliminated'>): void {
-  const newlyEliminated: number[] = [];
+  const busted: number[] = [];
   for (let seat = 0; seat < s.playerCount; seat++) {
-    if (!s.eliminatedBySeat[seat] && s.stacksBySeat[seat] <= 0) {
-      s.eliminatedBySeat[seat] = true;
-      newlyEliminated.push(seat);
-    }
+    if (!s.eliminatedBySeat[seat] && s.stacksBySeat[seat] <= 0) busted.push(seat);
   }
-  s.lastHand = { ...result, handNumber: s.handNumber, newlyEliminated };
+  // `newlyEliminated` is decided at CLOSE time; nobody is out yet.
+  s.lastHand = { ...result, handNumber: s.handNumber, newlyEliminated: [] };
+
+  if (busted.length > 0) {
+    s.phase = 'rebuy_window';
+    s.rebuyWindow = {
+      handNumber: s.handNumber,
+      eligibleSeats: busted,
+      decisionBySeat: Array.from({ length: s.playerCount }, () => 'pending' as PokerRebuyDecision),
+    };
+    return;
+  }
+
+  s.rebuyWindow = null;
+  const remaining = activeSeats(s);
+  if (remaining.length <= 1) {
+    s.phase = 'game_finished';
+    s.winnerSeat = remaining[0] ?? null;
+  } else {
+    s.phase = 'hand_complete';
+  }
+}
+
+// --- Rebuy window (§17) -----------------------------------------------------
+
+/** The open window, or null when the state is not paused on one. */
+function openWindow(s: PokerState): PokerRebuyWindow | null {
+  return s.phase === 'rebuy_window' ? (s.rebuyWindow ?? null) : null;
+}
+
+/** Whether `seat` may still buy back in right now (pure; used by the UI and the server). */
+function canRebuy(s: PokerState, seat: number): boolean {
+  const w = openWindow(s);
+  if (!w) return false;
+  if (!Number.isSafeInteger(seat) || seat < 0 || seat >= s.playerCount) return false;
+  if (!w.eligibleSeats.includes(seat)) return false;
+  if (s.eliminatedBySeat[seat]) return false;
+  if (s.stacksBySeat[seat] !== 0) return false;           // never a top-up
+  return (w.decisionBySeat[seat] ?? 'pending') === 'pending';
+}
+
+/**
+ * Apply one confirmed rebuy. The amount is ALWAYS `options.startingStack` — locally the
+ * stack the host chose, online the table's buy-in — so no action, caller or client can
+ * ever choose it. Returns false when the rebuy is not legal (the reducer then keeps the
+ * same state reference).
+ */
+function applyRebuy(s: PokerState, seat: number): boolean {
+  if (!canRebuy(s, seat)) return false;
+  const w = s.rebuyWindow!;
+  s.stacksBySeat[seat] = s.options.startingStack;
+  w.decisionBySeat[seat] = 'rebought';
+  s.appliedRebuys = [...(s.appliedRebuys ?? []), { handNumber: w.handNumber, seat }];
+  return true;
+}
+
+/** Decline for a seat. Idempotent: declining twice is a no-op, not an error. */
+function applyDecline(s: PokerState, seat: number): boolean {
+  const w = openWindow(s);
+  if (!w) return false;
+  if (!Number.isSafeInteger(seat) || seat < 0 || seat >= s.playerCount) return false;
+  if (!w.eligibleSeats.includes(seat)) return false;
+  const cur = w.decisionBySeat[seat] ?? 'pending';
+  if (cur === 'rebought') return false;                   // a paid rebuy is never undone
+  if (cur === 'declined') return true;                    // idempotent
+  w.decisionBySeat[seat] = 'declined';
+  return true;
+}
+
+/**
+ * Close the window: every eligible seat that did NOT buy back in is eliminated, the
+ * result's `newlyEliminated` is published, and the match either continues or ends.
+ * The button and the blinds only ever move after this (via the next deal).
+ */
+function closeRebuyWindow(s: PokerState): boolean {
+  const w = openWindow(s);
+  if (!w) return false;
+  const newlyEliminated: number[] = [];
+  for (const seat of w.eligibleSeats) {
+    if (w.decisionBySeat[seat] === 'rebought') continue;
+    if (s.eliminatedBySeat[seat]) continue;
+    s.eliminatedBySeat[seat] = true;
+    newlyEliminated.push(seat);
+  }
+  if (s.lastHand) s.lastHand = { ...s.lastHand, newlyEliminated };
+  s.rebuyWindow = null;
 
   const remaining = activeSeats(s);
   if (remaining.length <= 1) {
@@ -514,6 +608,7 @@ function finishHand(s: PokerState, result: Omit<PokerHandResult, 'handNumber' | 
   } else {
     s.phase = 'hand_complete';
   }
+  return true;
 }
 
 // --- Between hands ----------------------------------------------------------
@@ -548,9 +643,26 @@ export function pokerReducer(
 
   if (action.type === 'START_NEXT_HAND') {
     // Lifecycle advance between hands (server auto-advance / local public control).
-    // Only valid at the hand_complete pause; a no-op (same ref) otherwise.
+    // Only valid at the hand_complete pause; a no-op (same ref) otherwise — which is
+    // exactly what stops it from skipping an OPEN rebuy window (§17).
     const next = clone(state);
     return startNextHand(next, rng) ? next : state;
+  }
+
+  // --- Rebuy window (§17). Every one of these is a no-op (SAME reference) unless it is
+  // legal, so a duplicate tap, a replayed message or a stale client can never add chips
+  // twice or eliminate a seat that paid.
+  if (action.type === 'REBUY') {
+    const next = clone(state);
+    return applyRebuy(next, action.seat) ? next : state;
+  }
+  if (action.type === 'DECLINE_REBUY') {
+    const next = clone(state);
+    return applyDecline(next, action.seat) ? next : state;
+  }
+  if (action.type === 'CLOSE_REBUY_WINDOW') {
+    const next = clone(state);
+    return closeRebuyWindow(next) ? next : state;
   }
 
   // Betting actions require an active betting phase and the acting seat.

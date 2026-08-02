@@ -13,7 +13,8 @@ Stage: **37.4 (Unreleased)** — full platform feature-stage, no version bump/ta
 
 - Cash-style **free-play match** (a.k.a. "last player standing tournament"): every
   player starts with an equal chip stack; the match ends when a single player holds
-  **all** the chips. There is no re-buy.
+  **all** the chips. A player whose stack reaches 0 may **buy back in between hands** —
+  see §17.
 - **Deck:** a standard **52-card** French deck, no jokers. Ranks `2…10, J, Q, K, A`;
   suits `spades, hearts, diamonds, clubs`. Suits are **never** used to rank hands or
   break ties (poker suits are equal); they only matter for flush/straight-flush
@@ -251,6 +252,37 @@ Common to both:
   that is wider than the space left beside them.
 - The public **action history** is a compact control in the bottom-end cluster (see
   §16 I), never a block under the table.
+
+## §17 Between-hands rebuy (Stage 38.0.3B)
+
+Owner-confirmed: **once a stack hits 0 the seat may buy back in — between hands only.**
+
+**When.** The moment a hand ends with at least one busted seat the match enters the
+explicit phase **`rebuy_window`**. Nobody is eliminated and the match cannot finish while
+it is open; the showdown / fold-win review stays on screen underneath the panel.
+
+**Amount.** Exactly **one starting stack** — locally the stack chosen in the setup, online
+the table's buy-in. The amount is derived by the pure reducer from
+`options.startingStack`; no action, caller or client ever supplies it.
+
+**Local play.** Free. The device owner decides for **every** busted seat — human *or*
+bot — and an explicit **Continue** closes the window. No wallet, network or DB is touched.
+
+**Online bankroll play.** A real debit of `room.pokerBuyIn` from the player's own chip
+wallet, allowed only for their **own** authenticated zero-stack seat and only when the
+balance covers it.
+
+**Never allowed:** a top-up while the stack is above 0; a rebuy during betting; a second
+rebuy for the same seat in the same window; after a decline or the deadline; for another
+player's seat; in a frozen / settlement- / payout- / stats-pending room; or after the
+match's terminal payout or refund.
+
+**Closing.** Seats that bought back in continue; every seat that declined *or* never
+answered is eliminated then. Only after the close does the button move, the next hand
+deal (≥2 active seats) or the match finish (1 active seat).
+
+**Chip conservation** becomes `initial chips + every confirmed rebuy = stacks + committed
++ pots`. A rebuy is the only way chips enter a match after the deal.
 
 ## §15 Determinism & engine contract
 

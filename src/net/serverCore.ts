@@ -981,6 +981,17 @@ export function autoAdvance(room: ServerRoom, deal: DealContext = {}): boolean {
     const def = getGameDefinition('poker');
     if (!def) return false;
     const state = room.gameState as PokerState;
+    // §17 — a busted seat pauses the match in `rebuy_window`. ONLINE rebuys are a
+    // server-authoritative economy operation (a real wallet debit), so this generic
+    // advance must NEVER open a window it cannot fund: for an online room it closes the
+    // window immediately, which reproduces the pre-§17 behaviour exactly (every busted
+    // seat is eliminated). The bankroll rebuy lifecycle replaces this branch when it
+    // takes ownership of the window; LOCAL play drives its own window from the UI.
+    if (state.phase === 'rebuy_window') {
+      const closed = def.reducer(state, { type: 'CLOSE_REBUY_WINDOW' });
+      if (closed && closed !== state) { room.gameState = closed; return true; }
+      return false;
+    }
     if (state.phase === 'hand_complete') {
       const seed = deal.seed ?? randomSeed();
       const next = def.reducer(state, { type: 'START_NEXT_HAND' }, { rng: makeRng(seed) });
