@@ -179,9 +179,11 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
     // fresh buy-in; purge only once the refund is CONFIRMED.
     if (binding === 'unbound' && escStatus !== 'settled' && escStatus !== 'cancelled') {
       const res = await resolveUnboundEscrowGame(room, {
-        refundBuyIns: async (r) => (await deps.refundBuyIns(r)) === 'resolved',
+        refundBuyIns: deps.refundBuyIns,
         persist: deps.persist, clearTimers: deps.clearTimers,
       });
+      // (37.7.18 FAIL 1) `paid_conflict` is a payout, never a refund → freeze, never purge.
+      if (res === 'paid_conflict') { deps.freeze(room, 'durable match evidence does not match this table'); deps.persist(room); }
       return res === 'refunded' ? 'purge' : 'keep';
     }
     // (37.7.12) A legacy save with NO binding, or a PAID escrow whose state is from another
@@ -221,7 +223,9 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
   // A structural failure wrote NOTHING and never will — it is a permanent operator condition, so the
   // table is FROZEN (never purged, never retried) rather than swept forever as "still owed".
   const refund = await deps.refundBuyIns(room);
-  if (refund === 'invalid') {
+  // (37.7.18 FAIL 1) `already_paid` is NOT a refund: a paid match with no finished state is the
+  // incoherent shape 37.7.11 freezes, so it is never purged as a cancelled table.
+  if (refund === 'invalid' || refund === 'already_paid') {
     deps.freeze(room, 'durable match evidence does not match this table');
     deps.persist(room);
     return 'keep';

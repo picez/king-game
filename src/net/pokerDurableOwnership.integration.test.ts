@@ -65,7 +65,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
     const recoveryDeps = () => ({
       // The PRODUCTION recovery dep (server/index.ts `bootstrapRecoveryDeps`): exact ownership,
       // covering a `funded` escrow too — not the narrower transient-only `reconcileEscrow`.
-      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
       rescheduleAdvance: advance, persist, clearTimers, freeze,
     });
 
@@ -186,7 +186,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
     expect(still[0].n).toBe(1);
 
     await t.conn!.sql`DELETE FROM poker_matches WHERE match_id = ${M_old}`;
-    expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     await t.cleanup([fresh.U1, fresh.U2]);
   });
 
@@ -274,7 +274,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
     expect(t.advance).toHaveBeenCalledTimes(1);
     expect(await t.balance(a.U1)).toBe(CLAIM - BUY_IN);
     expect(await t.ledger(a.M, 'table_cancel_refund')).toBe(0);
-    expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     await t.cleanup([a.U1, a.U2]);
   });
 
@@ -294,7 +294,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
 
     // A committed REFUND likewise → cancelled, never refunded twice.
     const b = await t.bankrollRoom('OW7B');
-    expect(await t.escrow.refundBuyIns(b.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('confirmed_refund');
     b.room.pokerEscrow!.status = 'pending';
     const rb = t.restore(b.room);
     const repB = await t.productionBootstrap([rb]);
@@ -347,7 +347,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
     expect(second.reconciled.get('OW9A')).toBe('funded');
     expect(second.recoveries.get('OW9A')).toBe('live');
     expect(t.advance).toHaveBeenCalledTimes(1);
-    expect(await t.escrow.refundBuyIns(again)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(again)).toBe('confirmed_refund');
     await t.cleanup([a.U1, a.U2]);
   });
 

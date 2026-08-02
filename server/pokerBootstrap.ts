@@ -250,8 +250,8 @@ export interface BootstrapRecoveryDeps extends BootstrapApplyDeps {
   reconcileEscrow: (room: ServerRoom) => Promise<EscrowReconcileResult | void>;
   /** True when `state` is a finished poker game. */
   isFinished: (state: PokerState) => boolean;
-  /** Refund a buy-in (used for an UNBOUND fresh debit whose game never started); true = CONFIRMED. */
-  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
+  /** Refund a buy-in (an UNBOUND fresh debit whose game never started) — the EXPLICIT outcome. */
+  refundBuyIns: (room: ServerRoom) => Promise<import('./pokerEscrow').RefundResult>;
 }
 
 /**
@@ -277,7 +277,14 @@ export async function recoverRestoredBankrollRoom(
     // (37.7.12 FAIL 1) A fresh buy-in whose game never started, restored next to the PREVIOUS match's
     // state: drop the stale state and refund the new escrow (idempotent). A transient refund failure
     // leaves an honest settlement-pending room the sweep retries. Never paid, never recorded.
-    await resolveUnboundEscrowGame(room, { refundBuyIns: deps.refundBuyIns, persist: deps.persist, clearTimers: deps.clearTimers });
+    const res = await resolveUnboundEscrowGame(room, { refundBuyIns: deps.refundBuyIns, persist: deps.persist, clearTimers: deps.clearTimers });
+    // (37.7.18 FAIL 1) The payout won the race (or the evidence is unprovable) → NOT a refund: this
+    // is a paid/incoherent match with no game, so it fails closed into a frozen operator state.
+    if (res === 'paid_conflict') {
+      deps.freeze(room, 'durable match evidence does not match this table');
+      deps.persist(room);
+      return 'corrupt_debit';
+    }
     return recovery;
   }
   return applyBootstrapRecovery(room, recovery, deps);
@@ -291,7 +298,7 @@ export interface BootstrapEconomyDeps extends BootstrapRecoveryDeps {
   hasUnsettledEscrow: (room: ServerRoom) => boolean;
   /** DB-authoritative orphan scan: refunds every committed match NOT in the protected set, and
    *  reports the room codes owning a MALFORMED durable record (37.7.14 FAIL 3). */
-  reconcileOrphanedDebits: (protectedMatchIds: Set<string>) => Promise<{ refunded: string[]; corrupt: string[]; corruptRefs?: ReadonlyArray<{ matchId: string; roomCode: string; reasonCode: string }> }>;
+  reconcileOrphanedDebits: (protectedMatchIds: Set<string>, protectedRoomCodes?: ReadonlySet<string>) => Promise<{ refunded: string[]; corrupt: string[]; corruptRefs?: ReadonlyArray<{ matchId: string; roomCode: string; reasonCode: string }>; retryable?: string[]; alreadyPaid?: string[] }>;
   /** Resolve a room whose PERSISTED escrow was malformed; false → freeze for operator review. */
   reconcileCorruptRoom: (room: ServerRoom) => Promise<boolean>;
   /** The per-room lifecycle mutex. */
@@ -356,11 +363,16 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
     if (id) protectedMatchIds.add(id);
   }
 
+  // (37.7.18 FAIL 2) A room with a CORRUPT persisted escrow has no provable matchId, so every durable
+  // match naming its ROOM CODE is fail-closed protected — the code alone can never authorise a
+  // settlement (a reused code may belong to an entirely different generation).
+  const protectedRoomCodes = new Set(restored.filter((r) => r.pokerEscrowCorrupt).map((r) => r.code));
+
   // (d) DB-authoritative orphan scan — ONLY now, and only for unprotected matches.
   let orphanRefunded: string[] = [];
   let corruptMatchIds = new Set<string>();
   try {
-    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds);
+    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
     orphanRefunded = scan.refunded;
     corruptMatchIds = new Set((scan.corruptRefs ?? []).map((c) => c.matchId));
     if (scan.refunded.length) deps.log(`crash recovery: refunded ${scan.refunded.length} orphaned poker match(es)`);
@@ -482,4 +494,105 @@ export async function runRoomRecoverySweep(room: ServerRoom, deps: BootstrapReco
   }
   const recovery = await recoverRestoredBankrollRoom(room, deps, reconciled);
   return { reconciled, recovery, changed: proven };
+}
+
+/** Injected side effects for the RUNTIME economy recovery pass (37.7.18 FAIL 3). */
+export interface RuntimeRecoveryDeps extends BootstrapRecoveryDeps {
+  isBankrollRoom: (room: ServerRoom) => boolean;
+  reconcileOrphanedDebits: BootstrapEconomyDeps['reconcileOrphanedDebits'];
+  withRoomLock: <T>(code: string, fn: () => Promise<T>) => Promise<T>;
+  roomExists: (room: ServerRoom) => boolean;
+  log: (message: string) => void;
+  logError: (message: string) => void;
+}
+
+export interface RuntimeRecoveryReport {
+  /** room code → the reconciliation outcome for each ESCROWLESS claim this pass resolved. */
+  reconciled: Map<string, EscrowReconcileResult>;
+  /** room code → the recovery applied to it (absent when nothing was applied). */
+  recoveries: Map<string, BootstrapRecovery>;
+  protectedMatchIds: Set<string>;
+  protectedRoomCodes: Set<string>;
+  orphanRefunded: string[];
+  orphanAlreadyPaid: string[];
+  orphanRetryable: string[];
+}
+
+/**
+ * (37.7.18 FAIL 3) The RUNTIME counterpart of the bootstrap economy pass — the fix for recovery work
+ * that previously needed a server RESTART.
+ *
+ * The global orphan scan ran ONLY at bootstrap, so a roomless orphan whose guarded refund failed
+ * transiently stayed debited for the life of the process; and an `escrowless_unresolved` room stayed
+ * inert forever because the periodic sweep only looked at `pending`/`settling` escrows.
+ *
+ * It deliberately does NOT re-run the full bootstrap apply: a healthy `live` / `payout_pending` /
+ * `paid_finish` room is classified for PROTECTION only and never re-applied, so no timer or advance
+ * is re-armed on a 45s tick. Only escrowless claims are resolved and applied here.
+ * The caller must make this SINGLE-FLIGHT (one pass at a time, never concurrent with bootstrap).
+ */
+export async function runRuntimeEconomyRecovery(rooms: ServerRoom[], deps: RuntimeRecoveryDeps): Promise<RuntimeRecoveryReport> {
+  const bankroll = rooms.filter((r) => deps.isBankrollRoom(r));
+  const reconciled = new Map<string, EscrowReconcileResult>();
+  const recoveries = new Map<string, BootstrapRecovery>();
+
+  // (a) Resolve ONLY the rooms this pass owns: escrowless economy claims. (A transient escrow keeps
+  // its own per-room `runRoomRecoverySweep` branch; a healthy room is never touched.)
+  for (const r of bankroll) {
+    if (r.pokerFrozen || r.pokerEscrow || !claimsEconomyMatch(r)) continue;
+    const res = await deps.withRoomLock(r.code, async () => (await deps.reconcileEscrow(r)) ?? 'noop')
+      .catch(() => 'retry_pending' as EscrowReconcileResult);
+    reconciled.set(r.code, res);
+  }
+
+  // (b) Protection is derived from EVERY bankroll room's classification (never from a room shape).
+  const protectedMatchIds = new Set<string>();
+  const protectedRoomCodes = new Set<string>();
+  for (const r of bankroll) {
+    if (r.pokerEscrowCorrupt) protectedRoomCodes.add(r.code);
+    const rec = reconciled.get(r.code) ?? 'noop';
+    const id = settlementProtectedMatchId(r, classifyBootstrapRecovery(r, deps.isFinished, rec), rec);
+    if (id) protectedMatchIds.add(id);
+    // An escrowless claim is only scan-eligible once it is PROVEN to be an exact, unsettled orphan.
+    if (!r.pokerEscrow && r.pokerGameMatchId && rec !== 'escrowless_unresolved') protectedMatchIds.add(r.pokerGameMatchId);
+  }
+
+  // (c) The guarded global scan — the same one bootstrap runs.
+  let orphanRefunded: string[] = [];
+  let orphanAlreadyPaid: string[] = [];
+  let orphanRetryable: string[] = [];
+  try {
+    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
+    orphanRefunded = scan.refunded;
+    orphanAlreadyPaid = scan.alreadyPaid ?? [];
+    orphanRetryable = scan.retryable ?? [];
+    if (scan.refunded.length) deps.log(`runtime recovery: refunded ${scan.refunded.length} orphaned poker match(es)`);
+  } catch (err) {
+    deps.logError(`runtime orphaned-debit recovery failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+  }
+
+  // (d) Apply ONLY the escrowless outcomes — a claim becomes a clean lobby solely on a CONFIRMED
+  // refund of that exact matchId in THIS pass.
+  const confirmed = new Set(orphanRefunded);
+  for (const r of bankroll) {
+    if (!reconciled.has(r.code) || r.pokerFrozen) continue;
+    let rec = reconciled.get(r.code) as EscrowReconcileResult;
+    if (rec === 'escrowless_unresolved' && r.pokerGameMatchId && confirmed.has(r.pokerGameMatchId)) rec = 'cancelled';
+    if (rec === 'escrowless_unresolved' || rec === 'retry_pending') continue; // still unproven → inert
+    const recovery = await deps.withRoomLock(r.code, async () => {
+      if (!deps.roomExists(r) || r.pokerFrozen) return null;
+      const cls = classifyBootstrapRecovery(r, deps.isFinished, rec);
+      if (cls === 'not_bankroll') {
+        // No game state to classify (e.g. owed stats with no escrow) — freeze an unprovable claim.
+        if (!isCorruptEvidence(rec)) return null;
+        deps.clearTimers(r);
+        deps.freeze(r, 'durable match evidence does not match this table');
+        deps.persist(r);
+        return 'corrupt_debit' as BootstrapRecovery;
+      }
+      return applyBootstrapRecovery(r, cls, deps);
+    }).catch(() => null);
+    if (recovery) recoveries.set(r.code, recovery);
+  }
+  return { reconciled, recoveries, protectedMatchIds, protectedRoomCodes, orphanRefunded, orphanAlreadyPaid, orphanRetryable };
 }

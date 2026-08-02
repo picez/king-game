@@ -68,10 +68,11 @@ export function withPokerDbSuiteLock(
 export async function scopedOrphanScan(
   ownsMatch: (match: { matchId: string; roomCode: string }) => boolean,
   protectedMatchIds: Iterable<string> = [],
-): Promise<{ refunded: string[]; corrupt: string[] }> {
+  protectedRoomCodes: ReadonlySet<string> = new Set(),
+): Promise<Awaited<ReturnType<typeof import("../../server/pokerEscrow").reconcileOrphanedDebits>>> {
   const { reconcileOrphanedDebits } = await import('../../server/pokerEscrow');
   const { listUnsettledMatches } = await import('../../server/db/pokerWallet');
   const { valid, corrupt } = await listUnsettledMatches();
   const foreign = [...valid, ...corrupt].filter((m) => !ownsMatch(m)).map((m) => m.matchId);
-  return reconcileOrphanedDebits(new Set([...protectedMatchIds, ...foreign]));
+  return reconcileOrphanedDebits(new Set([...protectedMatchIds, ...foreign]), protectedRoomCodes);
 }

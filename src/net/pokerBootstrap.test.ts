@@ -162,7 +162,7 @@ describe('FAIL 1 (37.7.14) — runRoomRecoverySweep: reconciliation has PRECEDEN
       return reconcile;
     }),
     isFinished: isFin,
-    refundBuyIns: vi.fn(async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return true; }),
+    refundBuyIns: vi.fn(async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return 'confirmed_refund' as const; }),
   });
 
   it('only a TRANSIENT escrow is swept — a durable one is left to the funded retries', async () => {
@@ -236,11 +236,11 @@ describe('FAIL 1 (37.7.14) — runRoomRecoverySweep: reconciliation has PRECEDEN
 });
 
 describe('FAIL 1 (37.7.11) — recoverRestoredBankrollRoom orchestration (the function index.ts runs)', () => {
-  const deps = (over: Partial<{ reconcile: (r: ServerRoom) => Promise<void>; refund: (r: ServerRoom) => Promise<boolean> }> = {}) => ({
+  const deps = (over: Partial<{ reconcile: (r: ServerRoom) => Promise<void>; refund: (r: ServerRoom) => Promise<import('../../server/pokerEscrow').RefundResult> }> = {}) => ({
     ...applyDeps(),
     reconcileEscrow: over.reconcile ?? (async () => {}),
     isFinished: isFin,
-    refundBuyIns: vi.fn(over.refund ?? (async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return true; })),
+    refundBuyIns: vi.fn(over.refund ?? (async (r: ServerRoom) => { if (r.pokerEscrow) r.pokerEscrow.status = 'cancelled'; return 'confirmed_refund' as const; })),
   });
 
   it('reconciles BEFORE classifying — a settling escrow promoted to settled becomes paid_finish', async () => {
@@ -294,7 +294,7 @@ describe('FAIL 1 (37.7.11) — recoverRestoredBankrollRoom orchestration (the fu
 
   it('(37.7.12) an UNBOUND escrow whose refund FAILS stays settlement-pending (funded, no game), never cancelled', async () => {
     const r = room(esc('funded', 'm2'), FINISHED, { started: true });
-    const d = deps({ refund: async () => false });
+    const d = deps({ refund: async () => 'retry_pending' });
     expect(await recoverRestoredBankrollRoom(r, d)).toBe('unbound_debit');
     expect(r.gameState).toBeNull();
     expect(r.pokerEscrow!.status).toBe('funded');      // still owed → the sweep retries

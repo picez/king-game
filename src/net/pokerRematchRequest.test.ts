@@ -223,7 +223,7 @@ describe.skipIf(!TEST_DATABASE_URL)('FAIL 3 — READY routes to a real new paid 
 
     let restarted = false;
     const runRematch = (room: ServerRoom) => runBankrollRematch(room, {
-      debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyIns,
+      debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult,
       restartGame: (rm) => { rm.started = true; rm.gameState = { phase: 'betting', stacksBySeat: [4950, 4950], playerCount: 2, winnerSeat: 0, players: Array.from({ length: 2 }, (_, seat) => ({ id: 'p' + seat, name: 'P' + seat, seatIndex: seat, type: 'human' })) } as unknown as typeof rm.gameState; restarted = true; return { ok: true }; },
       clearRematch: () => {}, broadcastRematch: () => {}, broadcastRoom: () => {}, advance: () => {}, persist: () => {}, forgetFinish: () => {}, logDeal: () => {},
     });

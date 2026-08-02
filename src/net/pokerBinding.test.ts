@@ -69,7 +69,7 @@ describe('bindGameToEscrow only binds a REAL funded generation', () => {
 });
 
 describe('resolveUnboundEscrowGame — the unplayed fresh debit lifecycle', () => {
-  const deps = (refund: boolean) => ({ refundBuyIns: vi.fn(async () => refund), persist: vi.fn(), clearTimers: vi.fn() });
+  const deps = (refund: boolean) => ({ refundBuyIns: vi.fn(async () => (refund ? 'confirmed_refund' as const : 'retry_pending' as const)), persist: vi.fn(), clearTimers: vi.fn() });
 
   it('a CONFIRMED refund drops the stale state + binding and yields an honest cancelled lobby', async () => {
     const r = room({ pokerEscrow: esc('m2'), pokerGameMatchId: 'm1', gameState: FINISHED, started: true });

@@ -80,7 +80,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
         if (!shouldDeferBootstrapAdvance(r)) advance(r);
       }
       return runBootstrapEconomyRecovery(restored, {
-        reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+        reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
         rescheduleAdvance: advance, persist, clearTimers, freeze,
         isBankrollRoom: escrow.isBankrollRoom, hasUnsettledEscrow: escrow.hasUnsettledEscrow,
         reconcileCorruptRoom: escrow.reconcileCorruptRoom, withRoomLock: escrow.withRoomLock,
@@ -212,7 +212,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
 
     // Resolve the real debit so the suite leaves nothing unsettled.
     again.pokerFrozen = undefined;
-    expect(await t.escrow.refundBuyIns(again)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(again)).toBe('confirmed_refund');
     await t.cleanup([U1, U2]);
   });
 
@@ -263,7 +263,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
     expect(restored.gameState).not.toBeNull();
     expect(await t.balance(U1)).toBe(CLAIM - BUY_IN);
 
-    expect(await t.escrow.refundBuyIns(restored)).toBe(true); // leave nothing unsettled
+    expect(await t.escrow.refundBuyInsResult(restored)).toBe('confirmed_refund'); // leave nothing unsettled
     await t.cleanup([U1, U2]);
   });
 
@@ -309,14 +309,14 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
     expect(await t.ledger(M, 'table_cancel_refund')).toBe(0);
     expect(await t.balance(U1)).toBe(CLAIM - BUY_IN);
 
-    expect(await t.escrow.refundBuyIns(again)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(again)).toBe('confirmed_refund');
     await t.cleanup([U1, U2]);
   });
 
   it('E — a PROVEN zero debit is the only thing that may become a clean cancelled lobby', async () => {
     const t = await ctx('ORDE');
     const { room, code, U1, U2, M } = await t.bankrollRoom('1', live2p());
-    expect(await t.escrow.refundBuyIns(room)).toBe(true);  // resolve the real match first
+    expect(await t.escrow.refundBuyInsResult(room)).toBe('confirmed_refund');  // resolve the real match first
     // A pending escrow whose transaction rolled back: no ledger row was ever written for it.
     const ghost = randomUUID();
     room.pokerEscrow = { matchId: ghost, buyIn: BUY_IN, status: 'pending', seats: [{ seat: 0, userId: U1, amount: BUY_IN }, { seat: 1, userId: U2, amount: BUY_IN }] };
@@ -435,9 +435,9 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
 
     // Leave nothing unsettled.
     restored[1].pokerFrozen = undefined;
-    for (const r of [restored[0], restored[1]]) expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    for (const r of [restored[0], restored[1]]) expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     restored[3].pokerEscrow!.status = 'funded';
-    expect(await t.escrow.refundBuyIns(restored[3])).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(restored[3])).toBe('confirmed_refund');
     await t.cleanup([bound.U1, bound.U2, unknown.U1, unknown.U2, unbound.U1, unbound.U2, unproven.U1, unproven.U2]);
   });
 });

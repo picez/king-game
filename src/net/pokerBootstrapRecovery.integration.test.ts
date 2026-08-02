@@ -70,7 +70,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
       if (!shouldDeferBootstrapAdvance(room)) advance(room); // restore loop: `if (!shouldDefer…) rescheduleAdvance(room)`
       const recovery = await recoverRestoredBankrollRoom(room, {
         reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin,
-        rescheduleAdvance: advance, persist, clearTimers, freeze, refundBuyIns: escrow.refundBuyIns,
+        rescheduleAdvance: advance, persist, clearTimers, freeze, refundBuyIns: escrow.refundBuyInsResult,
       });
       return recovery;
     }
@@ -200,7 +200,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
   it('refunded/cancelled settlement → cancelled lobby, NEVER writes stats', async () => {
     const t = await ctx();
     const { room, U1, U2, M } = await t.bankrollRoom('BOOT3', finished2p());
-    await t.escrow.refundBuyIns(room); // escrow → cancelled
+    await t.escrow.refundBuyInsResult(room); // escrow → cancelled
     const restored = t.deserializeRoom(t.serializeRoom(room))!;
     expect(await t.bootstrapRestore(restored)).toBe('cancelled');
     expect(restored.gameState).toBeNull();

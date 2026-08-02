@@ -545,3 +545,27 @@ Use this file as the first read after archiving this chat. It is intentionally s
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
 - NOTE: the shared test Postgres accumulates rows when a run fails mid-test; truncate the poker/games/users tables
   before trusting a count-based assertion.
+
+### Stage 37.7.18 — settlement outcome integrity + runtime orphan recovery (COMPLETE, Unreleased)
+- Worked from HEAD `21d6d06`. No new migration, no version bump, other 6 games untouched. All 3 FAILs reproduced RED.
+- **CORRECTS 37.7.17:** `resolved` mixed a real refund with `already_paid`; `reconcileCorruptRoom` auto-refunded by
+  reusable roomCode; the global orphan scan ran only at bootstrap (transient failures needed a RESTART).
+- **RED.** (1) a durably PAID match answered `resolved`, and the deterministic scan race put its matchId in
+  `scan.refunded` while the settlement row said `payout` with 0 refund rows. (2) `reconcileCorruptRoom` = `true` with a
+  `cancel_refund` settlement + 2 refund rows for a match it could not own. (3) after a transient guarded-refund failure
+  the orphan stayed debited (995 000) and no runtime coordinator existed.
+- **FIX 1.** `RefundResult` = `confirmed_refund | already_paid | nothing_to_refund | retry_pending | invalid` (both
+  `refundBuyInsResult` and `refundDurableMatch`); scan reports `refunded` / `alreadyPaid` / `corrupt`+`corruptRefs` /
+  `retryable`. Boolean `refundBuyIns` DELETED; `resolveUnboundEscrowGame` gained `paid_conflict` → freeze; the
+  settlementPending sweep, `debitFreshStart`, rematch/failed-start and teardown all require `confirmed_refund`.
+- **FIX 2.** `reconcileCorruptRoom` never settles by roomCode (freeze if any unsettled match names it; the flag clears
+  only when none does), and `reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes)` fail-closed protects those
+  codes in BOTH passes before the scan.
+- **FIX 3.** `runRuntimeEconomyRecovery` + `runtimeEconomyRecovery()` on the cleanup interval, SINGLE-FLIGHT (shared with
+  bootstrap). Protection-only classification for healthy rooms → no timer/advance re-arm on a tick.
+- **New tests:** `pokerSettlementOutcomes.integration.test.ts` (6 real-PG tests). Migrated older suites to the precise
+  outcomes; replaced 37.7.17's unsafe "exact orphan refunds via reconcileCorruptRoom" expectation. Suite lock: **18**
+  poker DB files.
+- **Gates:** real Docker PostgreSQL — **36 poker suites / 333 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**295 files / 3106 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

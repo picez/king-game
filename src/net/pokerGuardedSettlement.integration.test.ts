@@ -65,7 +65,7 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
     const frozenLog: string[] = [];
     const freeze = (r: ServerRoom, reason: string) => { if (!r.pokerFrozen) { r.pokerFrozen = true; frozenLog.push(`${r.code} — ${reason}`); } };
     const recoveryDeps = () => ({
-      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
       rescheduleAdvance: advance, persist, clearTimers, freeze,
     });
     /** The production pipeline; `scan` overrides the orphan scan (e.g. to simulate a transient failure). */
@@ -214,17 +214,28 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
     expect(await t.settlements(bad.M)).toBe(0);
     expect(bad.room.pokerEscrowCorrupt).toBe(true);                      // still unresolved
 
-    // …while an EXACT record is still refunded exactly once by both paths.
+    // (37.7.18 FAIL 2) …and even an EXACT record is NO LONGER auto-settled through this path: a
+    // 4-char room code is reused, so it can never prove WHICH generation the record belongs to.
+    // The room is frozen for operator review and the record is left for an exact-matchId settlement.
     const ok = await t.bankrollRoom('GS2B');
     ok.room.pokerEscrowCorrupt = true;
-    expect(await t.escrow.reconcileCorruptRoom(ok.room)).toBe(true);
+    expect(await t.escrow.reconcileCorruptRoom(ok.room)).toBe(false);
+    expect(await t.ledger(ok.M, 'table_cancel_refund')).toBe(0);
+    expect(await t.balance(ok.U1)).toBe(CLAIM - BUY_IN);
+    expect(ok.room.pokerEscrowCorrupt).toBe(true);
+    // A corrupt room whose code names NO unsettled durable match owes nothing → the flag clears.
+    const clean = await t.bankrollRoom('GS2C');
+    expect(await t.escrow.refundBuyInsResult(clean.room)).toBe('confirmed_refund');
+    clean.room.pokerEscrowCorrupt = true;
+    expect(await t.escrow.reconcileCorruptRoom(clean.room)).toBe(true);
+    expect(clean.room.pokerEscrowCorrupt).toBe(false);
+    // The EXACT orphan is still refunded exactly once — by the GUARDED matchId-proving path.
+    const scan = await scopedOrphanScan((m) => t.codes.has(m.roomCode) && m.matchId === ok.M);
+    expect(scan.refunded).toContain(ok.M);
     expect(await t.ledger(ok.M, 'table_cancel_refund')).toBe(2);
     expect(await t.balance(ok.U1)).toBe(CLAIM);
-    const scan = await scopedOrphanScan((m) => t.codes.has(m.roomCode));
-    expect(scan.refunded).not.toContain(ok.M);                           // already settled
-    expect(await t.ledger(ok.M, 'table_cancel_refund')).toBe(2);
     await t.conn!.sql`DELETE FROM poker_matches WHERE match_id = ${bad.M}`;
-    await t.cleanup([bad.U1, bad.U2, ok.U1, ok.U2]);
+    await t.cleanup([bad.U1, bad.U2, ok.U1, ok.U2, clean.U1, clean.U2]);
   });
 
   // ── FAIL 2 — the escrowless recovery state machine ─────────────────────────────────────────────
@@ -288,7 +299,7 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
 
     // 4: the durable match was durably REFUNDED — a confirmed cancelled lobby, no second refund.
     const ref = await t.bankrollRoom('GS5B');
-    expect(await t.escrow.refundBuyIns(ref.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(ref.room)).toBe('confirmed_refund');
     const rr = t.escrowless(ref.room);
     const repR = await t.productionBootstrap([rr]);
     expect(repR.reconciled.get('GS5B')).toBe('cancelled');
@@ -367,12 +378,13 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
 
     // A genuinely refunded escrow still resolves, and a genuinely paid one too.
     const b = await t.bankrollRoom('GS7B');
-    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('resolved');
-    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('resolved'); // terminal replay, re-proved
+    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('confirmed_refund');
+    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('confirmed_refund'); // terminal replay, re-proved
     expect(await t.ledger(b.M, 'table_cancel_refund')).toBe(2);
     const c = await t.bankrollRoom('GS7C', finished2p());
     expect(await t.escrow.payoutStacks(c.room, finished2p())).toBe('paid');
-    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('resolved'); // already paid → resolved
+    // (37.7.18 FAIL 1) A durable PAYOUT is reported as such — NEVER as a refund.
+    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('already_paid');
     expect(await t.ledger(c.M, 'table_cancel_refund')).toBe(0);
     // A transient read failure is retryable, never a permanent verdict.
     t.escrow.__setReconcileFailure(true);
@@ -390,7 +402,7 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
     expect(rep.recoveries.get('GS8A')).toBe('live');
     expect(t.advance).toHaveBeenCalledTimes(1);
     expect(await t.ledger(live.M, 'table_cancel_refund')).toBe(0);
-    expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
 
     const { createRoom } = await import('./serverCore');
     const king = createRoom({ code: 'GS8K', playerCount: 4, modeSelectionType: 'fixed', gameType: 'king', host: { clientId: 'a', reconnectToken: 't', name: 'A' } });

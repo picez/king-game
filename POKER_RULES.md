@@ -470,6 +470,28 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   `settled`/`cancelled` fast path now re-checks the claim through the shared evidence resolver,
   so a teardown cannot purge a table whose settlement the DB never recorded (or recorded the
   other way). Unproven → frozen; transient → keep and retry.
+- **Every settlement names its DURABLE FINANCIAL OUTCOME** (Stage 37.7.18). `RefundResult` is
+  `confirmed_refund | already_paid | nothing_to_refund | retry_pending | invalid`; the orphan
+  scan reports `refunded`, `alreadyPaid`, `corrupt`(+`corruptRefs`) and `retryable` separately.
+  ONLY `confirmed_refund` may set `pokerMatchCancelled`, clear a game state/binding as refunded,
+  purge a table as cancelled, or free it for a new paid match. A `SettlementConflictError` whose
+  resolved outcome is `payout` is **`already_paid`** — the caller freezes (an incoherent paid
+  table with no game) instead of cancelling. **Correction:** Stage 37.7.17 collapsed both into
+  one `resolved`, so a payout that won the race entered the scan's `refunded` list.
+- **A corrupt persisted escrow is never recovered by room code** (Stage 37.7.18). A malformed
+  room JSON carries no trustworthy matchId, and a 4-char code is reused, so `reconcileCorruptRoom`
+  no longer refunds matches that merely share the code: if ANY unsettled durable match names it,
+  the room is frozen for operator review and every record/settlement/wallet is left untouched
+  (the flag clears only when nothing durable references the code). Those codes are additionally
+  fail-closed **protected** from the global scan, which now accepts `protectedRoomCodes` as well
+  as `protectedMatchIds`.
+- **Runtime orphan recovery — no restart required** (Stage 37.7.18). `runRuntimeEconomyRecovery`
+  runs the guarded global scan and the escrowless-claim resolution on the normal cleanup
+  interval, SINGLE-FLIGHT (never two passes, never concurrent with bootstrap). It classifies
+  every bankroll room for PROTECTION only and applies nothing to a healthy live/payout/stats
+  table, so no timer or advance is re-armed on a tick. A roomless orphan left by a transient
+  failure is refunded on the next pass; an `escrowless_unresolved` claim becomes a clean lobby
+  only when a refund for that exact matchId is confirmed in the same pass.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

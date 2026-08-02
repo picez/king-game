@@ -146,7 +146,7 @@ describe.skipIf(!TEST_DATABASE_URL)('settlement-before-stats for bankroll poker 
     await t.escrow.debitBuyIns(t.room);
     t.bind();
     const M = t.room.pokerEscrow!.matchId;
-    await t.escrow.refundBuyIns(t.room);           // escrow → cancelled (mutex)
+    await t.escrow.refundBuyInsResult(t.room);           // escrow → cancelled (mutex)
     const spy = vi.fn(async (): Promise<import('../../server/pokerFinish').StatsResult> => 'recorded');
     const out = await t.settleAndRecordBankrollPokerFinish(t.room, finished2p(), t.deps(spy));
     expect(out.result).toBe('already_refunded');

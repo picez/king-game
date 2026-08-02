@@ -65,15 +65,15 @@ export function clearGameBinding(room: ServerRoom): void {
 
 /** Injected side effects for resolving an UNBOUND escrow/state pair. */
 export interface UnboundResolveDeps {
-  /** Refund the fresh (unplayed) buy-in; true = CONFIRMED resolved. */
-  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
+  /** Refund the fresh (unplayed) buy-in; the EXPLICIT durable outcome (37.7.18 FAIL 1). */
+  refundBuyIns: (room: ServerRoom) => Promise<import('./pokerEscrow').RefundResult>;
   /** Persist the room. */
   persist: (room: ServerRoom) => void;
   /** Clear the room's server timers. */
   clearTimers: (room: ServerRoom) => void;
 }
 
-export type UnboundResolution = 'refunded' | 'settlement_pending';
+export type UnboundResolution = 'refunded' | 'settlement_pending' | 'paid_conflict';
 
 /**
  * Resolve a room whose CURRENT escrow did NOT produce its CURRENT state (the crashed-rematch shape:
@@ -92,8 +92,11 @@ export async function resolveUnboundEscrowGame(room: ServerRoom, deps: UnboundRe
   room.gameState = null;      // never pay/record a previous generation's state against this escrow
   clearGameBinding(room);
   deps.clearTimers(room);
-  const refunded = await deps.refundBuyIns(room);
-  if (refunded) room.pokerMatchCancelled = true; // resolved → a clean, honest lobby
+  const res = await deps.refundBuyIns(room);
+  // (37.7.18 FAIL 1) ONLY a confirmed refund makes this an honest cancelled lobby. `already_paid`
+  // (the payout won the settlement race) and `invalid` are operator conditions — the caller freezes.
+  if (res === 'confirmed_refund' || res === 'nothing_to_refund') room.pokerMatchCancelled = true;
   deps.persist(room);
-  return refunded ? 'refunded' : 'settlement_pending';
+  if (res === 'confirmed_refund' || res === 'nothing_to_refund') return 'refunded';
+  return res === 'retry_pending' ? 'settlement_pending' : 'paid_conflict';
 }

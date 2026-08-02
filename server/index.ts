@@ -51,11 +51,11 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, refundBuyInsResult, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, refundBuyInsResult, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
 import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
-import { runBootstrapEconomyRecovery, runRoomRecoverySweep, shouldDeferBootstrapAdvance } from './pokerBootstrap';
+import { runBootstrapEconomyRecovery, runRuntimeEconomyRecovery, runRoomRecoverySweep, shouldDeferBootstrapAdvance } from './pokerBootstrap';
 import { durakFinishSignature } from '../src/net/durakStats';
 import { debercFinishSignature } from '../src/net/debercStats';
 import { tarneebFinishSignature } from '../src/net/tarneebStats';
@@ -366,7 +366,7 @@ function handleRematch(session: SessionRef, decline: boolean): void {
     // Bankroll poker (§16, 37.7.1/37.7.7): a rematch is a BRAND-NEW paid match — the extracted,
     // unit-tested lifecycle helper (debit → restart → refund-on-failure → broadcast).
     runRematch: (room) => runBankrollRematch(room, {
-      debitRematch, refundBuyIns,
+      debitRematch, refundBuyIns: refundBuyInsResult,
       restartGame: (r) => restartGame(r, { now: Date.now() }),
       clearRematch, broadcastRematch, broadcastRoom,
       advance: (r) => broadcastAndAdvance(r, { turnAdvanced: true }),
@@ -496,7 +496,7 @@ function bootstrapRecoveryDeps(): import('./pokerBootstrap').BootstrapRecoveryDe
     persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },
     clearTimers: (room) => clearRoomTimers(room.code),
     freeze: freezeRoomForOperator,
-    refundBuyIns,
+    refundBuyIns: refundBuyInsResult,
   };
 }
 
@@ -1046,6 +1046,37 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
  *     retry ONLY the stats write (never re-pay). On success/duplicate the flag clears + rematch
  *     re-enables. This survives restart (the flag is persisted).
  */
+// (37.7.18 FAIL 3) SINGLE-FLIGHT guard for the runtime economy pass: the global orphan scan is a
+// cluster-wide settlement operation, so two overlapping ticks (or a tick racing bootstrap) must never
+// run at once. It is set for the whole bootstrap pass too.
+let economyRecoveryInFlight = false;
+
+/**
+ * (37.7.18 FAIL 3) The RUNTIME global recovery pass: retries orphaned durable debits and
+ * `escrowless_unresolved` claims that a TRANSIENT failure left unresolved, WITHOUT a server restart.
+ * Runs on the same cleanup interval as the per-room retries, single-flight, and never re-applies a
+ * healthy live/payout/stats room (so no timer or advance is re-armed on a tick).
+ */
+function runtimeEconomyRecovery(): void {
+  if (!isDbEnabled() || economyRecoveryInFlight) return;
+  economyRecoveryInFlight = true;
+  void runRuntimeEconomyRecovery([...rooms.values()], {
+    ...bootstrapRecoveryDeps(),
+    isBankrollRoom, reconcileOrphanedDebits, withRoomLock,
+    roomExists: (r) => rooms.has(r.code),
+    log: (m) => console.log(`[King] ${m}`),
+    logError: (m) => console.error(`[King] ${m}`),
+  }).then((report) => {
+    for (const [code, recovery] of report.recoveries) {
+      const room = rooms.get(code);
+      if (room) broadcastRoom(room);
+      console.log(`[King] runtime economy recovery for room ${code} (${recovery})`);
+    }
+  }).catch((err) => {
+    console.error(`[King] runtime economy recovery failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
+  }).finally(() => { economyRecoveryInFlight = false; });
+}
+
 function retryPendingSettlements(): void {
   for (const room of rooms.values()) {
     if (escrowUnresolved(room)) {
@@ -1068,7 +1099,7 @@ function retryPendingSettlements(): void {
       void withRoomLock(room.code, async () => {
         if (!rooms.has(room.code) || !unboundEscrowGame(room)) return;
         const res = await resolveUnboundEscrowGame(room, {
-          refundBuyIns, persist: persistRoom, clearTimers: (r) => clearRoomTimers(r.code),
+          refundBuyIns: refundBuyInsResult, persist: persistRoom, clearTimers: (r) => clearRoomTimers(r.code),
         });
         broadcastRoom(room);
         console.log(`[King] unplayed rematch debit resolved for room ${room.code} (${res})`);
@@ -1076,9 +1107,17 @@ function retryPendingSettlements(): void {
     } else if (settlementPending(room)) {
       void withRoomLock(room.code, async () => {
         if (!rooms.has(room.code) || !settlementPending(room)) return;
-        const refunded = await refundBuyIns(room);
-        if (refunded) {
-          room.pokerMatchCancelled = true; // resolved → safe cancelled lobby
+        // (37.7.18 FAIL 1) ONLY a CONFIRMED refund makes this a cancelled lobby. `already_paid`
+        // means the payout won the settlement race — an incoherent paid table with no game, frozen.
+        const res = await refundBuyInsResult(room);
+        if (res === 'already_paid' || res === 'invalid') {
+          freezeRoomForOperator(room, 'durable match evidence does not match this table');
+          persistRoom(room);
+          broadcastRoom(room);
+          return;
+        }
+        if (res === 'confirmed_refund' || res === 'nothing_to_refund') {
+          room.pokerMatchCancelled = true; // confirmed refund → safe cancelled lobby
           persistRoom(room);
           broadcastRoom(room);
           console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
@@ -1129,6 +1168,7 @@ function cleanupRooms(): number {
     console.log(`[King] auto-cleaned idle room ${code}`);
   }
   retryPendingSettlements(); // (37.7.6/37.7.7) resolve any refund/payout that failed transiently
+  runtimeEconomyRecovery(); // (37.7.18) retry orphaned debits + escrowless claims without a restart
   // Reclaim per-IP tracking for hosts with no open sockets (bounded memory).
   ipLimiter.sweep(Date.now());
   return expired.length;
@@ -1190,13 +1230,14 @@ async function bootstrap(): Promise<void> {
     // the integration tests drive too. It used to be inlined here, and the orphan scan ran BEFORE any
     // classification against a set built from a room SHAPE test, so a room that classification would
     // have FROZEN (an unknown/unproven binding) was refunded by the scan seconds earlier.
+    economyRecoveryInFlight = true;
     await runBootstrapEconomyRecovery(restoredRooms, {
       ...bootstrapRecoveryDeps(),
       isBankrollRoom, hasUnsettledEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, withRoomLock,
       roomExists: (r) => rooms.has(r.code),
       log: (m) => console.log(`[King] ${m}`),
       logError: (m) => console.error(`[King] ${m}`),
-    });
+    }).finally(() => { economyRecoveryInFlight = false; });
   } else {
     // (37.7.4 FAIL 2) No economy (no DB): a restored bankroll room with unsettled escrow FAILS
     // CLOSED — it is NOT advanced/timed and NOT cancelled/refunded (that needs DB proof). Its

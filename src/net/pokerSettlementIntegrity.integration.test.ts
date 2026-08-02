@@ -68,7 +68,7 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
     const frozenLog: string[] = [];
     const freeze = (r: ServerRoom, reason: string) => { if (!r.pokerFrozen) { r.pokerFrozen = true; frozenLog.push(`${r.code} — ${reason}`); } };
     const recoveryDeps = () => ({
-      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+      reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
       rescheduleAdvance: advance, persist, clearTimers, freeze,
     });
     async function productionBootstrap(restored: ServerRoom[]) {
@@ -179,7 +179,7 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
   it('C — cancelled + refund row + CORRUPT durable row → frozen; the state is NOT cleared', async () => {
     const t = await ctx('SI3');
     const a = await t.bankrollRoom('SI3A');
-    expect(await t.escrow.refundBuyIns(a.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(a.room)).toBe('confirmed_refund');
     const bad = JSON.stringify([{ seat: 0, userId: a.U1, amount: BUY_IN }, { seat: 1, userId: a.U2, amount: 1 }]);
     await t.conn!.sql`UPDATE poker_matches SET seats = ${bad}::jsonb WHERE match_id = ${a.M}`;
     const r = await t.expectFrozen(a.room, 'SI3A', a.M, a.U1, 1);
@@ -204,7 +204,7 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
 
     // E: room says settled, the DB outcome is a REFUND.
     const e = await t.bankrollRoom('SI4E', finished2p());
-    expect(await t.escrow.refundBuyIns(e.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(e.room)).toBe('confirmed_refund');
     e.room.pokerEscrow!.status = 'settled';
     const re = t.restore(e.room);
     const repE = await t.productionBootstrap([re]);
@@ -250,7 +250,7 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
 
     // H: exact refund → cancelled lobby, refund not repeated.
     const h = await t.bankrollRoom('SI5H');
-    expect(await t.escrow.refundBuyIns(h.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(h.room)).toBe('confirmed_refund');
     const rh = t.restore(h.room);
     const repH = await t.productionBootstrap([rh]);
     expect(repH.reconciled.get('SI5H')).toBe('cancelled');
@@ -356,14 +356,15 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
 
     // 9: an existing EXACT refund replays without a duplicate mutation.
     const c = await t.bankrollRoom('SI9C');
-    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('resolved');
-    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('resolved');
+    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('confirmed_refund');
+    // (37.7.18 FAIL 1) The idempotent replay is still reported as a CONFIRMED REFUND.
+    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('confirmed_refund');
     expect(await t.ledger(c.M, 'table_cancel_refund')).toBe(2);
     expect(await t.balance(c.U1)).toBe(CLAIM);
 
     // 10: an existing refund whose ownership is now CORRUPT → nothing more happens, evidence kept.
     const d = await t.bankrollRoom('SI9D');
-    expect(await t.escrow.refundBuyInsResult(d.room)).toBe('resolved');
+    expect(await t.escrow.refundBuyInsResult(d.room)).toBe('confirmed_refund');
     await t.conn!.sql`UPDATE poker_matches SET buy_in = 9000 WHERE match_id = ${d.M}`;
     // (37.7.17 FAIL 3) The terminal fast path is no longer self-proof: the room's `cancelled` claim
     // is re-checked against the durable evidence, which no longer matches → `invalid` (freeze), and

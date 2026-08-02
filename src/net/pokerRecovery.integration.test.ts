@@ -122,7 +122,7 @@ describe.skipIf(!TEST_DATABASE_URL)('START over a REAL terminal escrow + concurr
     if (cancelledLobby) {
       // A REAL terminal escrow: fund then refund → escrow.status='cancelled' (not a hand-set flag).
       await escrow.debitBuyIns(room);
-      await escrow.refundBuyIns(room);
+      await escrow.refundBuyInsResult(room);
       expect(room.pokerEscrow?.status).toBe('cancelled');
       room.pokerMatchCancelled = true; room.gameState = null; room.started = false;
     }
@@ -198,7 +198,7 @@ describe.skipIf(!TEST_DATABASE_URL)('START over a funded orphan whose REFUND fai
     await escrow.debitBuyIns(room);
     const orphanMatch = room.pokerEscrow!.matchId;
     escrow.__setRefundFailure(true);
-    expect(await escrow.refundBuyIns(room)).toBe(false);
+    expect(await escrow.refundBuyInsResult(room)).toBe('retry_pending');
     room.gameState = null; room.started = false;
     expect(escrow.settlementPending(room)).toBe(true);
 

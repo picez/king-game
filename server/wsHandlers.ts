@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyInsResult, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
 import { bindGameToEscrow } from './pokerBinding';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
@@ -409,7 +409,7 @@ export function handleClientMessage(
           // diverge, refund and abort. (37.7.6) Only claim "refunded / cancelled" when the refund
           // is CONFIRMED; otherwise the room is settlement-pending (funded, retried), NOT cancelled.
           if (!escrowMatchesRoomSeats(room)) {
-            const refunded = await refundBuyIns(room);
+            const refunded = (await refundBuyInsResult(room)) === 'confirmed_refund';
             if (refunded) {
               room.pokerMatchCancelled = true;
               sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
@@ -423,7 +423,7 @@ export function handleClientMessage(
           if (!res.ok) {
             // Debit committed but the game did not start → attempt refund. Mark cancelled ONLY if
             // the refund is confirmed; a failed refund leaves a funded escrow (settlement-pending).
-            const refunded = await refundBuyIns(room);
+            const refunded = (await refundBuyInsResult(room)) === 'confirmed_refund';
             if (refunded) { room.pokerMatchCancelled = true; sendError(socket, res.error!, 'Cannot start game — buy-ins refunded'); }
             else sendError(socket, 'SETTLEMENT_PENDING', 'Could not start and settlement is pending — try again in a moment');
             ctx.broadcastRoom(room); ctx.persistRoom(room);

@@ -308,8 +308,11 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
   // be reused as a "fresh" match. Resolve it first: refund the orphan. If that fails, fail CLOSED
   // as settlement-pending (never mint a new match while the old one is unresolved).
   if (esc?.status === 'funded') {
-    const resolved = await refundBuyIns(room); // funded → attempt refund of the orphan
-    if (!resolved) return { ok: false, error: 'Settlement pending — please try again in a moment', settlementPending: true };
+    // (37.7.18 FAIL 1) ONLY a CONFIRMED refund frees the table for a new paid match. `already_paid`
+    // means the orphan's chips went OUT — an incoherent paid match with no game, which must never
+    // silently become a fresh start.
+    const res = await refundBuyInsResult(room); // funded → attempt refund of the orphan
+    if (res !== 'confirmed_refund') return { ok: false, error: 'Settlement pending — please try again in a moment', settlementPending: true };
     // resolved → escrow is now terminal (cancelled/settled); fall through to mint a fresh match.
   }
   // esc is undefined (initial) OR terminal (settled/cancelled, incl. the just-resolved orphan) →
@@ -425,16 +428,23 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
  * The DB settlement gate makes this mutually exclusive with payout, and the ownership proof runs
  * INSIDE that same transaction (37.7.16 FAIL 3). Idempotent.
  *
- * (37.7.16) The explicit outcome:
- *   • resolved      — refunded here, or already terminally settled (safe to delete the room);
- *   • retry_pending — TRANSIENT (debit in flight / DB down / injected) → keep the room, retry;
- *   • invalid       — the durable evidence does NOT prove this match: nothing was written and
- *                     nothing ever will be. A PERMANENT operator condition → freeze, never retry.
+ * (37.7.18 FAIL 1) The outcome names the DURABLE FINANCIAL RESULT — never a vague "resolved".
+ * Stage 37.7.17 collapsed "refunded" and "the payout won the race" into one `resolved`, so a
+ * SettlementConflictError (durable outcome = payout) was reported as a successful refund: the match
+ * entered the scan's `refunded` list and callers cancelled the table / wiped its state as if the
+ * chips had come back.
+ *   • confirmed_refund   — the durable outcome IS `cancel_refund` (fresh or an idempotent repeat);
+ *   • already_paid       — the durable outcome is `payout`. NEVER a refund: never cancel, never wipe
+ *                          state/binding, never purge as cancelled, never start a new paid match;
+ *   • nothing_to_refund  — the room holds no escrow at all;
+ *   • retry_pending      — TRANSIENT (debit in flight / DB down / injected) → keep, retry;
+ *   • invalid            — the durable evidence does NOT prove this match: nothing was written and
+ *                          nothing ever will be. A PERMANENT operator condition → freeze.
  */
-export type RefundResult = 'resolved' | 'retry_pending' | 'invalid';
+export type RefundResult = 'confirmed_refund' | 'already_paid' | 'nothing_to_refund' | 'retry_pending' | 'invalid';
 export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult> {
   const esc = room.pokerEscrow;
-  if (!esc) return 'resolved';                                            // nothing escrowed → safe to delete
+  if (!esc) return 'nothing_to_refund';                                   // no escrow → nothing owed
   if (esc.status === 'settled' || esc.status === 'cancelled') {
     // (37.7.17 FAIL 3) A TERMINAL escrow status is a room-JSON CLAIM, never durable proof. This fast
     // path used to answer `resolved` outright, so a teardown could purge a table whose settlement the
@@ -442,7 +452,9 @@ export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult
     // It now goes through the SHARED evidence resolver — the same one bootstrap uses.
     const evidence = await resolveEscrowEvidence(room);
     if (evidence === 'retry_pending') return 'retry_pending';
-    return isCorruptEvidence(evidence) ? 'invalid' : 'resolved';
+    if (isCorruptEvidence(evidence)) return 'invalid';
+    // (37.7.18 FAIL 1) Report WHICH terminal outcome the DB actually holds.
+    return evidence === 'settled' ? 'already_paid' : 'confirmed_refund';
   }
   if (esc.status === 'pending') return 'retry_pending';                   // debit in flight → keep for reconcile
   if (!isDbEnabled()) return 'retry_pending';                             // economy off but funded → keep for retry
@@ -457,9 +469,10 @@ export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult
       }
     }, validateDurableOwnership);
     esc.status = 'cancelled';
-    return 'resolved';
+    return 'confirmed_refund';
   } catch (err) {
-    if (err instanceof SettlementConflictError) { esc.status = 'settled'; return 'resolved'; } // already paid
+    // (37.7.18 FAIL 1) The payout WON the settlement gate — the money went out, it did NOT come back.
+    if (err instanceof SettlementConflictError) { esc.status = 'settled'; return 'already_paid'; }
     if (err instanceof DurableOwnershipError) {
       esc.status = 'funded'; // NOTHING was written — permanent operator condition, never retried
       console.error(`[Poker] room ${room.code}: refund REFUSED — durable ownership unproven (${err.structure})`);
@@ -470,9 +483,10 @@ export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult
   }
 }
 
-/** Boolean form (unchanged contract): TRUE only when the match is RESOLVED. */
-export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
-  return (await refundBuyInsResult(room)) === 'resolved';
+/** TRUE only for a TERMINALLY resolved match — a confirmed refund, an already-paid one, or no
+ *  escrow at all. Callers that must distinguish a refund from a payout use `refundBuyInsResult`. */
+export function refundTerminallyResolved(result: RefundResult): boolean {
+  return result === 'confirmed_refund' || result === 'already_paid' || result === 'nothing_to_refund';
 }
 
 /**
@@ -521,17 +535,18 @@ export async function reconcileCorruptRoom(room: ServerRoom): Promise<boolean> {
   if (!isDbEnabled()) return false; // funded-but-corrupt, no economy → keep for retry
   let matches: { valid: DurableMatch[]; corrupt: { matchId: string; roomCode: string; reason: string }[] };
   try { matches = await listUnsettledMatches(); } catch { return false; }
-  // A CORRUPT durable record for this room can't be safely refunded → freeze for operator.
-  if (matches.corrupt.some((c) => c.roomCode === room.code)) {
-    console.error(`[Poker] room ${room.code} has a CORRUPT durable match record — frozen for operator review (no partial settlement)`);
-    return false; // fail closed
+  // (37.7.18 FAIL 2) A ROOM CODE IS NOT OWNERSHIP PROOF. Codes are 4 chars and are reused once a
+  // room is gone, while an unresolved durable match outlives it — and a MALFORMED persisted escrow
+  // carries no trustworthy matchId to compare against. This path used to refund every unsettled
+  // match sharing the code, so a corrupt room could settle a DIFFERENT generation's healthy match.
+  // If ANY unsettled durable match names this code, the room is frozen for operator review and the
+  // records, settlements and wallets are all left untouched.
+  const owned = [...matches.valid, ...matches.corrupt].filter((m) => m.roomCode === room.code);
+  if (owned.length > 0) {
+    console.error(`[Poker] room ${room.code} has a corrupt persisted escrow and ${owned.length} unsettled durable match(es) — frozen for operator review (a room code is not ownership proof)`);
+    return false; // fail closed — NEVER auto-settle by room code
   }
-  // (37.7.17 FAIL 1) The same guarded refund — a parse-valid row whose ledger does not back it is
-  // never credited here either (this path used to share the unguarded settlement).
-  for (const m of matches.valid.filter((mm) => mm.roomCode === room.code)) {
-    if (await refundDurableMatch(m) !== 'resolved') return false; // invalid → freeze, transient → retry
-  }
-  room.pokerEscrowCorrupt = false; // every match for this room is resolved
+  room.pokerEscrowCorrupt = false; // nothing durable references this code → nothing is owed
   return true;
 }
 
@@ -554,13 +569,16 @@ async function refundDurableMatch(match: DurableMatch): Promise<RefundResult> {
         await adjustWalletTx(tx, s.userId, s.amount, 'table_cancel_refund', `refund:${match.matchId}:${s.userId}`, { matchId: match.matchId, roomCode: match.roomCode });
       }
     }, validateDurableOwnership);
-    return 'resolved';
+    return 'confirmed_refund';
   } catch (err) {
-    if (err instanceof SettlementConflictError) return 'resolved'; // already paid → resolved
+    // (37.7.18 FAIL 1) A payout that won the race is NOT a refund — it must never enter `refunded`.
+    if (err instanceof SettlementConflictError) return 'already_paid';
     if (err instanceof DurableOwnershipError) return 'invalid';    // PERMANENT: operator-owned
     return 'retry_pending';                                        // transient → the next scan retries
   }
 }
+
+const EMPTY_SCAN = (): OrphanScanResult => ({ refunded: [], alreadyPaid: [], corrupt: [], corruptRefs: [], retryable: [] });
 
 /** An INTERNAL-ONLY reference to a corrupt durable match (37.7.15 FAIL 1). Never logged, never sent
  *  to a client — the orchestration needs the matchId to associate it with the CURRENT room exactly. */
@@ -574,6 +592,8 @@ export interface OrphanScanResult {
   corrupt: string[];
   /** (37.7.17) Match ids this scan could NOT resolve TRANSIENTLY — nothing was proven about them. */
   retryable: string[];
+  /** (37.7.18) Match ids whose durable outcome turned out to be a PAYOUT — never a refund. */
+  alreadyPaid: string[];
   /**
    * (37.7.15 FAIL 1) Structured internal refs for those corrupt records. A 4-char room code is
    * REUSED (`makeRoomCode` only checks the live in-memory rooms) while an unresolved corrupt
@@ -593,11 +613,15 @@ export interface OrphanScanResult {
  * refunds nothing new (the settlement gate + ledger keys no-op). Malformed durable seats fail
  * closed (skipped + alerted for operator review) rather than silently losing chips.
  */
-export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Promise<OrphanScanResult> {
-  if (!isDbEnabled()) return { refunded: [], corrupt: [], corruptRefs: [], retryable: [] };
+export async function reconcileOrphanedDebits(
+  activeMatchIds: Set<string>,
+  protectedRoomCodes: ReadonlySet<string> = new Set(),
+): Promise<OrphanScanResult> {
+  if (!isDbEnabled()) return EMPTY_SCAN();
   let matches: { valid: DurableMatch[]; corrupt: { matchId: string; roomCode: string; reason: string }[] };
-  try { matches = await listUnsettledMatches(); } catch { return { refunded: [], corrupt: [], corruptRefs: [], retryable: [] }; }
+  try { matches = await listUnsettledMatches(); } catch { return EMPTY_SCAN(); }
   const refunded: string[] = [];
+  const alreadyPaid: string[] = [];
   const retryable: string[] = [];
   const invalidRefs: CorruptMatchRef[] = [];
   // CORRUPT durable records are NEVER settled/refunded (all-or-nothing, FAIL 3) — left
@@ -612,10 +636,18 @@ export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Prom
     // (37.7.17 FAIL 1) The guarded refund distinguishes the three outcomes: only `resolved` counts as
     // refunded. A structural failure is PERMANENT operator evidence (never retried, never settled);
     // a transient one is reported so the caller knows this boot proved nothing about that match.
+    // (37.7.18 FAIL 2) A room whose PERSISTED escrow is corrupt has no provable matchId, so every
+    // durable match naming its code is fail-closed protected — the code alone can never authorise a
+    // settlement (it may belong to an entirely different generation that reused it).
+    if (protectedRoomCodes.has(m.roomCode)) continue;
     const res = await refundDurableMatch(m);
-    if (res === 'resolved') {
+    if (res === 'confirmed_refund') {
       refunded.push(m.matchId);
       console.log(`[Poker] room ${m.roomCode}: crash-recovery refund for an orphaned durable match`);
+    } else if (res === 'already_paid') {
+      // (37.7.18 FAIL 1) The payout won the settlement race. The money went OUT, not back — this
+      // match must never be reported as refunded (callers cancel/wipe tables on that).
+      alreadyPaid.push(m.matchId);
     } else if (res === 'invalid') {
       invalidRefs.push({ matchId: m.matchId, roomCode: m.roomCode, reasonCode: 'ledger does not back the durable record' });
       console.error(`[Poker] room ${m.roomCode}: an orphaned durable match has UNPROVEN buy-in evidence — LEFT UNRESOLVED for operator review`);
@@ -625,6 +657,7 @@ export async function reconcileOrphanedDebits(activeMatchIds: Set<string>): Prom
   }
   return {
     refunded,
+    alreadyPaid,
     retryable,
     corrupt: [...matches.corrupt.map((c) => c.matchId), ...invalidRefs.map((c) => c.matchId)],
     // (37.7.14 FAIL 3 / 37.7.15 FAIL 1) The association for every corrupt durable match. The scan

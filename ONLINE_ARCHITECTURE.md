@@ -1078,3 +1078,43 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   failure; confirmed refund → clean lobby; durable payout/refund/corrupt/partial; no binding; owed stats with no
   escrow; repeated boots), each asserting blocked gameplay, `teardown === 'keep'`, zero settlement/stat mutation and a
   leak-free snapshot — plus a healthy-live / non-poker / LOCAL-poker non-regression case.
+
+### Settlement outcome integrity + runtime orphan recovery (Stage 37.7.18)
+
+- **CORRECTIONS to 37.7.17.** (a) `RefundResult` was `resolved | retry_pending | invalid`, and BOTH a real refund and a
+  `SettlementConflictError` whose resolved outcome was `payout` returned `resolved` — RED: a funded room whose match was
+  durably PAID answered `resolved`, and the deterministic scan race (the scan reads the match unsettled, a payout commits
+  before the refund claims the gate) put the matchId in `scan.refunded` while `poker_match_settlements.outcome = 'payout'`
+  and 0 refund rows existed. Bootstrap step (e3) trusts `orphanRefunded`, so a PAID escrowless room could be wiped as
+  cancelled. (b) `reconcileCorruptRoom` refunded every unsettled durable match sharing the room's 4-char code — RED:
+  `reconcileCorruptRoom` returned `true` and wrote a `cancel_refund` settlement + 2 refund rows for a match it could not
+  own. (c) The global orphan scan ran only at bootstrap — RED: after a transient guarded-refund failure the orphan stayed
+  debited (995 000) and no runtime coordinator existed.
+- **Precise settlement outcomes (FAIL 1 fix).** `RefundResult` is now
+  `confirmed_refund | already_paid | nothing_to_refund | retry_pending | invalid`, returned by BOTH `refundBuyInsResult`
+  and `refundDurableMatch`. `reconcileOrphanedDebits` puts only `confirmed_refund` into `refunded` and reports
+  `alreadyPaid` on its own axis (alongside `corrupt`/`corruptRefs`/`retryable`). The boolean `refundBuyIns` was DELETED;
+  every production caller now branches on the exact outcome: `debitFreshStart` mints a fresh match only after
+  `confirmed_refund`; `resolveUnboundEscrowGame` gained a `paid_conflict` resolution that the bootstrap/teardown callers
+  turn into a freeze; the `settlementPending` sweep freezes on `already_paid`/`invalid` instead of cancelling;
+  `runBankrollRematch` and the failed-start handlers require `confirmed_refund`; `settleRoomForDeletion` never purges on
+  `already_paid`.
+- **Room codes never authorise a settlement (FAIL 2 fix).** `reconcileCorruptRoom` no longer refunds by roomCode: if any
+  unsettled durable match names the code it returns `false` (freeze, records/settlements/wallets untouched); the flag
+  clears only when nothing durable references it. `reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes)` gained
+  a fail-closed room-code protection set, filled from `pokerEscrowCorrupt` rooms by BOTH the bootstrap and runtime passes
+  BEFORE the scan runs.
+- **Runtime orphan recovery (FAIL 3 fix).** New `runRuntimeEconomyRecovery(rooms, deps)` in `server/pokerBootstrap.ts`,
+  driven by `server/index.ts` `runtimeEconomyRecovery()` on the cleanup interval under a module-level SINGLE-FLIGHT flag
+  that bootstrap also holds. Order: resolve escrowless claims under their room locks → classify EVERY bankroll room for
+  PROTECTION only → guarded global scan (with protected match ids + corrupt room codes) → apply ONLY escrowless outcomes,
+  and only turn a claim into a cancelled lobby when its matchId is in this pass's confirmed `orphanRefunded`. A healthy
+  `live`/`payout_pending`/`paid_finish` room is never re-applied, so no timer or advance is re-armed on a 45 s tick.
+- **Regression suite:** `src/net/pokerSettlementOutcomes.integration.test.ts` (real PostgreSQL, 6 tests): `already_paid`
+  vs an idempotent `confirmed_refund`; the deterministic payout race (not in `refunded`, reported in `alreadyPaid`, an
+  escrowless room bound to it frozen rather than cancelled); a corrupt room never settling by code, two generations
+  sharing a reused code both protected and idempotent across passes; a roomless orphan refunded by the NEXT runtime pass
+  exactly once; an escrowless claim inert after a transient scan then cancelled on a confirmed refund; two concurrent
+  runtime passes producing exactly one credit while live/paid rooms stay untouched and no advance is re-armed. Older
+  suites were migrated to the precise outcomes, and 37.7.17's "an exact orphan still refunds via reconcileCorruptRoom"
+  expectation was replaced — that behaviour was the unsafe room-code path.

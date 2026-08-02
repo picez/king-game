@@ -76,8 +76,8 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll escrow (integration)', () =>
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);        // busted → no credit
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_005_000);      // +10000 (=2×buy-in)
 
-    // A refund after a settled match is a no-op (mutual exclusion).
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    // A refund after a settled match is a no-op (mutual exclusion) and reports `already_paid`.
+    expect(await escrow.refundBuyInsResult(r)).toBe('already_paid');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
 
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
@@ -99,7 +99,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll escrow (integration)', () =>
     await escrow.debitBuyIns(r);
 
     // Cancellation refunds both buy-ins.
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(await escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(r.pokerEscrow?.status).toBe('cancelled');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_000_000);
@@ -155,8 +155,9 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
     const { wallet, escrow, conn, A, B, r } = await twoFunded('MutexP');
     await escrow.payoutStacks(r, payState([0, 10000]));
     expect(r.pokerEscrow?.status).toBe('settled');
-    // A refund AFTER payout resolves as "already paid" (returns true) and mutates nothing.
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    // (37.7.18 FAIL 1) A refund AFTER a payout reports `already_paid` — never a refund — and
+    // mutates nothing. Reporting it as a refund is what let callers cancel/wipe a PAID table.
+    expect(await escrow.refundBuyInsResult(r)).toBe('already_paid');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);      // busted, no refund
     expect((await wallet.getWalletView(B, DAY)).balance).toBe(1_005_000);    // paid once only
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
@@ -164,7 +165,7 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
 
   it('refund then payout attempt: payout is DB-gate blocked (no minting)', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('MutexR');
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(await escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(r.pokerEscrow?.status).toBe('cancelled');
     await escrow.payoutStacks(r, payState([0, 10000]));
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);    // refunded, not paid
@@ -454,7 +455,7 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     // Fund + refund the first match → escrow terminal (cancelled).
     expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
     const firstMatch = r.pokerEscrow!.matchId;
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(await escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(r.pokerEscrow?.status).toBe('cancelled');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000); // back to full after refund
     const oldRefundRows = await conn!.sql`SELECT balance_after FROM poker_ledger WHERE idempotency_key = ${`refund:${firstMatch}:${A}`}`;
@@ -487,7 +488,7 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     // Simulate a debit whose start then failed → refunded (the handler path).
     await escrow.debitFreshStart(r);
     const m1 = r.pokerEscrow!.matchId;
-    await escrow.refundBuyIns(r);                    // start failed → refund
+    await escrow.refundBuyInsResult(r);                    // start failed → refund
     expect(r.pokerEscrow?.status).toBe('cancelled');
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(1_000_000);
     // A fresh retry succeeds with a NEW match + one debit.
@@ -538,7 +539,7 @@ describe.skipIf(!TEST_DATABASE_URL)('refund=false fail-closed + settlement retry
     expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
     const m1 = r.pokerEscrow!.matchId;
     escrow.__setRefundFailure(true);
-    expect(await escrow.refundBuyIns(r)).toBe(false);       // refund could NOT be confirmed
+    expect(await escrow.refundBuyInsResult(r)).toBe('retry_pending');       // refund could NOT be confirmed
     expect(r.pokerEscrow!.status).toBe('funded');           // escrow stays funded (retryable)
     expect(escrow.settlementPending(r)).toBe(true);         // funded + no game → settlement pending
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(995_000);
@@ -651,7 +652,7 @@ describe.skipIf(!TEST_DATABASE_URL)('payout-failure recovery (Stage 37.7.7, inte
     expect(await escrow.debitBuyIns(r)).toEqual({ ok: true });
     const M = r.pokerEscrow!.matchId;
     // The match got refunded first (escrow → cancelled), then a stray finish tries to pay.
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(await escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(r.pokerEscrow!.status).toBe('cancelled');
     expect(await escrow.payoutStacks(r, FINISHED)).toBe('already_refunded'); // never pays a refunded match
     // Both balances reflect the REFUND (buy-in returned), never a payout.

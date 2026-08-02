@@ -180,7 +180,7 @@ describe.skipIf(!TEST_DATABASE_URL)('teardown settles THEN records stats (Stage 
 
   it('already_refunded finished match → no stats, safe purge', async () => {
     const t = await setup('TDN5');
-    await t.escrow.refundBuyIns(t.room);               // escrow → cancelled (mutex)
+    await t.escrow.refundBuyInsResult(t.room);               // escrow → cancelled (mutex)
     const fate = await t.teardown(t.room);
     expect(fate).toBe('purge');
     expect(await t.gameRows()).toBe(0);                 // never recorded

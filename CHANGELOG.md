@@ -228,6 +228,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     once a refund for exactly that match is confirmed. (3) A table whose saved file merely *said*
     "already paid/refunded" was accepted as proof when deleting it; that claim is now re-checked
     against the database first.
+  - **A payout is never mistaken for a refund, and cleanups retry without a restart (Stage
+    37.7.18):** three more real defects fixed, all **corrections to the previous entry**. (1) The
+    refund path reported one vague "resolved" for two opposite outcomes, so when a payout won the
+    race against a cleanup the match was recorded as **refunded** — and a table could then be
+    cancelled and wiped even though its chips had been paid out. Every settlement now reports which
+    outcome actually happened, and only a real refund may cancel a table. (2) The damaged-table
+    recovery still refunded every buy-in record that merely shared the table's four-character code,
+    which is reused — so it could settle a completely different table's match. Such a table is now
+    frozen for review and its records are left untouched; only an exact match identity can authorise
+    a settlement. (3) The cleanup that refunds abandoned buy-ins ran **only at startup**, so a
+    momentary database problem left those chips withheld until the server was restarted; it now
+    retries on the normal background schedule (one at a time), and a table waiting on such a cleanup
+    becomes a clean lobby the moment its refund is confirmed.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

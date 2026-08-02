@@ -66,7 +66,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
 
     // Restart stub: mints a fresh LIVE game and succeeds.
     const restartGame = vi.fn((rm: ServerRoom) => { rm.started = true; rm.gameState = LIVE as unknown as typeof rm.gameState; return { ok: true }; });
-    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyIns, restartGame });
+    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult, restartGame });
     const outcome = await runBankrollRematch(r, deps);
 
     expect(outcome).toBe('restarted');
@@ -88,7 +88,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
 
     // DEDUP: a duplicate rematch over the now-FUNDED (live) escrow is rejected — no second debit.
     const balAfter = (await wallet.getWalletView(A, DAY)).balance;
-    const dup = await runBankrollRematch(r, spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyIns, restartGame: vi.fn(() => ({ ok: true })) }));
+    const dup = await runBankrollRematch(r, spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult, restartGame: vi.fn(() => ({ ok: true })) }));
     expect(dup).toBe('debit_rejected');
     expect(r.pokerEscrow!.matchId).toBe(M1);
     expect((await wallet.getWalletView(A, DAY)).balance).toBe(balAfter);
@@ -115,7 +115,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
     const M0 = r.pokerEscrow!.matchId;
     r.gameState = FINISHED as unknown as typeof r.gameState;
     const restartGame = vi.fn(() => ({ ok: true }));
-    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyIns, restartGame });
+    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult, restartGame });
     const outcome = await runBankrollRematch(r, deps);
 
     expect(outcome).toBe('debit_rejected');
@@ -153,7 +153,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
     // Rematch debit commits, but the restart fails AND the refund cannot be confirmed (injected).
     escrow.__setRefundFailure(true);
     const restartGame = vi.fn(() => ({ ok: false }));
-    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyIns, restartGame });
+    const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult, restartGame });
     const outcome = await runBankrollRematch(r, deps);
 
     expect(outcome).toBe('settlement_pending');
@@ -166,7 +166,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
 
     // The transient failure clears → the refund resolves; a fresh START mints a DIFFERENT matchId.
     escrow.__setRefundFailure(false);
-    expect(await escrow.refundBuyIns(r)).toBe(true);
+    expect(await escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(r.pokerEscrow!.status).toBe('cancelled');
     const fresh = await escrow.debitFreshStart(r);
     expect(fresh).toEqual({ ok: true });

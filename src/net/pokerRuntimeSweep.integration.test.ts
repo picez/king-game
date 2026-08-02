@@ -68,7 +68,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     const frozenLog: string[] = [];
     const freeze = (r: ServerRoom, reason: string) => { if (!r.pokerFrozen) { r.pokerFrozen = true; frozenLog.push(`${r.code} — ${reason}`); } };
     const recoveryDeps = () => ({
-      reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+      reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
       rescheduleAdvance: advance, persist, clearTimers, freeze,
     });
 
@@ -198,7 +198,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     expect(await t.ledger(M, 'table_cancel_refund')).toBe(0);
     expect(await t.balance(U1)).toBe(CLAIM - BUY_IN);
 
-    expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     await t.cleanup([U1, U2]);
   });
 
@@ -215,7 +215,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     expect(out).toEqual({ reconciled: 'funded', recovery: null, changed: true });
     expect(r.pokerEscrow!.status).toBe('funded');
     expect(t.escrow.settlementPending(r)).toBe(true);            // now the normal refund retry owns it
-    expect(await t.escrow.refundBuyIns(r)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(r)).toBe('confirmed_refund');
     expect(await t.ledger(M, 'table_cancel_refund')).toBe(2);
     expect(await t.balance(U1)).toBe(CLAIM);
     await t.cleanup([U1, U2]);
@@ -323,7 +323,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
   it('FAIL 2 C — pending + durable CANCEL_REFUND → cancelled only on that proof; no resume, no re-refund', async () => {
     const t = await ctx('RSF');
     const { room, code, U1, U2, M } = await t.bankrollRoom('1', live2p());
-    expect(await t.escrow.refundBuyIns(room)).toBe(true);         // durable refund row
+    expect(await t.escrow.refundBuyInsResult(room)).toBe('confirmed_refund');         // durable refund row
     room.pokerEscrow!.status = 'pending';                         // room JSON lagged behind
     const r = t.deserializeRoom(t.serializeRoom(room))!;
 
@@ -352,7 +352,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     expect(a.room.pokerEscrow!.status).toBe('settled');
 
     const b = await t.bankrollRoom('2', live2p());
-    expect(await t.escrow.refundBuyIns(b.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(b.room)).toBe('confirmed_refund');
     b.room.pokerEscrow!.status = 'settling';
     expect(await t.escrow.reconcileEscrow(b.room)).toBe('cancelled');
     expect(b.room.pokerEscrow!.status).toBe('cancelled');
@@ -362,7 +362,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     c.room.pokerEscrow!.status = 'settling';
     expect(await t.escrow.reconcileEscrow(c.room)).toBe('funded');
     expect(t.escrow.payoutPending(c.room)).toBe(true);
-    expect(await t.escrow.refundBuyIns(c.room)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(c.room)).toBe('confirmed_refund');
 
     expect(await t.ledger(a.M, 'table_payout')).toBe(1);
     expect(await t.ledger(b.M, 'table_cancel_refund')).toBe(2);
@@ -424,7 +424,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     expect(t.advance).toHaveBeenCalledTimes(1);
     expect(await t.productionSweep(lr)).toBeNull();               // durable escrow → not a sweep case
     expect(t.advance).toHaveBeenCalledTimes(1);
-    expect(await t.escrow.refundBuyIns(lr)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(lr)).toBe('confirmed_refund');
 
     // payout_pending: a funded bound FINISHED match still pays out then records, exactly once.
     const fin = await t.bankrollRoom('2', finished2p());

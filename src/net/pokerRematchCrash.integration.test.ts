@@ -85,7 +85,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     const frozenLog: string[] = [];
     const freeze = (r: ServerRoom, reason: string) => { if (!r.pokerFrozen) { r.pokerFrozen = true; frozenLog.push(`${r.code} — ${reason}`); } };
     const bootstrap = (r: ServerRoom) => recoverRestoredBankrollRoom(r, {
-      reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyIns,
+      reconcileEscrow: escrow.reconcileEscrow, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
       rescheduleAdvance: advance, persist, clearTimers, freeze,
     });
     const sweepFinish = (r: ServerRoom) => settleAndRecordBankrollPokerFinish(r, r.gameState as PokerState, {
@@ -199,7 +199,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     expect(await t.ledger(M1, 'table_payout')).toBe(0);
     expect(await t.ledger(M1, 'table_cancel_refund')).toBe(0);
     // Clean up the still-funded M1 so the suite leaves no unsettled match behind.
-    expect(await t.escrow.refundBuyIns(restored)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(restored)).toBe('confirmed_refund');
     await t.cleanup();
   });
 
@@ -250,7 +250,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     for (const secret of [M1, t.M0, t.U1, t.U2, 'pokerGameMatchId', 'pokerEscrow']) expect(snap).not.toContain(secret);
     // Resolve the real M1 debit so the suite leaves nothing unsettled.
     restored.pokerFrozen = undefined;
-    expect(await t.escrow.refundBuyIns(restored)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(restored)).toBe('confirmed_refund');
     await t.cleanup();
   });
 
@@ -297,7 +297,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
 
     // The DB recovers → the sweep's refund resolves it exactly once.
     t.escrow.__setRefundFailure(false);
-    expect(await t.escrow.refundBuyIns(restored)).toBe(true);
+    expect(await t.escrow.refundBuyInsResult(restored)).toBe('confirmed_refund');
     restored.pokerMatchCancelled = true;
     expect(await t.ledger(M1, 'table_cancel_refund')).toBe(2);
     expect(await t.balances()).toEqual(t.balAfterM0);
@@ -344,7 +344,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     expect(res).toBe('invalid');
     expect(writes).toBe(0);
     expect(await t.gameRows()).toBe(1);
-    expect(await t.escrow.refundBuyIns(t.room)).toBe(true); // leave nothing unsettled
+    expect(await t.escrow.refundBuyInsResult(t.room)).toBe('confirmed_refund'); // leave nothing unsettled
     await t.cleanup();
   });
 });

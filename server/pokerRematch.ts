@@ -25,7 +25,7 @@ export interface BankrollRematchDeps {
   /** Debit a FRESH buy-in for a new match id (rejects unless the previous escrow is resolved). */
   debitRematch: (room: ServerRoom) => Promise<DebitResult>;
   /** Refund the just-committed buy-in when the restart fails; true = CONFIRMED resolved. */
-  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
+  refundBuyIns: (room: ServerRoom) => Promise<import('./pokerEscrow').RefundResult>;
   /** Restart the same game in the same room (mutates room.gameState); { ok:false } on failure. */
   restartGame: (room: ServerRoom) => { ok: boolean };
   /** Drop the pending rematch readiness. */
@@ -72,7 +72,7 @@ export async function runBankrollRematch(room: ServerRoom, deps: BankrollRematch
     // The debit committed but the restart failed → attempt a refund. Mark CANCELLED only when
     // the refund is CONFIRMED; a failed refund leaves a funded escrow (settlement-pending) that
     // keeps retrying — never a false "refunded/cancelled".
-    const refunded = await deps.refundBuyIns(room);
+    const refunded = (await deps.refundBuyIns(room)) === 'confirmed_refund';
     room.started = false;
     room.gameState = null;
     clearGameBinding(room); // (37.7.12) the state is gone → so is its escrow-generation binding
