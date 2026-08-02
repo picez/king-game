@@ -75,12 +75,14 @@ describe('seat geometry is untouched by the re-skin', () => {
   });
 
   it('positions stay within the felt (no pod pushed off the table)', () => {
+    // Bounds widened in Stage 38.0.3 when the side seats moved out of the centre
+    // band; `pokerSeatLayout.test.ts` owns the safe-zone + pairwise-overlap proof.
     for (let n = 2; n <= 6; n++) {
       for (let seat = 0; seat < n; seat++) {
         const p = seatPosition(seat, 0, n);
-        expect(p.left).toBeGreaterThanOrEqual(22);
-        expect(p.left).toBeLessThanOrEqual(78);
-        expect(p.top).toBeGreaterThanOrEqual(12);
+        expect(p.left).toBeGreaterThanOrEqual(20);
+        expect(p.left).toBeLessThanOrEqual(80);
+        expect(p.top).toBeGreaterThanOrEqual(10);
         expect(p.top).toBeLessThanOrEqual(87);
       }
     }

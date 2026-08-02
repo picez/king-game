@@ -42,7 +42,7 @@ describe('per-turn timer is game-agnostic and shown in every online game (Stage 
     // standalone table overlay). Poker appends a utilitySlot after it (Stage 38.0.2),
     // so the timer is matched as an ARGUMENT, not necessarily the last one.
     const mounts = online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? [];
-    expect(mounts.length).toBe(6); // durak, deberc, tarneeb, preferans, fifty-one, poker (Stage 37.4)
+    expect(mounts.length).toBe(5); // durak, deberc, tarneeb, preferans, fifty-one (poker docks its own — Stage 38.0.3)
     // No table overlay mount remains.
     expect(online).not.toMatch(/^\s*\{timerEl\}\s*$/m);
     // Off (turnTimerSec 0) → the helper returns null.

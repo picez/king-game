@@ -1463,3 +1463,26 @@ Stage 37.7 list above now happens in the Poker host flow.
       stacks and folded/out seats are all legible; the acting seat and your own seat stay
       obvious; nothing overflows sideways. Repeat in **Arabic RTL** — text mirrors but the
       seat geometry does not (you stay bottom-centre).
+
+## Poker mobile layout (Stage 38.0.3)
+
+Automated gate: `npm run layout:poker` — renders the real components in a real browser
+and fails on ANY measured intersection. 186 checks (2/3/4/5/6 seats × streets × 360/390/
+desktop × LTR/RTL × closed/history/chat, plus long names, all badges, folded/all-in/out
+and the local screen). Baseline before the fix: 1484 violations; now 0.
+
+- [ ] **Social buttons never cover the controls.** On a phone, during your turn: the
+      history / voice / emoji / chat / leave buttons sit in a row BETWEEN the table and
+      the Fold/Check/Call row — not on top of it. Every button is a comfortable tap
+      target and nothing is clipped by the home indicator.
+- [ ] **Open panels push, never cover.** Open the history: the panel appears under the
+      toolbar and the action row moves down (scroll to reach it) instead of being
+      covered. Same for chat and the emoji picker. Opening one CLOSES the other two.
+- [ ] **Four players.** At 360 and 390, pre-flop → river: the two side seats sit ABOVE
+      the community cards; no pod, hole card, badge or bet chip touches the board, the
+      pot or another pod; all five board cards are fully visible.
+- [ ] **The other seat counts.** Repeat for 2, 3, 5 and 6 players — including a seat
+      that is folded, all-in and out at the same table, and very long player names.
+- [ ] **Arabic RTL.** Text and the toolbar mirror; the SEAT geometry does not (you stay
+      bottom-centre, Player 2 stays on the left).
+- [ ] **No sideways page scroll** at 360/390 in any of the above.

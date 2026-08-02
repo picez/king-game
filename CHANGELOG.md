@@ -9,6 +9,28 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Poker mobile layout (Stage 38.0.3)** — two defects the owner hit in production,
+  both reproduced as measured rectangle intersections before being fixed.
+  - **The social buttons no longer cover the betting controls.** The history / voice /
+    emoji / chat cluster was a FIXED corner overlay, so on a phone it sat on top of the
+    action row — measured at 208×74 px over it, covering Call/Check, the amount field,
+    the presets and the slider; an open chat or history panel covered them too. Poker
+    now renders that cluster as a compact horizontal toolbar in NORMAL FLOW between the
+    table and the action row, with any open panel as a normal-flow sibling beneath it,
+    and exactly one panel open at a time. The toolbar scrolls sideways if it must; the
+    page never does; every control keeps a 44×44 tap target and the safe-area inset.
+  - **Four-player side seats no longer sit on the board.** The side seats shared the
+    felt's vertical middle with the community cards, so on a 360/390 screen the pods
+    covered the board and the pot. The board, pot and street label now own a reserved
+    centre band of the felt that no seat may enter, and the pods/cards shrink on narrow
+    phones. Verified for 2/3/4/5/6 players across pre-flop→river, long names, all
+    badges, folded/all-in/out seats, LTR and Arabic RTL, at 360/390/desktop.
+  - New gate `npm run layout:poker` (`scripts/poker-layout-qa.mjs`) renders the real
+    components in a real browser and fails on ANY pod/board/pot/control intersection,
+    page overflow or sub-44px control: **1484 violations → 0** across 186 checks.
+
 ### Changed
 
 - **Poker UX corrections (Stage 38.0.2)** — five owner-confirmed fixes; no rules,

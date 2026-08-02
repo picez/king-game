@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { PokerAction, PokerState } from '../../games/poker/types';
 import type { RematchUi } from '../online/RematchControls';
 import PokerRecoveryBanner, { type PokerRecoveryStatus } from './PokerRecoveryBanner';
@@ -14,6 +15,9 @@ interface Props {
   rematch?: RematchUi | null;
   /** Public recovery status (§16, 37.7.6). Frozen / settlement-pending → read-only, no rematch. */
   recovery?: PokerRecoveryStatus;
+  /** Docked social/utility controls (Stage 38.0.3) — rendered IN FLOW between the table
+   *  and the action row, never as a fixed overlay on top of them. */
+  socialSlot?: ReactNode;
 }
 
 /** Seat index encoded in a `player-<seat>` id, or null. */
@@ -32,18 +36,23 @@ function seatOf(playerId: string | null): number | null {
  * This component owns the SINGLE recovery banner for the active + finished views (finished
  * renders it inside PokerFinished) so it is never shown twice (37.7.7 FAIL 3).
  */
-export default function PokerOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, recovery }: Props) {
+export default function PokerOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, recovery, socialSlot }: Props) {
   const mySeat = seatOf(myPlayerId);
   const blocked = recovery === 'frozen' || recovery === 'settlement_pending' || recovery === 'payout_pending' || recovery === 'stats_pending';
   if (state.phase === 'game_finished') {
     // PokerFinished renders the (single) recovery banner itself; suppress rematch while blocked.
-    return <PokerFinished state={state} mySeat={mySeat} onExit={onExit} rematch={blocked ? null : rematch} recovery={recovery} />;
+    return (
+      <>
+        <PokerFinished state={state} mySeat={mySeat} onExit={onExit} rematch={blocked ? null : rematch} recovery={recovery} />
+        {socialSlot && <div className="poker-social-dock poker-social-dock--finished">{socialSlot}</div>}
+      </>
+    );
   }
   // Active table: render the ONE recovery banner here (37.7.7 FAIL 3 — no duplicate from OnlineGame).
   return (
     <>
       <PokerRecoveryBanner status={recovery} />
-      <PokerGameScreen state={state} mySeat={mySeat} apply={dispatch} onExit={onExit} online readOnly={blocked} />
+      <PokerGameScreen state={state} mySeat={mySeat} apply={dispatch} onExit={onExit} online readOnly={blocked} socialSlot={socialSlot} />
     </>
   );
 }

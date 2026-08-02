@@ -8,3 +8,4 @@ export { default as PokerRecoveryBanner } from './PokerRecoveryBanner';
 export { default as PokerActionLog } from './PokerActionLog';
 export { default as PokerWalletCard } from './PokerWalletCard';
 export { usePokerWallet, type PokerWalletStore } from './usePokerWallet';
+export { PokerActionLogButton, PokerActionLogPanel, useLogUnread } from './PokerActionLog';

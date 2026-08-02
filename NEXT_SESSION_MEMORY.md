@@ -667,3 +667,51 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `betAmount.test.ts` (23), `actionLog.test.ts` (14), `pokerWalletPlacement.test.ts` (11),
   `pokerTableTheme.test.ts` (12) + `passAndPlay.test.ts` rewritten (18). Interaction is covered by testing
   the PURE helpers + `renderToStaticMarkup` + source-wiring assertions (the repo's existing pattern).
+
+### Stage 38.0.3 — Poker mobile layout FAILs fixed; rebuy NOT implemented (PARTIAL)
+- Worked from HEAD `41a0f08`. **Layout half is COMPLETE; the between-hands REBUY feature
+  (owner item 3) was NOT implemented — see the handoff below.** No version bump, no
+  migration (stays **0012**), no dependency change, other 6 games untouched.
+- **RED first, measured (not screenshots).** New `scripts/poker-layout-qa.mjs` +
+  `scripts/layout-harness/` (dev-only, never bundled — the app build has a single
+  `index.html` entry) mount the REAL PokerGameScreen + RoomSocial + timer/voice/chat/
+  history + live action controls in a REAL browser and assert pairwise rectangle
+  non-intersection. Baseline 41a0f08: **1484 violations / 186 checks** — 214 pod-over-board,
+  12 pod-over-pot, 19 cluster-over-actions, 47 cluster-over-control, 44 panel-over-actions,
+  50 panel-over-control, 4 sub-44px targets. After the fix: **186/186 ok, 0 violations**.
+  Run it with `npm run layout:poker`.
+- **FIX 1 (owner FAIL 1) — docked social cluster.** `RoomSocial` gained `variant='docked'`
+  (a LAYOUT mode, still game-agnostic) + a CONTROLLED `openPanel`/`onPanelChange`
+  (`none|reactions|chat|utility`) + `utilityPanelSlot`. Poker renders the whole cluster as
+  an in-flow horizontal toolbar via the new `PokerGameScreen.socialSlot`, BETWEEN the table
+  and the action row; open panels are normal-flow siblings that push the controls down;
+  exactly one panel open at a time. `PokerActionLog` split into `PokerActionLogButton` +
+  `PokerActionLogPanel` (+ `useLogUnread`) so the button and the panel can live in different
+  slots. Local poker uses the same dock (the fixed `.poker-local-utility` is gone).
+- **FIX 2 (owner FAIL 2) — centre safe zone.** `pokerSeatLayout.ts` now exports
+  `CENTER_BAND {top:32,bottom:52}` + `POD_HALF_HEIGHT 11` + `clearsCenterBand()`, and every
+  seat coordinate was moved OUT of that band (side seats separate from the board VERTICALLY,
+  which is width-independent — the old side seats at top 47% shared the felt's middle with a
+  board wider than the space beside them). Mobile `@media (max-width:400px)` shrinks pods,
+  hole cards and board cards. POD_HALF_HEIGHT was 9 until a 4-player Arabic table with all
+  four badges still clipped the board by 6px — measured, then raised to 11.
+- **Tests:** `pokerSocialDock.test.ts` (18: dock ordering, docked vs floating, mutual
+  exclusion matrix, wiring, CSS ergonomics), `pokerSeatLayout.test.ts` +14 (safe-zone +
+  pairwise-overlap + felt bounds for 2..6). `pokerTableTheme.test.ts` bounds widened.
+  Two Stage 38.0.2 tests updated: poker no longer mounts via `renderSocial` (6→5 timer
+  mounts) and the local-utility assertions.
+- **NOT DONE — between-hands rebuy (owner item 3, sections D–G).** Deliberately not
+  started rather than half-shipped: it is a durable-economy change (chips in play, payout
+  conservation, crash recovery), and a partial implementation can LOSE wallet chips.
+  Verified prerequisite finding for the next session: **migration 0013 IS required** —
+  `poker_ledger.reason` has a CHECK constraint `IN ('daily_claim','table_buy_in',
+  'table_payout','table_cancel_refund')`, so a `table_rebuy` row cannot be written today;
+  and reusing `table_buy_in` would break `validateDurableOwnership`, which requires exactly
+  one buy-in row per participant and treats any extra as `ledger_mismatch` → corrupt
+  evidence → freeze. The rest of the durable evidence can come from `poker_ledger` rows
+  (immutable, UNIQUE `idempotency_key`, carries `match_id`/`user_id`/`delta`) read inside
+  the existing REPEATABLE READ snapshot in `matchDurableEvidence`, so 0013 should be a
+  one-line idempotent CHECK widening and nothing else. Design sketch: core amount is
+  ALWAYS `state.options.startingStack` (local = chosen stack, online = buy-in), so the
+  reducer never takes an amount from a client; the server must additionally assert it
+  equals `room.pokerBuyIn` and fail closed on mismatch.

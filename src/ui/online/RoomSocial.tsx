@@ -38,7 +38,32 @@ interface Props {
    *  rendered in the corner button row next to chat/emoji/voice (e.g. a Poker action-log
    *  toggle). No game dependency lives in RoomSocial; the caller supplies the node. */
   utilitySlot?: ReactNode;
+  /** The PANEL belonging to `utilitySlot`, rendered with the other panels (Stage 38.0.3)
+   *  so a docked cluster keeps it in normal flow instead of over the game's controls.
+   *  Still game-agnostic: RoomSocial renders whatever node it is handed. */
+  utilityPanelSlot?: ReactNode;
+  /**
+   * Where the control cluster lives (Stage 38.0.3).
+   *  - `floating` (default) — the historical fixed bottom-corner cluster;
+   *  - `docked` — the cluster and any open panel render IN NORMAL FLOW wherever the
+   *    caller placed this component, so they occupy layout space instead of covering
+   *    it. A game whose action controls sit at the bottom of the screen (Poker) must
+   *    use this: a fixed cluster provably lands on top of those controls on a phone.
+   * RoomSocial stays game-agnostic — this is a layout mode, not a game switch.
+   */
+  variant?: 'floating' | 'docked';
+  /**
+   * Optional CONTROLLED panel selection. Chat, the reaction picker and a caller-owned
+   * `utilitySlot` panel are mutually exclusive: two of them open at once would stack
+   * on the same corner. Pass `openPanel` + `onPanelChange` to lift that choice into the
+   * caller (which also owns the utility panel); omit both to keep the local behaviour.
+   */
+  openPanel?: SocialPanel;
+  onPanelChange?: (panel: SocialPanel) => void;
 }
+
+/** The mutually-exclusive social surfaces. `utility` belongs to the caller's slot. */
+export type SocialPanel = 'none' | 'reactions' | 'chat' | 'utility';
 
 const REACTION_TTL_MS = 2600;
 
@@ -61,10 +86,20 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null, utilityPanelSlot = null, variant = 'floating', openPanel, onPanelChange }: Props) {
   const { t } = useI18n();
-  const [reactOpen, setReactOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  // Panel selection is CONTROLLED when the caller passes `openPanel` (so a caller-owned
+  // utility panel is mutually exclusive with chat/reactions), else local.
+  const [ownPanel, setOwnPanel] = useState<SocialPanel>('none');
+  const panel = openPanel ?? ownPanel;
+  const setPanel = (next: SocialPanel) => {
+    if (onPanelChange) onPanelChange(next); else setOwnPanel(next);
+  };
+  const reactOpen = panel === 'reactions';
+  const chatOpen = panel === 'chat';
+  const setReactOpen = (open: boolean) => setPanel(open ? 'reactions' : 'none');
+  const setChatOpen = (open: boolean) => setPanel(open ? 'chat' : 'none');
+  const docked = variant === 'docked';
   const [mediaOpen, setMediaOpen] = useState(false);
   const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
@@ -183,17 +218,22 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
       {noticeText && <div className={`social-toast ${handVisible ? 'social-toast--raised' : ''}`} role="status">{noticeText}</div>}
 
-      {/* Bottom-right controls */}
-      <div className={`social-controls ${handVisible ? 'social-controls--raised' : ''}`}>
+      {/* Controls. `floating` keeps the historical fixed bottom-corner cluster (column,
+          panels above it). `docked` renders the SAME controls as a compact horizontal
+          toolbar in NORMAL FLOW, with any open panel below it — so the cluster and its
+          panels take layout space instead of covering the game's action controls
+          (Stage 38.0.3 owner FAIL). */}
+      <div className={`social-controls ${docked ? 'social-controls--docked' : ''} ${handVisible && !docked ? 'social-controls--raised' : ''}`}>
         {/* Per-turn timer (Stage 29.7) sits at the TOP of the cluster — near voice/emoji/chat,
             clear of the hand/table. Null when the host left the timer off. */}
-        {timerSlot}
-        {onLeaveGame && (
+        {!docked && timerSlot}
+        {!docked && onLeaveGame && (
           <button type="button" className="social-leave" onClick={leaveGame}>
             🚪 {t('online.leaveGame')}
           </button>
         )}
-        {reactOpen && (
+        {!docked && utilityPanelSlot}
+        {!docked && reactOpen && (
           <div className="reaction-bar" role="menu" aria-label={t('social.reactions')}>
             <span className="reaction-bar__heading">{t('social.emoji')}</span>
             <div className="reaction-bar__emojis">
@@ -220,25 +260,57 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           </div>
         )}
         <div className="social-controls__row">
+          {docked && timerSlot}
           {utilitySlot}
           {voiceButton}
           <button type="button" className="social-fab"
             aria-expanded={reactOpen} aria-label={t('social.reactions')}
-            onClick={() => { setReactOpen((o) => !o); }}>
+            onClick={() => setPanel(reactOpen ? 'none' : 'reactions')}>
             😀
           </button>
           <button type="button" className="social-fab"
             aria-expanded={chatOpen} aria-label={t('chat.title')}
-            onClick={() => { setChatOpen((o) => !o); setReactOpen(false); }}>
+            onClick={() => setPanel(chatOpen ? 'none' : 'chat')}>
             💬
             {unread > 0 && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
           </button>
+          {docked && onLeaveGame && (
+            <button type="button" className="social-fab social-fab--leave" onClick={leaveGame}
+              aria-label={t('online.leaveGame')} title={t('online.leaveGame')}>
+              🚪
+            </button>
+          )}
         </div>
+        {/* Docked: the open panel is a normal-flow sibling UNDER the toolbar row. */}
+        {docked && utilityPanelSlot}
+        {docked && reactOpen && (
+          <div className="reaction-bar reaction-bar--docked" role="menu" aria-label={t('social.reactions')}>
+            <div className="reaction-bar__emojis">
+              {REACTIONS.map((e) => (
+                <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
+                  {e}
+                </button>
+              ))}
+            </div>
+            {CHAT_MEDIA.length > 0 && (
+              <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
+                {CHAT_MEDIA.map((item) => (
+                  <button key={item.id} type="button" role="option" aria-selected={false}
+                    className="chat-media-thumb" onClick={() => sendMedia(item)}
+                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
+                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Chat drawer (right side; collapsed by default) */}
+      {/* Chat: a fixed right-side drawer when floating; a normal-flow panel when docked
+          (so it can never sit on the action controls). Collapsed by default either way. */}
       {chatOpen && (
-        <div className="chat-drawer" role="dialog" aria-label={t('chat.title')}>
+        <div className={`chat-drawer ${docked ? 'chat-drawer--docked' : ''}`} role="dialog" aria-label={t('chat.title')}>
           <div className="chat-drawer__head">
             <span>💬 {t('chat.title')}</span>
             <button type="button" className="btn btn--ghost btn--small" onClick={() => setChatOpen(false)} aria-label={t('btn.back')}>✕</button>

@@ -15,7 +15,8 @@ describe('room-social wiring', () => {
   const local = read('../LocalGame.tsx');
 
   it('OnlineGame imports + renders the RoomSocial overlay', () => {
-    expect(online).toContain("import RoomSocial from './RoomSocial'");
+    // Stage 38.0.3 also imports the SocialPanel type for poker's controlled panel state.
+    expect(online).toMatch(/import RoomSocial(, \{ type SocialPanel \})? from '\.\/RoomSocial'/);
     expect(online).toMatch(/renderSocial\s*=\s*\(/); // a single overlay factory
   });
 
@@ -52,7 +53,10 @@ describe('active-game "Leave game" wiring', () => {
     expect(social).toContain('onLeaveGame');
     expect(social).toContain('social-leave');
     expect(social).toContain("t('online.leaveGame')");
-    expect(social).toMatch(/\{onLeaveGame && \(/);  // gated on the prop (active game only)
+    // Leave-game is still gated on the callback in BOTH layouts (a labelled pill in the
+    // floating column; a compact button in the docked toolbar row) — Stage 38.0.3.
+    expect(social).toMatch(/\{!docked && onLeaveGame && \(/);
+    expect(social).toMatch(/\{docked && onLeaveGame && \(/);  // gated on the prop (active game only)
   });
 });
 

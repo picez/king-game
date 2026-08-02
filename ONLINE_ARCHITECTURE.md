@@ -1211,3 +1211,29 @@ UI-only; the protocol, the server-authoritative flow and every redaction rule ar
   `fetchPokerWallet` itself. This removes the only place where two independently fetched copies of the
   balance could disagree. The store mirrors the server verbatim — it never computes a balance, never
   decides claim eligibility, and reports `no_economy` only for a real `503`.
+
+### Docked social cluster (Stage 38.0.3)
+
+UI-only; protocol, server authority and redaction unchanged.
+
+- **`RoomSocial` gained a layout mode, not a game switch.** `variant="floating"` (default)
+  is the historical fixed bottom-corner cluster used by the other six games.
+  `variant="docked"` renders the same controls as a compact horizontal toolbar in NORMAL
+  FLOW wherever the caller mounts it, with any open panel as a normal-flow sibling under
+  the row. Poker must use it: its action controls live at the bottom of the screen, so a
+  fixed cluster was measured sitting 208×74 px on top of them on a phone.
+- **`PokerGameScreen.socialSlot`** is where that toolbar goes — between the table/showdown
+  review and the action row — so the overlap is structurally impossible rather than tuned
+  away. Online, `OnlineGame`'s poker branch builds the docked `RoomSocial` and passes it
+  through `PokerOnlineGame`; local passes the history control the same way.
+- **One open surface at a time.** `RoomSocial` accepts a CONTROLLED `openPanel` +
+  `onPanelChange` (`none | reactions | chat | utility`). The poker branch owns that state,
+  so chat, the emoji picker and the action history can never stack on the same spot. The
+  history is supplied as two generic nodes — `utilitySlot` (the button) and
+  `utilityPanelSlot` (the panel) — so RoomSocial still contains no game-specific import.
+- **The geometry is a gate, not a screenshot.** `scripts/poker-layout-qa.mjs` +
+  `scripts/layout-harness/` mount the REAL components in a REAL browser and assert
+  pairwise rectangle non-intersection on `getBoundingClientRect()` for pods vs board/pot/
+  each other/topbar/actions, cluster vs controls, open panels vs controls, board-card
+  clipping, page overflow and 44px tap targets. `npm run layout:poker` exits non-zero on
+  any violation.

@@ -25,11 +25,11 @@ import PreferansOnlineGame from '../preferans/PreferansOnlineGame';
 import type { PreferansState } from '../../games/preferans/types';
 import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
-import { PokerOnlineGame, PokerActionLog } from '../poker';
+import { PokerOnlineGame, PokerActionLogButton, PokerActionLogPanel, useLogUnread } from '../poker';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
-import RoomSocial from './RoomSocial';
+import RoomSocial, { type SocialPanel } from './RoomSocial';
 import type { RematchUi } from './RematchControls';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
@@ -142,6 +142,12 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // Active-game "Leave game": return to the menu but stay reconnectable so the
   // start menu still offers Resume (does NOT remove the seat or log out).
   const leaveGameToMenu = () => { net.backToMenu(); onExit(); };
+  // Poker docks its social cluster in flow and owns the single open surface (Stage
+  // 38.0.3). Declared unconditionally (hooks) and inert for the other six games.
+  const [socialPanel, setSocialPanel] = useState<SocialPanel>('none');
+  const pokerLogLength = net.room?.gameType === 'poker'
+    ? ((net.state as unknown as PokerState | null)?.actionLog?.length ?? 0) : 0;
+  const pokerLogUnread = useLogUnread(pokerLogLength, socialPanel === 'utility');
   // The viewer's seat + table size (Stage 27.1) so RoomSocial floats a reaction over the sender's
   // seat. Derived from the room snapshot (public); null/0 for a spectator → reactions stay centred.
   const myMember = net.room?.members.find((m) => m.clientId === net.myClientId);
@@ -382,6 +388,39 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // server drives bots + the between-hands advance (seeded START_NEXT_HAND).
   if (net.room?.gameType === 'poker') {
     const pokerState = net.state as unknown as PokerState;
+    // Stage 38.0.3 (owner FAIL): poker's action controls live at the BOTTOM of the
+    // screen, so the fixed corner cluster landed straight on top of them on a phone.
+    // Poker therefore renders the social cluster DOCKED and IN FLOW, between the table
+    // and the action row, and owns which single surface is open (history / chat /
+    // reactions) so two panels can never stack on the same spot.
+    const logOpen = socialPanel === 'utility';
+    const social = (
+      <>
+        {inviteToast}
+        <RoomSocial
+          reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
+          onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
+          notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
+          handVisible={false} onLeaveGame={leaveGameToMenu}
+          voiceButton={<VoiceControl voice={voice} variant="compact" />}
+          mySeatIndex={mySeatIndex} seatCount={seatCount}
+          timerSlot={timerEl}
+          variant="docked"
+          openPanel={socialPanel}
+          onPanelChange={setSocialPanel}
+          utilitySlot={
+            <PokerActionLogButton
+              open={logOpen}
+              unread={pokerLogUnread}
+              onToggle={(next) => setSocialPanel(next ? 'utility' : 'none')}
+            />
+          }
+          utilityPanelSlot={logOpen
+            ? <PokerActionLogPanel state={pokerState} docked onClose={() => setSocialPanel('none')} />
+            : null}
+        />
+      </>
+    );
     return (
       <>
         {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state). */}
@@ -392,9 +431,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           recovery={net.room?.pokerRecovery}
+          socialSlot={social}
         />
-        {/* The ONLY action-history control online — inside the social cluster (Stage 38.0.2). */}
-        {renderSocial(true, undefined, timerEl, <PokerActionLog state={pokerState} />)}
       </>
     );
   }

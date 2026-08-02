@@ -21,17 +21,22 @@ describe('Timer rides in the social cluster, not a table overlay (Scope A)', () 
 
   it('OnlineGame threads the timer into RoomSocial via a timerSlot for all non-King games', () => {
     expect(online).toContain('timerSlot={timerSlot}');
-    // durak, deberc, tarneeb, preferans, fifty-one + poker (Stage 37.4). Poker also
-    // passes a utilitySlot AFTER timerEl (Stage 38.0.2), so match `timerEl` as an
-    // argument rather than as the last one.
-    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(6);
+    // durak, deberc, tarneeb, preferans, fifty-one go through renderSocial. Poker
+    // stopped in Stage 38.0.3: it renders its OWN docked RoomSocial (in flow, so the
+    // cluster cannot cover its bottom action controls) and passes the same timer node
+    // through that component's timerSlot. Both paths are asserted.
+    expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(5);
+    expect(online).toMatch(/variant="docked"[\s\S]*timerSlot=\{timerEl\}|timerSlot=\{timerEl\}[\s\S]*variant="docked"/);
     // The old fixed table overlay is gone.
     expect(online).not.toContain('turn-timer--overlay');
     expect(css).not.toContain('.turn-timer--overlay');
   });
 
   it('RoomSocial renders the timerSlot inside the .social-controls cluster', () => {
-    expect(social).toMatch(/social-controls[\s\S]*\{timerSlot\}/);
+    // The timer sits inside the cluster in BOTH layouts: at the top of the floating
+    // column, and inside the row of the docked toolbar (Stage 38.0.3).
+    expect(social).toMatch(/social-controls[\s\S]*\{!docked && timerSlot\}/);
+    expect(social).toMatch(/social-controls__row[\s\S]*\{docked && timerSlot\}/);
   });
 
   it('the social timer pill flows (not position:fixed) and never blocks taps', () => {

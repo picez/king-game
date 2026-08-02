@@ -244,6 +244,11 @@ Common to both:
   Illegal actions are disabled.
 - The table layout stays **stable** across street changes and community-card count
   changes (no reflow jump).
+- The board, the pot and the street label own a reserved **centre safe zone** of the
+  felt (Stage 38.0.3). No seat may place its pod inside that band, so a side seat can
+  never sit on the community cards or the pot — at 4 players on a 360/390 phone it
+  previously did, because the side seats shared the felt's vertical middle with a board
+  that is wider than the space left beside them.
 - The public **action history** is a compact control in the bottom-end cluster (see
   §16 I), never a block under the table.
 
@@ -618,7 +623,15 @@ The public action history is a **compact control**, never a block under the tabl
 - **Online** — the button sits inside the RoomSocial control cluster next to
   chat/emoji/voice/timer, supplied through RoomSocial's game-agnostic `utilitySlot`
   (no poker dependency lives inside RoomSocial).
-- **Local** — the same component in a matching bottom-end cluster.
+- **Local** — the same component in the same in-flow cluster.
+- **The cluster is DOCKED, never floating** (Stage 38.0.3). Poker's action controls sit
+  at the bottom of the screen, so a fixed corner cluster lands on top of them on a
+  phone — measured at 208×74 px over the action row, covering Call/Check, the amount
+  field, the presets and the slider. Poker therefore renders the whole social cluster
+  as a compact horizontal toolbar in NORMAL FLOW between the table and the action row,
+  and an open panel (history / chat / reactions) is a normal-flow sibling under it, so
+  it pushes the controls down instead of covering them. Exactly ONE panel is open at a
+  time. The toolbar row itself may scroll horizontally; the page never does.
 - **Default closed.** A new action while closed shows an **unread dot**; opening the
   panel clears it. At most the **last 30** entries are listed.
 - The panel is anchored to its button, scrolls internally, and never covers the cards

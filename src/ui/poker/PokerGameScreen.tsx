@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import { legalActions, smallBlindSeat, bigBlindSeat } from '../../games/poker/rules';
 import type { PokerAction, PokerState } from '../../games/poker/types';
@@ -19,6 +19,14 @@ interface Props {
   /** Stage 37.7.6 (FAIL 2): a frozen / settlement-pending bankroll table is fully READ-ONLY —
    *  no bet/fold/check/call/raise/all-in controls and no manual next-hand. */
   readOnly?: boolean;
+  /**
+   * Social / utility controls rendered IN NORMAL FLOW between the table and the action
+   * row (Stage 38.0.3). The owner FAIL was a FIXED corner cluster landing on top of the
+   * bet/call/raise controls on a phone; giving those controls their own layout row here
+   * makes the overlap structurally impossible. Game-agnostic node — the caller decides
+   * what goes in it (online: RoomSocial docked; local: the action-history control).
+   */
+  socialSlot?: ReactNode;
 }
 
 /**
@@ -32,7 +40,7 @@ interface Props {
  * `PokerActionLog` control owned by the caller — RoomSocial's `utilitySlot` online,
  * a matching bottom-end cluster locally — so exactly one log control exists per table.
  */
-export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly }: Props) {
+export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly, socialSlot }: Props) {
   const { t } = useI18n();
   const pot = state.contributedBySeat.reduce((a, b) => a + b, 0);
   const myTurn = state.phase === 'betting' && mySeat != null && state.toActSeat === mySeat && !readOnly;
@@ -111,6 +119,9 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
       {inReview && (
         <PokerShowdownReview state={state} mySeat={mySeat} onNext={(online || readOnly) ? undefined : () => apply({ type: 'START_NEXT_HAND' })} />
       )}
+
+      {/* Social / utility toolbar — IN FLOW, so it can never cover the controls below. */}
+      {socialSlot && <div className="poker-social-dock">{socialSlot}</div>}
 
       {/* (37.7.6 FAIL 2) A frozen / settlement-pending table is READ-ONLY: no action controls. */}
       {readOnly ? (

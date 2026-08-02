@@ -102,14 +102,19 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
   // human actor, or none).
   const seat = viewerFor(state, confirmedSeat);
   const view = pokerRedactStateFor(state, seat);
+  // Local has no RoomSocial, so the SAME compact history control rides in the shared
+  // in-flow social dock between the table and the action row (Stage 38.0.3) — a fixed
+  // corner cluster provably covered the betting controls on a phone.
   return (
-    <>
-      <PokerGameScreen state={view} mySeat={seat} apply={apply} onExit={onExit} />
-      {/* Local has no RoomSocial, so the SAME compact history control gets its own
-          bottom-end cluster — styled/positioned like the online social cluster. */}
-      <div className="poker-local-utility">
-        <PokerActionLog state={view} variant="standalone" />
-      </div>
-    </>
+    <PokerGameScreen
+      state={view} mySeat={seat} apply={apply} onExit={onExit}
+      socialSlot={
+        <div className="social-controls social-controls--docked">
+          <div className="social-controls__row">
+            <PokerActionLog state={view} variant="standalone" docked />
+          </div>
+        </div>
+      }
+    />
   );
 }

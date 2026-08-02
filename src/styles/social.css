@@ -178,3 +178,43 @@
 [dir="rtl"] .social-controls { right: auto; left: 12px; align-items: flex-start; }
 [dir="rtl"] .social-toast { right: auto; left: 12px; }
 
+
+/* ---------------------------------------------------------------------------
+   DOCKED social cluster (Stage 38.0.3). `RoomSocial variant="docked"` renders the
+   same controls as a compact HORIZONTAL toolbar in NORMAL FLOW instead of a fixed
+   bottom-corner column, and any open panel becomes a normal-flow sibling under it.
+   A game whose action controls sit at the bottom of the screen (Poker) must use this:
+   a fixed cluster was measured landing directly on top of those controls on a phone.
+   The row scrolls horizontally if the buttons do not fit, but the PAGE never does.
+   Logical properties only, so it mirrors correctly under RTL.
+   --------------------------------------------------------------------------- */
+.social-controls--docked {
+  position: static; inset: auto; z-index: auto;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  width: 100%; padding-bottom: env(safe-area-inset-bottom);
+}
+.social-controls--docked .social-controls__row {
+  display: flex; gap: 8px; align-items: center;
+  overflow-x: auto; overflow-y: hidden;            /* the ROW scrolls, never the page */
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+}
+.social-controls--docked .social-controls__row::-webkit-scrollbar { display: none; }
+/* Never let a button shrink below the 44px tap minimum inside the scrolling row. */
+.social-controls--docked .social-controls__row > * { flex: 0 0 auto; }
+.social-controls--docked .social-fab { flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+/* A control nested one level deeper (e.g. a game's log button inside its own box)
+   must not be squeezed by the scrolling row either — measured at 37x44. */
+.social-controls--docked .social-controls__row * { flex-shrink: 0; }
+.social-fab--leave { background: var(--danger-soft); border-color: var(--danger); }
+
+/* Docked panels: in flow, full width, self-scrolling — they push the action row down
+   instead of covering it. */
+.chat-drawer--docked {
+  position: static; width: 100%; height: auto; max-height: min(42vh, 20rem);
+  border-left: none; border-right: none;
+  border: 1px solid var(--border-strong); border-radius: 0.7rem;
+  box-shadow: none;
+}
+[dir="rtl"] .chat-drawer--docked { border: 1px solid var(--border-strong); }
+.reaction-bar--docked { width: 100%; }

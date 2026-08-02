@@ -119,11 +119,15 @@ describe('wiring — one control online (RoomSocial utilitySlot) and one locally
   const local = readFileSync(join(process.cwd(), 'src/ui/poker/PokerLocalGame.tsx'), 'utf8');
   const screen = readFileSync(join(process.cwd(), 'src/ui/poker/PokerGameScreen.tsx'), 'utf8');
 
-  it('the poker branch hands the log to renderSocial as the utilitySlot', () => {
-    expect(online).toContain('utilitySlot={utilitySlot}');
-    expect(online).toMatch(/renderSocial\(true, undefined, timerEl, <PokerActionLog state=\{pokerState\} \/>\)/);
-    // Exactly one poker log control is created in the online tree.
-    expect(online.match(/<PokerActionLog/g) ?? []).toHaveLength(1);
+  it('the poker branch hands the log button + panel to the docked cluster slots', () => {
+    // Stage 38.0.3: the cluster is docked in flow, so the button goes to `utilitySlot`
+    // and the panel to `utilityPanelSlot` — both generic slots, no poker inside RoomSocial.
+    expect(online).toContain('utilitySlot={utilitySlot}');       // RoomSocial still generic
+    expect(online).toContain('<PokerActionLogButton');
+    expect(online).toContain('<PokerActionLogPanel');
+    // Exactly one log button and one log panel exist in the online tree.
+    expect(online.match(/<PokerActionLogButton/g) ?? []).toHaveLength(1);
+    expect(online.match(/<PokerActionLogPanel/g) ?? []).toHaveLength(1);
   });
 
   it('RoomSocial stays poker-agnostic (no poker import/usage, generic slot only)', () => {
@@ -134,8 +138,10 @@ describe('wiring — one control online (RoomSocial utilitySlot) and one locally
     expect(social).toContain('{utilitySlot}');
   });
 
-  it('local renders the same component once, in its own bottom-end cluster', () => {
-    expect(local).toContain('poker-local-utility');
+  it('local renders the same component once, in the shared in-flow dock', () => {
+    // The fixed corner cluster is gone (Stage 38.0.3) — it covered the action controls.
+    expect(local).not.toContain('poker-local-utility');
+    expect(local).toContain('social-controls--docked');
     expect(local.match(/<PokerActionLog/g) ?? []).toHaveLength(1);
     expect(local).toContain("variant=\"standalone\"");
   });
