@@ -52,7 +52,11 @@ function page(state: PokerState, dir: 'ltr' | 'rtl'): string {
   const html = renderToStaticMarkup(
     React.createElement(PokerGameScreen, { state: view, mySeat: 0, apply: () => {}, onExit: () => {}, online: true }),
   );
-  return `<!doctype html><html lang="${dir === 'rtl' ? 'ar' : 'en'}" dir="${dir}" data-theme="dark"><head><meta charset="utf-8"><style>${css}
+  // The viewport meta is REQUIRED for a truthful mobile capture: without it Chrome's
+  // device emulation falls back to a 980px layout viewport, so a 360/390 run would
+  // silently measure a desktop layout.
+  return `<!doctype html><html lang="${dir === 'rtl' ? 'ar' : 'en'}" dir="${dir}" data-theme="dark"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}
     html,body{margin:0;background:#0c141b;color:#e9edf1;font-family:system-ui,sans-serif;} .app{min-height:100vh;}
     ${process.env.PKR_DEBUG ? '.poker-screen{outline:2px solid red!important} .poker-table{outline:2px solid cyan!important} .poker-table-wrap{outline:2px solid magenta!important}' : ''}</style></head>
     <body><div class="app">${html}</div></body></html>`;
@@ -60,11 +64,15 @@ function page(state: PokerState, dir: 'ltr' | 'rtl'): string {
 
 export function run(): void {
   mkdirSync('.shots', { recursive: true });
+  // Stage 38.0.2: every seat count in BOTH directions, so the lighter felt can be
+  // reviewed at 2/4/6 seats under LTR and Arabic RTL at each breakpoint.
   const shots: Array<[string, PokerState, 'ltr' | 'rtl']> = [
     ['2seat', started(2), 'ltr'],
     ['4seat', started(4), 'ltr'],
     ['6seat', started(6), 'ltr'],
     ['showdown', showdown(), 'ltr'],
+    ['2seat-rtl', started(2), 'rtl'],
+    ['4seat-rtl', started(4), 'rtl'],
     ['6seat-rtl', started(6), 'rtl'],
   ];
   for (const [name, state, dir] of shots) {

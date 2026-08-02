@@ -208,14 +208,44 @@ and **burn cards**. Per viewer:
 
 ## §14 Local pass-and-play
 
-- Before each private decision the UI shows a **handover screen**; the next player's
-  hole cards are hidden until they confirm.
+The handover screen is a **privacy step between two different humans**, not a per-turn
+ritual (owner-confirmed, Stage 38.0.2). It is driven purely by SEAT — duplicate human
+names are irrelevant.
+
+**One human + bots (any of 1–5 bots).** There is nobody to hide from, so:
+
+- **No handover screen is ever shown.**
+- That human is the **stable local viewer**: their hole cards stay visible across every
+  bot turn and between hands, with no re-confirmation.
+- Bots' hole cards remain hidden as always.
+
+**Two or more humans.** The confirmation **sticks to the seat that gave it** (the last
+confirmed human seat is tracked separately from the currently redacted viewer):
+
+- human A → bots → **A** — **no** repeat handover; A's view returns automatically after
+  the bot interval.
+- human A → bots → **B** — handover **required for B**; A's hand is already hidden.
+- human A → **B** directly — handover required for B.
+- While a **bot** acts, **no** human's hole cards are on screen.
+- Between hands / on any public screen, no private hand is shown.
+- The confirmed seat is cleared on **game start, restart/play-again and exit**, so a
+  stale viewer never carries into a new match.
+
+Common to both:
+
 - After reveal, the acting player sees their own hole cards, stack, the call amount,
   the pot, the board and their legal actions.
-- The bet/raise control is **mobile-safe** with **presets**: minimum, half-pot, pot,
-  all-in. Illegal actions are disabled.
+- The bet/raise control is **mobile-safe** with **presets** (minimum, half-pot, pot,
+  all-in), a **slider** and a **manual numeric field** — all three drive one amount.
+  The field may be blank while editing, but every commit (blur, Enter, or the Bet/Raise
+  button) is validated as a finite safe integer and clamped to `[raiseMin, maxTo]`;
+  an unusable draft falls back to the last valid amount, so no illegal action is sent.
+  Enter in the field performs the same action as the button; reaching `maxTo` is ALL-IN.
+  Illegal actions are disabled.
 - The table layout stays **stable** across street changes and community-card count
   changes (no reflow jump).
+- The public **action history** is a compact control in the bottom-end cluster (see
+  §16 I), never a block under the table.
 
 ## §15 Determinism & engine contract
 
@@ -254,9 +284,16 @@ debited or credited).
   `delta`, `balance_after`, a `UNIQUE idempotency_key`, optional match/room refs). The
   unique key is what makes each logical operation idempotent (a replay no-ops).
 - **API** — `GET /api/me/poker-wallet` (balance + eligibility) and
-  `POST /api/me/poker-wallet/daily-claim` (grant), both non-guest-only. The Profile →
-  account screen shows the balance and a **Get 1,000,000** button (or “claimed today /
-  available tomorrow”).
+  `POST /api/me/poker-wallet/daily-claim` (grant), both non-guest-only.
+- **Where it lives (Stage 38.0.2)** — the balance and the **Get 1,000,000** button are
+  in the **Poker host flow of the start menu**, directly above the stakes picker (they
+  were on the Profile screen until Stage 37.7, where players could not find them). The
+  menu owns ONE wallet store shared by the wallet card and the stakes picker, so a
+  successful claim updates the balance **and** the buy-in affordability immediately —
+  no reload, and never two copies of the balance that can disagree. States shown:
+  balance, claim button when the SERVER reports `canClaimToday`, “claimed today /
+  available tomorrow”, loading, error + retry, a sign-in hint for a signed-out or guest
+  visitor, and “economy unavailable” **only** for a real `503` from the wallet API.
 
 ### Local free-play (§16 C)
 
@@ -572,6 +609,22 @@ exposes the **exact five winning cards** per pot; the review highlights them, na
 localized combination, dims non-winners, keeps folded hands hidden, shows side pots as
 separate rows (tap to highlight that pot's five), and shows all tied winners on a split.
 A fold-win reveals nothing and shows no combination.
+
+### Action history (§16 I)
+
+The public action history is a **compact control**, never a block under the table
+(Stage 38.0.2). There is **exactly one** control and **one** panel per table:
+
+- **Online** — the button sits inside the RoomSocial control cluster next to
+  chat/emoji/voice/timer, supplied through RoomSocial's game-agnostic `utilitySlot`
+  (no poker dependency lives inside RoomSocial).
+- **Local** — the same component in a matching bottom-end cluster.
+- **Default closed.** A new action while closed shows an **unread dot**; opening the
+  panel clears it. At most the **last 30** entries are listed.
+- The panel is anchored to its button, scrolls internally, and never covers the cards
+  or the action controls or overflows a 360/390 viewport; it is RTL-safe.
+- **Public only**: seat name, action and amount. A log entry structurally cannot carry
+  hole cards, the deck, burn cards, user ids, tokens or any escrow/economy data.
 
 ## Appendix A — MVP simplifications (explicit)
 

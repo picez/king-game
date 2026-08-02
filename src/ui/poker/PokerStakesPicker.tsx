@@ -4,12 +4,17 @@
 // derived 100-BB buy-in, and an insufficient-balance / sign-in-required warning. The
 // buy-in is display-only here (the server re-derives it authoritatively). Reports the
 // selection + whether the host can afford the buy-in so the create button can gate.
+//
+// Stage 38.0.2: it no longer fetches the wallet itself. The menu owns ONE shared
+// `PokerWalletStore` (see `usePokerWallet`) and passes it here and to the wallet card,
+// so a daily claim refreshes the balance AND this affordability check together —
+// there is never a second, stale copy of the balance.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
 import { STAKES_PRESETS, BLIND_GROWTH_PRESETS } from '../../games/poker/stakes';
-import { fetchPokerWallet } from '../../net/pokerWalletApi';
+import type { PokerWalletStore } from './usePokerWallet';
 
 export interface PokerStakesSelection {
   smallBlind: number;
@@ -20,32 +25,20 @@ export interface PokerStakesSelection {
 }
 
 interface Props {
-  base: string;
-  signedIn: boolean;
+  /** The SHARED wallet store owned by the menu (single source of truth). */
+  wallet: PokerWalletStore;
   onChange: (sel: PokerStakesSelection) => void;
 }
 
-export default function PokerStakesPicker({ base, signedIn, onChange }: Props) {
+export default function PokerStakesPicker({ wallet: store, onChange }: Props) {
   const { t, lang } = useI18n();
   const [presetIdx, setPresetIdx] = useState(0);
   const [growth, setGrowth] = useState(0);
-  const [balance, setBalance] = useState<number | null>(null);
-  const [walletState, setWalletState] = useState<'loading' | 'ok' | 'signed_out' | 'no_economy'>('loading');
 
   const fmt = (n: number) => { try { return new Intl.NumberFormat(lang).format(n); } catch { return String(n); } };
   const preset = STAKES_PRESETS[presetIdx];
-  const affordable = walletState === 'ok' && balance != null && balance >= preset.buyIn;
-
-  useEffect(() => {
-    let alive = true;
-    if (!signedIn) { setWalletState('signed_out'); return; }
-    void fetchPokerWallet(base).then((r) => {
-      if (!alive) return;
-      if (r.ok) { setBalance(r.wallet.balance); setWalletState('ok'); }
-      else setWalletState(r.reason === 'no_economy' ? 'no_economy' : 'signed_out');
-    });
-    return () => { alive = false; };
-  }, [base, signedIn]);
+  const balance = store.phase === 'ready' ? (store.wallet?.balance ?? null) : null;
+  const affordable = balance != null && balance >= preset.buyIn;
 
   // Report the current selection upward whenever it (or affordability) changes.
   const sel = useMemo<PokerStakesSelection>(() => ({
@@ -84,14 +77,15 @@ export default function PokerStakesPicker({ base, signedIn, onChange }: Props) {
         {growth > 0 && <span className="poker-stakes__growth-note"> · {t('poker.stakes.growthEvery').replace('{n}', String(growth))}</span>}
       </p>
 
-      {walletState === 'ok' && balance != null && (
+      {balance != null && (
         <p className={`poker-stakes__balance ${affordable ? '' : 'is-short'}`}>
           {t('wallet.balance')}: 🪙 {fmt(balance)}
           {!affordable && <span className="poker-stakes__warn"> · ⚠️ {t('poker.stakes.insufficient')}</span>}
         </p>
       )}
-      {walletState === 'signed_out' && <p className="poker-stakes__warn">🔒 {t('wallet.signInRequired')}</p>}
-      {walletState === 'no_economy' && <p className="poker-stakes__warn">{t('wallet.unavailable')}</p>}
+      {store.phase === 'signed_out' && <p className="poker-stakes__warn">🔒 {t('wallet.signInRequired')}</p>}
+      {/* Only a REAL 503 from the wallet API produces `no_economy`. */}
+      {store.phase === 'no_economy' && <p className="poker-stakes__warn">{t('wallet.unavailable')}</p>}
     </div>
   );
 }

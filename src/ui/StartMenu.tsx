@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OnlineIntent } from '../hooks/useNetworkGame';
 import { buildCreateIntent } from '../net/online';
 import PokerStakesPicker, { type PokerStakesSelection } from './poker/PokerStakesPicker';
+import PokerWalletCard from './poker/PokerWalletCard';
+import { usePokerWallet } from './poker/usePokerWallet';
 import { useRoomList } from '../hooks/useRoomList';
 import { useMyRooms } from '../hooks/useMyRooms';
 import type { RoomSummary } from '../net/messages';
@@ -116,6 +118,11 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   // App-level presence (Stage 25.7): keeps a signed-in user "online" at the menu and drives
   // the incoming-request badge + a friend room-invite toast. Idle for guests.
   const presence = usePresence(url, account.base, account.signedIn);
+  // ONE poker-wallet store for the whole menu (Stage 38.0.2). The wallet card and the
+  // stakes picker share it, so a daily claim updates the balance AND the buy-in
+  // affordability in the same render — no second copy, no manual reload. Fetched only
+  // while the Poker host flow is open.
+  const pokerWallet = usePokerWallet(account.base, account.signedIn, pane === 'host' && gameType === 'poker');
   // Carry the signed-in flag into the online flow (enables the Friends invite panel).
   const onOnlineWithAuth = (u: string, intent: OnlineIntent) => onOnline(u, intent, account.signedIn);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -612,7 +619,12 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 </div>
               )}
               {gameType === 'poker' && (
-                <PokerStakesPicker base={account.base} signedIn={account.signedIn} onChange={setPokerStakes} />
+                <>
+                  {/* Chips + the daily claim live HERE now (Stage 38.0.2), next to the
+                      stakes/buy-in they are needed for — not hidden in Profile. */}
+                  <PokerWalletCard wallet={pokerWallet} />
+                  <PokerStakesPicker wallet={pokerWallet} onChange={setPokerStakes} />
+                </>
               )}
               {gameType === 'fifty-one' && (
                 <div className="field">

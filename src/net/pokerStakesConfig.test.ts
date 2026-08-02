@@ -115,7 +115,12 @@ describe('buildPokerStartAction threads bankroll options (startingStack = buy-in
 describe('StartMenu wires real account props into the Poker stakes picker (FAIL 5)', () => {
   const src = readFileSync(join(process.cwd(), 'src/ui/StartMenu.tsx'), 'utf8');
   it('passes account.signedIn + account.base (never a hardcoded signedIn=true)', () => {
-    expect(src).toMatch(/<PokerStakesPicker\s+base=\{account\.base\}\s+signedIn=\{account\.signedIn\}/);
+    // Stage 38.0.2: the picker no longer fetches the wallet itself — the menu owns ONE
+    // shared store and hands it to both the wallet card and the picker. The guard is
+    // unchanged in substance: the REAL account state must be what feeds that store.
+    expect(src).toMatch(/usePokerWallet\(account\.base,\s*account\.signedIn/);
+    expect(src).not.toMatch(/usePokerWallet\([^)]*signedIn(?!\w)\s*=?\s*true/);
+    expect(src).toMatch(/<PokerStakesPicker\s+wallet=\{pokerWallet\}/);
     expect(src).not.toMatch(/<PokerStakesPicker[^>]*base=""/);
   });
   it('blocks hosting online Poker unless the wallet can afford the buy-in', () => {

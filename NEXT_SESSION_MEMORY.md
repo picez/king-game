@@ -621,3 +621,49 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **38 poker suites / 347 tests, 0 skipped, 6/6 clean consecutive runs**;
   `npm run verify` twice stably (**297 files / 3120 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+
+### Stage 38.0.2 — Poker owner UX corrections (COMPLETE, Unreleased)
+- Worked from HEAD `7b508be`. **UI/UX only**: no engine/evaluator/blind/wallet-amount/escrow/
+  payout/refund/recovery/stats/server-timer/DB change, no migration (stays **0012**), no new
+  dependency, no version bump (**0.4.8**), other 6 games untouched.
+- **1 — wallet moved out of Profile.** `PokerWalletPanel` DELETED; new `src/ui/poker/PokerWalletCard.tsx`
+  (presentational) + `src/ui/poker/usePokerWallet.ts` (the ONE store). `StartMenu` owns a single
+  `usePokerWallet(account.base, account.signedIn, pane==='host' && gameType==='poker')` and passes it to
+  BOTH the card and `PokerStakesPicker` — the picker no longer fetches (`fetchPokerWallet` removed from it),
+  so a claim updates balance AND buy-in affordability (and the Create gate) in the same render. Card renders
+  above the picker in the Poker host branch. `no_economy` still only from a real 503.
+- **2 — lighter felt.** Poker-scoped tokens `--poker-felt-lit/-felt/-felt-edge/-rail/-rail-edge` on
+  `.poker-screen` (shared `--felt-*` and the other games untouched; the old `var(--felt, #0b5d3b)` fallback
+  was never a real global). Radial lit-centre gradient + 7px rail + softened inset; dark pill behind
+  pot/street; clearer empty board slots; stronger `--acting`/`--me`. **Measured with Chrome device
+  emulation** (2/4/6 + showdown × 360/390/1280 × LTR/RTL): 0 clipped pods, 0 overflow, geometry identical
+  to HEAD. Also FIXED a pre-existing 360 overlap of the pot row with the mid-side pods (`@media
+  (max-width:400px)` shrinks the plate). **Harness fix:** `scripts/poker-shots.tsx` now emits a
+  `<meta viewport>` — without it Chrome emulation silently laid out at 980px, so earlier mobile captures
+  were cropped/untruthful. Also emits 2/4/6-seat RTL pages.
+- **3 — manual bet amount.** Pure `src/ui/poker/betAmount.ts` (`parseAmountInput` strict finite SAFE-INTEGER,
+  decimals REFUSED; `clampAmount` incl. degenerate `max<=min` → all-in; `commitAmount` falls back to the last
+  valid amount; `syncAmountToRange`; `wagerKindFor`). `PokerActions` holds one `amount` + a `draft` string;
+  slider/presets/input all write through the helpers; blank allowed mid-edit; blur/Enter/button commit;
+  Enter === button; `maxTo` → ALL_IN; a range change re-clamps. Reducer/server validation untouched.
+- **4 — history next to chat.** New `src/ui/poker/PokerActionLog.tsx` + pure `src/ui/poker/actionLog.ts`
+  (last 30, stable keys, unread rule). `PokerGameScreen` no longer renders any log. Online:
+  `OnlineGame.renderSocial` gained a 4th `utilitySlot` arg; the poker branch passes `<PokerActionLog/>` →
+  RoomSocial's EXISTING generic slot (RoomSocial keeps zero poker imports). Local: same component,
+  `variant="standalone"` in a `.poker-local-utility` fixed cluster. Panel is absolutely anchored (never
+  widens the row, never covers cards/actions, RTL via `inset-inline-end`).
+- **5 — handover policy REWRITTEN (owner-confirmed).** The per-turn reset (`prevActor` ref +
+  `setViewerSeat(null)` effect) is GONE. `passAndPlay.ts` gained `humanSeats`/`soloHumanSeat`;
+  `needsHandover`/`viewerFor` take the LAST CONFIRMED seat: **1 human + bots → no handover ever, that human
+  is the stable viewer (own cards visible through bot turns and between hands)**; **≥2 humans → the
+  confirmation sticks to its seat** so A→bots→A never re-prompts while A→bots→B and A→B do, nothing is shown
+  during a bot turn, and identity is by SEAT (duplicate names safe). Cleared on start/playAgain.
+  **The old "bot → human ALWAYS re-prompts" tests were rewritten — that is no longer the requirement.**
+- **Docs:** `POKER_RULES.md` §14 rewritten + new §16 I (action history) + §16 wallet location;
+  `CHANGELOG.md` [Unreleased] → Changed; `QA_CHECKLIST.md` new "Poker UX corrections (Stage 38.0.2)"
+  manual smoke block (7 owner items) + a note superseding the 37.7 "Profile → wallet" line.
+- **New i18n key** `poker.amountRange` ×4 (EN/UK/DE/AR). No other key/API/protocol change.
+- **New tests (all `.ts`, no DOM lib — vitest is `environment: 'node'`, `include: src/**/*.test.ts`):**
+  `betAmount.test.ts` (23), `actionLog.test.ts` (14), `pokerWalletPlacement.test.ts` (11),
+  `pokerTableTheme.test.ts` (12) + `passAndPlay.test.ts` rewritten (18). Interaction is covered by testing
+  the PURE helpers + `renderToStaticMarkup` + source-wiring assertions (the repo's existing pattern).

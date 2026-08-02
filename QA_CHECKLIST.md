@@ -1420,3 +1420,46 @@ transient (~2.6 s), opaque, and by design never over the hand/trick.
 - [ ] Table UI: 2/4/6 seats readable at 360/390/tablet/desktop; showdown highlights the
       exact five + names the combo; folded hands stay hidden; Help modal complete in 4 langs;
       action log default-closed with an unread dot; Arabic RTL keeps seat geometry stable.
+
+## Poker UX corrections (Stage 38.0.2)
+
+Superseding note: the chip wallet is **no longer on Profile** — the first item of the
+Stage 37.7 list above now happens in the Poker host flow.
+
+- [ ] **Wallet placement.** Menu → Host → pick **Poker**: the chip balance card and the
+      **Get 1,000,000** button appear directly above the stakes picker. Open
+      **Profile → Profile**: there is **no** wallet card anywhere on that screen.
+- [ ] **Claim refreshes everything.** With `canClaimToday`, press **Get 1,000,000**:
+      the balance rises by exactly 1,000,000, the "+1,000,000" confirmation shows, the
+      button is replaced by "claimed today / available tomorrow", and the stakes picker's
+      balance line + insufficient-funds warning + the **Create** button's enabled state
+      all update **without any reload**. A second press/reload the same day does not
+      credit again. Signed out → sign-in hint; a real 503 → "economy unavailable" only.
+- [ ] **Manual bet amount.** On your turn with a bet/raise available: type an exact
+      amount in the numeric field — the slider follows and the Bet/Raise label matches.
+      Clear the field (allowed) and press Enter/blur → it returns to the last valid
+      amount, no action is sent. Type below min / above max → clamped to the shown
+      min–max. Typing the maximum and submitting sends **ALL-IN**. **Enter** in the field
+      does exactly what the button does. At 360/390 the field, slider, presets and
+      buttons all stay inside the viewport.
+- [ ] **History next to chat (online).** No log block under the table. A 🧾 button sits
+      in the bottom-right cluster with chat/emoji/voice/timer; it is closed by default;
+      a new action while closed shows an unread dot that clears on opening; the panel
+      lists at most the last 30 entries, scrolls internally, and covers neither the cards
+      nor the action controls at 360/390. Exactly ONE history button/panel on screen.
+      Arabic RTL mirrors the cluster and the panel with it.
+- [ ] **History (local).** The same compact 🧾 control in the bottom-end corner; no
+      permanent log block under the table.
+- [ ] **Local, 1 human + bots.** Start local Poker with one human seat and 1–5 bots:
+      the "Your turn" handover screen **never** appears — not at the start, not after
+      any bot turn, not between hands — and your hole cards stay visible throughout.
+- [ ] **Local, 2+ humans.** A → bots → **A** shows **no** handover (A's view returns by
+      itself). A → bots → **B**, and A → B directly, **do** show the handover for B, and
+      A's cards are hidden before it appears. While a bot acts no human's cards are on
+      screen. Two humans with the **same name** still hand over correctly (by seat).
+      Starting a new game / Play again shows no stale player's cards.
+- [ ] **Lighter table.** 2/4/6 seats at 360, 390 and desktop: the felt reads as a bright
+      real poker table with a visible rail; cards, empty board slots, pot, street, bets,
+      stacks and folded/out seats are all legible; the acting seat and your own seat stay
+      obvious; nothing overflows sideways. Repeat in **Arabic RTL** — text mirrors but the
+      seat geometry does not (you stay bottom-centre).

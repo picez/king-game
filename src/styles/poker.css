@@ -8,6 +8,16 @@
  * ------------------------------------------------------------------------- */
 
 .poker-screen {
+  /* Table palette (Stage 38.0.2 — owner FAIL: the felt was far too dark to read).
+     Scoped to the poker screen, so the shared --felt-* tokens (and every other game)
+     are untouched. A lit centre fading to a slightly deeper rim keeps it looking like
+     a real felt rather than a flat, over-saturated green. */
+  --poker-felt-lit: #2fa268;
+  --poker-felt: #1e8a56;
+  --poker-felt-edge: #14663e;
+  --poker-rail: #6d4a2c;
+  --poker-rail-edge: #4a3120;
+
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
@@ -48,7 +58,7 @@
   min-height: 4.6rem;
   padding: 0.5rem;
   border-radius: 0.75rem;
-  background: var(--felt, #0b5d3b);
+  background: var(--poker-felt, #1e8a56);
 }
 .poker-street-label { text-align: center; font-size: 0.85rem; opacity: 0.75; }
 
@@ -78,9 +88,11 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 .poker-card--empty {
-  background: rgba(255, 255, 255, 0.06);
+  /* On the lighter felt an almost-white slot vanished; a soft dark well with a clear
+     dashed rim keeps the five reserved board slots readable. */
+  background: rgba(0, 0, 0, 0.16);
   box-shadow: none;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border: 1px dashed rgba(255, 255, 255, 0.42);
 }
 
 /* Seats */
@@ -184,11 +196,18 @@
   height: clamp(360px, 58vh, 520px);
   margin-inline: auto;
   border-radius: 46% / 40%;
+  /* Stage 38.0.2: a genuinely LIGHT felt — a lit centre under the board fading to a
+     slightly deeper rim, inside a visible wooden rail. The old version was a flat very
+     dark green under a 40px black inset shadow, which swallowed cards, bets and pods. */
   background:
-    radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.08), transparent 60%),
-    var(--felt, #0b5d3b);
-  border: 6px solid rgba(0, 0, 0, 0.35);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(0, 0, 0, 0.35);
+    radial-gradient(ellipse at 50% 40%,
+      var(--poker-felt-lit) 0%, var(--poker-felt) 46%, var(--poker-felt-edge) 100%);
+  border: 7px solid var(--poker-rail);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.12),   /* bright inner lip of the rail */
+    inset 0 0 24px rgba(0, 0, 0, 0.22),          /* gentle vignette, not a blackout */
+    0 0 0 2px var(--poker-rail-edge),            /* rail outline against the page */
+    0 6px 20px rgba(0, 0, 0, 0.34);
 }
 @media (min-width: 620px) { .poker-table { width: min(680px, 90vw); height: clamp(380px, 62vh, 560px); } }
 
@@ -198,21 +217,38 @@
   display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 90%;
 }
 .poker-center .poker-board { background: transparent; min-height: auto; padding: 0.2rem; }
-.poker-center__info { display: flex; gap: 0.8rem; align-items: center; }
+/* Pot + street sit directly on the lit felt — a dark plate keeps them legible now
+   that the felt is bright (Stage 38.0.2). The plate is kept NARROW on purpose: the
+   free gap between the two mid-side seat pods is only ~115px at 360 and ~131px at
+   390, and the pods paint above the centre, so a wide plate would slide under them
+   (measured — it also fixes a pre-existing 360 overlap of the plain pot row). */
+.poker-center__info {
+  display: flex; gap: 0.45rem; align-items: center;
+  padding: 0.12rem 0.4rem; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.34); color: #fff;
+  max-width: 100%;
+}
 .poker-center .poker-pot { font-size: 1.1rem; font-weight: 800; }
-.poker-center .poker-street-label { opacity: 0.85; }
+.poker-center .poker-street-label { opacity: 0.9; }
+@media (max-width: 400px) {
+  .poker-center__info { gap: 0.3rem; padding: 0.1rem 0.32rem; }
+  .poker-center .poker-pot { font-size: 0.95rem; }
+  .poker-center .poker-street-label { font-size: 0.76rem; }
+}
 
 /* Seat pods. */
 .poker-pod {
   position: absolute; transform: translate(-50%, -50%);
   display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
   width: 4.5rem; padding: 0.3rem 0.28rem; border-radius: 0.6rem;
-  background: rgba(0, 0, 0, 0.42); border: 2px solid transparent; text-align: center;
+  /* Slightly deeper plates than before: on the lighter felt they must still read as
+     distinct pods, and the acting / my-seat states must stay obvious. */
+  background: rgba(9, 26, 18, 0.62); border: 2px solid transparent; text-align: center;
 }
-.poker-pod--me { background: rgba(0, 0, 0, 0.55); }
-.poker-pod--acting { border-color: var(--accent, #e8b84b); box-shadow: 0 0 12px var(--accent, #e8b84b); }
-.poker-pod--folded { opacity: 0.45; }
-.poker-pod--out { opacity: 0.3; }
+.poker-pod--me { background: rgba(9, 26, 18, 0.78); border-color: rgba(255, 255, 255, 0.35); }
+.poker-pod--acting { border-color: var(--accent, #e8b84b); box-shadow: 0 0 14px 2px var(--accent, #e8b84b); }
+.poker-pod--folded { opacity: 0.5; }
+.poker-pod--out { opacity: 0.36; }
 .poker-pod__badges { display: flex; gap: 0.15rem; min-height: 0.9rem; flex-wrap: wrap; justify-content: center; }
 .poker-pod__cards { display: flex; gap: 0.15rem; }
 .poker-pod__name { font-size: 0.72rem; font-weight: 600; max-width: 5.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
@@ -268,15 +304,49 @@
 .poker-help__notes { margin: 0.3rem 0 0; padding-inline-start: 1.1rem; font-size: 0.82rem; opacity: 0.85; display: flex; flex-direction: column; gap: 0.25rem; }
 .poker-help__done { min-height: 44px; }
 
-/* Collapsible action log (§16 I). */
-.poker-logbox { display: flex; flex-direction: column; gap: 0.3rem; }
-.poker-log-toggle {
-  align-self: flex-start; background: none; border: none; color: inherit; cursor: pointer;
-  font-size: 0.8rem; opacity: 0.85; display: inline-flex; align-items: center; gap: 0.35rem; min-height: 32px;
+/* Action history as a COMPACT control (§16 I, Stage 38.0.2). Online it rides in
+   RoomSocial's utilitySlot (bottom-right cluster); locally `.poker-local-utility`
+   reproduces that cluster. The panel is ANCHORED to the button and absolutely
+   positioned, so it never widens the cluster row, never covers the cards or the
+   action controls, and never overflows a 360/390 viewport. RTL-safe via logical
+   inset (it opens toward the screen, mirroring with the cluster). */
+.poker-logbox { position: relative; display: flex; }
+.poker-log-fab { font-size: 1.15rem; }
+.poker-log-fab.has-unread { border-color: var(--accent, #e8b84b); }
+.poker-log-dot {
+  position: absolute; top: -2px; inset-inline-end: -2px;
+  width: 0.6rem; height: 0.6rem; border-radius: 999px;
+  background: var(--accent, #e8b84b); display: inline-block;
 }
-.poker-log-toggle.has-unread { opacity: 1; font-weight: 700; }
-.poker-log-dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; background: var(--accent, #e8b84b); display: inline-block; }
+.poker-log-panel {
+  position: absolute; bottom: calc(100% + 8px); inset-inline-end: 0;
+  width: min(19rem, 78vw); max-height: min(50vh, 18rem);
+  overflow-y: auto; z-index: 62;
+  display: flex; flex-direction: column; gap: 0.3rem;
+  padding: 0.5rem 0.6rem; border-radius: 0.7rem;
+  background: var(--panel-2, #16222c); border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.2));
+  box-shadow: var(--shadow-pop, 0 8px 24px rgba(0, 0, 0, 0.45));
+  text-align: start;
+}
+.poker-log-panel__head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  font-weight: 700; font-size: 0.85rem;
+}
 .poker-log__empty { opacity: 0.6; margin: 0; }
+
+/* Local poker has no RoomSocial — mirror its bottom-end cluster for the one control. */
+.poker-local-utility {
+  position: fixed; inset-inline-end: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 61; display: flex;
+}
+
+/* Manual bet/raise amount field (Stage 38.0.2) — sits with the slider + presets. */
+.poker-amount-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.poker-amount-input { flex: 1 1 7rem; min-width: 6rem; min-height: 44px; text-align: center; font-weight: 700; }
+.poker-amount-range { font-size: 0.76rem; opacity: 0.75; white-space: nowrap; }
+
+/* Chip wallet card in the Poker host flow (Stage 38.0.2 — moved out of Profile). */
+.poker-wallet-card { margin-bottom: 0.6rem; }
 
 /* Local starting-stack selector (§16 C). */
 .poker-setup__stacks { margin-bottom: 0.4rem; }

@@ -9,6 +9,41 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Poker UX corrections (Stage 38.0.2)** — five owner-confirmed fixes; no rules,
+  engine, economy, schema or dependency change.
+  - **Chips where you need them.** The chip balance and the **Get 1,000,000** daily
+    claim moved from **Profile** into the **Poker host flow of the start menu**, right
+    above the stakes picker. The menu now owns **one** wallet store shared by the wallet
+    card and the stakes picker, so a claim refreshes the balance **and** the buy-in
+    affordability instantly — no reload, and never two balances that disagree.
+    "Economy unavailable" is shown only for a real `503`.
+  - **A much lighter table.** The felt was too dark to read: it is now a lit green
+    centre fading to a slightly deeper rim inside a visible wooden rail, with a dark
+    plate behind pot/street, clearer empty board slots and stronger acting/my-seat
+    states. Seat geometry, viewer-bottom positioning and the RTL-stable physical layout
+    are unchanged — verified at 2/4/6 seats on 360/390/desktop in LTR and Arabic RTL
+    (0 clipped seats, 0 horizontal overflow; this also fixed a pre-existing overlap of
+    the pot row with the side seats at 360).
+  - **Type an exact bet.** The bet/raise controls gained a **manual numeric field**
+    beside the slider and the Min/½ Pot/Pot/All-in presets, all driving one amount and
+    showing the allowed min–max. The field may be blank while editing; every commit
+    (blur, **Enter**, or the Bet/Raise button) is validated as a finite safe integer and
+    clamped to the legal window, so an unusable draft can never send an illegal action.
+    Enter does exactly what the button does; the maximum is still sent as ALL-IN.
+  - **History next to chat.** The action history is no longer a block under the table.
+    It is a compact button in the bottom-end control cluster — online inside the
+    RoomSocial cluster next to chat/emoji/voice/timer, locally in a matching cluster —
+    default closed, with an **unread dot** cleared by opening, and the last 30 public
+    entries (seat, action, amount only).
+  - **No more "Your turn" before every move.** In local play with **one human and bots**
+    the handover screen is gone entirely and that player keeps their hole cards across
+    bot turns. With **two or more humans** the confirmation now sticks to its seat:
+    A → bots → A no longer re-prompts, while A → bots → B (and A → B) still hands over
+    privately, and no human's cards are shown while a bot acts.
+    [`POKER_RULES.md §14 / §16 I`](POKER_RULES.md)
+
 ### Added
 
 - **Poker bankroll economy + real table UI (Stage 37.7).** A full bankroll layer for

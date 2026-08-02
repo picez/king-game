@@ -1190,3 +1190,24 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   its start; a room joining the registry after the snapshot still protected while a roomless orphan is refunded once;
   the paid-no-state room frozen with START/rematch/purge all refused; and the terminal-claim teardown matrix
   (unconfirmed → keep+freeze, opposite payout → keep+freeze, exact refund → purge + one fresh match, idempotent).
+
+### Poker client control surfaces (Stage 38.0.2)
+
+UI-only; the protocol, the server-authoritative flow and every redaction rule are unchanged.
+
+- **`RoomSocial.utilitySlot` is the single online extension point.** `OnlineGame.renderSocial()` now takes a
+  fourth `utilitySlot` argument and the poker branch passes `<PokerActionLog state={pokerState} />` into it,
+  so the action-history button renders inside the existing bottom-right control cluster next to
+  timer/voice/emoji/chat. `RoomSocial` keeps **no** game-specific import — it renders whatever node it is
+  handed, exactly like `timerSlot`. `PokerGameScreen` no longer renders a log of its own, so there is
+  exactly ONE history control and ONE panel per table (local supplies the same component itself, since it
+  has no RoomSocial).
+- **The action log is public by construction.** A `PokerActionEntry` is `{ seat, street, kind, amount }`;
+  the panel reads only that plus the public player name. It survives `pokerRedactStateFor` untouched
+  because there is nothing private in it — no hole cards, deck, burn cards, user ids, tokens or escrow
+  data can reach the client through this surface.
+- **The wallet has ONE client store.** `usePokerWallet` (in `src/ui/poker/`) is instantiated once by
+  `StartMenu` and shared by the wallet card and `PokerStakesPicker`; the picker no longer calls
+  `fetchPokerWallet` itself. This removes the only place where two independently fetched copies of the
+  balance could disagree. The store mirrors the server verbatim — it never computes a balance, never
+  decides claim eligibility, and reports `no_economy` only for a real `503`.

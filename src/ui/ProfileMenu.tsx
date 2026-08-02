@@ -35,7 +35,6 @@ import PreferansLeaderboardPanel from './components/PreferansLeaderboardPanel';
 import FiftyOneStatsPanel from './components/FiftyOneStatsPanel';
 import FiftyOneLeaderboardPanel from './components/FiftyOneLeaderboardPanel';
 import PokerStatsPanel from './components/PokerStatsPanel';
-import PokerWalletPanel from './components/PokerWalletPanel';
 import PokerLeaderboardPanel from './components/PokerLeaderboardPanel';
 
 interface Props {
@@ -381,15 +380,14 @@ export default function ProfileMenu({
       </div>
 
       <div className="drawer__panel" role="tabpanel">
+        {/* The poker chip wallet + daily claim used to sit here (Stage 37.7). Moved to the
+            Poker host flow in the start menu (Stage 38.0.2) — it was too hard to find. */}
         {tab === 'profile' && (
-          <>
-          <PokerWalletPanel base={account.base} signedIn={account.signedIn} />
           <ProfilePanel account={account}
             name={name} onName={onName} avatar={avatar} onAvatar={onAvatar}
             defaultTimer={defaultTimer} onDefaultTimer={onDefaultTimer}
             favoriteGame={favoriteGame} onFavoriteGame={onFavoriteGame}
             customServer={customServer} onCustomServer={onCustomServer} />
-          </>
         )}
         {tab === 'friends' && (
           <FriendsPanel base={account.base} signedIn={account.signedIn}
