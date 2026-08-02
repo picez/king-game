@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { bindGameToEscrow } from '../../server/pokerBinding';
 import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom, ServerMember } from './serverCore';
 import { handleRematchRequest, type RematchRequestDeps, type RematchSession } from '../../server/pokerRematch';
@@ -218,6 +219,7 @@ describe.skipIf(!TEST_DATABASE_URL)('FAIL 3 — READY routes to a real new paid 
     await escrow.debitBuyIns(r);
     const M0 = r.pokerEscrow!.matchId;
     r.started = true; r.gameState = FINISHED as unknown as typeof r.gameState;
+    bindGameToEscrow(r); // (37.7.19) production binds the finished state to its paid escrow
     await escrow.payoutStacks(r, FINISHED);            // settle the previous match
     const afterPayout = (await wallet.getWalletView(U1, DAY)).balance;
 

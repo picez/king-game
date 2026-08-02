@@ -241,6 +241,19 @@ also reported at `GET /health/diagnostics` (`version` field).
     momentary database problem left those chips withheld until the server was restarted; it now
     retries on the normal background schedule (one at a time), and a table waiting on such a cleanup
     becomes a clean lobby the moment its refund is confirmed.
+  - **A paid table can no longer be restarted around, and cleanups can't collide with a new hand
+    (Stage 37.7.19):** three more real defects fixed, all **corrections to the previous entry**.
+    (1) Several places still treated "the payout already happened" as if it were an ordinary retry:
+    a failed start, a seat change during start, a failed rematch and the background cleanup all
+    reported "still settling" — while the table had quietly become settled, unblocked itself, and a
+    second start could charge a **brand-new buy-in** on top of a table whose chips were already
+    paid. Every one of those paths now shares a single rule, and a paid or unresolvable conflict
+    permanently pauses the table for review instead. (2) Starting or rematching trusted the table's
+    own saved "already paid/refunded" note before replacing it with a new hand; that note is now
+    re-checked against the database first, and a note the database does not confirm blocks the new
+    charge. (3) The background cleanup that refunds abandoned buy-ins could overlap with a table
+    starting a new hand and refund a **live** game's chips; starting a hand and running that cleanup
+    are now strictly ordered so they can never overlap.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

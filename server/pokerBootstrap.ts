@@ -16,7 +16,7 @@
 
 import type { ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
-import { isCorruptEvidence, type EscrowReconcileResult } from './pokerEscrow';
+import { isCorruptEvidence, withEconomyBarrier, type EscrowReconcileResult } from './pokerEscrow';
 import { isBankrollRoomShape } from './pokerParticipants';
 import { escrowGameBinding, clearGameBinding, resolveUnboundEscrowGame } from './pokerBinding';
 
@@ -372,7 +372,14 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   let orphanRefunded: string[] = [];
   let corruptMatchIds = new Set<string>();
   try {
-    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
+    // (37.7.19 FAIL 3) Inside the economy barrier, with protection re-read for any in-flight escrow.
+    const scan = await withEconomyBarrier(async () => {
+      for (const r of bankroll) {
+        const e = r.pokerEscrow;
+        if (e?.status === 'pending' || e?.status === 'settling') protectedMatchIds.add(e.matchId);
+      }
+      return deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
+    });
     orphanRefunded = scan.refunded;
     corruptMatchIds = new Set((scan.corruptRefs ?? []).map((c) => c.matchId));
     if (scan.refunded.length) deps.log(`crash recovery: refunded ${scan.refunded.length} orphaned poker match(es)`);
@@ -557,12 +564,27 @@ export async function runRuntimeEconomyRecovery(rooms: ServerRoom[], deps: Runti
     if (!r.pokerEscrow && r.pokerGameMatchId && rec !== 'escrowless_unresolved') protectedMatchIds.add(r.pokerGameMatchId);
   }
 
-  // (c) The guarded global scan — the same one bootstrap runs.
+  // (c) The guarded global scan — the same one bootstrap runs, INSIDE the economy barrier so no
+  // durable debit can commit between the protection rebuild and the scan (37.7.19 FAIL 3).
   let orphanRefunded: string[] = [];
   let orphanAlreadyPaid: string[] = [];
   let orphanRetryable: string[] = [];
   try {
-    const scan = await deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
+    const scan = await withEconomyBarrier(async () => {
+      // Re-read protection INSIDE the barrier: any debit that already marked its escrow `pending`
+      // is now visible and protected; any that has not yet started cannot commit until we finish.
+      for (const r of bankroll) {
+        const rec = reconciled.get(r.code) ?? 'noop';
+        const id = settlementProtectedMatchId(r, classifyBootstrapRecovery(r, deps.isFinished, rec), rec);
+        if (id) protectedMatchIds.add(id);
+        // Fail-closed for an IN-FLIGHT debit only (`pending`/`settling`): a `funded` escrow is
+        // already decided by classification (an unbound one must stay orphan-refundable).
+        if (r.pokerEscrow?.status === 'pending' || r.pokerEscrow?.status === 'settling') {
+          protectedMatchIds.add(r.pokerEscrow.matchId);
+        }
+      }
+      return deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
+    });
     orphanRefunded = scan.refunded;
     orphanAlreadyPaid = scan.alreadyPaid ?? [];
     orphanRetryable = scan.retryable ?? [];

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { bindGameToEscrow } from '../../server/pokerBinding';
 import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
 import type { ServerRoom, ServerMember } from './serverCore';
 import type { PokerState } from '../games/poker/types';
@@ -61,6 +62,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
     await escrow.debitBuyIns(r);
     const M0 = r.pokerEscrow!.matchId;
     r.gameState = FINISHED as unknown as typeof r.gameState;
+    bindGameToEscrow(r); // (37.7.19) production binds the finished state to its paid escrow
     expect(await escrow.payoutStacks(r, FINISHED)).toBe('paid');
     const afterPayoutA = (await wallet.getWalletView(A, DAY)).balance; // 1,005,000
 
@@ -114,6 +116,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
     await escrow.debitBuyIns(r);
     const M0 = r.pokerEscrow!.matchId;
     r.gameState = FINISHED as unknown as typeof r.gameState;
+    bindGameToEscrow(r); // (37.7.19) production binds the finished state to its paid escrow
     const restartGame = vi.fn(() => ({ ok: true }));
     const deps = spyDeps({ debitRematch: escrow.debitRematch, refundBuyIns: escrow.refundBuyInsResult, restartGame });
     const outcome = await runBankrollRematch(r, deps);
@@ -148,6 +151,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runBankrollRematch lifecycle (Stage 37.7.7,
     await escrow.debitBuyIns(r);
     const M0 = r.pokerEscrow!.matchId;
     r.gameState = FINISHED as unknown as typeof r.gameState;
+    bindGameToEscrow(r); // (37.7.19) production binds the finished state to its paid escrow
     await escrow.payoutStacks(r, FINISHED);
 
     // Rematch debit commits, but the restart fails AND the refund cannot be confirmed (injected).

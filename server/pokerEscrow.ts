@@ -61,6 +61,30 @@ export function withRoomLock<T>(code: string, fn: () => Promise<T>): Promise<T> 
   return result;
 }
 
+// --- Global economy barrier (37.7.19 FAIL 3) ---------------------------------
+// The global orphan scan builds its protection set from the CURRENT rooms and then reads
+// `poker_matches`. Without a barrier a concurrent START could commit a brand-new durable match in
+// that window: the scan would see an unprotected unsettled row and refund a LIVE table's buy-ins
+// while the room object stayed funded+live. Every DURABLE DEBIT and every GLOBAL SCAN therefore
+// runs through this FIFO barrier, and the scan REBUILDS its protection INSIDE it.
+//
+// LOCK ORDER (never inverted): `withRoomLock(code)` then `withEconomyBarrier`. A debit already holds
+// its room lock and then takes the barrier; a scan takes ONLY the barrier and never acquires a room
+// lock while holding it, so the two can never deadlock.
+//
+// SINGLE PROCESS: this is an in-process mutex, correct for the deployed topology (ONE authoritative
+// Node instance). It is NOT cluster-wide; horizontal multi-instance would need a DB-authoritative
+// lease instead.
+let economyBarrier: Promise<unknown> = Promise.resolve();
+
+/** Run `fn` serialized against every other durable debit and global settlement scan. */
+export function withEconomyBarrier<T>(fn: () => Promise<T>): Promise<T> {
+  const run = (): Promise<T> => fn();
+  const result = economyBarrier.then(run, run);
+  economyBarrier = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 /** True while a lifecycle op (debit/settlement/rematch) is in flight for `code`. */
 export function isRoomBusy(code: string): boolean {
   return (pendingOps.get(code) ?? 0) > 0;
@@ -98,7 +122,7 @@ export function validateBankrollSeats(room: ServerRoom): SeatValidation {
   return { ok: true, seats };
 }
 
-export type DebitResult = { ok: true } | { ok: false; error: string; settlementPending?: boolean };
+export type DebitResult = { ok: true } | { ok: false; error: string; settlementPending?: boolean; paidConflict?: boolean };
 
 async function db(): Promise<PostgresJsDatabase | null> {
   const conn = await getDb();
@@ -221,11 +245,13 @@ export function pokerRecoveryBlocked(room: ServerRoom): boolean {
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
 async function performDebit(room: ServerRoom, matchId: string, buyIn: number, seats: PokerEscrowSeat[]): Promise<DebitResult> {
+  // The PENDING marker is set BEFORE the barrier so a scan that rebuilds protection inside the
+  // barrier already sees (and protects) this in-flight match (37.7.19 FAIL 3).
   room.pokerEscrow = { matchId, buyIn, status: 'pending', seats };
   const d = await db();
   if (!d) { room.pokerEscrow = undefined; return { ok: false, error: 'Economy unavailable' }; }
   try {
-    await d.transaction(async (tx) => {
+    await withEconomyBarrier(() => d.transaction(async (tx) => {
       // (FAIL 1) Durable match record FIRST, in the SAME transaction as the debits, so a
       // crash after this commit can always recover the match (matchId/seats) even if the
       // room JSON never persisted the escrow.
@@ -233,7 +259,7 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
       for (const s of seats) {
         await adjustWalletTx(tx, s.userId, -buyIn, 'table_buy_in', buyInIdempotencyKey(matchId, s.userId), { matchId, roomCode: room.code });
       }
-    });
+    }));
     room.pokerEscrow.status = 'funded';
     return { ok: true };
   } catch (err) {
@@ -269,15 +295,46 @@ export async function debitBuyIns(room: ServerRoom): Promise<DebitResult> {
  * and a new escrow. Never reuses the old (settled) escrow as a "successful debit". Call
  * inside `withRoomLock`.
  */
+/**
+ * (37.7.19 FAIL 2) Re-prove a TERMINAL escrow before its generation is replaced by a new debit.
+ * A terminal status in room JSON is a CLAIM (37.7.16); bootstrap/teardown verify it, but the runtime
+ * START/rematch transitions trusted it and cleared the escrow — so an unconfirmed/contradicted or
+ * structurally broken terminal claim could be overwritten by a fresh paid match.
+ */
+async function proveTerminalBeforeReuse(room: ServerRoom, expected: 'settled' | 'cancelled'): Promise<DebitResult | null> {
+  const evidence = await resolveEscrowEvidence(room);
+  if (evidence === 'retry_pending') {
+    return { ok: false, error: 'Settlement is still being confirmed — try again in a moment', settlementPending: true };
+  }
+  if (evidence !== expected) {
+    // terminal_unconfirmed / terminal_conflict / missing / corrupt / mismatch -> operator condition.
+    return { ok: false, error: 'This table is frozen for review', paidConflict: true };
+  }
+  if (expected === 'settled') {
+    // A PAID previous match may only be reused once its lifecycle is COMPLETE: no owed stats, and
+    // any carried state must still be BOUND to it (an unbound/incoherent state is never reusable).
+    if (room.pokerStatsPending) return { ok: false, error: 'This table is frozen for review', paidConflict: true };
+    if (room.gameState && !gameBoundToEscrow(room)) return { ok: false, error: 'This table is frozen for review', paidConflict: true };
+  }
+  return null;
+}
+
 export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
+  // (37.7.19 FAIL 1) A FROZEN table is a permanent operator condition — it may never mint a new paid
+  // match (`debitFreshStart` already refused; the rematch path did not).
+  if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
   const esc = room.pokerEscrow;
   if (esc && esc.status !== 'settled' && esc.status !== 'cancelled') {
     return { ok: false, error: 'Previous match is still settling — try again in a moment' };
   }
+  if (esc) {
+    const blocked = await proveTerminalBeforeReuse(room, esc.status as 'settled' | 'cancelled');
+    if (blocked) return blocked;
+  }
   const valid = validateBankrollSeats(room);
   if (!valid.ok) return valid;
-  room.pokerEscrow = undefined;                      // clear the resolved escrow → mint a fresh match
+  room.pokerEscrow = undefined;                      // clear the PROVEN-resolved escrow -> mint fresh
   const buyIn = room.pokerBuyIn!;
   const matchId = randomUUID();
   return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
@@ -312,11 +369,18 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
     // means the orphan's chips went OUT — an incoherent paid match with no game, which must never
     // silently become a fresh start.
     const res = await refundBuyInsResult(room); // funded → attempt refund of the orphan
+    // (37.7.19 FAIL 1) A paid/structurally-broken orphan is a PERMANENT condition, not a retry.
+    if (res === 'already_paid' || res === 'invalid') return { ok: false, error: 'This table is frozen for review', paidConflict: true };
     if (res !== 'confirmed_refund') return { ok: false, error: 'Settlement pending — please try again in a moment', settlementPending: true };
     // resolved → escrow is now terminal (cancelled/settled); fall through to mint a fresh match.
   }
-  // esc is undefined (initial) OR terminal (settled/cancelled, incl. the just-resolved orphan) →
-  // a BRAND-NEW paid match.
+  // esc is undefined (initial) OR terminal (settled/cancelled, incl. the just-resolved orphan) ->
+  // a BRAND-NEW paid match, but ONLY after the terminal claim is re-proved (37.7.19 FAIL 2).
+  const terminal = room.pokerEscrow;
+  if (terminal) {
+    const blocked = await proveTerminalBeforeReuse(room, terminal.status as 'settled' | 'cancelled');
+    if (blocked) return blocked;
+  }
   const valid = validateBankrollSeats(room);
   if (!valid.ok) return valid;
   room.pokerEscrow = undefined;                      // clear ONLY a resolved/absent escrow → mint fresh
@@ -483,10 +547,43 @@ export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult
   }
 }
 
-/** TRUE only for a TERMINALLY resolved match — a confirmed refund, an already-paid one, or no
- *  escrow at all. Callers that must distinguish a refund from a payout use `refundBuyInsResult`. */
-export function refundTerminallyResolved(result: RefundResult): boolean {
-  return result === 'confirmed_refund' || result === 'already_paid' || result === 'nothing_to_refund';
+/**
+ * (37.7.19 FAIL 1) The ONE policy every lifecycle caller applies to a `RefundResult`. Stage 37.7.18
+ * introduced the precise outcomes but several callers still collapsed them back into a boolean
+ * (a `=== confirmed_refund` test with ONE else branch), so `already_paid` and `invalid` were
+ * answered as a transient "settlement pending" — while `refundBuyInsResult` had ALREADY moved the
+ * escrow to `settled`. The room then matched no pending predicate, unblocked, and a later START
+ * could debit a brand-new buy-in over a paid conflict.
+ *
+ *   - confirmed_refund  -> `cancelled` (the ONLY disposition that may set `pokerMatchCancelled`);
+ *   - nothing_to_refund -> `cancelled`, but ONLY where no escrow was expected; a path that just
+ *                          created one treats it as a structural failure;
+ *   - retry_pending     -> `settlement_pending` (escrow kept, evidence kept, retried);
+ *   - already_paid /
+ *     invalid           -> `frozen` — a PERMANENT operator condition: timers cleared, never
+ *                          cancelled, never purged, never a new debit/rematch.
+ */
+export type RefundDisposition = 'cancelled' | 'settlement_pending' | 'frozen';
+
+export interface RefundApplyDeps {
+  freeze: (room: ServerRoom, reason: string) => void;
+  persist: (room: ServerRoom) => void;
+  clearTimers?: (room: ServerRoom) => void;
+}
+
+export function applyRefundOutcome(
+  room: ServerRoom, result: RefundResult, deps: RefundApplyDeps, opts: { escrowExpected?: boolean } = {},
+): RefundDisposition {
+  if (result === 'confirmed_refund' || (result === 'nothing_to_refund' && !opts.escrowExpected)) {
+    room.pokerMatchCancelled = true;
+    deps.persist(room);
+    return 'cancelled';
+  }
+  if (result === 'retry_pending') { deps.persist(room); return 'settlement_pending'; }
+  deps.clearTimers?.(room);
+  deps.freeze(room, result === 'already_paid' ? 'paid match cannot be refunded' : 'durable match evidence does not match this table');
+  deps.persist(room);
+  return 'frozen';
 }
 
 /**

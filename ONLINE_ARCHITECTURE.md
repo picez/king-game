@@ -1118,3 +1118,42 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   runtime passes producing exactly one credit while live/paid rooms stay untouched and no advance is re-armed. Older
   suites were migrated to the precise outcomes, and 37.7.17's "an exact orphan still refunds via reconcileCorruptRoom"
   expectation was replaced — that behaviour was the unsafe room-code path.
+
+### Paid-conflict closure + terminal proof before reuse + debit/scan serialization (Stage 37.7.19)
+
+- **CORRECTIONS to 37.7.18.** (a) "Every production caller branches on the exact outcome" was not true: the START
+  seat-divergence cleanup, the START failed-start cleanup, `runBankrollRematch` and the runtime unbound sweep all did
+  `(await refundBuyInsResult(room)) === 'confirmed_refund'` with ONE else branch — RED: a funded room whose match was
+  durably PAID answered `settlement_pending` while `refundBuyInsResult` had already set the escrow to `settled`; the
+  room then matched no pending predicate and a retried START minted a brand-new `poker_matches` row + buy-in.
+  (b) `debitFreshStart`/`debitRematch` trusted the room JSON's terminal status and cleared the escrow — RED: a room
+  claiming `cancelled` with NO settlement row (and one claiming `cancelled` while the DB said `payout`) both minted a
+  fresh paid match. (c) The runtime scan built protection and then read `poker_matches` — RED: a START committing in
+  that window had its LIVE match refunded (`cancel_refund` settlement + refund ledger) while the room stayed
+  funded+live.
+- **One refund policy (FAIL 1 fix).** `applyRefundOutcome(room, result, deps, { escrowExpected })` →
+  `RefundDisposition` = `cancelled | settlement_pending | frozen`, used by the two START cleanups, the
+  settlement-pending sweep, `runBankrollRematch` and the runtime unbound branch. `already_paid`/`invalid` clear timers,
+  freeze with a bounded reason (`paid match cannot be refunded` / `durable match evidence does not match this table`),
+  keep the evidence and never set `pokerMatchCancelled`. `RematchOutcome` gained **`paid_conflict`** (state + binding
+  kept); `BankrollRematchDeps` gained a `freeze` callback; `WsContext` gained `freezeRoom`; `debitRematch` now refuses a
+  FROZEN table; `DebitResult` gained `paidConflict` so the WS layer freezes instead of answering a bypassable error.
+  The dead `refundTerminallyResolved` helper (which re-merged refund and payout) was deleted.
+- **Terminal proof before reuse (FAIL 2 fix).** `proveTerminalBeforeReuse(room, expected)` runs `resolveEscrowEvidence`
+  before either debit path clears a terminal escrow: the durable outcome must equal the claim, the structure must be
+  exact, and a `settled` escrow additionally requires no owed stats and any carried state to be BOUND. Transient →
+  `settlementPending` (escrow kept); anything else → `paidConflict` (frozen, no durable row, no new buy-in).
+- **Economy barrier (FAIL 3 fix).** `withEconomyBarrier` (FIFO, in-process) wraps every `performDebit` transaction and
+  every global orphan scan; the bootstrap and runtime coordinators REBUILD their protection sets inside it and
+  fail-closed protect any `pending`/`settling` escrow. `performDebit` sets its `pending` marker BEFORE entering the
+  barrier, so an in-flight debit is always visible to a scan that follows it. LOCK ORDER: `withRoomLock` →
+  `withEconomyBarrier`, never the reverse; the scan never takes a room lock while holding the barrier. This is an
+  IN-PROCESS mutex: correct for the single authoritative Node instance this project deploys, explicitly NOT
+  cluster-wide.
+- **Regression suite:** `src/net/pokerPaidConflict.integration.test.ts` (real PostgreSQL, 8 tests): a failed START over
+  a paid match (frozen, not cancelled, paid escrow kept, retried START mints nothing, balances unchanged, opaque
+  snapshot); a rematch restart failure over a paid match (`paid_conflict`, evidence kept, further rematch refused); the
+  runtime unbound sweep freezing a paid conflict in the same tick and staying idempotent; the full disposition matrix
+  incl. `nothing_to_refund` where an escrow was expected; the five terminal-proof refusals plus the healthy
+  fresh-START and single-rematch cases; a START launched inside the scan window whose live match is never refunded; and
+  a START waiting behind an in-flight scan with no deadlock and exactly one debit.

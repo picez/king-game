@@ -492,6 +492,38 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   table, so no timer or advance is re-armed on a tick. A roomless orphan left by a transient
   failure is refunded on the next pass; an `escrowless_unresolved` claim becomes a clean lobby
   only when a refund for that exact matchId is confirmed in the same pass.
+- **ONE refund-outcome policy for every lifecycle caller** (Stage 37.7.19). `applyRefundOutcome`
+  maps a `RefundResult` to a `RefundDisposition`: `confirmed_refund` (and `nothing_to_refund`
+  where no escrow was expected) → **cancelled**; `retry_pending` → **settlement_pending**;
+  `already_paid` / `invalid` → **frozen** (timers cleared, evidence kept, never cancelled, never
+  purged, never a new debit or rematch — `debitRematch` now refuses a frozen table too).
+  `runBankrollRematch` gained a **`paid_conflict`** outcome and keeps its state + binding in that
+  case. **Correction:** Stage 37.7.18 claimed every production caller distinguished the outcomes;
+  the failed-start, seat-divergence, rematch and runtime-unbound paths still collapsed them into a
+  boolean, so `already_paid` was answered as a transient pending while the escrow had already moved
+  to `settled` — the table unblocked and a later START could debit again.
+- **A terminal escrow is re-proved before its generation is replaced** (Stage 37.7.19). Both
+  `debitFreshStart` and `debitRematch` call `resolveEscrowEvidence` before clearing a
+  `settled`/`cancelled` escrow: the durable outcome must MATCH the claim (`cancelled` ⇒
+  `cancel_refund`, `settled` ⇒ `payout`), the evidence must be structurally exact, and for a paid
+  escrow the previous lifecycle must be complete (no owed stats; any carried state still BOUND).
+  Otherwise: transient → retryable, everything else → `paidConflict` (frozen, no `poker_matches`
+  row, no new buy-in). A terminal status in room JSON was already a claim (§16, 37.7.16) — the
+  runtime START/rematch transitions are now held to it as well.
+- **Durable debits and global settlement scans are serialized** (Stage 37.7.19). Every
+  `performDebit` transaction and every global orphan scan runs through one FIFO
+  **`withEconomyBarrier`**, and the scan REBUILDS its protection set inside that barrier (any
+  escrow already marked `pending`/`settling` is fail-closed protected). Without it the scan could
+  build protection, a START could commit a brand-new durable match, and the scan would refund a
+  LIVE table's buy-ins while the room stayed funded and playing.
+  **LOCK ORDER (never inverted): `withRoomLock(code)` → `withEconomyBarrier`.** A debit already
+  holds its room lock and then takes the barrier; a scan takes ONLY the barrier and never acquires
+  a room lock while holding it, so no cycle exists. Failed-start refunds stay in the per-room
+  settlement sweep, never the global scan.
+  **DEPLOYMENT INVARIANT:** this is an IN-PROCESS mutex and is correct only for the deployed
+  topology — a SINGLE authoritative Node instance (see the single-instance limit in
+  `ONLINE_ARCHITECTURE.md`). It is NOT cluster-wide; horizontal multi-instance would require a
+  DB-authoritative lease or an equivalent durable active-match proof.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

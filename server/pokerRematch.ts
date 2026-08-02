@@ -16,6 +16,7 @@
 import type { ServerRoom } from '../src/net/serverCore';
 import type { DebitResult } from './pokerEscrow';
 import { bindGameToEscrow, clearGameBinding } from './pokerBinding';
+import { applyRefundOutcome } from './pokerEscrow';
 
 /** A minimal room-session reference (mirrors server/wsHandlers `SessionRef`). */
 export interface RematchSession { value: { room: ServerRoom; clientId: string } | null; }
@@ -26,6 +27,8 @@ export interface BankrollRematchDeps {
   debitRematch: (room: ServerRoom) => Promise<DebitResult>;
   /** Refund the just-committed buy-in when the restart fails; true = CONFIRMED resolved. */
   refundBuyIns: (room: ServerRoom) => Promise<import('./pokerEscrow').RefundResult>;
+  /** (37.7.19 FAIL 1) PERMANENTLY freeze the table (paid/structural conflict). Logs once. */
+  freeze: (room: ServerRoom, reason: string) => void;
   /** Restart the same game in the same room (mutates room.gameState); { ok:false } on failure. */
   restartGame: (room: ServerRoom) => { ok: boolean };
   /** Drop the pending rematch readiness. */
@@ -48,7 +51,10 @@ export type RematchOutcome =
   | 'restarted'          // fresh paid match started
   | 'debit_rejected'     // debit refused (previous not settled / insufficient) — honest broadcast, no charge
   | 'cancelled'          // debit ok but restart failed → refund CONFIRMED → resolved cancelled lobby
-  | 'settlement_pending';// debit ok but restart failed AND refund NOT confirmed → funded, retryable
+  | 'settlement_pending' // debit ok but restart failed AND refund NOT confirmed → funded, retryable
+  // (37.7.19 FAIL 1) debit ok but restart failed AND the refund found a PAID/structurally invalid
+  // match: a PERMANENT operator condition — the table is frozen with its evidence intact.
+  | 'paid_conflict';
 
 /**
  * Run the bankroll rematch lifecycle for a FINISHED room whose humans are all ready. The
@@ -72,15 +78,24 @@ export async function runBankrollRematch(room: ServerRoom, deps: BankrollRematch
     // The debit committed but the restart failed → attempt a refund. Mark CANCELLED only when
     // the refund is CONFIRMED; a failed refund leaves a funded escrow (settlement-pending) that
     // keeps retrying — never a false "refunded/cancelled".
-    const refunded = (await deps.refundBuyIns(room)) === 'confirmed_refund';
+    // (37.7.19 FAIL 1) Classify FIRST, then decide what may be cleared. `already_paid`/`invalid`
+    // are a PERMANENT paid conflict: the evidence (state + binding) is KEPT and the table frozen,
+    // never reported as a transient settlement-pending a later rematch/start could bypass.
+    const disp = applyRefundOutcome(room, await deps.refundBuyIns(room), {
+      freeze: deps.freeze, persist: deps.persist,
+    }, { escrowExpected: true });
     room.started = false;
+    deps.clearRematch(room);
+    if (disp === 'frozen') {
+      deps.persist(room);
+      deps.broadcastRoom(room);
+      return 'paid_conflict';
+    }
     room.gameState = null;
     clearGameBinding(room); // (37.7.12) the state is gone → so is its escrow-generation binding
-    if (refunded) room.pokerMatchCancelled = true;
-    deps.clearRematch(room);
     deps.persist(room);
     deps.broadcastRoom(room); // honest public snapshot (cancelled OR settlement_pending)
-    return refunded ? 'cancelled' : 'settlement_pending';
+    return disp === 'cancelled' ? 'cancelled' : 'settlement_pending';
   }
   // (37.7.12 FAIL 1) The fresh escrow REALLY produced this state → bind them durably. Until this
   // line the room held the NEW escrow next to the PREVIOUS match's state; a crash in that window is

@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, refundBuyInsResult, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, refundBuyInsResult, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved, escrowlessClaim, applyRefundOutcome } from './pokerEscrow';
 import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
@@ -366,7 +366,7 @@ function handleRematch(session: SessionRef, decline: boolean): void {
     // Bankroll poker (§16, 37.7.1/37.7.7): a rematch is a BRAND-NEW paid match — the extracted,
     // unit-tested lifecycle helper (debit → restart → refund-on-failure → broadcast).
     runRematch: (room) => runBankrollRematch(room, {
-      debitRematch, refundBuyIns: refundBuyInsResult,
+      debitRematch, refundBuyIns: refundBuyInsResult, freeze: freezeRoomForOperator,
       restartGame: (r) => restartGame(r, { now: Date.now() }),
       clearRematch, broadcastRematch, broadcastRoom,
       advance: (r) => broadcastAndAdvance(r, { turnAdvanced: true }),
@@ -834,7 +834,7 @@ const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyOrigin
 const wsCtx: WsContext = {
   rooms, sockets, social,
   send, sendError, broadcastRoom, broadcastToRoom, broadcastAndAdvance, sendChatHistory,
-  persistRoom, welcome, handleLeave, makeRoomCode, logRoomEvent, logLatestDeal,
+  persistRoom, freezeRoom: freezeRoomForOperator, welcome, handleLeave, makeRoomCode, logRoomEvent, logLatestDeal,
 };
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
@@ -1101,6 +1101,14 @@ function retryPendingSettlements(): void {
         const res = await resolveUnboundEscrowGame(room, {
           refundBuyIns: refundBuyInsResult, persist: persistRoom, clearTimers: (r) => clearRoomTimers(r.code),
         });
+        // (37.7.19 FAIL 1) `paid_conflict` means the payout WON — a PERMANENT operator condition.
+        // Bootstrap and teardown already froze it; the periodic sweep only logged, so the room could
+        // silently unblock once its escrow turned `settled` and its state/binding had been cleared.
+        if (res === 'paid_conflict') {
+          clearRoomTimers(room.code);
+          freezeRoomForOperator(room, 'paid match cannot be refunded');
+          persistRoom(room);
+        }
         broadcastRoom(room);
         console.log(`[King] unplayed rematch debit resolved for room ${room.code} (${res})`);
       });
@@ -1109,19 +1117,14 @@ function retryPendingSettlements(): void {
         if (!rooms.has(room.code) || !settlementPending(room)) return;
         // (37.7.18 FAIL 1) ONLY a CONFIRMED refund makes this a cancelled lobby. `already_paid`
         // means the payout won the settlement race — an incoherent paid table with no game, frozen.
-        const res = await refundBuyInsResult(room);
-        if (res === 'already_paid' || res === 'invalid') {
-          freezeRoomForOperator(room, 'durable match evidence does not match this table');
-          persistRoom(room);
-          broadcastRoom(room);
-          return;
-        }
-        if (res === 'confirmed_refund' || res === 'nothing_to_refund') {
-          room.pokerMatchCancelled = true; // confirmed refund → safe cancelled lobby
-          persistRoom(room);
-          broadcastRoom(room);
-          console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
-        }
+        // (37.7.19 FAIL 1) The ONE shared policy: confirmed → cancelled, transient → keep,
+        // already_paid/invalid → PERMANENT frozen (never a retryable settlement-pending).
+        const disp = applyRefundOutcome(room, await refundBuyInsResult(room), {
+          freeze: freezeRoomForOperator, persist: persistRoom, clearTimers: (r) => clearRoomTimers(r.code),
+        }, { escrowExpected: true });
+        if (disp === 'settlement_pending') return;
+        broadcastRoom(room);
+        if (disp === 'cancelled') console.log(`[King] settlement-pending refund resolved for room ${room.code}`);
       });
     } else if (payoutPending(room)) {
       void withRoomLock(room.code, async () => {
@@ -1219,8 +1222,8 @@ async function bootstrap(): Promise<void> {
   // Bankroll crash recovery (§16, 37.7.1 → 37.7.3). Passes:
   //  (a) reconcile each restored room's TRANSIENT escrow (pending/settling) vs the DB;
   //  (b) DB-authoritative orphan scan (FAIL 1): refund committed matches with no active room;
-  //  (c) resolve corrupt-escrow rooms (refund by room code, or FREEZE if the durable record
-  //      is itself corrupt — never a partial settlement);
+  //  (c) resolve corrupt-escrow rooms: a malformed persisted escrow carries no provable matchId,
+  //      so (37.7.18) NOTHING is settled by room code — the room is FROZEN for operator review;
   //  (d) FAIL 5: for a bankroll room that still has a game state but is NOT a live funded
   //      match, terminally CANCEL it (its buy-ins were refunded → clear the game to a clean
   //      lobby) or leave it FROZEN — never let a refunded match continue as a free game.

@@ -569,3 +569,30 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **36 poker suites / 333 tests, 0 skipped, 6/6 clean consecutive runs**;
   `npm run verify` twice stably (**295 files / 3106 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.19:** "all production callers distinguish the outcome" was false — the failed-start,
+  seat-divergence, rematch and runtime-unbound paths still collapsed `RefundResult` into a boolean and lost
+  `already_paid`/`invalid`.
+
+### Stage 37.7.19 — paid-conflict closure + terminal proof + debit/scan serialization (COMPLETE, Unreleased)
+- Worked from HEAD `3adb9dc`. No new migration, no version bump, other 6 games untouched. All 3 FAILs reproduced RED.
+- **RED.** (1) a funded room whose match was durably PAID answered `settlement_pending` while the escrow had already
+  become `settled`; the retried START minted a NEW `poker_matches` row + buy-in. (2) a room claiming `cancelled` with
+  NO settlement row — and one claiming `cancelled` while the DB said `payout` — both minted a fresh paid match.
+  (3) a START committing inside the scan window had its LIVE match refunded (`cancel_refund` + refund ledger) while the
+  room stayed funded+live.
+- **FIX 1.** `applyRefundOutcome` → `cancelled | settlement_pending | frozen`, shared by both START cleanups, the
+  settlement-pending sweep, `runBankrollRematch` (new **`paid_conflict`** outcome + `freeze` dep) and the runtime
+  unbound branch. `WsContext.freezeRoom`, `DebitResult.paidConflict`, `debitRematch` refuses a frozen table, dead
+  `refundTerminallyResolved` deleted.
+- **FIX 2.** `proveTerminalBeforeReuse` runs `resolveEscrowEvidence` before either debit path clears a terminal escrow
+  (outcome must match the claim, structure exact, a paid escrow needs no owed stats + any carried state BOUND).
+- **FIX 3.** `withEconomyBarrier` (FIFO, in-process) wraps every `performDebit` transaction and every global scan; both
+  coordinators rebuild protection INSIDE the barrier and fail-closed protect `pending`/`settling` escrows.
+  **LOCK ORDER: `withRoomLock` → `withEconomyBarrier`** (never inverted; the scan takes no room lock while holding it).
+  **DEPLOYMENT INVARIANT: single authoritative Node instance — the barrier is in-process, NOT cluster-wide.**
+- **New tests:** `pokerPaidConflict.integration.test.ts` (8 real-PG tests incl. 2 concurrency/race cases). Rematch
+  fixtures now bind their finished state (production does); the mid-debit crash snapshot waits for the `pending`
+  marker. Suite lock: **19** poker DB files.
+- **Gates:** real Docker PostgreSQL — **37 poker suites / 341 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**296 files / 3114 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

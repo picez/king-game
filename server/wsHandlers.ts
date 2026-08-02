@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyInsResult, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyInsResult, applyRefundOutcome, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
 import { bindGameToEscrow } from './pokerBinding';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
@@ -73,6 +73,8 @@ export interface WsContext {
   broadcastAndAdvance(room: ServerRoom, opts?: { turnAdvanced?: boolean }): void;
   sendChatHistory(socket: WebSocket, code: string): void;
   persistRoom(room: ServerRoom): void;
+  /** (37.7.19) PERMANENTLY freeze a bankroll table for operator review (logs once, safe reason). */
+  freezeRoom?(room: ServerRoom, reason: string): void;
   welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reconnectToken: string): void;
   handleLeave(room: ServerRoom, clientId: string): void;
   makeRoomCode(): string;
@@ -85,6 +87,14 @@ export interface WsContext {
  * the connection's close handler sees the current session); `attachIdentity`
  * stamps the resolved userId onto the seated member after CREATE/JOIN/RECONNECT.
  */
+/** (37.7.19 FAIL 1) The shared refund-policy side effects, from the WS context. */
+function refundPolicyDeps(ctx: WsContext): import('./pokerEscrow').RefundApplyDeps {
+  return {
+    freeze: (room, reason) => ctx.freezeRoom?.(room, reason),
+    persist: (room) => ctx.persistRoom(room),
+  };
+}
+
 export function handleClientMessage(
   ctx: WsContext, socket: WebSocket, sessionRef: SessionRef, attachIdentity: () => void,
   msg: ClientMessage, limiter: ConnectionLimiter,
@@ -398,10 +408,13 @@ export function handleClientMessage(
           const debit = await debitFreshStart(room);
           if (!debit.ok) {
             // (37.7.6 FAIL 1) An unresolved funded orphan → SETTLEMENT PENDING, not a chip error.
+            // (37.7.19 FAIL 1/2) A paid or structurally unprovable terminal claim is PERMANENT:
+            // freeze the table rather than answering a transient error a retry could bypass.
+            if (debit.paidConflict) { ctx.freezeRoom?.(room, 'durable match evidence does not match this table'); }
             const code = debit.settlementPending ? 'SETTLEMENT_PENDING'
               : /chip/i.test(debit.error) ? 'INSUFFICIENT_CHIPS' : 'ILLEGAL_ACTION';
             sendError(socket, code, debit.error);
-            if (debit.settlementPending) { ctx.broadcastRoom(room); ctx.persistRoom(room); } // honest public state
+            if (debit.settlementPending || debit.paidConflict) { ctx.broadcastRoom(room); ctx.persistRoom(room); }
             return;
           }
           // (FAIL 1) The funded escrow seats MUST equal the room's current seated players — a seat
@@ -409,24 +422,24 @@ export function handleClientMessage(
           // diverge, refund and abort. (37.7.6) Only claim "refunded / cancelled" when the refund
           // is CONFIRMED; otherwise the room is settlement-pending (funded, retried), NOT cancelled.
           if (!escrowMatchesRoomSeats(room)) {
-            const refunded = (await refundBuyInsResult(room)) === 'confirmed_refund';
-            if (refunded) {
-              room.pokerMatchCancelled = true;
-              sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
-            } else {
-              sendError(socket, 'SETTLEMENT_PENDING', 'The table changed and settlement is pending — try again in a moment');
-            }
-            ctx.broadcastRoom(room); ctx.persistRoom(room);
+            // (37.7.19 FAIL 1) The EXACT outcome decides: only a confirmed refund cancels; a paid /
+            // structurally-invalid conflict is PERMANENT (frozen), never a transient "pending".
+            const disp = applyRefundOutcome(room, await refundBuyInsResult(room), refundPolicyDeps(ctx), { escrowExpected: true });
+            if (disp === 'cancelled') sendError(socket, 'ILLEGAL_ACTION', 'The table changed while starting — buy-ins refunded, try again');
+            else if (disp === 'settlement_pending') sendError(socket, 'SETTLEMENT_PENDING', 'The table changed and settlement is pending — try again in a moment');
+            else sendError(socket, 'ILLEGAL_ACTION', 'This table is frozen for review');
+            ctx.broadcastRoom(room);
             return;
           }
           const res = startGame(room, { now: Date.now() });
           if (!res.ok) {
-            // Debit committed but the game did not start → attempt refund. Mark cancelled ONLY if
-            // the refund is confirmed; a failed refund leaves a funded escrow (settlement-pending).
-            const refunded = (await refundBuyInsResult(room)) === 'confirmed_refund';
-            if (refunded) { room.pokerMatchCancelled = true; sendError(socket, res.error!, 'Cannot start game — buy-ins refunded'); }
-            else sendError(socket, 'SETTLEMENT_PENDING', 'Could not start and settlement is pending — try again in a moment');
-            ctx.broadcastRoom(room); ctx.persistRoom(room);
+            // Debit committed but the game did not start → the SHARED refund policy decides
+            // (37.7.19 FAIL 1): confirmed → cancelled, transient → pending, paid/invalid → FROZEN.
+            const disp = applyRefundOutcome(room, await refundBuyInsResult(room), refundPolicyDeps(ctx), { escrowExpected: true });
+            if (disp === 'cancelled') sendError(socket, res.error!, 'Cannot start game — buy-ins refunded');
+            else if (disp === 'settlement_pending') sendError(socket, 'SETTLEMENT_PENDING', 'Could not start and settlement is pending — try again in a moment');
+            else sendError(socket, 'ILLEGAL_ACTION', 'This table is frozen for review');
+            ctx.broadcastRoom(room);
             return;
           }
           // (37.7.12 FAIL 1) This funded escrow really did produce this game state → bind them

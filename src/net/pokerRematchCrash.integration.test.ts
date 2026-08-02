@@ -146,7 +146,9 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     const t = await setup('RMC2');
     // The close handler persists WITHOUT the room lock, while the debit is still awaiting Postgres.
     const inFlight = t.escrow.debitRematch(t.room);
-    // The storage layer writes JSON — snapshot it right now, exactly as the close handler would.
+    // (37.7.19) The terminal claim is re-proved before the new generation is minted, so wait for the
+    // PENDING marker that `performDebit` sets, then snapshot exactly as the close handler would.
+    while (t.room.pokerEscrow?.status !== 'pending') await new Promise((r) => setTimeout(r, 2));
     const persistedMidDebit = JSON.parse(JSON.stringify(t.serializeRoom(t.room))); // escrow M1 = 'pending' + the M0 state
     expect((persistedMidDebit as { pokerEscrow?: { status: string } }).pokerEscrow!.status).toBe('pending');
     expect((await inFlight).ok).toBe(true);                        // the DB debit then commits
