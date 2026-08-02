@@ -446,6 +446,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
   points — incl. non-regression for live/payout_pending/stats_pending/unbound and for non-poker + LOCAL poker) and a
   pure `runRoomRecoverySweep` precedence/guard matrix in `pokerBootstrap.test.ts`. The suite lock now covers **14**
   poker DB files.
-- **Gates:** real Docker PostgreSQL — **31 poker suites / 285 tests, 0 skipped, 6/6 clean consecutive runs**;
+- **Gates:** real Docker PostgreSQL — **31 poker suites / 291 tests, 0 skipped** (6/6 clean consecutive runs measured
+  at 285, before the 6 pure `runRoomRecoverySweep` guard tests were added; re-confirmed green at 291);
   `npm run verify` twice stably (**290 files / 3064 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
