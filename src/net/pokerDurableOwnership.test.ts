@@ -26,21 +26,29 @@ const evidence = (over: Partial<MatchDurableEvidence> = {}): MatchDurableEvidenc
   settlement: null,
   ...over,
 });
-const check = (ev: Partial<MatchDurableEvidence> = {}, e: PokerEscrow = esc()) => validateDurableOwnership(CODE, e, evidence(ev));
+const check = (ev: Partial<MatchDurableEvidence> = {}, e: PokerEscrow = esc()) => validateDurableOwnership(CODE, e, evidence(ev)).structure;
+const money = (ev: Partial<MatchDurableEvidence> = {}, e: PokerEscrow = esc()) => validateDurableOwnership(CODE, e, evidence(ev)).financial;
 
 describe('validateDurableOwnership — the exact ownership proof (Stage 37.7.15)', () => {
   it('a durable row + ledger that correspond EXACTLY are the only healthy result', () => {
-    expect(check()).toBe('exact_funded');
+    expect(check()).toBe('exact');
     // Seat/row order is irrelevant — the comparison is canonical.
-    expect(check({ buyIns: [buyIn('u2'), buyIn('u1')] })).toBe('exact_funded');
+    expect(check({ buyIns: [buyIn('u2'), buyIn('u1')] })).toBe('exact');
   });
 
-  it('a committed settlement row outranks everything else (37.7.14 precedence kept)', () => {
-    expect(check({ settlement: 'payout' })).toBe('settled_payout');
-    expect(check({ settlement: 'cancel_refund' })).toBe('settled_refund');
-    // …even when the rest of the evidence is missing or corrupt.
-    expect(check({ settlement: 'payout', matchRowExists: false, match: null, buyIns: [] })).toBe('settled_payout');
-    expect(check({ settlement: 'cancel_refund', matchRowCorrupt: true, match: null })).toBe('settled_refund');
+  it('(37.7.16 FAIL 1) the two axes are INDEPENDENT — a settlement row never excuses a bad structure', () => {
+    // The financial axis reports the DB-authoritative outcome (37.7.14 precedence kept)…
+    expect(money({ settlement: 'payout' })).toBe('payout');
+    expect(money({ settlement: 'cancel_refund' })).toBe('cancel_refund');
+    expect(money()).toBe('unresolved');
+    // …and NEVER short-circuits the structural proof. Stage 37.7.15 returned early here, so a
+    // settled match with missing/corrupt evidence looked healthy: `paid_finish` wrote stats
+    // attributed from the room escrow alone, and a refund wiped the operator's evidence.
+    expect(check({ settlement: 'payout' })).toBe('exact');
+    expect(check({ settlement: 'payout', matchRowExists: false, match: null, buyIns: [] })).toBe('proven_uncommitted');
+    expect(check({ settlement: 'payout', matchRowExists: false, match: null })).toBe('missing');
+    expect(check({ settlement: 'cancel_refund', matchRowCorrupt: true, match: null })).toBe('corrupt');
+    expect(check({ settlement: 'cancel_refund', buyIns: [buyIn('u1'), buyIn('x9')] })).toBe('ledger_mismatch');
   });
 
   it('no durable row AND no debits = a rolled-back transaction, not corruption', () => {
@@ -48,8 +56,8 @@ describe('validateDurableOwnership — the exact ownership proof (Stage 37.7.15)
   });
 
   it('the durable record itself must exist, parse, and describe THIS escrow', () => {
-    expect(check({ matchRowExists: false, match: null })).toBe('missing_durable');       // debits with no record
-    expect(check({ matchRowCorrupt: true, match: null })).toBe('corrupt_durable');
+    expect(check({ matchRowExists: false, match: null })).toBe('missing');       // debits with no record
+    expect(check({ matchRowCorrupt: true, match: null })).toBe('corrupt');
     expect(check({ match: { matchId: M, roomCode: 'ZZZZ', buyIn: 5000, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }] } })).toBe('metadata_mismatch');
     expect(check({ match: { matchId: M, roomCode: CODE, buyIn: 9000, seats: [{ seat: 0, userId: 'u1', amount: 9000 }, { seat: 1, userId: 'u2', amount: 9000 }] } })).toBe('metadata_mismatch');
     // A different (but parse-valid) participant set, and a seat count that does not match.
@@ -84,7 +92,7 @@ describe('validateDurableOwnership — the exact ownership proof (Stage 37.7.15)
       match: { matchId: M, roomCode: CODE, buyIn: 5000, seats: [{ seat: 0, userId: 'u1', amount: 5000 }, { seat: 1, userId: 'u2', amount: 5000 }, { seat: 3, userId: 'u3', amount: 5000 }] },
       buyIns: [buyIn('u1'), buyIn('u2'), buyIn('u3')],
     });
-    expect(validateDurableOwnership(CODE, three, ok)).toBe('exact_funded');
-    expect(validateDurableOwnership(CODE, three, { ...ok, buyIns: [buyIn('u1'), buyIn('u2')] })).toBe('ledger_partial');
+    expect(validateDurableOwnership(CODE, three, ok).structure).toBe('exact');
+    expect(validateDurableOwnership(CODE, three, { ...ok, buyIns: [buyIn('u1'), buyIn('u2')] }).structure).toBe('ledger_partial');
   });
 });

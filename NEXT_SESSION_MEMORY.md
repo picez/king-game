@@ -480,3 +480,37 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **32 poker suites / 308 tests, 0 skipped, 6/6 clean consecutive runs**;
   `npm run verify` twice stably (**292 files / 3081 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.16:** the settlement row was checked FIRST and RETURNED, so it bypassed structural ownership
+  entirely; `settled`/`cancelled` escrows were never validated at bootstrap; the proof ran at recovery but NOT
+  atomically inside the payout/refund transaction; and the evidence loader composed three READ COMMITTED snapshots.
+
+### Stage 37.7.16 — terminal settlement integrity + settlement-time guard + consistent snapshot (COMPLETE, Unreleased)
+- Worked from HEAD `e2a03e8`. No new migration, no version bump, other 6 games untouched. All 4 FAILs reproduced RED.
+- **RED.** (1) `settled` + payout row + finished state + DELETED `poker_matches` → `paid_finish` AND
+  `recordConfirmedPokerStats` = **`recorded`** (a real games row attributed from the room escrow alone); `cancelled` +
+  refund row + corrupt row → `cancelled` with the game state CLEARED. (2) room says `settled` with NO DB settlement →
+  `paid_finish`; room says `cancelled` while the DB says PAYOUT → `cancelled` + state cleared. (3) deleting
+  `poker_matches` after START then finishing → `paid`, 1 payout row, 1 settlement row. (4) replaying the loader's three
+  statements around an atomic debit observed `{matchRowExists:false, buyIns:2}` → would be `missing_durable`.
+- **FIX 1 — combined model.** `validateDurableOwnership` → `{ financial, structure }`, computed INDEPENDENTLY;
+  `resolveEscrowEvidence` requires BOTH (`exact`+payout→settled, `exact`+refund→cancelled, `exact`→funded; anything
+  else → the matching permanent value; `proven_uncommitted` WITH a settlement row → `corrupt_durable`).
+  `recordConfirmedPokerStats` also refuses outright for a FROZEN bankroll room.
+- **FIX 2 — terminal claims.** Bootstrap evidence filter → **`claimsEconomyMatch`** (escrow of ANY status / gameState /
+  binding / owed stats); `resolveEscrowEvidence` covers terminal escrows; new **`terminal_unconfirmed`** and
+  **`terminal_conflict`** (both in `isCorruptEvidence`); `settlementProtectedMatchId` protects corrupt-evidence rooms
+  BEFORE its terminal early-return so an unconfirmed `settled` room isn't orphan-refunded before being frozen.
+- **FIX 3 — atomic guard.** New `settleMatchWithOwnershipTx` (lock `poker_matches` FOR UPDATE → read ledger from the
+  same snapshot → require `exact` → claim the settlement gate → mutate wallets); typed `DurableOwnershipError` rolls
+  the whole transaction back. `payoutStacks` uses it (and re-proves before `already_paid`); `refundBuyIns` split into
+  **`refundBuyInsResult`** (`resolved|retry_pending|invalid`) + a boolean wrapper; `settleRoomForDeletion` freezes on
+  `invalid`.
+- **FIX 4 — one snapshot.** `matchDurableEvidence` reads all three relations in ONE `REPEATABLE READ` read-only
+  transaction (shared `readEvidence` with the guard). Test seam **`__setEvidenceReadGap`** awaited BETWEEN reads.
+- **New tests:** `pokerSettlementIntegrity.integration.test.ts` (11 real-PG cases: A–H, guard 1–6, replays 7–10, the
+  deterministic snapshot test, transient + non-poker/local non-regression); `pokerDurableOwnership.test.ts` rewritten
+  for the two-axis contract (its old "settlement outranks everything" case had pinned the DEFECT). Suite lock covers
+  **16** poker DB files.
+- **Gates:** real Docker PostgreSQL — **34 poker suites / 319 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**293 files / 3092 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

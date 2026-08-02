@@ -99,7 +99,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
       }),
-      refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
+      refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 
     async function bankrollRoom(code: string, state: PokerState) {

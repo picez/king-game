@@ -265,20 +265,29 @@ export interface MatchDurableEvidence {
   settlement: MatchOutcome | null;
 }
 
-/** Load the full durable evidence for `matchId` (37.7.15). Throws on a transient DB failure. */
-export async function matchDurableEvidence(matchId: string): Promise<MatchDurableEvidence> {
-  const conn = await getDb();
-  if (!conn) return { matchRowExists: false, match: null, matchRowCorrupt: false, buyIns: [], settlement: null };
-  const db = conn.db as PostgresJsDatabase;
-  const [row] = await db.select({
+/**
+ * (37.7.16 FAIL 4) TEST SEAM: awaited BETWEEN the evidence reads. Under READ COMMITTED each
+ * statement would see its own snapshot, so a concurrent atomic debit committing in this gap could be
+ * observed as "no durable row" + "2 debits" → a permanent false `missing_durable` freeze for a match
+ * that was written atomically. The reads now run in ONE REPEATABLE READ transaction, so a test can
+ * commit inside the gap and prove the observation is still self-consistent.
+ */
+let evidenceReadGap: (() => Promise<void>) | null = null;
+export function __setEvidenceReadGap(fn: (() => Promise<void>) | null): void { evidenceReadGap = fn; }
+
+/** Read the three evidence relations from ONE transaction snapshot. `lock` locks the match row. */
+async function readEvidence(tx: PostgresJsDatabase, matchId: string, lock: boolean): Promise<MatchDurableEvidence> {
+  const base = tx.select({
     matchId: pokerMatches.matchId, roomCode: pokerMatches.roomCode, buyIn: pokerMatches.buyIn, seats: pokerMatches.seats,
   }).from(pokerMatches).where(eq(pokerMatches.matchId, matchId)).limit(1);
+  const [row] = await (lock ? base.for('update') : base);
+  if (evidenceReadGap) await evidenceReadGap();
   const parsed = row ? parseDurableMatch(row) : null;
-  const buyInRows = await db.select({
+  const buyInRows = await tx.select({
     userId: pokerLedger.userId, delta: pokerLedger.delta, idempotencyKey: pokerLedger.idempotencyKey, roomCode: pokerLedger.roomCode,
   }).from(pokerLedger)
     .where(and(eq(pokerLedger.matchId, matchId), eq(pokerLedger.reason, 'table_buy_in' satisfies PokerLedgerReason)));
-  const [s] = await db.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
+  const [s] = await tx.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
   return {
     matchRowExists: !!row,
     match: parsed,
@@ -286,6 +295,69 @@ export async function matchDurableEvidence(matchId: string): Promise<MatchDurabl
     buyIns: buyInRows.map((b) => ({ userId: b.userId, delta: b.delta, idempotencyKey: b.idempotencyKey, roomCode: b.roomCode })),
     settlement: (s?.outcome as MatchOutcome) ?? null,
   };
+}
+
+/**
+ * Load the full durable evidence for `matchId` (37.7.15) from ONE CONSISTENT SNAPSHOT (37.7.16
+ * FAIL 4 — a REPEATABLE READ transaction, so the row, the debits and the settlement can never come
+ * from three different points in time). Throws on a transient DB failure → the caller retries.
+ */
+export async function matchDurableEvidence(matchId: string): Promise<MatchDurableEvidence> {
+  const conn = await getDb();
+  if (!conn) return { matchRowExists: false, match: null, matchRowCorrupt: false, buyIns: [], settlement: null };
+  const db = conn.db as PostgresJsDatabase;
+  return db.transaction(async (tx) => readEvidence(tx, matchId, false), { isolationLevel: 'repeatable read', accessMode: 'read only' });
+}
+
+/** Thrown when the durable evidence does NOT prove the match being settled (37.7.16 FAIL 3). */
+export class DurableOwnershipError extends Error {
+  constructor(public readonly structure: string) {
+    super('durable_ownership_invalid');
+    this.name = 'DurableOwnershipError';
+  }
+}
+
+/**
+ * (37.7.16 FAIL 3) The settlement gate WITH an atomic ownership proof — the only way a FRESH payout
+ * or refund may be written.
+ *
+ * `settleMatchTx` claimed the settlement row and mutated wallets without ever consulting the durable
+ * record, so a match whose `poker_matches` row or buy-in ledger had been destroyed/altered after the
+ * start could still be paid out (or refunded to unproven accounts). A preflight SELECT would be
+ * TOCTOU, so the proof happens INSIDE the settlement transaction:
+ *   1. lock the durable match row (`FOR UPDATE`),
+ *   2. read the buy-in ledger + settlement from that SAME snapshot,
+ *   3. require an EXACT structural match against `expected`,
+ *   4. only then claim the settlement gate,
+ *   5. only then mutate wallets.
+ * A structural failure throws `DurableOwnershipError` and the whole transaction rolls back — no
+ * settlement row, no wallet change. Financial precedence is unchanged: the OPPOSITE existing outcome
+ * still throws `SettlementConflictError`, and a repeat of the SAME outcome stays idempotent.
+ */
+export async function settleMatchWithOwnershipTx(
+  roomCode: string,
+  expected: { matchId: string; buyIn: number; seats: ReadonlyArray<DurableMatchSeat> },
+  outcome: MatchOutcome,
+  mutate: (tx: PostgresJsDatabase) => Promise<void>,
+  validate: (roomCode: string, expected: { matchId: string; buyIn: number; seats: ReadonlyArray<DurableMatchSeat> }, evidence: MatchDurableEvidence) => { structure: string },
+): Promise<MatchOutcome> {
+  const db = await database();
+  return db.transaction(async (tx) => {
+    const evidence = await readEvidence(tx, expected.matchId, true); // locks the durable row
+    const { structure } = validate(roomCode, expected, evidence);
+    if (structure !== 'exact') throw new DurableOwnershipError(structure);
+    const claimed = await tx.insert(pokerMatchSettlements).values({ matchId: expected.matchId, outcome })
+      .onConflictDoNothing({ target: pokerMatchSettlements.matchId })
+      .returning({ outcome: pokerMatchSettlements.outcome });
+    let existing: MatchOutcome | null = null;
+    if (claimed.length === 0) {
+      const [row] = await tx.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, expected.matchId)).limit(1);
+      existing = (row?.outcome as MatchOutcome) ?? null;
+    }
+    const winner = resolveSettlementOutcome(expected.matchId, claimed.length > 0, existing, outcome);
+    await mutate(tx);
+    return winner;
+  });
 }
 
 /** Durable ledger/settlement state for a match — used for crash reconciliation (§16, FAIL 3). */

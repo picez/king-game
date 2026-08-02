@@ -59,6 +59,16 @@ export function shouldDeferBootstrapAdvance(room: ServerRoom): boolean {
 }
 
 /**
+ * (37.7.16 FAIL 2) TRUE when a restored bankroll room CLAIMS an economy match in any way — an escrow
+ * (of ANY status, terminal included), a carried game state, a generation binding, or owed stats.
+ * Every such room must have its durable ownership proven before recovery may act on it; the old
+ * `hasUnsettledEscrow` filter silently exempted terminal escrows.
+ */
+export function claimsEconomyMatch(room: ServerRoom): boolean {
+  return !!room.pokerEscrow || !!room.gameState || !!room.pokerGameMatchId || !!room.pokerStatsPending;
+}
+
+/**
  * PURE classification of a RESTORED bankroll room that still has a game state, AFTER `reconcileEscrow`
  * has resolved any transient (pending/settling) escrow against the durable DB settlement. `isFinished`
  * is the poker finished-state predicate; `reconcile` is that reconciliation's EXPLICIT outcome
@@ -128,11 +138,15 @@ export function settlementProtectedMatchId(
   if (!isBankrollRoomShape(room)) return null;
   const esc = room.pokerEscrow;
   if (!esc || typeof esc.matchId !== 'string' || !esc.matchId) return null;
-  if (esc.status === 'settled' || esc.status === 'cancelled') return null; // already resolved
+  // (37.7.16 FAIL 2) An UNPROVEN terminal claim is NOT a resolved match. A room whose escrow says
+  // `settled` while the DB holds no settlement row would otherwise be left unprotected and refunded
+  // by the global scan seconds before classification freezes it for the operator — the same
+  // settle-before-classify mistake 37.7.13 fixed for the unknown-binding case.
+  if (isCorruptEvidence(reconcile) || recovery === 'corrupt_debit' || room.pokerFrozen) return esc.matchId;
+  if (esc.status === 'settled' || esc.status === 'cancelled') return null; // proven resolved
   // An unproven durable outcome protects the match even for a room with no game state.
   if (reconcile === 'retry_pending' || reconcile === 'corrupt_partial') return esc.matchId;
   if (esc.status === 'pending' || esc.status === 'settling') return esc.matchId;
-  if (room.pokerFrozen) return esc.matchId;                                // operator evidence, never auto-settled
   return SETTLEMENT_PROTECTED.has(recovery) ? esc.matchId : null;
 }
 
@@ -312,8 +326,12 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   const bankroll = restored.filter((r) => deps.isBankrollRoom(r));
   const reconciled = new Map<string, EscrowReconcileResult>();
 
-  // (a) Reconcile every TRANSIENT escrow against the durable DB state, keeping the EXPLICIT outcome.
-  await Promise.all(bankroll.filter((r) => deps.hasUnsettledEscrow(r)).map((r) => deps
+  // (a) Prove EXACT durable ownership for every room that CLAIMS an economy match, keeping the
+  // EXPLICIT outcome. (37.7.16 FAIL 2) The filter used to be `hasUnsettledEscrow`, so a room whose
+  // escrow was already `settled`/`cancelled` skipped validation entirely — a terminal status in room
+  // JSON is a CLAIM, not DB proof, so such a room could reach `paid_finish` (and write stats
+  // attributed from a room escrow that no durable record backs) or wipe its state as `cancelled`.
+  await Promise.all(bankroll.filter(claimsEconomyMatch).map((r) => deps
     .withRoomLock(r.code, async () => (await deps.reconcileEscrow(r)) ?? 'noop')
     .then((res) => { reconciled.set(r.code, res); if (deps.roomExists(r)) deps.persist(r); })
     .catch(() => { reconciled.set(r.code, 'retry_pending'); }))); // a thrown reconcile proves nothing

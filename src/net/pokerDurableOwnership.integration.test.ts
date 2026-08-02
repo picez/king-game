@@ -91,7 +91,7 @@ describe.skipIf(!TEST_DATABASE_URL)('exact durable ownership + collision-safe co
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (r2, s2) => recordConfirmedPokerStats(r2, s2, statsDeps()),
       }),
-      refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
+      refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 
     async function bankrollRoom(code: string, state: PokerState = live2p()) {

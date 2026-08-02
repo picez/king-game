@@ -414,6 +414,36 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
 - **Secret-free economy logs** (Stage 37.7.15). No poker economy/recovery log line may contain a
   raw matchId, a userId, escrow seats, balances, cards or private state. Room codes, bounded
   reason text and counts are allowed; internal reports keep the ids for orchestration only.
+- **The financial and structural axes are INDEPENDENT** (Stage 37.7.16). A committed settlement
+  row proves ONLY what happened to the chips (`payout` / `cancel_refund`); it proves nothing
+  about WHOSE match it was. Ownership validation therefore reports both:
+  `financial ∈ {unresolved, payout, cancel_refund}` and `structure ∈ {exact, proven_uncommitted,
+  missing, corrupt, metadata_mismatch, ledger_partial, ledger_mismatch}`. **Both must hold.**
+  `exact` + payout → `paid_finish` (or `incoherent_paid` by state/binding); `exact` + refund →
+  `cancelled`; ANY non-exact structure → permanent frozen, whatever the settlement says: the
+  payout is never repeated, no refund is issued, **no stats are written** and no state, binding
+  or escrow is cleared. **Correction:** Stage 37.7.15 checked the settlement row FIRST and
+  returned, so a settled match with missing/mismatched evidence became a healthy `paid_finish`
+  whose stats were attributed from the room escrow alone.
+- **A terminal status in room JSON is a CLAIM, not proof** (Stage 37.7.16). Bootstrap validates
+  EVERY restored bankroll room that claims an economy match — an escrow of ANY status (terminal
+  included), a carried game state, a generation binding, or owed stats — not only "unsettled"
+  ones. A `settled`/`cancelled` escrow the DB does not confirm is `terminal_unconfirmed`; one
+  the DB contradicts is `terminal_conflict`; both freeze. Such a room is also settlement-PROTECTED
+  from the orphan scan, so it can never be refunded moments before it is frozen.
+- **Settlement-time atomic ownership guard** (Stage 37.7.16). A FRESH payout or refund proves
+  exact durable ownership **inside the same transaction** that claims the settlement row and
+  moves the wallets: the `poker_matches` row is locked `FOR UPDATE`, the buy-in ledger is read
+  from that same snapshot, and the settlement gate is claimed only after the evidence is exact.
+  A preflight `SELECT` would be TOCTOU. A structural failure rolls the whole transaction back —
+  no settlement row, no chip movement — and is a PERMANENT operator condition (payout `invalid`,
+  refund `invalid` → the table is frozen, never retried, never purged). A replayed
+  `already_paid` must satisfy the same proof before stats may be recorded. A transient DB
+  failure remains `retry_pending`.
+- **One consistent evidence snapshot** (Stage 37.7.16). The durable row, the buy-in ledger and
+  the settlement row are read in ONE `REPEATABLE READ` transaction, so an atomic debit
+  committing mid-read can never be observed half-written (which previously produced a false
+  `missing_durable` freeze for a perfectly healthy match).
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

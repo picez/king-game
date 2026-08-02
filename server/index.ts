@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, refundBuyInsResult, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved } from './pokerEscrow';
 import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
@@ -1022,7 +1022,7 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
       reconcileEscrow, hasUnsettledEscrow,
       isFinished: (s) => getGameDefinition('poker')?.isFinished(s) === true,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, bankrollFinishDeps()),
-      refundBuyIns, persist: persistRoom, freeze: freezeRoomForOperator,
+      refundBuyIns: refundBuyInsResult, persist: persistRoom, freeze: freezeRoomForOperator,
       clearTimers: (r) => clearRoomTimers(r.code),
     });
     if (fate === 'purge') { purgeRoom(code); console.log(`[King] settled + removed bankroll room ${code}`); }

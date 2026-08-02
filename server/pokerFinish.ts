@@ -64,6 +64,10 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
   let matchId: string | null = null;
 
   if (isBankroll) {
+    // (37.7.16 FAIL 2) A FROZEN bankroll room is a permanent operator condition — its durable
+    // ownership is unproven (or its paid state incoherent), so it may NEVER write an attribution.
+    // The sweep already skips frozen rooms; this closes the direct-call path too.
+    if (room.pokerFrozen) return 'invalid';
     // (37.7.12 FAIL 1) The state must belong to THIS escrow generation. A stale state from the
     // previous match (a crashed rematch) must NEVER be recorded under the new match's identity —
     // that is how M0's result got a second, wrong stats row keyed on M1.
@@ -118,8 +122,8 @@ export interface TeardownDeps {
   isFinished: (state: PokerState) => boolean;
   /** The FULL settle-then-record finish flow (payout → stats), same as the finish/sweep path. */
   settleAndRecord: (room: ServerRoom, state: PokerState) => Promise<BankrollFinishOutcome>;
-  /** Refund an unfinished funded match. */
-  refundBuyIns: (room: ServerRoom) => Promise<boolean>;
+  /** Refund an unfinished funded match (37.7.16: the EXPLICIT result — `invalid` is permanent). */
+  refundBuyIns: (room: ServerRoom) => Promise<import('./pokerEscrow').RefundResult>;
   /** Persist the room (when kept for a retry). */
   persist: (room: ServerRoom) => void;
   /** PERMANENTLY freeze the room for operator review (logs the room code + a safe reason ONCE). */
@@ -165,7 +169,10 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
     // + the previous match's state). Never settle from it — drop the stale state and REFUND the
     // fresh buy-in; purge only once the refund is CONFIRMED.
     if (binding === 'unbound' && escStatus !== 'settled' && escStatus !== 'cancelled') {
-      const res = await resolveUnboundEscrowGame(room, { refundBuyIns: deps.refundBuyIns, persist: deps.persist, clearTimers: deps.clearTimers });
+      const res = await resolveUnboundEscrowGame(room, {
+        refundBuyIns: async (r) => (await deps.refundBuyIns(r)) === 'resolved',
+        persist: deps.persist, clearTimers: deps.clearTimers,
+      });
       return res === 'refunded' ? 'purge' : 'keep';
     }
     // (37.7.12) A legacy save with NO binding, or a PAID escrow whose state is from another
@@ -201,7 +208,15 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
 
   // Unfinished: nothing owed → purge; otherwise refund the funded match.
   if (!deps.hasUnsettledEscrow(room)) return 'purge';
-  await deps.refundBuyIns(room);
+  // (37.7.16 FAIL 3) The refund proves EXACT durable ownership inside its own settlement transaction.
+  // A structural failure wrote NOTHING and never will — it is a permanent operator condition, so the
+  // table is FROZEN (never purged, never retried) rather than swept forever as "still owed".
+  const refund = await deps.refundBuyIns(room);
+  if (refund === 'invalid') {
+    deps.freeze(room, 'durable match evidence does not match this table');
+    deps.persist(room);
+    return 'keep';
+  }
   const st = room.pokerEscrow?.status;
   if (st === 'settled' || st === 'cancelled') return 'purge';
   deps.persist(room);

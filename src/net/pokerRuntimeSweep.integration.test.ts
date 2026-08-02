@@ -103,7 +103,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
       reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
-      settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
+      settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 
     async function bankrollRoom(suffix: string, state: PokerState, opts: { bind?: boolean } = {}) {

@@ -24,8 +24,9 @@ import { getDb, isDbEnabled } from './db/client';
 import { validateFinishedPaidMatch } from './pokerParticipants';
 import { gameBoundToEscrow, escrowGameBinding } from './pokerBinding';
 import {
-  adjustWalletTx, settleMatchTx, matchDurableEvidence, recordMatchTx, listUnsettledMatches,
-  buyInIdempotencyKey, InsufficientChipsError, SettlementConflictError, type DurableMatch,
+  adjustWalletTx, settleMatchTx, settleMatchWithOwnershipTx, matchDurableEvidence, recordMatchTx,
+  listUnsettledMatches, buyInIdempotencyKey, InsufficientChipsError, SettlementConflictError,
+  DurableOwnershipError, type DurableMatch,
 } from './db/pokerWallet';
 import { validateDurableOwnership } from './pokerDurableOwnership';
 
@@ -360,6 +361,15 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
       console.error(`[Poker] room ${room.code}: settled match FAILED validation — ${conserve.error} (no stats, frozen for review)`);
       return 'invalid';
     }
+    // (37.7.16 FAIL 3) `already_paid` is the caller's green light to RECORD STATS, so a replayed
+    // payout must ALSO prove EXACT durable ownership — the money moving proves nothing about WHOSE
+    // match it was. A transient read failure is retried; a structural failure freezes (never stats).
+    const proof = await proveOwnership(room);
+    if (proof === 'retry') return 'retry_pending';
+    if (proof === 'invalid') {
+      console.error(`[Poker] room ${room.code}: settled match has UNPROVEN durable ownership (no stats, frozen for review)`);
+      return 'invalid';
+    }
     return 'already_paid';                                             // idempotent
   }
   if (esc.status === 'cancelled') return 'already_refunded';           // already refunded (mutex)
@@ -373,18 +383,26 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
   esc.status = 'settling'; // in-memory fast-path hint (the DB gate is authoritative)
   if (injectedPayoutFailure) { esc.status = 'funded'; return 'retry_pending'; } // test seam: transient payout failure
   try {
-    await settleMatchTx(esc.matchId, 'payout', async (tx) => {
+    // (37.7.16 FAIL 3) The ownership proof happens INSIDE the settlement transaction (a preflight
+    // SELECT would be TOCTOU): the durable row is locked, the buy-in ledger is read from the SAME
+    // snapshot, and the settlement row is only claimed once the evidence is EXACT.
+    await settleMatchWithOwnershipTx(room.code, esc, 'payout', async (tx) => {
       for (const s of esc.seats) {
         const finalStack = state.stacksBySeat[s.seat] ?? 0;
         if (finalStack > 0) {
           await adjustWalletTx(tx, s.userId, finalStack, 'table_payout', `payout:${esc.matchId}:${s.userId}`, { matchId: esc.matchId, roomCode: room.code });
         }
       }
-    });
+    }, validateDurableOwnership);
     esc.status = 'settled';
     return 'paid';
   } catch (err) {
     if (err instanceof SettlementConflictError) { esc.status = 'cancelled'; return 'already_refunded'; } // already refunded → do not pay
+    if (err instanceof DurableOwnershipError) {
+      esc.status = 'funded'; // NOTHING was written (the transaction rolled back) — permanent condition
+      console.error(`[Poker] room ${room.code}: payout REFUSED — durable ownership unproven (${err.structure})`);
+      return 'invalid';
+    }
     esc.status = 'funded'; // transient DB error → retryable
     return 'retry_pending';
   }
@@ -392,31 +410,49 @@ export async function payoutStacks(room: ServerRoom, state: PokerState): Promise
 
 /**
  * Refund each participant's buy-in when a FUNDED table is orphaned/torn down unfinished.
- * The DB settlement gate makes this mutually exclusive with payout. Returns true when the
- * match is RESOLVED (refunded here, or already paid) so the caller may delete the room;
- * false leaves it retryable (caller KEEPS the room). Idempotent.
+ * The DB settlement gate makes this mutually exclusive with payout, and the ownership proof runs
+ * INSIDE that same transaction (37.7.16 FAIL 3). Idempotent.
+ *
+ * (37.7.16) The explicit outcome:
+ *   • resolved      — refunded here, or already terminally settled (safe to delete the room);
+ *   • retry_pending — TRANSIENT (debit in flight / DB down / injected) → keep the room, retry;
+ *   • invalid       — the durable evidence does NOT prove this match: nothing was written and
+ *                     nothing ever will be. A PERMANENT operator condition → freeze, never retry.
  */
-export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
+export type RefundResult = 'resolved' | 'retry_pending' | 'invalid';
+export async function refundBuyInsResult(room: ServerRoom): Promise<RefundResult> {
   const esc = room.pokerEscrow;
-  if (!esc) return true;                                              // nothing escrowed → safe to delete
-  if (esc.status === 'settled' || esc.status === 'cancelled') return true; // already resolved
-  if (esc.status === 'pending') return false;                        // debit in flight → keep for reconcile
-  if (!isDbEnabled()) return false;                                  // economy off but funded → keep for retry
-  if (injectedRefundFailure) { esc.status = 'funded'; return false; } // test seam: transient refund failure
+  if (!esc) return 'resolved';                                            // nothing escrowed → safe to delete
+  if (esc.status === 'settled' || esc.status === 'cancelled') return 'resolved'; // already resolved
+  if (esc.status === 'pending') return 'retry_pending';                   // debit in flight → keep for reconcile
+  if (!isDbEnabled()) return 'retry_pending';                             // economy off but funded → keep for retry
+  if (injectedRefundFailure) { esc.status = 'funded'; return 'retry_pending'; } // test seam: transient failure
   esc.status = 'settling';
   try {
-    await settleMatchTx(esc.matchId, 'cancel_refund', async (tx) => {
+    // (37.7.16 FAIL 3) Same atomic ownership proof as the payout: a match whose durable record or
+    // buy-in ledger was destroyed/altered after the start can never credit unproven accounts.
+    await settleMatchWithOwnershipTx(room.code, esc, 'cancel_refund', async (tx) => {
       for (const s of esc.seats) {
         await adjustWalletTx(tx, s.userId, s.amount, 'table_cancel_refund', `refund:${esc.matchId}:${s.userId}`, { matchId: esc.matchId, roomCode: room.code });
       }
-    });
+    }, validateDurableOwnership);
     esc.status = 'cancelled';
-    return true;
+    return 'resolved';
   } catch (err) {
-    if (err instanceof SettlementConflictError) { esc.status = 'settled'; return true; } // already paid → resolved
+    if (err instanceof SettlementConflictError) { esc.status = 'settled'; return 'resolved'; } // already paid
+    if (err instanceof DurableOwnershipError) {
+      esc.status = 'funded'; // NOTHING was written — permanent operator condition, never retried
+      console.error(`[Poker] room ${room.code}: refund REFUSED — durable ownership unproven (${err.structure})`);
+      return 'invalid';
+    }
     esc.status = 'funded'; // transient DB error → retry on the next sweep
-    return false;
+    return 'retry_pending';
   }
+}
+
+/** Boolean form (unchanged contract): TRUE only when the match is RESOLVED. */
+export async function refundBuyIns(room: ServerRoom): Promise<boolean> {
+  return (await refundBuyInsResult(room)) === 'resolved';
 }
 
 /**
@@ -582,12 +618,17 @@ export async function roomHasCorruptDurableMatch(roomCode: string): Promise<bool
  */
 export type EscrowReconcileResult =
   | 'noop' | 'funded' | 'settled' | 'cancelled' | 'proven_uncommitted' | 'retry_pending'
-  | 'corrupt_partial' | 'missing_durable' | 'corrupt_durable' | 'metadata_mismatch' | 'ledger_mismatch';
+  | 'corrupt_partial' | 'missing_durable' | 'corrupt_durable' | 'metadata_mismatch' | 'ledger_mismatch'
+  // (37.7.16 FAIL 1/2) The room JSON's TERMINAL claim is not confirmed by the DB: either there is no
+  // settlement row at all, or the DB recorded the OPPOSITE outcome. A terminal status in room JSON is
+  // a CLAIM, never proof — both are permanent operator evidence.
+  | 'terminal_unconfirmed' | 'terminal_conflict';
 
-/** TRUE for a PERMANENT structural failure of the durable ownership proof (37.7.15). */
+/** TRUE for a PERMANENT structural failure of the durable ownership proof (37.7.15/37.7.16). */
 export function isCorruptEvidence(result: EscrowReconcileResult): boolean {
   return result === 'corrupt_partial' || result === 'missing_durable'
-    || result === 'corrupt_durable' || result === 'metadata_mismatch' || result === 'ledger_mismatch';
+    || result === 'corrupt_durable' || result === 'metadata_mismatch' || result === 'ledger_mismatch'
+    || result === 'terminal_unconfirmed' || result === 'terminal_conflict';
 }
 
 /**
@@ -620,25 +661,58 @@ export async function reconcileEscrow(room: ServerRoom): Promise<EscrowReconcile
 export async function resolveEscrowEvidence(room: ServerRoom): Promise<EscrowReconcileResult> {
   const esc = room.pokerEscrow;
   if (!esc || !isBankrollRoom(room)) return 'noop';
-  if (esc.status !== 'pending' && esc.status !== 'settling' && esc.status !== 'funded') return 'noop';
   if (!isDbEnabled()) return 'retry_pending';                               // no economy → outcome UNKNOWN
   if (injectedReconcileFailure) return 'retry_pending';                     // test seam: transient read failure
   let evidence;
   try { evidence = await matchDurableEvidence(esc.matchId); } catch { return 'retry_pending'; } // transient
-  const ownership = validateDurableOwnership(room.code, esc, evidence);
-  switch (ownership) {
-    // (37.7.14 FAIL 2) SETTLEMENT PRECEDENCE — a committed settlement row is the authoritative
-    // outcome whatever TRANSIENT status the restored room JSON carries, so an already-PAID match can
-    // never be promoted back to `funded` and resumed (that bypassed the 37.7.11 fail-closed rule).
-    case 'settled_payout': esc.status = 'settled'; return 'settled';
-    case 'settled_refund': esc.status = 'cancelled'; return 'cancelled';
-    case 'exact_funded': esc.status = 'funded'; return 'funded';
-    case 'proven_uncommitted':
-      // A `pending` debit whose transaction rolled back: nothing was charged → drop the claim. A
-      // FUNDED escrow claiming a committed debit with NO trace of it is corruption, not a rollback.
+  const { financial, structure } = validateDurableOwnership(room.code, esc, evidence);
+
+  // (37.7.16 FAIL 2) A TERMINAL status in the room JSON is a CLAIM, not DB proof. Stage 37.7.15
+  // skipped `settled`/`cancelled` escrows entirely, so a room could carry a terminal status the DB
+  // never recorded — or the OPPOSITE one — and still reach `paid_finish` / a `cancelled` cleanup.
+  if (esc.status === 'settled' || esc.status === 'cancelled') {
+    const claimed = esc.status === 'settled' ? 'payout' : 'cancel_refund';
+    if (financial === 'unresolved') return 'terminal_unconfirmed';
+    if (financial !== claimed) return 'terminal_conflict';
+  }
+
+  // (37.7.16 FAIL 1) The financial outcome NEVER excuses a structural failure. A committed payout on
+  // a match whose durable record is missing/mismatched proves the money moved — not WHOSE match it
+  // was — so it can never become a `paid_finish` whose stats are attributed from the room escrow.
+  if (structure !== 'exact') {
+    if (structure === 'proven_uncommitted') {
+      // Nothing charged and no durable claim. With NO settlement that is a rolled-back `pending`
+      // debit; anything else (a funded/terminal claim, or a settlement with zero evidence) is
+      // corruption, not a rollback.
+      if (financial !== 'unresolved') return 'corrupt_durable';
       if (esc.status === 'pending') { room.pokerEscrow = undefined; return 'proven_uncommitted'; }
       return 'missing_durable';
-    case 'ledger_partial': return 'corrupt_partial';
-    default: return ownership; // missing_durable | corrupt_durable | metadata_mismatch | ledger_mismatch
+    }
+    return structure === 'missing' ? 'missing_durable'
+      : structure === 'corrupt' ? 'corrupt_durable'
+      : structure === 'metadata_mismatch' ? 'metadata_mismatch'
+      : structure === 'ledger_partial' ? 'corrupt_partial'
+      : 'ledger_mismatch';
   }
+
+  // EXACT ownership → the financial axis decides, with settlement precedence over any transient
+  // status the restored room JSON carries (37.7.14).
+  if (financial === 'payout') { esc.status = 'settled'; return 'settled'; }
+  if (financial === 'cancel_refund') { esc.status = 'cancelled'; return 'cancelled'; }
+  esc.status = 'funded';
+  return 'funded';
+}
+
+/**
+ * (37.7.16 FAIL 3) Prove EXACT durable ownership for a room whose escrow is already terminal, before
+ * any stats/`already_paid` decision is taken from it. Returns `'exact'`, `'retry'` (transient — try
+ * again later) or `'invalid'` (permanent structural failure → freeze).
+ */
+async function proveOwnership(room: ServerRoom): Promise<'exact' | 'retry' | 'invalid'> {
+  const esc = room.pokerEscrow;
+  if (!esc) return 'invalid';
+  if (!isDbEnabled() || injectedReconcileFailure) return 'retry';
+  let evidence;
+  try { evidence = await matchDurableEvidence(esc.matchId); } catch { return 'retry'; }
+  return validateDurableOwnership(room.code, esc, evidence).structure === 'exact' ? 'exact' : 'invalid';
 }

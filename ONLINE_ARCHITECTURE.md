@@ -987,3 +987,52 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   idempotent repeat, one log line); the healthy exact-evidence live case; settlement precedence; the explicit unbound
   generation still refunding exactly once; a transient failure being `retry_pending` then resuming; and the logging
   audit. `src/net/pokerDurableOwnership.test.ts` adds the pure contract matrix.
+
+### Terminal settlement integrity + settlement-time guard + consistent snapshot (Stage 37.7.16)
+
+- **CORRECTIONS to 37.7.15.** (a) `validateDurableOwnership` checked the SETTLEMENT ROW FIRST and returned, so a
+  committed payout/refund skipped the structural proof — RED: `settled` + payout row + finished state + a DELETED
+  `poker_matches` row classified `paid_finish` AND `recordConfirmedPokerStats` returned `recorded` (a real stats row
+  attributed from the room escrow alone); `cancelled` + refund row + a corrupt row classified `cancelled` and CLEARED
+  the game state. (b) `settled`/`cancelled` escrows were never validated (the evidence pass filtered on
+  `hasUnsettledEscrow`) — RED: a room whose escrow merely SAID `settled` with no DB settlement row still became
+  `paid_finish`, and a room saying `cancelled` while the DB held a PAYOUT was wiped as a cancelled lobby. (c) The proof
+  ran at recovery but not at settlement — RED: deleting `poker_matches` after START and then finishing returned
+  `paid` with a real payout row + settlement row. (d) The loader ran three separate READ COMMITTED statements — RED:
+  replaying them around an atomic debit observed `{matchRowExists: false, buyIns: 2}`, which the validator reads as
+  `missing_durable` → a false permanent freeze.
+- **Combined result model (FAIL 1 fix).** `validateDurableOwnership` now returns
+  `{ financial: 'unresolved'|'payout'|'cancel_refund', structure: 'exact'|'proven_uncommitted'|'missing'|'corrupt'|
+  'metadata_mismatch'|'ledger_partial'|'ledger_mismatch' }`, computed INDEPENDENTLY. `resolveEscrowEvidence` requires
+  BOTH: `exact` + payout → `settled`, `exact` + refund → `cancelled`, `exact` + unresolved → `funded`; any other
+  structure maps to the corresponding permanent value (`missing_durable` / `corrupt_durable` / `metadata_mismatch` /
+  `corrupt_partial` / `ledger_mismatch`), and `proven_uncommitted` with a settlement row is `corrupt_durable` (a
+  settlement with zero evidence is corruption, not a rollback). All still funnel into the ONE `corrupt_debit`
+  classification. `recordConfirmedPokerStats` additionally refuses outright for a FROZEN bankroll room.
+- **Terminal claims are validated (FAIL 2 fix).** The bootstrap evidence pass filter became
+  **`claimsEconomyMatch(room)`** — any escrow (terminal included), game state, generation binding or owed stats — and
+  `resolveEscrowEvidence` no longer exits early for `settled`/`cancelled`. A terminal claim the DB does not confirm is
+  **`terminal_unconfirmed`**; one it contradicts is **`terminal_conflict`**; both are in `isCorruptEvidence`.
+  `settlementProtectedMatchId` now protects a room whose reconciliation/classification is corrupt-evidence BEFORE its
+  terminal-status early return, so an unconfirmed `settled` room is not orphan-refunded seconds before it is frozen.
+- **Atomic settlement-time guard (FAIL 3 fix).** New `settleMatchWithOwnershipTx(roomCode, expected, outcome, mutate,
+  validate)` in `db/pokerWallet.ts`: inside ONE transaction it locks the durable row `FOR UPDATE`, reads the buy-in
+  ledger + settlement from the SAME snapshot, requires `structure === 'exact'`, and only then claims the settlement gate
+  and mutates wallets. A failure throws the typed `DurableOwnershipError` and the transaction rolls back — no settlement
+  row, no chip movement. `payoutStacks` uses it for a fresh payout (and proves ownership again before returning
+  `already_paid`, since that is the caller's green light to record stats); `refundBuyIns` was split into
+  **`refundBuyInsResult` → `resolved | retry_pending | invalid`** with `refundBuyIns` kept as the boolean wrapper.
+  `settleRoomForDeletion` freezes on `invalid` (keep, never purge, never retried). Financial precedence is untouched:
+  the opposite existing outcome still raises `SettlementConflictError`, same-outcome replays stay idempotent.
+- **One consistent snapshot (FAIL 4 fix).** `matchDurableEvidence` runs its three reads in a single
+  `REPEATABLE READ`, read-only transaction (`readEvidence` is shared with the settlement guard, which takes the row
+  lock). New test seam `__setEvidenceReadGap(fn)` is awaited BETWEEN the reads so a test can commit an atomic debit in
+  that window and prove the observation is still self-consistent.
+- **Regression suite:** `src/net/pokerSettlementIntegrity.integration.test.ts` (real PostgreSQL, 11 tests) covers
+  A–H (settled+payout with missing/mismatched evidence; cancelled+refund with a corrupt row; `terminal_unconfirmed`;
+  both `terminal_conflict` directions; the exact healthy payout and refund), the settlement-time guard 1–6 (durable row
+  deleted / metadata altered / ledger altered before finish; the teardown refund; the healthy finish and teardown),
+  replays 7–10 (exact payout/refund idempotent, corrupt ones never mutate and freeze), the deterministic
+  consistent-snapshot test, and non-regression for transient failures plus non-poker + LOCAL poker rooms. Each
+  fail-closed case asserts: `corrupt_debit`, frozen, no new settlement row, zero stats, unchanged balances, evidence
+  kept, a direct stats write refused, teardown `keep` and an opaque `frozen` snapshot.

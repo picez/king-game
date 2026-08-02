@@ -198,6 +198,21 @@ also reported at `GET /health/diagnostics` (`version` field).
     database problem is still just a retry, not corruption). (3) The claim that operator logs never
     contain internal match identifiers was not true — several economy log lines printed them. All
     poker economy logs now carry only the table code, a short reason and counts.
+  - **Paying or refunding a table now proves whose table it is, at the moment it pays (Stage
+    37.7.16):** four more real defects fixed, all **corrections to the previous entry**. (1) The new
+    ownership check was skipped entirely whenever the table had already been paid out or refunded —
+    so a paid table whose buy-in record was missing or described a different match was still treated
+    as a healthy finished game, and its result could be **recorded against the wrong accounts**; a
+    refunded one silently erased the evidence an operator would need. A completed payout or refund
+    now only tells us what happened to the chips — never whose table it was; both facts must hold.
+    (2) Tables whose saved file already said "paid" or "refunded" were never checked at all. A saved
+    status is now treated as a claim: if the database has no matching record, or records the
+    opposite, the table is frozen for review. (3) The check ran during startup recovery but not when
+    a table actually paid out or refunded, so a record altered after the game began could still be
+    paid. The proof now happens **inside the same database transaction** that moves the chips — if it
+    fails, nothing at all is written. (4) The evidence was read with three separate queries, so a
+    concurrently finishing buy-in could be seen half-written and freeze a perfectly healthy table;
+    it is now read as one consistent snapshot.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

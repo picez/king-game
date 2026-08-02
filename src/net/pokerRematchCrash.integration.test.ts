@@ -94,7 +94,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
       reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
-      settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
+      settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 
     const ledger = async (matchId: string, reason: string) =>

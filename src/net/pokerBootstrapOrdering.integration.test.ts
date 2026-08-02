@@ -106,7 +106,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
       }),
-      refundBuyIns: escrow.refundBuyIns, persist, freeze, clearTimers,
+      refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 
     /** A real paid bankroll table: two funded accounts, a committed buy-in, a bound game state. */
