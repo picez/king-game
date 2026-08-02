@@ -76,22 +76,20 @@ export class SettlementConflictError extends Error {
 }
 
 /**
- * DB-authoritative settlement gate (§16 F/G). Atomically CLAIMS a match's terminal
- * outcome and runs the wallet mutations in the SAME transaction, so payout and refund
- * can NEVER both mint chips for one match — even across a crash/restart:
- *   • the first outcome to insert the settlement row wins → `mutate` runs;
- *   • a repeat of the SAME outcome is an idempotent no-op (the per-user ledger keys
- *     already exist, so `mutate`'s adjustWalletTx calls no-op) → returns the winner;
- *   • the OPPOSITE outcome after resolution throws SettlementConflictError → NO wallet
- *     mutation (the whole transaction rolls back).
- * `mutate` MUST use per-(match,user) ledger keys so its re-run under the same outcome is
- * safe. Returns the winning outcome.
- */
-/**
- * Pure decision for the settlement gate (deterministically unit-testable). Given whether
- * THIS transaction freshly claimed the match row and the existing outcome on a conflict,
- * returns the winning outcome — or throws SettlementConflictError when the match was
- * already resolved with the OPPOSITE outcome.
+ * DB-authoritative settlement gate (§16 F/G): the first outcome to insert the settlement row wins,
+ * a repeat of the SAME outcome is idempotent, and the OPPOSITE outcome after resolution throws
+ * SettlementConflictError with NO wallet mutation.
+ *
+ * (37.7.17 FAIL 1) The UNGUARDED form of this gate no longer exists. EVERY fresh poker payout/refund
+ * — room payout, room refund, global orphan refund and corrupt-room recovery — must go through
+ * `settleMatchWithOwnershipTx` below, which proves exact durable ownership inside the same
+ * transaction. The old `settleMatchTx` trusted a merely-parseable durable record, so an orphan whose
+ * buy-in ledger was missing/partial/for the wrong account was refunded to EVERY durable seat —
+ * minting chips for a user who was never debited.
+ *
+ * This is the PURE decision half (deterministically unit-testable): given whether THIS transaction
+ * freshly claimed the match row and the existing outcome on a conflict, it returns the winning
+ * outcome — or throws SettlementConflictError when the match was already resolved the OPPOSITE way.
  */
 export function resolveSettlementOutcome(matchId: string, claimedFresh: boolean, existing: MatchOutcome | null, requested: MatchOutcome): MatchOutcome {
   if (claimedFresh) return requested;
@@ -100,27 +98,6 @@ export function resolveSettlementOutcome(matchId: string, claimedFresh: boolean,
   return winner; // idempotent repeat of the same outcome
 }
 
-export async function settleMatchTx(
-  matchId: string,
-  outcome: MatchOutcome,
-  mutate: (tx: PostgresJsDatabase) => Promise<void>,
-): Promise<MatchOutcome> {
-  const db = await database();
-  return db.transaction(async (tx) => {
-    const claimed = await tx.insert(pokerMatchSettlements).values({ matchId, outcome })
-      .onConflictDoNothing({ target: pokerMatchSettlements.matchId })
-      .returning({ outcome: pokerMatchSettlements.outcome });
-    let existing: MatchOutcome | null = null;
-    if (claimed.length === 0) {
-      const [row] = await tx.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
-      existing = (row?.outcome as MatchOutcome) ?? null;
-    }
-    const winner = resolveSettlementOutcome(matchId, claimed.length > 0, existing, outcome); // throws on opposite
-    // Same outcome (fresh claim OR idempotent repeat) → apply the mutations.
-    await mutate(tx);
-    return winner;
-  });
-}
 
 /** One seat's durable buy-in (seat→user→amount) inside a match record. */
 export interface DurableMatchSeat { seat: number; userId: string; amount: number; }

@@ -444,6 +444,32 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   the settlement row are read in ONE `REPEATABLE READ` transaction, so an atomic debit
   committing mid-read can never be observed half-written (which previously produced a false
   `missing_durable` freeze for a perfectly healthy match).
+- **ONE guarded settlement contract for every fresh payout/refund** (Stage 37.7.17). Room
+  payout, room refund, the GLOBAL orphan refund and corrupt-room recovery all go through
+  `settleMatchWithOwnershipTx`; the unguarded gate no longer exists. A `poker_matches` row that
+  merely PARSES is only the EXPECTED metadata — the guard re-locks it and requires the
+  `table_buy_in` ledger to back it exactly. The orphan scan reports three outcomes separately:
+  `refunded`, `corrupt` (+ internal `corruptRefs`, operator-owned, never settled) and
+  `retryable` (transient — nothing was proven, the next boot retries). **Correction:** as
+  shipped, Stage 37.7.16 left the orphan/corrupt-room paths on the old unguarded gate, so a
+  parse-valid record with a missing/partial/wrong-account ledger was refunded to every listed
+  seat — minting chips for a user who was never debited.
+- **A missing escrow is NOT proof of a refund** (Stage 37.7.17). A bankroll room that still
+  claims a match — a carried game state, a generation binding (`pokerGameMatchId`), or owed
+  stats — while holding NO escrow is resolved from the durable record for that binding (the
+  match id is server-only: never logged, never public). Outcomes: durable `cancel_refund` or a
+  provably uncommitted debit → **cancelled**; durable `payout` → **frozen** (the money is out
+  but the seat→account mapping cannot be rebuilt, so no stats may be attributed and no evidence
+  cleared); a corrupt/missing/mismatched/partial record → **frozen**; an exact but UNSETTLED
+  record → **inert and retryable**, and it becomes a clean lobby ONLY once a refund for that
+  exact match id is CONFIRMED in the same boot; no binding at all → **frozen**. Such a room
+  blocks START/ACTION/timer/advance/rematch/purge and is publicly the opaque
+  `settlement_pending`. **Correction:** Stage 37.7.16 classified every escrowless room
+  `cancelled` unconditionally, wiping its state and binding regardless of what the scan did.
+- **A terminal escrow status is never self-proof** (Stage 37.7.17). The refund path's
+  `settled`/`cancelled` fast path now re-checks the claim through the shared evidence resolver,
+  so a teardown cannot purge a table whose settlement the DB never recorded (or recorded the
+  other way). Unproven → frozen; transient → keep and retry.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

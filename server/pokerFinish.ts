@@ -145,6 +145,15 @@ export interface TeardownDeps {
 export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps): Promise<'purge' | 'keep'> {
   // (37.7.8/37.7.11) A FROZEN room is a PERMANENT operator condition — never auto-settle or purge it.
   if (room.pokerFrozen) { deps.persist(room); return 'keep'; }
+  // (37.7.17 FAIL 2) A room that CLAIMS an economy match with NO escrow proves nothing about it, so
+  // it is never purged here — the recovery pipeline must resolve the claim durably first (a confirmed
+  // refund, a proven-uncommitted debit, or a freeze). `hasUnsettledEscrow` is FALSE for it, which is
+  // exactly why the old code fell straight through to `purge` and destroyed the evidence.
+  if (isBankrollRoomShape(room) && !room.pokerEscrow
+    && (!!room.gameState || !!room.pokerGameMatchId || !!room.pokerStatsPending)) {
+    deps.persist(room);
+    return 'keep';
+  }
   const reconcile = (await deps.reconcileEscrow(room)) ?? 'noop';
   const state = room.gameState as PokerState | null;
   const finished = !!state && deps.isFinished(state);

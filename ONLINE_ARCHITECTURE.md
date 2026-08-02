@@ -1036,3 +1036,45 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   consistent-snapshot test, and non-regression for transient failures plus non-poker + LOCAL poker rooms. Each
   fail-closed case asserts: `corrupt_debit`, frozen, no new settlement row, zero stats, unchanged balances, evidence
   kept, a direct stats write refused, teardown `keep` and an opaque `frozen` snapshot.
+
+### Guarded orphan settlement + escrowless recovery claims (Stage 37.7.17)
+
+- **CORRECTIONS to 37.7.16.** (a) The atomic ownership guard was wired into the ROOM payout/refund only. The GLOBAL
+  `reconcileOrphanedDebits` → `refundDurableMatch` path (and `reconcileCorruptRoom`, which shares it) still used the
+  UNGUARDED `settleMatchTx`, trusting a `poker_matches` row merely because `parseDurableMatch` accepted it — RED: an
+  orphan whose ledger was missing one seat's debit was refunded to BOTH seats (`refunded: true`, 2 `table_cancel_refund`
+  rows, the never-debited account back at **1,000,000** — minted chips — and a `cancel_refund` settlement closing the
+  match). The same held for an empty ledger, a wrong-account debit, a wrong delta/room/key and an extra row.
+  (b) `claimsEconomyMatch` correctly included escrowless rooms, but `resolveEscrowEvidence` returned `noop` for them and
+  `classifyBootstrapRecovery` mapped `!esc` straight to `cancelled` — RED: with a transient scan failure, with a durable
+  PAYOUT, and with no binding at all, the room was still `cancelled` with `gameState` and `pokerGameMatchId` CLEARED.
+  (c) `refundBuyInsResult` answered `resolved` for ANY terminal escrow status — RED: a room whose escrow merely said
+  `settled` resolved with **0** settlement rows in the DB.
+- **One guarded settlement contract (FAIL 1 fix).** `refundDurableMatch` now calls `settleMatchWithOwnershipTx` with the
+  parsed record as the EXPECTED metadata and returns `RefundResult`. `reconcileOrphanedDebits` counts only `resolved` as
+  refunded, routes `invalid` into `corruptRefs` (operator-owned, safe log: room code + bounded reason) and reports
+  transient failures in a new **`retryable`** array; `reconcileCorruptRoom` requires `resolved` too. The unguarded
+  **`settleMatchTx` was deleted** — there is no longer any poker settlement API without an ownership proof (the pure
+  `resolveSettlementOutcome` decision remains, unit-tested).
+- **Escrowless recovery state machine (FAIL 2 fix).** New `resolveEscrowlessClaim(room)`: with no binding →
+  **`escrowless_unknown`** (frozen); otherwise the binding's evidence is loaded and validated AGAINST THE DURABLE RECORD
+  ITSELF (the ledger must back the row) → `cancelled` (durable refund), `proven_uncommitted`, `escrowless_unknown` (a
+  durable PAYOUT — participants cannot be rebuilt), `corrupt_durable` / `missing_durable` / `metadata_mismatch` /
+  `corrupt_partial` / `ledger_mismatch`, or **`escrowless_unresolved`** (exact + unsettled → inert). `classifyBootstrapRecovery`
+  maps `!esc` accordingly (`cancelled` only on explicit proof, `escrowless_unresolved` → `recovery_pending`, everything
+  else → `corrupt_debit`). New predicate **`escrowlessClaim(room)`** feeds `pokerRecoveryBlocked`, the `rescheduleAdvance`
+  guard, the `ACTION_REQUEST` guard, the public `settlement_pending` snapshot status, and `settleRoomForDeletion`
+  (which now returns `keep` instead of purging a claim whose `hasUnsettledEscrow` is false).
+- **Confirmed-refund gating before cleanup (FAIL 2 fix).** `runBootstrapEconomyRecovery` gained step (e3): an
+  `escrowless_unresolved` room becomes `cancelled` ONLY when its `pokerGameMatchId` is in the scan's confirmed
+  `orphanRefunded` set for THIS boot; step (e4) freezes an unprovable claim that has no game state (e.g. owed stats with
+  no escrow) since it cannot reach the apply pass.
+- **Terminal fast path re-proved (FAIL 3 fix).** `refundBuyInsResult`'s `settled`/`cancelled` branch routes through the
+  shared `resolveEscrowEvidence` → `retry_pending` stays retryable, corrupt evidence returns `invalid` (teardown
+  freezes + keeps), and only a DB-confirmed terminal outcome answers `resolved`.
+- **Regression suite:** `src/net/pokerGuardedSettlement.integration.test.ts` (real PostgreSQL, 8 tests) covers the six
+  malformed-ledger orphan shapes (never refunded, reported corrupt, zero settlements, balances untouched, idempotent
+  repeat), the corrupt-room path plus an exact orphan still refunding once, and escrowless cases 1–9 (transient scan
+  failure; confirmed refund → clean lobby; durable payout/refund/corrupt/partial; no binding; owed stats with no
+  escrow; repeated boots), each asserting blocked gameplay, `teardown === 'keep'`, zero settlement/stat mutation and a
+  leak-free snapshot — plus a healthy-live / non-poker / LOCAL-poker non-regression case.

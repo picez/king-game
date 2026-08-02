@@ -1197,7 +1197,10 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       // look like a normal playable table, and it leaks no economy internals either way.
       : (room.gameType === 'poker'
           && ((room.pokerEscrow?.status === 'funded' && !room.gameState)
-            || room.pokerEscrow?.status === 'pending' || room.pokerEscrow?.status === 'settling'))
+            || room.pokerEscrow?.status === 'pending' || room.pokerEscrow?.status === 'settling'
+            // (37.7.17) A room that CLAIMS a match with no escrow is publicly the same opaque
+            // "still settling" state — never a normal playable table.
+            || (!room.pokerEscrow && !!room.pokerBuyIn && (!!room.gameState || !!room.pokerGameMatchId || !!room.pokerStatsPending))))
         ? { pokerRecovery: 'settlement_pending' as const }
       // stats_pending (37.7.9): the match was PAID but its stats write is still owed — money is out,
       // so it is NOT payout_pending. Blocks a new paid rematch; carries no economy internals.

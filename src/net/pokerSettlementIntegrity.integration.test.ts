@@ -365,7 +365,10 @@ describe.skipIf(!TEST_DATABASE_URL)('terminal settlement integrity + settlement-
     const d = await t.bankrollRoom('SI9D');
     expect(await t.escrow.refundBuyInsResult(d.room)).toBe('resolved');
     await t.conn!.sql`UPDATE poker_matches SET buy_in = 9000 WHERE match_id = ${d.M}`;
-    expect(await t.escrow.refundBuyInsResult(d.room)).toBe('resolved'); // terminal escrow → no mutation
+    // (37.7.17 FAIL 3) The terminal fast path is no longer self-proof: the room's `cancelled` claim
+    // is re-checked against the durable evidence, which no longer matches → `invalid` (freeze), and
+    // still NO second mutation of any kind.
+    expect(await t.escrow.refundBuyInsResult(d.room)).toBe('invalid');
     expect(await t.ledger(d.M, 'table_cancel_refund')).toBe(2);
     const rd = t.restore(d.room);
     const rep = await t.productionBootstrap([rd]);

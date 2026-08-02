@@ -514,3 +514,34 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **34 poker suites / 319 tests, 0 skipped, 6/6 clean consecutive runs**;
   `npm run verify` twice stably (**293 files / 3092 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.17:** the atomic guard covered only the ROOM payout/refund — the GLOBAL orphan refund and
+  `reconcileCorruptRoom` still used the unguarded `settleMatchTx`; escrowless claims were cancelled unconditionally;
+  and the terminal `settled`/`cancelled` refund fast path answered `resolved` with no DB proof.
+
+### Stage 37.7.17 — guarded orphan settlement + escrowless recovery claims (COMPLETE, Unreleased)
+- Worked from HEAD `adf4cce`. No new migration, no version bump, other 6 games untouched. All 3 FAILs reproduced RED.
+- **RED.** (1) an orphan missing ONE seat's buy-in row → `refunded: true`, 2 refund rows, the never-debited account back
+  at **1,000,000 (minted chips)**, settlement = 1; same for an empty ledger and a wrong-account debit. (2) escrowless
+  room + live state + binding → `cancelled` with state AND binding CLEARED, under a transient scan failure, under a
+  durable PAYOUT, and with no binding at all. (3) `refundBuyInsResult` = `resolved` with 0 DB settlements.
+- **FIX 1 — one guarded contract.** `refundDurableMatch` → `settleMatchWithOwnershipTx` (parsed record = EXPECTED
+  metadata) returning `RefundResult`; `reconcileOrphanedDebits` counts only `resolved`, routes `invalid` to
+  `corruptRefs` and adds a **`retryable`** array; `reconcileCorruptRoom` requires `resolved`. **`settleMatchTx` deleted**
+  — no poker settlement API exists without an ownership proof.
+- **FIX 2 — escrowless state machine.** `resolveEscrowlessClaim` (validates the durable record against ITSELF) →
+  `cancelled` | `proven_uncommitted` | **`escrowless_unknown`** (no binding, or durable PAYOUT → frozen) |
+  **`escrowless_unresolved`** (exact+unsettled → inert) | corrupt values | `retry_pending`. `classifyBootstrapRecovery`
+  no longer maps `!esc` to `cancelled`. New predicate **`escrowlessClaim`** → `pokerRecoveryBlocked`, advance guard,
+  ACTION guard, public `settlement_pending`, and `settleRoomForDeletion` keeps (never purges) such a room.
+  Bootstrap step **(e3)** cancels an escrowless claim ONLY if its matchId is in the scan's confirmed `orphanRefunded`;
+  step **(e4)** freezes an unprovable claim with no game state (owed stats without escrow).
+- **FIX 3 — terminal fast path.** `refundBuyInsResult`'s terminal branch routes through `resolveEscrowEvidence`:
+  transient → `retry_pending`, corrupt → `invalid` (teardown freezes + keeps), only DB-confirmed → `resolved`.
+- **New tests:** `pokerGuardedSettlement.integration.test.ts` (8 real-PG tests). Updated: the pure `cancelled`-needs-
+  proof matrix in `pokerBootstrap.test.ts` and 37.7.16's replay case 10 (a terminal claim over corrupt evidence is now
+  `invalid`, not `resolved`). Suite lock covers **17** poker DB files.
+- **Gates:** real Docker PostgreSQL — **35 poker suites / 327 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**294 files / 3100 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- NOTE: the shared test Postgres accumulates rows when a run fails mid-test; truncate the poker/games/users tables
+  before trusting a count-based assertion.

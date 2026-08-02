@@ -90,10 +90,17 @@ export function classifyBootstrapRecovery(
   if (reconcile === 'retry_pending') return 'recovery_pending';
   const esc = room.pokerEscrow;
   const finished = isFinished(room.gameState as PokerState);
-  // `cancelled` is allowed ONLY on durable proof: a `cancelled` escrow (a committed refund row), or
-  // an absent one — either the room JSON carries no debit claim at all, or reconciliation PROVED
-  // zero committed buy-ins and dropped it (`proven_uncommitted`).
-  if (!esc || esc.status === 'cancelled') return 'cancelled';
+  // (37.7.17 FAIL 2) A MISSING escrow is not proof of a refund. The room still claims a match (it has
+  // a game state), so only an explicit durable proof — a committed `cancel_refund`, a provably
+  // uncommitted debit, or a refund for this exact matchId CONFIRMED in this boot — may cancel it.
+  // Everything else is inert (`escrowless_unresolved`) or permanent operator evidence.
+  if (!esc) {
+    if (reconcile === 'cancelled' || reconcile === 'proven_uncommitted') return 'cancelled';
+    if (reconcile === 'escrowless_unresolved') return 'recovery_pending';
+    return 'corrupt_debit';
+  }
+  // `cancelled` for an escrow is durable proof: a committed refund row.
+  if (esc.status === 'cancelled') return 'cancelled';
   // (37.7.13 FAIL 2) A transient status that SURVIVED reconciliation is unproven, never "nothing was
   // charged" — the old code read it as `cancelled` and wiped a possibly-paid match's state/binding.
   if (esc.status === 'pending' || esc.status === 'settling') return 'recovery_pending';
@@ -392,10 +399,30 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
     if (deps.roomExists(r)) deps.persist(r);
   }
 
+  // (e3) (37.7.17 FAIL 2) CONFIRMED-REFUND GATING. An escrowless claim may only become a clean
+  // cancelled lobby once a refund for THAT EXACT matchId was confirmed by the scan in this boot.
+  // A transient scan failure, a corrupt record, or a durable payout leaves it inert/frozen instead —
+  // the old code cancelled it (and wiped state + binding) regardless of what the scan actually did.
+  const confirmedRefunded = new Set(orphanRefunded);
+  const reconciledFor = (r: ServerRoom): EscrowReconcileResult => {
+    const res = reconciled.get(r.code) ?? 'noop';
+    if (res === 'escrowless_unresolved' && r.pokerGameMatchId && confirmedRefunded.has(r.pokerGameMatchId)) return 'cancelled';
+    return res;
+  };
+  // (e4) A room with NO game state cannot go through the apply pass below, so freeze an unprovable
+  // claim (e.g. owed stats with no escrow) here — never leave it silently resolvable.
+  for (const r of bankroll) {
+    if (r.gameState || r.pokerFrozen || !isCorruptEvidence(reconciledFor(r))) continue;
+    deps.clearTimers(r);
+    deps.freeze(r, 'durable match evidence does not match this table');
+    recoveries.set(r.code, 'corrupt_debit');
+    if (deps.roomExists(r)) deps.persist(r);
+  }
+
   // (f) Apply the recovery decided in (b), serialized per room.
   for (const r of bankroll) {
     if (!r.gameState) continue;
-    const recovery = await deps.withRoomLock(r.code, () => recoverRestoredBankrollRoom(r, deps, reconciled.get(r.code) ?? 'noop'))
+    const recovery = await deps.withRoomLock(r.code, () => recoverRestoredBankrollRoom(r, deps, reconciledFor(r)))
       .catch((err) => {
         // A failure leaves the room UNCLASSIFIED — no advance was armed (the restore loop deferred
         // it), so it stays inert until the next sweep/restart resolves it.

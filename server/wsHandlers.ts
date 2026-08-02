@@ -23,7 +23,7 @@ import { normalizeTargetScore } from '../src/games/tarneeb/rules';
 import { normalizeEliminationScore } from '../src/games/fiftyOne/rules';
 import { findStakesPreset, validateBlindGrowth } from '../src/games/poker/stakes';
 import { isDbEnabled } from './db/client';
-import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved } from './pokerEscrow';
+import { isBankrollRoom, validateBankrollSeats, debitFreshStart, refundBuyIns, withRoomLock, isRoomBusy, escrowMatchesRoomSeats, bankrollEconomyUnavailable, settlementPending, pokerRecoveryBlocked, escrowUnresolved, escrowlessClaim } from './pokerEscrow';
 import { bindGameToEscrow } from './pokerBinding';
 import { RoomSocialStore, handleReaction, handleChat, handleChatMedia, type SocialIO } from './roomSocial';
 import type { ConnectionLimiter } from '../src/net/rateLimit';
@@ -459,8 +459,9 @@ export function handleClientMessage(
       if (room.pokerFrozen || room.pokerMatchCancelled) return sendError(socket, 'ILLEGAL_ACTION', 'This match has been cancelled');
       if (bankrollEconomyUnavailable(room)) return sendError(socket, 'ECONOMY_UNAVAILABLE', 'The chip economy is unavailable — this table is paused');
       if (settlementPending(room)) return sendError(socket, 'SETTLEMENT_PENDING', 'The previous match is still settling — try again in a moment');
-      // (37.7.13 FAIL 2) A transient escrow whose durable outcome is still UNKNOWN accepts no play.
-      if (escrowUnresolved(room)) return sendError(socket, 'SETTLEMENT_PENDING', 'The previous match is still settling — try again in a moment');
+      // (37.7.13 FAIL 2) A transient escrow whose durable outcome is still UNKNOWN accepts no play,
+      // and (37.7.17 FAIL 2) neither does a room that claims a match with no escrow at all.
+      if (escrowUnresolved(room) || escrowlessClaim(room)) return sendError(socket, 'SETTLEMENT_PENDING', 'The previous match is still settling — try again in a moment');
       // `msg.action` is UNTRUSTED (arbitrary JSON). `applyActionRequest` validates and
       // never mutates on rejection, but wrap it so any residual throw becomes a safe
       // BAD_MESSAGE rejection instead of an uncaught exception that could tear down the

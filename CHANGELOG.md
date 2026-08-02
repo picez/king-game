@@ -213,6 +213,21 @@ also reported at `GET /health/diagnostics` (`version` field).
     fails, nothing at all is written. (4) The evidence was read with three separate queries, so a
     concurrently finishing buy-in could be seen half-written and freeze a perfectly healthy table;
     it is now read as one consistent snapshot.
+  - **Nothing is refunded — or written off — without proof (Stage 37.7.17):** three more real
+    defects fixed, all **corrections to the previous entry**. (1) The new "prove whose table it is"
+    guard was wired into a table's own payout and refund, but the **startup cleanup that refunds
+    abandoned buy-ins still used the old unguarded path**. It trusted a buy-in record just because it
+    could be read, so a record whose actual chip charges were missing, partial or belonged to a
+    different account was refunded to **every** listed seat — **creating chips for a player who was
+    never charged** — and then marked the match fully settled. That sweep (and the damaged-table
+    recovery beside it) now uses the same guard: no charge record, no refund. (2) A table that had
+    lost its buy-in record but still remembered a hand in progress was **wiped clean and marked
+    cancelled no matter what** — even when the cleanup had failed, when the chips had actually been
+    **paid out**, or when there was nothing to identify the match by at all. Such a table now stays
+    intact and unplayable until the outcome is genuinely established; it only becomes a clean lobby
+    once a refund for exactly that match is confirmed. (3) A table whose saved file merely *said*
+    "already paid/refunded" was accepted as proof when deleting it; that claim is now re-checked
+    against the database first.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

@@ -58,7 +58,13 @@ describe('FAIL 1 — classifyBootstrapRecovery', () => {
     // Proven: a durable refund row, or a reconciliation that PROVED zero committed buy-ins.
     expect(classifyBootstrapRecovery(room(esc('cancelled'), FINISHED), isFin)).toBe('cancelled');
     expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin, 'proven_uncommitted')).toBe('cancelled');
-    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin)).toBe('cancelled');
+    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin, 'cancelled')).toBe('cancelled');
+    // (37.7.17 FAIL 2) A MISSING escrow is NOT proof of a refund. Without an explicit durable
+    // outcome the room still CLAIMS a match, so it fails closed instead of being wiped clean.
+    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin)).toBe('corrupt_debit');
+    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin, 'escrowless_unknown')).toBe('corrupt_debit');
+    // An exact-but-unsettled escrowless claim is INERT (retryable), never cancelled outright.
+    expect(classifyBootstrapRecovery(room(undefined, FINISHED), isFin, 'escrowless_unresolved')).toBe('recovery_pending');
     // Unproven: a `pending` escrow that SURVIVED reconciliation. It used to be read as "nothing was
     // charged" and wiped the state/binding — the money may in fact already be out.
     expect(classifyBootstrapRecovery(room(esc('pending'), FINISHED), isFin)).toBe('recovery_pending');
