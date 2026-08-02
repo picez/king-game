@@ -1002,8 +1002,14 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
   // that skips the stats write. (37.7.11 FAIL 1: the guard covers ANY carried game state, not just a
   // FINISHED one — a `settled` escrow with an UNFINISHED state has no unsettled escrow, so it used to
   // purge synchronously and destroy the evidence of a paid match.) Everything else deletes synchronously.
-  const carriesGame = isBankrollRoom(room) && !!room.gameState;
-  if (!isBankrollRoom(room) || (!hasUnsettledEscrow(room) && !room.pokerStatsPending && !carriesGame)) { purgeRoom(code); return; }
+  // (37.7.20 FAIL 3) ANY economy claim — an escrow of ANY status (terminal included), a generation
+  // binding, owed stats, a corrupt persisted escrow or a carried game state — must go through the
+  // lock-serialized durable-evidence flow. The old fast path purged a TERMINAL room synchronously
+  // (`hasUnsettledEscrow` is false for it), so a `cancelled` claim the DB never recorded — or one it
+  // recorded as a PAYOUT — was deleted without any proof.
+  const claimsEconomy = isBankrollRoom(room)
+    && (!!room.pokerEscrow || !!room.gameState || !!room.pokerGameMatchId || !!room.pokerStatsPending || !!room.pokerEscrowCorrupt);
+  if (!claimsEconomy) { purgeRoom(code); return; }
   // Serialize with any in-flight start/payout/rematch for this room, then reconcile a
   // restored transient escrow (pending/settling) before settling.
   void withRoomLock(code, async () => {
@@ -1020,7 +1026,9 @@ function deleteRoomWithSettlement(code: string, room: ServerRoom): void {
     // (37.7.10) Settle THEN record (same lifecycle as finish/sweep) — a finished paid match records
     // its owed stats before purge; a transient payout/stats failure keeps the room for the next sweep.
     const fate = await settleRoomForDeletion(room, {
-      reconcileEscrow, hasUnsettledEscrow,
+      // (37.7.20 FAIL 3) The ALL-STATUS resolver — the transient-only `reconcileEscrow` never
+      // validated a terminal claim, so a purge could bypass the 37.7.16/37.7.17 terminal rules.
+      reconcileEscrow: resolveEscrowEvidence, hasUnsettledEscrow,
       isFinished: (s) => getGameDefinition('poker')?.isFinished(s) === true,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, bankrollFinishDeps()),
       refundBuyIns: refundBuyInsResult, persist: persistRoom, freeze: freezeRoomForOperator,
@@ -1064,6 +1072,7 @@ function runtimeEconomyRecovery(): void {
     ...bootstrapRecoveryDeps(),
     isBankrollRoom, reconcileOrphanedDebits, withRoomLock,
     roomExists: (r) => rooms.has(r.code),
+    currentRooms: () => [...rooms.values()],
     log: (m) => console.log(`[King] ${m}`),
     logError: (m) => console.error(`[King] ${m}`),
   }).then((report) => {
@@ -1238,6 +1247,7 @@ async function bootstrap(): Promise<void> {
       ...bootstrapRecoveryDeps(),
       isBankrollRoom, hasUnsettledEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, withRoomLock,
       roomExists: (r) => rooms.has(r.code),
+      currentRooms: () => [...rooms.values()],
       log: (m) => console.log(`[King] ${m}`),
       logError: (m) => console.error(`[King] ${m}`),
     }).finally(() => { economyRecoveryInFlight = false; });

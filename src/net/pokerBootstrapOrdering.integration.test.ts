@@ -84,7 +84,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
         rescheduleAdvance: advance, persist, clearTimers, freeze,
         isBankrollRoom: escrow.isBankrollRoom, hasUnsettledEscrow: escrow.hasUnsettledEscrow,
         reconcileCorruptRoom: escrow.reconcileCorruptRoom, withRoomLock: escrow.withRoomLock,
-        roomExists: () => true, log: () => {}, logError: () => {},
+        roomExists: () => true, currentRooms: () => restored, log: () => {}, logError: () => {},
         // The REAL scan, scoped to this suite's rooms (see pokerOrphanScan.testutil). `orphanSets`
         // records the EXACT set the PIPELINE computed — that is what the ordering assertions check.
         reconcileOrphanedDebits: async (ids) => {
@@ -101,7 +101,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
       record: (c: string, st: PokerState, su: Map<number, string | null>, mid?: string | null) => pokerStats.recordFinishedPokerGame(c, st, su, mid),
     });
     const teardown = (room: ServerRoom) => settleRoomForDeletion(room, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, {
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
@@ -229,7 +229,9 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
 
     const report = await t.productionBootstrap([restored]);
     expect(report.recoveries.get(code)).toBe('unbound_debit');
-    expect(report.protectedMatchIds.has(M1)).toBe(false); // an unplayed generation IS an orphan
+    // (37.7.20 FAIL 2) EVERY match a live room still claims is protected from the GLOBAL scan; the
+    // unplayed generation is refunded by its own room lifecycle (`resolveUnboundEscrowGame`).
+    expect(report.protectedMatchIds.has(M1)).toBe(true);
     expect(await t.ledger(M1, 'table_cancel_refund')).toBe(2); // refunded exactly once per seat
     expect(await t.ledger(M1, 'table_payout')).toBe(0);
     expect(await t.ledger(M, 'table_payout')).toBe(1);    // M0's payout untouched
@@ -411,9 +413,11 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
 
     // The scan ran ONCE, with exactly the protected matches — the unbound generation excluded.
     expect(t.orphanSets).toHaveLength(1);
-    expect([...t.orphanSets[0]].sort()).toEqual([bound.M, unknown.M, unproven.M].sort());
-    expect(t.orphanSets[0].has(M1)).toBe(false);
-    expect(report.orphanRefunded).toContain(M1);
+    // (37.7.20 FAIL 2) Every live room's match is protected — including the unbound generation,
+    // which its own recovery refunds instead of the global scan.
+    expect([...t.orphanSets[0]].sort()).toEqual([bound.M, unknown.M, unproven.M, M1].sort());
+    expect(report.orphanRefunded).not.toContain(M1);
+    expect(await t.ledger(M1, 'table_cancel_refund')).toBe(2); // refunded once, by the room path
 
     // …and it ran AFTER classification but BEFORE the recovery actions (freeze / advance).
     expect(t.timeline.indexOf('orphan-scan')).toBeGreaterThanOrEqual(0);

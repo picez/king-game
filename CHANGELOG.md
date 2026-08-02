@@ -254,6 +254,20 @@ also reported at `GET /health/diagnostics` (`version` field).
     charge. (3) The background cleanup that refunds abandoned buy-ins could overlap with a table
     starting a new hand and refund a **live** game's chips; starting a hand and running that cleanup
     are now strictly ordered so they can never overlap.
+  - **A refused rematch no longer damages a finished table (Stage 37.7.20):** three more real
+    defects fixed, all **corrections to the previous entry**. (1) Starting a new hand cleared the
+    table's record of the previous one BEFORE charging the buy-ins, so an ordinary "not enough
+    chips" (or a momentary database error) left the finished table with a result and no record of
+    the match that produced it — which recovery could then pause for review. The charge is now fully
+    reversible: if it does not go through, the table is left exactly as it was and a retry works. (2)
+    The rule that a background cleanup must not touch a table that is starting a hand only covered
+    the split second while the charge was in flight, and only looked at the tables known when the
+    cleanup began — so a table that had just been charged but had not yet dealt, and any table
+    created moments earlier, could still have its chips refunded mid-start. The cleanup now protects
+    every match any live table holds, re-read at the moment it runs, and only ever settles matches no
+    table owns. (3) A table whose chips were paid out but whose final hand was lost could still be
+    reused for a new game or silently deleted; it is now always paused for review, with its record
+    kept, and a finished table is only deleted once the database confirms its refund.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

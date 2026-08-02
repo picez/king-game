@@ -93,7 +93,7 @@ describe.skipIf(!TEST_DATABASE_URL)('a crashed paid rematch never pays the NEW e
       recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
       settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 

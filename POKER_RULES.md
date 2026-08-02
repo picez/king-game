@@ -524,6 +524,35 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   topology — a SINGLE authoritative Node instance (see the single-instance limit in
   `ONLINE_ARCHITECTURE.md`). It is NOT cluster-wide; horizontal multi-instance would require a
   DB-authoritative lease or an equivalent durable active-match proof.
+- **The fresh-debit transition is REVERSIBLE** (Stage 37.7.20). `performDebit` snapshots the
+  previous escrow (a deep copy) before replacing it and restores it VERBATIM whenever the
+  transaction does not commit — insufficient chips, a transient DB error, or no economy. A
+  refused rematch therefore leaves the finished paid table untouched (escrow, finished state and
+  generation binding all intact), never an escrowless claim that recovery would freeze, and a
+  retry after a top-up mints exactly one new match. An initial START rolls back to a clean lobby;
+  a START after a confirmed refund restores that exact cancelled escrow.
+  **Correction:** Stage 37.7.19 cleared the terminal escrow up-front, so a rolled-back debit
+  destroyed it.
+- **The global scan owns ONLY roomless orphans** (Stage 37.7.20). Inside the economy barrier the
+  scan re-reads the LIVE room registry (`currentRooms()`, not the array captured before the
+  barrier) and protects EVERY match any room still claims — whatever its escrow status
+  (`pending`, `funded`, `settling`, terminal, unbound, failed-start) — plus every corrupt room's
+  code. Funded / unbound / failed-start matches are settled by their own per-room lifecycle
+  (`settlementPending` sweep, `resolveUnboundEscrowGame`, teardown/bootstrap apply).
+  **Correction:** Stage 37.7.19 only fail-closed protected `pending`/`settling` escrows from a
+  stale snapshot, so a match whose debit had committed but whose `startGame`/`bindGameToEscrow`
+  had not run — and any room created after the snapshot — could be refunded while going live.
+- **A PAID escrow with NO finished bound state is INCOHERENT, never reusable** (Stage 37.7.20).
+  `debitFreshStart` refuses a `settled` escrow outright (a clean lobby may only follow an exact
+  durable `cancel_refund`); `debitRematch` requires a FINISHED state still BOUND to it, no owed
+  stats and an exact durable payout. Bootstrap classifies `settled` + no state as
+  `incoherent_paid` (frozen) instead of `not_bankroll`, and teardown routes EVERY economy claim
+  (escrow of any status, binding, owed stats, corrupt escrow, carried state) through the
+  all-status `resolveEscrowEvidence`: a terminal claim the DB does not confirm — or a paid one
+  with no finished state — is frozen and KEPT, never purged; only an exact durable
+  `cancel_refund` with no state may be purged.
+  **Correction:** Stage 37.7.19's terminal proof only inspected a state that was present, and the
+  synchronous teardown fast path purged terminal rooms with no proof at all.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

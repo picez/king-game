@@ -71,7 +71,7 @@ describe.skipIf(!TEST_DATABASE_URL)('paid-conflict closure + terminal proof + sc
         reconcileEscrow: escrow.resolveEscrowEvidence, isFinished: isFin, refundBuyIns: escrow.refundBuyInsResult,
         rescheduleAdvance: advance, persist, clearTimers, freeze,
         isBankrollRoom: escrow.isBankrollRoom, withRoomLock: escrow.withRoomLock,
-        roomExists: () => true, log: () => {}, logError: () => {},
+        roomExists: () => true, currentRooms: () => rooms, log: () => {}, logError: () => {},
         reconcileOrphanedDebits: scan ?? ((ids, rc) => scopedOrphanScan((m) => codes.has(m.roomCode), ids, rc)),
       });
 

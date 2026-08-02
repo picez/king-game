@@ -79,7 +79,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
         ...recoveryDeps(),
         isBankrollRoom: escrow.isBankrollRoom, hasUnsettledEscrow: escrow.hasUnsettledEscrow,
         reconcileCorruptRoom: escrow.reconcileCorruptRoom, withRoomLock: escrow.withRoomLock,
-        roomExists: () => true, log: () => {}, logError: () => {},
+        roomExists: () => true, currentRooms: () => restored, log: () => {}, logError: () => {},
         reconcileOrphanedDebits: (ids) => scopedOrphanScan((m) => codes.has(m.roomCode), ids),
       });
     }
@@ -102,7 +102,7 @@ describe.skipIf(!TEST_DATABASE_URL)('runtime recovery sweep + settlement precede
       recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
       settleAndRecord: sweepFinish, refundBuyIns: escrow.refundBuyInsResult, persist, freeze, clearTimers,
     });
 

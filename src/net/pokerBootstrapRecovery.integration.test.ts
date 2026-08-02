@@ -94,7 +94,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap recovery of a restored
       recordStats: (r, s) => recordConfirmedPokerStats(r, s, statsDeps()),
     });
     const teardown = (room: ServerRoom) => settleRoomForDeletion(room, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
       settleAndRecord: (r, s) => settleAndRecordBankrollPokerFinish(r, s, {
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (rm, st) => recordConfirmedPokerStats(rm, st, statsDeps()),

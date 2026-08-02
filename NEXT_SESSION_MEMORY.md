@@ -596,3 +596,28 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Gates:** real Docker PostgreSQL — **37 poker suites / 341 tests, 0 skipped, 6/6 clean consecutive runs**;
   `npm run verify` twice stably (**296 files / 3114 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.20:** the barrier did not yet protect funded-before-start or rooms outside the stale snapshot;
+  the terminal proof did not cover `settled` + no state; and a failed debit did not restore the previous escrow.
+
+### Stage 37.7.20 — reversible debit + complete scan protection + terminal no-state (COMPLETE, Unreleased)
+- Worked from HEAD `ab6d7bf`. No new migration, no version bump, other 6 games untouched. All 3 FAILs reproduced RED.
+- **RED.** (1) a rematch refused for insufficient chips left `pokerEscrow === undefined` beside the finished state +
+  binding (an escrowless claim). (2) a match whose debit had committed but whose start had not bound yet (escrow
+  `funded`, NO state) was refunded by the global scan; a room created after the coordinator snapshot was invisible.
+  (3) `settled` + no state passed the terminal proof, classified `not_bankroll`, and was purged by the synchronous
+  teardown fast path.
+- **FIX 1.** `performDebit` deep-snapshots the previous escrow and restores it verbatim on every non-commit path;
+  callers no longer pre-clear. Initial START → clean lobby; post-refund START → exact cancelled escrow restored.
+- **FIX 2.** New `currentRooms()` dep; inside the barrier `protectLiveRoomMatches` protects EVERY live room's
+  `pokerEscrow.matchId` (any status) + corrupt room codes. The global scan owns only roomless orphans and escrowless
+  claims; funded/unbound/failed-start are settled by their per-room lifecycle. Lock order unchanged.
+- **FIX 3.** `proveTerminalBeforeReuse` requires a FINISHED BOUND state for `settled`; `debitFreshStart` refuses a
+  `settled` escrow outright; `classifyBootstrapRecovery` → `incoherent_paid` for `settled` + no state (applied by the
+  stateless (e4) pass); `deleteRoomWithSettlement` routes EVERY economy claim through `resolveEscrowEvidence` and
+  `settleRoomForDeletion` freezes-and-keeps any unconfirmed/contradicted terminal claim.
+- **New tests:** `pokerDebitRollback.integration.test.ts` (6 real-PG tests incl. 2 concurrency cases). Older fixtures
+  now bind their finished state while FUNDED (as a real START does) and use the production all-status teardown
+  resolver. Suite lock: **20** poker DB files.
+- **Gates:** real Docker PostgreSQL — **38 poker suites / 347 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**297 files / 3120 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

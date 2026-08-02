@@ -1157,3 +1157,36 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   incl. `nothing_to_refund` where an escrow was expected; the five terminal-proof refusals plus the healthy
   fresh-START and single-rematch cases; a START launched inside the scan window whose live match is never refunded; and
   a START waiting behind an in-flight scan with no deadlock and exactly one debit.
+
+### Reversible debit transition + complete scan protection + terminal no-state integrity (Stage 37.7.20)
+
+- **CORRECTIONS to 37.7.19.** (a) `debitFreshStart`/`debitRematch` cleared the previous TERMINAL escrow before
+  `performDebit`, which then unconditionally cleared its own marker on rollback — RED: a rematch refused for
+  insufficient chips left `pokerEscrow === undefined` beside the finished state + binding (an escrowless claim), turning
+  an ordinary refusal into a recovery-freezable state. (b) The barrier only fail-closed protected `pending`/`settling`
+  escrows, re-read from the array captured BEFORE the barrier — RED: a match whose debit had committed but whose
+  `startGame`/`bindGameToEscrow` had not run (escrow `funded`, NO game state) classified as `not_bankroll` and was
+  refunded by the global scan; a room created after the coordinator's snapshot was invisible entirely. (c) The terminal
+  proof only checked a state that was PRESENT, bootstrap returned `not_bankroll` for `settled` + no state, and
+  `deleteRoomWithSettlement`'s synchronous fast path purged a terminal room without any evidence — RED: a paid table
+  whose final state was lost could be reused by a fresh START and deleted without proof.
+- **Reversible debit (FAIL 1 fix).** `performDebit` takes a DEEP snapshot of the previous escrow, replaces it, and
+  restores it verbatim on every non-commit path; the callers no longer pre-clear. An initial START rolls back to a clean
+  lobby, a post-refund START restores the exact cancelled escrow, and a crash snapshot with a `pending` M1 is unchanged.
+- **Complete scan protection (FAIL 2 fix).** New `currentRooms()` dep on both coordinators; inside the barrier
+  `protectLiveRoomMatches(deps.currentRooms(), …)` protects EVERY `pokerEscrow.matchId` a live room holds (any status)
+  and every corrupt room code, then the scan runs. The global scan therefore owns only genuinely roomless durable
+  orphans and escrowless claims; funded/unbound/failed-start matches belong to their per-room lifecycle. Lock order is
+  unchanged (`withRoomLock` → `withEconomyBarrier`; the scan takes no room lock while holding the barrier).
+- **Terminal no-state integrity (FAIL 3 fix).** `proveTerminalBeforeReuse` now requires a FINISHED BOUND state for a
+  `settled` escrow, and `debitFreshStart` refuses a `settled` escrow outright. `classifyBootstrapRecovery` returns
+  `incoherent_paid` for `settled` + no state (frozen by the (e4) stateless pass, which also covers corrupt evidence).
+  `deleteRoomWithSettlement` replaced its `hasUnsettledEscrow`-based fast path with a full economy-claim test and
+  injects `resolveEscrowEvidence`; `settleRoomForDeletion` freezes-and-keeps any terminal claim the DB does not
+  confirm (and any paid escrow with no finished state), purging only on exact proof.
+- **Regression suite:** `src/net/pokerDebitRollback.integration.test.ts` (real PostgreSQL, 6 tests): a refused rematch
+  leaving the paid finished table byte-identical and a retry then minting exactly one match; transient rollback for a
+  post-refund START and a clean-lobby initial START; a funded-but-unbound match protected from the scan and completing
+  its start; a room joining the registry after the snapshot still protected while a roomless orphan is refunded once;
+  the paid-no-state room frozen with START/rematch/purge all refused; and the terminal-claim teardown matrix
+  (unconfirmed → keep+freeze, opposite payout → keep+freeze, exact refund → purge + one fresh match, idempotent).

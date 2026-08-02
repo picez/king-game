@@ -77,7 +77,15 @@ export function claimsEconomyMatch(room: ServerRoom): boolean {
 export function classifyBootstrapRecovery(
   room: ServerRoom, isFinished: (s: PokerState) => boolean, reconcile: EscrowReconcileResult = 'noop',
 ): BootstrapRecovery {
-  if (!isBankrollRoomShape(room) || !room.gameState) return 'not_bankroll';
+  if (!isBankrollRoomShape(room)) return 'not_bankroll';
+  // (37.7.20 FAIL 3) A PAID escrow with NO state at all is the INCOHERENT PAID shape of 37.7.11 —
+  // the money is out and the authoritative final state is gone. It used to fall through as
+  // `not_bankroll` (so nothing froze it) and a later START could reuse the table.
+  if (!room.gameState) {
+    if (room.pokerFrozen) return 'frozen';
+    if (room.pokerEscrow?.status === 'settled' && !isCorruptEvidence(reconcile) && reconcile !== 'retry_pending') return 'incoherent_paid';
+    return 'not_bankroll';
+  }
   if (room.pokerFrozen) return 'frozen';
   // (37.7.13 FAIL 2) The durable outcome decides EVERYTHING below, so an unproven one is handled
   // first. A PARTIAL debit can be settled neither way (a refund would short a debited seat, a payout
@@ -290,6 +298,28 @@ export async function recoverRestoredBankrollRoom(
   return applyBootstrapRecovery(room, recovery, deps);
 }
 
+/**
+ * (37.7.20 FAIL 2) Protect EVERY match a LIVE in-memory room currently claims, read from the CURRENT
+ * registry INSIDE the economy barrier.
+ *
+ * Stage 37.7.19 only fail-closed protected `pending`/`settling` escrows, and only re-read the array
+ * captured BEFORE the barrier. Two windows stayed open: (a) the debit had committed and the escrow
+ * was already `funded` while `startGame`/`bindGameToEscrow` had not run yet — classification says
+ * `not_bankroll` (no game state) and the pending guard no longer matched, so the global scan could
+ * refund a match a room was about to go live on; (b) a room created after the snapshot was invisible
+ * altogether. The global scan now owns ONLY genuinely roomless durable orphans (and escrowless
+ * claims): every funded / unbound / failed-start match is settled by its own per-room lifecycle
+ * (`settlementPending` sweep, `resolveUnboundEscrowGame`, teardown/bootstrap apply).
+ */
+function protectLiveRoomMatches(rooms: ServerRoom[], into: Set<string>, codes: Set<string>): void {
+  for (const r of rooms) {
+    if (!isBankrollRoomShape(r)) continue;
+    if (r.pokerEscrowCorrupt) codes.add(r.code);
+    const matchId = r.pokerEscrow?.matchId;
+    if (typeof matchId === 'string' && matchId) into.add(matchId);
+  }
+}
+
 /** Injected side effects for the WHOLE startup economy pipeline (37.7.13). */
 export interface BootstrapEconomyDeps extends BootstrapRecoveryDeps {
   /** True for an online poker room with a server-derived buy-in (economy enabled). */
@@ -305,6 +335,8 @@ export interface BootstrapEconomyDeps extends BootstrapRecoveryDeps {
   withRoomLock: <T>(code: string, fn: () => Promise<T>) => Promise<T>;
   /** True while the room is still registered (it may be swept mid-recovery). */
   roomExists: (room: ServerRoom) => boolean;
+  /** (37.7.20 FAIL 2) The LIVE room registry, re-read INSIDE the economy barrier. */
+  currentRooms: () => ServerRoom[];
   /** Operator log sinks (room codes + safe reasons only — never a matchId/userId). */
   log: (message: string) => void;
   logError: (message: string) => void;
@@ -374,10 +406,9 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   try {
     // (37.7.19 FAIL 3) Inside the economy barrier, with protection re-read for any in-flight escrow.
     const scan = await withEconomyBarrier(async () => {
-      for (const r of bankroll) {
-        const e = r.pokerEscrow;
-        if (e?.status === 'pending' || e?.status === 'settling') protectedMatchIds.add(e.matchId);
-      }
+      // (37.7.20 FAIL 2) Re-read the LIVE registry and protect every match any room still claims —
+      // whatever its escrow status. No durable debit can commit while we hold the barrier.
+      protectLiveRoomMatches(deps.currentRooms(), protectedMatchIds, protectedRoomCodes);
       return deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
     });
     orphanRefunded = scan.refunded;
@@ -431,16 +462,23 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   // (e4) A room with NO game state cannot go through the apply pass below, so freeze an unprovable
   // claim (e.g. owed stats with no escrow) here — never leave it silently resolvable.
   for (const r of bankroll) {
-    if (r.gameState || r.pokerFrozen || !isCorruptEvidence(reconciledFor(r))) continue;
+    if (r.gameState || r.pokerFrozen) continue;
+    const rec = reconciledFor(r);
+    const cls = classifyBootstrapRecovery(r, deps.isFinished, rec);
+    // (37.7.20 FAIL 3) A PAID escrow with NO state is the incoherent shape — frozen here too, so a
+    // later START can never reuse the table.
+    const corrupt = isCorruptEvidence(rec);
+    if (!corrupt && cls !== 'incoherent_paid') continue;
     deps.clearTimers(r);
-    deps.freeze(r, 'durable match evidence does not match this table');
-    recoveries.set(r.code, 'corrupt_debit');
+    deps.freeze(r, corrupt ? 'durable match evidence does not match this table' : 'paid match with no finished state');
+    recoveries.set(r.code, corrupt ? 'corrupt_debit' : 'incoherent_paid');
     if (deps.roomExists(r)) deps.persist(r);
   }
 
-  // (f) Apply the recovery decided in (b), serialized per room.
+  // (f) Apply the recovery decided in (b), serialized per room. (37.7.20 FAIL 3) A room with NO game
+  // state is included when its classification is a fail-closed one (e.g. a PAID escrow with no state).
   for (const r of bankroll) {
-    if (!r.gameState) continue;
+    if (!r.gameState) continue; // stateless fail-closed cases were already applied in (e4)
     const recovery = await deps.withRoomLock(r.code, () => recoverRestoredBankrollRoom(r, deps, reconciledFor(r)))
       .catch((err) => {
         // A failure leaves the room UNCLASSIFIED — no advance was armed (the restore loop deferred
@@ -509,6 +547,8 @@ export interface RuntimeRecoveryDeps extends BootstrapRecoveryDeps {
   reconcileOrphanedDebits: BootstrapEconomyDeps['reconcileOrphanedDebits'];
   withRoomLock: <T>(code: string, fn: () => Promise<T>) => Promise<T>;
   roomExists: (room: ServerRoom) => boolean;
+  /** (37.7.20 FAIL 2) The LIVE room registry, re-read INSIDE the economy barrier. */
+  currentRooms: () => ServerRoom[];
   log: (message: string) => void;
   logError: (message: string) => void;
 }
@@ -571,18 +611,9 @@ export async function runRuntimeEconomyRecovery(rooms: ServerRoom[], deps: Runti
   let orphanRetryable: string[] = [];
   try {
     const scan = await withEconomyBarrier(async () => {
-      // Re-read protection INSIDE the barrier: any debit that already marked its escrow `pending`
-      // is now visible and protected; any that has not yet started cannot commit until we finish.
-      for (const r of bankroll) {
-        const rec = reconciled.get(r.code) ?? 'noop';
-        const id = settlementProtectedMatchId(r, classifyBootstrapRecovery(r, deps.isFinished, rec), rec);
-        if (id) protectedMatchIds.add(id);
-        // Fail-closed for an IN-FLIGHT debit only (`pending`/`settling`): a `funded` escrow is
-        // already decided by classification (an unbound one must stay orphan-refundable).
-        if (r.pokerEscrow?.status === 'pending' || r.pokerEscrow?.status === 'settling') {
-          protectedMatchIds.add(r.pokerEscrow.matchId);
-        }
-      }
+      // (37.7.20 FAIL 2) Re-read the LIVE registry INSIDE the barrier and protect every match any
+      // room still claims, whatever its escrow status. No durable debit can commit meanwhile.
+      protectLiveRoomMatches(deps.currentRooms(), protectedMatchIds, protectedRoomCodes);
       return deps.reconcileOrphanedDebits(protectedMatchIds, protectedRoomCodes);
     });
     orphanRefunded = scan.refunded;

@@ -158,6 +158,25 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
   const state = room.gameState as PokerState | null;
   const finished = !!state && deps.isFinished(state);
 
+  // (37.7.20 FAIL 3) A TERMINAL escrow claim the DB does not confirm (no settlement row, the OPPOSITE
+  // outcome, or broken/missing evidence) is frozen and KEPT — never purged. A confirmed refund with
+  // no state left is genuinely resolved and may be purged below.
+  if (isBankrollRoomShape(room) && (room.pokerEscrow?.status === 'settled' || room.pokerEscrow?.status === 'cancelled')) {
+    if (reconcile === 'retry_pending') { deps.persist(room); return 'keep'; }
+    const claimed = room.pokerEscrow.status === 'settled' ? 'settled' : 'cancelled';
+    if (reconcile !== claimed) {
+      deps.freeze(room, 'durable match evidence does not match this table');
+      deps.persist(room);
+      return 'keep';
+    }
+    // A PAID escrow with NO finished state is the incoherent shape (37.7.11) → frozen, never purged.
+    if (claimed === 'settled' && !finished) {
+      deps.freeze(room, 'paid match with no finished state');
+      deps.persist(room);
+      return 'keep';
+    }
+  }
+
   // (37.7.13 FAIL 2) A PARTIAL durable debit can be settled neither way → freeze, never purge.
   if (isCorruptEvidence(reconcile)) {
     deps.freeze(room, 'durable match evidence does not match this table');

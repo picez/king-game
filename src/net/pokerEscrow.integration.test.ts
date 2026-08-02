@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import type { ServerRoom, ServerMember } from './serverCore';
 import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
+import { bindGameToEscrow } from '../../server/pokerBinding';
 
 // FAIL 4 (37.7.8): the fault-injection seams are GLOBAL module state — always reset after each
 // test so a failure before a manual reset can never cascade into later suites.
@@ -176,6 +177,10 @@ describe.skipIf(!TEST_DATABASE_URL)('poker bankroll hardening (Stage 37.7.1, int
   it('rematch mints a NEW matchId and debits a fresh buy-in exactly once', async () => {
     const { wallet, escrow, conn, A, B, r } = await twoFunded('Rematch');
     const firstMatch = r.pokerEscrow!.matchId;
+    // (37.7.20) Production binds the state to the FUNDED escrow at START; the binding survives the
+    // payout, and a PAID escrow is only reusable with that finished bound state.
+    r.gameState = payState([10000, 0]) as unknown as typeof r.gameState;
+    bindGameToEscrow(r);
     await escrow.payoutStacks(r, payState([10000, 0]));
     expect(r.pokerEscrow?.status).toBe('settled');
     // A stale (settled) escrow can NOT be reused by the initial-start path.
@@ -286,6 +291,8 @@ describe.skipIf(!TEST_DATABASE_URL)('poker crash durability (Stage 37.7.2, integ
     const { wallet, escrow, conn, A, B } = await ctx('CrashRe');
     const r = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
     await escrow.debitBuyIns(r);
+    r.gameState = payState([10000, 0]) as unknown as typeof r.gameState;
+    bindGameToEscrow(r); // (37.7.20) bound while FUNDED, exactly as a real START does
     await escrow.payoutStacks(r, payState([10000, 0])); // A wins
     const rematch = await escrow.debitRematch(r); // fresh paid match
     expect(rematch.ok).toBe(true);
@@ -499,16 +506,26 @@ describe.skipIf(!TEST_DATABASE_URL)('fresh paid start after terminal escrow (Sta
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
   });
 
-  it('a recovered SETTLED escrow → a fresh start succeeds (new match)', async () => {
+  it('(37.7.20) a SETTLED escrow is NEVER reusable by a fresh start — it is a paid conflict', async () => {
     const { wallet, escrow, conn, A, B, r } = await two('SettledRetry');
     await escrow.debitBuyIns(r);
     const m1 = r.pokerEscrow!.matchId;
     await escrow.payoutStacks(r, payState([10000, 0])); // settled
     expect(r.pokerEscrow?.status).toBe('settled');
-    expect(await escrow.debitFreshStart(r)).toEqual({ ok: true });
-    expect(r.pokerEscrow!.matchId).not.toBe(m1);
-    expect(r.pokerEscrow!.status).toBe('funded');
-    await conn!.sql`DELETE FROM poker_matches WHERE match_id IN (${m1}, ${r.pokerEscrow!.matchId})`;
+    // (37.7.20 FAIL 3) A PAID escrow belongs to the paid-finish lifecycle, never to a clean lobby —
+    // reusing it would replace the only evidence of a match whose chips are already out.
+    expect(await escrow.debitFreshStart(r)).toMatchObject({ ok: false, paidConflict: true });
+    expect(r.pokerEscrow!.matchId).toBe(m1);                 // the paid escrow is KEPT
+    expect(r.pokerEscrow!.status).toBe('settled');
+    // A CONFIRMED refund, by contrast, does free the table for exactly one new match.
+    const r2 = room([member({ clientId: 'a', seatIndex: 0, userId: A }), member({ clientId: 'b', seatIndex: 1, userId: B })], 5000);
+    await escrow.debitBuyIns(r2);
+    const c1 = r2.pokerEscrow!.matchId;
+    expect(await escrow.refundBuyInsResult(r2)).toBe('confirmed_refund');
+    expect(await escrow.debitFreshStart(r2)).toEqual({ ok: true });
+    expect(r2.pokerEscrow!.matchId).not.toBe(c1);
+    expect(await escrow.refundBuyInsResult(r2)).toBe('confirmed_refund');
+    await conn!.sql`DELETE FROM poker_matches WHERE match_id IN (${m1}, ${c1}, ${r2.pokerEscrow!.matchId})`;
     await conn!.sql`DELETE FROM users WHERE id IN (${A}, ${B})`;
   });
 

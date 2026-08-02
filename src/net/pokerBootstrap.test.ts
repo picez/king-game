@@ -94,7 +94,10 @@ describe('FAIL 1 — classifyBootstrapRecovery', () => {
   });
   it('frozen room → frozen; non-bankroll / no game → not_bankroll', () => {
     expect(classifyBootstrapRecovery(room(esc('settled'), FINISHED, { pokerFrozen: true }), isFin)).toBe('frozen');
-    expect(classifyBootstrapRecovery(room(esc('settled'), null), isFin)).toBe('not_bankroll');
+    // (37.7.20 FAIL 3) A PAID escrow with NO state is the INCOHERENT PAID shape, never a reusable
+    // lobby — it used to fall through as `not_bankroll`, so nothing froze it.
+    expect(classifyBootstrapRecovery(room(esc('settled'), null), isFin)).toBe('incoherent_paid');
+    expect(classifyBootstrapRecovery(room(esc('cancelled'), null), isFin)).toBe('not_bankroll');
     expect(classifyBootstrapRecovery(room(esc('settled'), FINISHED, { pokerBuyIn: undefined }), isFin)).toBe('not_bankroll');
   });
 });

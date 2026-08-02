@@ -245,11 +245,21 @@ export function pokerRecoveryBlocked(room: ServerRoom): boolean {
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
 async function performDebit(room: ServerRoom, matchId: string, buyIn: number, seats: PokerEscrowSeat[]): Promise<DebitResult> {
+  // (37.7.20 FAIL 1) The fresh-debit transition is REVERSIBLE. The callers used to clear the previous
+  // TERMINAL escrow before calling in, so a rolled-back debit (insufficient chips, transient DB
+  // error) left the room with NO escrow beside the old finished state + binding — an escrowless
+  // claim that recovery could freeze, turning "someone is short of chips" into a permanent operator
+  // condition. The previous escrow is snapshotted (a DEEP copy, so the stored value can never be
+  // mutated by the in-flight one) and restored verbatim whenever the transaction does not commit.
+  const previous: PokerEscrow | undefined = room.pokerEscrow
+    ? { ...room.pokerEscrow, seats: room.pokerEscrow.seats.map((s) => ({ ...s })) }
+    : undefined;
+  const rollback = (): void => { room.pokerEscrow = previous; };
   // The PENDING marker is set BEFORE the barrier so a scan that rebuilds protection inside the
   // barrier already sees (and protects) this in-flight match (37.7.19 FAIL 3).
   room.pokerEscrow = { matchId, buyIn, status: 'pending', seats };
   const d = await db();
-  if (!d) { room.pokerEscrow = undefined; return { ok: false, error: 'Economy unavailable' }; }
+  if (!d) { rollback(); return { ok: false, error: 'Economy unavailable' }; }
   try {
     await withEconomyBarrier(() => d.transaction(async (tx) => {
       // (FAIL 1) Durable match record FIRST, in the SAME transaction as the debits, so a
@@ -263,8 +273,9 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
     room.pokerEscrow.status = 'funded';
     return { ok: true };
   } catch (err) {
-    // The DB transaction rolled back atomically → nothing was debited; drop the marker.
-    room.pokerEscrow = undefined;
+    // The DB transaction rolled back atomically → nothing was debited. Restore EXACTLY what the room
+    // held before, so a refused rematch leaves the finished paid table untouched and retryable.
+    rollback();
     if (err instanceof InsufficientChipsError) return { ok: false, error: 'Not enough chips for the buy-in' };
     return { ok: false, error: 'Economy error — try again' };
   }
@@ -311,10 +322,12 @@ async function proveTerminalBeforeReuse(room: ServerRoom, expected: 'settled' | 
     return { ok: false, error: 'This table is frozen for review', paidConflict: true };
   }
   if (expected === 'settled') {
-    // A PAID previous match may only be reused once its lifecycle is COMPLETE: no owed stats, and
-    // any carried state must still be BOUND to it (an unbound/incoherent state is never reusable).
+    // A PAID previous match may only be reused once its lifecycle is COMPLETE: no owed stats, and a
+    // FINISHED state still BOUND to it. (37.7.20 FAIL 3) A settled escrow with NO state at all is the
+    // INCOHERENT PAID shape of 37.7.11 — the money is out and the final state is gone — never a
+    // reusable lobby; the old check only looked at a state that was present.
     if (room.pokerStatsPending) return { ok: false, error: 'This table is frozen for review', paidConflict: true };
-    if (room.gameState && !gameBoundToEscrow(room)) return { ok: false, error: 'This table is frozen for review', paidConflict: true };
+    if (!room.gameState || !gameBoundToEscrow(room)) return { ok: false, error: 'This table is frozen for review', paidConflict: true };
   }
   return null;
 }
@@ -334,7 +347,8 @@ export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
   }
   const valid = validateBankrollSeats(room);
   if (!valid.ok) return valid;
-  room.pokerEscrow = undefined;                      // clear the PROVEN-resolved escrow -> mint fresh
+  // (37.7.20 FAIL 1) The PROVEN-resolved escrow is replaced by `performDebit`, which restores it on
+  // rollback — it is never cleared up-front any more.
   const buyIn = room.pokerBuyIn!;
   const matchId = randomUUID();
   return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
@@ -374,16 +388,20 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
     if (res !== 'confirmed_refund') return { ok: false, error: 'Settlement pending — please try again in a moment', settlementPending: true };
     // resolved → escrow is now terminal (cancelled/settled); fall through to mint a fresh match.
   }
-  // esc is undefined (initial) OR terminal (settled/cancelled, incl. the just-resolved orphan) ->
-  // a BRAND-NEW paid match, but ONLY after the terminal claim is re-proved (37.7.19 FAIL 2).
+  // esc is undefined (initial) OR terminal (cancelled, incl. the just-resolved orphan) → a
+  // BRAND-NEW paid match, but ONLY after the terminal claim is re-proved (37.7.19 FAIL 2).
   const terminal = room.pokerEscrow;
   if (terminal) {
-    const blocked = await proveTerminalBeforeReuse(room, terminal.status as 'settled' | 'cancelled');
+    // (37.7.20 FAIL 3) A fresh START never reuses a PAID escrow: a settled match belongs to the
+    // paid-finish / incoherent-paid lifecycle, not to a clean lobby. Only an exact durable
+    // `cancel_refund` frees the table for a new buy-in.
+    if (terminal.status === 'settled') return { ok: false, error: 'This table is frozen for review', paidConflict: true };
+    const blocked = await proveTerminalBeforeReuse(room, 'cancelled');
     if (blocked) return blocked;
   }
   const valid = validateBankrollSeats(room);
   if (!valid.ok) return valid;
-  room.pokerEscrow = undefined;                      // clear ONLY a resolved/absent escrow → mint fresh
+  // (37.7.20 FAIL 1) Replaced by `performDebit` (restored verbatim if the transaction rolls back).
   const buyIn = room.pokerBuyIn!;
   const matchId = randomUUID();
   return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));

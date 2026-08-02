@@ -74,7 +74,7 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
         ...recoveryDeps(),
         isBankrollRoom: escrow.isBankrollRoom, hasUnsettledEscrow: escrow.hasUnsettledEscrow,
         reconcileCorruptRoom: escrow.reconcileCorruptRoom, withRoomLock: escrow.withRoomLock,
-        roomExists: () => true, log: () => {}, logError: () => {},
+        roomExists: () => true, currentRooms: () => restored, log: () => {}, logError: () => {},
         reconcileOrphanedDebits: scan ?? ((ids) => scopedOrphanScan((m) => codes.has(m.roomCode), ids)),
       });
     }
@@ -84,7 +84,7 @@ describe.skipIf(!TEST_DATABASE_URL)('guarded orphan settlement + escrowless reco
       record: (c: string, st: PokerState, su: Map<number, string | null>, mid?: string | null) => pokerStats.recordFinishedPokerGame(c, st, su, mid),
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin,
       settleAndRecord: (rm, st) => settleAndRecordBankrollPokerFinish(rm, st, {
         payoutStacks: escrow.payoutStacks, persist, broadcast: () => {}, clearRematch: () => {}, freeze,
         recordStats: (r2, s2) => recordConfirmedPokerStats(r2, s2, statsDeps()),

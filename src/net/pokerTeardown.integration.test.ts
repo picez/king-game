@@ -59,7 +59,7 @@ describe.skipIf(!TEST_DATABASE_URL)('teardown settles THEN records stats (Stage 
       }),
     });
     const teardown = (r: ServerRoom) => settleRoomForDeletion(r, {
-      reconcileEscrow: escrow.reconcileEscrow, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin, settleAndRecord, refundBuyIns: escrow.refundBuyInsResult, persist: () => {}, freeze, clearTimers: () => {},
+      reconcileEscrow: escrow.resolveEscrowEvidence, hasUnsettledEscrow: escrow.hasUnsettledEscrow, isFinished: isFin, settleAndRecord, refundBuyIns: escrow.refundBuyInsResult, persist: () => {}, freeze, clearTimers: () => {},
     });
     const payoutRows = async () => ((await conn!.sql`SELECT count(*)::int AS n FROM poker_ledger WHERE match_id = ${M} AND reason = 'table_payout'`) as Array<{ n: number }>)[0].n;
     const gameRows = async () => ((await conn!.sql`SELECT count(*)::int AS n FROM games WHERE room_code = ${code}`) as Array<{ n: number }>)[0].n;
