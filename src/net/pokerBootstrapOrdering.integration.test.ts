@@ -370,7 +370,7 @@ describe.skipIf(!TEST_DATABASE_URL)('production bootstrap economy pipeline — s
     expect(second.recoveries.get(code)).toBe('frozen');
     expect(second.protectedMatchIds.has(M)).toBe(true);
     expect(await t.ledger(M, 'table_cancel_refund')).toBe(0);
-    expect(t.frozenLog).toEqual([`${code} — partial durable buy-in record`]);
+    expect(t.frozenLog).toEqual([`${code} — durable match evidence does not match this table`]);
 
     // Restore the deleted seat row so the operator-owned match can be resolved for the suite.
     await t.conn!.sql`DELETE FROM poker_matches WHERE match_id = ${M}`;

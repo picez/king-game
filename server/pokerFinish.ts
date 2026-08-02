@@ -14,7 +14,7 @@
 
 import type { ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
-import type { PayoutResult, EscrowReconcileResult } from './pokerEscrow';
+import { isCorruptEvidence, type PayoutResult, type EscrowReconcileResult } from './pokerEscrow';
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
 import { validateFinishedPaidMatch, isBankrollRoomShape } from './pokerParticipants';
@@ -146,8 +146,8 @@ export async function settleRoomForDeletion(room: ServerRoom, deps: TeardownDeps
   const finished = !!state && deps.isFinished(state);
 
   // (37.7.13 FAIL 2) A PARTIAL durable debit can be settled neither way → freeze, never purge.
-  if (reconcile === 'corrupt_partial') {
-    deps.freeze(room, 'partial durable buy-in record');
+  if (isCorruptEvidence(reconcile)) {
+    deps.freeze(room, 'durable match evidence does not match this table');
     deps.persist(room);
     return 'keep';
   }

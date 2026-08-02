@@ -940,3 +940,50 @@ contested showdown / ~2.5 s for a fold-win, then auto-deals the next hand once. 
   privacy + idempotence checks; plus explicit non-regression for the healthy live / payout_pending / stats_pending /
   unbound flows and for non-poker + LOCAL free poker rooms (never touched). `pokerBootstrap.test.ts` adds a pure
   precedence/guard matrix for `runRoomRecoverySweep`.
+
+### Exact durable ownership + collision-safe corrupt handling + secret-free logs (Stage 37.7.15)
+
+- **CORRECTIONS to 37.7.14.** (a) Corrupt durable records were associated with a restored room by ROOM CODE. Codes are
+  4 chars and `makeRoomCode` only avoids collisions with the LIVE in-memory rooms, while an unresolved corrupt
+  `poker_matches` row survives indefinitely — RED: a stale corrupt record for code `RQ1A` froze a brand-new healthy
+  table that reused it (`recovery = frozen`, `advanced = []`), a permanent false-positive denial of service.
+  (b) Bootstrap only checked that a durable row PARSED, never that it OWNED the escrow — RED: a room whose
+  `poker_matches` row was deleted, and a room whose row described a different match (other buyIn + swapped accounts),
+  were both classified `live`; a `pending` room whose buy-in ledger had the right COUNT but one row moved to another
+  account reconciled to `funded` → `live`. (c) "The operator log carries the room code + a safe reason, never a
+  matchId" was false — RED captured `[Poker] orphaned match corr-… is CORRUPT` and
+  `[Poker] crash-recovery refund for orphaned match 2a1d0137-…`.
+- **Exact ownership contract (FAIL 2 fix).** New `db/pokerWallet.matchDurableEvidence(matchId)` loads the COMPLETE
+  evidence — the parsed `poker_matches` row, EVERY `table_buy_in` ledger row (userId / delta / idempotencyKey /
+  roomCode) and the settlement outcome — replacing `matchLedgerState`'s count-only view for recovery. New PURE
+  `server/pokerDurableOwnership.ts` `validateDurableOwnership(roomCode, escrow, evidence)` returns
+  `settled_payout | settled_refund | exact_funded | proven_uncommitted | missing_durable | corrupt_durable |
+  metadata_mismatch | ledger_partial | ledger_mismatch`. It requires: settlement precedence first; then the row to
+  exist, parse, and match `roomCode` / `buyIn` / canonical `seat:user:amount` set; then EXACTLY one buy-in row per
+  participant with `delta === -amount`, the right roomCode and the canonical `buyInIdempotencyKey(matchId, userId)`
+  (now shared with `performDebit`, so writer and validator cannot drift), and no extra/duplicate rows.
+- **`resolveEscrowEvidence(room)` (pokerEscrow).** The single DB read the RECOVERY path uses. It covers
+  `pending`/`settling` AND **`funded`** — a funded escrow with no matching durable record must not resume either —
+  while `reconcileEscrow` keeps the narrower transient-only scope for teardown (which settles, never resumes).
+  `EscrowReconcileResult` gained `missing_durable | corrupt_durable | metadata_mismatch | ledger_mismatch`
+  (`corrupt_partial` remains the half-charged ledger); `isCorruptEvidence()` groups all five, and
+  `classifyBootstrapRecovery` maps them to the ONE fail-closed `corrupt_debit`. `proven_uncommitted` only drops a
+  **pending** escrow; a FUNDED escrow with no trace of its debit is `missing_durable`, not a rollback. A transient
+  read failure is still `retry_pending`. `server/index.ts` `bootstrapRecoveryDeps` now injects `resolveEscrowEvidence`.
+- **Collision-safe corrupt association (FAIL 1 fix).** `reconcileOrphanedDebits` returns
+  **`corruptRefs: { matchId, roomCode, reasonCode }[]`** (INTERNAL only — never logged, never sent to a client) instead
+  of `corruptRoomCodes`. Pipeline step (e2) freezes a restored room only when `room.pokerEscrow.matchId` is in the
+  corrupt set; `roomCode` is audit context. `pokerEscrowCorrupt` (a malformed persisted room JSON, where the current
+  matchId cannot be proven) keeps its separate roomCode-based fail-closed path.
+- **Secret-free logs (FAIL 3 fix).** All five poker economy log lines were rewritten to `room <code>: <bounded reason>`
+  — no matchId, userId, seats or balances. A regression test spies on the REAL `console.log`/`console.error` across a
+  corrupt-durable scan, a valid orphan refund, an invalid payout validation and a repeated bootstrap, asserting the
+  output contains no match id, no account id and no private field name, while safe room codes/reasons/counts remain.
+- **Regression suites:** `src/net/pokerDurableOwnership.integration.test.ts` (real PostgreSQL) covers the room-code
+  collision (healthy table stays `live`, stale record stays operator-owned and unrefunded), the room's OWN corrupt
+  record (still frozen), the full ownership matrix — missing row; wrong roomCode / buyIn / seat set / seat count;
+  ledger wrong account / wrong delta / wrong room / extra row — each asserting the complete fail-closed contract
+  (frozen, zero refund/payout/stats/settlement, balances unchanged, evidence kept, teardown `keep`, opaque snapshot,
+  idempotent repeat, one log line); the healthy exact-evidence live case; settlement precedence; the explicit unbound
+  generation still refunding exactly once; a transient failure being `retry_pending` then resuming; and the logging
+  audit. `src/net/pokerDurableOwnership.test.ts` adds the pure contract matrix.

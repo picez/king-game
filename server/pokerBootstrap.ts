@@ -16,7 +16,7 @@
 
 import type { ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
-import type { EscrowReconcileResult } from './pokerEscrow';
+import { isCorruptEvidence, type EscrowReconcileResult } from './pokerEscrow';
 import { isBankrollRoomShape } from './pokerParticipants';
 import { escrowGameBinding, clearGameBinding, resolveUnboundEscrowGame } from './pokerBinding';
 
@@ -73,7 +73,10 @@ export function classifyBootstrapRecovery(
   // first. A PARTIAL debit can be settled neither way (a refund would short a debited seat, a payout
   // would mint chips) → permanent operator state. A TRANSIENT read failure proves nothing at all →
   // hold the room inert, unchanged, for the next reconciliation. Neither is ever a cancellation.
-  if (reconcile === 'corrupt_partial') return 'corrupt_debit';
+  // (37.7.15 FAIL 2) EVERY permanent structural failure of the exact durable ownership proof —
+  // a missing/unparseable durable row, one that describes another match, or a buy-in ledger that does
+  // not back this escrow — shares the ONE fail-closed classification.
+  if (isCorruptEvidence(reconcile)) return 'corrupt_debit';
   if (reconcile === 'retry_pending') return 'recovery_pending';
   const esc = room.pokerEscrow;
   const finished = isFinished(room.gameState as PokerState);
@@ -182,8 +185,10 @@ export function applyBootstrapRecovery(room: ServerRoom, recovery: BootstrapReco
       // (37.7.13 FAIL 2) Only SOME seats have a durable buy-in. A refund would leave a debited seat
       // short and a payout would mint chips, so NEITHER is safe: freeze permanently for operator
       // review with the state + escrow intact (idempotent across repeated boots).
+      // (37.7.15 FAIL 2) Also reached for a missing / unparseable / mismatched durable record and for
+      // a buy-in ledger that does not back this escrow — one fail-closed operator state for all.
       deps.clearTimers(room);
-      deps.freeze(room, 'partial durable buy-in record');
+      deps.freeze(room, 'durable match evidence does not match this table');
       deps.persist(room);
       break;
     case 'unknown_binding':
@@ -265,7 +270,7 @@ export interface BootstrapEconomyDeps extends BootstrapRecoveryDeps {
   hasUnsettledEscrow: (room: ServerRoom) => boolean;
   /** DB-authoritative orphan scan: refunds every committed match NOT in the protected set, and
    *  reports the room codes owning a MALFORMED durable record (37.7.14 FAIL 3). */
-  reconcileOrphanedDebits: (protectedMatchIds: Set<string>) => Promise<{ refunded: string[]; corrupt: string[]; corruptRoomCodes?: string[] }>;
+  reconcileOrphanedDebits: (protectedMatchIds: Set<string>) => Promise<{ refunded: string[]; corrupt: string[]; corruptRefs?: ReadonlyArray<{ matchId: string; roomCode: string; reasonCode: string }> }>;
   /** Resolve a room whose PERSISTED escrow was malformed; false → freeze for operator review. */
   reconcileCorruptRoom: (room: ServerRoom) => Promise<boolean>;
   /** The per-room lifecycle mutex. */
@@ -328,11 +333,11 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
 
   // (d) DB-authoritative orphan scan — ONLY now, and only for unprotected matches.
   let orphanRefunded: string[] = [];
-  let corruptRoomCodes: string[] = [];
+  let corruptMatchIds = new Set<string>();
   try {
     const scan = await deps.reconcileOrphanedDebits(protectedMatchIds);
     orphanRefunded = scan.refunded;
-    corruptRoomCodes = scan.corruptRoomCodes ?? [];
+    corruptMatchIds = new Set((scan.corruptRefs ?? []).map((c) => c.matchId));
     if (scan.refunded.length) deps.log(`crash recovery: refunded ${scan.refunded.length} orphaned poker match(es)`);
   } catch (err) {
     deps.logError(`orphaned-debit reconciliation failed: ${String((err as Error)?.message ?? err).slice(0, 200)}`);
@@ -352,9 +357,17 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   // `live`: it is never advanced, refunded, paid, recorded or purged, and everything is kept for the
   // operator. Freezing here makes the (f) pass a no-op for it (classification short-circuits to
   // `frozen`), and the freeze is logged exactly once so repeated boots do not spam.
-  const corruptRooms = new Set(corruptRoomCodes);
+  //
+  // (37.7.15 FAIL 1) The association is by **matchId**, never by room code. A room code is 4 chars
+  // and `makeRoomCode` only avoids collisions with the LIVE in-memory rooms, while an unresolved
+  // corrupt `poker_matches` row survives indefinitely — so matching on the code permanently froze a
+  // brand-new healthy table that reused a dead room's code. `roomCode` stays audit context only.
+  const corruptRooms: string[] = [];
   for (const r of bankroll) {
-    if (!corruptRooms.has(r.code) || r.pokerFrozen) continue;
+    const matchId = r.pokerEscrow?.matchId;
+    if (!matchId || !corruptMatchIds.has(matchId)) continue;
+    corruptRooms.push(r.code);
+    if (r.pokerFrozen) continue;
     deps.clearTimers(r);
     deps.freeze(r, 'corrupt durable match record');
     recoveries.set(r.code, 'frozen');
@@ -377,7 +390,7 @@ export async function runBootstrapEconomyRecovery(restored: ServerRoom[], deps: 
   }
   return {
     recoveries, reconciled, protectedMatchIds, orphanRefunded,
-    corruptDurableRooms: bankroll.filter((r) => corruptRooms.has(r.code)).map((r) => r.code),
+    corruptDurableRooms: corruptRooms,
   };
 }
 
@@ -418,7 +431,7 @@ export async function runRoomRecoverySweep(room: ServerRoom, deps: BootstrapReco
   if (!room.gameState) {
     // No state to classify. A PARTIAL debit still can't be settled either way → freeze; anything else
     // just carries its now-proven escrow status into the normal funded/settled/cancelled handling.
-    if (reconciled === 'corrupt_partial') { deps.clearTimers(room); deps.freeze(room, 'partial durable buy-in record'); }
+    if (isCorruptEvidence(reconciled)) { deps.clearTimers(room); deps.freeze(room, 'durable match evidence does not match this table'); }
     deps.persist(room);
     return { reconciled, recovery: null, changed: proven };
   }

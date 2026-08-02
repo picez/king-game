@@ -450,3 +450,33 @@ Use this file as the first read after archiving this chat. It is intentionally s
   at 285, before the 6 pure `runRoomRecoverySweep` guard tests were added; re-confirmed green at 291);
   `npm run verify` twice stably (**290 files / 3064 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
   clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.
+- **CORRECTED by 37.7.15:** corrupt-durable association was roomCode-only (froze healthy rooms that reused a 4-char
+  code); bootstrap checked only that a durable row PARSED, not that it OWNED the escrow; and "operator log never
+  contains a matchId" was false for five economy log lines.
+
+### Stage 37.7.15 — exact durable ownership + collision-safe corrupt handling + secret-free logs (COMPLETE, Unreleased)
+- Worked from HEAD `5bcbde6`/`ec1f539`. No new migration, no version bump, other 6 games untouched. All 3 FAILs
+  reproduced RED first against the production pipeline.
+- **RED.** (1) stale corrupt record for code `RQ1A` + a brand-new healthy table reusing it → `recovery = frozen`,
+  `advanced = []` (permanent false-positive DoS). (2) deleted `poker_matches` row → `live`; row with another buyIn +
+  swapped accounts → `live`; `pending` room whose buy-in ledger COUNT was right but one row moved to another account →
+  `reconciled = funded` → `live`. (3) captured `[Poker] orphaned match corr-… is CORRUPT` and
+  `[Poker] crash-recovery refund for orphaned match 2a1d0137-…`.
+- **FIX 2 (ownership).** New `matchDurableEvidence(matchId)` (parsed durable row + EVERY `table_buy_in` row with
+  userId/delta/idempotencyKey/roomCode + settlement) and PURE `server/pokerDurableOwnership.ts`
+  `validateDurableOwnership` → `settled_payout|settled_refund|exact_funded|proven_uncommitted|missing_durable|
+  corrupt_durable|metadata_mismatch|ledger_partial|ledger_mismatch`. Requires the row to exist/parse/match
+  roomCode+buyIn+canonical seats AND exactly one correct buy-in row per participant (delta, roomCode, shared
+  `buyInIdempotencyKey`, no extras). New `resolveEscrowEvidence(room)` covers pending/settling **and funded** and is
+  injected by `bootstrapRecoveryDeps`; `reconcileEscrow` keeps the transient-only scope for teardown.
+  `EscrowReconcileResult` +4 values, `isCorruptEvidence()` → the ONE `corrupt_debit` classification. `proven_uncommitted`
+  drops only a PENDING escrow; a funded one with no trace is `missing_durable`.
+- **FIX 1 (collision).** `reconcileOrphanedDebits` → `corruptRefs: {matchId, roomCode, reasonCode}[]` (internal only);
+  step (e2) freezes by **matchId**, roomCode is audit context. `pokerEscrowCorrupt` keeps its roomCode path.
+- **FIX 3 (logs).** All five poker economy logs → `room <code>: <bounded reason>`; regression test spies on the REAL
+  console across scan/refund/invalid-payout/repeat-bootstrap.
+- **New tests:** `pokerDurableOwnership.integration.test.ts` (10 real-PG cases incl. the full 12-point matrix) and
+  `pokerDurableOwnership.test.ts` (7 pure contract cases). Suite lock now covers **15** poker DB files.
+- **Gates:** real Docker PostgreSQL — **32 poker suites / 308 tests, 0 skipped, 6/6 clean consecutive runs**;
+  `npm run verify` twice stably (**292 files / 3081 tests**, 0 worker crashes) + build + E2E PASS; `git diff --check`
+  clean; libc 0; no package/lock drift; migration stays **0012**; v0.4.8; games 7; achievements 52.

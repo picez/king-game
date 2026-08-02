@@ -183,6 +183,21 @@ also reported at `GET /health/diagnostics` (`version` field).
     **damaged** could still be resumed as a normal game; it is now frozen for review before anything
     else happens — never advanced, never paid, refunded, recorded or deleted, with everything kept
     intact for the operator and only an opaque "paused" status shown to players.
+  - **A table's buy-in record is now checked against the table itself (Stage 37.7.15):** three more
+    real defects fixed, two of them **corrections to the previous entry**. (1) The new "damaged
+    record" check matched records to tables by **table code**. Codes are four characters and are
+    reused once a table is gone, while a damaged record can sit in the database indefinitely — so a
+    brand-new, perfectly healthy table could be frozen forever because it happened to reuse an old
+    table's code. Records are now matched to the exact match they belong to, and the code is only
+    kept as context. (2) The check only asked whether the record could be *read*. It never proved
+    the record — and the individual chip charges behind it — actually belong to that table, so a
+    table whose record was **missing**, described a **different** match, or whose charges had the
+    right count but the **wrong accounts, amounts or table** could still be resumed as a normal game.
+    A table now only resumes after its record and every individual buy-in charge match it exactly;
+    anything else is frozen for review with nothing paid, refunded, recorded or deleted (a temporary
+    database problem is still just a retry, not corruption). (3) The claim that operator logs never
+    contain internal match identifiers was not true — several economy log lines printed them. All
+    poker economy logs now carry only the table code, a short reason and counts.
 - **Poker — No-Limit Texas Hold'em, the 7th game (Stage 37.4).** A full platform release
   (`status: available`): **local pass-and-play** (with a per-hand handover screen so hole
   cards stay private) + **server-authoritative online** rooms, **2–6 players**, 1000-chip

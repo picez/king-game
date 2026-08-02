@@ -389,7 +389,31 @@ table**. Hosting requires the chip economy (Postgres), a whitelisted stakes pres
   classified or applied as `live`: no advance, no timer, no actions, no rematch, no refund, no
   payout, no stats and no purge; state, binding, escrow and the durable evidence are all kept.
   Players see only the opaque `frozen` status; the operator log carries the room code and a
-  safe reason (never a matchId, userId, seats or balances) and is written exactly once.
+  safe reason and is written exactly once.
+  **Corrections (Stage 37.7.15):** as shipped, that association was by ROOM CODE, so a stale
+  corrupt record could freeze a healthy table that reused a dead room's 4-char code; and the
+  "never a matchId" logging claim did not match the actual `console` output.
+- **EXACT durable ownership before a table may resume** (Stage 37.7.15). A restored bankroll
+  room becomes `live` / `payout_pending` / `paid_finish` only once the durable evidence PROVES
+  it owns its escrow: the `poker_matches` row exists for `escrow.matchId`, passes the strict
+  parse, and its `roomCode` / `buyIn` / canonical `seat→user→amount` set equal the escrow's;
+  and the buy-in ledger holds **exactly one** `table_buy_in` row per participant with the right
+  `delta`, `matchId`, `roomCode` and idempotency key, and no extra rows. A row COUNT is never
+  proof — swapping one seat's debit for another account's kept the count intact. Outcomes are
+  explicit: `exact_funded`, `proven_uncommitted`, `settled_payout`, `settled_refund`,
+  `missing_durable`, `corrupt_durable`, `metadata_mismatch`, `ledger_partial`,
+  `ledger_mismatch`, `retry_pending`. Every permanent structural failure shares ONE fail-closed
+  classification (frozen: no advance/timer/action/rematch, no refund/payout/stats/purge, state +
+  binding + escrow + durable evidence all kept, idempotent across boots, public status `frozen`).
+  A transient DB failure is `retry_pending` — never corruption.
+- **Corruption is associated by matchId** (Stage 37.7.15). A corrupt durable record freezes a
+  restored room only when its `matchId` equals `room.pokerEscrow.matchId`; the record's
+  `roomCode` is audit context only. (`pokerEscrowCorrupt` — a malformed persisted room JSON,
+  where the current matchId cannot be proven at all — keeps its separate roomCode-based
+  fail-closed refund/freeze path.)
+- **Secret-free economy logs** (Stage 37.7.15). No poker economy/recovery log line may contain a
+  raw matchId, a userId, escrow seats, balances, cards or private state. Room codes, bounded
+  reason text and counts are allowed; internal reports keep the ids for orchestration only.
 - **A payable finished state must be provably final** (Stage 37.7.12). On top of the
   participant check, every economy finish path requires: `phase === 'game_finished'`,
   `stacksBySeat.length` **exactly** equal to `playerCount`, every seat explicitly `human`

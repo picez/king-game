@@ -51,7 +51,7 @@ import { RoomSocialStore } from './roomSocial';
 import { finishSignature } from './finishSignature';
 import { handleClientMessage, type WsContext, type SessionRef } from './wsHandlers';
 import { getGameDefinition } from '../src/games/registry';
-import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved } from './pokerEscrow';
+import { isBankrollRoom, payoutStacks, refundBuyIns, hasUnsettledEscrow, debitRematch, withRoomLock, clearRoomLock, reconcileEscrow, resolveEscrowEvidence, reconcileOrphanedDebits, reconcileCorruptRoom, bankrollEconomyUnavailable, pokerRecoveryBlocked, settlementPending, payoutPending, statsPending, unboundEscrowGame, escrowUnresolved } from './pokerEscrow';
 import { resolveUnboundEscrowGame } from './pokerBinding';
 import { runBankrollRematch, handleRematchRequest } from './pokerRematch';
 import { settleAndRecordBankrollPokerFinish, recordConfirmedPokerStats, settleRoomForDeletion } from './pokerFinish';
@@ -487,7 +487,10 @@ function statsRecorderDeps(): import('./pokerFinish').ConfirmedStatsDeps {
 /** The shared deps for the per-room bootstrap recovery orchestration (37.7.10/37.7.11). */
 function bootstrapRecoveryDeps(): import('./pokerBootstrap').BootstrapRecoveryDeps {
   return {
-    reconcileEscrow,
+    // (37.7.15 FAIL 2) The RECOVERY path proves EXACT durable ownership — it covers a `funded` escrow
+    // too, so a room whose durable record is missing/mismatched can never be resumed as `live`.
+    // (Teardown keeps the narrower `reconcileEscrow`: it settles, it never resumes.)
+    reconcileEscrow: resolveEscrowEvidence,
     isFinished: (state) => getGameDefinition('poker')?.isFinished(state) === true,
     rescheduleAdvance,
     persist: (room) => { if (rooms.has(room.code)) persistRoom(room); },

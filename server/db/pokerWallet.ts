@@ -237,6 +237,57 @@ export async function listUnsettledMatches(): Promise<{ valid: DurableMatch[]; c
   return { valid, corrupt };
 }
 
+/** The canonical idempotency key of ONE seat's buy-in debit (the shared contract between the debit
+ *  writer and the recovery validator — 37.7.15, so the two can never drift). */
+export function buyInIdempotencyKey(matchId: string, userId: string): string {
+  return `buyin:${matchId}:${userId}`;
+}
+
+/** One durable `table_buy_in` ledger row (37.7.15 — the EXACT evidence, not just a count). */
+export interface DurableBuyInRow { userId: string; delta: number; idempotencyKey: string; roomCode: string | null; }
+
+/**
+ * (37.7.15 FAIL 2) The COMPLETE durable evidence for one economy match: its `poker_matches` row
+ * (strictly parsed), EVERY `table_buy_in` ledger row, and the settlement outcome. `matchLedgerState`
+ * returned only a COUNT + settlement, which cannot prove that the committed debits belong to the
+ * expected accounts with the expected amounts/keys — one seat's row could be swapped for another
+ * account's and the count would still match.
+ */
+export interface MatchDurableEvidence {
+  /** A `poker_matches` row exists for this matchId. */
+  matchRowExists: boolean;
+  /** The strictly-parsed row, or null when it is missing OR malformed. */
+  match: DurableMatch | null;
+  /** The row exists but failed `parseDurableMatch`. */
+  matchRowCorrupt: boolean;
+  /** Every `table_buy_in` ledger row recorded against this matchId. */
+  buyIns: DurableBuyInRow[];
+  settlement: MatchOutcome | null;
+}
+
+/** Load the full durable evidence for `matchId` (37.7.15). Throws on a transient DB failure. */
+export async function matchDurableEvidence(matchId: string): Promise<MatchDurableEvidence> {
+  const conn = await getDb();
+  if (!conn) return { matchRowExists: false, match: null, matchRowCorrupt: false, buyIns: [], settlement: null };
+  const db = conn.db as PostgresJsDatabase;
+  const [row] = await db.select({
+    matchId: pokerMatches.matchId, roomCode: pokerMatches.roomCode, buyIn: pokerMatches.buyIn, seats: pokerMatches.seats,
+  }).from(pokerMatches).where(eq(pokerMatches.matchId, matchId)).limit(1);
+  const parsed = row ? parseDurableMatch(row) : null;
+  const buyInRows = await db.select({
+    userId: pokerLedger.userId, delta: pokerLedger.delta, idempotencyKey: pokerLedger.idempotencyKey, roomCode: pokerLedger.roomCode,
+  }).from(pokerLedger)
+    .where(and(eq(pokerLedger.matchId, matchId), eq(pokerLedger.reason, 'table_buy_in' satisfies PokerLedgerReason)));
+  const [s] = await db.select().from(pokerMatchSettlements).where(eq(pokerMatchSettlements.matchId, matchId)).limit(1);
+  return {
+    matchRowExists: !!row,
+    match: parsed,
+    matchRowCorrupt: !!row && !parsed,
+    buyIns: buyInRows.map((b) => ({ userId: b.userId, delta: b.delta, idempotencyKey: b.idempotencyKey, roomCode: b.roomCode })),
+    settlement: (s?.outcome as MatchOutcome) ?? null,
+  };
+}
+
 /** Durable ledger/settlement state for a match — used for crash reconciliation (§16, FAIL 3). */
 export async function matchLedgerState(matchId: string): Promise<{ buyInCount: number; settlement: MatchOutcome | null }> {
   const conn = await getDb();
