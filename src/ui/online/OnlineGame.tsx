@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { GameContext } from '../../hooks/useGame';
 import { useNetworkGame } from '../../hooks/useNetworkGame';
 import type { OnlineIntent, ClientTimer } from '../../hooks/useNetworkGame';
@@ -32,6 +32,7 @@ import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial, { type SocialPanel } from './RoomSocial';
+import PermanentLeaveControl from './PermanentLeaveControl';
 import type { RematchUi } from './RematchControls';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
@@ -144,6 +145,14 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // Active-game "Leave game": return to the menu but stay reconnectable so the
   // start menu still offers Resume (does NOT remove the seat or log out).
   const leaveGameToMenu = () => { net.backToMenu(); onExit(); };
+  // Stage 38.0.5 — PERMANENT leave. The server has already committed the forfeit and the
+  // seat takeover (or closed the room) and the hook has cleared the local session, so the
+  // only thing left for the screen to do is exit. Never called for a refused attempt.
+  useEffect(() => {
+    if (net.permanentLeave.status === 'accepted') onExit();
+    // `onExit` is stable for the lifetime of an online session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [net.permanentLeave.status]);
   // Poker docks its social cluster in flow and owns the single open surface (Stage
   // 38.0.3). Declared unconditionally (hooks) and inert for the other six games.
   const [socialPanel, setSocialPanel] = useState<SocialPanel>('none');
@@ -165,6 +174,15 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // game). Poker passes its compact action-history control there (Stage 38.0.2) so the
   // button lives in the same cluster as chat/emoji/voice/timer instead of a block under
   // the table — exactly one log control per table.
+  // The destructive permanent-leave control (Stage 38.0.5). Offered ONLY on an ACTIVE
+  // online non-Poker game and ONLY to a SEATED player: the lobby leave is free and
+  // reversible, a spectator has no seat to forfeit, and Poker is out of scope (its seats
+  // carry real chips). Rendered inside the RoomSocial control row, so it inherits that
+  // cluster's safe position in every game and never covers the table/hand/melds/actions.
+  const canLeavePermanently = !!net.room?.started && net.room?.gameType !== 'poker' && mySeatIndex != null;
+  const permanentLeaveSlot = canLeavePermanently
+    ? <PermanentLeaveControl state={net.permanentLeave} onConfirm={net.leavePermanently} />
+    : null;
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void, timerSlot?: ReactNode, utilitySlot?: ReactNode) => (
     <>
       {inviteToast}
@@ -176,6 +194,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         voiceButton={<VoiceControl voice={voice} variant="compact" />}
         mySeatIndex={mySeatIndex} seatCount={seatCount} reactionsMirrored={reactionsMirrored}
         timerSlot={timerSlot} utilitySlot={utilitySlot}
+        dangerSlot={permanentLeaveSlot}
       />
     </>
   );
@@ -384,6 +403,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           voiceButton={<VoiceControl voice={voice} variant="compact" />}
           mySeatIndex={mySeatIndex} seatCount={seatCount}
           timerSlot={timerEl}
+          dangerSlot={permanentLeaveSlot}
           variant="docked"
           openPanel={socialPanel}
           onPanelChange={setSocialPanel}
@@ -483,7 +503,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   const isPublic = PUBLIC_STATUSES.has(status);
   const actorId = getActingPlayerId(net.state);
   const showAction = isPublic || actorId === net.myPlayerId;
-  const exitToMenu = () => { net.leave(); onExit(); };
+  // (38.0.5) King's in-game ✕ now behaves exactly like the other five games: it drops the
+  // socket and stays RECONNECTABLE (Resume still offered). It used to send LEAVE_ROOM,
+  // which during an active match deleted the seat and re-numbered everyone else's.
+  const exitToMenu = leaveGameToMenu;
 
   return (
     <>

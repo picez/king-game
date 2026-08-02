@@ -730,3 +730,35 @@ sees "rebuy unavailable" (safe, but the feature does not work).
    finishes and pays the winner every buy-in PLUS every rebuy.
 4. `/health/diagnostics` still reports `db:"enabled"`, games 7, and the authenticated
    wallet endpoints keep working (balance + daily claim untouched).
+
+## Quit an online game for good (Stage 38.0.5)
+
+**Migration 0014 MUST be applied before/with this deploy.** It only ADDS
+`online_matches` + `online_match_participants` (no existing table is altered, no Poker
+object is touched, no row is written), and it is safe to re-run:
+
+```bash
+npm run db:migrate     # applies 0014_online_matches.sql; 0014 becomes the latest
+```
+
+Without it, signed-in players' "Quit for good" is **refused with a retryable message** and
+the table keeps playing normally — safe, but the feature does not work. Play itself is
+never blocked: everything else in the six online games is unaffected.
+
+1. **Two browsers, one signed in.** Start a 3-player online King or Tarneeb table (all
+   humans), play a trick, then on one client press **Quit for good** and confirm.
+2. The other client must see, within a second: **a bot on the exact same seat**, the same
+   teams/dealer/turn order, no re-deal, and no scoreboard reset. If it was the leaver's
+   turn, the bot plays once.
+3. The leaver lands on the menu and the start menu offers **no Resume** for that room. On a
+   second device signed into the same account, that room is gone from "your active rooms".
+4. Press the (now stale) Resume card if one is still visible — it must clear itself rather
+   than fail repeatedly.
+5. Finish the match with the bot in the seat. The **remaining humans' stats increase
+   normally** (the table started human-only, so it still counts) and the player who quit
+   gains **exactly one** loss — never a second one, and never a win.
+6. **Bot table check:** start a table WITH a bot, quit for good, finish it — the remaining
+   players' rating stats must NOT change (a table that started with bots never counts).
+7. **Poker check:** open an online Poker table — there must be **no** "Quit for good"
+   control. Wallet, buy-in, rebuy and payout behave exactly as before.
+8. `/health/diagnostics` still reports `db:"enabled"`, `version` `0.4.8`, games 7.

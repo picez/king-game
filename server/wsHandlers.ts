@@ -75,8 +75,23 @@ export interface WsContext {
   persistRoom(room: ServerRoom): void;
   /** (37.7.19) PERMANENTLY freeze a bankroll table for operator review (logs once, safe reason). */
   freezeRoom?(room: ServerRoom, reason: string): void;
+  /**
+   * (38.0.5) Freeze the ONLINE match identity + starting roster right after a successful
+   * start, and persist it durably. Called for the six non-Poker online games; Poker keeps
+   * its own durable match record (`pokerEscrow.matchId`). Optional so existing tests that
+   * build a minimal context keep working unchanged.
+   */
+  beginOnlineMatch?(room: ServerRoom): void;
   welcome(socket: WebSocket, member: ServerMember, room: ServerRoom, reconnectToken: string): void;
   handleLeave(room: ServerRoom, clientId: string): void;
+  /**
+   * (38.0.5) Detach a connection from a STARTED room WITHOUT removing its member: the
+   * seat is kept and stays reconnectable (same effect as the socket simply closing).
+   * Used by `LEAVE_ROOM` during an active game, which must never renumber seats.
+   * Optional so existing tests with a minimal context keep working (they then fall
+   * back to nothing, which is still non-destructive).
+   */
+  detachSession?(room: ServerRoom, clientId: string): void;
   makeRoomCode(): string;
   logRoomEvent(event: string, code: string, room: ServerRoom | null, errorCode?: string): void;
   logLatestDeal(room: ServerRoom): void;
@@ -457,6 +472,10 @@ export function handleClientMessage(
       }
       const res = startGame(room, { now: Date.now() });
       if (!res.ok) return sendError(socket, res.error!, 'Cannot start game');
+      // (38.0.5) Freeze WHO started this match and WHETHER it started human-only, before
+      // anything can change the membership. A later permanent leave replaces a seat with
+      // an AI; without this snapshot the finish could no longer attribute the result.
+      ctx.beginOnlineMatch?.(room);
       ctx.logLatestDeal(room);
       ctx.broadcastRoom(room);
       ctx.broadcastAndAdvance(room, { turnAdvanced: true }); // game started → first turn deadline
@@ -556,7 +575,18 @@ export function handleClientMessage(
         return sendError(socket, 'ILLEGAL_ACTION', 'Table is starting — try again in a moment');
       }
       lifecycle.beginNav(); // (FAIL 6) an explicit leave cancels any in-flight async CREATE/JOIN
-      if (sessionRef.value) ctx.handleLeave(sessionRef.value.room, sessionRef.value.clientId);
+      const cur = sessionRef.value;
+      if (cur) {
+        // (38.0.5) LEAVE_ROOM is LOBBY-ONLY. Removing a SEATED member from a started match
+        // dropped them with no replacement AND re-numbered every remaining seat
+        // (`removeMember` → `assignSeats`), repointing players at a different `player-<n>`
+        // than the live game state uses. During an active game this therefore behaves as an
+        // ordinary disconnect: the seat is kept and stays RECONNECTABLE. The irreversible
+        // exit has its own message (LEAVE_GAME_PERMANENTLY) with a durable forfeit and a
+        // same-seat AI takeover.
+        if (cur.room.started) ctx.detachSession?.(cur.room, cur.clientId);
+        else ctx.handleLeave(cur.room, cur.clientId);
+      }
       sessionRef.value = null;
       break;
     }

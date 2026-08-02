@@ -22,6 +22,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { ClientMessage, ServerMessage, ErrorCode } from '../src/net/messages';
 import {
@@ -30,9 +31,17 @@ import {
   actingMember, applyTimeoutAction, recomputeOrphan, publicScreenOf, roomTimerInfo,
   beginTurnDeadline, resolveHumanFireAt,
   isRoomFinished, markRematchReady, removeRematchReady, clearRematch, rematchStateOf,
-  allHumansReady, restartGame,
+  allHumansReady, restartGame, freezeOnlineMatch,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
+import {
+  finishSeatUsers, ratedByFrozenCategory, startingHumanSeats,
+  type OnlineMatchMeta,
+} from '../src/net/onlineMatch';
+import { seatOutcomesFor } from '../src/net/onlineMatchOutcome';
+import type { AnyGameState } from '../src/games/anyGame';
+import { runPermanentLeave, type PermanentLeaveDeps } from './permanentLeave';
+import { hashReconnectToken } from './reconnectToken';
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
 import { isDbEnabled, probeDbState } from './db/client';
@@ -385,6 +394,8 @@ function handleRematch(session: SessionRef, decline: boolean): void {
       clearRematch(room);
       const res = restartGame(room, { now: Date.now() });
       if (res.ok) {
+        // (38.0.5) A rematch is a BRAND-NEW match: fresh id, fresh frozen roster/category.
+        beginOnlineMatch(room);
         logLatestDeal(room);
         broadcastRoom(room);
         broadcastAndAdvance(room, { turnAdvanced: true }); // a fresh game → a fresh deadline
@@ -476,6 +487,65 @@ function freezeRoomForOperator(room: ServerRoom, reason: string): void {
   console.error(`[Poker] room ${room.code} FROZEN for operator review — ${reason}`);
 }
 
+// ── Stage 38.0.5: the frozen ONLINE match identity ──────────────────────────
+// Created ONCE per started match (and once more for a rematch, which is a NEW match).
+// It is what lets a permanent leave replace a human with an AI without destroying the
+// finish attribution: the category (human_only | with_bots) and the starting roster are
+// decided HERE and never recomputed. The durable Postgres copy is written best-effort in
+// the background; until it is confirmed, an AUTHENTICATED permanent leave fails closed
+// (retryable) — see server/permanentLeave.ts.
+
+/** Freeze the match metadata for a just-started ONLINE non-Poker room + persist it durably. */
+function beginOnlineMatch(room: ServerRoom): void {
+  const meta = freezeOnlineMatch(room, randomUUID(), Date.now());
+  if (!meta) return;
+  if (!isDbEnabled()) return;    // no durable model → room JSON metadata only
+  void (async () => {
+    try {
+      const { recordOnlineMatchStart } = await import('./db/onlineMatches');
+      const res = await recordOnlineMatchStart(meta);
+      // Only the room's CURRENT match may be flagged durable (a rematch may have
+      // replaced it while this write was in flight).
+      if (res !== 'conflict' && rooms.get(room.code)?.onlineMatch?.matchId === meta.matchId) {
+        meta.durable = true;
+        persistRoom(room);
+      } else if (res === 'conflict') {
+        console.error(`[King] room ${room.code} online match record CONFLICTS with the durable row — permanent leave disabled for this match`);
+      }
+    } catch (err) {
+      // Transient: the permanent-leave path retries this exact write before forfeiting.
+      console.error('[King] online match start not recorded for room', room.code, '→',
+        String((err as Error)?.message ?? err).split('\n')[0].slice(0, 200));
+    }
+  })();
+}
+
+/**
+ * Record the FINAL per-seat outcomes of a finished online match into the canonical
+ * `online_match_participants` model (Stage 38.0.5 B6). Idempotent + fail-safe:
+ *  - a FORFEITED seat is skipped by the repository's `WHERE ... AND forfeited = false`
+ *    gate, so the leaver keeps exactly ONE technical loss and never inherits the
+ *    replacement bot's eventual win;
+ *  - bots (starting or replacement) simply have no account on their row;
+ *  - BOTH categories are recorded (the Stage 38.0.6 tracker counts human_only AND
+ *    with_bots), which is why this is independent of the legacy rating gate below.
+ */
+function recordOnlineMatchOutcome(room: ServerRoom, meta: OnlineMatchMeta, state: AnyGameState): void {
+  if (!isDbEnabled() || meta.durable !== true) return;
+  const outcomes = seatOutcomesFor(meta.gameType, state);
+  if (!outcomes || outcomes.size === 0) return;
+  const matchId = meta.matchId;
+  void (async () => {
+    try {
+      const { recordOnlineMatchFinish } = await import('./db/onlineMatches');
+      await recordOnlineMatchFinish(matchId, outcomes, new Date());
+    } catch (err) {
+      console.error('[King] online match outcome not recorded for room', room.code, '→',
+        String((err as Error)?.message ?? err).split('\n')[0].slice(0, 200));
+    }
+  })();
+}
+
 /** The confirmed-stats recorder deps (37.7.8/37.7.9) — shared by the finish flow AND the sweep. */
 function statsRecorderDeps(): import('./pokerFinish').ConfirmedStatsDeps {
   return {
@@ -536,15 +606,32 @@ function maybeRecordFinished(room: ServerRoom): void {
     return;
   }
 
+  // (38.0.5) The CANONICAL online-match participant outcomes are recorded for BOTH
+  // categories — the rating gate below is a separate, narrower policy.
+  const meta = room.onlineMatch;
+  if (meta) recordOnlineMatchOutcome(room, meta, state);
+
   // Owner rule (2026-07-08): rating/stats count ONLY human-vs-human games — a
   // table with ANY bot, or with fewer than 2 humans, is never recorded (applies
   // to every game type). This blocks farming stats against bots, online or not.
-  const playerMembers = [...room.members.values()].filter((m) => m.role === 'player');
-  const humanPlayers = playerMembers.filter((m) => m.type === 'human').length;
-  const botPlayers = playerMembers.filter((m) => m.type === 'ai').length;
-  if (botPlayers > 0 || humanPlayers < 2) {
-    console.log(`[King] room ${room.code} ${room.gameType} finished — stats skipped (${humanPlayers} human, ${botPlayers} bot)`);
-    return;
+  //
+  // (38.0.5) The question is answered from the FROZEN starting roster, not from live
+  // membership. A permanent leave puts an AI on a human's seat, and the old live check
+  // would then have silently discarded a legitimate `human_only` result for everyone
+  // who stayed. `human_only` stays rated forever; `with_bots` stays unrated forever.
+  if (meta) {
+    if (!ratedByFrozenCategory(meta)) {
+      console.log(`[King] room ${room.code} ${room.gameType} finished — stats skipped (started ${meta.category}, ${startingHumanSeats(meta).length} starting human seat(s))`);
+      return;
+    }
+  } else {
+    const playerMembers = [...room.members.values()].filter((m) => m.role === 'player');
+    const humanPlayers = playerMembers.filter((m) => m.type === 'human').length;
+    const botPlayers = playerMembers.filter((m) => m.type === 'ai').length;
+    if (botPlayers > 0 || humanPlayers < 2) {
+      console.log(`[King] room ${room.code} ${room.gameType} finished — stats skipped (${humanPlayers} human, ${botPlayers} bot)`);
+      return;
+    }
   }
 
   const gt = room.gameType;
@@ -559,10 +646,27 @@ function maybeRecordFinished(room: ServerRoom): void {
   recordedFinish.set(room.code, sig);
 
   // Seat → account for identified humans only (bots and anonymous seats absent).
+  //
+  // (38.0.5) Sourced from the IMMUTABLE starting roster when the room has frozen
+  // metadata, MINUS every forfeited seat: a permanent leaver already owns exactly one
+  // durable technical loss and must never receive a second result (nor be turned into
+  // a winner because the AI that inherited the seat went on to win). A starting human
+  // whose account only resolved after START (a late session / cross-device reclaim)
+  // is filled in from the live member for the SAME seat.
   const seatUsers = new Map<number, string | null>();
-  for (const m of room.members.values()) {
-    if (m.role === 'player' && m.type === 'human' && m.seatIndex != null && m.userId) {
-      seatUsers.set(m.seatIndex, m.userId);
+  if (meta) {
+    const liveUserBySeat = (seat: number): string | null => {
+      for (const m of room.members.values()) {
+        if (m.role === 'player' && m.type === 'human' && m.seatIndex === seat) return m.userId ?? null;
+      }
+      return null;
+    };
+    for (const [seat, uid] of finishSeatUsers(meta, liveUserBySeat)) seatUsers.set(seat, uid);
+  } else {
+    for (const m of room.members.values()) {
+      if (m.role === 'player' && m.type === 'human' && m.seatIndex != null && m.userId) {
+        seatUsers.set(m.seatIndex, m.userId);
+      }
     }
   }
   if (seatUsers.size === 0) return; // no one to attribute stats to → nothing to do
@@ -750,6 +854,24 @@ function handleLeave(room: ServerRoom, clientId: string): void {
   persistRoom(room);
 }
 
+/**
+ * (38.0.5) Detach a connection from a STARTED room WITHOUT removing its member — the
+ * seat is KEPT and stays reconnectable. Mirrors the socket-close cleanup exactly, so an
+ * explicit `LEAVE_ROOM` during an active game behaves like an ordinary disconnect
+ * instead of deleting a seated player and re-numbering every remaining seat.
+ */
+function detachSession(room: ServerRoom, clientId: string): void {
+  sockets.delete(clientId);
+  dispatchVoice(leaveVoice(room.code, clientId));
+  markDisconnected(room, clientId);
+  broadcastRoom(room);
+  if (rooms.has(room.code) && isRoomFinished(room)) broadcastRematch(room);
+  persistRoom(room);
+  // Re-evaluate the timers now that this seat is offline (schedules the AI substitute
+  // when it is their turn). Connection-event variant — the deadline is never re-minted.
+  if (rooms.has(room.code) && room.gameState) broadcastAndAdvance(room);
+}
+
 /** Reschedule server-driven steps for a restored room (public advance or a bot turn). */
 // ── §17 ONLINE between-hands rebuy window (Stage 38.0.3C) ───────────────────
 // The room, not a client, owns this window: an ABSOLUTE deadline minted once per
@@ -855,6 +977,67 @@ async function handlePokerRebuy(
   }).catch(() => { refuse('ECONOMY_UNAVAILABLE', 'The chip economy is unavailable.'); });
 }
 
+// ── Stage 38.0.5: PERMANENT "Leave game" (irreversible active-game forfeit) ──
+// The three exits are deliberately distinct and never share a message:
+//   LEAVE_ROOM              → lobby only, frees the seat, no loss, no bot;
+//   socket close / Back     → reconnectable, the seat waits for the player;
+//   LEAVE_GAME_PERMANENTLY  → THIS: a durable technical loss, an AI on the same seat
+//                             (or a closed room), and an annulled reconnect identity.
+// The whole transition lives in the pure-ish `runPermanentLeave` orchestrator; this
+// function only supplies the real I/O side effects and turns the outcome into a wire
+// reply. Serialized on the room, exactly like every other lifecycle op.
+
+function permanentLeaveDeps(): PermanentLeaveDeps {
+  return {
+    rooms,
+    dbEnabled: isDbEnabled,
+    ensureDurableMatch: async (meta) =>
+      (await import('./db/onlineMatches')).recordOnlineMatchStart(meta),
+    applyForfeit: async (input) =>
+      (await import('./db/onlineMatches')).applyPermanentForfeitTx(input),
+    detachClient: (room, clientId) => {
+      sockets.delete(clientId);
+      dispatchVoice(leaveVoice(room.code, clientId)); // tell the voice peers, drop no audio
+    },
+    closeRoom: (room) => deleteRoomWithSettlement(room.code, room),
+    persist: persistRoom,
+    broadcastRoom,
+    // CONNECTION-EVENT variant on purpose: no `turnAdvanced`, so the CURRENT turn
+    // deadline is neither reset nor extended, and `armRoomTimer` schedules exactly ONE
+    // bot action when the taken-over seat is the one on the clock.
+    advance: (room) => broadcastAndAdvance(room),
+    newIds: () => ({ clientId: randomUUID(), reconnectToken: hashReconnectToken(randomUUID()) }),
+    now: () => Date.now(),
+  };
+}
+
+/**
+ * Handle `LEAVE_GAME_PERMANENTLY`. The payload is EMPTY: the room + clientId come from
+ * this socket's server-side session and the account from the session cookie — nothing
+ * is ever taken from the client. Replies with `PERMANENT_LEAVE_ACCEPTED` only after the
+ * durable forfeit committed AND the seat transition was applied and persisted; any
+ * other outcome leaves the room, the seat, the reconnect token and the client's saved
+ * session completely untouched (the reconnectable Back-to-menu exit still works).
+ */
+async function handlePermanentLeave(
+  ref: SessionRef, socket: WebSocket, accountUserId: () => string | null,
+): Promise<void> {
+  const session = ref.value;
+  const refuse = (): void => sendError(socket, 'PERMANENT_LEAVE_UNAVAILABLE', 'Cannot leave permanently right now.');
+  if (!session) { refuse(); return; }
+  const { code, clientId } = { code: session.room.code, clientId: session.clientId };
+  const result = await withRoomLock(code, () =>
+    runPermanentLeave(code, clientId, accountUserId(), permanentLeaveDeps()),
+  ).catch(() => ({ ok: false, reason: 'retryable' } as const));
+
+  if (!result.ok) { refuse(); return; }
+  // The seat is gone for good: this connection must never be treated as a member again
+  // (a duplicate intent, or this socket's later close handler, must not touch the room).
+  if (ref.value && ref.value.clientId === clientId) ref.value = null;
+  send(socket, { t: 'PERMANENT_LEAVE_ACCEPTED' });
+  console.log(`[King] room ${code} permanent leave accepted (${result.kind})`);
+}
+
 function rescheduleAdvance(room: ServerRoom): void {
   // (37.7.3 FAIL 5) A frozen room (corrupt durable match) or a cancelled match never advances.
   if (room.pokerFrozen || room.pokerMatchCancelled) return;
@@ -946,7 +1129,8 @@ const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyOrigin
 const wsCtx: WsContext = {
   rooms, sockets, social,
   send, sendError, broadcastRoom, broadcastToRoom, broadcastAndAdvance, sendChatHistory,
-  persistRoom, freezeRoom: freezeRoomForOperator, welcome, handleLeave, makeRoomCode, logRoomEvent, logLatestDeal,
+  persistRoom, freezeRoom: freezeRoomForOperator, beginOnlineMatch, welcome, handleLeave, detachSession,
+  makeRoomCode, logRoomEvent, logLatestDeal,
 };
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
@@ -1057,6 +1241,13 @@ wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
     if (msg.t === 'FRIEND_INVITE') { void deliverFriendInvite(socket, resolvedUserId, sessionRef, msg.toUserId); return; }
     // Rematch / Play again (Stage 25.9): restart the same finished game in the same room.
     if (msg.t === 'REMATCH_READY' || msg.t === 'REMATCH_DECLINE') { handleRematch(sessionRef, msg.t === 'REMATCH_DECLINE'); return; }
+    // (38.0.5) The PERMANENT active-game forfeit. Its own message — never LEAVE_ROOM,
+    // never a socket close — with no payload; handled here because it is async (durable
+    // forfeit) and needs the socket + this connection's resolved account id.
+    if (msg.t === 'LEAVE_GAME_PERMANENTLY') {
+      void handlePermanentLeave(sessionRef, socket, () => resolvedUserId);
+      return;
+    }
     // (§17) Rebuy intents carry NO payload and never travel as a generic ACTION_REQUEST.
     if (msg.t === 'POKER_REBUY_REQUEST' || msg.t === 'POKER_REBUY_DECLINE') {
       void handlePokerRebuy(sessionRef, socket, msg.t === 'POKER_REBUY_DECLINE', getAccountUserId);

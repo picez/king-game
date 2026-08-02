@@ -227,6 +227,25 @@ heuristics, applied through the normal authorised reducer (so it is always a
 legal move). The timer resets on every state transition and is cleared when the
 room ends/cleans up. Off by default; local pass-and-play has no timer.
 
+## Leaving an online game (lifecycle, NOT a King rule — Stage 38.0.5)
+
+This is platform behaviour shared by all six online non-Poker games; **it changes no
+King rule, no scoring and no legal move.** Full mechanics: `ONLINE_ARCHITECTURE.md`
+§"Permanent Leave game".
+
+- **Leave lobby** (before the start) frees the seat, adds no bot and records nothing.
+- **Back to menu / ✕** during a game only drops the connection: the seat is KEPT and stays
+  reconnectable, and the server's existing disconnected-substitute rule plays legal moves
+  for it exactly as before.
+- **Quit for good** is irreversible: one durable technical loss is recorded for the leaver,
+  and a **server AI takes over the same seat** — the dealer, the mode/trump for the round,
+  turn order and every score already recorded are untouched, and nothing is re-dealt. If no
+  human is left, the room closes.
+- Whether a finished match counts for stats is decided **when it starts**: a table that
+  began all-human still counts after such a takeover; a table that began with bots still
+  does not. The AI that inherits a seat never earns anything for the departed account, and
+  the leaver never receives a second result for that match.
+
 ## Score Tracker
 
 **One compact table** is shown on round scoring, at game end, and on demand

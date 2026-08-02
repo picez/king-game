@@ -11,6 +11,34 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Quit an online game for good (Stage 38.0.5).** Every active online game except Poker
+  now has a third, deliberately separate exit next to the reversible one. The ✕ / **Back to
+  menu** still only drops your connection — your seat waits and **Resume** still works — and
+  **Leave lobby** before the start still costs nothing. **Quit for good** is the irreversible
+  one, and its confirmation says exactly what will happen before you commit: you cannot come
+  back, a technical loss is recorded for you, a bot takes your seat if anyone stays, and the
+  room closes if nobody does.
+  - **Nothing happens until it is safe.** The loss is written to the database first; only
+    after that does the seat change hands. If the write cannot be completed the request is
+    refused, the table keeps playing, and your seat, your reconnect link and your saved
+    session are all exactly as they were — so you can retry, or just use Back to menu.
+  - **The table is not disturbed.** The bot lands on the *same* seat, so turn order, dealer,
+    teams, contracts, melds and the running turn timer are untouched — no seat is re-numbered
+    and nothing is re-dealt. If it was your turn, the bot plays it once. If you were the host,
+    the badge moves to another *person*, never to a bot.
+  - **The way back is really closed.** Your old reconnect link stops working, the account
+    reclaim from another device stops working, and the room disappears from "your active
+    rooms". A stale **Resume** card now clears itself instead of failing forever.
+  - **Results stay honest.** Whether a match counts for your stats is decided when it
+    *starts*: a table that began human-only still counts after a bot replaced someone, and a
+    table that began with bots still does not. Whoever stays gets their real final result,
+    the player who quit gets exactly one loss and never a second one — not even if the bot
+    that inherited the seat goes on to win — and a teammate is never punished for someone
+    else quitting. Bots never earn anything for the person who left.
+  - **Migration 0014** adds the online-match record behind this (which match, which seats,
+    which outcome). It only adds tables — existing stats and leaderboards are untouched, and
+    the Poker chip economy is not part of this at all.
+
 - **Poker between-hands rebuy — local play (Stage 38.0.3B).** A player whose stack hits 0
   is no longer eliminated on the spot: the match pauses in an explicit rebuy window under
   the hand review, and the busted seat can buy back in for exactly one starting stack.
@@ -41,6 +69,12 @@ also reported at `GET /health/diagnostics` (`version` field).
     everyone else sees a public decision status. [`POKER_RULES.md §17`](POKER_RULES.md)
 
 ### Fixed
+
+- **Leaving an active online game no longer disturbed the other players.** During a live
+  match, "leave" used to delete the seat outright and re-number everyone else's — quietly
+  shifting turn order, dealer and teams mid-game. It is now what it always claimed to be:
+  the lobby-only action in the lobby, and an ordinary reconnectable disconnect during a
+  game. King's in-game ✕ behaves like the other five games again.
 
 - **Fifty-One mobile table (Stage 38.0.4)** — two defects the owner hit on a phone, both
   reproduced as measured rectangles before being fixed.

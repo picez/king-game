@@ -43,6 +43,14 @@ interface Props {
    *  Still game-agnostic: RoomSocial renders whatever node it is handed. */
   utilityPanelSlot?: ReactNode;
   /**
+   * Optional DESTRUCTIVE room action (Stage 38.0.5) — a game-agnostic ReactNode rendered
+   * at the END of the control button row, in BOTH layout variants. The permanent
+   * "Leave game" control lives here so it inherits the cluster's proven safe position
+   * (never over the table, the hand, the melds or a game's action bar) and its 44px
+   * touch-target sizing. RoomSocial knows nothing about what the node does.
+   */
+  dangerSlot?: ReactNode;
+  /**
    * Where the control cluster lives (Stage 38.0.3).
    *  - `floating` (default) — the historical fixed bottom-corner cluster;
    *  - `docked` — the cluster and any open panel render IN NORMAL FLOW wherever the
@@ -86,7 +94,7 @@ interface FloatSticker {
  * and chat are room-social UX only; they are NOT game state. No userId/token is
  * shown — only display name + emoji avatar.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null, utilityPanelSlot = null, variant = 'floating', openPanel, onPanelChange }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null, utilityPanelSlot = null, dangerSlot = null, variant = 'floating', openPanel, onPanelChange }: Props) {
   const { t } = useI18n();
   // Panel selection is CONTROLLED when the caller passes `openPanel` (so a caller-owned
   // utility panel is mutually exclusive with chat/reactions), else local.
@@ -280,6 +288,8 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
               🚪
             </button>
           )}
+          {/* (38.0.5) The destructive permanent-leave control — same row, both variants. */}
+          {dangerSlot}
         </div>
         {/* Docked: the open panel is a normal-flow sibling UNDER the toolbar row. */}
         {docked && utilityPanelSlot}

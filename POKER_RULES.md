@@ -767,3 +767,13 @@ captured at buy-in (the persisted escrow seats: seat → authenticated userId), 
 connected membership — so a valid match is still recorded after its players have left, and a
 malformed/absent participant snapshot is retried, never silently skipped. The finished screen never
 briefly shows "rematch available" between a confirmed payout and its results being finalized.
+
+## Poker is OUT of scope for the permanent "Quit for good" exit (Stage 38.0.5)
+
+The six other online games gained an irreversible active-game forfeit (a durable technical
+loss + an AI takeover of the same seat). **Poker deliberately does not have it**, online or
+local: a Poker seat holds real chips under escrow, so abandoning one mid-hand is an economy
+question (payout / refund / conservation / recovery), not a seat question. The server
+refuses `LEAVE_GAME_PERMANENTLY` for any Poker room and the client renders no control for
+it. Poker's existing exits are unchanged: the lobby leave, the reconnectable Back to menu,
+and the escrow settlement/teardown paths of §16.

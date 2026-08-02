@@ -67,6 +67,14 @@ export interface NetworkGame {
   /** Active-game "Leave game": drop the socket only — stays reconnectable +
    *  the saved session is kept so the menu still offers Resume. */
   backToMenu: () => void;
+  /**
+   * Stage 38.0.5 — PERMANENTLY forfeit an active online non-Poker match. Sends the
+   * intent and WAITS for `PERMANENT_LEAVE_ACCEPTED`; nothing local is dropped before
+   * that ACK, so a refused/failed attempt leaves the session (and Resume) intact.
+   */
+  leavePermanently: () => void;
+  /** The permanent-leave request lifecycle for this client (never another player's). */
+  permanentLeave: PermanentLeaveUi;
   // ── Room social (Stage 7) ──
   /** Recent reaction events (transient; the UI prunes by age). */
   reactions: ReactionEvent[];
@@ -141,6 +149,18 @@ export interface PokerRebuyUi {
 
 export interface RematchProgress { ready: string[]; needed: number; }
 
+/**
+ * Stage 38.0.5 — this client's own permanent-leave request state.
+ *  - `idle`     — nothing requested;
+ *  - `pending`  — the intent is in flight (the button is disabled → double-click safe);
+ *  - `accepted` — the server COMMITTED the forfeit + the seat transition; the local
+ *                 session has been cleared and the transport closed, so the screen may
+ *                 now exit to the menu;
+ *  - `error`    — refused/failed; NOTHING changed and the player may retry or use the
+ *                 ordinary reconnectable Back-to-menu exit.
+ */
+export interface PermanentLeaveUi { status: 'idle' | 'pending' | 'accepted' | 'error' }
+
 /** Is a game state (any of the 6 games) in its terminal/finished screen? */
 function stateIsFinished(s: unknown): boolean {
   if (!s || typeof s !== 'object') return false;
@@ -172,6 +192,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [rematch, setRematch] = useState<RematchProgress | null>(null);
   // §17 — the LAST private rebuy result for THIS client. Never anyone else's balance.
   const [pokerRebuy, setPokerRebuy] = useState<PokerRebuyUi | null>(null);
+  // Stage 38.0.5 — this client's own permanent-leave lifecycle (never anyone else's).
+  const [permanentLeave, setPermanentLeave] = useState<PermanentLeaveUi>({ status: 'idle' });
   const [presenceNonce, setPresenceNonce] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
@@ -296,6 +318,18 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         setPokerRebuy({ status: 'confirmed', balance: msg.balance });
         break;
       }
+      case 'PERMANENT_LEAVE_ACCEPTED': {
+        // The server has COMMITTED the durable forfeit and the seat transition. Only now
+        // may this client drop its identity — the seat is gone, the old reconnect token is
+        // dead, and a saved session would only offer a Resume that can never succeed.
+        leavingRef.current = true;      // suppress the auto-reconnect on this close
+        clearSession();
+        tokenRef.current = null;
+        codeRef.current = null;
+        setPermanentLeave({ status: 'accepted' });
+        transportRef.current?.close();
+        break;
+      }
       case 'REMATCH_STATE': {
         setRematch({ ready: msg.ready, needed: msg.needed });
         break;
@@ -306,12 +340,28 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
           setPokerRebuy({ status: msg.code === 'INSUFFICIENT_CHIPS' ? 'insufficient' : 'refused', balance: null });
           break;
         }
+        // (38.0.5) A refused/failed permanent leave is a PANEL state, never the game error
+        // surface: nothing changed server-side, so the table must keep playing normally.
+        if (msg.code === 'PERMANENT_LEAVE_UNAVAILABLE') {
+          setPermanentLeave({ status: 'error' });
+          break;
+        }
         // Non-fatal social limits + friend-invite failures → a small toast, not the game
         // error surface (Stage 25.7).
         if (msg.code === 'RATE_LIMITED' || msg.code === 'MESSAGE_BLOCKED'
           || msg.code === 'FRIEND_NOT_ONLINE' || msg.code === 'NOT_FRIENDS' || msg.code === 'NOT_IN_ROOM') {
           setSocialNotice({ code: msg.code, message: msg.message, at: Date.now() });
           break;
+        }
+        // (38.0.5) An authoritative ROOM_NOT_FOUND answering a RECONNECT/RECLAIM means this
+        // handle can NEVER work again — the room is gone, or the seat was permanently left
+        // and its token annulled. Drop the stale saved session so the start menu stops
+        // offering a Resume that always fails. A fresh JOIN typo has no token yet, so it is
+        // unaffected.
+        if (msg.code === 'ROOM_NOT_FOUND' && tokenRef.current) {
+          clearSession();
+          tokenRef.current = null;
+          codeRef.current = null;
         }
         setError(msg.message);
         setErrorCode(msg.code);
@@ -449,6 +499,15 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     transportRef.current?.close();
   }, [send]);
 
+  const leavePermanently = useCallback(() => {
+    // Double-click safe: a second press while the first is in flight is ignored.
+    setPermanentLeave((p) => (p.status === 'pending' || p.status === 'accepted' ? p : { status: 'pending' }));
+    // The intent carries NO payload — the server derives room, seat, account and match.
+    // We deliberately do NOT close the socket here (B4): the session is dropped only on
+    // PERMANENT_LEAVE_ACCEPTED, so a lost/failed request never strands the player.
+    send({ t: 'LEAVE_GAME_PERMANENTLY' });
+  }, [send]);
+
   const backToMenu = useCallback(() => {
     // Active-game "Leave game / Back to menu": just drop the socket (the server
     // marks us disconnected → the seat stays reconnectable). We do NOT send
@@ -465,6 +524,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     status, error, errorCode, room, state, myPlayerId, timer,
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
+    leavePermanently, permanentLeave,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
     rematch, sendRematchReady, sendRematchDecline,

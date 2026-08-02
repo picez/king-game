@@ -270,6 +270,20 @@ export type ClientMessage =
    */
   | { t: 'POKER_REBUY_REQUEST' }
   | { t: 'POKER_REBUY_DECLINE' }
+  /**
+   * PERMANENT forfeit of an ACTIVE online non-Poker match (Stage 38.0.5). Deliberately
+   * DISTINCT from the two existing exits, and never a reuse of either:
+   *  - `LEAVE_ROOM`             — LOBBY only: frees the seat, no loss, no replacement bot;
+   *  - "Back to menu"           — drops the socket only: the seat stays RECONNECTABLE;
+   *  - `LEAVE_GAME_PERMANENTLY` — IRREVERSIBLE: a durable technical loss is recorded, the
+   *    seat is taken over by an AI (or the room closes if no human remains), and the old
+   *    reconnect identity is annulled.
+   * The payload is EMPTY by design: the server derives the room from the socket's session,
+   * the seat from authoritative membership, the account from the session cookie, and the
+   * match from the room's frozen metadata. Answered with `PERMANENT_LEAVE_ACCEPTED` — the
+   * client must not drop its session until that ACK arrives.
+   */
+  | { t: 'LEAVE_GAME_PERMANENTLY' }
   | { t: 'PING' };
 
 // ---------------------------------------------------------------------------
@@ -280,6 +294,15 @@ export type ServerMessage =
   /** §17 PRIVATE rebuy result — sent ONLY to the requester, so their wallet balance
    *  refreshes without a reload. Never broadcast; carries no userId/matchId/ledger key. */
   | { t: 'POKER_REBUY_RESULT'; balance: number; applied: boolean }
+  /**
+   * The AUTHORITATIVE acknowledgement of `LEAVE_GAME_PERMANENTLY` (Stage 38.0.5). Sent
+   * ONLY after the durable forfeit committed AND the seat transition (AI takeover or room
+   * close) was applied and persisted. Carries NO payload: no match id, no account id, no
+   * seat, no stats — the client needs only "it is done, you may drop your session now".
+   * Until it arrives the client keeps its session (so a failed attempt is retryable and
+   * the reconnectable Back-to-menu exit still works).
+   */
+  | { t: 'PERMANENT_LEAVE_ACCEPTED' }
   /** Sent right after CREATE/JOIN/RECONNECT — carries the caller's identity. */
   | { t: 'WELCOME'; clientId: string; reconnectToken: string; room: RoomSnapshot }
   /** Lobby changed (someone joined/left, settings changed). */
@@ -379,6 +402,14 @@ export type ErrorCode =
   /** A rebuy was refused: the window is closed/expired, the seat is not eligible, the
    *  decision is already made, or the caller is not the seat's authenticated owner (§17). */
   | 'REBUY_NOT_ALLOWED'
+  /**
+   * A permanent leave (Stage 38.0.5) could NOT be accepted. Fail-closed and RETRYABLE:
+   * nothing changed — the seat, the room, the reconnect token and the saved session are
+   * all intact, and the reconnectable "Back to menu" exit still works. Used for a lobby /
+   * spectator / Poker / already-left request, and for a durable-forfeit write that could
+   * not be committed (no chip- or account-specific detail is ever revealed).
+   */
+  | 'PERMANENT_LEAVE_UNAVAILABLE'
   | 'BAD_MESSAGE';
 
 // ---------------------------------------------------------------------------

@@ -851,3 +851,69 @@ Use this file as the first read after archiving this chat. It is intentionally s
   fixed 72px → clamp), the three renderSocial mount counters (5 → 4), and the 51 UI
   isolation guard now ignores the `react-dom/server` SSR renderer (a rendering library,
   not transport). verify PASS 3134/174; `npm run layout:fiftyone` 24/24 clean.
+
+### Stage 38.0.5 — permanent "Quit for good" for the six online non-Poker games (COMPLETE, Unreleased)
+- Worked from HEAD `0995f2d`. New **migration 0014** (latest is now 0014); version stays 0.4.8;
+  games 7; achievements 52. **Poker and all local play are untouched** (the only poker-path diff is a
+  test FILTER refinement in `pokerStatsWiring.test.ts`: it now matches the `poker_` table prefix
+  instead of the loose word "poker", because 0014 mentions Poker only to say it is out of scope).
+- **The three exits are now genuinely three.** `LEAVE_ROOM` is LOBBY-ONLY: during a started game
+  `wsHandlers` routes it to the new `ctx.detachSession` (keeps the member, marks it disconnected)
+  instead of `handleLeave`. Before this, an active-game leave ran `removeMember` → `assignSeats`,
+  which repointed every remaining player at a different `player-<n>` than the live `gameState` used.
+  King's in-game ✕ used to send `LEAVE_ROOM` (`exitToMenu = net.leave()`); it now uses
+  `leaveGameToMenu` like the other five games.
+- **Protocol:** `LEAVE_GAME_PERMANENTLY` (client→server) / `PERMANENT_LEAVE_ACCEPTED` (server→client),
+  BOTH payload-free; new retryable `ErrorCode 'PERMANENT_LEAVE_UNAVAILABLE'`. Routed in
+  `server/index.ts` (NOT the wsHandlers switch — it is async and needs the socket + resolvedUserId),
+  the same way `REMATCH_READY` and the rebuy intents are.
+- **Frozen match metadata** — `src/net/onlineMatch.ts` + `ServerRoom.onlineMatch`, created once by
+  `freezeOnlineMatch(room, randomUUID(), now)` at START (`ctx.beginOnlineMatch` from wsHandlers) and
+  again for a rematch (`restartNonBankroll`). Holds matchId/gameType/roomCode/**category**
+  (`human_only|with_bots`)/playerCount/startedAt/roster/forfeits/durable. The category is NEVER
+  recomputed. Persisted in room JSON, strictly re-validated on restore, and absent from
+  RoomSnapshot/RoomSummary/messages/logs (asserted).
+- **Orchestration** — `server/permanentLeave.ts` `runPermanentLeave(code, clientId, userId, deps)`,
+  called under `withRoomLock`. ORDER: validate → **commit the durable forfeit FIRST** → takeover (or
+  close the room) → persist → broadcast → ACK. Transient DB failure or no DB for an ACCOUNT ⇒
+  `retryable` with nothing changed; a durable record for a DIFFERENT match, a wrong account/seat, or
+  a row already carrying another outcome ⇒ `refused`. A GUEST (no resolved userId) needs no account
+  row — its durable write is best effort and the takeover stays authoritative.
+- **`takeoverSeatWithAi`** (serverCore) replaces the member entry IN PLACE (same map position, same
+  `seatIndex`) — it never calls `removeMember`/`assignSeats` and never touches `gameState`. Fresh
+  clientId + token hash, `userId: null`, obviously-AI name/avatar, rematch consent dropped, host badge
+  moved to a remaining HUMAN. The departed member is gone ⇒ RECONNECT / RECLAIM_ROOM / FIND_MY_ROOMS
+  all stop working for it. The re-evaluation uses the CONNECTION-EVENT `broadcastAndAdvance(room)`
+  (no `turnAdvanced`), so the turn deadline is untouched and exactly one bot action is armed.
+  `planPermanentLeave` also refuses a FINISHED match (`already_finished`).
+- **Migration 0014** — `online_matches` + `online_match_participants` (PK `(match_id, seat_index)`,
+  CHECKs: category/status/player_count/finished-shape/seat range/member type/outcome, forfeit is
+  ALWAYS a timestamped loss, a bot seat can hold no account and never forfeits; partial UNIQUE
+  `(match_id, user_id)` = exactly-once account attribution; indexes for the 38.0.6 tracker). Additive,
+  idempotent (constraints located via `pg_constraint`), touches NO existing table and no `poker_*`.
+- **OWNERSHIP SPLIT (read this before Stage 38.0.6).** `online_match_participants.outcome` is the ONE
+  canonical per-participant ONLINE result — written once per seat, at forfeit time for the leaver and
+  at finish for everyone else, for BOTH categories. The legacy `games`/`game_players`/`rounds`/
+  `user_stats` path keeps its own unchanged ownership of the RATING aggregate; the forfeit writes
+  NOTHING there (deliberate: `user_stats` is a rebuildable cache — `rebuildUserStats` recomputes it
+  from `games`, so a loss written only there would be erased). `maybeRecordFinished` now gates on
+  `ratedByFrozenCategory(meta)` (live-membership rule survives only as the no-metadata fallback) and
+  builds `seatUsers` via `finishSeatUsers(meta, liveUserBySeat)` — forfeited seats dropped.
+- **Tests (195, 0 skipped):** `onlineMatch.test.ts` (28 pure), `permanentLeaveCore.test.ts` (66 —
+  the six-game takeover matrix), `permanentLeaveOrchestration.test.ts` (22 — fake-dep ordering /
+  failure matrix), `permanentLeaveConcurrency.test.ts` (11 — timeout / substitute / auto-advance /
+  finish / duplicate / lost-ACK races), `permanentLeaveWiring.test.ts` (26 — protocol + LEAVE_ROOM
+  scope + ownership + Poker/local audit), `permanentLeaveUi.test.ts` (24), and on REAL Postgres
+  `onlineMatches.integration.test.ts` (8) + `permanentLeaveFlow.integration.test.ts` (10).
+  Real PG: `docker run -d --name kg-pg-3805 -e POSTGRES_PASSWORD=test -e POSTGRES_DB=kingtest
+  -p 55433:5432 postgres:16-alpine`, `DATABASE_URL=… npm run db:migrate`, `TEST_DATABASE_URL=… npx
+  vitest run …`. 0014 verified to apply AND re-apply on a clean DB.
+- **Known limitation (documented, owner's call):** the replacement AI's bot name/avatar appear in the
+  ROOM snapshot, but the authoritative `gameState` is deliberately not mutated, so screens that read
+  the player NAME from the game state still show the departed player's name at that seat. This follows
+  the stage requirement "no game state or playerId change". Changing it would need a separate,
+  explicit decision.
+- **Next (Stage 38.0.6 profile tracker):** read `server/db/onlineMatches.ts`
+  `getOnlineParticipationCounters(userId)` → `{gameType, category, matches, wins, losses, forfeits}`
+  grouped rows. Overall + per-game, `human_only` vs `with_bots`, ONLINE only (local play never creates
+  a match row). Do NOT derive it from `user_stats`.

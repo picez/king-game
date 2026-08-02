@@ -1545,3 +1545,69 @@ dock. Baseline before the fix: 249 violations; now 0.
       scroll; nothing hidden behind the Android navigation bar.
 - [ ] **Arabic RTL:** the interface mirrors but a run keeps its low→high order and the card
       artwork is not mirrored.
+
+## Quit an online game for good (Stage 38.0.5)
+
+Automated gate: `npx vitest run src/net/onlineMatch.test.ts src/net/permanentLeave*.test.ts
+src/ui/online/permanentLeaveUi.test.ts` (+ the two `*.integration.test.ts` files with
+`TEST_DATABASE_URL` set). This is the manual pass. **Poker is out of scope** — check that
+too. Needs two devices/browsers, and a signed-in account on at least one.
+
+**Three exits behave differently**
+
+- [ ] **Lobby:** "Leave lobby" still frees the seat immediately, adds **no** bot and records
+      nothing. The remaining players see the seat open up.
+- [ ] **Active game, ✕ / Back to menu:** you land on the menu, the table shows you as
+      offline, and the start menu still offers **Resume online game** — rejoining puts you
+      back on your own seat with your own cards. Do this for **King** as well (it used to
+      delete the seat).
+- [ ] **Active game, "Quit for good":** the confirmation names all four consequences (no way
+      back · a loss is recorded · a bot takes your seat if others stay · the room closes if
+      nobody stays). **Cancel** returns you to the game with nothing changed.
+
+**The takeover itself** (run in at least King, Tarneeb and Fifty-One)
+
+- [ ] After confirming, the other players see a **bot on the same seat** — the same position
+      at the table, the same team/partner, the same dealer and turn order. Nothing is
+      re-dealt and the scoreboard does not reset.
+- [ ] If it was **your** turn, the bot plays once, promptly, and the game continues.
+- [ ] If it was **someone else's** turn, their timer keeps running from where it was — it
+      does not restart or jump.
+- [ ] If **you were the host**, the host badge moves to another **person**, never to a bot.
+- [ ] With a turn timer on, no seat plays twice and the table never stalls.
+
+**The way back is closed**
+
+- [ ] The start menu no longer offers Resume for that room (and if a stale card is showing,
+      tapping it clears itself instead of failing forever).
+- [ ] Signed in on a **second device**, that room no longer appears under "your active
+      rooms" and cannot be reclaimed.
+- [ ] Tapping "Quit for good" a second time (e.g. after a flaky connection) never produces a
+      second loss.
+
+**Room closing**
+
+- [ ] In a game with **one human + bots**, quitting for good closes the room: it disappears
+      from the room list and nobody is left playing against bots.
+- [ ] In a game with **two humans + bots**, quitting for good keeps the room alive for the
+      other person.
+
+**Failure is safe**
+
+- [ ] With the server's database unavailable (or offline mid-request), a signed-in player's
+      "Quit for good" is **refused with a message**, the game keeps playing normally, and
+      Back to menu still works.
+
+**Out of scope**
+
+- [ ] **Poker** (online and local) shows **no** "Quit for good" control anywhere.
+- [ ] **Local pass-and-play** for all games shows no such control.
+- [ ] A **spectator** in any online game sees no "Quit for good" control.
+
+**Mobile + languages**
+
+- [ ] At 360 and 390 the trigger sits in the same row as chat/emoji/voice, is comfortable to
+      tap, and never covers the table, the hand, the melds or the action buttons.
+- [ ] The confirmation fits the screen (scrolls itself if needed) and both buttons are easy
+      to tap.
+- [ ] Check the copy in **EN / UK / DE / AR**; in Arabic the dialog mirrors correctly.

@@ -218,3 +218,35 @@
 }
 [dir="rtl"] .chat-drawer--docked { border: 1px solid var(--border-strong); }
 .reaction-bar--docked { width: 100%; }
+
+/* ── Permanent "Quit for good" (Stage 38.0.5) ───────────────────────────────
+   The TRIGGER is an ordinary member of the RoomSocial control row, so it inherits
+   the cluster's safe position in all six games (floating corner for King/Durak/
+   Deberc/Tarneeb/Preferans, docked toolbar for 51) and can never cover the table,
+   the hand, the melds or a game's action bar. Only the CONFIRMATION is an overlay —
+   deliberately, because an irreversible action must be read before it happens. */
+.permleave-trigger {
+  background: var(--danger-soft); border-color: var(--danger);
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+}
+.permleave-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(1rem, env(safe-area-inset-left)) 1rem max(1rem, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.62);
+}
+.permleave-dialog {
+  width: min(100%, 26rem); max-height: 86vh; overflow-y: auto;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--danger); border-radius: 0.9rem;
+  padding: 1rem; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+.permleave-dialog__title { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.permleave-dialog__points {
+  margin: 0 0 0.6rem; padding-inline-start: 1.15rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+  font-size: 0.92rem; line-height: 1.35; opacity: 0.94;
+}
+.permleave-dialog__status { margin: 0 0 0.6rem; min-height: 1.1rem; font-size: 0.86rem; color: var(--danger); }
+.permleave-dialog__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.permleave-dialog__actions .btn { flex: 1 1 10rem; min-height: 44px; }

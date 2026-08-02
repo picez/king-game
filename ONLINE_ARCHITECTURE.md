@@ -1273,3 +1273,82 @@ UI-only; protocol, server authority and redaction unchanged.
   unbindable/malformed evidence, freezes; a DB failure is `retry_pending` (never a decline,
   a close, a payout or a purge). It runs BEFORE any expiry close, on bootstrap for every
   restored room in a window, and its result gates the close.
+
+### Permanent "Leave game" — irreversible active-game forfeit (Stage 38.0.5)
+
+Applies to the **six online non-Poker games** (King, Durak, Deberc, Tarneeb, Preferans,
+51). Poker is deliberately out of scope: its seats carry real chips and already own a
+durable match record (§16).
+
+**Three exits, three messages, no overlap.**
+
+| Exit | Message | Seat | Result |
+| --- | --- | --- | --- |
+| Leave lobby | `LEAVE_ROOM` | removed, seats re-numbered | none |
+| Back to menu / ✕ | socket close | kept, **reconnectable** | none |
+| Quit for good | `LEAVE_GAME_PERMANENTLY` | replaced by an AI **on the same seat** | one durable technical loss |
+
+- `LEAVE_ROOM` is now **lobby-only**. During a started game it behaves as an ordinary
+  disconnect (`ctx.detachSession` — the member and its seat are KEPT). Before this stage it
+  ran `removeMember` → `assignSeats` mid-match, which repointed every remaining player at a
+  different `player-<n>` than the live `gameState` used, silently shifting turn order,
+  dealer, teams and contracts. King's in-game ✕ used to send it; it now uses Back to menu
+  like the other five games.
+- `LEAVE_GAME_PERMANENTLY` and its ACK `PERMANENT_LEAVE_ACCEPTED` both carry **no payload**.
+  The server derives the room + clientId from the socket's session, the seat from
+  authoritative membership, the account from the session cookie, and the match from the
+  room's frozen metadata. Refusal is the retryable `PERMANENT_LEAVE_UNAVAILABLE`.
+
+**Frozen match metadata (`ServerRoom.onlineMatch`, `src/net/onlineMatch.ts`).** Created
+ONCE per `START_GAME` (and once more per rematch — a rematch is a NEW match) by
+`freezeOnlineMatch`: a server-minted `matchId`, the gameType/roomCode, the **category**
+(`human_only` | `with_bots`), the starting roster (seat → type → account) and an append-only
+`forfeits` list. The category is **never recomputed**, so an AI takeover cannot turn a
+human-only match into a bot table. SERVER-ONLY: persisted in the room JSON, never in a
+`RoomSnapshot`/`RoomSummary`/message, never logged.
+
+**Ordering — `server/permanentLeave.ts` `runPermanentLeave`, under `withRoomLock`:**
+
+1. validate against authoritative state only (started, non-Poker, seated human, not
+   finished, frozen metadata present and matching this room/game);
+2. **commit the durable forfeit FIRST.** For an account: ensure the match is durable
+   (idempotent), then one gated transition `pending → loss + forfeited`. A transient DB
+   failure → **retryable** refusal with nothing changed; a durable record describing a
+   different match, or a row that already carries another result → **refused**, never
+   overwritten. A guest (no resolved account) needs no account row, so the write is
+   best-effort and the takeover stays authoritative;
+3. only then `takeoverSeatWithAi` — the member entry is REPLACED IN PLACE (same map
+   position, same `seatIndex`), never `removeMember`/`assignSeats`, and `gameState` is not
+   touched at all. The AI gets a fresh clientId + token hash, `userId: null` and an
+   obviously-AI name/avatar; rematch consent is dropped; the host badge moves to a
+   remaining **human**, never a bot. No human left → the room is closed instead;
+4. persist → broadcast the remaining room → ACK the leaver. The re-evaluation is the
+   CONNECTION-EVENT variant of `broadcastAndAdvance` (no `turnAdvanced`), so the current
+   turn deadline is neither reset nor extended and exactly one bot action is scheduled when
+   the taken-over seat is the one on the clock.
+
+A takeover without a committed forfeit is impossible by construction; a committed forfeit
+whose ACK is lost is retried by the client and the DB gate makes the retry a no-op, so a
+second loss can never be recorded. The departed member — and therefore its reconnect-token
+hash and `userId` — is gone, so `RECONNECT`, `RECLAIM_ROOM` and `FIND_MY_ROOMS` all stop
+working for it; the client drops its saved session only on the ACK, and an authoritative
+`ROOM_NOT_FOUND` answering a reconnect clears a stale Resume.
+
+**Durable model (migration 0014).** `online_matches` (match id, room code, game type,
+frozen category, player count, status, timestamps) + `online_match_participants`
+(`PRIMARY KEY (match_id, seat_index)`, nullable account FK, starting member type, outcome
+`pending|win|loss|draw`, `forfeited` + timestamp). CHECK constraints make a forfeit always a
+timestamped LOSS and forbid a bot seat from holding an account or forfeiting; a partial
+UNIQUE index on `(match_id, user_id)` gives **exactly-once account attribution**.
+
+**Ownership split (no duplicated result).** `online_match_participants.outcome` is the ONE
+canonical per-participant record of an ONLINE match — written once per seat, at forfeit
+time for the leaver and at finish for everyone else (both categories, since the Stage 38.0.6
+profile tracker reads this model). The legacy `games`/`game_players`/`rounds`/`user_stats`
+path keeps its own unchanged ownership of the RATING aggregate; the forfeit never writes
+there, and the finish drops forfeited seats from `seatUsers`. `maybeRecordFinished` now
+gates on `ratedByFrozenCategory(meta)` instead of live membership (the old live rule
+survives only as the fallback for a legacy room with no frozen metadata) and builds
+`seatUsers` from `finishSeatUsers(meta, …)` — so a `human_only` match stays rated after a
+takeover, a `with_bots` match stays unrated, the replacement bot earns nothing for the
+departed account, and the leaver never receives a second result even if that bot wins.

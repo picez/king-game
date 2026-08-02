@@ -330,6 +330,49 @@ export const pokerMatches = pgTable('poker_matches', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ---------------------------------------------------------------------------
+// Stage 38.0.5 — durable ONLINE match record + normalized participant outcomes.
+//
+// `online_matches` is written at START_GAME for every ONLINE non-Poker match and
+// carries the FROZEN category (human_only | with_bots) that a later AI seat takeover
+// must never change. `online_match_participants` is the ONE canonical per-participant
+// outcome: written exactly once per (match_id, seat_index) — at forfeit time for a
+// permanent leaver (outcome 'loss', forfeited true), at finish for everyone else. The
+// legacy games/game_players/user_stats path keeps its own unchanged ownership of the
+// rating aggregate and never records a forfeited seat twice. See migration 0014.
+// ---------------------------------------------------------------------------
+
+export const onlineMatches = pgTable('online_matches', {
+  matchId: text('match_id').primaryKey(),
+  roomCode: text('room_code').notNull(),
+  gameType: text('game_type').notNull(),
+  /** human_only | with_bots — frozen at START_GAME, never recomputed. */
+  category: text('category').notNull(),
+  playerCount: integer('player_count').notNull(),
+  /** active | finished | abandoned. */
+  status: text('status').notNull().default('active'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+});
+
+export const onlineMatchParticipants = pgTable('online_match_participants', {
+  matchId: text('match_id').notNull().references(() => onlineMatches.matchId, { onDelete: 'cascade' }),
+  seatIndex: integer('seat_index').notNull(),
+  /** Null for a bot seat and for a guest human (no account attribution). */
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  /** The seat's type AT START ('human' | 'ai') — a takeover never rewrites it. */
+  memberType: text('member_type').notNull(),
+  /** pending | win | loss | draw — terminal values are written exactly once. */
+  outcome: text('outcome').notNull().default('pending'),
+  forfeited: boolean('forfeited').notNull().default(false),
+  forfeitedAt: timestamp('forfeited_at', { withTimezone: true }),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.matchId, t.seatIndex] }),
+}));
+
+export type OnlineMatchesTable = typeof onlineMatches;
+export type OnlineMatchParticipantsTable = typeof onlineMatchParticipants;
+
 export type PokerWalletsTable = typeof pokerWallets;
 export type PokerLedgerTable = typeof pokerLedger;
 export type PokerMatchSettlementsTable = typeof pokerMatchSettlements;

@@ -32,6 +32,10 @@ import type { PokerState } from '../games/poker/types';
 import { isPokerAction } from '../games/poker/rules';
 import type { ErrorCode, RoomSnapshot, RoomSummary, RoomTimerInfo, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
+import {
+  buildOnlineMatchMeta, deserializeOnlineMatch, serializeOnlineMatch,
+  type OnlineMatchMeta, type OnlineMatchSeat,
+} from './onlineMatch';
 // botAction now lives in ./botAction (Stage 8.5 — breaks the registry import
 // cycle). Re-exported here so existing importers keep working unchanged.
 export { botAction } from './botAction';
@@ -186,6 +190,16 @@ export interface ServerRoom {
   /** Seats with a rebuy debit IN FLIGHT (never persisted). A timeout close, the orphan
    *  scan and teardown must not run past one of these. */
   pokerRebuyInFlight?: Set<number>;
+  /**
+   * Stage 38.0.5 — the FROZEN identity + starting roster of the online match this
+   * room is currently running (non-Poker only). Created ONCE per START_GAME /
+   * rematch restart and never recomputed: it is what makes an AI seat takeover
+   * after a permanent leave safe (the finish still knows the match started
+   * `human_only` and who its starting humans were). SERVER-ONLY: it carries
+   * account ids + a match id, so it is persisted in the room JSON but NEVER
+   * appears in a RoomSnapshot / RoomSummary / any wire message, and is never logged.
+   */
+  onlineMatch?: OnlineMatchMeta;
   members: Map<string, ServerMember>; // keyed by clientId, insertion-ordered
   /** Seat target. King is 3|4; Durak allows 2. */
   playerCount: 2 | 3 | 4 | 5 | 6;
@@ -719,6 +733,160 @@ export function removeMember(room: ServerRoom, clientId: string): { empty: boole
   }
   assignSeats(room);
   return { empty: false };
+}
+
+// ---------------------------------------------------------------------------
+// Frozen online-match identity + irreversible seat takeover (Stage 38.0.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Freeze the identity + starting roster of the match that just started. Called by
+ * the I/O layer immediately after a SUCCESSFUL `startGame` / `restartGame` for an
+ * ONLINE non-Poker room (a rematch is a NEW match and gets a NEW id). Poker is out
+ * of scope — its economy already owns a durable match record (`pokerEscrow.matchId`).
+ *
+ * Pure: the caller supplies the id (no UUID source here) and the clock. Returns the
+ * frozen metadata, or null when this room is not eligible.
+ */
+export function freezeOnlineMatch(room: ServerRoom, matchId: string, now: number): OnlineMatchMeta | null {
+  if (room.gameType === 'poker') return null;
+  if (!room.started || !room.gameState) return null;
+  const seats: OnlineMatchSeat[] = [];
+  for (const m of room.members.values()) {
+    if (m.role !== 'player' || m.seatIndex == null) continue;
+    seats.push({
+      seat: m.seatIndex,
+      type: m.type,
+      // A bot NEVER carries an account, whatever the member happens to hold.
+      userId: m.type === 'human' ? (m.userId ?? null) : null,
+    });
+  }
+  if (seats.length < 2) return null;
+  room.onlineMatch = buildOnlineMatchMeta({
+    matchId, gameType: room.gameType ?? DEFAULT_GAME_TYPE, roomCode: room.code, startedAt: now, seats,
+  });
+  return room.onlineMatch;
+}
+
+/** Why a permanent leave cannot be accepted for this connection/room. */
+export type PermanentLeaveRefusal =
+  | 'not_started'          // lobby — use the lobby leave (no loss, no bot)
+  | 'unsupported_game'     // Poker is deliberately out of scope
+  | 'not_a_member'         // stale/duplicate request: this clientId is gone
+  | 'not_seated'           // spectator — no seat to take over, no result to forfeit
+  | 'not_human'            // a bot seat can never "leave"
+  | 'already_finished';    // the match is over — its result is already decided
+
+export interface PermanentLeavePlan {
+  ok: boolean;
+  refusal?: PermanentLeaveRefusal;
+  member?: ServerMember;
+  seatIndex?: number;
+  /** The seat's authoritative account id (null for a guest) — from the MEMBER, never a client value. */
+  userId?: string | null;
+}
+
+/**
+ * Validate a permanent-leave intent against the authoritative room. Everything is
+ * DERIVED here (seat, account, member) — the wire message carries no payload at all.
+ * Pure + side-effect free, so the orchestrator can check it twice (before and after
+ * awaiting the durable write) without any risk of a partial transition.
+ */
+export function planPermanentLeave(room: ServerRoom, clientId: string): PermanentLeavePlan {
+  if ((room.gameType ?? DEFAULT_GAME_TYPE) === 'poker') return { ok: false, refusal: 'unsupported_game' };
+  if (!room.started || !room.gameState) return { ok: false, refusal: 'not_started' };
+  const member = room.members.get(clientId);
+  if (!member) return { ok: false, refusal: 'not_a_member' };
+  if (member.type !== 'human') return { ok: false, refusal: 'not_human' };
+  if (member.role !== 'player' || member.seatIndex == null) return { ok: false, refusal: 'not_seated' };
+  // A FINISHED match already has its result. Forfeiting now would either be a no-op or a
+  // second outcome for the same seat, and taking the seat over would be pointless — the
+  // rematch/leave paths own a finished table. (The durable gate refuses it too, but the
+  // room-level check keeps a finish racing a leave from producing a needless AI seat.)
+  if (isRoomFinished(room)) return { ok: false, refusal: 'already_finished' };
+  return { ok: true, member, seatIndex: member.seatIndex, userId: member.userId ?? null };
+}
+
+/** True when at least one HUMAN member other than `clientId` still holds a seat or spectates. */
+export function hasOtherHuman(room: ServerRoom, clientId: string): boolean {
+  return [...room.members.values()].some((m) => m.type === 'human' && m.clientId !== clientId);
+}
+
+export interface SeatTakeoverResult {
+  ok: boolean;
+  refusal?: PermanentLeaveRefusal;
+  bot?: ServerMember;
+  seatIndex?: number;
+  /** True when the host badge moved to another HUMAN member (never to a bot). */
+  hostTransferred?: boolean;
+}
+
+/**
+ * IRREVERSIBLY replace a seated human with a server-side AI on the SAME seat.
+ *
+ * This is deliberately NOT `removeMember` + `assignSeats`: re-numbering seats would
+ * repoint every remaining member at a different `player-<n>` than the live game state
+ * uses, silently corrupting turn order, dealer, teams and contracts mid-match. Instead
+ * the member entry is REPLACED IN PLACE (same map position, same `seatIndex`), so:
+ *  - no seat is re-numbered and no `playerId` changes;
+ *  - the authoritative `gameState` is not touched at all (no restart, no re-deal);
+ *  - the departing member — and therefore its reconnect-token hash and its `userId` —
+ *    is GONE, so its old token can no longer `RECONNECT`, its account can no longer
+ *    `RECLAIM_ROOM`, and `FIND_MY_ROOMS` no longer lists this room for it;
+ *  - the replacement bot gets a FRESH server-generated clientId + token hash, an
+ *    obviously-AI name/avatar, `userId: null` (it can never inherit the account, so
+ *    no post-leave telemetry/achievement can attribute to the departed human).
+ *
+ * Host continuity: if the leaver was the host, the badge moves to the first remaining
+ * HUMAN member — never to a bot. Pure: the caller supplies the fresh ids.
+ */
+export function takeoverSeatWithAi(
+  room: ServerRoom,
+  clientId: string,
+  ids: { clientId: string; reconnectToken: string },
+): SeatTakeoverResult {
+  const plan = planPermanentLeave(room, clientId);
+  if (!plan.ok || !plan.member || plan.seatIndex == null) return { ok: false, refusal: plan.refusal };
+  const leaver = plan.member;
+
+  // A deterministic, obviously-AI identity, deduped against everyone who STAYS (the
+  // departing member's own name/avatar is therefore free to be reused).
+  const staying = [...room.members.values()].filter((m) => m.clientId !== clientId);
+  const takenNames = new Set(staying.map((m) => m.name));
+  const takenAvatars = new Set(staying.map((m) => m.avatar));
+  const botOrdinal = staying.filter((m) => m.type === 'ai').length;
+  const seed = `${room.code}:${room.gameType ?? DEFAULT_GAME_TYPE}`;
+  const identity = nextBotIdentity(seed, botOrdinal, takenNames, takenAvatars);
+
+  const bot: ServerMember = {
+    clientId: ids.clientId,
+    reconnectToken: ids.reconnectToken,
+    name: identity.name,
+    role: 'player',
+    seatIndex: plan.seatIndex,   // the SAME seat — never re-numbered
+    isHost: false,               // a bot is never the host
+    connected: true,             // bots are always "present"
+    type: 'ai',
+    avatar: identity.avatar,
+    userId: null,                // never inherits the departed account
+  };
+
+  // Replace at the SAME map position so insertion order (and anything derived from
+  // it, such as host promotion order) is unchanged.
+  const entries = [...room.members.entries()];
+  const at = entries.findIndex(([key]) => key === clientId);
+  if (at < 0) return { ok: false, refusal: 'not_a_member' };
+  entries[at] = [bot.clientId, bot];
+  room.members = new Map(entries);
+
+  let hostTransferred = false;
+  if (leaver.isHost) {
+    const nextHuman = [...room.members.values()].find((m) => m.type === 'human');
+    if (nextHuman) { nextHuman.isHost = true; hostTransferred = true; }
+  }
+  // Rematch readiness is per-clientId; the departed consent must not linger.
+  removeRematchReady(room, clientId);
+  return { ok: true, bot, seatIndex: plan.seatIndex, hostTransferred };
 }
 
 // ---------------------------------------------------------------------------
@@ -1397,6 +1565,9 @@ export interface PersistedRoom {
   pokerRebuyRevision?: number;
   pokerRebuyMatchId?: string;
   pokerRebuyHand?: number;
+  /** Stage 38.0.5 — the frozen online-match identity/roster/forfeits. SERVER-ONLY
+   *  (account ids + match id): persisted, never snapshotted, never broadcast. */
+  onlineMatch?: OnlineMatchMeta;
   members: ServerMember[];
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -1442,6 +1613,8 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerRebuyRevision: room.pokerRebuyRevision,
     pokerRebuyMatchId: room.pokerRebuyMatchId,
     pokerRebuyHand: room.pokerRebuyHand,
+    // (38.0.5) Deep-cloned so the persisted copy can never alias the live metadata.
+    onlineMatch: room.onlineMatch ? serializeOnlineMatch(room.onlineMatch) : undefined,
     members: [...room.members.values()].map((m) => ({ ...m })),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1587,6 +1760,11 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerRebuyRevision: typeof o.pokerRebuyRevision === 'number' && Number.isSafeInteger(o.pokerRebuyRevision) && o.pokerRebuyRevision >= 0 ? o.pokerRebuyRevision : undefined,
     pokerRebuyMatchId: typeof o.pokerRebuyMatchId === 'string' && o.pokerRebuyMatchId ? o.pokerRebuyMatchId : undefined,
     pokerRebuyHand: typeof o.pokerRebuyHand === 'number' && Number.isSafeInteger(o.pokerRebuyHand) && o.pokerRebuyHand > 0 ? o.pokerRebuyHand : undefined,
+    // (38.0.5) The frozen match identity/roster/forfeits. STRICTLY restored: a malformed
+    // record degrades to `undefined` (the finish then falls back to the pre-38.0.5 live
+    // membership rule) rather than resurrecting a half-trusted roster — and a permanent
+    // leave fails closed while it is missing, so nothing is ever taken over undurably.
+    onlineMatch: deserializeOnlineMatch(o.onlineMatch) ?? undefined,
     members,
     playerCount: o.playerCount as 2 | 3 | 4 | 5 | 6, // guarded to 2..6 above
     modeSelectionType: o.modeSelectionType,

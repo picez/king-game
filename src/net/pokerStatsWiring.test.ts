@@ -48,7 +48,10 @@ describe('poker stats add NO migration but DO feed achievements (Stage 37.4)', (
     // must NOT touch the stats tables.
     const files = readdirSync(join(process.cwd(), 'server/db/migrations'))
       .filter((f) => f.endsWith('.sql')).sort();
-    const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker/i));
+    // Match the poker TABLE prefix (`poker_wallets`/`poker_ledger`/…), not the loose word
+    // "poker": Stage 38.0.5's `0014_online_matches.sql` mentions Poker only to state that
+    // it is deliberately OUT of scope, and it touches no `poker_*` object at all.
+    const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker_/i));
     expect(pokerMigrations).toEqual([
       '0010_poker_wallet.sql', '0011_poker_settlement.sql', '0012_poker_matches.sql', '0013_poker_rebuy.sql',
     ]);
