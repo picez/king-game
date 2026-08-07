@@ -9,6 +9,25 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two holes in the new Poker anti-dumping limits (Stage 38.0.8.1).**
+  - **Two tables at once.** Two people could open two paid tables together at the *same
+    moment* and both would be funded, because the limit only looked at matches that had
+    already finished. A match that is still being played now reserves its players until it
+    resolves, and the check is taken under a database-level lock — so only one of two
+    simultaneous starts can ever succeed, even across server instances. Nothing is charged
+    for the one that is refused.
+  - **A damaged setting no longer removes the limits.** If the small record that says which
+    rules a table is playing under got corrupted, the table used to fall back to "no limits,
+    fully counted". It now fails the safe way instead: no further rebuys, the match does not
+    count towards the Poker rating, and no new paid table can start until that one is
+    properly finished. Chips are never affected — the payout and the refund still work
+    exactly as before, and nothing is confiscated.
+  - Neither fix changes any limit: still 2 rebuys per player per match, a 15-minute wait
+    between paid tables for the same people, and the first three finished matches a pair
+    plays each day counting towards the rating.
+
 ### Changed
 
 - **Online Poker now limits how fast chips can move between the same players (Stage 38.0.8).**

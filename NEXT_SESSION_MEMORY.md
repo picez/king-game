@@ -1118,3 +1118,48 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **NOT done (owner's call, from the 38.0.7 audit):** the rolling pairwise NET-FLOW limit (A2,
   would need migration 0015) and any operator review surface. Model **C** (removing
   player-to-player transfer entirely) remains a separate, explicit decision.
+
+### Stage 38.0.8.1 — corrective anti-dumping hardening (COMPLETE, Unreleased)
+- Worked from HEAD `0ba01a6`. Two REAL FAILs from review of 38.0.8. **No migration** (latest
+  stays 0014), version 0.4.8, games 7, achievements 52, libc 0. **No threshold changed**
+  (2 rebuys/seat/match, 15-min pair cooldown, 3 ranked settled matches/pair/UTC-day).
+- **RED 1 (real PG, probe deleted):** two FRESH rooms of one pair with a genuinely EMPTY
+  history → `[{ok:true},{ok:true}]`, **2 unresolved `poker_matches`**, **2 `table_buy_in`
+  rows per account**, balance −2×buy-in. The 38.0.8 "concurrency" test had created a settled
+  match FIRST, so it only proved the ordinary cooldown — it never exercised the race.
+- **RED 2:** every malformed marker (`null`, `version 999`, `statsEligible:'yes'`, bad
+  `decidedAt`, bad `rosterDigest`) restored as LEGACY → `rebuysLeft=null`,
+  `statsEligible=true`, no corrupt marker. Fail-OPEN.
+- **FIX 1 — active reservation + advisory pair locks.** `decidePairPolicy` now takes
+  `PairEvidence {active, settled}`. An **ACTIVE reservation** = a `poker_matches` row with NO
+  settlement sharing a pair with the candidate roster; no fixed expiry, converts to the
+  15-min cooldown on payout, released by `cancel_refund`. Refusal carries a bounded generic
+  `ACTIVE_RESERVATION_RETRY_SECONDS = 60` (never a predicted end time).
+  `evaluatePairPolicyTx` takes `pg_advisory_xact_lock` for every unordered pair FIRST, in
+  sorted key order (no deadlock), key derived **in SQL from md5** (stable; never a JS hash);
+  auto-released on COMMIT/ROLLBACK. Final lock order: `withRoomLock` → economy barrier → DB
+  tx → sorted pair advisory locks → policy read → wallet debit.
+- **FIX 2 — tri-state policy read.** `parseAntiDumpPolicy` is GONE; `readAntiDumpPolicy(container)`
+  returns `absent | valid | malformed` (present-but-invalid, incl. `null` and any unexpected
+  extra key). `deserializePokerEscrow` reports `policyCorrupt` separately from `corrupt` — the
+  escrow is MONEY and is never declared corrupt over a policy field. New SERVER-ONLY
+  `ServerRoom.pokerAntiDumpCorrupt`: refuses further rebuys (`rebuysLeftForSeat → 0`), makes
+  stats `unranked_skipped` via the new `statsEligibleForRoom(room)` (checked AFTER
+  `validateFinishedPaidMatch`), publishes `pokerStatsEligible:false`, and refuses a NEW paid
+  match until the old escrow is proven terminal — but **never** blocks payout/refund, never
+  freezes, never confiscates. Persisted as a CANONICAL flag (never the malformed value), so a
+  serialize→restore round trip cannot launder it into legacy. Retired only by a committed
+  fresh debit (exactly one `room.pokerAntiDumpCorrupt = undefined` in the codebase).
+- **Tests:** `pokerAntiDump.test.ts` 39→**56** (active-reservation matrix, advisory-key
+  determinism, tri-state matrix incl. extra-key rejection, corrupt fail-closed + privacy);
+  `pokerAntiDump.integration.test.ts` 18→**27** — fresh concurrent START (exactly one funds,
+  one debit each, no settlement for the winner), reservation → refund-release / payout-cooldown,
+  ROLLBACK leaves no phantom row, **advisory-lock proof on two INDEPENDENT DB transactions**
+  (reversed account order → same lock; unrelated pair not blocked), and the 15-case restore
+  matrix. Existing test 25 updated: an ACTIVE match now legitimately reserves the pair.
+- **Gates:** clean Docker PostgreSQL — `src/net/poker* + src/games/poker + src/ui/poker` =
+  **65 files / 750 tests, 0 skipped, 0 failed**; `npm run verify` PASS (**289 files / 3497
+  tests** + build + E2E); `npm run layout:poker` **228 checks LAYOUT OK** (still hangs after
+  printing — read the output file); `git diff --check` clean; libc 0; no package/lock drift.
+- **Gotcha:** a payout fixture must NOT fabricate `appliedRebuys` — `payoutStacks` cross-checks
+  the durable rebuy COUNT and returns `invalid` when the ledger has no matching rows.

@@ -1785,3 +1785,36 @@ Needs two signed-in accounts, chips in both wallets, and Postgres.
 - [ ] Refunds still work: cancel a table before it starts and the buy-ins come straight back.
 - [ ] A match already running when the server restarted keeps the old behaviour until it ends.
 - [ ] The other six games are unaffected.
+
+## Poker anti-dumping — corrective hardening (Stage 38.0.8.1)
+
+Adds to the Stage 38.0.8 pass above; the limits themselves are unchanged.
+
+**Two tables at the same moment**
+
+- [ ] With two accounts that have **never** played together and enough chips for two
+      buy-ins each, have both of you press Start in two different rooms at the same instant.
+      **Exactly one** table starts. The other gets the ordinary "not available yet" note.
+- [ ] Check the wallets: each account was charged **once**, not twice.
+- [ ] The refused room has no table and no game — pressing Start again later works normally.
+- [ ] While the first match is still being played, a second paid table with those two
+      players stays unavailable — no matter how long the match runs.
+- [ ] Cancel the first table before it starts → the second becomes available immediately.
+- [ ] Let the first match finish and pay out → the second stays unavailable for the usual
+      15 minutes, then works.
+- [ ] Try to start a table with not enough chips: it fails for the usual reason and does
+      **not** leave the pair blocked afterwards.
+
+**A damaged rules record**
+
+(Reproduce by corrupting the stored table record, or simply confirm the behaviour after a
+server restart if one is ever observed.)
+
+- [ ] A table whose stored rules record is unreadable shows **Unranked** and **Rebuys
+      left: 0** — it never silently becomes an unlimited, counted table.
+- [ ] The match can still be **finished** and the **payout is normal** — nobody loses chips.
+- [ ] Cancelling such a table still **refunds** in full.
+- [ ] Afterwards it does **not** appear in Poker statistics, the leaderboard or achievements.
+- [ ] A new table can only be started once that one has properly finished — and it then
+      behaves completely normally again.
+- [ ] Nothing anywhere shows a technical marker, an account id or an opponent's name.

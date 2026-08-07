@@ -1510,3 +1510,50 @@ single public boolean `pokerStatsEligible`.
 **Test seam.** `__setAntiDumpPolicyDisabled` (same convention as `__setRefundFailure`) lets
 the settlement/recovery suites drive back-to-back paid matches for one pair. It defaults to
 enabled, only tests call it, and each such suite resets it in `afterEach`.
+
+#### Corrections to the 38.0.8 claims (Stage 38.0.8.1)
+
+Two statements in the section above were stronger than the code. Both are corrected here.
+
+**"Two brand-new rooms of the same pair are stopped by the barrier + the in-transaction
+read."** That was only true when a SETTLED match already existed. The policy read only
+`poker_matches ⋈ poker_match_settlements WHERE outcome = 'payout'`, so with an EMPTY history
+the first START's unresolved `poker_matches` row was invisible to the second and both
+funded (measured: `[{ok:true},{ok:true}]`, two unresolved matches, two `table_buy_in` rows
+per account). The old "concurrency" test had created a settled match first, so it proved the
+ordinary cooldown, not the race.
+
+Fixed by adding a second kind of evidence: an **ACTIVE reservation** — a `poker_matches` row
+with no settlement whose seats share an unordered pair with the candidate roster. It has no
+fixed expiry (it lasts while the match is unresolved), a payout converts it into the normal
+15-minute cooldown, and a `cancel_refund` releases it at once. Recovery/orphan settlement
+remains the only thing that resolves a match; a room code is still never identity. The
+refusal carries a bounded generic `retryAfterSeconds` — never a predicted end time.
+
+**"The in-process economy barrier stops it."** A barrier serializes ONE process. Before any
+evidence is read, the debit transaction now takes a **transaction-scoped Postgres advisory
+lock per unordered pair** (`pg_advisory_xact_lock`), in a stable sorted key order so a
+multiway roster cannot deadlock. The key is computed IN SQL from `md5` (stable across
+Postgres versions; never a JS hash); a collision can only serialize two unrelated pairs
+conservatively, never permit a bypass. The lock releases on COMMIT **or ROLLBACK**, so a
+debit that rolls back (insufficient chips, a transient failure) leaves no reservation and no
+phantom row. A real-PG test drives two INDEPENDENT transactions on separate connections and
+proves the second genuinely blocks on the first — not on the JS mutex.
+
+Final lock order: `withRoomLock(code)` → economy barrier → DB transaction → sorted pair
+advisory locks → policy read → wallet locks + debit. Every fresh START and the bankroll
+rematch go through it.
+
+**"A malformed marker degrades to legacy."** That was fail-OPEN: a corrupted post-deploy
+marker restored as an uncapped, ranked match. `readAntiDumpPolicy` is now TRI-STATE —
+`absent` (legitimately legacy), `valid`, or `malformed` (present but not exactly a valid v1
+record, including `null` and any unexpected extra key). A malformed marker sets the
+server-only `ServerRoom.pokerAntiDumpCorrupt`; the escrow's financial fields are untouched
+(the escrow is money and is never declared corrupt over a policy field). While that marker
+is set: no further rebuys, stats are `unranked_skipped` (decided AFTER
+`validateFinishedPaidMatch`), `pokerStatsEligible` is `false`, and a new paid match is
+refused until the old escrow is proven terminal — but payout, refund, conservation and
+idempotency are completely unaffected, and nothing freezes or is confiscated. The marker is
+persisted as a canonical flag (never the malformed value) so a serialize→restore round trip
+cannot launder it into "legacy", and it is retired only by a committed fresh debit that
+stamps a new valid v1 policy.

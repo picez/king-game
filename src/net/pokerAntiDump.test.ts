@@ -13,10 +13,12 @@ import {
   MAX_BANKROLL_REBUYS_PER_SEAT, BANKROLL_PAIR_COOLDOWN_MS,
   MAX_RANKED_BANKROLL_MATCHES_PER_PAIR_UTC_DAY, ANTI_DUMP_POLICY_VERSION,
   decidePairPolicy, unorderedPairs, pairKey, rosterDigest, utcDayStartMs,
-  policyEnforced, statsEligibleOf, seatRebuyCount, rebuysLeftForSeat, rebuyCapReached,
-  type SettledPairMatch,
+  policyEnforced, statsEligibleOf, statsEligibleForRoom, antiDumpCorrupt,
+  seatRebuyCount, rebuysLeftForSeat, rebuyCapReached, pairAdvisoryKeys,
+  ACTIVE_RESERVATION_RETRY_SECONDS,
+  type SettledPairMatch, type PairEvidence,
 } from '../../server/pokerAntiDump';
-import { parseAntiDumpPolicy } from './serverCore';
+import { readAntiDumpPolicy } from './serverCore';
 import { bankrollRebuysLeft } from '../games/poker/stakes';
 import type { ServerRoom, PokerEscrow } from './serverCore';
 import type { PokerState } from '../games/poker/types';
@@ -29,6 +31,8 @@ const C = 'cccccccc-0000-4000-8000-000000000003';
 const D = 'dddddddd-0000-4000-8000-000000000004';
 
 const settled = (ms: number, userIds: string[]): SettledPairMatch => ({ settledAtMs: ms, userIds });
+/** Evidence with only SETTLED history (the active-reservation cases have their own block). */
+const past = (...matches: SettledPairMatch[]): PairEvidence => ({ active: [], settled: matches });
 
 describe('the thresholds are exactly what the owner chose', () => {
   it('2 rebuys per seat, 15-minute pair cooldown, 3 ranked matches per pair per UTC day', () => {
@@ -63,40 +67,38 @@ describe('pairs are UNORDERED and seat/user order never matters', () => {
 
 describe('the pair cooldown', () => {
   it('blocks when a pair settled a payout inside the window', () => {
-    const d = decidePairPolicy([A, B], [settled(NOW - 60_000, [A, B])], NOW);
+    const d = decidePairPolicy([A, B], past(settled(NOW - 60_000, [A, B])), NOW);
     expect(d.cooldownActive).toBe(true);
     expect(d.retryAfterSeconds).toBe(14 * 60);
   });
   it('allows once the window has passed', () => {
-    const d = decidePairPolicy([A, B], [settled(NOW - BANKROLL_PAIR_COOLDOWN_MS - 1, [A, B])], NOW);
+    const d = decidePairPolicy([A, B], past(settled(NOW - BANKROLL_PAIR_COOLDOWN_MS - 1, [A, B])), NOW);
     expect(d).toMatchObject({ cooldownActive: false, retryAfterSeconds: 0 });
   });
   it('is exclusive at the exact boundary (a settlement 15m ago no longer blocks)', () => {
-    expect(decidePairPolicy([A, B], [settled(NOW - BANKROLL_PAIR_COOLDOWN_MS, [A, B])], NOW).cooldownActive).toBe(false);
-    expect(decidePairPolicy([A, B], [settled(NOW - BANKROLL_PAIR_COOLDOWN_MS + 1, [A, B])], NOW).cooldownActive).toBe(true);
+    expect(decidePairPolicy([A, B], past(settled(NOW - BANKROLL_PAIR_COOLDOWN_MS, [A, B])), NOW).cooldownActive).toBe(false);
+    expect(decidePairPolicy([A, B], past(settled(NOW - BANKROLL_PAIR_COOLDOWN_MS + 1, [A, B])), NOW).cooldownActive).toBe(true);
   });
   it('ignores the seat/user ORDER of the old match', () => {
-    expect(decidePairPolicy([A, B], [settled(NOW - 1000, [B, A])], NOW).cooldownActive).toBe(true);
-    expect(decidePairPolicy([B, A], [settled(NOW - 1000, [A, B])], NOW).cooldownActive).toBe(true);
+    expect(decidePairPolicy([A, B], past(settled(NOW - 1000, [B, A])), NOW).cooldownActive).toBe(true);
+    expect(decidePairPolicy([B, A], past(settled(NOW - 1000, [A, B])), NOW).cooldownActive).toBe(true);
   });
   it('a DIFFERENT pair is never blocked by someone else’s recent match', () => {
-    expect(decidePairPolicy([C, D], [settled(NOW - 1000, [A, B])], NOW).cooldownActive).toBe(false);
+    expect(decidePairPolicy([C, D], past(settled(NOW - 1000, [A, B])), NOW).cooldownActive).toBe(false);
     // …and a shared player alone is not a pair: A+C never played together.
-    expect(decidePairPolicy([A, C], [settled(NOW - 1000, [A, B])], NOW).cooldownActive).toBe(false);
+    expect(decidePairPolicy([A, C], past(settled(NOW - 1000, [A, B])), NOW).cooldownActive).toBe(false);
   });
   it('ONE recent pair blocks a whole MULTIWAY roster', () => {
-    const d = decidePairPolicy([A, B, C, D], [settled(NOW - 1000, [C, D])], NOW);
+    const d = decidePairPolicy([A, B, C, D], past(settled(NOW - 1000, [C, D])), NOW);
     expect(d.cooldownActive).toBe(true);
   });
   it('reports the LONGEST remaining wait when several pairs are cooling down', () => {
-    const d = decidePairPolicy([A, B, C], [
-      settled(NOW - 10 * 60_000, [A, B]),
-      settled(NOW - 2 * 60_000, [B, C]),
-    ], NOW);
+    const d = decidePairPolicy([A, B, C], past(settled(NOW - 10 * 60_000, [A, B]),
+      settled(NOW - 2 * 60_000, [B, C])), NOW);
     expect(d.retryAfterSeconds).toBe(13 * 60);
   });
   it('a roster with fewer than two accounts can never be blocked', () => {
-    expect(decidePairPolicy([A], [settled(NOW - 1, [A, B])], NOW))
+    expect(decidePairPolicy([A], past(settled(NOW - 1, [A, B])), NOW))
       .toEqual({ cooldownActive: false, retryAfterSeconds: 0, statsEligible: true });
   });
 });
@@ -107,32 +109,32 @@ describe('the ranked / unranked gate', () => {
   it('matches 1–3 of a pair in a UTC day are RANKED', () => {
     for (const already of [0, 1, 2]) {
       const history = Array.from({ length: already }, (_, i) => day(i));
-      expect(decidePairPolicy([A, B], history, NOW).statsEligible, `after ${already}`).toBe(true);
+      expect(decidePairPolicy([A, B], past(...history), NOW).statsEligible, `after ${already}`).toBe(true);
     }
   });
   it('the FOURTH match of the same pair that day is UNRANKED', () => {
     const history = [day(0), day(1), day(2)];
-    expect(decidePairPolicy([A, B], history, NOW).statsEligible).toBe(false);
+    expect(decidePairPolicy([A, B], past(...history), NOW).statsEligible).toBe(false);
   });
   it('the UTC-day rollover restores eligibility', () => {
     const yesterday = utcDayStartMs(NOW) - 3 * 60 * 60_000;
     const history = [settled(yesterday, [A, B]), settled(yesterday + 1, [A, B]), settled(yesterday + 2, [A, B])];
-    expect(decidePairPolicy([A, B], history, NOW).statsEligible).toBe(true);
+    expect(decidePairPolicy([A, B], past(...history), NOW).statsEligible).toBe(true);
   });
   it('ONE over-threshold pair makes a MULTIWAY match unranked', () => {
     const history = [day(0, [C, D]), day(1, [C, D]), day(2, [C, D])];
-    expect(decidePairPolicy([A, B, C, D], history, NOW).statsEligible).toBe(false);
+    expect(decidePairPolicy([A, B, C, D], past(...history), NOW).statsEligible).toBe(false);
     // …while a different roster is unaffected.
-    expect(decidePairPolicy([A, B], history, NOW).statsEligible).toBe(true);
+    expect(decidePairPolicy([A, B], past(...history), NOW).statsEligible).toBe(true);
   });
   it('counting is per PAIR, not per player', () => {
     // A played 3 today, but each time with a DIFFERENT partner → A+B is still fresh.
     const history = [day(0, [A, C]), day(1, [A, D]), day(2, [A, C])];
-    expect(decidePairPolicy([A, B], history, NOW).statsEligible).toBe(true);
+    expect(decidePairPolicy([A, B], past(...history), NOW).statsEligible).toBe(true);
   });
   it('a cooldown and an unranked verdict are independent facts', () => {
     const history = [day(0), day(1), day(2), settled(NOW - 60_000, [A, B])];
-    const d = decidePairPolicy([A, B], history, NOW);
+    const d = decidePairPolicy([A, B], past(...history), NOW);
     expect(d.cooldownActive).toBe(true);
     expect(d.statsEligible).toBe(false);
   });
@@ -156,22 +158,31 @@ describe('the persisted marker + grandfathering', () => {
     expect(statsEligibleOf(esc({ antiDumpPolicy: marker }))).toBe(false);
     expect(statsEligibleOf(esc({ antiDumpPolicy: { ...marker, statsEligible: true } }))).toBe(true);
   });
-  it('a malformed marker degrades to LEGACY, never to a stricter state', () => {
-    for (const bad of [null, undefined, 'x', 1, {}, { version: 2, statsEligible: true, decidedAt: NOW, rosterDigest: marker.rosterDigest },
+  it('ABSENT and MALFORMED are now different states (38.0.8.1 fail-closed)', () => {
+    expect(readAntiDumpPolicy({})).toEqual({ kind: 'absent' });
+    expect(readAntiDumpPolicy({ antiDumpPolicy: undefined })).toEqual({ kind: 'absent' });
+    expect(readAntiDumpPolicy({ antiDumpPolicy: marker })).toEqual({ kind: 'valid', policy: marker });
+    // Every PRESENT-but-invalid shape is CORRUPT — never quietly downgraded to legacy.
+    for (const bad of [null, 'x', 1, [], {},
+      { version: 2, statsEligible: true, decidedAt: NOW, rosterDigest: marker.rosterDigest },
       { version: 1, statsEligible: 'no', decidedAt: NOW, rosterDigest: marker.rosterDigest },
       { version: 1, statsEligible: true, decidedAt: -1, rosterDigest: marker.rosterDigest },
       { version: 1, statsEligible: true, decidedAt: NOW, rosterDigest: 'nope' },
-      { version: 1, statsEligible: true, decidedAt: NOW }]) {
-      expect(parseAntiDumpPolicy(bad), JSON.stringify(bad)).toBeUndefined();
+      { version: 1, statsEligible: true, decidedAt: NOW },
+      { ...marker, extra: 'unexpected' }]) {
+      expect(readAntiDumpPolicy({ antiDumpPolicy: bad }), JSON.stringify(bad)).toEqual({ kind: 'malformed' });
     }
-    expect(parseAntiDumpPolicy(marker)).toEqual(marker);
   });
+
   it('an unparsable marker never makes the ESCROW look corrupt (money is not policy)', () => {
     const src = read('src/net/serverCore.ts');
     const fn = src.slice(src.indexOf('function deserializePokerEscrow'), src.indexOf('* Rebuilds a ServerRoom'));
-    expect(fn).toContain('parseAntiDumpPolicy(o.antiDumpPolicy)');
-    // the marker branch never returns `corrupt`
-    expect(fn.slice(fn.indexOf('parseAntiDumpPolicy'))).not.toContain('corrupt: true');
+    expect(fn).toContain('readAntiDumpPolicy(o)');
+    // The marker branch reports `policyCorrupt`, which is a POLICY fact — it never turns the
+    // escrow itself into `corrupt: true` (that would risk losing money over a policy field).
+    const after = fn.slice(fn.indexOf('readAntiDumpPolicy(o)'));
+    expect(after).toContain('policyCorrupt: true');
+    expect(after).not.toContain('corrupt: true');
   });
 });
 
@@ -301,9 +312,9 @@ describe('the safety invariants the policy must never break', () => {
   });
   it('unranked is a TERMINAL SUCCESS of the stats lifecycle', () => {
     expect(finish).toContain("'unranked_skipped'");
-    expect(finish).toMatch(/if \(!statsEligibleOf\(esc\)\) return 'unranked_skipped';/);
+    expect(finish).toMatch(/if \(!statsEligibleForRoom\(room\)\) return 'unranked_skipped';/);
     // …decided AFTER the structural validation, so a malformed match is still `invalid`.
-    expect(finish).toMatch(/validateFinishedPaidMatch\(esc, state\)[\s\S]{0,900}statsEligibleOf\(esc\)/);
+    expect(finish).toMatch(/validateFinishedPaidMatch\(esc, state\)[\s\S]{0,900}statsEligibleForRoom\(room\)/);
     // …and it is never treated as failed/invalid by the caller.
     const at = finish.indexOf('const stats = await deps.recordStats');
     const branch = finish.slice(at, at + 1400);
@@ -316,5 +327,157 @@ describe('the safety invariants the policy must never break', () => {
   it('Poker is still never written to the six-game online_matches model', () => {
     expect(read('server/pokerFinish.ts')).not.toContain('online_matches');
     expect(read('server/pokerAntiDump.ts')).not.toContain('onlineMatch');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 38.0.8.1 — the two corrective FAILs, at the pure level.
+// ---------------------------------------------------------------------------
+
+describe('FAIL 1 — an ACTIVE (unresolved) match reserves its pairs', () => {
+  const active = (...userIds: string[][]): PairEvidence => ({ active: userIds.map((u) => ({ userIds: u })), settled: [] });
+
+  it('blocks a second paid table for a pair with NO settled history at all', () => {
+    const d = decidePairPolicy([A, B], active([A, B]), NOW);
+    expect(d.cooldownActive).toBe(true);
+    expect(d.retryAfterSeconds).toBe(ACTIVE_RESERVATION_RETRY_SECONDS);
+  });
+
+  it('the retry hint is a bounded generic nudge, never a predicted end time', () => {
+    expect(ACTIVE_RESERVATION_RETRY_SECONDS).toBe(60);
+    // Even a very old unresolved match reports the same small bounded hint.
+    expect(decidePairPolicy([A, B], active([A, B]), NOW + 5 * 60 * 60_000).retryAfterSeconds)
+      .toBe(ACTIVE_RESERVATION_RETRY_SECONDS);
+  });
+
+  it('has NO fixed expiry — unlike the settled cooldown', () => {
+    // A settled match 16 minutes ago no longer blocks…
+    expect(decidePairPolicy([A, B], past(settled(NOW - 16 * 60_000, [A, B])), NOW).cooldownActive).toBe(false);
+    // …but an UNRESOLVED one still does, however long it has been running.
+    expect(decidePairPolicy([A, B], active([A, B]), NOW).cooldownActive).toBe(true);
+  });
+
+  it('ignores order, blocks a multiway roster, and spares an unrelated pair', () => {
+    expect(decidePairPolicy([B, A], active([A, B]), NOW).cooldownActive).toBe(true);
+    expect(decidePairPolicy([A, B, C], active([B, C]), NOW).cooldownActive).toBe(true);
+    expect(decidePairPolicy([C, D], active([A, B]), NOW).cooldownActive).toBe(false);
+    // A single shared player is not a pair.
+    expect(decidePairPolicy([A, C], active([A, B]), NOW).cooldownActive).toBe(false);
+  });
+
+  it('an active reservation never changes the RANKED verdict on its own', () => {
+    expect(decidePairPolicy([A, B], active([A, B]), NOW).statsEligible).toBe(true);
+  });
+
+  it('the settled cooldown still wins when it is the longer wait', () => {
+    const d = decidePairPolicy([A, B], {
+      active: [{ userIds: [A, B] }],
+      settled: [settled(NOW - 60_000, [A, B])],
+    }, NOW);
+    expect(d.retryAfterSeconds).toBe(14 * 60);          // 14 min > the 60s active nudge
+  });
+});
+
+describe('FAIL 1 — the advisory pair locks', () => {
+  it('derives one stable key per unordered pair, sorted', () => {
+    expect(pairAdvisoryKeys([A, B])).toEqual([pairKey(A, B)]);
+    expect(pairAdvisoryKeys([B, A])).toEqual(pairAdvisoryKeys([A, B]));       // order-independent
+    const keys = pairAdvisoryKeys([D, A, C, B]);
+    expect(keys).toHaveLength(6);
+    expect(keys).toEqual([...keys].sort());                                   // deterministic order
+    expect(new Set(keys).size).toBe(6);
+  });
+
+  it('a roster with fewer than two accounts locks nothing', () => {
+    expect(pairAdvisoryKeys([A])).toEqual([]);
+    expect(pairAdvisoryKeys([])).toEqual([]);
+  });
+
+  it('the lock is transaction-scoped, taken BEFORE the read, and keyed in SQL (not JS)', () => {
+    const src = read('server/pokerAntiDump.ts');
+    expect(src).toContain('pg_advisory_xact_lock');           // auto-released on commit/rollback
+    expect(src).toContain('substr(md5(');                     // stable SQL hash, not a JS one
+    const evalFn = src.slice(src.indexOf('export async function evaluatePairPolicyTx'));
+    expect(evalFn).toMatch(/lockPairsTx\(tx, userIds\)[\s\S]{0,400}readActivePairMatchesTx/);
+    expect(evalFn).toMatch(/lockPairsTx\(tx, userIds\)[\s\S]{0,400}readSettledPairHistoryTx/);
+  });
+
+  it('the whole decision happens inside the debit transaction, before the debit', () => {
+    const esc = read('server/pokerEscrow.ts');
+    const tx = esc.slice(esc.indexOf('await withEconomyBarrier(() => d.transaction'), esc.indexOf("room.pokerEscrow.status = 'funded'"));
+    expect(tx).toMatch(/evaluatePairPolicyTx\(tx, userIds, nowMs\)[\s\S]*recordMatchTx\(tx/);
+    expect(tx).toMatch(/evaluatePairPolicyTx\(tx, userIds, nowMs\)[\s\S]*adjustWalletTx\(tx/);
+  });
+});
+
+describe('FAIL 2 — a MALFORMED policy marker fails CLOSED', () => {
+  const corruptRoom = (over: Partial<ServerRoom> = {}): ServerRoom => ({
+    gameType: 'poker', pokerAntiDumpCorrupt: true,
+    pokerEscrow: {
+      matchId: 'm', buyIn: 5000, status: 'funded',
+      seats: [{ seat: 0, userId: A, amount: 5000 }, { seat: 1, userId: B, amount: 5000 }],
+    },
+    gameState: { appliedRebuys: [] },
+    ...over,
+  } as unknown as ServerRoom);
+
+  it('is reported distinctly from a legacy escrow', () => {
+    expect(antiDumpCorrupt(corruptRoom())).toBe(true);
+    expect(antiDumpCorrupt({ gameType: 'poker' } as unknown as ServerRoom)).toBe(false);
+  });
+
+  it('refuses every further rebuy (the spent allowance is unknown)', () => {
+    const r = corruptRoom();
+    expect(rebuysLeftForSeat(r, 0)).toBe(0);
+    expect(rebuyCapReached(r, 0)).toBe(true);
+    expect(rebuyCapReached(r, 1)).toBe(true);
+  });
+
+  it('is treated as UNRANKED — never assumed ranked', () => {
+    expect(statsEligibleForRoom(corruptRoom())).toBe(false);
+    // …while a healthy legacy room stays ranked (grandfathering is unchanged).
+    expect(statsEligibleForRoom({
+      gameType: 'poker',
+      pokerEscrow: { matchId: 'm', buyIn: 1, status: 'funded', seats: [] },
+    } as unknown as ServerRoom)).toBe(true);
+  });
+
+  it('never blocks a payout or a refund, and never freezes', () => {
+    const esc = read('server/pokerEscrow.ts');
+    const payout = esc.slice(esc.indexOf('export async function payoutStacks'), esc.indexOf('export async function refundBuyInsResult'));
+    expect(payout).not.toMatch(/antiDumpCorrupt|pokerAntiDumpCorrupt/);
+    const refund = esc.slice(esc.indexOf('export async function refundBuyInsResult'));
+    expect(refund.slice(0, 4000)).not.toMatch(/antiDumpCorrupt|pokerAntiDumpCorrupt/);
+    // The guard that DOES exist only refuses a NEW paid match, and only while unresolved.
+    expect(esc).toMatch(/antiDumpCorrupt\(room\) && room\.pokerEscrow/);
+    expect(esc).toMatch(/status !== 'settled' && room\.pokerEscrow\.status !== 'cancelled'/);
+    expect(esc).not.toMatch(/antiDumpCorrupt\(room\)[\s\S]{0,200}freeze/i);
+  });
+
+  it('the marker is retired ONLY by a committed fresh debit', () => {
+    const esc = read('server/pokerEscrow.ts');
+    expect((esc.match(/room\.pokerAntiDumpCorrupt = undefined/g) ?? []).length).toBe(1);
+    expect(esc).toMatch(/room\.pokerEscrow\.status = 'funded';[\s\S]{0,600}room\.pokerAntiDumpCorrupt = undefined/);
+  });
+
+  it('is SERVER-ONLY — never in a snapshot, summary, message or log', () => {
+    const core = read('src/net/serverCore.ts');
+    const messages = read('src/net/messages.ts');
+    expect(messages).not.toContain('pokerAntiDumpCorrupt');
+    const snap = core.slice(core.indexOf('export function snapshot'), core.indexOf('export function roomSummary'));
+    // It is read ONLY to derive the public boolean — never emitted as a field.
+    expect(snap).toContain('pokerStatsEligible');
+    expect(snap).not.toMatch(/pokerAntiDumpCorrupt:\s/);
+    const summary = core.slice(core.indexOf('export function roomSummary'), core.indexOf('export function roomSummary') + 1400);
+    expect(summary).not.toContain('pokerAntiDumpCorrupt');
+    for (const f of ['server/pokerAntiDump.ts', 'server/pokerEscrow.ts', 'server/pokerRebuy.ts']) {
+      for (const line of read(f).match(/console\.(log|error|warn)\([^)]*\)/g) ?? []) {
+        expect(line, f + ': ' + line).not.toMatch(/antiDumpCorrupt|antiDumpPolicy/);
+      }
+    }
+  });
+
+  it('a corrupt table publishes `pokerStatsEligible: false`', () => {
+    expect(read('src/net/serverCore.ts')).toMatch(/pokerStatsEligible: room\.pokerAntiDumpCorrupt === true \? false :/);
   });
 });

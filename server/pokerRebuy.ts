@@ -156,6 +156,7 @@ export function rebuyRequestAllowed(room: ServerRoom, seat: number | null): bool
   // (38.0.8) The anti-dumping cap is SERVER ECONOMY POLICY, applied here and never in the
   // shared pure engine — LOCAL free Poker keeps unlimited rebuys. A LEGACY escrow (no
   // policy marker) is also uncapped, so a match already in flight at deploy is unaffected.
+  // (38.0.8.1) A CORRUPT marker refuses every further rebuy: the spent allowance is unknown.
   if (rebuyCapReached(room, seat)) return false;
   return true;
 }

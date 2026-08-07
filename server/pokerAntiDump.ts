@@ -37,11 +37,11 @@
 //   a threshold, a history or who triggered it.
 // ---------------------------------------------------------------------------
 
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { createHash } from 'node:crypto';
 import { pokerMatches, pokerMatchSettlements, pokerLedger } from './db/schema';
-import { parseAntiDumpPolicy } from '../src/net/serverCore';
+import { readAntiDumpPolicy } from '../src/net/serverCore';
 import { MAX_BANKROLL_REBUYS_PER_SEAT as REBUY_CAP } from '../src/games/poker/stakes';
 import type { PokerEscrow, ServerRoom } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
@@ -64,7 +64,7 @@ export const MAX_RANKED_BANKROLL_MATCHES_PER_PAIR_UTC_DAY = 3;
 export const ANTI_DUMP_POLICY_VERSION = 1;
 
 /** Re-exported so every anti-dumping consumer has ONE import for the whole policy. */
-export { parseAntiDumpPolicy };
+export { readAntiDumpPolicy };
 
 // --- Pure helpers -----------------------------------------------------------
 
@@ -109,6 +109,24 @@ export function statsEligibleOf(esc: PokerEscrow | undefined): boolean {
   return p.statsEligible;
 }
 
+/**
+ * (38.0.8.1) True when this room's persisted policy marker was PRESENT but malformed. The
+ * money is fine; the POLICY is unknown, so everything policy-shaped fails closed.
+ */
+export function antiDumpCorrupt(room: ServerRoom): boolean {
+  return room.pokerAntiDumpCorrupt === true;
+}
+
+/**
+ * Does this room's CURRENT paid match feed stats? Fails CLOSED on a corrupt marker: an
+ * unknown decision must never be assumed to be "ranked". This — not `statsEligibleOf` — is
+ * what the stats recorder and the public snapshot ask.
+ */
+export function statsEligibleForRoom(room: ServerRoom): boolean {
+  if (antiDumpCorrupt(room)) return false;
+  return statsEligibleOf(room.pokerEscrow);
+}
+
 /** How many rebuys this seat has already taken in the CURRENT match (from the state). */
 export function seatRebuyCount(state: PokerState | null | undefined, seat: number): number {
   const applied = state?.appliedRebuys ?? [];
@@ -122,6 +140,7 @@ export function seatRebuyCount(state: PokerState | null | undefined, seat: numbe
  * escrow, or a non-bankroll table). `null` means "unlimited, as before" — it is NOT 0.
  */
 export function rebuysLeftForSeat(room: ServerRoom, seat: number): number | null {
+  if (room.pokerAntiDumpCorrupt === true) return 0;      // unknown allowance → none left
   if (!policyEnforced(room.pokerEscrow)) return null;
   const used = seatRebuyCount(room.gameType === 'poker' ? (room.gameState as PokerState | null) : null, seat);
   return Math.max(0, REBUY_CAP - used);
@@ -130,6 +149,9 @@ export function rebuysLeftForSeat(room: ServerRoom, seat: number): number | null
 /** True when the cap forbids another rebuy for this seat right now. */
 export function rebuyCapReached(room: ServerRoom, seat: number): boolean {
   if (policyDisabledForTests) return false;
+  // (38.0.8.1) A corrupt marker means the allowance already spent is UNKNOWN — refuse any
+  // further rebuy rather than hand out chips against an unreadable policy.
+  if (antiDumpCorrupt(room)) return true;
   const left = rebuysLeftForSeat(room, seat);
   return left !== null && left <= 0;
 }
@@ -147,6 +169,31 @@ export interface SettledPairMatch {
   settledAtMs: number;
   userIds: string[];
 }
+
+/**
+ * (38.0.8.1) An UNRESOLVED paid match — a `poker_matches` row with no settlement yet. It is
+ * a RESERVATION on every pair sitting at it: those accounts may not open a second paid table
+ * until this one resolves. Unlike the settled cooldown it has NO fixed expiry — it lasts
+ * exactly as long as the match is unresolved, and the existing orphan/recovery settlement
+ * paths remain the only thing that ends it (a payout then starts the normal 15-minute
+ * cooldown; a `cancel_refund` releases it immediately).
+ */
+export interface ActivePairMatch {
+  userIds: string[];
+}
+
+/** Everything the decision reads, from ONE locked snapshot. */
+export interface PairEvidence {
+  active: readonly ActivePairMatch[];
+  settled: readonly SettledPairMatch[];
+}
+
+/**
+ * Bounded, GENERIC retry hint for an ACTIVE-reservation refusal. A live match has no
+ * predictable end, so this is deliberately a small fixed nudge — never an invented
+ * prediction of when someone else's table will finish.
+ */
+export const ACTIVE_RESERVATION_RETRY_SECONDS = 60;
 
 /** What the policy decided for a candidate roster. Never leaves the server as-is. */
 export interface PairPolicyDecision {
@@ -169,7 +216,7 @@ export interface PairPolicyDecision {
  */
 export function decidePairPolicy(
   rosterUserIds: readonly string[],
-  history: readonly SettledPairMatch[],
+  evidence: PairEvidence,
   nowMs: number,
 ): PairPolicyDecision {
   const pairs = unorderedPairs(rosterUserIds);
@@ -182,7 +229,7 @@ export function decidePairPolicy(
   const todayCount = new Map<string, number>();
   let latestBlockingSettleMs = 0;
 
-  for (const m of history) {
+  for (const m of evidence.settled) {
     // Only the accounts of THIS candidate roster matter; a stranger at that old table is
     // irrelevant (and is never inspected further).
     const shared = m.userIds.filter((u) => roster.has(u));
@@ -195,9 +242,22 @@ export function decidePairPolicy(
     }
   }
 
-  const cooldownActive = latestBlockingSettleMs > 0;
-  const retryAfterSeconds = cooldownActive
+  // (38.0.8.1) An UNRESOLVED match holding any pair of this roster blocks outright. This is
+  // what stops two brand-new rooms of the same pair — with NO settled history at all — from
+  // both funding: the first START's durable `poker_matches` row IS the reservation.
+  let activeConflict = false;
+  for (const m of evidence.active) {
+    const shared = m.userIds.filter((u) => roster.has(u));
+    if (unorderedPairs(shared).length > 0) { activeConflict = true; break; }
+  }
+
+  const settledCooldown = latestBlockingSettleMs > 0;
+  const cooldownActive = activeConflict || settledCooldown;
+  const settledRetry = settledCooldown
     ? Math.max(1, Math.ceil((latestBlockingSettleMs + BANKROLL_PAIR_COOLDOWN_MS - nowMs) / 1000))
+    : 0;
+  const retryAfterSeconds = cooldownActive
+    ? Math.max(settledRetry, activeConflict ? ACTIVE_RESERVATION_RETRY_SECONDS : 0)
     : 0;
 
   let statsEligible = true;
@@ -208,6 +268,61 @@ export function decidePairPolicy(
     }
   }
   return { cooldownActive, retryAfterSeconds, statsEligible };
+}
+
+/**
+ * The advisory-lock keys for a roster: one per unordered pair, in a STABLE sorted order so
+ * every caller takes them in the same sequence and two concurrent debits can never deadlock.
+ */
+export function pairAdvisoryKeys(userIds: readonly string[]): string[] {
+  return unorderedPairs(userIds).map(([a, b]) => pairKey(a, b)).sort();
+}
+
+/**
+ * Take a TRANSACTION-SCOPED Postgres advisory lock for every pair of the roster, in the
+ * stable sorted order above.
+ *
+ * WHY: the in-process `withEconomyBarrier` only serializes ONE Node process. This lock is
+ * what makes "read the evidence, then debit" atomic against another CONNECTION — another
+ * instance, or simply another transaction — so the reservation cannot be raced.
+ * `pg_advisory_xact_lock` releases automatically on COMMIT or ROLLBACK, so a rolled-back
+ * debit leaves nothing behind.
+ *
+ * The key is derived IN SQL from md5 (stable across Postgres versions and platforms) rather
+ * than any JS hash. A hash collision can only make two UNRELATED pairs serialize with each
+ * other — conservative, never a bypass. Account ids are bound as query parameters only; they
+ * are never logged and never returned.
+ */
+export async function lockPairsTx(tx: PostgresJsDatabase, userIds: readonly string[]): Promise<void> {
+  for (const key of pairAdvisoryKeys(userIds)) {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint)`);
+  }
+}
+
+/**
+ * Read every UNRESOLVED paid match (a `poker_matches` row with no settlement) that involves
+ * at least one of `userIds`, inside the caller's transaction. Identity is the account ids in
+ * `poker_matches.seats` — never a room code.
+ */
+export async function readActivePairMatchesTx(
+  tx: PostgresJsDatabase, userIds: readonly string[],
+): Promise<ActivePairMatch[]> {
+  if (userIds.length === 0) return [];
+  const rows = await tx.select({ seats: pokerMatches.seats })
+    .from(pokerMatches)
+    .leftJoin(pokerMatchSettlements, eq(pokerMatchSettlements.matchId, pokerMatches.matchId))
+    .where(and(
+      isNull(pokerMatchSettlements.matchId),
+      sql`EXISTS (SELECT 1 FROM jsonb_array_elements(${pokerMatches.seats}) AS e
+                  WHERE e->>'userId' = ANY(${sql.raw(`ARRAY[${userIds.map((u) => `'${sanitizeUuid(u)}'`).join(',')}]::text[]`)}))`,
+    ));
+  const out: ActivePairMatch[] = [];
+  for (const r of rows) {
+    const seats = Array.isArray(r.seats) ? r.seats as Array<Record<string, unknown>> : [];
+    const ids = seats.map((s) => (typeof s?.userId === 'string' ? s.userId : null)).filter((x): x is string => !!x);
+    if (ids.length >= 2) out.push({ userIds: ids });
+  }
+  return out;
 }
 
 /**
@@ -282,8 +397,12 @@ export async function evaluatePairPolicyTx(
   tx: PostgresJsDatabase, userIds: readonly string[], nowMs: number,
 ): Promise<PairPolicyDecision> {
   if (policyDisabledForTests) return ALLOW_RANKED;
-  const history = await readSettledPairHistoryTx(tx, userIds, policyLookbackMs(nowMs));
-  return decidePairPolicy(userIds, history, nowMs);
+  // ORDER MATTERS: take the pair locks FIRST, then read. Reading before locking would be
+  // exactly the race this stage fixes.
+  await lockPairsTx(tx, userIds);
+  const active = await readActivePairMatchesTx(tx, userIds);
+  const settled = await readSettledPairHistoryTx(tx, userIds, policyLookbackMs(nowMs));
+  return decidePairPolicy(userIds, { active, settled }, nowMs);
 }
 
 /**

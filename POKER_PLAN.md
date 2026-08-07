@@ -145,3 +145,19 @@ the 38.0.7 audit and remains a separate, explicit decision.
 
 Follow-ups the owner may consider later: a longer rolling pairwise net-flow limit
 (needs migration 0015), and an operator review surface for flagged pairs.
+
+### Stage 38.0.8.1 — corrective hardening (COMPLETE, Unreleased)
+
+Two real FAILs found by review of 38.0.8, fixed without changing any threshold.
+
+1. **Concurrency was never actually proven.** The old "concurrent" test created a settled
+   match FIRST, so both rooms were refused by the ordinary cooldown — it never exercised the
+   fresh-room race. With an empty history both rooms funded. Fixed by ACTIVE-match pair
+   reservations plus transaction-scoped advisory pair locks, and re-tested from a genuinely
+   empty history.
+2. **A malformed policy marker failed OPEN** (restored as legacy: uncapped + ranked). Fixed
+   by a tri-state read (absent / valid / malformed) and a fail-closed `pokerAntiDumpCorrupt`
+   room marker that never touches payout or refund.
+
+Unchanged: 2 rebuys/seat/match, 15-minute pair cooldown, 3 ranked settled matches per pair
+per UTC day, no migration, local free Poker untouched.

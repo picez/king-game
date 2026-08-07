@@ -176,6 +176,14 @@ export interface ServerRoom {
    *  dropped (undefined) but this flag blocks room deletion + drives DB reconciliation, so a
    *  corrupt record never silently loses chips. Cleared once the DB confirms nothing is owed. */
   pokerEscrowCorrupt?: boolean;
+  /**
+   * (38.0.8.1) SERVER-ONLY: the persisted anti-dumping marker was PRESENT but malformed.
+   * The escrow's financial fields are intact, so payout/refund/conservation are unaffected —
+   * but the policy fails CLOSED: no new rebuys, stats are treated as unranked, and no new
+   * paid match may be funded until this escrow reaches a proven terminal outcome. Never in a
+   * RoomSnapshot/RoomSummary/message/log, and it never holds the malformed value itself.
+   */
+  pokerAntiDumpCorrupt?: boolean;
   /** Stage 37.7.3 (FAIL 5): the bankroll MATCH was terminally CANCELLED on recovery (its
    *  buy-ins were refunded), so the old game state must not continue for real chips. The room
    *  returns to a clean lobby (gameState cleared). */
@@ -1507,8 +1515,10 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     // "Ranked"/"Unranked". Never a reason, a threshold, a count, a history or an opponent —
     // and never the server-only `pokerEscrow.antiDumpPolicy` itself. Absent until a match is
     // funded, and absent for local/other games.
+    // (38.0.8.1) A CORRUPT policy marker publishes `false`: the table is treated as unranked,
+    // and the badge must say so. Still just a boolean — no reason, no marker, no history.
     ...(room.gameType === 'poker' && room.pokerEscrow
-      ? { pokerStatsEligible: room.pokerEscrow.antiDumpPolicy?.statsEligible ?? true }
+      ? { pokerStatsEligible: room.pokerAntiDumpCorrupt === true ? false : (room.pokerEscrow.antiDumpPolicy?.statsEligible ?? true) }
       : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
@@ -1657,6 +1667,8 @@ export interface PersistedRoom {
   pokerEscrow?: PokerEscrow;
   /** Persist the corrupt-escrow marker so a restart keeps failing closed (§16, 37.7.2). */
   pokerEscrowCorrupt?: boolean;
+  /** (38.0.8.1) Canonical corrupt-policy marker. The malformed value itself is NEVER persisted. */
+  pokerAntiDumpCorrupt?: boolean;
   /** Persist the terminal-cancel / frozen recovery markers (§16, 37.7.3). */
   pokerMatchCancelled?: boolean;
   pokerFrozen?: boolean;
@@ -1709,6 +1721,11 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     pokerBlindGrowth: room.pokerBlindGrowth,
     pokerEscrow: room.pokerEscrow,
     pokerEscrowCorrupt: room.pokerEscrowCorrupt,
+    // (38.0.8.1) Persist the FACT, never the attacker-controlled value: the malformed policy
+    // object was already dropped on restore, so re-serializing writes a clean escrow plus
+    // this canonical flag — the corruption can never be laundered into "legacy" by a
+    // serialize→restore round trip.
+    pokerAntiDumpCorrupt: room.pokerAntiDumpCorrupt,
     pokerMatchCancelled: room.pokerMatchCancelled,
     pokerFrozen: room.pokerFrozen,
     pokerStatsPending: room.pokerStatsPending,
@@ -1755,22 +1772,46 @@ const MAX_ID_LEN = 200;
  * marks the room corrupt so it fails closed + is reconciled against the DB.
  */
 /**
- * STRICT parse of the Stage 38.0.8 anti-dumping marker. Anything unexpected → `undefined`,
- * i.e. the escrow is treated as LEGACY (uncapped rebuys, ranked stats) rather than guessed
- * into a stricter state — a policy field must never demote an honest restored table, and it
- * must never make an escrow (which is money) look corrupt.
+ * The three genuinely different states of a persisted anti-dumping marker (Stage 38.0.8.1).
+ *
+ * `absent` and `malformed` used to collapse into the same `undefined`, so a CORRUPTED
+ * post-deploy marker restored as a LEGACY match — uncapped and ranked. That is fail-OPEN,
+ * and it is the bug this type exists to make impossible: a caller must now handle
+ * `malformed` explicitly.
  */
-export function parseAntiDumpPolicy(v: unknown): PokerAntiDumpPolicy | undefined {
-  if (!v || typeof v !== 'object') return undefined;
+export type AntiDumpPolicyRead =
+  | { kind: 'absent' }
+  | { kind: 'valid'; policy: PokerAntiDumpPolicy }
+  | { kind: 'malformed' };
+
+/**
+ * STRICT tri-state read of the Stage 38.0.8 anti-dumping marker.
+ *
+ * The property being ABSENT is a legitimate legacy (pre-policy) escrow. The property being
+ * PRESENT — including an explicit `null` — but not exactly a valid v1 record is CORRUPT, and
+ * is never silently downgraded to legacy. Unknown extra keys are rejected too: the record is
+ * server-written and fully known, so anything else means the value was tampered with or
+ * written by a build this one does not understand.
+ */
+export function readAntiDumpPolicy(container: Record<string, unknown>, key = 'antiDumpPolicy'): AntiDumpPolicyRead {
+  if (!(key in container)) return { kind: 'absent' };
+  const v = container[key];
+  if (v === undefined) return { kind: 'absent' };   // an absent field survives JSON as undefined
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return { kind: 'malformed' };
   const o = v as Record<string, unknown>;
-  if (o.version !== 1) return undefined;
-  if (typeof o.statsEligible !== 'boolean') return undefined;
-  if (typeof o.decidedAt !== 'number' || !Number.isSafeInteger(o.decidedAt) || o.decidedAt <= 0) return undefined;
-  if (typeof o.rosterDigest !== 'string' || !/^[0-9a-f]{32}$/.test(o.rosterDigest)) return undefined;
-  return { version: 1, statsEligible: o.statsEligible, decidedAt: o.decidedAt, rosterDigest: o.rosterDigest };
+  const ALLOWED = ['version', 'statsEligible', 'decidedAt', 'rosterDigest'];
+  if (Object.keys(o).some((k) => !ALLOWED.includes(k))) return { kind: 'malformed' };
+  if (o.version !== 1) return { kind: 'malformed' };
+  if (typeof o.statsEligible !== 'boolean') return { kind: 'malformed' };
+  if (typeof o.decidedAt !== 'number' || !Number.isSafeInteger(o.decidedAt) || o.decidedAt <= 0) return { kind: 'malformed' };
+  if (typeof o.rosterDigest !== 'string' || !/^[0-9a-f]{32}$/.test(o.rosterDigest)) return { kind: 'malformed' };
+  return {
+    kind: 'valid',
+    policy: { version: 1, statsEligible: o.statsEligible, decidedAt: o.decidedAt, rosterDigest: o.rosterDigest },
+  };
 }
 
-function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: PokerEscrow; corrupt?: boolean } {
+function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: PokerEscrow; corrupt?: boolean; policyCorrupt?: boolean } {
   if (v === undefined || v === null) return {}; // legitimately absent
   if (typeof v !== 'object') return { corrupt: true };
   const o = v as Record<string, unknown>;
@@ -1795,15 +1836,18 @@ function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: Pok
     if (total > Number.MAX_SAFE_INTEGER) return { corrupt: true };
     seats.push({ seat: s.seat, userId: s.userId, amount: s.amount });
   }
-  // (38.0.8) The anti-dumping marker is parsed STRICTLY, but a malformed/absent one only
-  // means "legacy": the escrow itself is money and must not be declared corrupt over a
-  // policy field. A legacy escrow is uncapped + ranked, exactly as before the policy.
-  const antiDumpPolicy = parseAntiDumpPolicy(o.antiDumpPolicy);
+  // (38.0.8.1) The anti-dumping marker is read as a TRI-STATE. The escrow itself is MONEY
+  // and is never declared corrupt over a policy field — it keeps its matchId/buyIn/seats so
+  // payout and refund stay available. But `malformed` is reported separately so the room can
+  // fail CLOSED on the policy (no new rebuys, unranked stats, no new paid match) instead of
+  // silently becoming an uncapped, ranked legacy table.
+  const policy = readAntiDumpPolicy(o);
   return {
     escrow: {
       matchId: o.matchId, buyIn: o.buyIn, status: status as PokerEscrow['status'], seats,
-      ...(antiDumpPolicy ? { antiDumpPolicy } : {}),
+      ...(policy.kind === 'valid' ? { antiDumpPolicy: policy.policy } : {}),
     },
+    ...(policy.kind === 'malformed' ? { policyCorrupt: true } : {}),
   };
 }
 
@@ -1875,6 +1919,9 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     pokerBlindGrowth: typeof o.pokerBlindGrowth === 'number' && Number.isSafeInteger(o.pokerBlindGrowth) && o.pokerBlindGrowth >= 0 ? o.pokerBlindGrowth : undefined,
     pokerEscrow: escrowResult.escrow,
     pokerEscrowCorrupt: escrowResult.corrupt,
+    // Corrupt when THIS restore found a malformed marker, or when an earlier one already did
+    // and persisted the canonical flag.
+    pokerAntiDumpCorrupt: escrowResult.policyCorrupt || o.pokerAntiDumpCorrupt === true ? true : undefined,
     pokerMatchCancelled: o.pokerMatchCancelled === true ? true : undefined,
     pokerFrozen: o.pokerFrozen === true ? true : undefined,
     pokerStatsPending: o.pokerStatsPending === true ? true : undefined,

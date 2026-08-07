@@ -18,7 +18,7 @@ import { isCorruptEvidence, type PayoutResult, type EscrowReconcileResult } from
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
 import { validateFinishedPaidMatch, isBankrollRoomShape } from './pokerParticipants';
-import { statsEligibleOf } from './pokerAntiDump';
+import { statsEligibleForRoom } from './pokerAntiDump';
 import { gameBoundToEscrow, clearGameBinding, resolveUnboundEscrowGame, escrowGameBinding } from './pokerBinding';
 
 /**
@@ -99,7 +99,9 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
     // still `invalid` (frozen) rather than quietly excused as "unranked". It is TERMINAL
     // SUCCESS: no retry, no freeze, and it clears any owed `pokerStatsPending`. A LEGACY
     // escrow with no policy marker is always ranked, so rollout never demotes a live table.
-    if (!statsEligibleOf(esc)) return 'unranked_skipped';
+    // (38.0.8.1) The ROOM-level check also fails closed on a CORRUPT policy marker: an
+    // unreadable decision is treated as unranked, never assumed to be ranked.
+    if (!statsEligibleForRoom(room)) return 'unranked_skipped';
     for (const [seat, userId] of identity.participants.seatUsers) seatUsers.set(seat, userId);
     matchId = identity.participants.matchId;
   } else {

@@ -22,7 +22,7 @@ import type { ServerRoom, PokerEscrow, PokerEscrowSeat, PokerAntiDumpPolicy } fr
 import type { PokerState } from '../src/games/poker/types';
 import { getDb, isDbEnabled } from './db/client';
 import {
-  ANTI_DUMP_POLICY_VERSION, evaluatePairPolicyTx, rosterDigest,
+  ANTI_DUMP_POLICY_VERSION, evaluatePairPolicyTx, rosterDigest, antiDumpCorrupt,
   PairCooldownError, UnrankedConfirmationRequiredError,
 } from './pokerAntiDump';
 import { validateFinishedPaidMatch } from './pokerParticipants';
@@ -313,6 +313,11 @@ async function performDebit(
     room.pokerEscrow.status = 'funded';
     // Stamp the decision on the escrow that the committed debit created. SERVER-ONLY.
     if (policy) room.pokerEscrow.antiDumpPolicy = policy;
+    // (38.0.8.1) A brand-new generation carries a FRESH, valid policy, so the corrupt marker
+    // of the REPLACED escrow is finally cleared. It is cleared here and nowhere else: only a
+    // committed debit — which the guards below allow only after the old lifecycle proved
+    // terminal — may retire it.
+    room.pokerAntiDumpCorrupt = undefined;
     return { ok: true };
   } catch (err) {
     // The DB transaction rolled back atomically → nothing was debited. Restore EXACTLY what the room
@@ -384,6 +389,14 @@ async function proveTerminalBeforeReuse(room: ServerRoom, expected: 'settled' | 
 
 export async function debitRematch(room: ServerRoom, opts: DebitOptions = {}): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
+  // (38.0.8.1) A CORRUPT policy marker on an UNRESOLVED escrow may never be replaced by a new
+  // paid match: the old lifecycle must reach a proven terminal outcome first. It is NOT a
+  // freeze and it never blocks the payout/refund that resolve it.
+  if (antiDumpCorrupt(room) && room.pokerEscrow
+    && room.pokerEscrow.status !== 'settled' && room.pokerEscrow.status !== 'cancelled') {
+    return { ok: false, error: 'This table is finishing its previous match — try again in a moment', settlementPending: true };
+  }
+
   // (37.7.19 FAIL 1) A FROZEN table is a permanent operator condition — it may never mint a new paid
   // match (`debitFreshStart` already refused; the rematch path did not).
   if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
@@ -419,6 +432,14 @@ export async function debitRematch(room: ServerRoom, opts: DebitOptions = {}): P
 export async function debitFreshStart(room: ServerRoom, opts: DebitOptions = {}): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
   if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
+  // (38.0.8.1) A CORRUPT policy marker on an UNRESOLVED escrow may never be replaced by a new
+  // paid match: the old lifecycle must reach a proven terminal outcome first. It is NOT a
+  // freeze and it never blocks the payout/refund that resolve it.
+  if (antiDumpCorrupt(room) && room.pokerEscrow
+    && room.pokerEscrow.status !== 'settled' && room.pokerEscrow.status !== 'cancelled') {
+    return { ok: false, error: 'This table is finishing its previous match — try again in a moment', settlementPending: true };
+  }
+
   const esc = room.pokerEscrow;
   if (esc?.status === 'pending' || esc?.status === 'settling') {
     return { ok: false, error: 'A previous action is still in progress — try again in a moment' };

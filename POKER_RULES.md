@@ -851,3 +851,63 @@ it never makes an escrow look corrupt and never demotes a table.
 - never reveals an opponent, a pair, a count, a threshold or a risk flag — the only public
   fact is the boolean `RoomSnapshot.pokerStatsEligible` (the Ranked/Unranked badge), and a
   cooldown refusal carries only an approximate `retryAfterSeconds`.
+
+### 18.7 Corrections (Stage 38.0.8.1)
+
+Two properties §18 originally claimed were not actually delivered. Both are now fixed, and
+the earlier wording is corrected here rather than quietly replaced.
+
+**(a) The cooldown had no ACTIVE-match evidence.** It read only settlements with
+`outcome = 'payout'`, so two brand-new rooms for the same pair, started with an EMPTY
+history, could both fund: the first START's `poker_matches` row carried no settlement yet
+and was therefore invisible to the second. Measured on 0ba01a6: `[{ok:true},{ok:true}]`,
+two unresolved matches, two `table_buy_in` rows per account.
+
+The decision now reads TWO kinds of evidence:
+
+| evidence | condition | expiry |
+| --- | --- | --- |
+| **active reservation** | a `poker_matches` row with **no** settlement whose seats share a pair with the candidate roster | none — it lasts while the match is unresolved |
+| **settled cooldown** | a settlement with `outcome = 'payout'` newer than 15 minutes | the usual 15 minutes |
+
+A payout turns a reservation into the ordinary 15-minute cooldown; a `cancel_refund`
+releases it immediately. The orphan/recovery settlement paths remain the only thing that
+resolves a match, and a room code is still never used as identity. An active-reservation
+refusal reports a bounded, generic `retryAfterSeconds` — it never invents a prediction of
+when someone else's table will end.
+
+**(b) The in-process barrier was not the guarantee it was described as.** It serializes one
+Node process only. Before reading any evidence, the debit transaction now takes a
+**transaction-scoped Postgres advisory lock per unordered pair**, in a stable sorted order
+(so multiway rosters cannot deadlock). The key is derived in SQL from `md5` — stable across
+Postgres versions, never a JS hash — and a collision can only make two unrelated pairs
+serialize conservatively, never allow a bypass. The lock releases automatically on COMMIT or
+ROLLBACK, so a rolled-back debit leaves no reservation behind.
+
+Lock order (unchanged, now with one more step):
+`withRoomLock(code)` → economy barrier → DB transaction → sorted pair advisory locks →
+policy read → wallet locks + debit.
+
+**(c) A malformed policy marker used to fail OPEN.** The parser returned the same
+`undefined` for "field absent" and "field present but invalid", so a corrupted post-deploy
+marker restored as a LEGACY match — uncapped and ranked. The read is now TRI-STATE:
+
+| persisted field | result |
+| --- | --- |
+| genuinely absent | **legacy** — grandfathered, uncapped, ranked |
+| present and exactly a valid v1 record | **valid** — the stored decision applies |
+| present but anything else, including `null` or an unknown extra key | **policy-corrupt** |
+
+A policy-corrupt escrow keeps its financial fields — the escrow is money and is never
+declared corrupt over a policy field — and sets the server-only room marker
+`pokerAntiDumpCorrupt`. That marker:
+
+- refuses every further **rebuy** (the spent allowance is unknown);
+- makes the match **unranked** (`recordConfirmedPokerStats` → `unranked_skipped`, decided
+  AFTER `validateFinishedPaidMatch`, so a structurally broken match is still `invalid`);
+- publishes `pokerStatsEligible: false`;
+- refuses a **new paid match** until the old escrow reaches a proven terminal outcome;
+- **never** blocks the payout or the refund, never freezes the room, and never confiscates;
+- is retired only by a committed fresh debit, which stamps a new valid v1 policy;
+- is persisted as a canonical flag, never as the malformed value, so a serialize→restore
+  round trip can never launder it back into "legacy".
