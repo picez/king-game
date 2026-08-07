@@ -1053,3 +1053,68 @@ Use this file as the first read after archiving this chat. It is intentionally s
   0 skipped**. verify PASS (287 files / 3424 tests).
 - **Gotcha:** `--surface` is translucent (see 38.0.5.1); the tracker cards use `--surface-2`
   inside the already-opaque profile panel, so they are fine.
+
+### Stage 38.0.8 — Poker anti-dumping A0+A1 (COMPLETE, Unreleased)
+- Worked from HEAD `7532e7e`. Owner-selected model **A0+A1** from the 38.0.7 audit.
+  **NO new migration (latest stays 0014)**, version 0.4.8, games 7, achievements 52, libc 0.
+  It is a **MITIGATION, not a guarantee** — the docs say so explicitly and so does the code.
+- **RED (real PG, probe deleted):** one seat took **5+** rebuys in one match (`appliedRebuys`
+  5 long, no cap anywhere); the same pair could press rematch AND open a brand-new paid room
+  immediately (both `{ok:true}`, and `DebitResult` had only the key `ok` — no shape could even
+  express a refusal); six repeat matches of one pair all returned `recorded` and pushed B to
+  `gamesWon 6`; `START_GAME` was payload-free with no unranked handshake; and local free Poker
+  had no economy policy at all (recorded as the invariant to preserve).
+- **New `server/pokerAntiDump.ts`** — pure decision + tx-scoped reads. Constants:
+  `MAX_BANKROLL_REBUYS_PER_SEAT = 2` (re-exported from `src/games/poker/stakes.ts`, the
+  ONLINE-bankroll config — deliberately NOT the shared pure engine, so local stays uncapped),
+  `BANKROLL_PAIR_COOLDOWN_MS = 15 min`, `MAX_RANKED_BANKROLL_MATCHES_PER_PAIR_UTC_DAY = 3`.
+- **NO TOCTOU:** `performDebit` calls `evaluatePairPolicyTx` INSIDE the same transaction that
+  writes `poker_matches` + the buy-in debits, under the existing `withEconomyBarrier`. Lock
+  order unchanged (`withRoomLock` → barrier → tx). A refusal THROWS in the transaction →
+  atomic rollback: no ledger row, no matchId, previous escrow restored verbatim. Two
+  concurrent fresh rooms of one pair (different room locks!) are proven blocked by a real-PG
+  test.
+- **Identity** = unordered pair of account ids from `poker_matches.seats` ⋈
+  `poker_match_settlements.outcome = 'payout'`. Never a room code, never client history.
+  `cancel_refund` + unsettled matches count for nothing.
+- **Rebuy cap** enforced in `rebuyRequestAllowed` (fast refusal, pre-debit) AND by
+  `countDurableRebuysTx` inside the rebuy transaction (authoritative: only COMMITTED ledger
+  rows spend an allowance, so insufficient/transient/replay cost nothing and a concurrent race
+  yields exactly one debit). A state claiming more rebuys than the ledger → refuse
+  (`cap_reached`), never guess; `reconcileRebuys` still owns that disagreement.
+- **Grandfathering:** SERVER-ONLY `PokerEscrow.antiDumpPolicy {version:1, statsEligible,
+  decidedAt, rosterDigest}`, stamped by every post-deploy debit. No marker = legacy = uncapped
+  + ranked. `parseAntiDumpPolicy` (in serverCore, next to the other deserializers) is strict but
+  degrades to legacy — a policy field must never make an ESCROW look corrupt.
+- **Stats:** new terminal `StatsResult` value **`unranked_skipped`**, returned AFTER
+  `validateFinishedPaidMatch` (a malformed match is still `invalid` → frozen). It is SUCCESS:
+  no retry, no freeze, clears `pokerStatsPending`, idempotent; both callers already used
+  `!== 'failed' / !== 'invalid'` so they resolve it correctly. Unranked pays out in full and
+  writes NO `games`/`game_players`/`rounds`/`user_stats` row.
+- **Protocol:** `START_GAME { pokerUnrankedConfirmed?: boolean }` (acknowledgement only — the
+  server recomputes under its lock), `ERROR { retryAfterSeconds? }`, codes
+  `POKER_PAIR_COOLDOWN` / `POKER_UNRANKED_CONFIRM_REQUIRED`, and the ONE public boolean
+  `RoomSnapshot.pokerStatsEligible`. No userId / pair / threshold / history ever leaves the server.
+- **UI:** Ranked/Unranked badge + "Rebuys left: N" in the poker top bar (online only — local
+  renders nothing), `PokerUnrankedDialog` (opaque `--panel`, 44px targets, focus trap + return,
+  Escape/backdrop cancel only pre-debit, `startPending` ref → one START on a double-click), and
+  an inert cooldown note in the lobby. i18n `poker.ranked/unranked/rebuysLeft/unranked*/cooldown*`
+  ×4 (10 keys).
+- **TEST SEAM `__setAntiDumpPolicyDisabled`** (same convention as `__setRefundFailure`) +
+  `withAntiDumpPolicyDisabled(beforeEach, afterEach)` in `pokerDbSuite.testutil`. **NINE**
+  settlement/recovery suites use it (pokerBootstrapOrdering / pokerDebitRollback /
+  pokerDurableOwnership / pokerEscrow / pokerPaidConflict / pokerRematch.lifecycle /
+  pokerRematchCrash / pokerRematchRequest / pokerRuntimeSweep): they drive back-to-back paid
+  matches for ONE pair to exercise crash windows, which the cooldown would otherwise refuse.
+  Default is ENABLED; the policy's own suites never touch it.
+- **Gates:** real Docker PostgreSQL on a CLEAN DB — `src/net/poker* + src/games/poker +
+  src/ui/poker` = **65 files / 724 tests, 0 skipped, 0 failed**; `npm run verify` PASS
+  (**289 files / 3480 tests** + build + E2E); `npm run layout:poker` **228 checks, LAYOUT OK**
+  (it still hangs after printing — read the output file, do not wait for exit);
+  `git diff --check` clean; libc 0; no package/lock drift.
+- **Gotcha:** the test DB persists between runs, so a suite that counts rows by a 4-character
+  room code can see a PREVIOUS run's rows. `pokerAntiDump.integration.test.ts` salts its codes
+  per run and asserts attribution via `game_players.user_id` instead.
+- **NOT done (owner's call, from the 38.0.7 audit):** the rolling pairwise NET-FLOW limit (A2,
+  would need migration 0015) and any operator review surface. Model **C** (removing
+  player-to-player transfer entirely) remains a separate, explicit decision.

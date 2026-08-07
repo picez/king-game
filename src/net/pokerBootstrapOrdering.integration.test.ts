@@ -1,9 +1,13 @@
-import { describe, it, expect, afterEach, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import type { ServerRoom } from './serverCore';
 import type { PokerState, PokerPlayer, PokerTelemetry } from '../games/poker/types';
 import type { ClientMessage, ErrorCode } from './messages';
-import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
+import { scopedOrphanScan, withPokerDbSuiteLock, withAntiDumpPolicyDisabled } from './pokerDbSuite.testutil';
+
+// (38.0.8) A settlement/recovery suite: the anti-dumping policy is not what it tests,
+// and its 15-minute pair cooldown would refuse the back-to-back paid matches it needs.
+withAntiDumpPolicyDisabled(beforeEach, afterEach);
 
 // Stage 37.7.13 (integration, real Postgres). These drive the WHOLE production startup economy
 // pipeline — `runBootstrapEconomyRecovery`, the single function `server/index.ts` runs — so the

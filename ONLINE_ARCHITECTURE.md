@@ -1455,3 +1455,58 @@ and exactly TWO category cards; it derives nothing itself. It is fetched ONLY wh
 Statistics section is open, guarded by a `once` ref plus an in-flight ref so a rerender
 cannot start a second parallel request, and the ↻ Refresh reloads the tracker together
 with the visible detailed panel.
+
+### Poker anti-dumping policy (Stage 38.0.8)
+
+A MITIGATION on the bankroll economy — **not** a proof that collusion is impossible. A cash
+game that pays final stacks into permanent wallets cannot reliably distinguish a deliberate
+loss from bad play; this makes the transfer slow and stops repeats from feeding the rating.
+
+**Scope.** ONLINE bankroll Poker only. Local free Poker has no wallet/escrow and is
+untouched (unlimited rebuys). The other six games are untouched, and Poker is still never
+written to `online_matches`.
+
+**Where the decision happens — no TOCTOU.** `performDebit` evaluates the whole policy
+INSIDE the same transaction that records the durable match and debits the buy-ins, under
+the existing `withEconomyBarrier`. Lock order is unchanged: `withRoomLock(code)` →
+`withEconomyBarrier` → DB transaction. A refusal throws inside the transaction, so the
+rollback is atomic: no ledger row, no `poker_matches` row, no matchId, and the previous
+escrow is restored verbatim by the existing rollback path. Two brand-new rooms of the same
+pair started concurrently hold DIFFERENT room locks, so the barrier + the in-transaction
+read are what stop them — and a real-PG test drives exactly that race.
+
+**Identity.** A "pair" is an unordered pair of distinct authenticated account ids. History
+comes from `poker_matches.seats` joined to `poker_match_settlements` with
+`outcome = 'payout'` — never a room code, never client history. `cancel_refund` settlements
+and unsettled matches are excluded, so a refunded or in-flight match neither starts a
+cooldown nor spends a ranked slot.
+
+**Rebuy allowance.** `rebuyRequestAllowed` refuses a capped seat before any debit (fast
+path), and `performRebuy` re-checks the COMMITTED `table_rebuy` ledger rows inside its own
+debit transaction (authoritative path). A state that claims more rebuys than the ledger
+proves is refused rather than guessed — `reconcileRebuys` owns that disagreement and
+freezes it under the existing model.
+
+**The marker.** `PokerEscrow.antiDumpPolicy` = `{version: 1, statsEligible, decidedAt,
+rosterDigest}`. SERVER-ONLY: persisted in the room JSON, strictly re-validated on restore,
+and absent from `RoomSnapshot`/`RoomSummary`/messages/logs. `rosterDigest` is a one-way hash
+of the sorted account ids — it binds a decision to its roster and exposes no identity. An
+escrow WITHOUT the marker is a legacy (pre-deploy) match: uncapped and ranked. A malformed
+marker degrades to legacy and never makes the escrow look corrupt.
+
+**Stats.** `recordConfirmedPokerStats` gained the terminal result `unranked_skipped`,
+returned AFTER the structural `validateFinishedPaidMatch` (so a malformed match is still
+`invalid` → frozen, never excused as unranked). It is a SUCCESS: no retry, no freeze, it
+clears `pokerStatsPending`, it is idempotent, and both callers (`settleAndRecordBankroll
+PokerFinish` and the index stats sweep) treat it as resolved. Payout, conservation,
+settlement exclusivity, refunds and every recovery path are unchanged — the policy has no
+code path into them.
+
+**Protocol.** `START_GAME` gained `pokerUnrankedConfirmed?: boolean` (an acknowledgement,
+never a request); `ERROR` gained `retryAfterSeconds?: number`; new codes
+`POKER_PAIR_COOLDOWN` and `POKER_UNRANKED_CONFIRM_REQUIRED`; `RoomSnapshot` gained the
+single public boolean `pokerStatsEligible`.
+
+**Test seam.** `__setAntiDumpPolicyDisabled` (same convention as `__setRefundFailure`) lets
+the settlement/recovery suites drive back-to-back paid matches for one pair. It defaults to
+enabled, only tests call it, and each such suite resets it in `afterEach`.

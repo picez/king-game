@@ -279,8 +279,10 @@ function persistRoom(room: ServerRoom): void {
 function send(socket: WebSocket | undefined, msg: ServerMessage): void {
   if (socket && socket.readyState === socket.OPEN) socket.send(JSON.stringify(msg));
 }
-function sendError(socket: WebSocket, code: ErrorCode, message: string): void {
-  send(socket, { t: 'ERROR', code, message });
+function sendError(socket: WebSocket, code: ErrorCode, message: string, retryAfterSeconds?: number): void {
+  // (38.0.8) `retryAfterSeconds` is the ONLY extra field an error may carry — an approximate
+  // wait for a cooldown. Never an opponent, a pair, a count, a threshold or a risk flag.
+  send(socket, { t: 'ERROR', code, message, ...(retryAfterSeconds != null ? { retryAfterSeconds } : {}) });
 }
 function socketOf(member: ServerMember): WebSocket | undefined {
   return sockets.get(member.clientId);
@@ -387,6 +389,20 @@ function handleRematch(session: SessionRef, decline: boolean): void {
       persist: persistRoom,
       forgetFinish: (r) => recordedFinish.delete(r.code),
       logDeal: logLatestDeal,
+      // (38.0.8) Every seated human consented to this rematch, so they all get the same
+      // generic, opponent-free refusal. Nothing was debited.
+      notifyPolicyRefusal: (r, kind, retryAfterSeconds) => {
+        for (const m of r.members.values()) {
+          if (m.role !== 'player' || m.type !== 'human') continue;
+          const sock = socketOf(m);
+          if (!sock) continue;
+          if (kind === 'cooldown') {
+            sendError(sock, 'POKER_PAIR_COOLDOWN', 'This line-up cannot start a paid table yet', retryAfterSeconds);
+          } else {
+            sendError(sock, 'POKER_UNRANKED_CONFIRM_REQUIRED', 'This table would not count towards Poker stats');
+          }
+        }
+      },
     }),
     // Non-bankroll: let the fresh game record its OWN finish (the previous is recorded once).
     restartNonBankroll: (room) => {
@@ -965,8 +981,11 @@ async function handlePokerRebuy(
     }
     const outcome = await performRebuy(live, userId!, seat!, rebuyDeps());
     if (!outcome.ok) {
+      // (38.0.8) `cap_reached` is the anti-dumping allowance, reported as an ordinary
+      // "not available" refusal — nothing was debited and no allowance was spent.
       const err: ErrorCode = outcome.reason === 'insufficient' ? 'INSUFFICIENT_CHIPS'
-        : outcome.reason === 'not_allowed' ? 'REBUY_NOT_ALLOWED' : 'ECONOMY_UNAVAILABLE';
+        : (outcome.reason === 'not_allowed' || outcome.reason === 'cap_reached') ? 'REBUY_NOT_ALLOWED'
+          : 'ECONOMY_UNAVAILABLE';
       // Safe, bounded copy only — never a SQL error, a balance or an economy identifier.
       refuse(err, err === 'INSUFFICIENT_CHIPS' ? 'Not enough chips in your wallet.' : 'Rebuy is not available.');
       return;
@@ -1482,7 +1501,8 @@ function retryPendingSettlements(): void {
           return;
         }
         if (stats !== 'failed') {
-          room.pokerStatsPending = undefined; // recorded / already_exists / skipped → resolved
+          // recorded / already_exists / skipped / unranked_skipped (38.0.8) → resolved.
+          room.pokerStatsPending = undefined;
           persistRoom(room);
           broadcastRoom(room); // recovery clears → rematch re-enabled
           console.log(`[King] stats-pending resolved for room ${room.code} (${stats})`);

@@ -30,6 +30,14 @@ interface Props {
   /** The between-hands rebuy panel (§17), rendered under the hand review so the showdown
    *  result stays on screen while the busted seats decide. */
   rebuySlot?: ReactNode;
+  /**
+   * (38.0.8, ONLINE BANKROLL ONLY) Whether this paid match counts towards Poker stats.
+   * `undefined` for LOCAL free Poker and for any table with no policy decision — the badge
+   * is then not rendered at all, so local play looks exactly as before.
+   */
+  statsEligible?: boolean;
+  /** (38.0.8) Rebuys this viewer's seat may still take, or `undefined` when uncapped. */
+  rebuysLeft?: number;
 }
 
 /**
@@ -43,7 +51,9 @@ interface Props {
  * `PokerActionLog` control owned by the caller — RoomSocial's `utilitySlot` online,
  * a matching bottom-end cluster locally — so exactly one log control exists per table.
  */
-export default function PokerGameScreen({ state, mySeat, apply, onExit, online, readOnly, socialSlot, rebuySlot }: Props) {
+export default function PokerGameScreen({
+  state, mySeat, apply, onExit, online, readOnly, socialSlot, rebuySlot, statsEligible, rebuysLeft,
+}: Props) {
   const { t } = useI18n();
   const pot = state.contributedBySeat.reduce((a, b) => a + b, 0);
   const myTurn = state.phase === 'betting' && mySeat != null && state.toActSeat === mySeat && !readOnly;
@@ -67,6 +77,22 @@ export default function PokerGameScreen({ state, mySeat, apply, onExit, online, 
         </span>
         <button type="button" className="poker-help-btn" onClick={() => setShowHelp(true)} aria-label={t('poker.help.title')}>❓</button>
       </header>
+
+      {/* (38.0.8) Anti-dumping status — ONLINE BANKROLL ONLY. It states WHAT is true for this
+          table (counts / does not count, rebuys left) and never why, never a threshold and
+          never anything about another player. Absent entirely in LOCAL free Poker. */}
+      {(statsEligible !== undefined || rebuysLeft !== undefined) && (
+        <div className="poker-policy-bar">
+          {statsEligible !== undefined && (
+            <span className={`poker-policy-badge ${statsEligible ? 'poker-policy-badge--ranked' : 'poker-policy-badge--unranked'}`}>
+              {statsEligible ? t('poker.ranked') : t('poker.unranked')}
+            </span>
+          )}
+          {rebuysLeft !== undefined && (
+            <span className="poker-policy-rebuys">{t('poker.rebuysLeft').replace('{n}', String(rebuysLeft))}</span>
+          )}
+        </div>
+      )}
 
       {/* Oval felt table with the seats positioned around it. */}
       <div className="poker-table-wrap">

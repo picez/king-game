@@ -1720,3 +1720,68 @@ account; play a couple of quick online games first.
 - [ ] Check the copy in **EN / UK / DE / AR**.
 - [ ] Keyboard: Tab reaches every chip, Enter/Space selects it, and the selected chip is
       announced (`role="tab"` / `aria-selected`); each number has a visible label next to it.
+
+## Poker anti-dumping policy (Stage 38.0.8)
+
+Automated gates: `npx vitest run src/net/pokerAntiDump*.test.ts
+src/ui/poker/pokerAntiDumpUi.test.ts` (+ the integration file with `TEST_DATABASE_URL`) and
+the full poker suite on real PostgreSQL. This is the manual pass. It is a **mitigation, not
+a guarantee** — do not test for "impossible", test for "slow and uncounted".
+
+Needs two signed-in accounts, chips in both wallets, and Postgres.
+
+**Rebuy cap (2 per seat per match)**
+
+- [ ] In an online bankroll match, bust and rebuy **twice** — both work, and the badge
+      counts down **Rebuys left: 2 → 1 → 0**.
+- [ ] Bust a **third** time: the rebuy is refused, your balance does not change, and the
+      seat is eliminated normally when the window closes.
+- [ ] The other player's allowance is **separate** — they can still rebuy twice.
+- [ ] Tap Rebuy twice very fast on your last allowance: **one** debit only.
+- [ ] Reload mid-match: the counter is not reset.
+- [ ] **Local pass-and-play Poker still has unlimited rebuys** and shows no badge at all.
+
+**Pair cooldown (15 minutes)**
+
+- [ ] Finish a paid match with the same person, then press **Play again**: it is refused
+      with a friendly note, an approximate wait, **no chips are taken**, and the finished
+      table is left exactly as it was.
+- [ ] Immediately create a **brand-new room** with the same two accounts and start: refused
+      the same way. A new room code is not a way around it.
+- [ ] Swap who hosts / who sits where: still refused (order does not matter).
+- [ ] Add a third person and start: still refused, because the recent pair is in the room.
+- [ ] Play with a **different** person: starts normally.
+- [ ] The message never names anyone, never says "cheating" and always offers local play.
+- [ ] After 15 minutes the same pair can start again.
+
+**Ranked / Unranked**
+
+- [ ] Play three paid matches with the same person (waiting out each cooldown). All three
+      show the **Ranked** badge and your Poker stats/leaderboard move as usual.
+- [ ] Start a **fourth**: a dialog explains the table will not count, chips and payouts work
+      normally, and offers **Continue unranked** / **Cancel**.
+- [ ] **Cancel** → nothing happened: no chips taken, no table started.
+- [ ] **Continue unranked** → the match plays and pays out completely, and every seat sees
+      the **Unranked** badge (reload to confirm it survives).
+- [ ] After that match, Profile → Statistics shows Poker **gamesPlayed/gamesWon unchanged**,
+      and no Poker achievement progressed.
+- [ ] Your chip balance DID change by the full result.
+- [ ] After UTC midnight, the same pair is ranked again.
+- [ ] Double-tap **Continue unranked**: only one table starts.
+
+**Mobile / RTL / languages**
+
+- [ ] At **360** and **390** the dialog fits, is fully opaque (the felt does not show
+      through), and both buttons are easy to tap.
+- [ ] Escape, the backdrop and Cancel all dismiss it before anything is charged; focus
+      returns to where it was.
+- [ ] The Ranked/Unranked badge and the rebuy counter do not cover the table or the action
+      buttons.
+- [ ] **Arabic RTL** mirrors correctly.
+- [ ] Check the copy in **EN / UK / DE / AR** — no accusation, no threshold, no name.
+
+**Nothing else changed**
+
+- [ ] Refunds still work: cancel a table before it starts and the buy-ins come straight back.
+- [ ] A match already running when the server restarted keeps the old behaviour until it ends.
+- [ ] The other six games are unaffected.

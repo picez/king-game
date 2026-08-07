@@ -18,6 +18,7 @@ import { isCorruptEvidence, type PayoutResult, type EscrowReconcileResult } from
 import type { SeatUsers, RecordResult } from './db/stats';
 import { pokerFinishSignature } from '../src/net/pokerStats';
 import { validateFinishedPaidMatch, isBankrollRoomShape } from './pokerParticipants';
+import { statsEligibleOf } from './pokerAntiDump';
 import { gameBoundToEscrow, clearGameBinding, resolveUnboundEscrowGame, escrowGameBinding } from './pokerBinding';
 
 /**
@@ -34,7 +35,17 @@ import { gameBoundToEscrow, clearGameBinding, resolveUnboundEscrowGame, escrowGa
  *                      PERMANENT operator condition: freeze, never write stats, never clear the
  *                      owed state, never re-pay.
  */
-export type StatsResult = 'recorded' | 'already_exists' | 'skipped' | 'failed' | 'invalid';
+/**
+ * The terminal outcomes of the confirmed-stats lifecycle.
+ *  - `recorded` / `already_exists` — the durable row exists (success);
+ *  - `skipped`          — policy says this table never had stats to write (non-bankroll shape);
+ *  - `unranked_skipped` — (38.0.8) a PAID bankroll match the anti-dumping policy marked
+ *                         UNRANKED. It is a SUCCESSFUL terminal outcome: the payout already
+ *                         happened, nothing is owed, nothing is retried, nothing freezes;
+ *  - `failed`           — transient (retry owed);
+ *  - `invalid`          — permanent structural incoherence (freeze, never a partial write).
+ */
+export type StatsResult = 'recorded' | 'already_exists' | 'skipped' | 'unranked_skipped' | 'failed' | 'invalid';
 
 /** Injected side effects for recording confirmed bankroll poker stats (idempotent). */
 export interface ConfirmedStatsDeps {
@@ -81,6 +92,14 @@ export async function recordConfirmedPokerStats(room: ServerRoom, state: PokerSt
     // freeze, owed state kept), NEVER a policy `skipped` and never an endless transient retry.
     const identity = validateFinishedPaidMatch(esc, state);
     if (!identity.ok) return 'invalid';
+    // (38.0.8) ANTI-DUMPING: an UNRANKED paid match pays out in full and settles exactly as a
+    // ranked one — it simply writes NO legacy stats row (games / game_players / rounds /
+    // user_stats), so gamesPlayed/gamesWon/rating/leaderboard and every Poker achievement are
+    // untouched by it. This is checked AFTER the structural validation so a malformed match is
+    // still `invalid` (frozen) rather than quietly excused as "unranked". It is TERMINAL
+    // SUCCESS: no retry, no freeze, and it clears any owed `pokerStatsPending`. A LEGACY
+    // escrow with no policy marker is always ranked, so rollout never demotes a live table.
+    if (!statsEligibleOf(esc)) return 'unranked_skipped';
     for (const [seat, userId] of identity.participants.seatUsers) seatUsers.set(seat, userId);
     matchId = identity.participants.matchId;
   } else {
@@ -319,7 +338,9 @@ export async function settleAndRecordBankrollPokerFinish(room: ServerRoom, state
         room.pokerStatsPending = true;
         deps.freeze(room, 'paid match participants invalid');
       } else if (room.pokerStatsPending) {
-        // recorded / already_exists / skipped → resolved: clear any prior stats-pending, re-enable rematch.
+        // recorded / already_exists / skipped / unranked_skipped → resolved: clear any prior
+        // stats-pending and re-enable rematch. (38.0.8) `unranked_skipped` belongs HERE — it is
+        // a completed lifecycle, never a transient failure and never an operator condition.
         room.pokerStatsPending = undefined;
       }
       deps.persist(room);

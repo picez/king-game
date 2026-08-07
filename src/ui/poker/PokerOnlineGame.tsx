@@ -20,6 +20,9 @@ interface Props {
   socialSlot?: ReactNode;
   /** §17 — the between-hands rebuy panel, rendered under the hand review. */
   rebuySlot?: ReactNode;
+  /** (38.0.8) Public anti-dumping status of the CURRENT paid match (online only). */
+  statsEligible?: boolean;
+  rebuysLeft?: number;
 }
 
 /** Seat index encoded in a `player-<seat>` id, or null. */
@@ -38,7 +41,9 @@ function seatOf(playerId: string | null): number | null {
  * This component owns the SINGLE recovery banner for the active + finished views (finished
  * renders it inside PokerFinished) so it is never shown twice (37.7.7 FAIL 3).
  */
-export default function PokerOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, recovery, socialSlot, rebuySlot }: Props) {
+export default function PokerOnlineGame({
+  state, myPlayerId, dispatch, onExit, rematch, recovery, socialSlot, rebuySlot, statsEligible, rebuysLeft,
+}: Props) {
   const mySeat = seatOf(myPlayerId);
   const blocked = recovery === 'frozen' || recovery === 'settlement_pending' || recovery === 'payout_pending' || recovery === 'stats_pending';
   if (state.phase === 'game_finished') {
@@ -57,6 +62,7 @@ export default function PokerOnlineGame({ state, myPlayerId, dispatch, onExit, r
       <PokerGameScreen
         state={state} mySeat={mySeat} apply={dispatch} onExit={onExit} online
         readOnly={blocked} socialSlot={socialSlot} rebuySlot={rebuySlot}
+        statsEligible={statsEligible} rebuysLeft={rebuysLeft}
       />
     </>
   );

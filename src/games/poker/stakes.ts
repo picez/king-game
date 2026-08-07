@@ -16,6 +16,23 @@ export interface PokerStakesPreset {
 /** Buy-in is always 100 big blinds. */
 export const BUY_IN_BIG_BLINDS = 100;
 
+/**
+ * (Stage 38.0.8, anti-dumping) Most times ONE seat may buy back in inside ONE paid match.
+ *
+ * This is ONLINE BANKROLL ECONOMY POLICY and lives here, with the other online-bankroll
+ * config, deliberately NOT in the shared pure engine/rules — LOCAL free Poker (which never
+ * imports this module) keeps unlimited rebuys. The SERVER is authoritative: it counts
+ * committed ledger rows inside the debit transaction. The client only needs the number to
+ * render "Rebuys left: N".
+ */
+export const MAX_BANKROLL_REBUYS_PER_SEAT = 2;
+
+/** Rebuys a seat may still take in a policy-governed match, given how many it has used. */
+export function bankrollRebuysLeft(used: number): number {
+  if (!Number.isFinite(used) || used < 0) return MAX_BANKROLL_REBUYS_PER_SEAT;
+  return Math.max(0, MAX_BANKROLL_REBUYS_PER_SEAT - Math.trunc(used));
+}
+
 /** The 8 approved online stakes (§16 B). Buy-in derived = bigBlind × 100. */
 export const STAKES_PRESETS: readonly PokerStakesPreset[] = [
   { smallBlind: 25, bigBlind: 50, buyIn: 5_000 },

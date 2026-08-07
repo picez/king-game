@@ -9,6 +9,28 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Online Poker now limits how fast chips can move between the same players (Stage 38.0.8).**
+  This is a **mitigation, not a guarantee**: in a cash game that pays the final stacks into
+  permanent wallets, a deliberate loss cannot be reliably told apart from bad play. What
+  changed is the *speed* and what it *counts for*.
+  - **At most two rebuys per player per match.** After that a busted seat is out for that
+    match. The table shows how many you have left.
+  - **A 15-minute wait between paid tables for the same people.** If two of you just finished
+    a paid match together, a new paid table with that line-up — a rematch *or* a brand-new
+    room — waits a little. You are told roughly how long, never who caused it, and nothing is
+    charged. You can always play locally without chips in the meantime.
+  - **Only the first three paid matches a pair finishes each day count.** Beyond that the
+    table still plays and still pays out exactly as before — it just does not affect the Poker
+    rating, win statistics or achievements. The host is asked to confirm that **before** any
+    chips are taken, and every seat sees a **Ranked** / **Unranked** badge.
+  - **Nothing is ever confiscated, and a refund is never blocked.** All of this happens before
+    a buy-in is charged; if it says no, no chips moved and no table was created.
+  - **Local pass-and-play Poker is completely unaffected** — no wallet, no limits, unlimited
+    rebuys — and the other six games are untouched. Matches already in progress when this
+    shipped keep the old rules until they end.
+
 ### Added
 
 - **See your online record, per game (Stage 38.0.6).** Profile → Statistics opens with a new

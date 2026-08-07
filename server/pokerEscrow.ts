@@ -18,9 +18,13 @@
 
 import { randomUUID } from 'node:crypto';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import type { ServerRoom, PokerEscrow, PokerEscrowSeat } from '../src/net/serverCore';
+import type { ServerRoom, PokerEscrow, PokerEscrowSeat, PokerAntiDumpPolicy } from '../src/net/serverCore';
 import type { PokerState } from '../src/games/poker/types';
 import { getDb, isDbEnabled } from './db/client';
+import {
+  ANTI_DUMP_POLICY_VERSION, evaluatePairPolicyTx, rosterDigest,
+  PairCooldownError, UnrankedConfirmationRequiredError,
+} from './pokerAntiDump';
 import { validateFinishedPaidMatch } from './pokerParticipants';
 import { gameBoundToEscrow, escrowGameBinding } from './pokerBinding';
 import {
@@ -122,7 +126,24 @@ export function validateBankrollSeats(room: ServerRoom): SeatValidation {
   return { ok: true, seats };
 }
 
-export type DebitResult = { ok: true } | { ok: false; error: string; settlementPending?: boolean; paidConflict?: boolean };
+export type DebitResult =
+  | { ok: true }
+  | {
+      ok: false; error: string; settlementPending?: boolean; paidConflict?: boolean;
+      /** (38.0.8) A pair of this roster settled a paid match together too recently. */
+      cooldownRetryAfterSeconds?: number;
+      /** (38.0.8) The table would be UNRANKED and the host has not confirmed that yet. */
+      unrankedConfirmRequired?: boolean;
+    };
+
+/** (38.0.8) Options every paid-debit entry point accepts. */
+export interface DebitOptions {
+  /** The host explicitly accepted an unranked table. NEVER inferred, never client-trusted
+   *  beyond this one boolean — the server still recomputes the decision under the lock. */
+  unrankedConfirmed?: boolean;
+  /** Injectable clock for deterministic policy tests. */
+  now?: () => number;
+}
 
 async function db(): Promise<PostgresJsDatabase | null> {
   const conn = await getDb();
@@ -244,7 +265,9 @@ export function pokerRecoveryBlocked(room: ServerRoom): boolean {
 }
 
 /** Core atomic debit of `seats` for `matchId`; sets room.pokerEscrow funded on success. */
-async function performDebit(room: ServerRoom, matchId: string, buyIn: number, seats: PokerEscrowSeat[]): Promise<DebitResult> {
+async function performDebit(
+  room: ServerRoom, matchId: string, buyIn: number, seats: PokerEscrowSeat[], opts: DebitOptions = {},
+): Promise<DebitResult> {
   // (37.7.20 FAIL 1) The fresh-debit transition is REVERSIBLE. The callers used to clear the previous
   // TERMINAL escrow before calling in, so a rolled-back debit (insufficient chips, transient DB
   // error) left the room with NO escrow beside the old finished state + binding — an escrowless
@@ -261,7 +284,24 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
   const d = await db();
   if (!d) { rollback(); return { ok: false, error: 'Economy unavailable' }; }
   try {
+    const nowMs = (opts.now ?? Date.now)();
+    const userIds = seats.map((s) => s.userId);
+    let policy: PokerAntiDumpPolicy | undefined;
     await withEconomyBarrier(() => d.transaction(async (tx) => {
+      // (38.0.8) The anti-dumping decision happens INSIDE this transaction, under the SAME
+      // economy barrier as every other durable debit — so two brand-new rooms of the same
+      // pair, started concurrently in DIFFERENT room locks, cannot both slip past it. A
+      // preflight SELECT would be TOCTOU. A refusal throws, the transaction rolls back, and
+      // NOTHING is debited: no ledger row, no durable match, no matchId.
+      const decision = await evaluatePairPolicyTx(tx, userIds, nowMs);
+      if (decision.cooldownActive) throw new PairCooldownError(decision.retryAfterSeconds);
+      if (!decision.statsEligible && !opts.unrankedConfirmed) throw new UnrankedConfirmationRequiredError();
+      policy = {
+        version: ANTI_DUMP_POLICY_VERSION,
+        statsEligible: decision.statsEligible,
+        decidedAt: nowMs,
+        rosterDigest: rosterDigest(userIds),
+      };
       // (FAIL 1) Durable match record FIRST, in the SAME transaction as the debits, so a
       // crash after this commit can always recover the match (matchId/seats) even if the
       // room JSON never persisted the escrow.
@@ -271,12 +311,22 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
       }
     }));
     room.pokerEscrow.status = 'funded';
+    // Stamp the decision on the escrow that the committed debit created. SERVER-ONLY.
+    if (policy) room.pokerEscrow.antiDumpPolicy = policy;
     return { ok: true };
   } catch (err) {
     // The DB transaction rolled back atomically → nothing was debited. Restore EXACTLY what the room
     // held before, so a refused rematch leaves the finished paid table untouched and retryable.
     rollback();
     if (err instanceof InsufficientChipsError) return { ok: false, error: 'Not enough chips for the buy-in' };
+    // (38.0.8) Policy refusals: nothing was debited, the previous escrow/state is restored
+    // verbatim, and no matchId was minted. They are NEVER a freeze and NEVER touch a refund.
+    if (err instanceof PairCooldownError) {
+      return { ok: false, error: 'This line-up cannot start a paid table yet', cooldownRetryAfterSeconds: err.retryAfterSeconds };
+    }
+    if (err instanceof UnrankedConfirmationRequiredError) {
+      return { ok: false, error: 'This table would not count towards Poker stats', unrankedConfirmRequired: true };
+    }
     return { ok: false, error: 'Economy error — try again' };
   }
 }
@@ -288,7 +338,7 @@ async function performDebit(room: ServerRoom, matchId: string, buyIn: number, se
  * must go through `debitRematch`, never reuse an old resolved escrow). Call inside
  * `withRoomLock`.
  */
-export async function debitBuyIns(room: ServerRoom): Promise<DebitResult> {
+export async function debitBuyIns(room: ServerRoom, opts: DebitOptions = {}): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
   const esc = room.pokerEscrow;
   if (esc?.status === 'funded') return { ok: true };                 // idempotent duplicate START
@@ -297,7 +347,7 @@ export async function debitBuyIns(room: ServerRoom): Promise<DebitResult> {
   if (!valid.ok) return valid;
   const buyIn = room.pokerBuyIn!;
   const matchId = esc?.matchId ?? randomUUID();
-  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
+  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })), opts);
 }
 
 /**
@@ -332,7 +382,7 @@ async function proveTerminalBeforeReuse(room: ServerRoom, expected: 'settled' | 
   return null;
 }
 
-export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
+export async function debitRematch(room: ServerRoom, opts: DebitOptions = {}): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
   // (37.7.19 FAIL 1) A FROZEN table is a permanent operator condition — it may never mint a new paid
   // match (`debitFreshStart` already refused; the rematch path did not).
@@ -351,7 +401,7 @@ export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
   // rollback — it is never cleared up-front any more.
   const buyIn = room.pokerBuyIn!;
   const matchId = randomUUID();
-  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
+  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })), opts);
 }
 
 /**
@@ -366,7 +416,7 @@ export async function debitRematch(room: ServerRoom): Promise<DebitResult> {
  *   • the resolved/absent escrow is cleared ONLY once it is terminal (settlement confirmed).
  * Concurrency is handled by the caller (withRoomLock + a started/gameState guard).
  */
-export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
+export async function debitFreshStart(room: ServerRoom, opts: DebitOptions = {}): Promise<DebitResult> {
   if (!isBankrollRoom(room) || !isDbEnabled()) return { ok: false, error: 'Economy unavailable' };
   if (room.pokerFrozen) return { ok: false, error: 'This table is frozen for review' };
   const esc = room.pokerEscrow;
@@ -404,7 +454,7 @@ export async function debitFreshStart(room: ServerRoom): Promise<DebitResult> {
   // (37.7.20 FAIL 1) Replaced by `performDebit` (restored verbatim if the transaction rolls back).
   const buyIn = room.pokerBuyIn!;
   const matchId = randomUUID();
-  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })));
+  return performDebit(room, matchId, buyIn, valid.seats.map((s) => ({ seat: s.seat, userId: s.userId, amount: buyIn })), opts);
 }
 
 // --- Payout conservation (FAIL 7; pure, unit-testable) ----------------------

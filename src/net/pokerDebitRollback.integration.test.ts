@@ -1,7 +1,11 @@
-import { describe, it, expect, afterEach, beforeAll, afterAll, vi } from 'vitest';
-import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
+import { describe, it, expect, afterEach, beforeAll, afterAll, vi, beforeEach } from 'vitest';
+import { scopedOrphanScan, withPokerDbSuiteLock, withAntiDumpPolicyDisabled } from './pokerDbSuite.testutil';
 import type { ServerRoom } from './serverCore';
 import type { PokerState, PokerPlayer, PokerTelemetry } from '../games/poker/types';
+
+// (38.0.8) A settlement/recovery suite: the anti-dumping policy is not what it tests,
+// and its 15-minute pair cooldown would refuse the back-to-back paid matches it needs.
+withAntiDumpPolicyDisabled(beforeEach, afterEach);
 
 // Stage 37.7.20 (integration, real Postgres).
 //

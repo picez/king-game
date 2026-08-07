@@ -777,3 +777,77 @@ question (payout / refund / conservation / recovery), not a seat question. The s
 refuses `LEAVE_GAME_PERMANENTLY` for any Poker room and the client renders no control for
 it. Poker's existing exits are unchanged: the lobby leave, the reconnectable Back to menu,
 and the escrow settlement/teardown paths of §16.
+
+## 18. Anti-dumping economy policy (Stage 38.0.8)
+
+**This section changes NO card rule.** Dealing, betting, hand ranking, showdown, blinds,
+the button and the between-hands rebuy mechanic (§17) are exactly as specified above. This
+is ONLINE BANKROLL ECONOMY POLICY only.
+
+**It is a mitigation, not a guarantee.** Because a cash game pays the FINAL STACKS into
+permanent wallets, a deliberate loss cannot be reliably distinguished from weak play. The
+policy makes deliberate transfer slow and stops repeated arranged matches from feeding the
+leaderboard. It does not make collusion impossible, and it never claims to.
+
+### 18.1 Scope
+
+| | |
+| --- | --- |
+| Applies to | ONLINE **bankroll** Poker only |
+| Never applies to | **LOCAL free Poker** (no wallet, no escrow, **unlimited rebuys**) |
+| Never applies to | the other six games |
+| Never writes to | `online_matches` (that model is for the six non-Poker games) |
+
+### 18.2 The three rules
+
+1. **Rebuy cap — `MAX_BANKROLL_REBUYS_PER_SEAT = 2`.** Each seat may buy back in at most
+   twice per `matchId`. The third attempt is refused BEFORE any wallet debit. The
+   authoritative count is the committed `table_rebuy` ledger rows, read inside the same
+   transaction that would add one — so an insufficient/transient/rolled-back attempt costs
+   no allowance, a duplicate replay adds nothing, and two concurrent requests for the last
+   allowance produce exactly one debit. The cap lives in the ONLINE-bankroll config and the
+   server, **never** in the shared pure engine.
+2. **Pair cooldown — `BANKROLL_PAIR_COOLDOWN_MS = 15 minutes`.** No new PAID match may start
+   while any two of its players settled a `payout` together less than 15 minutes ago.
+   Identity is the pair of account ids from `poker_matches.seats` — never a room code — so a
+   brand-new room does not bypass it, and seat/user order is irrelevant. A multiway table is
+   blocked if ONE of its pairs is cooling down. A `cancel_refund` (a match that was never
+   played) creates no cooldown.
+3. **Ranked gate — `MAX_RANKED_BANKROLL_MATCHES_PER_PAIR_UTC_DAY = 3`.** Only the first three
+   settled `payout` matches of a pair per UTC day may feed stats. A candidate match is
+   UNRANKED if ANY of its pairs is at or over the threshold. Active and refunded matches are
+   never counted.
+
+### 18.3 What UNRANKED means
+
+An unranked match is a **completely normal paid match**: buy-ins are debited, rebuys work,
+the payout of the final stacks happens in full, conservation and the settlement gate are
+unchanged. The ONLY difference is that it writes **no** legacy stats row — no `games`,
+`game_players`, `rounds` or `user_stats` — so `gamesPlayed`/`gamesWon`, the rating, the
+leaderboard and every Poker achievement are untouched by it.
+
+### 18.4 The pre-debit handshake
+
+The decision is made SERVER-side from durable evidence, inside the same transaction as the
+buy-in debit. A first START of an unranked line-up is refused with
+`POKER_UNRANKED_CONFIRM_REQUIRED` and **nothing is debited and no match id is minted**. The
+host may then re-send START with `pokerUnrankedConfirmed: true` — a pure acknowledgement;
+the server recomputes the decision under its own lock immediately before the debit. A client
+can never ask to be ranked.
+
+### 18.5 Grandfathering
+
+The policy applies only to an escrow carrying the private marker `antiDumpPolicy.version = 1`,
+stamped by every debit made after deploy. A match already in flight has no marker and keeps
+the OLD behaviour: uncapped rebuys and ranked stats. A malformed marker degrades to legacy —
+it never makes an escrow look corrupt and never demotes a table.
+
+### 18.6 What it never does
+
+- never confiscates a balance;
+- never blocks a **refund** or a **payout** (a refusal happens before any debit exists);
+- never freezes a room;
+- never trusts client-side telemetry;
+- never reveals an opponent, a pair, a count, a threshold or a risk flag — the only public
+  fact is the boolean `RoomSnapshot.pokerStatsEligible` (the Ranked/Unranked badge), and a
+  cooldown refusal carries only an approximate `retryAfterSeconds`.

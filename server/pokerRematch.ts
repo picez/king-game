@@ -45,6 +45,14 @@ export interface BankrollRematchDeps {
   forgetFinish: (room: ServerRoom) => void;
   /** Log the latest deal for the fresh game (best-effort). */
   logDeal: (room: ServerRoom) => void;
+  /**
+   * (38.0.8) Tell the seated humans that an ANTI-DUMPING policy refused the new paid match.
+   * Purely informational: nothing was debited, no match id was minted, the finished table is
+   * untouched and no refund/payout is affected. Never names an opponent or a threshold.
+   */
+  notifyPolicyRefusal?: (
+    room: ServerRoom, kind: 'cooldown' | 'unranked_confirm', retryAfterSeconds?: number,
+  ) => void;
 }
 
 export type RematchOutcome =
@@ -64,8 +72,16 @@ export type RematchOutcome =
 export async function runBankrollRematch(room: ServerRoom, deps: BankrollRematchDeps): Promise<RematchOutcome> {
   const debit = await deps.debitRematch(room);
   if (!debit.ok) {
-    // The previous match is not settled yet (payout pending) OR insufficient chips. Do NOT
-    // silently reset — broadcast the honest recovery/readiness so the user sees WHY.
+    // The previous match is not settled yet (payout pending) OR insufficient chips OR
+    // (38.0.8) an anti-dumping refusal. Do NOT silently reset — broadcast the honest
+    // recovery/readiness so the user sees WHY.
+    if (debit.cooldownRetryAfterSeconds != null) {
+      deps.notifyPolicyRefusal?.(room, 'cooldown', debit.cooldownRetryAfterSeconds);
+    } else if (debit.unrankedConfirmRequired) {
+      // A rematch has no host handshake surface — the line-up must start a fresh table and
+      // confirm there. Nothing is charged either way.
+      deps.notifyPolicyRefusal?.(room, 'unranked_confirm');
+    }
     deps.clearRematch(room);
     deps.broadcastRematch(room);
     deps.broadcastRoom(room);

@@ -1,8 +1,12 @@
-import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll, beforeEach } from 'vitest';
 import { bindGameToEscrow } from '../../server/pokerBinding';
-import { withPokerDbSuiteLock } from './pokerDbSuite.testutil';
+import { withPokerDbSuiteLock, withAntiDumpPolicyDisabled } from './pokerDbSuite.testutil';
 import type { ServerRoom, ServerMember } from './serverCore';
 import type { PokerState } from '../games/poker/types';
+
+// (38.0.8) A settlement/recovery suite: the anti-dumping policy is not what it tests,
+// and its 15-minute pair cooldown would refuse the back-to-back paid matches it needs.
+withAntiDumpPolicyDisabled(beforeEach, afterEach);
 
 // FAIL 4 (37.7.8): always reset the global fault seams so a failure can't cascade.
 afterEach(async () => {

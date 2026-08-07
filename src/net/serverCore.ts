@@ -118,11 +118,31 @@ export interface PokerEscrowSeat {
  *  - 'settled'   → final stacks credited (mutually exclusive with 'cancelled');
  *  - 'cancelled' → buy-ins refunded on orphan/teardown (mutually exclusive with 'settled').
  */
+/**
+ * SERVER-ONLY anti-dumping decision, stamped on an escrow at debit time (Stage 38.0.8).
+ * Never in a RoomSnapshot/RoomSummary/message/log — the ONLY public fact derived from it
+ * is the boolean `RoomSnapshot.pokerStatsEligible`. It carries no opponent identifier:
+ * `rosterDigest` is a one-way hash used solely to reject a confirmation replayed against
+ * a different roster. An escrow WITHOUT this field is a legacy (pre-policy) match and
+ * keeps the old behaviour: uncapped rebuys, ranked stats.
+ */
+export interface PokerAntiDumpPolicy {
+  version: 1;
+  /** Whether this paid match may feed Poker stats/leaderboard/achievements. */
+  statsEligible: boolean;
+  /** When the decision was taken (ms epoch), for audit only. */
+  decidedAt: number;
+  /** Order-independent hash of the paying roster this decision belongs to. */
+  rosterDigest: string;
+}
+
 export interface PokerEscrow {
   matchId: string;
   buyIn: number;
   status: 'pending' | 'funded' | 'settling' | 'settled' | 'cancelled';
   seats: PokerEscrowSeat[];
+  /** Stage 38.0.8 anti-dumping marker; absent on legacy (pre-policy) matches. */
+  antiDumpPolicy?: PokerAntiDumpPolicy;
 }
 
 export interface ServerRoom {
@@ -1482,6 +1502,14 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
       // so it is NOT payout_pending. Blocks a new paid rematch; carries no economy internals.
       : (room.gameType === 'poker' && room.pokerStatsPending) ? { pokerRecovery: 'stats_pending' as const }
         : room.pokerMatchCancelled ? { pokerRecovery: 'cancelled' as const } : {}),
+    // (38.0.8) The ONLY public fact the anti-dumping policy exposes: does THIS funded match
+    // count towards Poker stats? Every seat sees the same boolean so the table can show
+    // "Ranked"/"Unranked". Never a reason, a threshold, a count, a history or an opponent —
+    // and never the server-only `pokerEscrow.antiDumpPolicy` itself. Absent until a match is
+    // funded, and absent for local/other games.
+    ...(room.gameType === 'poker' && room.pokerEscrow
+      ? { pokerStatsEligible: room.pokerEscrow.antiDumpPolicy?.statsEligible ?? true }
+      : {}),
     playerCount: room.playerCount,
     modeSelectionType: room.modeSelectionType,
     turnTimerSec: room.turnTimerSec,
@@ -1726,6 +1754,22 @@ const MAX_ID_LEN = 200;
  * silently becomes "no escrow" (which could delete a room with chips owed) — the caller
  * marks the room corrupt so it fails closed + is reconciled against the DB.
  */
+/**
+ * STRICT parse of the Stage 38.0.8 anti-dumping marker. Anything unexpected → `undefined`,
+ * i.e. the escrow is treated as LEGACY (uncapped rebuys, ranked stats) rather than guessed
+ * into a stricter state — a policy field must never demote an honest restored table, and it
+ * must never make an escrow (which is money) look corrupt.
+ */
+export function parseAntiDumpPolicy(v: unknown): PokerAntiDumpPolicy | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  if (o.version !== 1) return undefined;
+  if (typeof o.statsEligible !== 'boolean') return undefined;
+  if (typeof o.decidedAt !== 'number' || !Number.isSafeInteger(o.decidedAt) || o.decidedAt <= 0) return undefined;
+  if (typeof o.rosterDigest !== 'string' || !/^[0-9a-f]{32}$/.test(o.rosterDigest)) return undefined;
+  return { version: 1, statsEligible: o.statsEligible, decidedAt: o.decidedAt, rosterDigest: o.rosterDigest };
+}
+
 function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: PokerEscrow; corrupt?: boolean } {
   if (v === undefined || v === null) return {}; // legitimately absent
   if (typeof v !== 'object') return { corrupt: true };
@@ -1751,7 +1795,16 @@ function deserializePokerEscrow(v: unknown, playerCount: number): { escrow?: Pok
     if (total > Number.MAX_SAFE_INTEGER) return { corrupt: true };
     seats.push({ seat: s.seat, userId: s.userId, amount: s.amount });
   }
-  return { escrow: { matchId: o.matchId, buyIn: o.buyIn, status: status as PokerEscrow['status'], seats } };
+  // (38.0.8) The anti-dumping marker is parsed STRICTLY, but a malformed/absent one only
+  // means "legacy": the escrow itself is money and must not be declared corrupt over a
+  // policy field. A legacy escrow is uncapped + ranked, exactly as before the policy.
+  const antiDumpPolicy = parseAntiDumpPolicy(o.antiDumpPolicy);
+  return {
+    escrow: {
+      matchId: o.matchId, buyIn: o.buyIn, status: status as PokerEscrow['status'], seats,
+      ...(antiDumpPolicy ? { antiDumpPolicy } : {}),
+    },
+  };
 }
 
 /**

@@ -24,6 +24,10 @@ import {
   InsufficientChipsError, LedgerKeyReuseError,
 } from './db/pokerWallet';
 import { isBankrollRoom, withEconomyBarrier, withRoomLock, pokerRecoveryBlocked } from './pokerEscrow';
+import {
+  MAX_BANKROLL_REBUYS_PER_SEAT, countDurableRebuysTx, policyEnforced, __antiDumpPolicyDisabled,
+  rebuyCapReached, rebuysLeftForSeat, seatRebuyCount, RebuyCapReachedError,
+} from './pokerAntiDump';
 import { gameBoundToEscrow } from './pokerBinding';
 import { canSeatRebuy, rebuyWindowOf } from '../src/games/poker/rules';
 import { pokerReducer } from '../src/games/poker/engine';
@@ -36,7 +40,7 @@ export const REBUY_WINDOW_MS = 20_000;
 /** Why a rebuy request was refused, or that it succeeded. Never leaks economy internals. */
 export type RebuyOutcome =
   | { ok: true; balance: number; alreadyApplied: boolean }
-  | { ok: false; reason: 'not_allowed' | 'insufficient' | 'economy_unavailable' | 'retry' };
+  | { ok: false; reason: 'not_allowed' | 'insufficient' | 'economy_unavailable' | 'retry' | 'cap_reached' };
 
 /** Everything the orchestrator needs from the server, injected so it is unit-testable. */
 export interface RebuyDeps {
@@ -149,7 +153,19 @@ export function rebuyRequestAllowed(room: ServerRoom, seat: number | null): bool
   // The pure amount and the table's buy-in must be the same number, or the economy and the
   // gameplay disagree about what a rebuy is worth — fail closed rather than pick one.
   if (state.options.startingStack !== room.pokerBuyIn) return false;
+  // (38.0.8) The anti-dumping cap is SERVER ECONOMY POLICY, applied here and never in the
+  // shared pure engine — LOCAL free Poker keeps unlimited rebuys. A LEGACY escrow (no
+  // policy marker) is also uncapped, so a match already in flight at deploy is unaffected.
+  if (rebuyCapReached(room, seat)) return false;
   return true;
+}
+
+/**
+ * Rebuys this seat may still take, or `null` when the cap does not apply (legacy escrow /
+ * non-bankroll). Exposed so the UI can show "Rebuys left: N" without deriving policy itself.
+ */
+export function rebuysLeft(room: ServerRoom, seat: number): number | null {
+  return rebuysLeftForSeat(room, seat);
 }
 
 // --- The debit --------------------------------------------------------------
@@ -183,12 +199,25 @@ export async function performRebuy(
   let balance = 0;
   try {
     await withEconomyBarrier(() => database.transaction(async (tx) => {
+      // (38.0.8) The AUTHORITATIVE allowance check: committed ledger rows, read inside the
+      // very transaction that would add one. The state pre-check above is only a fast
+      // refusal — this is what makes the cap race-proof (two concurrent requests for the
+      // last allowance serialize here, and the loser rolls back with nothing debited) and
+      // what makes an insufficient/transient/rolled-back attempt cost no allowance at all.
+      if (policyEnforced(esc) && !__antiDumpPolicyDisabled()) {
+        const durable = await countDurableRebuysTx(tx, esc.matchId, userId);
+        // A state that claims MORE rebuys than the ledger proves is the reconciliation
+        // model's problem, not this one — refuse and let `reconcileRebuys` freeze it.
+        if (durable !== seatRebuyCount(state, seat)) throw new RebuyCapReachedError();
+        if (durable >= MAX_BANKROLL_REBUYS_PER_SEAT) throw new RebuyCapReachedError();
+      }
       const res = await adjustWalletTx(tx, userId, -amount, 'table_rebuy', key, { matchId: esc.matchId, roomCode: room.code });
       balance = res.balance;
     }));
   } catch (err) {
     inFlight.delete(seat);
     if (inFlight.size === 0) room.pokerRebuyInFlight = undefined;
+    if (err instanceof RebuyCapReachedError) return { ok: false, reason: 'cap_reached' };
     if (err instanceof InsufficientChipsError) return { ok: false, reason: 'insufficient' };
     // A key reused for a DIFFERENT logical op is a permanent structural conflict.
     if (err instanceof LedgerKeyReuseError) { deps.freeze(room, 'rebuy ledger key conflict'); return { ok: false, reason: 'not_allowed' }; }

@@ -786,3 +786,30 @@ a signed-in account.
 8. Finish one online match against bots and one with a person, then re-open Statistics: the
    counts land in **With bots** and **People only** respectively, and a local game moves
    nothing.
+
+## Poker anti-dumping policy (Stage 38.0.8)
+
+Needs Postgres migrated through **0014** (no new migration was added) and two signed-in
+accounts with chips. It is a MITIGATION — the checks below are about limits and counting,
+not about making collusion impossible.
+
+1. Play one paid heads-up match to the end. Immediately press **Play again**: the request is
+   refused with a friendly note and an approximate wait. Confirm in the database that **no**
+   new `poker_matches` row and **no** new `table_buy_in` ledger rows were created.
+2. Immediately create a NEW room with the same two accounts and start: refused the same way.
+   The room code is not identity.
+3. Wait out the cooldown (or check with a clock 15 min ahead) — the pair can start again.
+4. Bust and rebuy twice in one match: two `table_rebuy` ledger rows. A third attempt writes
+   **no** row and does not change the balance.
+5. Play three settled matches for the pair in one UTC day; the fourth START returns
+   `POKER_UNRANKED_CONFIRM_REQUIRED` with **no** debit. Re-send START with
+   `pokerUnrankedConfirmed: true` → exactly one match, exactly one debit per seat.
+6. Finish that unranked match: `poker_match_settlements.outcome = 'payout'`, the wallets move
+   by the full result, and **no** new `games` / `game_players` / `rounds` / `user_stats` row
+   exists for it. `GET /api/games/poker/stats` is unchanged for both accounts.
+7. Inspect a `ROOM_UPDATE` payload: it contains `pokerStatsEligible` (a boolean) and **no**
+   `antiDumpPolicy`, `rosterDigest`, account id or opponent history.
+8. Confirm a refund still works while a cooldown is active: cancel a funded table and the
+   buy-ins are returned — anti-abuse must never block a refund.
+9. A bankroll match that was already running before the deploy keeps the old behaviour
+   (uncapped rebuys, ranked) until it ends.

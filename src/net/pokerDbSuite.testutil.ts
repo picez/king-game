@@ -76,3 +76,26 @@ export async function scopedOrphanScan(
   const foreign = [...valid, ...corrupt].filter((m) => !ownsMatch(m)).map((m) => m.matchId);
   return reconcileOrphanedDebits(new Set([...protectedMatchIds, ...foreign]), protectedRoomCodes);
 }
+
+/**
+ * (Stage 38.0.8) Disable the anti-dumping policy for a SETTLEMENT/RECOVERY suite.
+ *
+ * Those suites deliberately drive several paid matches for the SAME pair back to back to
+ * exercise crash/settlement windows — the 15-minute pair cooldown would refuse that, and
+ * refusing is not what they are testing. The policy has its own dedicated suites
+ * (`pokerAntiDump*.test.ts`) which never call this. Always reset after each test so a
+ * failure can never leak the disabled state into another file.
+ */
+export function withAntiDumpPolicyDisabled(
+  beforeEachFn: (fn: () => void | Promise<void>) => void,
+  afterEachFn: (fn: () => void | Promise<void>) => void,
+): void {
+  beforeEachFn(async () => {
+    const m = await import('../../server/pokerAntiDump');
+    m.__setAntiDumpPolicyDisabled(true);
+  });
+  afterEachFn(async () => {
+    const m = await import('../../server/pokerAntiDump');
+    m.__setAntiDumpPolicyDisabled(false);
+  });
+}

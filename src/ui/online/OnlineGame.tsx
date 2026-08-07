@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GameContext } from '../../hooks/useGame';
 import { useNetworkGame } from '../../hooks/useNetworkGame';
 import type { OnlineIntent, ClientTimer } from '../../hooks/useNetworkGame';
@@ -27,7 +27,9 @@ import FiftyOneOnlineGame from '../fiftyOne/FiftyOneOnlineGame';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
 import { PokerOnlineGame, PokerActionLogButton, PokerActionLogPanel, useLogUnread } from '../poker';
 import PokerRebuyPanel from '../poker/PokerRebuyPanel';
+import PokerUnrankedDialog from '../poker/PokerUnrankedDialog';
 import { rebuyWindowOf, canSeatRebuy } from '../../games/poker/rules';
+import { bankrollRebuysLeft } from '../../games/poker/stakes';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
@@ -95,6 +97,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // ICE config (STUN/TURN) is resolved from the same API host at runtime (Stage 25.6).
   const voice = useRoomVoice(net, friendsBase);
   const [invited, setInvited] = useState<Set<string>>(new Set());
+  // (38.0.8) Synchronous single-flight for the confirmed unranked START: React state is
+  // async, so two clicks before the next render would otherwise send two STARTs.
+  const startPending = useRef(false);
   const inviteFriend = (uid: string) => { net.sendFriendInvite(uid); setInvited((s) => new Set(s).add(uid)); };
 
   // Rematch / "Play again" (Stage 25.9): a shared object passed to each online finish screen so
@@ -255,7 +260,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           isHost={net.isHost}
           myPlayerId={net.myPlayerId}
           myClientId={net.myClientId}
-          onStart={net.startGame}
+          onStart={() => { net.clearPokerPolicy(); startPending.current = false; net.startGame(); }}
           onLeave={() => { net.leave(); onExit(); }}
           onKick={net.kick}
           onAddBot={net.addBot}
@@ -269,6 +274,35 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           }
         />
         <div className="lobby-voice"><VoiceControl voice={voice} variant="card" /></div>
+        {/* (38.0.8) The ONE pre-debit handshake. The server already refused the START without
+            debiting anything; confirming re-sends it with the acknowledgement, and the server
+            recomputes the decision under its lock right before the debit. */}
+        {net.pokerPolicy?.kind === 'unranked_confirm' && (
+          <PokerUnrankedDialog
+            pending={startPending.current}
+            onConfirm={() => {
+              if (startPending.current) return;      // double-click → exactly ONE START
+              startPending.current = true;
+              net.startGame(true);
+            }}
+            onCancel={() => { startPending.current = false; net.clearPokerPolicy(); }}
+          />
+        )}
+        {/* A cooldown refusal is inert: nothing was debited and the lobby keeps working. */}
+        {net.pokerPolicy?.kind === 'cooldown' && (
+          <div className="poker-policy-note" role="status">
+            <strong>{t('poker.cooldownTitle')}</strong>
+            <span>{t('poker.cooldownBody')}</span>
+            {net.pokerPolicy.retryAfterSeconds != null && (
+              <span className="poker-policy-note__retry">
+                {t('poker.cooldownRetry').replace('{n}', String(Math.max(1, Math.ceil(net.pokerPolicy.retryAfterSeconds / 60))))}
+              </span>
+            )}
+            <button type="button" className="btn btn--ghost btn--small" onClick={net.clearPokerPolicy}>
+              {t('btn.back')}
+            </button>
+          </div>
+        )}
         {renderSocial(false)}
       </>
     );
@@ -485,7 +519,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     );
     return (
       <>
-        {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state). */}
+        {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state).
+            (38.0.8) `statsEligible` / `rebuysLeft` are the ONLY public anti-dumping facts, both
+            derived from the public snapshot + public state — never from a server-only field. */}
         <PokerOnlineGame
           state={pokerState}
           myPlayerId={net.myPlayerId}
@@ -495,6 +531,12 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           recovery={net.room?.pokerRecovery}
           socialSlot={social}
           rebuySlot={rebuySlot}
+          statsEligible={net.room?.pokerStatsEligible}
+          rebuysLeft={
+            net.room?.pokerStatsEligible === undefined || mySeatIndex == null
+              ? undefined
+              : bankrollRebuysLeft((pokerState.appliedRebuys ?? []).filter((r) => r.seat === mySeatIndex).length)
+          }
         />
       </>
     );

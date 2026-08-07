@@ -58,7 +58,12 @@ export interface NetworkGame {
   myTurn: boolean;
   /** Send an action for the room's game (King or Durak — Stage 9.6). */
   dispatch: (action: AnyGameAction) => void;
-  startGame: () => void;
+  /** Start the game. (38.0.8) `unrankedConfirmed` is a pure ACKNOWLEDGEMENT of an
+   *  already-server-decided unranked table — never a request to be ranked. */
+  startGame: (unrankedConfirmed?: boolean) => void;
+  /** (38.0.8) The last anti-dumping refusal for this client, or null. UI state only. */
+  pokerPolicy: PokerPolicyUi | null;
+  clearPokerPolicy: () => void;
   /** Host-only: remove another member (by clientId) from the lobby. */
   kick: (clientId: string) => void;
   /** Host-only: add a server-side AI bot to a free seat in the lobby. */
@@ -164,6 +169,19 @@ export interface RematchProgress { ready: string[]; needed: number; }
  */
 export interface PermanentLeaveUi { status: 'idle' | 'pending' | 'accepted' | 'error' }
 
+/**
+ * (38.0.8) The last ANTI-DUMPING refusal this client received. Purely a UI state: the
+ * server changed nothing, nothing was debited and the table is exactly as it was.
+ *  - `cooldown`        — this line-up cannot start a paid table yet (approximate wait only);
+ *  - `unranked_confirm`— the table would be UNRANKED; the HOST must accept that explicitly.
+ * It never carries an opponent, a pair, a count or a threshold.
+ */
+export interface PokerPolicyUi {
+  kind: 'cooldown' | 'unranked_confirm';
+  retryAfterSeconds: number | null;
+  at: number;
+}
+
 /** Is a game state (any of the 6 games) in its terminal/finished screen? */
 function stateIsFinished(s: unknown): boolean {
   if (!s || typeof s !== 'object') return false;
@@ -197,6 +215,8 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [pokerRebuy, setPokerRebuy] = useState<PokerRebuyUi | null>(null);
   // Stage 38.0.5 — this client's own permanent-leave lifecycle (never anyone else's).
   const [permanentLeave, setPermanentLeave] = useState<PermanentLeaveUi>({ status: 'idle' });
+  // (38.0.8) The last anti-dumping refusal. Never a fatal game error — the table keeps playing.
+  const [pokerPolicy, setPokerPolicy] = useState<PokerPolicyUi | null>(null);
   // (38.0.5.1) The SYNCHRONOUS mirror of that status. React state is async: two presses
   // in the same tick both read the stale `idle` and both put an intent on the wire, so
   // the single-flight decision is made from this ref instead. It is also what makes the
@@ -355,6 +375,16 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
           setPokerRebuy({ status: msg.code === 'INSUFFICIENT_CHIPS' ? 'insufficient' : 'refused', balance: null });
           break;
         }
+        // (38.0.8) An anti-dumping refusal is a PANEL/modal state, never the fatal game error
+        // surface: nothing changed server-side, so the lobby/table must keep working.
+        if (msg.code === 'POKER_PAIR_COOLDOWN' || msg.code === 'POKER_UNRANKED_CONFIRM_REQUIRED') {
+          setPokerPolicy({
+            kind: msg.code === 'POKER_PAIR_COOLDOWN' ? 'cooldown' : 'unranked_confirm',
+            retryAfterSeconds: typeof msg.retryAfterSeconds === 'number' ? msg.retryAfterSeconds : null,
+            at: Date.now(),
+          });
+          break;
+        }
         // (38.0.5) A refused/failed permanent leave is a PANEL state, never the game error
         // surface: nothing changed server-side, so the table must keep playing normally.
         // (38.0.5.1) A refusal answering a DUPLICATE intent must never overwrite an ACK
@@ -481,7 +511,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     send({ t: 'ACTION_REQUEST', action });
   }, [send]);
 
-  const startGame = useCallback(() => send({ t: 'START_GAME' }), [send]);
+  const startGame = useCallback((unrankedConfirmed?: boolean) => {
+    send(unrankedConfirmed ? { t: 'START_GAME', pokerUnrankedConfirmed: true } : { t: 'START_GAME' });
+  }, [send]);
   const sendReaction = useCallback((emoji: string) => send({ t: 'SEND_REACTION', emoji }), [send]);
   const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
@@ -506,6 +538,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     return () => { voiceListeners.current.delete(fn); };
   }, []);
   const clearSocialNotice = useCallback(() => setSocialNotice(null), []);
+  const clearPokerPolicy = useCallback(() => setPokerPolicy(null), []);
   const kick = useCallback((clientId: string) => send({ t: 'KICK_MEMBER', clientId }), [send]);
   const addBot = useCallback(() => send({ t: 'ADD_BOT' }), [send]);
   const setTimer = useCallback((turnTimerSec: number) => send({ t: 'SET_TIMER', turnTimerSec }), [send]);
@@ -548,6 +581,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     myClientId: clientIdRef.current, isHost: isHostRef.current,
     myTurn, dispatch, startGame, kick, addBot, setTimer, leave, backToMenu,
     leavePermanently, permanentLeave,
+    pokerPolicy, clearPokerPolicy,
     reactions, chat, sendReaction, sendChat, sendChatMedia, socialNotice, clearSocialNotice,
     sendFriendInvite, friendInvite, dismissFriendInvite: () => setFriendInvite(null), presenceNonce,
     rematch, sendRematchReady, sendRematchDecline,

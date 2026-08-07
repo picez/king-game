@@ -98,6 +98,13 @@ export interface RoomSnapshot {
    *  client show a banner: the previous match was cancelled (buy-ins refunded) or the table is
    *  frozen (temporarily unavailable). Omitted once a fresh match starts. */
   pokerRecovery?: 'cancelled' | 'frozen' | 'settlement_pending' | 'payout_pending' | 'stats_pending';
+  /**
+   * (38.0.8) Whether the CURRENT paid match counts towards Poker stats/leaderboard/
+   * achievements, so every seat can see "Ranked" / "Unranked". This is the ONLY thing the
+   * anti-dumping policy ever makes public: no reason, no threshold, no history, no opponent
+   * identity, no risk flag. Undefined for local/other games and before a match is funded.
+   */
+  pokerStatsEligible?: boolean;
   /** Game settings chosen by the host before Start. (Durak allows 2.) */
   playerCount: 2 | 3 | 4 | 5 | 6;
   modeSelectionType: 'fixed' | 'dealer_choice';
@@ -213,7 +220,13 @@ export type ClientMessage =
   /** Host-only: add a server-side AI bot to a free player seat before start. */
   | { t: 'ADD_BOT' }
   | { t: 'UPDATE_SETTINGS'; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType?: 'fixed' | 'dealer_choice' }
-  | { t: 'START_GAME' }
+  /**
+   * Host starts the game. (38.0.8) `pokerUnrankedConfirmed` is the ONLY thing the client may
+   * say about ranking, and it is a pure ACKNOWLEDGEMENT — never a request. The server
+   * recomputes the ranked/unranked decision from durable evidence under its own lock right
+   * before the debit; a client can neither ask for `ranked: true` nor skip the check.
+   */
+  | { t: 'START_GAME'; pokerUnrankedConfirmed?: boolean }
   /** A request to mutate game state; the authority validates and applies it. */
   | { t: 'ACTION_REQUEST'; action: AnyGameAction }
   /**
@@ -328,7 +341,9 @@ export type ServerMessage =
    */
   | { t: 'ACTION_FORWARD'; action: GameAction; fromSeat: number | null }
   /** A request was rejected (not your turn, illegal move, room full, …). */
-  | { t: 'ERROR'; code: ErrorCode; message: string }
+  /** (38.0.8) `retryAfterSeconds` accompanies a cooldown refusal — an approximate wait only,
+   *  never an opponent identity, a pair, a threshold or a history. */
+  | { t: 'ERROR'; code: ErrorCode; message: string; retryAfterSeconds?: number }
   /** The host removed this client from the room (before game start). */
   | { t: 'KICKED'; reason: 'HOST_REMOVED' }
   /** Room-social broadcast: a member sent a whitelisted reaction (transient UI). */
@@ -400,8 +415,24 @@ export type ErrorCode =
    *  confirmed — the table is temporarily unavailable and retries automatically. */
   | 'SETTLEMENT_PENDING'
   /** A rebuy was refused: the window is closed/expired, the seat is not eligible, the
-   *  decision is already made, or the caller is not the seat's authenticated owner (§17). */
+   *  decision is already made, the caller is not the seat's authenticated owner (§17), or
+   *  (38.0.8) the seat has spent its anti-dumping rebuy allowance for this match. */
   | 'REBUY_NOT_ALLOWED'
+  /**
+   * (38.0.8) Anti-dumping: two of the candidate players settled a PAID Poker match together
+   * too recently, so no new paid table may start for this line-up yet. RETRYABLE and totally
+   * inert: nothing was debited, no match id was minted, no escrow/state changed, and no
+   * refund or payout is affected. The accompanying `retryAfterSeconds` is an approximate
+   * wait — the message never names an opponent, a pair, a count or a threshold.
+   */
+  | 'POKER_PAIR_COOLDOWN'
+  /**
+   * (38.0.8) Anti-dumping: this line-up has already had its ranked matches for the UTC day,
+   * so the table would be UNRANKED (it still plays and still pays out — it just does not
+   * count towards stats/leaderboard/achievements). Nothing is debited until the HOST
+   * explicitly re-sends START with `pokerUnrankedConfirmed: true`.
+   */
+  | 'POKER_UNRANKED_CONFIRM_REQUIRED'
   /**
    * A permanent leave (Stage 38.0.5) could NOT be accepted. Fail-closed and RETRYABLE:
    * nothing changed — the seat, the room, the reconnect token and the saved session are

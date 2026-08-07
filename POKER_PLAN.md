@@ -126,3 +126,22 @@ Implemented (see POKER_RULES.md §16 for rules):
   reviewed via `scripts/poker-shots.tsx` + headless Chromium.
 
 No dep/version bump; game count 7; achievements 52; Stage 37.5 timer + 37.6 routing intact.
+
+## Stage 38.0.8 — anti-dumping economy policy (COMPLETE, Unreleased)
+
+Owner-selected model **A0+A1** from the Stage 38.0.7 audit. **No new migration** (latest
+stays 0014); no version bump; no card-rule change; local free Poker untouched.
+
+| rule | constant | where |
+| --- | --- | --- |
+| rebuy cap per seat per match | `MAX_BANKROLL_REBUYS_PER_SEAT = 2` | `src/games/poker/stakes.ts` (online-bankroll config) + enforced in `server/pokerRebuy.ts` |
+| pair cooldown before a new PAID match | `BANKROLL_PAIR_COOLDOWN_MS = 15 min` | `server/pokerAntiDump.ts`, evaluated inside the debit transaction |
+| ranked settled matches per pair per UTC day | `MAX_RANKED_BANKROLL_MATCHES_PER_PAIR_UTC_DAY = 3` | same |
+
+Deliberately NOT done (and why): no IP/device fingerprinting (trivially bypassed, privacy
+risk, punishes shared networks); no automatic confiscation; no blocking of refunds; no
+change to the payout model. Removing player-to-player transfer entirely is model **C** of
+the 38.0.7 audit and remains a separate, explicit decision.
+
+Follow-ups the owner may consider later: a longer rolling pairwise net-flow limit
+(needs migration 0015), and an operator review surface for flagged pairs.

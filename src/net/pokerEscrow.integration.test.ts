@@ -1,7 +1,11 @@
-import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, afterAll, beforeEach } from 'vitest';
 import type { ServerRoom, ServerMember } from './serverCore';
-import { scopedOrphanScan, withPokerDbSuiteLock } from './pokerDbSuite.testutil';
+import { scopedOrphanScan, withPokerDbSuiteLock, withAntiDumpPolicyDisabled } from './pokerDbSuite.testutil';
 import { bindGameToEscrow } from '../../server/pokerBinding';
+
+// (38.0.8) A settlement/recovery suite: the anti-dumping policy is not what it tests,
+// and its 15-minute pair cooldown would refuse the back-to-back paid matches it needs.
+withAntiDumpPolicyDisabled(beforeEach, afterEach);
 
 // FAIL 4 (37.7.8): the fault-injection seams are GLOBAL module state — always reset after each
 // test so a failure before a manual reset can never cascade into later suites.

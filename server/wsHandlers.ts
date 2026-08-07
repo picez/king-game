@@ -67,7 +67,7 @@ export interface WsContext {
   sockets: Map<string, WebSocket>;
   social: RoomSocialStore;
   send(socket: WebSocket, msg: ServerMessage): void;
-  sendError(socket: WebSocket, code: ErrorCode, message: string): void;
+  sendError(socket: WebSocket, code: ErrorCode, message: string, retryAfterSeconds?: number): void;
   broadcastRoom(room: ServerRoom): void;
   broadcastToRoom(room: ServerRoom, msg: ServerMessage): void;
   broadcastAndAdvance(room: ServerRoom, opts?: { turnAdvanced?: boolean }): void;
@@ -420,8 +420,23 @@ export function handleClientMessage(
           if (!seats.ok) { sendError(socket, 'NOT_SIGNED_IN', seats.error); return; }
           // (37.7.5 FAIL 1) A fresh paid start — handles the initial start AND a retry after a
           // recovery/refund (a terminal cancelled/settled escrow → a brand-new matchId + debit).
-          const debit = await debitFreshStart(room);
+          // (38.0.8) The host's UNRANKED acknowledgement is the ONLY client input here, and it
+          // is only an acknowledgement: the ranked/unranked decision is recomputed from durable
+          // evidence INSIDE the debit transaction, under the economy barrier, immediately before
+          // any chip moves. A client can never ask for `ranked`.
+          const debit = await debitFreshStart(room, { unrankedConfirmed: msg.pokerUnrankedConfirmed === true });
           if (!debit.ok) {
+            // (38.0.8) Anti-dumping refusals are INERT: no debit, no matchId, no escrow/state
+            // change, no freeze, and no effect on any refund or payout. They are answered and
+            // the table is left exactly as it was.
+            if (debit.cooldownRetryAfterSeconds != null) {
+              sendError(socket, 'POKER_PAIR_COOLDOWN', debit.error, debit.cooldownRetryAfterSeconds);
+              return;
+            }
+            if (debit.unrankedConfirmRequired) {
+              sendError(socket, 'POKER_UNRANKED_CONFIRM_REQUIRED', debit.error);
+              return;
+            }
             // (37.7.6 FAIL 1) An unresolved funded orphan → SETTLEMENT PENDING, not a chip error.
             // (37.7.19 FAIL 1/2) A paid or structurally unprovable terminal claim is PERMANENT:
             // freeze the table rather than answering a transient error a retry could bypass.
