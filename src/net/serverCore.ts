@@ -812,9 +812,59 @@ export function hasOtherHuman(room: ServerRoom, clientId: string): boolean {
   return [...room.members.values()].some((m) => m.type === 'human' && m.clientId !== clientId);
 }
 
+/**
+ * Why a POST-COMMIT identity teardown cannot proceed (Stage 38.0.5.1).
+ *
+ * These are deliberately NOT the `PermanentLeaveRefusal` values: once the durable
+ * forfeit is committed, the *gameplay* preconditions (started / not finished) are no
+ * longer relevant — only the IDENTITY has to still be the one we forfeited.
+ *  - `not_a_member` is a SUCCESS in disguise: the identity is already gone, so there is
+ *    nothing left to annul;
+ *  - every other value means this clientId now points at somebody else's seat, so the
+ *    teardown fails CLOSED rather than destroying an innocent member.
+ */
+export type PermanentLeaveTakeoverRefusal =
+  | 'not_a_member'
+  | 'not_human'
+  | 'not_seated'
+  | 'seat_changed'
+  | 'account_changed';
+
+export interface PermanentLeaveTakeoverPlan {
+  ok: boolean;
+  refusal?: PermanentLeaveTakeoverRefusal;
+  member?: ServerMember;
+  seatIndex?: number;
+}
+
+/**
+ * Validate a POST-COMMIT seat teardown (Stage 38.0.5.1). Pure.
+ *
+ * The pre-commit `planPermanentLeave` requires an ACTIVE match, because nothing may be
+ * charged against a table that is already decided. AFTER the durable loss is committed
+ * that check must NOT be repeated: a finish landing in the DB-await window would
+ * otherwise leave a live member, a live reconnect token and a reclaimable seat behind
+ * an ACK that promised the exact opposite. So this variant checks IDENTITY only —
+ * the same clientId, still human, still seated, still on the SAME seat and the SAME
+ * account we just forfeited.
+ */
+export function planPermanentLeaveTakeover(
+  room: ServerRoom,
+  clientId: string,
+  expected: { seatIndex: number; userId: string | null },
+): PermanentLeaveTakeoverPlan {
+  const member = room.members.get(clientId);
+  if (!member) return { ok: false, refusal: 'not_a_member' };
+  if (member.type !== 'human') return { ok: false, refusal: 'not_human' };
+  if (member.role !== 'player' || member.seatIndex == null) return { ok: false, refusal: 'not_seated' };
+  if (member.seatIndex !== expected.seatIndex) return { ok: false, refusal: 'seat_changed' };
+  if ((member.userId ?? null) !== (expected.userId ?? null)) return { ok: false, refusal: 'account_changed' };
+  return { ok: true, member, seatIndex: member.seatIndex };
+}
+
 export interface SeatTakeoverResult {
   ok: boolean;
-  refusal?: PermanentLeaveRefusal;
+  refusal?: PermanentLeaveRefusal | PermanentLeaveTakeoverRefusal;
   bot?: ServerMember;
   seatIndex?: number;
   /** True when the host badge moved to another HUMAN member (never to a bot). */
@@ -847,8 +897,34 @@ export function takeoverSeatWithAi(
 ): SeatTakeoverResult {
   const plan = planPermanentLeave(room, clientId);
   if (!plan.ok || !plan.member || plan.seatIndex == null) return { ok: false, refusal: plan.refusal };
-  const leaver = plan.member;
+  return applySeatTakeover(room, clientId, plan.member, plan.seatIndex, ids);
+}
 
+/**
+ * The POST-COMMIT twin of `takeoverSeatWithAi` (Stage 38.0.5.1): the SAME irreversible
+ * in-place replacement, gated on IDENTITY only (`planPermanentLeaveTakeover`) instead of
+ * on active gameplay. Used after the durable forfeit committed, so a match that finished
+ * during the DB await can no longer strand a live member + reconnect token.
+ */
+export function takeoverSeatAfterForfeit(
+  room: ServerRoom,
+  clientId: string,
+  ids: { clientId: string; reconnectToken: string },
+  expected: { seatIndex: number; userId: string | null },
+): SeatTakeoverResult {
+  const plan = planPermanentLeaveTakeover(room, clientId, expected);
+  if (!plan.ok || !plan.member || plan.seatIndex == null) return { ok: false, refusal: plan.refusal };
+  return applySeatTakeover(room, clientId, plan.member, plan.seatIndex, ids);
+}
+
+/** The shared, already-validated replacement. Never re-validates — both callers did. */
+function applySeatTakeover(
+  room: ServerRoom,
+  clientId: string,
+  leaver: ServerMember,
+  seatIndex: number,
+  ids: { clientId: string; reconnectToken: string },
+): SeatTakeoverResult {
   // A deterministic, obviously-AI identity, deduped against everyone who STAYS (the
   // departing member's own name/avatar is therefore free to be reused).
   const staying = [...room.members.values()].filter((m) => m.clientId !== clientId);
@@ -863,7 +939,7 @@ export function takeoverSeatWithAi(
     reconnectToken: ids.reconnectToken,
     name: identity.name,
     role: 'player',
-    seatIndex: plan.seatIndex,   // the SAME seat — never re-numbered
+    seatIndex,                   // the SAME seat — never re-numbered
     isHost: false,               // a bot is never the host
     connected: true,             // bots are always "present"
     type: 'ai',
@@ -886,7 +962,7 @@ export function takeoverSeatWithAi(
   }
   // Rematch readiness is per-clientId; the departed consent must not linger.
   removeRematchReady(room, clientId);
-  return { ok: true, bot, seatIndex: plan.seatIndex, hostTransferred };
+  return { ok: true, bot, seatIndex, hostTransferred };
 }
 
 // ---------------------------------------------------------------------------

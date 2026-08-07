@@ -14,13 +14,33 @@
   color: #f4f7f4;
 }
 
+/* The top bar also carries the compact timer and the ONE social launcher
+   (Stage 38.0.5.1). It must WRAP: with browser text scaling turned up, a fixed single
+   row pushed the timer and the launcher past the viewport, where `.fiftyone-screen`'s
+   `overflow-x: hidden` silently swallowed them (measured at 360 with a 21px root:
+   the launcher spanned 404..448). */
 .fiftyone-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
-.fiftyone-round { font-weight: 700; letter-spacing: 0.02em; }
+.fiftyone-topbar > * { flex: 0 0 auto; }
+/* Square 44×44 icon buttons: the default ghost padding made each single-emoji control
+   54–63px wide, which pushed the round label into an ellipsis at 360. Still a full tap
+   target — only the wasted horizontal padding is gone. */
+.fiftyone-topbar .btn--ghost {
+  width: 44px; min-width: 44px; min-height: 44px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+/* The round label is the ONLY flexible item, and it shrinks from zero — so at a normal
+   text size everything stays on one line, and only extreme scaling forces a wrap. */
+.fiftyone-round {
+  font-weight: 700; letter-spacing: 0.02em;
+  flex: 1 1 0; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* Scoreboard — per-seat penalty chips, wraps on narrow screens. */
 .fiftyone-scoreboard {
@@ -74,7 +94,9 @@
    card of every meld is fully visible without any inner scrolling. The height is derived
    from the width so the 74×118 face aspect is preserved exactly. */
 .fiftyone-melds {
-  --f51-meld-card-w: clamp(52px, 17vw, 72px);
+  /* 5 cards + 4 gaps must fit ONE row inside a full-width owner group at 360px:
+     5 × 54 + 4 × 6.4 ≈ 296 < ~317 available. 15vw keeps that true at 390 too. */
+  --f51-meld-card-w: clamp(46px, 15vw, 66px);
   --f51-meld-card-h: calc(var(--f51-meld-card-w) * 1.5946);
   --f51-meld-gap: 0.4rem;
   display: flex;
@@ -84,20 +106,50 @@
   max-width: 100%;
 }
 .fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.2rem 0; }
+
+/* One OWNER GROUP (Stage 38.0.5.1). The owner is named ONCE, in the group header, with
+   that owner's total meld value; the group is separated by a light background + divider
+   rather than by a heavy nested panel per meld. Full width on a phone; two per row on a
+   wide screen ONLY when they genuinely fit (the media query below). */
+.fiftyone-meldgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 100%;
+  max-width: 100%;
+  padding: 0.35rem 0.4rem;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.fiftyone-meldgroup--out { opacity: 0.55; }
+.fiftyone-meldgroup__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+.fiftyone-meldgroup__owner {
+  font-size: 0.78rem; font-weight: 700; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fiftyone-meldgroup__total { font-size: 0.78rem; font-variant-numeric: tabular-nums; opacity: 0.85; }
+
+/* One combination inside a group: a compact label row, then its cards. No nested panel,
+   no repeated owner name, no artificial width cap that could clip a card (38.0.4). */
 .fiftyone-meld {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.4rem;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
-  /* Take the row when the screen is narrow (one meld per line) and share it on a wide
-     one — never an artificial cap that clips cards (Stage 38.0.4). */
+  gap: 0.2rem;
   min-width: 0;
-  flex: 1 1 16rem;
   max-width: 100%;
+  padding: 0.15rem 0 0.2rem;
 }
-.fiftyone-meld__owner { font-size: 0.74rem; opacity: 0.85; }
+.fiftyone-meld + .fiftyone-meld { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.fiftyone-meld__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
+  min-height: 1.1rem;
+}
+.fiftyone-meld__label { font-size: 0.72rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
 /* Card row: clear positive gaps (never negative → no overlap/clipping) and WRAPPING
    (Stage 38.0.4) — a long run continues on the next line INSIDE its own block, in normal
    flow, instead of hiding behind an inner scrollbar. `direction: ltr` keeps cards
@@ -134,15 +186,25 @@
 .fiftyone-meld__cards .card .card__rank { font-size: 0.9rem; }
 .fiftyone-meld__cards .card .card__suit { font-size: 0.88rem; }
 .fiftyone-meld__cards .card .card__center { font-size: 1.6rem; }
-/* Add / Replace joker sit in their own row UNDER the cards — never over them. Real tap
-   targets on a phone (Stage 38.0.4). */
-.fiftyone-meld__ctrls { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.15rem; }
-.fiftyone-meld__ctrls button { min-height: 44px; min-width: 44px; }
+/* Add / Replace joker are COMPACT icon actions in the label row, never a full-width
+   button repeated under every meld (Stage 38.0.5.1). They live in their own flex column,
+   so they can never sit on the cards, and they keep a real 44×44 phone tap target. They
+   are rendered only while the action is actually possible — a disabled control would
+   just take space. */
+.fiftyone-meld__ctrls { display: flex; flex-wrap: nowrap; gap: 0.25rem; flex: 0 0 auto; }
+.fiftyone-meld__ctrls button {
+  min-height: 44px; min-width: 44px; padding: 0 0.4rem; line-height: 1; font-size: 1rem;
+}
 
-/* The IN-FLOW social/utility dock (Stage 38.0.4). Online Fifty-One renders the shared
-   docked RoomSocial here — between the public melds and the prompt/actions/hand — so the
-   floating cluster can no longer sit on top of the laid-out cards. */
-.fiftyone-social-dock { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; }
+/* Two owner groups per row only when they genuinely fit (a phone stays one per row). */
+@media (min-width: 760px) {
+  .fiftyone-meldgroup { flex: 1 1 22rem; max-width: calc(50% - 0.2rem); }
+}
+
+/* The top-bar social launcher + compact timer (Stage 38.0.5.1). In-flow top-bar items:
+   collapsed, nothing about the social UI touches the table, the melds or the actions. */
+.fiftyone-topbar__timer { display: inline-flex; align-items: center; }
+.fiftyone-topbar__menu { display: inline-flex; align-items: center; }
 /* The uniform slot wrapper for EVERY meld card (Stage 36.0). Centres the inner .card
    (which is pinned to the same width via the var), so the wrapper IS the slot. */
 .fiftyone-meldcard { display: inline-flex; align-items: center; justify-content: center; }

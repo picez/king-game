@@ -16,6 +16,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   createRoom, addMember, addBot, startGame, freezeOnlineMatch,
   serializeRoom, deserializeRoom, reconnectMember, reclaimMemberByUserId, findUserRoomCodes,
+  applyBotTurn, applyTimeoutAction, autoAdvance, publicScreenOf, isRoomFinished, botMemberToAct,
   type ServerRoom,
 } from './serverCore';
 import { finishSeatUsers, ratedByFrozenCategory, isSeatForfeited } from './onlineMatch';
@@ -223,5 +224,104 @@ describe.skipIf(!TEST_DATABASE_URL)('permanent leave end-to-end (real PostgreSQL
     // but the frozen category itself never moved.
     expect(room.onlineMatch!.category).toBe('human_only');
     expect([...finishSeatUsers(room.onlineMatch!).keys()]).toEqual([0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 38.0.5.1 — the finish-during-DB-await race, against the REAL repository.
+// ---------------------------------------------------------------------------
+
+/** Drive a started room to its terminal state using the server's own legal paths. */
+function driveToFinish(r: ServerRoom): void {
+  for (let i = 0; i < 4000 && !isRoomFinished(r); i++) {
+    if (botMemberToAct(r)) { applyBotTurn(r); continue; }
+    if (publicScreenOf(r) != null) { autoAdvance(r, { now: i }); continue; }
+    if (!applyTimeoutAction(r).acted) break;
+  }
+}
+
+describe.skipIf(!TEST_DATABASE_URL)('a finish landing inside the DB await (real PostgreSQL)', () => {
+  it('commits ONE loss, tears the identity down, and the later finish cannot rewrite it', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const usersRepo = await import('../../server/db/users');
+    const accounts: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      accounts.push(await usersRepo.createAccountUser({ email: null, name: `PL-race-${i}-${seq}`, emailVerified: false }));
+    }
+    const { room, meta } = await startedRoom('durak', 3, accounts);
+    const rooms = new Map([[room.code, room]]);
+    const { deps, repo, spies } = await realDeps(rooms);
+    expect(await repo.recordOnlineMatchStart(meta)).toBe('recorded');
+    meta.durable = true;
+
+    // The seam: the REAL gated transition commits, and the match finishes before the
+    // orchestration regains control — exactly the window that used to ACK and do nothing.
+    const raced: PermanentLeaveDeps = {
+      ...deps,
+      applyForfeit: async (input) => {
+        const out = await repo.applyPermanentForfeitTx(input);
+        driveToFinish(room);
+        return out;
+      },
+    };
+    expect(isRoomFinished(room)).toBe(false);
+    expect(await runPermanentLeave(room.code, 'c1', accounts[1], raced)).toEqual({ ok: true, kind: 'takeover' });
+    expect(isRoomFinished(room)).toBe(true);
+
+    // The identity is genuinely gone — no reconnect, no reclaim, no room listing.
+    expect(room.members.get('c1')).toBeUndefined();
+    expect(reconnectMember(room, 't1')).toBeNull();
+    expect(reclaimMemberByUserId(room, accounts[1])).toBeNull();
+    expect(findUserRoomCodes(rooms.values(), accounts[1])).toEqual([]);
+    expect([...room.members.values()].filter((m) => m.type === 'ai')).toHaveLength(1);
+    // A settled match is never re-driven after the takeover.
+    expect(spies.advance).not.toHaveBeenCalled();
+
+    // Exactly one durable loss, and the finish writer that runs afterwards may not touch it.
+    const before = await repo.listOnlineMatchParticipants(meta.matchId);
+    expect(before.filter((r) => r.forfeited)).toEqual([
+      expect.objectContaining({ seatIndex: 1, outcome: 'loss', forfeited: true }),
+    ]);
+    await repo.recordOnlineMatchFinish(
+      meta.matchId, new Map([[0, 'win'], [1, 'win'], [2, 'loss']]), new Date(),
+    );
+    const after = await repo.listOnlineMatchParticipants(meta.matchId);
+    expect(after.find((r) => r.seatIndex === 1)).toMatchObject({ outcome: 'loss', forfeited: true });
+    expect(after.find((r) => r.seatIndex === 0)).toMatchObject({ outcome: 'win', forfeited: false });
+
+    // A retry after a lost ACK produces no second loss.
+    expect(await runPermanentLeave(room.code, 'c1', accounts[1], raced)).toEqual({ ok: false, reason: 'refused' });
+    expect((await repo.listOnlineMatchParticipants(meta.matchId)).filter((r) => r.forfeited)).toHaveLength(1);
+    expect(isSeatForfeited(room.onlineMatch!, 1)).toBe(true);
+  });
+
+  it('survives serialize/restore: the restored room has an AI seat and no dead token', async () => {
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+    const usersRepo = await import('../../server/db/users');
+    const accounts: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      accounts.push(await usersRepo.createAccountUser({ email: null, name: `PL-race2-${i}-${seq}`, emailVerified: false }));
+    }
+    const { room, meta } = await startedRoom('durak', 3, accounts);
+    const rooms = new Map([[room.code, room]]);
+    const { deps, repo } = await realDeps(rooms);
+    expect(await repo.recordOnlineMatchStart(meta)).toBe('recorded');
+    meta.durable = true;
+
+    await runPermanentLeave(room.code, 'c1', accounts[1], {
+      ...deps,
+      applyForfeit: async (input) => {
+        const out = await repo.applyPermanentForfeitTx(input);
+        driveToFinish(room);
+        return out;
+      },
+    });
+
+    const restored = deserializeRoom(JSON.parse(JSON.stringify(serializeRoom(room))))!;
+    expect(reconnectMember(restored, 't1')).toBeNull();
+    expect(reclaimMemberByUserId(restored, accounts[1])).toBeNull();
+    expect([...restored.members.values()].find((m) => m.seatIndex === 1)!.type).toBe('ai');
+    expect(isSeatForfeited(restored.onlineMatch!, 1)).toBe(true);
+    expect(restored.onlineMatch!.category).toBe('human_only');
   });
 });

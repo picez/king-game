@@ -1523,26 +1523,59 @@ and the local screen). Baseline before the fix: 1484 violations; now 0.
 - [ ] **Layout** at 360/390 and in Arabic RTL: the panel never covers the table, the social
       toolbar or the buttons.
 
-## Fifty-One mobile table (Stage 38.0.4)
+## Fifty-One mobile table + room menu (Stage 38.0.4, redesigned in 38.0.4.1)
 
 Automated gate: `npm run layout:fiftyone` (add `--legacy` to reproduce the old defect).
-24 checks across 360/390/desktop × 2/3/4 players × LTR/RTL, with and without the social
-dock. Baseline before the fix: 249 violations; now 0.
+**54 checks** across 360/390/desktop × 18 scenarios: 2/3/4 players, LTR + Arabic RTL,
+classic + high-contrast card faces, browser text scaling, the collapsed launcher, the open
+chat sheet, the open reaction sheet, the Quit-for-good confirmation, the longest legal run,
+jokers at the start/middle/end, duplicate cards from the second deck, four melds for one
+owner, an add-to-meld update, and an empty table. Every check measures the owner group, the
+meld row, each card slot, its inner `.card`, its `.card__art`, the joker badge, the controls,
+the social UI and the prompt/actions/hand — after `document.fonts.ready`, after every visible
+image decoded and after two animation frames. Baseline with `--legacy`: **1078 violations**
+(card-clipped, card-outside-meld, inner-scroll-x, card-overlap, no-gap, touch-target,
+social-over-content, screen-overflow-x); now **0**.
 
-- [ ] **A 4-card meld shows all four cards** at 360 and 390 — no card cut off at the edge,
-      no sideways scrolling inside the meld block.
-- [ ] **A long run (6–7 cards) wraps** onto a second line inside its own block and does not
-      touch the meld below it.
-- [ ] **Cards never overlap** and keep a visible gap; a joker's badge stays inside its own
-      card; duplicate cards from the second deck each get their own slot.
-- [ ] **Owner name, score and the Add / Replace-joker buttons** stay attached to their meld
-      and are comfortable to tap.
-- [ ] **The social buttons sit in a row between the melds and the prompt**, not on top of
-      the cards. Opening chat or reactions pushes content instead of covering it, and only
-      one panel is open at a time.
-- [ ] **Local Fifty-One shows no social controls at all.**
+**The melds**
+
+- [ ] **Melds are grouped by player.** The name appears **once** per group, with that
+      player's total value next to it; each combination underneath is a compact
+      `Run · 30` / `Set · 36` row. No repeated owner name, no heavy box per meld.
+- [ ] **A 3–5 card meld shows every card in ONE row** at 360 and 390 — nothing cut off,
+      no sideways scrolling inside the meld.
+- [ ] **A long run wraps** onto the next line **in order**, inside its own group, and does
+      not touch the meld below it.
+- [ ] **Cards never overlap** and keep a visible gap; the artwork stays inside its card; a
+      joker's badge stays inside its own card; duplicate cards from the second deck each get
+      their own slot; card proportions look right (no squashing).
+- [ ] **Add / Replace-joker are small icon buttons in the combination's own row**, easy to
+      tap, and they appear **only** when you can actually use them right now.
+- [ ] **After someone adds a card** to a meld already on the table, the extra card joins the
+      same row (or wraps) — the order never re-shuffles.
+- [ ] An **eliminated** player's group is dimmed as a whole; a very long display name is
+      truncated with an ellipsis and never pushes the layout sideways.
+
+**The room menu**
+
+- [ ] **Collapsed there is exactly ONE social button**, in the top bar, with the
+      unread-message badge on it — and **no toolbar row** between the melds and the prompt.
+      The turn timer is a separate small item in the same top bar.
+- [ ] Tapping it opens a **sheet** covering the lower part of the screen with a dimmed
+      backdrop. Chat and Reactions are two tabs — only one is visible at a time. Voice and
+      **Quit for good** sit in the sheet's footer.
+- [ ] The sheet **scrolls inside itself**; the page behind it never gains a scrollbar.
+- [ ] **✕, the backdrop and Escape** all close it, and focus returns to the launcher.
+- [ ] **Quit for good still asks for confirmation** — the dialog is fully opaque and readable
+      over the sheet, and Cancel returns you to the game.
+- [ ] Every control in the sheet is comfortable to tap (≥44×44).
+- [ ] **Local Fifty-One shows no social controls at all** — no launcher, no timer slot.
+- [ ] **The other six games are unchanged**: Poker still has its docked toolbar; King, Durak,
+      Deberc, Tarneeb and Preferans still have the floating corner cluster.
 - [ ] **Your hand and the action buttons** stay reachable at 360/390; no sideways page
       scroll; nothing hidden behind the Android navigation bar.
+- [ ] **Browser text scaling / zoom:** with the system font size turned up, the top bar wraps
+      instead of pushing the timer and the launcher off the edge.
 - [ ] **Arabic RTL:** the interface mirrors but a run keeps its low→high order and the card
       artwork is not mirrored.
 
@@ -1598,6 +1631,21 @@ too. Needs two devices/browsers, and a signed-in account on at least one.
       "Quit for good" is **refused with a message**, the game keeps playing normally, and
       Back to menu still works.
 
+**Quitting while the match is ending (Stage 38.0.5.1 — the corrected race)**
+
+Set a short turn timer and confirm "Quit for good" on the very last trick/hand, so the match
+finishes in the same moment. Repeat a few times.
+
+- [ ] Whenever the app says the departure was accepted, the seat really is gone: the other
+      players see a **bot on that seat**, and your Resume / cross-device reclaim for that room
+      both stop working. It must never say "done" and leave your seat playable.
+- [ ] The finished result is shown normally and **is not restarted** — no extra bot move, no
+      new deal, no timer jumping back to life.
+- [ ] You get **exactly one** loss for that match, and the final result does not overwrite it.
+- [ ] **Double-tap the confirm button** (or tap it repeatedly on a slow connection): only one
+      request goes out, and once it is accepted a late refusal never flips the screen back to
+      an error.
+
 **Out of scope**
 
 - [ ] **Poker** (online and local) shows **no** "Quit for good" control anywhere.
@@ -1606,8 +1654,10 @@ too. Needs two devices/browsers, and a signed-in account on at least one.
 
 **Mobile + languages**
 
-- [ ] At 360 and 390 the trigger sits in the same row as chat/emoji/voice, is comfortable to
-      tap, and never covers the table, the hand, the melds or the action buttons.
+- [ ] At 360 and 390 the trigger is comfortable to tap and never covers the table, the hand,
+      the melds or the action buttons. In the five floating-cluster games it sits in the same
+      row as chat/emoji/voice; in **Fifty-One** it lives in the room-menu sheet's footer
+      (Stage 38.0.4.1).
 - [ ] The confirmation fits the screen (scrolls itself if needed) and both buttons are easy
       to tap.
 - [ ] Check the copy in **EN / UK / DE / AR**; in Arabic the dialog mirrors correctly.

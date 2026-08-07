@@ -738,6 +738,9 @@ export const UK: Record<string, string> = {
   'fiftyOne.opened': 'Відкрився',
   'fiftyOne.drawPile': 'Колода',
   'fiftyOne.discardPile': 'Скид',
+  'fiftyOne.typeRun': 'Ряд',
+  'fiftyOne.typeSet': 'Сет',
+  'fiftyOne.meldTable': 'Комбінації на столі',
   'fiftyOne.noMelds': 'Ще немає комбінацій на столі',
   'fiftyOne.addToMeld': 'Додати',
   'fiftyOne.replaceJoker': 'Замінити джокер',
@@ -1086,6 +1089,7 @@ export const UK: Record<string, string> = {
   'account.loginSuccess': 'Ви увійшли. Гостьовий прогрес збережено до акаунта.',
   'account.loginError': 'Не вдалося увійти. Спробуйте ще раз.',
   // ── room social (Stage 7) ──
+  'social.menu': 'Меню кімнати',
   'social.reactions': 'Реакції',
   'social.emoji': 'Емодзі',
   'king.modesShort': 'Режими',

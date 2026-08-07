@@ -1317,7 +1317,7 @@ human-only match into a bot table. SERVER-ONLY: persisted in the room JSON, neve
    different match, or a row that already carries another result → **refused**, never
    overwritten. A guest (no resolved account) needs no account row, so the write is
    best-effort and the takeover stays authoritative;
-3. only then `takeoverSeatWithAi` — the member entry is REPLACED IN PLACE (same map
+3. only then `takeoverSeatAfterForfeit` — the member entry is REPLACED IN PLACE (same map
    position, same `seatIndex`), never `removeMember`/`assignSeats`, and `gameState` is not
    touched at all. The AI gets a fresh clientId + token hash, `userId: null` and an
    obviously-AI name/avatar; rematch consent is dropped; the host badge moves to a
@@ -1326,6 +1326,54 @@ human-only match into a bot table. SERVER-ONLY: persisted in the room JSON, neve
    CONNECTION-EVENT variant of `broadcastAndAdvance` (no `turnAdvanced`), so the current
    turn deadline is neither reset nor extended and exactly one bot action is scheduled when
    the taken-over seat is the one on the clock.
+
+#### The validation is SPLIT at the commit (Stage 38.0.5.1 — corrected race)
+
+Stage 38.0.5 re-ran the FULL step-1 contract after the DB await. That was wrong, and the
+window is real: the room lock does not stop the synchronous timer callbacks, so a turn
+timeout / auto-advance can finish the match between the forfeit committing and the
+orchestration regaining control. The recheck then answered `already_finished`, the code
+returned `kind: 'already_left'`, `handlePermanentLeave` sent `PERMANENT_LEAVE_ACCEPTED` and
+the client cleared its session — while the human member, its reconnect token and its
+reclaimable account were all still in the room and **no replacement AI existed**. RED
+evidence (a probe replaying the old block verbatim): `result = already_left`,
+`member c1 alive = true`, `RECONNECT t1 → c1`, `RECLAIM u1 → c1`, `replacement AI = 0`.
+
+The two checks are now different functions and answer different questions:
+
+- **before the DB write** — `planPermanentLeave` (unchanged): the full gameplay contract,
+  including "the match must be ACTIVE". A decided table is still refused here, with no
+  durable write at all;
+- **after the DB write** — `planPermanentLeaveTakeover(room, clientId, {seatIndex, userId})`:
+  **identity only**. Same clientId, still human, still seated, still the SAME seat and the
+  SAME account we just forfeited. A finished match may no longer veto the teardown.
+
+Post-commit outcomes, all of them terminal for the identity:
+
+| situation | result |
+| --- | --- |
+| room gone from the registry (or replaced) | `already_left` — nothing left to annul |
+| `not_a_member` (its socket closed, member dropped) | `already_left` — the identity is already gone |
+| `seat_changed` / `account_changed` / `not_human` / `not_seated` | **`refused`**, fail closed — never tear down an innocent member; the durable gate makes a retry a no-op, so no second loss |
+| identity intact, other humans remain | takeover on the SAME seat (finished or not) |
+| identity intact, no human remains | `closeRoom` |
+
+`isRoomFinished(live)` is read once, before the transition, for exactly one purpose: a
+FINISHED match is **not** re-driven — `deps.advance` (the connection-event
+`broadcastAndAdvance`) is skipped, so no deadline is minted and no bot move is played after
+a terminal state. `deps.broadcastRoom` still runs, because the membership genuinely changed.
+The finish itself can never rewrite the forfeit: `recordOnlineMatchFinish` only updates rows
+that are still `pending` **and** not `forfeited`.
+
+**Client + connection lifecycle (same stage).** `leavePermanently` used to gate on React
+state, which is written asynchronously — two presses before the next render both read the
+stale `idle` and both put an intent on the wire. The decision now comes from a synchronous
+ref driven by the pure `src/net/permanentLeaveClient.ts` (`planLeaveIntent` /
+`applyLeaveAccepted` / `applyLeaveRefusal`), and the ACK is **absorbing**: a
+`PERMANENT_LEAVE_UNAVAILABLE` that arrives after it is ignored, so a duplicate intent's
+refusal can never repaint a completed departure as an error. On the server, a socket whose
+leave was accepted is remembered in a `WeakSet`, and a duplicate `LEAVE_GAME_PERMANENTLY`
+**re-ACKs** instead of answering `ERROR`.
 
 A takeover without a committed forfeit is impossible by construction; a committed forfeit
 whose ACK is lost is retried by the client and the DB gate makes the retry a no-op, so a

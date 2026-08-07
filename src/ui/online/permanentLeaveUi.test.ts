@@ -162,12 +162,18 @@ describe('the client never drops its identity before the ACK', () => {
     expect(ack).toContain('transportRef.current?.close()');
   });
   it('a refusal is a panel state, never the fatal game-error surface', () => {
-    expect(hook).toMatch(/msg\.code === 'PERMANENT_LEAVE_UNAVAILABLE'[\s\S]*?setPermanentLeave\(\{ status: 'error' \}\)/);
+    // (38.0.5.1) …and it is filtered through `applyLeaveRefusal`, so it can never
+    // overwrite an ACK that already landed for a duplicate intent.
+    expect(hook).toMatch(/msg\.code === 'PERMANENT_LEAVE_UNAVAILABLE'[\s\S]*?writePermanentLeave\(refusal\.next\)/);
+    expect(hook).not.toContain("setPermanentLeave({ status: 'error' })");
   });
   it('a stale Resume is dropped when an authoritative ROOM_NOT_FOUND answers a reconnect', () => {
     expect(hook).toMatch(/msg\.code === 'ROOM_NOT_FOUND' && tokenRef\.current[\s\S]*?clearSession\(\)/);
   });
   it('a second press while pending does not restart the lifecycle', () => {
-    expect(hook).toMatch(/p\.status === 'pending' \|\| p\.status === 'accepted' \? p :/);
+    // (38.0.5.1) The guard moved from ASYNC React state to a synchronous ref, because
+    // two presses before the next render both read the stale `idle` and both sent.
+    expect(hook).toContain('planLeaveIntent(permanentLeaveRef.current)');
+    expect(hook).toMatch(/if \(!plan\.send\) return;/);
   });
 });

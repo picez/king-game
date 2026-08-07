@@ -20,9 +20,12 @@ interface Props {
   disconnectedSeats?: number[];
   /** Online rematch controls (Stage 25.9 / 30.5). */
   rematch?: RematchUi | null;
-  /** Docked social/utility controls (Stage 38.0.4) — rendered IN FLOW inside the game
-   *  screen, never as a fixed overlay on top of the melds. LOCAL play passes nothing. */
-  socialSlot?: ReactNode;
+  /** ONE compact social/menu launcher (Stage 38.0.5.1), rendered in the game screen's
+   *  TOP BAR. Collapsed it costs a single 44×44 target and no toolbar row at all; it
+   *  opens a modal sheet. Game-agnostic node; LOCAL play passes nothing. */
+  menuSlot?: ReactNode;
+  /** Compact turn timer for the same top bar (null when the host left the timer off). */
+  timerSlot?: ReactNode;
 }
 
 /**
@@ -34,7 +37,7 @@ interface Props {
  * client's turn (the action bar disables off-turn) and replaces the "Next round"
  * button with a waiting note. Renders nothing King-specific (no GameRouter).
  */
-export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, socialSlot }: Props) {
+export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, menuSlot, timerSlot }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -52,7 +55,8 @@ export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit
       apply={dispatch}
       onExit={onExit}
       online
-      socialSlot={socialSlot}
+      menuSlot={menuSlot}
+      timerSlot={timerSlot}
     />
   );
 }

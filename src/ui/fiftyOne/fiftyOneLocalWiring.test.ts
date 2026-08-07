@@ -127,7 +127,10 @@ describe('51 local UI wiring (no rule duplication)', () => {
     // The swap must match rank AND suit exactly, so there is never a choice to offer.
     expect(src).toMatch(/h\.suit === rep\.suit && h\.rank === rep\.rank/);
     // The button sits in the controls row, not among the cards.
-    expect(src).toMatch(/fiftyone-meld__ctrls[\s\S]{0,400}fiftyone-meld__swap/);
+    // (38.0.5.1) The controls are compact icon buttons in the meld's LABEL row and are
+    // rendered only while the action is possible, so the swap button follows the ctrls
+    // wrapper a little further down than in 38.0.4.
+    expect(src).toMatch(/fiftyone-meld__ctrls[\s\S]{0,700}fiftyone-meld__swap/);
   });
 
   it('discard-to-open UI: the top is takeable only to open, via TAKE_DISCARD_AND_OPEN (30.13)', () => {

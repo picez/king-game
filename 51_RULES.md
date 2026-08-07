@@ -413,3 +413,18 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   no meld. (3) The help sheet gained **Card values** + **Melds** sections (§6/§10 examples), and states
   the discard-to-open exception (§5a) and joker replacement (§9a). No change to joker-hand-25 /
   unopened-100 / 510 elimination / win-by-final-discard / post-opening free-meld / discard-to-open.
+- **Stage 38.0.4 (2026-08-06):** **PRESENTATION ONLY — no rule changed.** Public-meld cards
+  became viewport-responsive (`clamp`, face aspect derived from the width) and long melds now
+  WRAP in normal flow instead of hiding behind an inner horizontal scroll; the 18rem block cap
+  that clipped a 4-card meld on a phone is gone. The online social cluster moved out of the
+  fixed corner into a docked row inside the screen. Measured gate `npm run layout:fiftyone`.
+- **Stage 38.0.4.1 (2026-08-07):** **PRESENTATION ONLY — no rule changed.** (1) Public melds
+  are now GROUPED BY OWNER: the owner is named once per group with that owner's total meld
+  value, and each combination is a compact `Run · <value>` / `Set · <value>` row of cards.
+  Add-to-meld (§9) and Replace-joker (§9a) became compact icon actions in the combination's
+  own row, shown only while the action is legal — the actions themselves are unchanged.
+  (2) The online social cluster became ONE launcher in the top bar plus a modal sheet, so the
+  gameplay column carries no social row while collapsed. **Card ORDER inside a meld is still
+  the authoritative sequence from §5/§6/§8 — the display never sorts it, never moves a joker
+  and never mirrors the artwork under RTL.** No change to deck / opening 51 / joker-hand-25 /
+  unopened-100 / configurable elimination / win-by-final-discard / discard-to-open.

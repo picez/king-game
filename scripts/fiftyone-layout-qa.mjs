@@ -1,16 +1,19 @@
 // ---------------------------------------------------------------------------
-// Fifty-One LAYOUT QA gate (Stage 38.0.4).
+// Fifty-One LAYOUT QA gate (Stage 38.0.4, rebuilt for Stage 38.0.5.1).
 //
 //   node scripts/fiftyone-layout-qa.mjs [--legacy] [--shots <dir>] [--only <substr>]
 //
-// The owner hit two real defects on a phone: a 4-card meld was CLIPPED (the block was
-// capped at 18rem while four 72px cards plus gaps need ~320px, and the row scrolled
-// inside itself), and the floating social cluster sat ON TOP of the melds.
+// WHY IT WAS REBUILT. The 38.0.4 gate was green while the owner's phone was not, because
+// it measured a PARTIAL table: no `dangerSlot`, no chat history, no open panel, no
+// confirmation dialog, no card-face theme, no text scaling, one paint only, and it looked
+// only at the direct `.fiftyone-meldcard` wrappers — never the inner `.card`, the
+// `.card__art`, the joker badge or the controls. This version mounts the PRODUCTION
+// online branch (scripts/layout-harness/fiftyone.tsx) and measures every one of those.
 //
-// This gate renders the REAL FiftyOneGameScreen in a REAL browser (scripts/layout-harness/
-// fiftyone.html) and asserts on actual `getBoundingClientRect()` values — screenshots are
-// evidence, not the assertion. `--legacy` re-applies the pre-fix CSS so the RED can be
-// reproduced on demand instead of being described.
+// It asserts on real `getBoundingClientRect()` values in a real browser AFTER
+// `document.fonts.ready`, after every visible image has `decode()`d, and after two
+// animation frames — screenshots are evidence, not the assertion. `--legacy` re-applies
+// the pre-fix CSS so the RED can be reproduced on demand instead of being described.
 // ---------------------------------------------------------------------------
 
 import { spawn } from 'node:child_process';
@@ -53,6 +56,7 @@ async function waitDevtools(timeout = 15000) {
 
 class CDP {
   constructor(url) { this.ws = new WebSocket(url); this.id = 0; this.pending = new Map(); }
+  close() { try { this.ws.close(); } catch { /* already gone */ } }
   open() {
     return new Promise((res) => {
       this.ws.on('open', res);
@@ -62,7 +66,7 @@ class CDP {
       });
     });
   }
-  send(method, params = {}, timeoutMs = 12000) {
+  send(method, params = {}, timeoutMs = 20000) {
     const id = ++this.id;
     return new Promise((res) => {
       const done = (v) => { clearTimeout(timer); this.pending.delete(id); res(v); };
@@ -78,76 +82,172 @@ class CDP {
   }
 }
 
+// --- settle: fonts, decoded artwork, the harness's own update sequence, 2 frames ------
+const SETTLE = `(async () => {
+  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  for (let i = 0; i < 60 && window.__f51ready !== true; i++) await new Promise(r => setTimeout(r, 50));
+  const imgs = [...document.images].filter((im) => im.getBoundingClientRect().width > 0.5);
+  await Promise.all(imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())));
+  await new Promise((r) => requestAnimationFrame(() => r()));
+  await new Promise((r) => requestAnimationFrame(() => r()));
+  return { images: imgs.length, ready: window.__f51ready === true };
+})()`;
+
 // --- the in-page probe -------------------------------------------------------
 const PROBE = `JSON.stringify((() => {
-  const S = 0.5;
+  const S = 0.5;                                   // sub-pixel tolerance
   const vw = window.innerWidth;
   const rect = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
   const live = (r) => r.w > 0.5 && r.h > 0.5;
-  const all = (sel) => [...document.querySelectorAll(sel)].map(rect).filter(live);
+  const all = (sel, root) => [...(root || document).querySelectorAll(sel)].filter((e) => live(rect(e)));
   const one = (sel) => { const el = document.querySelector(sel); if (!el) return null; const r = rect(el); return live(r) ? r : null; };
   const hit = (a, b) => !!a && !!b && a.l < b.r - S && b.l < a.r - S && a.t < b.b - S && b.t < a.b - S;
   const ov = (a, b) => Math.round(Math.min(a.r, b.r) - Math.max(a.l, b.l)) + 'x' + Math.round(Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  const inside = (child, parent) =>
+    child.l >= parent.l - S && child.r <= parent.r + S && child.t >= parent.t - S && child.b <= parent.b + S;
 
   const v = [];
   const add = (kind, detail) => v.push(kind + ': ' + detail);
 
-  const melds = [...document.querySelectorAll('.fiftyone-meld')];
+  const groups = all('.fiftyone-meldgroup');
+  const melds = all('.fiftyone-meld');
   const prompt = one('.fiftyone-prompt');
   const actions = one('.fiftyone-actions');
   const hand = one('.hand-reorder') || one('.fiftyone-hand') || one('.hand');
-  const cluster = one('.social-controls');
-  const panels = [...all('.chat-drawer'), ...all('.reaction-bar')];
+  const scoreboard = one('.fiftyone-scoreboard');
+  const piles = one('.fiftyone-piles');
+  const launcher = one('.social-menu');
+  const sheet = one('.social-sheet');
+  const dialog = one('.permleave-dialog');
+  const modalOpen = !!sheet || !!dialog;
 
+  // Every card slot on the table, with its inner card / artwork / joker badge.
+  const slots = [];
   melds.forEach((meld, mi) => {
     const row = meld.querySelector('.fiftyone-meld__cards');
     if (!row) return;
     const rowRect = rect(row);
-    const cards = [...row.children].map(rect).filter(live);
-    const label = 'meld' + mi + '(' + cards.length + ')';
+    const label = 'meld' + mi;
+    const cards = all('.fiftyone-meldcard', row).map((el) => ({ el, r: rect(el) }));
+    if (!cards.length) add('meld-empty', label);
 
-    // 1. every card must be FULLY inside its row's visible box — no clipping…
-    for (const cd of cards) {
-      if (cd.l < rowRect.l - S || cd.r > rowRect.r + S) add('card-clipped', label + ' ' + Math.round(cd.l) + '..' + Math.round(cd.r) + ' vs row ' + Math.round(rowRect.l) + '..' + Math.round(rowRect.r));
-      if (cd.w < 28) add('card-squeezed', label + ' ' + Math.round(cd.w) + 'px');
-    }
-    // …and the row must not hide anything behind an internal scroll.
-    if (row.scrollWidth > Math.ceil(rowRect.w) + 1) add('meld-inner-scroll', label + ' ' + row.scrollWidth + '>' + Math.round(rowRect.w));
+    for (const { el, r } of cards) {
+      slots.push({ r, label });
+      // 1. the slot must be FULLY inside its row's visible box…
+      if (!inside(r, rowRect)) {
+        add('card-clipped', label + ' ' + Math.round(r.l) + '..' + Math.round(r.r) + '/' + Math.round(r.b)
+          + ' vs row ' + Math.round(rowRect.l) + '..' + Math.round(rowRect.r) + '/' + Math.round(rowRect.b));
+      }
+      if (r.w < 28 || r.h < 40) add('card-squeezed', label + ' ' + Math.round(r.w) + 'x' + Math.round(r.h));
+      // …and be inside the meld block, and inside its owner group.
+      const mr = rect(meld);
+      if (!inside(r, mr)) add('card-outside-meld', label);
 
-    // 2. no two cards of a meld may overlap, and a positive gap must remain.
-    const sorted = [...cards].sort((a, b) => (a.t - b.t) || (a.l - b.l));
-    for (let i = 1; i < sorted.length; i++) {
-      const a = sorted[i - 1], b = sorted[i];
-      if (hit(a, b)) add('card-overlap', label + ' ' + ov(a, b));
-      const sameRow = Math.abs(a.t - b.t) < 2;
-      if (sameRow && b.l - a.r < 1) add('no-gap', label + ' ' + Math.round(b.l - a.r) + 'px');
+      // 2. the inner .card must sit inside its slot, keep the face aspect, and its
+      //    artwork + joker badge must stay inside the card.
+      const card = el.querySelector('.card');
+      if (card) {
+        const cr = rect(card);
+        if (!inside(cr, r)) add('card-outside-slot', label + ' card ' + Math.round(cr.w) + 'x' + Math.round(cr.h)
+          + ' vs slot ' + Math.round(r.w) + 'x' + Math.round(r.h));
+        const aspect = cr.h / cr.w;
+        if (aspect < 1.45 || aspect > 1.75) add('card-aspect', label + ' ' + aspect.toFixed(2));
+        const art = card.querySelector('.card__art');
+        if (art) {
+          const ar = rect(art);
+          if (!inside(ar, cr)) add('art-outside-card', label + ' art ' + Math.round(ar.l) + '..' + Math.round(ar.r)
+            + ' vs card ' + Math.round(cr.l) + '..' + Math.round(cr.r));
+          const st = getComputedStyle(art);
+          if (st.transform && st.transform.includes('-1,')) add('art-mirrored', label + ' ' + st.transform);
+        }
+      }
+      const badge = el.querySelector('.fiftyone-meldcard__jbadge');
+      if (badge) {
+        const br = rect(badge);
+        if (live(br) && !inside(br, r)) add('joker-badge-outside', label);
+      }
     }
-    // 3. a wrapped row must not spill out of its own meld block.
-    const mr = rect(meld);
-    for (const cd of cards) {
-      if (cd.b > mr.b + S) add('card-outside-meld', label);
+
+    // 3. no hidden inner scroll anywhere in the meld block.
+    for (const el of [meld, row, ...row.children]) {
+      if (el.scrollWidth > Math.ceil(el.clientWidth) + 1 && el.clientWidth > 0) {
+        add('inner-scroll-x', label + ' ' + el.className + ' ' + el.scrollWidth + '>' + el.clientWidth);
+      }
+    }
+
+    // 4. the meld's controls may never sit on its cards.
+    for (const ctrl of all('.fiftyone-meld__ctrls', meld)) {
+      const cr = rect(ctrl);
+      for (const { r } of cards) if (hit(cr, r)) add('ctrl-over-card', label + ' ' + ov(cr, r));
     }
   });
 
-  // 4. meld blocks must not intersect each other.
-  const mrs = melds.map(rect).filter(live);
+  // 5. NO TWO CARDS ANYWHERE may overlap, and same-row neighbours keep a positive gap.
+  const sorted = [...slots].sort((a, b) => (a.r.t - b.r.t) || (a.r.l - b.r.l));
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const a = sorted[i].r, b = sorted[j].r;
+      if (b.t > a.b + 2) break;                    // rows below can no longer touch
+      if (hit(a, b)) add('card-overlap', sorted[i].label + '|' + sorted[j].label + ' ' + ov(a, b));
+      if (Math.abs(a.t - b.t) < 2 && b.l - a.r < 1 && b.l >= a.l) {
+        add('no-gap', sorted[i].label + ' ' + Math.round(b.l - a.r) + 'px');
+      }
+    }
+  }
+
+  // 6. meld blocks and owner GROUPS must not intersect each other.
+  const mrs = melds.map(rect);
   for (let i = 0; i < mrs.length; i++) {
     for (let j = i + 1; j < mrs.length; j++) if (hit(mrs[i], mrs[j])) add('meld-overlap', i + '|' + j + ' ' + ov(mrs[i], mrs[j]));
   }
+  const grs = groups.map(rect);
+  for (let i = 0; i < grs.length; i++) {
+    for (let j = i + 1; j < grs.length; j++) if (hit(grs[i], grs[j])) add('group-overlap', i + '|' + j + ' ' + ov(grs[i], grs[j]));
+  }
+  // every meld must live inside exactly one group box
+  melds.forEach((m, i) => {
+    const r = rect(m);
+    if (grs.length && !grs.some((g) => inside(r, g))) add('meld-outside-group', 'meld' + i);
+  });
 
-  // 5. the social cluster + its panels must not cover the game content.
-  const content = [...mrs, prompt, actions, hand].filter(Boolean);
-  if (cluster) for (const cEl of content) if (hit(cluster, cEl)) add('social-over-content', ov(cluster, cEl));
-  for (const p of panels) for (const cEl of content) if (hit(p, cEl)) add('panel-over-content', ov(p, cEl));
-
-  // 6. page-level horizontal overflow + touch targets.
-  if (document.documentElement.scrollWidth > vw + 1) add('page-overflow-x', document.documentElement.scrollWidth + '>' + vw);
-  for (const b of document.querySelectorAll('.social-controls button, .fiftyone-meld__ctrls button')) {
-    const r = rect(b);
-    if (live(r) && (r.w < 43.5 || r.h < 43.5)) add('touch-target', (b.textContent || '?').trim().slice(0, 12) + ' ' + Math.round(r.w) + 'x' + Math.round(r.h));
+  // 7. COLLAPSED social UI never covers gameplay. An OPEN sheet/dialog is a modal and
+  //    is allowed to — that is the point of it.
+  const content = [...mrs, ...grs, prompt, actions, hand, scoreboard, piles].filter(Boolean);
+  if (launcher && !modalOpen) {
+    for (const el of content) if (hit(launcher, el)) add('social-over-content', ov(launcher, el));
+  }
+  if (!modalOpen) {
+    for (const p of all('.chat-drawer, .reaction-bar, .social-controls').map(rect)) {
+      for (const el of content) if (hit(p, el)) add('panel-over-content', ov(p, el));
+    }
+  }
+  // An open sheet must be a real modal: a backdrop, a close control, and its OWN scroll.
+  if (sheet) {
+    if (!document.querySelector('.social-sheet-backdrop')) add('sheet-no-backdrop', '');
+    if (!document.querySelector('.social-sheet__close')) add('sheet-no-close', '');
+    const body = document.querySelector('.social-sheet__body');
+    if (body && body.scrollWidth > body.clientWidth + 1) add('sheet-inner-scroll-x', body.scrollWidth + '>' + body.clientWidth);
+    if (sheet.b > window.innerHeight + 1) add('sheet-off-screen', Math.round(sheet.b) + '>' + window.innerHeight);
   }
 
-  return { violations: v, melds: melds.length, hasPrompt: !!prompt };
+  // 8. page-level horizontal overflow.
+  if (document.documentElement.scrollWidth > vw + 1) add('page-overflow-x', document.documentElement.scrollWidth + '>' + vw);
+  const screen = document.querySelector('.fiftyone-screen');
+  if (screen && screen.scrollWidth > screen.clientWidth + 1) add('screen-overflow-x', screen.scrollWidth + '>' + screen.clientWidth);
+
+  // 9. touch targets for everything this stage owns.
+  const TAP = '.social-menu__launcher, .social-sheet button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
+  for (const b of all(TAP)) {
+    const r = rect(b);
+    if (r.w < 43.5 || r.h < 43.5) {
+      add('touch-target', (b.className || '?').toString().split(' ')[0] + ' ' + Math.round(r.w) + 'x' + Math.round(r.h));
+    }
+  }
+
+  return {
+    violations: v, groups: groups.length, melds: melds.length, cards: slots.length,
+    launcher: !!launcher, sheet: !!sheet, dialog: !!dialog, hasPrompt: !!prompt,
+  };
 })())`;
 
 const VIEWPORTS = [
@@ -156,15 +256,32 @@ const VIEWPORTS = [
   { tag: 'desktop', w: 1280, h: 900, mobile: false },
 ];
 
+const SOCIAL = 'social=sheet&chat=7&updates=1';
+
+/** Each scenario: a query string, plus optional clicks to perform before measuring. */
 function scenarios() {
-  const out = [];
-  for (const players of [2, 3, 4]) {
-    out.push({ name: `${players}p`, q: `players=${players}` });
-    out.push({ name: `${players}p-social`, q: `players=${players}&social=${LEGACY ? 'float' : 'dock'}` });
-  }
-  out.push({ name: '4p-rtl', q: 'players=4&dir=rtl&lang=ar' });
-  out.push({ name: '4p-rtl-social', q: `players=4&dir=rtl&lang=ar&social=${LEGACY ? 'float' : 'dock'}` });
-  return out.map((s) => ({ ...s, q: LEGACY ? `${s.q}&legacy=1` : s.q }));
+  const list = [
+    { name: '2p', q: 'players=2' },
+    { name: '3p', q: 'players=3' },
+    { name: '4p', q: 'players=4' },
+    { name: '4p-collapsed', q: `players=4&${SOCIAL}` },
+    { name: '4p-chat', q: `players=4&${SOCIAL}&panel=chat` },
+    { name: '4p-reactions', q: `players=4&${SOCIAL}&panel=reactions` },
+    // The destructive control lives in the sheet's footer, so the sheet is opened first.
+    { name: '4p-confirm', q: `players=4&${SOCIAL}&panel=chat`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
+    { name: '4p-longrun', q: 'players=4&melds=long' },
+    { name: '4p-longrun-social', q: `players=4&melds=long&${SOCIAL}` },
+    { name: '4p-jokers', q: 'players=4&melds=jokers' },
+    { name: '4p-sameowner', q: `players=4&melds=sameowner&${SOCIAL}` },
+    { name: '4p-clean', q: 'players=4&faces=clean' },
+    { name: '3p-clean-social', q: `players=3&faces=clean&${SOCIAL}` },
+    { name: '4p-zoom', q: `players=4&fontScale=21&${SOCIAL}` },
+    { name: '4p-rtl', q: 'players=4&dir=rtl&lang=ar' },
+    { name: '4p-rtl-social', q: `players=4&dir=rtl&lang=ar&${SOCIAL}` },
+    { name: '4p-rtl-chat', q: `players=4&dir=rtl&lang=ar&${SOCIAL}&panel=chat` },
+    { name: '2p-empty', q: 'players=2&melds=redacted' },
+  ];
+  return list.map((s) => ({ ...s, q: LEGACY ? `${s.q}&legacy=1` : s.q }));
 }
 
 async function run() {
@@ -196,23 +313,51 @@ async function run() {
 
       for (const sc of scenarios().filter((x) => !ONLY || x.name.includes(ONLY))) {
         await cdp.send('Page.navigate', { url: `${BASE}?${sc.q}` });
+        // The empty-table scenario has no melds by design — wait for the screen instead.
+        const anchor = sc.q.includes('melds=redacted') ? '.fiftyone-screen' : '.fiftyone-meld';
         let mounted = false;
-        for (let i = 0; i < 50; i++) {
-          if (await cdp.evaluate(`!!document.querySelector('.fiftyone-meld')`)) { mounted = true; break; }
+        for (let i = 0; i < 60; i++) {
+          if (await cdp.evaluate(`!!document.querySelector('${anchor}')`)) { mounted = true; break; }
           await sleep(100);
         }
-        await sleep(140);
-        if (!mounted) { failures.push(`${vp.tag} ${sc.name}: NO melds rendered (harness broken)`); continue; }
+        if (!mounted) { failures.push(`${vp.tag} ${sc.name}: NOTHING rendered (harness broken)`); continue; }
+
+        const settled = await cdp.evaluate(SETTLE);
+        if (!settled || settled.ready !== true) failures.push(`${vp.tag} ${sc.name}: harness never signalled ready`);
+
+        for (const sel of sc.click ?? []) {
+          const clicked = await cdp.evaluate(
+            `(() => { const el = document.querySelector('${sel}'); if (!el) return false; el.click(); return true; })()`);
+          if (!clicked) failures.push(`${vp.tag} ${sc.name}: cannot click ${sel}`);
+        }
+        if (sc.open) {
+          let opened = false;
+          for (let i = 0; i < 30; i++) {
+            if (await cdp.evaluate(`!!document.querySelector('${sc.open}')`)) { opened = true; break; }
+            await sleep(50);
+          }
+          if (!opened) failures.push(`${vp.tag} ${sc.name}: ${sc.open} never appeared`);
+          await cdp.evaluate(SETTLE);
+        }
 
         const res = JSON.parse(await cdp.evaluate(PROBE));
         checks++;
+        // A scenario that claims social UI must actually have mounted it — otherwise the
+        // gate would be measuring a table that production never shows.
+        if (sc.q.includes('social=sheet') && !res.launcher) failures.push(`${vp.tag} ${sc.name}: social launcher missing`);
+        if (sc.name.endsWith('-chat') || sc.name.endsWith('-reactions')) {
+          if (!res.sheet) failures.push(`${vp.tag} ${sc.name}: the sheet did not open`);
+        }
+        if (sc.name === '4p-confirm' && !res.dialog) failures.push(`${vp.tag} ${sc.name}: no confirmation dialog`);
         for (const violation of res.violations) failures.push(`${vp.tag} ${sc.name}: ${violation}`);
         if (SHOTS) {
           const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
           if (shot?.result?.data) writeFileSync(`${SHOTS}/${LEGACY ? 'RED-' : ''}${vp.tag}-${sc.name}.png`, Buffer.from(shot.result.data, 'base64'));
         }
-        console.log(`  ${sc.name.padEnd(16)} ${res.violations.length ? `FAIL(${res.violations.length}) ${res.violations.slice(0, 2).join(' | ')}` : 'ok'}`);
+        const meta = `g${res.groups}/m${res.melds}/c${res.cards}`;
+        console.log(`  ${sc.name.padEnd(18)} ${meta.padEnd(12)} ${res.violations.length ? `FAIL(${res.violations.length}) ${res.violations.slice(0, 2).join(' | ')}` : 'ok'}`);
       }
+      cdp.close();          // an open CDP socket keeps node's event loop alive forever
     }
   } finally {
     chrome.kill();
@@ -221,13 +366,22 @@ async function run() {
 
   console.log(`\n${checks} Fifty-One layout checks run.`);
   if (failures.length) {
-    console.log(`\n${failures.length} VIOLATION(S):`);
-    for (const f of failures.slice(0, 50)) console.log('  - ' + f);
-    if (failures.length > 50) console.log(`  … ${failures.length - 50} more`);
+    const byKind = new Map();
+    for (const f of failures) {
+      const kind = (f.match(/: ([a-z][a-z-]+):/) ?? [, 'other'])[1];
+      byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
+    }
+    console.log(`\n${failures.length} VIOLATION(S) by kind:`);
+    for (const [kind, count] of [...byKind].sort((a, b) => b[1] - a[1])) console.log(`  ${String(count).padStart(5)}  ${kind}`);
+    console.log('\nfirst 60:');
+    for (const f of failures.slice(0, 60)) console.log('  - ' + f);
+    if (failures.length > 60) console.log(`  … ${failures.length - 60} more`);
     process.exitCode = 1;
   } else {
-    console.log('FIFTY-ONE LAYOUT OK — melds fully visible, no overlap, social clear of the game.');
+    console.log('FIFTY-ONE LAYOUT OK — grouped melds fully visible, no overlap/clipping/inner scroll, social clear of the game.');
   }
+  return failures.length ? 1 : 0;
 }
 
-await run();
+// Exit explicitly: a killed Chrome can leave stray handles that would otherwise hang node.
+process.exit(await run());

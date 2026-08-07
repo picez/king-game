@@ -388,11 +388,12 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // server drives bots + the public round_complete advance (seeded
   // START_NEXT_ROUND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'fifty-one') {
-    // Stage 38.0.4 (owner FAIL): the fixed corner cluster sat ON TOP of the laid-out
-    // melds on a phone. Fifty-One therefore renders the SAME generic docked RoomSocial
-    // Poker uses — in normal flow inside the game screen, between the public melds and
-    // the prompt/actions/hand — and owns which single surface is open.
-    const fiftyOneSocial = (
+    // Stage 38.0.4 docked the cluster in flow (fixing the overlap); Stage 38.0.5.1
+    // replaces that toolbar with ONE compact launcher in the 51 top bar plus a modal
+    // sheet, because the docked row still ate a whole band of the phone screen between
+    // the melds and the prompt. Collapsed, 51's gameplay column carries no social UI at
+    // all. Still the SAME game-agnostic RoomSocial — only its layout variant differs.
+    const fiftyOneMenu = (
       <>
         {inviteToast}
         <RoomSocial
@@ -402,9 +403,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           handVisible={false}
           voiceButton={<VoiceControl voice={voice} variant="compact" />}
           mySeatIndex={mySeatIndex} seatCount={seatCount}
-          timerSlot={timerEl}
           dangerSlot={permanentLeaveSlot}
-          variant="docked"
+          variant="sheet"
           openPanel={socialPanel}
           onPanelChange={setSocialPanel}
         />
@@ -418,7 +418,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         onExit={leaveGameToMenu}
         rematch={rematchUi}
         disconnectedSeats={disconnectedSeats}
-        socialSlot={fiftyOneSocial}
+        menuSlot={fiftyOneMenu}
+        timerSlot={timerEl}
       />
     );
   }

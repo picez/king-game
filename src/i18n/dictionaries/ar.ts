@@ -738,6 +738,9 @@ export const AR: Record<string, string> = {
   'fiftyOne.opened': 'افتتح',
   'fiftyOne.drawPile': 'المجموعة',
   'fiftyOne.discardPile': 'الرمي',
+  'fiftyOne.typeRun': 'تسلسل',
+  'fiftyOne.typeSet': 'مجموعة',
+  'fiftyOne.meldTable': 'التشكيلات على الطاولة',
   'fiftyOne.noMelds': 'لا تشكيلات على الطاولة بعد',
   'fiftyOne.addToMeld': 'أضف',
   'fiftyOne.replaceJoker': 'استبدل الجوكر',
@@ -1086,6 +1089,7 @@ export const AR: Record<string, string> = {
   'account.loginSuccess': 'تم تسجيل الدخول. تم حفظ تقدّمك كضيف في حسابك.',
   'account.loginError': 'فشل تسجيل الدخول. حاول مرة أخرى.',
   // ── room social (Stage 7) ──
+  'social.menu': 'قائمة الغرفة',
   'social.reactions': 'التفاعلات',
   'social.emoji': 'إيموجي',
   'king.modesShort': 'الأنماط',

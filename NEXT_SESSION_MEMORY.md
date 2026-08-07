@@ -917,3 +917,85 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `getOnlineParticipationCounters(userId)` → `{gameType, category, matches, wins, losses, forfeits}`
   grouped rows. Overall + per-game, `human_only` vs `with_bots`, ONLINE only (local play never creates
   a match row). Do NOT derive it from `user_stats`.
+
+### Stage 38.0.5.1 / 38.0.4.1 — permanent-leave race fix + Fifty-One table/menu redesign (COMPLETE, Unreleased)
+- Worked from HEAD `d82dbde`. **No migration (latest stays 0014), no version bump (0.4.8), games 7,
+  achievements 52, libc 0.** Poker source: **zero files touched** (the only "poker" lines in the diff
+  are new assertions proving it is unchanged); `npm run layout:poker` still 228/228 OK.
+
+#### A. Permanent-leave FINISH-DURING-DB-AWAIT race (code-review FAIL)
+- **RED (probe replaying the 38.0.5 post-commit block verbatim, then deleted):**
+  `result = {ok:true, kind:'already_left'}`, `member c1 alive = true`, `RECONNECT t1 → c1`,
+  `RECLAIM u1 → c1`, `replacement AI = 0`. The ACK was sent, the client cleared its session, and the
+  seat + reconnect token + account claim all survived.
+- **ROOT CAUSE:** `runPermanentLeave` re-ran the FULL pre-commit contract (`planPermanentLeave`) after
+  the DB await. A timer/auto-advance finishing the match in that window made the recheck answer
+  `already_finished` → the code returned `already_left` and did NO teardown.
+- **FIX — the validation is SPLIT at the commit.** Before the write: `planPermanentLeave` unchanged
+  (match must be ACTIVE). After the write: new pure `planPermanentLeaveTakeover(room, clientId,
+  {seatIndex, userId})` — IDENTITY ONLY (same clientId, human, seated, same seat, same account).
+  New `takeoverSeatAfterForfeit()` shares `applySeatTakeover()` with `takeoverSeatWithAi()` (no
+  `removeMember`/`assignSeats`, `gameState` untouched). Post-commit outcomes: room gone /
+  `not_a_member` → `already_left` (identity already annulled); `seat_changed`/`account_changed`/
+  `not_human`/`not_seated` → **`refused`, fail closed** (never tear down an innocent member; the DB
+  gate makes a retry a no-op → no second loss); identity intact → takeover, or `closeRoom` when no
+  human remains. `isRoomFinished(live)` is read ONCE, only to SKIP `deps.advance` — a finished match
+  is never re-driven (no new deadline, no bot move after terminal); `broadcastRoom` still runs.
+  `recordOnlineMatchFinish` already refuses to touch a `forfeited` row, so the finish cannot rewrite it.
+- **CLIENT single-flight.** New pure `src/net/permanentLeaveClient.ts` (`planLeaveIntent` /
+  `applyLeaveAccepted` / `applyLeaveRefusal`) + a SYNCHRONOUS `permanentLeaveRef` in `useNetworkGame`
+  (React state is async — two presses before the next render both sent). The ACK is **absorbing**: a
+  later `PERMANENT_LEAVE_UNAVAILABLE` is ignored once `accepted`. Server: `permanentlyLeftSockets`
+  `WeakSet<WebSocket>` in index.ts — a duplicate `LEAVE_GAME_PERMANENTLY` **re-ACKs**, never `ERROR`.
+- **Tests:** `src/net/permanentLeaveFinishRace.test.ts` (14 — finish/timeout/room-deleted/identity-
+  replaced/seat-moved/member-vanished during the await, no-second-loss, room close, post-commit plan
+  matrix), `src/net/permanentLeaveClient.test.ts` (12), + 2 new real-PG cases in
+  `permanentLeaveFlow.integration.test.ts` (finish inside the real gated transition; serialize/restore).
+  Real PG (Docker `kg-pg-38051`, port **55434**, migrations 0000–0014): `permanentLeaveFlow` +
+  `onlineMatches` = **20 tests, 0 skipped**.
+
+#### B. Fifty-One — honest RED first, then the redesign (owner FAILs 1–4)
+- **The old harness was the reason 38.0.4 was green while the phone was not.** It mounted a PARTIAL
+  table: no `dangerSlot`, no chat history, no open panel, no confirmation dialog, no card-face theme,
+  no text scaling, ONE paint, and it measured only the `.fiftyone-meldcard` wrappers — never the inner
+  `.card`, `.card__art`, the joker badge or the controls.
+- **Rebuilt gate** (`scripts/fiftyone-layout-qa.mjs` + `scripts/layout-harness/fiftyone.tsx`): the
+  PRODUCTION online branch (real `RoomSocial variant="sheet"` + real `PermanentLeaveControl` + timer +
+  voice + seeded chat + unread badge), **54 checks** = 3 viewports (360/390/desktop) × 18 scenarios
+  (2/3/4p, LTR + AR RTL, classic + clean faces, `fontScale=21`, collapsed / chat / reactions /
+  confirmation-dialog-by-real-click, longest legal 13-run, jokers at start/middle/end, duplicate deck
+  cards, 4 melds for one owner, add-to-meld update, empty table). Settles on `document.fonts.ready`
+  + `decode()` of every visible image + 2 rAF + the harness's own `window.__f51ready`.
+  `--legacy` reproduces the RED: **1078 violations** (369 card-clipped, 369 card-outside-meld,
+  171 inner-scroll-x, 47 card-overlap, 47 no-gap, 33 touch-target, 31 social-over-content,
+  2 screen-overflow-x). After the fix: **0 / 54**.
+- **Real defects the new gate found (not just the old ones):** sheet controls at 39×35 / 64×35 / 42×30
+  (fixed: `.social-sheet button { min-width/height: 44px }`); the top bar overflowing at browser text
+  scaling and being silently swallowed by `.fiftyone-screen { overflow-x: hidden }` (fixed: the top bar
+  WRAPS, its ghost buttons are square 44×44, the round label is the only flexible item); and — from the
+  SCREENSHOTS, not the rectangles — `.social-sheet` and `.permleave-dialog` used the translucent
+  `--surface`, so the table read straight through both (now opaque `--panel`).
+- **Melds are GROUPED BY OWNER** (`.fiftyone-meldgroup` → header with the name ONCE + that owner's
+  total → one `.fiftyone-meld` row per combination with a compact `Run · v` / `Set · v` label). Card
+  width `clamp(46px, 15vw, 66px)` so 5 cards + gaps fit ONE row at 360; `flex: 1 1 100%` per group on a
+  phone, `1 1 22rem` from 760px. Add/Replace are 44×44 ICON buttons in the combination's label row and
+  render only while the action is legal. **`meld.cards` order is never re-sorted** (51_RULES §5/§6/§8).
+- **Social is ONE launcher + a modal sheet.** New GENERIC `RoomSocial variant="sheet"` (launcher with
+  the unread badge, backdrop, tabs Chat/Reactions, `social-sheet__body` with its own scroll, footer with
+  voice + utility + `dangerSlot`); Escape/backdrop/✕ close it and focus returns to the launcher.
+  `FiftyOneGameScreen` lost `socialSlot` and gained top-bar `menuSlot` + `timerSlot`; `.fiftyone-social-dock`
+  is gone. **RoomSocial still has zero game imports** (a test strips comments and greps for any game name).
+  Poker keeps `variant="docked"`; the other four keep `renderSocial(true, …)`.
+- **New i18n ×4:** `social.menu`, `fiftyOne.typeRun`, `fiftyOne.typeSet`, `fiftyOne.meldTable`.
+- **Tests:** `src/ui/online/roomSocialSheet.test.ts` (15) + rewritten `fiftyOneMobileLayout.test.ts` (24).
+- **Screenshots reviewed** (360 collapsed / 360 chat / 360 confirm / 390 same-owner / 390 long-run after
+  add-to-meld / 390 AR RTL / desktop): grouped melds read as cards on a table, one owner heading each,
+  the 14-card run wraps 5+5+4 in order, RTL mirrors the chrome but not the run or the artwork, and the
+  desktop lays three owner groups side by side because they genuinely fit.
+
+#### Gotchas for next time
+- Both layout gates leave their CDP sockets open; the 51 gate now calls `cdp.close()` + `process.exit()`.
+  **`npm run layout:poker` still hangs after printing `LAYOUT OK` — read its output, don't wait for exit.**
+- `--surface` is a TRANSLUCENT white wash; any modal must use `--panel` (opaque).
+- The vitest env is `node` (no jsdom), so interaction behaviour is proved by the browser gate, not by
+  unit tests; SSR (`renderToStaticMarkup`) + source contracts cover the structure.

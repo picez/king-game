@@ -25,6 +25,15 @@
 //   committed forfeit without a takeover is retried by the client (the DB gate makes
 //   the second attempt a no-op, so it can never produce a second loss).
 //
+// THE VALIDATION IS SPLIT AT THE COMMIT (Stage 38.0.5.1):
+//   • BEFORE the DB write  → `planPermanentLeave`: the full gameplay contract, and the
+//     match must be ACTIVE (a decided table may never be charged a technical loss);
+//   • AFTER the DB write   → `planPermanentLeaveTakeover`: IDENTITY ONLY. Re-applying
+//     the gameplay checks here was the 38.0.5 bug — a timer finishing the match inside
+//     the DB-await window made the recheck say `already_finished`, so the client got an
+//     ACK (and dropped its session) while its member, reconnect token and reclaimable
+//     seat all survived. An ACK now means the departure is COMPLETE, unconditionally.
+//
 // WHAT IT DOES NOT DO
 //   • it never calls `removeMember`/`assignSeats` — re-numbering seats mid-match would
 //     repoint every remaining player at a different `player-<n>` than the live game
@@ -34,7 +43,8 @@
 // ---------------------------------------------------------------------------
 
 import {
-  planPermanentLeave, hasOtherHuman, takeoverSeatWithAi, type ServerRoom,
+  planPermanentLeave, planPermanentLeaveTakeover, hasOtherHuman, takeoverSeatAfterForfeit,
+  isRoomFinished, type ServerRoom,
 } from '../src/net/serverCore';
 import { markSeatForfeited, isSeatForfeited, type OnlineMatchMeta } from '../src/net/onlineMatch';
 import type { ForfeitResult, StartRecordResult } from './db/onlineMatches';
@@ -143,8 +153,14 @@ export async function runPermanentLeave(
     catch { /* best effort — the room JSON forfeit marker below is authoritative here */ }
   }
 
-  // The room may have been finished/torn down by a timer while we awaited the DB (the
-  // room lock does not stop the sync timer callbacks). Re-prove everything.
+  // ── POST-COMMIT: THE IDENTITY TRANSITION IS NOW MANDATORY ─────────────────
+  // (Stage 38.0.5.1 — the corrected race.) The gameplay preconditions were checked
+  // BEFORE the DB write and must never be re-applied here. A timer finishing the match
+  // inside the await window used to make the recheck return `already_finished`, which
+  // ACKed the client (session dropped) while the human member, its reconnect token and
+  // its reclaimable seat all stayed alive — the exact opposite of what the ACK promises.
+  // After a committed forfeit the ONLY question left is whether this clientId is still
+  // the identity we forfeited; a finished match may not veto the teardown.
   const live = deps.rooms.get(code);
   if (!live || live !== room) {
     // The forfeit is committed and the room is gone — the client must stop trying to
@@ -154,15 +170,22 @@ export async function runPermanentLeave(
   // Record the departure in the frozen metadata (idempotent, at most one per seat).
   markSeatForfeited(meta, seatIndex, deps.now());
 
-  const recheck = planPermanentLeave(live, clientId);
-  if (!recheck.ok) {
-    // The member vanished mid-flight (e.g. its socket closed and the room was purged as
-    // an orphan). The durable loss stands; nothing further to transition.
+  const teardown = planPermanentLeaveTakeover(live, clientId, { seatIndex, userId: account });
+  if (!teardown.ok) {
     deps.persist(live);
-    return { ok: true, kind: 'already_left' };
+    // The identity is ALREADY gone (its socket closed and the member was dropped, the
+    // room was rebuilt, …) — nothing left to annul, so the ACK is truthful.
+    if (teardown.refusal === 'not_a_member') return { ok: true, kind: 'already_left' };
+    // Anything else means this clientId now points at a DIFFERENT seat or account.
+    // Fail CLOSED: never tear down an innocent member. The durable gate makes a retry a
+    // no-op, so this can never produce a second loss either.
+    return REFUSED;
   }
 
-  // ── 4/5. IRREVERSIBLE SEAT TRANSITION, then persist → broadcast → ACK ──────
+  // A match that finished during the await is settled: its result must not be re-driven
+  // (no new deadline, no bot move after a terminal state). The membership change is
+  // still broadcast — the seat is gone for good either way.
+  const finished = isRoomFinished(live);
   const othersRemain = hasOtherHuman(live, clientId);
   // Detach the leaver's socket + voice BEFORE the broadcast, so the room update goes
   // only to the players who stayed.
@@ -174,18 +197,23 @@ export async function runPermanentLeave(
     return { ok: true, kind: 'room_closed' };
   }
 
-  const takeover = takeoverSeatWithAi(live, clientId, deps.newIds());
+  const takeover = takeoverSeatAfterForfeit(live, clientId, deps.newIds(), { seatIndex, userId: account });
   if (!takeover.ok) {
-    // Cannot happen after the recheck above, but never leave the room half-changed.
+    // Unreachable — the plan above validated the very same identity synchronously. Still,
+    // an ACK may only follow a COMPLETED teardown, so drop the member outright rather
+    // than leave a live token behind. (Never `removeMember`: that re-numbers seats.)
+    live.members.delete(clientId);
     deps.persist(live);
-    return { ok: true, kind: 'already_left' };
+    deps.broadcastRoom(live);
+    return { ok: true, kind: 'takeover' };
   }
 
   deps.persist(live);
   deps.broadcastRoom(live);
   // Connection-event variant: keeps the current turn deadline and schedules exactly one
-  // bot action when the replaced seat is the one to act.
-  deps.advance(live);
+  // bot action when the replaced seat is the one to act. Skipped for a FINISHED match —
+  // there is nothing legal left to advance.
+  if (!finished) deps.advance(live);
   return { ok: true, kind: 'takeover' };
 }
 

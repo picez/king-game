@@ -7,6 +7,9 @@ import type { ClientMessage, ErrorCode, RoomSnapshot, ServerMessage, ChatMessage
 import { firstConnectMessage, seatToPlayerId } from '../net/online';
 import type { OnlineIntent } from '../net/online';
 import { saveSession, clearSession } from '../net/session';
+import {
+  planLeaveIntent, applyLeaveAccepted, applyLeaveRefusal, type PermanentLeaveStatus,
+} from '../net/permanentLeaveClient';
 
 export type { OnlineIntent };
 
@@ -194,6 +197,16 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   const [pokerRebuy, setPokerRebuy] = useState<PokerRebuyUi | null>(null);
   // Stage 38.0.5 — this client's own permanent-leave lifecycle (never anyone else's).
   const [permanentLeave, setPermanentLeave] = useState<PermanentLeaveUi>({ status: 'idle' });
+  // (38.0.5.1) The SYNCHRONOUS mirror of that status. React state is async: two presses
+  // in the same tick both read the stale `idle` and both put an intent on the wire, so
+  // the single-flight decision is made from this ref instead. It is also what makes the
+  // ACK absorbing — a refusal that arrives after it can no longer repaint `accepted`.
+  const permanentLeaveRef = useRef<PermanentLeaveStatus>('idle');
+  /** Write BOTH the synchronous ref and the render state. Never set one without the other. */
+  const writePermanentLeave = (next: PermanentLeaveStatus): void => {
+    permanentLeaveRef.current = next;
+    setPermanentLeave({ status: next });
+  };
   const [presenceNonce, setPresenceNonce] = useState(0);
   const [connectionEpoch, setConnectionEpoch] = useState(0);
   // Voice signaling listeners (Stage 25.3). Inert until 25.4 registers one.
@@ -326,7 +339,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         clearSession();
         tokenRef.current = null;
         codeRef.current = null;
-        setPermanentLeave({ status: 'accepted' });
+        // (38.0.5.1) Terminal + absorbing: it may arrive in ANY state (including for a
+        // duplicate intent), and nothing that follows may downgrade it.
+        writePermanentLeave(applyLeaveAccepted(permanentLeaveRef.current).next);
         transportRef.current?.close();
         break;
       }
@@ -342,8 +357,11 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         }
         // (38.0.5) A refused/failed permanent leave is a PANEL state, never the game error
         // surface: nothing changed server-side, so the table must keep playing normally.
+        // (38.0.5.1) A refusal answering a DUPLICATE intent must never overwrite an ACK
+        // that already landed — the seat is gone, and saying "error" would claim otherwise.
         if (msg.code === 'PERMANENT_LEAVE_UNAVAILABLE') {
-          setPermanentLeave({ status: 'error' });
+          const refusal = applyLeaveRefusal(permanentLeaveRef.current);
+          if (refusal.apply) writePermanentLeave(refusal.next);
           break;
         }
         // Non-fatal social limits + friend-invite failures → a small toast, not the game
@@ -500,12 +518,17 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
   }, [send]);
 
   const leavePermanently = useCallback(() => {
-    // Double-click safe: a second press while the first is in flight is ignored.
-    setPermanentLeave((p) => (p.status === 'pending' || p.status === 'accepted' ? p : { status: 'pending' }));
+    // (38.0.5.1) SINGLE FLIGHT on a synchronous ref, not on React state: two presses
+    // before the next render used to send two intents, because both read the stale
+    // `idle`. The pure planner decides from the value the previous press already wrote.
+    const plan = planLeaveIntent(permanentLeaveRef.current);
+    if (!plan.send) return;
+    writePermanentLeave(plan.next);
     // The intent carries NO payload — the server derives room, seat, account and match.
     // We deliberately do NOT close the socket here (B4): the session is dropped only on
     // PERMANENT_LEAVE_ACCEPTED, so a lost/failed request never strands the player.
     send({ t: 'LEAVE_GAME_PERMANENTLY' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [send]);
 
   const backToMenu = useCallback(() => {

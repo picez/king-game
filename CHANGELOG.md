@@ -9,6 +9,37 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Quitting for good now always finishes the job (Stage 38.0.5.1).** If the match happened
+  to end in the split second between your loss being recorded and your seat being handed
+  over, the app told you the departure was complete while your seat, your reconnect link and
+  your account's claim on the room were all still alive — and no bot ever took over. The
+  hand-over is now unconditional once the loss is written: the seat is always vacated, the old
+  reconnect link always stops working, a bot always takes over if anyone stays, and the room
+  closes if nobody does. A finished match is never restarted and no bot move is played after
+  it. There is still exactly one loss, and the final result of the match can never overwrite
+  it. Double-tapping the confirm button now also sends a single request, and a late refusal
+  can no longer re-open a table you have already left.
+
+### Changed
+
+- **Syrian 51 got its table and its chat panel redesigned (Stage 38.0.4.1).** The owner's
+  phone showed a full-width strip of social buttons wedged between the melds and the prompt,
+  and every laid-out combination as its own bulky dark card repeating the owner's name.
+  - **One button instead of a toolbar.** Chat, reactions, voice and *Quit for good* now live
+    behind a single icon in the 51 top bar (with the unread-message badge on it) that opens a
+    sheet you can close with the ✕, the backdrop or Escape. Collapsed, the game column has no
+    social row at all; the turn timer moved up to the top bar next to it. The other six games
+    keep the layout they already had.
+  - **Melds now read like cards on a table.** They are grouped by player: the name appears
+    once per group with that player's total, and each combination is a compact `Run · 30` /
+    `Set · 36` row of cards underneath. Cards never overlap, are never cut off, never hide
+    behind a sideways scrollbar and keep their proper proportions; long runs wrap onto the
+    next line in order. Add-to-meld and joker-replacement are small icon buttons in the
+    combination's own row, shown only when you can actually use them.
+  - Card order inside a meld is unchanged — it is a rule of the game, not a display choice.
+
 ### Added
 
 - **Quit an online game for good (Stage 38.0.5).** Every active online game except Poker

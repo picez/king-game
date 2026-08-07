@@ -237,7 +237,10 @@
 }
 .permleave-dialog {
   width: min(100%, 26rem); max-height: 86vh; overflow-y: auto;
-  background: var(--surface); color: var(--text);
+  /* (38.0.5.1) OPAQUE: `--surface` is a translucent wash, so whatever was behind — the
+     table, or the social sheet this dialog is opened from — read straight through an
+     irreversible confirmation. */
+  background: var(--panel); color: var(--text);
   border: 1px solid var(--danger); border-radius: 0.9rem;
   padding: 1rem; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
 }
@@ -250,3 +253,71 @@
 .permleave-dialog__status { margin: 0 0 0.6rem; min-height: 1.1rem; font-size: 0.86rem; color: var(--danger); }
 .permleave-dialog__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .permleave-dialog__actions .btn { flex: 1 1 10rem; min-height: 44px; }
+
+/* ── `sheet` variant: one launcher + a modal bottom sheet (Stage 38.0.5.1) ───
+   The docked toolbar (38.0.3/38.0.4) never covered anything, but it cost a whole
+   horizontal band of a phone screen between the game content and the prompt, and it
+   read as clutter. `sheet` collapses ALL of it into ONE 44×44 launcher the caller can
+   place in its own top bar, plus a modal sheet holding chat, reactions, voice, the
+   utility panel and the destructive action.
+
+   Collapsed, the launcher is an ordinary in-flow element: it can never overlap the
+   table, the cards or the action bar. OPEN, the sheet is a dialog and covers the page
+   ON PURPOSE — with a backdrop, a close button, a bounded height and its own scroll.
+   Game-agnostic: no game selector appears anywhere in this block. */
+.social-menu { display: inline-flex; }
+.social-menu__launcher { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.15rem; }
+
+.social-sheet-backdrop {
+  position: fixed; inset: 0; z-index: 88;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
+}
+.social-sheet {
+  display: flex; flex-direction: column;
+  width: min(100%, 32rem);
+  max-height: min(80vh, 34rem);
+  /* OPAQUE on purpose: `--surface` is a translucent white wash, and the game table
+     showed straight through the sheet. `--panel` ends in a solid colour. */
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: var(--shadow-3, var(--shadow-2));
+  padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom));
+  gap: 0.4rem;
+}
+.social-sheet__head { display: flex; align-items: center; gap: 0.4rem; }
+.social-sheet__tabs {
+  display: flex; gap: 0.3rem; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.social-sheet__tabs::-webkit-scrollbar { display: none; }
+.social-sheet__tab {
+  position: relative; flex: 0 0 auto; min-height: 44px; padding: 0 0.7rem;
+  border-radius: 999px; cursor: pointer; font-size: 0.86rem; font-weight: 600;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
+}
+.social-sheet__tab--on { background: var(--surface-3); border-color: var(--accent); }
+.social-sheet__close {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: 1rem; cursor: pointer;
+}
+/* ONE scrolling region — the PAGE behind the sheet never gains a scrollbar. */
+.social-sheet__body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+.social-sheet__body .chat-drawer__list {
+  position: static; flex: 1 1 auto; min-height: 6rem; max-height: none;
+}
+.reaction-bar--sheet { width: 100%; border: none; box-shadow: none; background: transparent; padding: 0; }
+.social-sheet__foot {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  border-top: 1px solid var(--border-strong); padding-top: 0.4rem;
+}
+.social-sheet__foot > * { flex: 0 0 auto; }
+/* EVERY control inside the sheet is a real phone tap target. Measured before this rule:
+   the composer's sticker button was 39×35, Send 64×35 and each emoji 42×30. */
+.social-sheet button { min-height: 44px; min-width: 44px; }
+.social-sheet .chat-media-thumb { padding: 2px; }

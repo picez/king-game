@@ -987,6 +987,14 @@ async function handlePokerRebuy(
 // function only supplies the real I/O side effects and turns the outcome into a wire
 // reply. Serialized on the room, exactly like every other lifecycle op.
 
+/**
+ * Sockets whose permanent leave has ALREADY been accepted (Stage 38.0.5.1). A duplicate
+ * intent — a double tap that beat the client's own single-flight guard, or a retry after
+ * a lost ACK — must be idempotent: re-ACK it instead of answering `ERROR`, which would
+ * tell the player their irreversible departure failed. Weakly held: it dies with the socket.
+ */
+const permanentlyLeftSockets = new WeakSet<WebSocket>();
+
 function permanentLeaveDeps(): PermanentLeaveDeps {
   return {
     rooms,
@@ -1022,8 +1030,12 @@ function permanentLeaveDeps(): PermanentLeaveDeps {
 async function handlePermanentLeave(
   ref: SessionRef, socket: WebSocket, accountUserId: () => string | null,
 ): Promise<void> {
-  const session = ref.value;
   const refuse = (): void => sendError(socket, 'PERMANENT_LEAVE_UNAVAILABLE', 'Cannot leave permanently right now.');
+  // (38.0.5.1) Idempotent duplicate: this connection's departure is already complete, so
+  // repeat the ACK. Answering ERROR here would race the first ACK on the client and could
+  // repaint an irreversible, already-committed departure as a failure.
+  if (permanentlyLeftSockets.has(socket)) { send(socket, { t: 'PERMANENT_LEAVE_ACCEPTED' }); return; }
+  const session = ref.value;
   if (!session) { refuse(); return; }
   const { code, clientId } = { code: session.room.code, clientId: session.clientId };
   const result = await withRoomLock(code, () =>
@@ -1033,6 +1045,7 @@ async function handlePermanentLeave(
   if (!result.ok) { refuse(); return; }
   // The seat is gone for good: this connection must never be treated as a member again
   // (a duplicate intent, or this socket's later close handler, must not touch the room).
+  permanentlyLeftSockets.add(socket);
   if (ref.value && ref.value.clientId === clientId) ref.value = null;
   send(socket, { t: 'PERMANENT_LEAVE_ACCEPTED' });
   console.log(`[King] room ${code} permanent leave accepted (${result.kind})`);

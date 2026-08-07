@@ -27,13 +27,17 @@ interface Props {
    */
   online?: boolean;
   /**
-   * Generic social/utility controls rendered IN NORMAL FLOW between the public melds and
-   * the prompt/actions area (Stage 38.0.4). The owner FAIL was the FIXED corner cluster
-   * sitting on top of the laid-out melds on a phone; giving those controls their own
-   * layout row makes the overlap structurally impossible. Game-agnostic node — the caller
-   * (OnlineGame) decides what goes in it; LOCAL play passes nothing.
+   * ONE compact, game-agnostic launcher rendered in the TOP BAR (Stage 38.0.5.1).
+   *
+   * 38.0.4 docked the whole social toolbar in normal flow between the melds and the
+   * prompt. That fixed the overlap but cost a full band of a phone screen and read as
+   * clutter, so the toolbar is gone: online play now passes a single launcher (with its
+   * unread badge) that opens a modal sheet. Collapsed, the gameplay column has NO social
+   * row at all. LOCAL play passes nothing and is byte-identical to before.
    */
-  socialSlot?: ReactNode;
+  menuSlot?: ReactNode;
+  /** Optional compact turn timer, also a top-bar element. Null/undefined = timer off. */
+  timerSlot?: ReactNode;
 }
 
 const RUN_POS: Record<Rank, number> = {
@@ -96,7 +100,7 @@ function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { sui
   );
 }
 
-export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false, socialSlot }: Props) {
+export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false, menuSlot, timerSlot }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -138,6 +142,22 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     setStaged([]);
     setSelPicked(null);
   }, [currentSeat, turnStep, phase, roundNumber, hand.length, state.publicMelds.length]);
+
+  /**
+   * Public melds grouped by owner seat (Stage 38.0.5.1) — a pure display regrouping.
+   * Groups appear in FIRST-APPEARANCE order and every group keeps `publicMelds` order,
+   * so nothing about the authoritative sequence (which fixes a joker's slot) moves.
+   */
+  const meldGroups = useMemo(() => {
+    const order: number[] = [];
+    const bySeat = new Map<number, FiftyOneMeld[]>();
+    for (const m of state.publicMelds) {
+      let list = bySeat.get(m.ownerSeat);
+      if (!list) { list = []; bySeat.set(m.ownerSeat, list); order.push(m.ownerSeat); }
+      list.push(m);
+    }
+    return order.map((seat) => ({ seat, melds: bySeat.get(seat)! }));
+  }, [state.publicMelds]);
 
   const stagedIds = useMemo(() => new Set(staged.flat()), [staged]);
   const byId = useMemo(() => new Map(pool.map((c) => [c.id, c])), [hand, topDiscard, discardOpenAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -297,6 +317,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           title={t('fiftyOne.calcToggle')}
         >🧮</button>
         <button type="button" className="btn btn--ghost fiftyone-help-btn" onClick={() => setShowHelp(true)} aria-label={t('help.howToPlay')}>❓</button>
+        {/* (38.0.5.1) Compact timer + the single social launcher live HERE, so the
+            gameplay column below stays free of any social row while collapsed. */}
+        {timerSlot && <span className="fiftyone-topbar__timer">{timerSlot}</span>}
+        {menuSlot && <span className="fiftyone-topbar__menu">{menuSlot}</span>}
       </div>
 
       {/* Scoreboard: per-seat running penalty + state badges. */}
@@ -353,43 +377,65 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         </div>
       </div>
 
-      {/* Public melds (all seats). Jokers show the card they represent, not 25. */}
-      <div className="fiftyone-melds">
+      {/* Public melds, GROUPED BY OWNER (Stage 38.0.5.1). The owner's name is printed
+          ONCE per group with that owner's total value; each combination inside is a
+          compact row (Run/Set + value, then the cards). Meld order and card order are
+          untouched — the sequence is the rule (51_RULES §5/§8), never a display choice. */}
+      <div className="fiftyone-melds" aria-label={t('fiftyOne.meldTable')}>
         {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
-        {state.publicMelds.map((meld) => {
-          const owner = meld.ownerSeat === humanSeat ? t('fiftyOne.you') : state.players[meld.ownerSeat].name;
-          const addable = canAddTo(meld);
-          // Only an OPENED player on their own meld step ever sees table controls.
-          const swap = jokerSwap(meld);
+        {meldGroups.map((group) => {
+          const owner = group.seat === humanSeat ? t('fiftyOne.you') : state.players[group.seat].name;
+          const total = group.melds.reduce((sum, m) => sum + m.value, 0);
           return (
-            <div key={meld.id} className="fiftyone-meld">
-              <span className="fiftyone-meld__owner">{owner} · {meld.value}</span>
-              <div className="fiftyone-meld__cards" dir="ltr">
-                {meld.cards.map((c, i) => (
-                  <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
-                ))}
-              </div>
-              {/* Controls live in their OWN row UNDER the cards — never over them. */}
-              {opened && (
-                <div className="fiftyone-meld__ctrls">
-                  <button type="button" className="btn btn--small fiftyone-meld__add" disabled={!addable} onClick={() => addToMeld(meld)}>
-                    ＋ {t('fiftyOne.addToMeld')}
-                  </button>
-                  {swap && (
-                    <button type="button" className="btn btn--small fiftyone-meld__swap" onClick={() => replaceJoker(meld)}>
-                      🃏 {t('fiftyOne.replaceJoker')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            <section
+              key={group.seat}
+              className={`fiftyone-meldgroup${state.eliminatedSeats[group.seat] ? ' fiftyone-meldgroup--out' : ''}`}
+              aria-label={owner}
+            >
+              <header className="fiftyone-meldgroup__head">
+                <span className="fiftyone-meldgroup__owner">{owner}</span>
+                <span className="fiftyone-meldgroup__total">{total}</span>
+              </header>
+              {group.melds.map((meld) => {
+                const addable = canAddTo(meld);
+                // Only an OPENED player on their own meld step ever sees table controls.
+                const swap = jokerSwap(meld);
+                return (
+                  <div key={meld.id} className="fiftyone-meld">
+                    <div className="fiftyone-meld__bar">
+                      <span className="fiftyone-meld__label">
+                        {t(meld.type === 'run' ? 'fiftyOne.typeRun' : 'fiftyOne.typeSet')} · {meld.value}
+                      </span>
+                      {/* Compact icon actions in the LABEL row — never a full-width button
+                          repeated under every meld, and never rendered when the action is
+                          impossible right now (they would only take space). Still 44×44. */}
+                      {(addable || swap) && (
+                        <span className="fiftyone-meld__ctrls">
+                          {addable && (
+                            <button type="button" className="btn btn--small fiftyone-meld__add"
+                              onClick={() => addToMeld(meld)}
+                              aria-label={t('fiftyOne.addToMeld')} title={t('fiftyOne.addToMeld')}>＋</button>
+                          )}
+                          {swap && (
+                            <button type="button" className="btn btn--small fiftyone-meld__swap"
+                              onClick={() => replaceJoker(meld)}
+                              aria-label={t('fiftyOne.replaceJoker')} title={t('fiftyOne.replaceJoker')}>🃏</button>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <div className="fiftyone-meld__cards" dir="ltr">
+                      {meld.cards.map((c, i) => (
+                        <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
           );
         })}
       </div>
-
-      {/* Social / utility controls — IN FLOW, so they can never cover the melds above
-          or the prompt/actions/hand below (Stage 38.0.4). */}
-      {socialSlot && <div className="fiftyone-social-dock">{socialSlot}</div>}
 
       <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
         <span>{prompt}</span>

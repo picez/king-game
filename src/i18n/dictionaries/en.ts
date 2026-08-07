@@ -738,6 +738,9 @@ export const EN: Record<string, string> = {
   'fiftyOne.opened': 'Opened',
   'fiftyOne.drawPile': 'Deck',
   'fiftyOne.discardPile': 'Discard',
+  'fiftyOne.typeRun': 'Run',
+  'fiftyOne.typeSet': 'Set',
+  'fiftyOne.meldTable': 'Melds on the table',
   'fiftyOne.noMelds': 'No melds on the table yet',
   'fiftyOne.addToMeld': 'Add',
   'fiftyOne.replaceJoker': 'Replace joker',
@@ -1086,6 +1089,7 @@ export const EN: Record<string, string> = {
   'account.loginSuccess': 'Signed in. Your guest progress was saved to your account.',
   'account.loginError': 'Sign-in failed. Please try again.',
   // ── room social (Stage 7) ──
+  'social.menu': 'Room menu',
   'social.reactions': 'Reactions',
   'social.emoji': 'Emoji',
   'king.modesShort': 'Modes',

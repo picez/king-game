@@ -260,7 +260,8 @@ describe('the takeover never uses the lobby removal path', () => {
   });
   it('the durable forfeit is awaited BEFORE the takeover, in the source order', () => {
     const pl = code('server/permanentLeave.ts');
-    expect(pl.indexOf('deps.applyForfeit(')).toBeLessThan(pl.indexOf('takeoverSeatWithAi(live'));
+    // (38.0.5.1) The post-commit teardown uses the identity-only helper.
+    expect(pl.indexOf('deps.applyForfeit(')).toBeLessThan(pl.indexOf('takeoverSeatAfterForfeit(live'));
     expect(pl.indexOf('deps.applyForfeit(')).toBeLessThan(pl.indexOf('deps.closeRoom(live)'));
   });
 });

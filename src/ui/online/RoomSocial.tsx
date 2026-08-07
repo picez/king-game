@@ -57,9 +57,14 @@ interface Props {
    *    caller placed this component, so they occupy layout space instead of covering
    *    it. A game whose action controls sit at the bottom of the screen (Poker) must
    *    use this: a fixed cluster provably lands on top of those controls on a phone.
+   *  - `sheet` (Stage 38.0.5.1) — ONE compact launcher (with the unread badge) rendered
+   *    wherever the caller placed it, plus a MODAL bottom sheet holding chat, reactions,
+   *    voice, the utility slot and the destructive action. Collapsed, it costs a single
+   *    44×44 target and no toolbar row at all; open, it deliberately covers the page as a
+   *    dialog with a backdrop, a close button, a max-height and its own vertical scroll.
    * RoomSocial stays game-agnostic — this is a layout mode, not a game switch.
    */
-  variant?: 'floating' | 'docked';
+  variant?: 'floating' | 'docked' | 'sheet';
   /**
    * Optional CONTROLLED panel selection. Chat, the reaction picker and a caller-owned
    * `utilitySlot` panel are mutually exclusive: two of them open at once would stack
@@ -108,6 +113,11 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const setReactOpen = (open: boolean) => setPanel(open ? 'reactions' : 'none');
   const setChatOpen = (open: boolean) => setPanel(open ? 'chat' : 'none');
   const docked = variant === 'docked';
+  const sheet = variant === 'sheet';
+  const sheetOpen = sheet && panel !== 'none';
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  /** Close the sheet and hand focus back to the launcher that opened it. */
+  const closeSheet = () => { setPanel('none'); launcherRef.current?.focus(); };
   const [mediaOpen, setMediaOpen] = useState(false);
   const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
@@ -158,17 +168,21 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     if (add.length) setFloats((f) => [...f, ...add].slice(-6));
   }, [chat]);
 
-  // Escape closes the lightbox first, then whichever picker is open.
+  // Escape closes the lightbox first, then whichever picker is open, then the whole
+  // modal sheet (which also returns focus to its launcher).
   useEffect(() => {
-    if (!lightbox && !mediaOpen && !reactOpen) return;
+    if (!lightbox && !mediaOpen && !reactOpen && !sheetOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (lightbox) setLightbox(null);
-      else { setMediaOpen(false); setReactOpen(false); }
+      if (lightbox) { setLightbox(null); return; }
+      if (mediaOpen) { setMediaOpen(false); return; }
+      if (sheetOpen) { closeSheet(); return; }
+      setReactOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [lightbox, mediaOpen, reactOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightbox, mediaOpen, reactOpen, sheetOpen]);
 
   const unread = chatOpen ? 0 : Math.max(0, chat.length - seen);
   const activeReactions = reactions.filter((r) => now - r.at < REACTION_TTL_MS);
@@ -199,6 +213,64 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     ? (notice.code === 'RATE_LIMITED' ? t('chat.tooMany') : t('chat.blocked'))
     : null;
 
+  // --- shared pieces, so every variant renders the SAME surfaces -------------
+  const stickerGrid = CHAT_MEDIA.length > 0 ? (
+    <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
+      {CHAT_MEDIA.map((item) => (
+        <button key={item.id} type="button" role="option" aria-selected={false}
+          className="chat-media-thumb" onClick={() => sendMedia(item)}
+          aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
+          <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  const emojiGrid = (
+    <div className="reaction-bar__emojis">
+      {REACTIONS.map((e) => (
+        <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+
+  const chatList = (
+    <div className="chat-drawer__list" ref={listRef}>
+      {chat.length === 0
+        ? <p className="chat-empty">{t('chat.empty')}</p>
+        : chat.map((m) => (
+          <ChatRow key={m.id} m={m} mine={!!myClientId && m.clientId === myClientId} onOpenMedia={setLightbox} />
+        ))}
+    </div>
+  );
+
+  const chatMediaPicker = mediaOpen ? (
+    <div className="chat-media-picker" role="listbox" aria-label={t('chat.mediaPicker')}>
+      {CHAT_MEDIA.length === 0
+        ? <p className="chat-empty">{t('chat.noMedia')}</p>
+        : CHAT_MEDIA.map((item) => (
+          <button key={item.id} type="button" role="option" aria-selected={false}
+            className="chat-media-thumb" onClick={() => sendMedia(item)}
+            aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
+            <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
+          </button>
+        ))}
+    </div>
+  ) : null;
+
+  const chatCompose = (
+    <form className="chat-drawer__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
+      <button type="button" className="btn btn--ghost btn--small chat-media-btn"
+        aria-expanded={mediaOpen} aria-label={t('chat.openMedia')}
+        onClick={() => setMediaOpen((o) => !o)}>🖼️</button>
+      <input className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
+        onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
+      <button type="submit" className="btn btn--primary btn--small" disabled={!text.trim()}>{t('chat.send')}</button>
+    </form>
+  );
+
   return (
     <>
       {/* Floating reactions + stickers — anchored over the SENDER's seat (Stage 27.1), never over
@@ -226,11 +298,79 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
       {noticeText && <div className={`social-toast ${handVisible ? 'social-toast--raised' : ''}`} role="status">{noticeText}</div>}
 
+      {/* `sheet` (Stage 38.0.5.1): ONE launcher + a modal bottom sheet. Collapsed there is
+          no toolbar at all — the owner's complaint about the docked row was that it ate a
+          whole band of the phone between the melds and the prompt. */}
+      {sheet && (
+        <div className="social-menu">
+          <button
+            ref={launcherRef}
+            type="button"
+            className="social-fab social-menu__launcher"
+            aria-haspopup="dialog"
+            aria-expanded={sheetOpen}
+            aria-label={t('social.menu')}
+            title={t('social.menu')}
+            onClick={() => (sheetOpen ? closeSheet() : setPanel('chat'))}
+          >
+            💬
+            {unread > 0 && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
+          </button>
+          {sheetOpen && (
+            <div className="social-sheet-backdrop" role="presentation" onClick={closeSheet}>
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+              <div className="social-sheet" role="dialog" aria-modal="true" aria-label={t('social.menu')}
+                onClick={(e) => e.stopPropagation()}>
+                <div className="social-sheet__head">
+                  <div className="social-sheet__tabs" role="tablist" aria-label={t('social.menu')}>
+                    <button type="button" role="tab" aria-selected={chatOpen}
+                      className={`social-sheet__tab ${chatOpen ? 'social-sheet__tab--on' : ''}`}
+                      onClick={() => setPanel('chat')}>
+                      💬 {t('chat.title')}
+                      {unread > 0 && !chatOpen && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
+                    </button>
+                    <button type="button" role="tab" aria-selected={reactOpen}
+                      className={`social-sheet__tab ${reactOpen ? 'social-sheet__tab--on' : ''}`}
+                      onClick={() => setPanel('reactions')}>
+                      😀 {t('social.reactions')}
+                    </button>
+                    {utilitySlot && (
+                      <button type="button" role="tab" aria-selected={panel === 'utility'}
+                        className={`social-sheet__tab ${panel === 'utility' ? 'social-sheet__tab--on' : ''}`}
+                        onClick={() => setPanel('utility')}>
+                        ☰
+                      </button>
+                    )}
+                  </div>
+                  <button type="button" className="social-sheet__close" onClick={closeSheet} aria-label={t('btn.back')}>✕</button>
+                </div>
+                {/* ONE scrolling body with its own max-height — the page never scrolls for it. */}
+                <div className="social-sheet__body">
+                  {chatOpen && <>{chatList}{chatMediaPicker}{chatCompose}</>}
+                  {reactOpen && <div className="reaction-bar reaction-bar--sheet">{emojiGrid}{stickerGrid}</div>}
+                  {panel === 'utility' && utilityPanelSlot}
+                </div>
+                <div className="social-sheet__foot">
+                  {voiceButton}
+                  {onLeaveGame && (
+                    <button type="button" className="social-fab social-fab--leave" onClick={leaveGame}
+                      aria-label={t('online.leaveGame')} title={t('online.leaveGame')}>🚪</button>
+                  )}
+                  {/* The destructive action keeps its OWN confirmation (the caller owns it). */}
+                  {dangerSlot}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Controls. `floating` keeps the historical fixed bottom-corner cluster (column,
           panels above it). `docked` renders the SAME controls as a compact horizontal
           toolbar in NORMAL FLOW, with any open panel below it — so the cluster and its
           panels take layout space instead of covering the game's action controls
           (Stage 38.0.3 owner FAIL). */}
+      {!sheet && (
       <div className={`social-controls ${docked ? 'social-controls--docked' : ''} ${handVisible && !docked ? 'social-controls--raised' : ''}`}>
         {/* Per-turn timer (Stage 29.7) sits at the TOP of the cluster — near voice/emoji/chat,
             clear of the hand/table. Null when the host left the timer off. */}
@@ -244,27 +384,11 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         {!docked && reactOpen && (
           <div className="reaction-bar" role="menu" aria-label={t('social.reactions')}>
             <span className="reaction-bar__heading">{t('social.emoji')}</span>
-            <div className="reaction-bar__emojis">
-              {REACTIONS.map((e) => (
-                <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
-                  {e}
-                </button>
-              ))}
-            </div>
+            {emojiGrid}
             {CHAT_MEDIA.length > 0 && (
               <span className="reaction-bar__heading">{t('chat.mediaPicker')}</span>
             )}
-            {CHAT_MEDIA.length > 0 && (
-              <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
-                {CHAT_MEDIA.map((item) => (
-                  <button key={item.id} type="button" role="option" aria-selected={false}
-                    className="chat-media-thumb" onClick={() => sendMedia(item)}
-                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
-                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {stickerGrid}
           </div>
         )}
         <div className="social-controls__row">
@@ -295,67 +419,26 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         {docked && utilityPanelSlot}
         {docked && reactOpen && (
           <div className="reaction-bar reaction-bar--docked" role="menu" aria-label={t('social.reactions')}>
-            <div className="reaction-bar__emojis">
-              {REACTIONS.map((e) => (
-                <button key={e} type="button" className="reaction-bar__btn" onClick={() => react(e)} aria-label={`react ${e}`}>
-                  {e}
-                </button>
-              ))}
-            </div>
-            {CHAT_MEDIA.length > 0 && (
-              <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
-                {CHAT_MEDIA.map((item) => (
-                  <button key={item.id} type="button" role="option" aria-selected={false}
-                    className="chat-media-thumb" onClick={() => sendMedia(item)}
-                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
-                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {emojiGrid}
+            {stickerGrid}
           </div>
         )}
       </div>
+      )}
 
       {/* Chat: a fixed right-side drawer when floating; a normal-flow panel when docked
-          (so it can never sit on the action controls). Collapsed by default either way. */}
-      {chatOpen && (
+          (so it can never sit on the action controls). Collapsed by default either way.
+          The `sheet` variant renders the same list/compose INSIDE its modal instead. */}
+      {!sheet && chatOpen && (
         <div className={`chat-drawer ${docked ? 'chat-drawer--docked' : ''}`} role="dialog" aria-label={t('chat.title')}>
           <div className="chat-drawer__head">
             <span>💬 {t('chat.title')}</span>
             <button type="button" className="btn btn--ghost btn--small" onClick={() => setChatOpen(false)} aria-label={t('btn.back')}>✕</button>
           </div>
-          <div className="chat-drawer__list" ref={listRef}>
-            {chat.length === 0
-              ? <p className="chat-empty">{t('chat.empty')}</p>
-              : chat.map((m) => (
-                <ChatRow key={m.id} m={m} mine={!!myClientId && m.clientId === myClientId} onOpenMedia={setLightbox} />
-              ))}
-          </div>
-
+          {chatList}
           {/* Sticker picker: a grid of lazy-loaded thumbnails; a click sends by id. */}
-          {mediaOpen && (
-            <div className="chat-media-picker" role="listbox" aria-label={t('chat.mediaPicker')}>
-              {CHAT_MEDIA.length === 0
-                ? <p className="chat-empty">{t('chat.noMedia')}</p>
-                : CHAT_MEDIA.map((item) => (
-                  <button key={item.id} type="button" role="option" aria-selected={false}
-                    className="chat-media-thumb" onClick={() => sendMedia(item)}
-                    aria-label={`${t('chat.sendMedia')}: ${item.label}`} title={item.label}>
-                    <img src={item.src} alt={item.label} loading="lazy" decoding="async" />
-                  </button>
-                ))}
-            </div>
-          )}
-
-          <form className="chat-drawer__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
-            <button type="button" className="btn btn--ghost btn--small chat-media-btn"
-              aria-expanded={mediaOpen} aria-label={t('chat.openMedia')}
-              onClick={() => setMediaOpen((o) => !o)}>🖼️</button>
-            <input className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
-              onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
-            <button type="submit" className="btn btn--primary btn--small" disabled={!text.trim()}>{t('chat.send')}</button>
-          </form>
+          {chatMediaPicker}
+          {chatCompose}
         </div>
       )}
 

@@ -738,6 +738,9 @@ export const DE: Record<string, string> = {
   'fiftyOne.opened': 'Eröffnet',
   'fiftyOne.drawPile': 'Stapel',
   'fiftyOne.discardPile': 'Ablage',
+  'fiftyOne.typeRun': 'Folge',
+  'fiftyOne.typeSet': 'Satz',
+  'fiftyOne.meldTable': 'Auslagen auf dem Tisch',
   'fiftyOne.noMelds': 'Noch keine Auslagen auf dem Tisch',
   'fiftyOne.addToMeld': 'Anlegen',
   'fiftyOne.replaceJoker': 'Joker tauschen',
@@ -1086,6 +1089,7 @@ export const DE: Record<string, string> = {
   'account.loginSuccess': 'Angemeldet. Dein Gastfortschritt wurde im Konto gespeichert.',
   'account.loginError': 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
   // ── room social (Stage 7) ──
+  'social.menu': 'Raum-Menü',
   'social.reactions': 'Reaktionen',
   'social.emoji': 'Emoji',
   'king.modesShort': 'Modi',
