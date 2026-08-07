@@ -566,6 +566,23 @@ async function handlePostPokerDailyClaim(req: IncomingMessage, res: ServerRespon
 }
 
 /**
+ * GET /api/me/online-tracker — the caller's OWN online participation matrix
+ * (Stage 38.0.6): overall + per tracked game, each split into `human_only` and
+ * `with_bots`.
+ *
+ * The account comes from the SERVER session only — there is no query/body parameter to
+ * read, so one account can never ask for another's numbers. The response carries nothing
+ * but counters: no user id, no match id, no room code, no opponent identity and no raw
+ * database row. Local play is absent by construction (it never creates a match record)
+ * and Poker is excluded at this stage (0014 does not record it).
+ */
+async function handleGetOnlineTracker(req: IncomingMessage, res: ServerResponse, userId: string): Promise<void> {
+  const { getOnlineParticipationCounters } = await import('./db/onlineMatches');
+  const { buildOnlineTracker } = await import('../src/net/onlineTracker');
+  json(res, 200, { tracker: buildOnlineTracker(await getOnlineParticipationCounters(userId)) }, corsHeaders(req));
+}
+
+/**
  * Public per-game leaderboard (no session required — only public, score-level
  * fields). If a session cookie is present we resolve it ONLY to mark the
  * caller's own row (`self`) for highlighting; the user id itself is never
@@ -987,6 +1004,16 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
     }
     if (path === '/api/games/poker/stats' && method === 'GET') {
       const u = await requireUser(); if (!u) return; return await handleGetPokerStats(req, res, u);
+    }
+
+    // ONLINE participation tracker (Stage 38.0.6) — the caller's OWN counters only.
+    // Availability is already consistent without a local check: a server with no
+    // DATABASE_URL never reaches this switch (the API-wide gate above answers 503
+    // `db_disabled`), and a transient Postgres failure falls into the shared catch
+    // below as 503 `db_error` — so the client never sees an empty matrix that would
+    // falsely claim "you have played nothing online".
+    if (path === '/api/me/online-tracker' && method === 'GET') {
+      const u = await requireUser(); if (!u) return; return await handleGetOnlineTracker(req, res, u);
     }
 
     // Poker chip wallet (Stage 37.7) — non-guest account only; needs Postgres. Local

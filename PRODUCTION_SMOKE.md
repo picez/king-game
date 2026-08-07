@@ -762,3 +762,27 @@ never blocked: everything else in the six online games is unaffected.
 7. **Poker check:** open an online Poker table — there must be **no** "Quit for good"
    control. Wallet, buy-in, rebuy and payout behave exactly as before.
 8. `/health/diagnostics` still reports `db:"enabled"`, `version` `0.4.8`, games 7.
+
+## Online participation tracker (Stage 38.0.6)
+
+Needs Postgres migrated through **0014** (no new migration was added for this feature) and
+a signed-in account.
+
+1. `GET /api/me/online-tracker` **without** a session cookie → **401 `unauthenticated`**.
+2. With a session cookie → **200** and a body of the shape
+   `{ "tracker": { "overall": {...}, "byGame": { "king": {...}, … } } }`.
+   Confirm by eye that the payload contains **no** `userId`, `matchId`, `roomCode`,
+   `seatIndex`, opponent name or avatar — counters only.
+3. `byGame` has exactly the six tracked keys — `king`, `durak`, `deberc`, `tarneeb`,
+   `preferans`, `fifty-one` — and **no `poker`**.
+4. Every cell satisfies `matches = wins + losses + draws`, `forfeits ≤ losses`, and
+   `winRate` is either `null` or an integer 0–100 (never `NaN`).
+5. `overall` equals the six per-game cells summed, per category.
+6. On a server with **no** `DATABASE_URL` the route returns the usual **503 `db_disabled`**
+   — never an empty matrix (that would read as "this account has played nothing").
+7. In the app: Profile → **Statistics** shows the **Online matches** block above the
+   detailed panels, opening on **Overall**, with no Poker chip; a fresh account shows zeros
+   and `—`, not a missing block.
+8. Finish one online match against bots and one with a person, then re-open Statistics: the
+   counts land in **With bots** and **People only** respectively, and a local game moves
+   nothing.

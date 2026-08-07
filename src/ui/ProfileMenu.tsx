@@ -8,6 +8,7 @@ import {
   fetchPreferansStats, fetchPreferansLeaderboard,
   fetchFiftyOneStats, fetchFiftyOneLeaderboard,
   fetchPokerStats, fetchPokerLeaderboard,
+  fetchOnlineTracker, type OnlineTracker,
   type KingStats, type DurakStats, type DebercStats, type TarneebStats, type PreferansStats,
   type FiftyOneStats, type PokerStats,
   type LeaderboardEntry, type DurakLeaderboardEntry, type DebercLeaderboardEntry,
@@ -33,6 +34,7 @@ import DebercLeaderboardPanel from './components/DebercLeaderboardPanel';
 import TarneebLeaderboardPanel from './components/TarneebLeaderboardPanel';
 import PreferansLeaderboardPanel from './components/PreferansLeaderboardPanel';
 import FiftyOneStatsPanel from './components/FiftyOneStatsPanel';
+import OnlineTrackerPanel from './components/OnlineTrackerPanel';
 import FiftyOneLeaderboardPanel from './components/FiftyOneLeaderboardPanel';
 import PokerStatsPanel from './components/PokerStatsPanel';
 import PokerLeaderboardPanel from './components/PokerLeaderboardPanel';
@@ -103,6 +105,9 @@ export default function ProfileMenu({
   const [preferansStats, setPreferansStats] = useState<Loadable<PreferansStats> | null>(null);
   const [fiftyOneStats, setFiftyOneStats] = useState<Loadable<FiftyOneStats> | null>(null);
   const [pokerStats, setPokerStats] = useState<Loadable<PokerStats> | null>(null);
+  // (38.0.6) The ONLINE participation tracker — one read for the whole matrix, shown
+  // above the detailed panels. Independent of the per-game stats states.
+  const [tracker, setTracker] = useState<Loadable<OnlineTracker> | null>(null);
   const [board, setBoard] = useState<Loadable<LeaderboardEntry[]> | null>(null);
   const [durakBoard, setDurakBoard] = useState<Loadable<DurakLeaderboardEntry[]> | null>(null);
   const [debercBoard, setDebercBoard] = useState<Loadable<DebercLeaderboardEntry[]> | null>(null);
@@ -118,6 +123,7 @@ export default function ProfileMenu({
   const [loadingPreferans, setLoadingPreferans] = useState(false);
   const [loadingFiftyOne, setLoadingFiftyOne] = useState(false);
   const [loadingPoker, setLoadingPoker] = useState(false);
+  const [loadingTracker, setLoadingTracker] = useState(false);
   const [loadingBoard, setLoadingBoard] = useState(false);
   const [loadingDurakBoard, setLoadingDurakBoard] = useState(false);
   const [loadingDebercBoard, setLoadingDebercBoard] = useState(false);
@@ -143,6 +149,7 @@ export default function ProfileMenu({
   const preferansOnce = useRef(false);
   const fiftyOneOnce = useRef(false);
   const pokerOnce = useRef(false);
+  const trackerOnce = useRef(false);
   const boardOnce = useRef(false);
   const durakBoardOnce = useRef(false);
   const debercBoardOnce = useRef(false);
@@ -186,6 +193,16 @@ export default function ProfileMenu({
     setLoadingPoker(true);
     try { setPokerStats(await fetchPokerStats(base)); } finally { setLoadingPoker(false); }
   }, [base]);
+  // Single-flight: a rerender while the request is in flight must not fire a second
+  // one (the `once` ref only guards the FIRST load; this guards the overlap).
+  const trackerInFlight = useRef(false);
+  const loadTracker = useCallback(async () => {
+    if (trackerInFlight.current) return;
+    trackerInFlight.current = true;
+    setLoadingTracker(true);
+    try { setTracker(await fetchOnlineTracker(base)); }
+    finally { setLoadingTracker(false); trackerInFlight.current = false; }
+  }, [base]);
   const loadBoard = useCallback(async () => {
     setLoadingBoard(true);
     try { setBoard(await fetchKingLeaderboard(base)); } finally { setLoadingBoard(false); }
@@ -221,6 +238,9 @@ export default function ProfileMenu({
 
   useEffect(() => {
     if (tab === 'stats') {
+      // (38.0.6) The tracker belongs to the Statistics section only — never fetched
+      // from the section grid, the profile tab, friends, achievements or leaderboard.
+      if (!trackerOnce.current) { trackerOnce.current = true; void loadTracker(); }
       if (statsGame === 'king' && !statsOnce.current) { statsOnce.current = true; void loadStats(); }
       if (statsGame === 'durak' && !durakOnce.current) { durakOnce.current = true; void loadDurakStats(); }
       if (statsGame === 'deberc' && !debercOnce.current) { debercOnce.current = true; void loadDebercStats(); }
@@ -254,7 +274,7 @@ export default function ProfileMenu({
       if (boardGame === 'fifty-one' && !fiftyOneBoardOnce.current) { fiftyOneBoardOnce.current = true; void loadFiftyOneBoard(); }
       if (boardGame === 'poker' && !pokerBoardOnce.current) { pokerBoardOnce.current = true; void loadPokerBoard(); }
     }
-  }, [tab, statsGame, boardGame,
+  }, [tab, statsGame, boardGame, loadTracker,
     loadStats, loadDurakStats, loadDebercStats, loadTarneebStats, loadTarneebSoloStats, loadPreferansStats, loadFiftyOneStats, loadPokerStats,
     loadBoard, loadDurakBoard, loadDebercBoard, loadTarneebBoard, loadPreferansBoard, loadFiftyOneBoard, loadPokerBoard]);
 
@@ -263,6 +283,9 @@ export default function ProfileMenu({
 
   function refresh() {
     if (tab === 'stats') {
+      // Refresh updates the tracker AND the visible detailed panel (the tracker's own
+      // single-flight guard keeps a rapid double-press to one request).
+      void loadTracker();
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
         : statsGame === 'tarneeb' ? loadTarneebStatsFor(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats()
           : statsGame === 'fifty-one' ? loadFiftyOneStats() : statsGame === 'poker' ? loadPokerStats() : loadStats());
@@ -282,7 +305,7 @@ export default function ProfileMenu({
     else void loadTarneebStatsFor(v);
   }
 
-  const anyLoading = loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans || loadingFiftyOne || loadingPoker
+  const anyLoading = loadingTracker || loadingStats || loadingDurak || loadingDeberc || loadingTarneeb || loadingPreferans || loadingFiftyOne || loadingPoker
     || loadingBoard || loadingDurakBoard || loadingDebercBoard || loadingTarneebBoard || loadingPreferansBoard || loadingFiftyOneBoard || loadingPokerBoard;
 
   // Profile sections (Stage 27.1): each is its own screen reached from a section grid, instead of
@@ -395,6 +418,10 @@ export default function ProfileMenu({
         )}
         {tab === 'stats' && (
               <>
+                {/* (38.0.6) ONLINE-only participation tracker, ABOVE the detailed
+                    per-game statistics. It adds nothing to and changes nothing about
+                    the panels below (ratings, achievements and leaderboards untouched). */}
+                <OnlineTrackerPanel result={tracker} loading={loadingTracker} />
                 <div className="segmented segmented--sub" role="tablist" aria-label={t('menu.game')}>
                   {GAMES.map((g) => (
                     <button key={g} role="tab" aria-selected={statsGame === g}

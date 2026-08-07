@@ -29,11 +29,12 @@
 // Requires Postgres; imported DYNAMICALLY so a no-DB server never loads the driver.
 // ---------------------------------------------------------------------------
 
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { onlineMatches, onlineMatchParticipants } from './schema';
 import { getDb } from './client';
 import type { OnlineMatchMeta } from '../../src/net/onlineMatch';
+import { TRACKED_ONLINE_GAMES } from '../../src/net/onlineTracker';
 
 async function database(): Promise<PostgresJsDatabase> {
   const conn = await getDb();
@@ -235,10 +236,31 @@ export async function getOnlineMatch(matchId: string): Promise<{
 /**
  * Per-account ONLINE participation counters, split by the FROZEN category. This is the
  * read the Stage 38.0.6 profile tracker is built on — ONLINE only (local games never
- * create a match row), and it never touches `user_stats`.
+ * create a match row, so they are excluded by construction), and it never touches
+ * `user_stats` / `games` / `game_players`.
+ *
+ * ONLY TERMINAL OUTCOMES COUNT (Stage 38.0.6 fix). The Stage 38.0.5 version used a bare
+ * `count(*)` for `matches`, so a participant of a match that was still being played —
+ * outcome `pending` — was already reported as a played match (RED: one active match with
+ * no result gave `{matches: 1, wins: 0, losses: 0}`), and there was no `draws` column at
+ * all, so `matches` could never equal `wins + losses + draws`. The `WHERE` now keeps only
+ * `win | loss | draw` rows, and a game/category with nothing but pending rows simply does
+ * not appear (the pure `buildOnlineTracker` zero-fills it).
+ *
+ * A permanent leave is the one result that is terminal while the match is still running:
+ * it writes `loss` + `forfeited = true` immediately, so it is counted straight away — and
+ * exactly once, because `(match_id, seat_index)` is the PK and a partial UNIQUE index on
+ * `(match_id, user_id)` means one account holds at most one seat per match. A retry, a
+ * reconnect or a restart replay therefore cannot inflate any counter.
+ *
+ * Poker is excluded twice over: 0014 never records it, AND the game-type filter below
+ * only admits the six tracked games. Bot seats carry no account, and the explicit
+ * `member_type = 'human'` filter keeps that true even if a future seat type appears.
+ * Scoped to ONE account — the caller passes the id resolved from the server session,
+ * never anything client-supplied.
  */
 export async function getOnlineParticipationCounters(userId: string): Promise<Array<{
-  gameType: string; category: string; matches: number; wins: number; losses: number; forfeits: number;
+  gameType: string; category: string; matches: number; wins: number; losses: number; draws: number; forfeits: number;
 }>> {
   const db = await database();
   const rows = await db.select({
@@ -247,10 +269,17 @@ export async function getOnlineParticipationCounters(userId: string): Promise<Ar
     matches: sql<number>`count(*)::int`,
     wins: sql<number>`count(*) filter (where ${onlineMatchParticipants.outcome} = 'win')::int`,
     losses: sql<number>`count(*) filter (where ${onlineMatchParticipants.outcome} = 'loss')::int`,
+    draws: sql<number>`count(*) filter (where ${onlineMatchParticipants.outcome} = 'draw')::int`,
     forfeits: sql<number>`count(*) filter (where ${onlineMatchParticipants.forfeited})::int`,
   }).from(onlineMatchParticipants)
     .innerJoin(onlineMatches, eq(onlineMatches.matchId, onlineMatchParticipants.matchId))
-    .where(eq(onlineMatchParticipants.userId, userId))
+    .where(and(
+      eq(onlineMatchParticipants.userId, userId),
+      eq(onlineMatchParticipants.memberType, 'human'),
+      // A still-running (or abandoned-without-a-result) seat is NOT a played match.
+      inArray(onlineMatchParticipants.outcome, ['win', 'loss', 'draw']),
+      inArray(onlineMatches.gameType, [...TRACKED_ONLINE_GAMES]),
+    ))
     .groupBy(onlineMatches.gameType, onlineMatches.category);
   return rows;
 }

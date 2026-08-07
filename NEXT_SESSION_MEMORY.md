@@ -999,3 +999,57 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - `--surface` is a TRANSLUCENT white wash; any modal must use `--panel` (opaque).
 - The vitest env is `node` (no jsdom), so interaction behaviour is proved by the browser gate, not by
   unit tests; SSR (`renderToStaticMarkup`) + source contracts cover the structure.
+
+### Stage 38.0.6 — ONLINE participation tracker (COMPLETE, Unreleased)
+- Worked from HEAD `1d32de3`. **NO new migration (latest stays 0014)**, no version bump (0.4.8),
+  games 7, achievements 52, libc 0. Read-only projection of the 0014 model — no write path, and
+  `games`/`game_players`/`rounds`/`user_stats` are never touched.
+- **RED (real PostgreSQL, probe deleted after use):** the 38.0.5
+  `getOnlineParticipationCounters` used a bare `count(*)`, so ONE **active** match with nobody
+  holding a result returned `[{gameType:'king', category:'human_only', matches:1, wins:0,
+  losses:0, forfeits:0}]` — a match that had not been played, counted as played. It also had
+  **no `draws` column** (`matches` could never equal `wins+losses+draws`), returned only the
+  rows that happened to exist (no zero-filled matrix), and there was no aggregation module,
+  API route, client adapter or UI (`src/net/onlineTracker.ts`, `online-tracker`,
+  `fetchOnlineTracker`, `tracker` in ProfileMenu — all absent).
+- **Semantics.** Tracked games = the SIX online non-Poker ones; Poker is excluded THREE times
+  over (0014 never records it, the SQL filters `game_type IN (six)`, and `buildOnlineTracker`
+  drops unknown games). Only TERMINAL participant outcomes count (`win|loss|draw`); `pending`
+  is not a played match. A permanent leave is already terminal while the match runs, so it
+  counts immediately. `human_only` / `with_bots` come from the FROZEN category and are never
+  summed together.
+- **Formulas (`src/net/onlineTracker.ts`, ONE module shared by server + client + tests):**
+  `matches` is **RECOMPUTED** as `wins+losses+draws` (never trusted from the row),
+  `forfeits = min(forfeits, losses)`, `winRate = matches>0 ? round(wins/matches*100) : null`
+  (null → the UI shows `—`, never NaN/Infinity). All values are finite non-negative safe
+  integers; unknown gameType/category is dropped FAIL CLOSED. `buildOnlineTracker` always
+  returns the full matrix (overall + 6 games × 2 categories, zero-filled) and derives
+  `overall` as the exact sum of the six games.
+- **DB:** `getOnlineParticipationCounters` gained `draws`, `WHERE outcome IN ('win','loss',
+  'draw')`, `member_type='human'` and `game_type IN TRACKED_ONLINE_GAMES`. Exactly-once is the
+  schema's job (PK `(match_id, seat_index)` + partial UNIQUE `(match_id, user_id)`), so a
+  retry/reconnect/restart replay cannot inflate anything.
+- **API:** `GET /api/me/online-tracker`, `requireUser` (session cookie ONLY — no query/body
+  parameter exists). Body is `{tracker:{overall, byGame}}` and nothing else; a key-allowlist
+  test walks the payload. No DB → the API-wide 503 `db_disabled` (deliberately NOT a
+  route-local code); a transient failure → the shared catch's 503 `db_error`. An empty matrix
+  is never sent in place of a failure.
+- **Client/UI:** `fetchOnlineTracker` + `parseTrackerPayload` (reads only known keys, zero-fills,
+  re-derives `overall` locally). `OnlineTrackerPanel` = chip strip (Overall + 6 games, opens on
+  Overall, no Poker) + TWO category cards (matches, win rate, wins, losses, draws, quit-for-good)
+  + the online-only/local-excluded note. Mounted in ProfileMenu's `stats` tab ABOVE the game
+  selector; fetched only when that tab is open (`trackerOnce` ref) with an extra
+  `trackerInFlight` ref so a rerender cannot start a second parallel request; ↻ Refresh reloads
+  the tracker AND the visible detailed panel. i18n `tracker.*` ×4 (11 keys).
+- **New gate `npm run layout:tracker`** (`scripts/profile-tracker-qa.mjs` +
+  `scripts/layout-harness/tracker.{html,tsx}`) mounts the REAL panel inside the REAL
+  Profile→Statistics containers: **39 checks** = 360/390/desktop × 13 scenarios (overall,
+  per-game, big numbers, empty, unauth, unavailable, fontScale 21, RTL ×3, de, uk). It found a
+  real defect: short chips ("51" 38×44, Arabic "كينج" 43×44) → `min-width: 44px` added. Now 39/39.
+- **Tests:** `onlineTracker.test.ts` (24 pure), `onlineTracker.api.test.ts` (12 auth/privacy/503),
+  `onlineTracker.integration.test.ts` (**12 real-PG**, the exact 12-scenario matrix from the
+  prompt), `onlineTrackerPanel.test.ts` (26 UI/a11y/CSS). Real PG (Docker `kg-pg-3806`, port
+  **55435**, migrations 0000–0014): tracker + onlineMatches + permanentLeaveFlow = **32 tests,
+  0 skipped**. verify PASS (287 files / 3424 tests).
+- **Gotcha:** `--surface` is translucent (see 38.0.5.1); the tracker cards use `--surface-2`
+  inside the already-opaque profile panel, so they are fine.

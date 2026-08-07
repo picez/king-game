@@ -1400,3 +1400,58 @@ survives only as the fallback for a legacy room with no frozen metadata) and bui
 `seatUsers` from `finishSeatUsers(meta, …)` — so a `human_only` match stays rated after a
 takeover, a `with_bots` match stays unrated, the replacement bot earns nothing for the
 departed account, and the leaver never receives a second result even if that bot wins.
+
+### ONLINE participation tracker — Profile → Statistics (Stage 38.0.6)
+
+The READ side of the 0014 model. It is a pure projection: **no new migration, no new
+table, no write path**, and it never touches `games`/`game_players`/`rounds`/`user_stats`.
+
+**Scope, stated once and enforced in three places**
+
+| rule | where it is enforced |
+| --- | --- |
+| **ONLINE only** — local pass-and-play is excluded | by construction: local play never creates an `online_matches` row |
+| **Poker excluded** at this stage | 0014 never records Poker; the SQL filters `game_type IN (six)`; `buildOnlineTracker` drops any unknown game |
+| **`human_only` vs `with_bots` always separate** | the FROZEN `online_matches.category`, never recomputed; the two are never summed |
+| **a `pending` participant is NOT a played match** | `WHERE outcome IN ('win','loss','draw')` |
+| **a permanent leave counts IMMEDIATELY** | the forfeit writes `loss` + `forfeited = true` at leave time, so the row is already terminal while the match runs |
+| **one result per account per match** | PK `(match_id, seat_index)` + partial UNIQUE `(match_id, user_id)` — a retry/reconnect/restart replay cannot inflate a counter |
+
+**The pending-count bug this stage fixed.** The Stage 38.0.5 helper used a bare
+`count(*)` for `matches`. Measured on real PostgreSQL: ONE active match with no result
+yet returned `{gameType:'king', category:'human_only', matches:1, wins:0, losses:0}` — a
+match that had not been played was already reported as played. There was also no `draws`
+column at all, so `matches` could never equal `wins + losses + draws`.
+
+**Counters (`src/net/onlineTracker.ts`, shared by the server, the client and the tests)**
+
+```
+matches  = wins + losses + draws          ← RECOMPUTED, never read from the row
+forfeits = min(forfeits, losses)          ← a forfeit is always one of the losses
+winRate  = matches > 0 ? round(wins / matches * 100) : null   ← null renders "—"
+```
+
+Every value is a finite, non-negative safe integer; garbage becomes `0`, never `NaN`.
+`buildOnlineTracker(rows)` returns a STABLE matrix — `overall` plus all six games, each
+with both categories, zero-filled where nothing was played — and `overall` is computed as
+the exact sum of the six per-game cells, so the two can never disagree. An unknown
+`gameType`/`category` is dropped **fail closed** (never bucketed into "other").
+
+**API — `GET /api/me/online-tracker`.** The account comes from the SERVER session only
+(`requireUser`); there is no query or body parameter to read, so one account can never ask
+for another's numbers. The response is `{ tracker: { overall, byGame } }` and contains
+**nothing else**: no user id, no match id, no room code, no seat index, no opponent
+identity, no raw row (asserted by a key-allowlist test). No database → the API-wide 503
+`db_disabled`; a transient Postgres failure → the shared catch's 503 `db_error`. An empty
+matrix is never sent as a stand-in for a failure — that would falsely claim the account
+has played nothing.
+
+**Client + UI.** `fetchOnlineTracker` in `src/net/statsApi.ts` returns the usual soft
+`Loadable`; `parseTrackerPayload` re-reads ONLY the known game/category keys (an unknown
+key is never looked at), zero-fills what is missing and re-derives `overall` locally, so a
+hostile or older server can neither inject a game nor produce a `NaN` on screen.
+`OnlineTrackerPanel` renders a chip strip (Overall + the six games, opening on Overall)
+and exactly TWO category cards; it derives nothing itself. It is fetched ONLY while the
+Statistics section is open, guarded by a `once` ref plus an in-flight ref so a rerender
+cannot start a second parallel request, and the ↻ Refresh reloads the tracker together
+with the visible detailed panel.

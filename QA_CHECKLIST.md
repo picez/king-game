@@ -1661,3 +1661,62 @@ finishes in the same moment. Repeat a few times.
 - [ ] The confirmation fits the screen (scrolls itself if needed) and both buttons are easy
       to tap.
 - [ ] Check the copy in **EN / UK / DE / AR**; in Arabic the dialog mirrors correctly.
+
+## Online participation tracker — Profile → Statistics (Stage 38.0.6)
+
+Automated gates: `npx vitest run src/net/onlineTracker*.test.ts
+src/ui/components/onlineTrackerPanel.test.ts` (+ `onlineTracker.integration.test.ts` with
+`TEST_DATABASE_URL` set) and `npm run layout:tracker` (39 browser checks across
+360/390/desktop × 13 scenarios). This is the manual pass. Needs Postgres and a signed-in
+account; play a couple of quick online games first.
+
+**What it counts**
+
+- [ ] Profile → **Statistics** opens with an **Online matches** block ABOVE the per-game
+      selector and the detailed panels. It never covers or reorders anything below it.
+- [ ] Chips read **Overall · King · Durak · Deberc · Tarneeb · Preferans · 51** and open on
+      **Overall**. **There is no Poker chip** — but the Poker chip in the *detailed* stats
+      selector below is still there and still works.
+- [ ] Each selection shows exactly **two** cards — **People only** and **With bots** — with
+      matches, win rate, wins, losses, draws and quit-for-good.
+- [ ] Play an online game **against bots** and finish it → the number moves in **With bots**
+      only. The People-only card does not change.
+- [ ] Play an online game **with another person** and finish it → it moves **People only**
+      only.
+- [ ] **A local (pass-and-play) game changes nothing here** — play one and re-open the page.
+- [ ] **Poker changes nothing here** — play an online Poker hand to the end and confirm the
+      tracker is untouched (its own detailed Poker stats still update).
+- [ ] **A game you are still playing is not counted.** Start an online match, leave it running,
+      open the tracker on another device/tab: the number has not moved yet.
+- [ ] **Quit for good counts straight away** — use it mid-match and the tracker immediately
+      shows one more match, one more loss and one more quit-for-good, even though the match
+      is still being played by the others.
+- [ ] Quitting twice (a flaky connection) never adds a second loss.
+- [ ] `Overall` equals the six games added up, within each category.
+- [ ] `matches` always equals `wins + losses + draws`, and quit-for-good is never more than
+      losses.
+
+**Empty, signed-out and offline**
+
+- [ ] A **brand-new account** sees the block with **zeros** and a win rate of **—** — not a
+      missing section, and never `NaN`.
+- [ ] **Signed out**, the block shows the sign-in prompt (no numbers at all).
+- [ ] With the server's database unavailable, it shows the unavailable message — it must
+      never show zeros, which would read as "you have played nothing".
+- [ ] The ↻ **Refresh** button updates the tracker *and* the detailed panel below. Pressing it
+      repeatedly does not stack up requests.
+- [ ] Opening Profile → **Achievements** or **Leaderboard** first does **not** fetch the
+      tracker; it loads when you open Statistics.
+
+**Mobile / RTL / accessibility**
+
+- [ ] At **360** and **390** there is no sideways page scroll. The chip strip scrolls inside
+      itself; the two cards are stacked one under the other.
+- [ ] Every chip is comfortable to tap (≥44×44), including the short **51** one.
+- [ ] Large numbers (hundreds of matches) stay inside their card — nothing is cut off.
+- [ ] With the system font size turned up, the block still fits.
+- [ ] **Arabic RTL:** the block mirrors, the chips scroll from the right, and the numbers stay
+      readable and aligned.
+- [ ] Check the copy in **EN / UK / DE / AR**.
+- [ ] Keyboard: Tab reaches every chip, Enter/Space selects it, and the selected chip is
+      announced (`role="tab"` / `aria-selected`); each number has a visible label next to it.

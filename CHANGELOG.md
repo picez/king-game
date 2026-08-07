@@ -9,6 +9,23 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **See your online record, per game (Stage 38.0.6).** Profile → Statistics opens with a new
+  **Online matches** block above the detailed stats. Pick **Overall** or a single game and you
+  get two cards side by side — **People only** and **With bots** — each showing matches, win
+  rate, wins, losses, draws and how many times a game was quit for good.
+  - **Online only.** Local pass-and-play is never counted; only games played in an online room
+    appear here. Poker is not included yet — it is being tested separately.
+  - **People-only and with-bots are never mixed.** Which one a match belongs to is decided when
+    it starts and never changes afterwards, so a bot taking over a seat cannot move a
+    human-only game into the other column.
+  - **A match counts once it has a result.** A game you are still playing is not counted; a
+    game you quit for good counts immediately, as the single loss it is.
+  - Everything else on the page is unchanged: the detailed per-game statistics, the ratings,
+    the achievements and the leaderboards all keep working exactly as before, and a brand-new
+    account simply sees zeros instead of a missing block.
+
 ### Fixed
 
 - **Quitting for good now always finishes the job (Stage 38.0.5.1).** If the match happened

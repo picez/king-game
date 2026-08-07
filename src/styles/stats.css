@@ -269,3 +269,117 @@
 :root[data-motion-effective="off"] .ach-toast { animation: none; }
 @keyframes ach-toast-fade { from { opacity: 0; } to { opacity: 1; } }
 
+
+/* ---------------------------------------------------------------------------
+   ONLINE participation tracker (Stage 38.0.6) — Profile → Statistics, ABOVE the
+   detailed per-game panels. Deliberately compact: a chip strip plus TWO category
+   cards. It never overlaps or restyles the existing stats panels below it.
+
+   Mobile-first: the chip strip scrolls INSIDE itself (the page never overflows at
+   360/390) and the two cards stack vertically on a phone. Logical properties only,
+   so Arabic RTL mirrors without any special case.
+   --------------------------------------------------------------------------- */
+.online-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  max-width: 100%;
+  min-width: 0;
+}
+.online-tracker__title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--text);
+}
+/* Same scrolling-chip pattern as the achievements filter — the row scrolls, not the page. */
+.online-tracker__chips {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #f5c518) transparent;
+}
+.online-tracker__chips::-webkit-scrollbar { height: 5px; }
+.online-tracker__chips::-webkit-scrollbar-track { background: transparent; }
+.online-tracker__chips::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent, #f5c518) 65%, transparent);
+  border-radius: 999px;
+}
+.online-tracker__chip {
+  flex: 0 0 auto;                       /* chips keep their size; the row scrolls */
+  /* A FULL 44x44 tap target in both axes — a short label ("51", Arabic "كينج") was
+     measured at 38x44 / 43x44 before the min-width. */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.online-tracker__chip--active {
+  background: var(--accent);
+  color: var(--on-accent, #08130b);
+  border-color: var(--accent-light, var(--accent));
+}
+/* One card per FROZEN category. Stacked on a phone; side by side once they fit. */
+.online-tracker__cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+  min-width: 0;
+}
+@media (min-width: 560px) {
+  .online-tracker__cards { grid-template-columns: 1fr 1fr; }
+}
+.tracker-card {
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  background: var(--surface-2);
+}
+.tracker-card__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.tracker-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin: 0;
+}
+.tracker-stat { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tracker-stat__value {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--accent-light, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+.tracker-stat__label {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.online-tracker__note {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--text-dim, var(--text-muted));
+  line-height: 1.3;
+}

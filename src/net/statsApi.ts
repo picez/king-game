@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Lang } from '../i18n';
+import { parseTrackerPayload, type OnlineTracker as OnlineTrackerView } from './onlineTracker';
 
 /** Per-mode aggregate: rounds played under the mode + summed/avg score. */
 export interface ModeStat {
@@ -874,4 +875,29 @@ export function modeBreakdownRows(
     if (!(MODE_ORDER as readonly string[]).includes(modeId)) push(modeId);
   }
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// ONLINE participation tracker (Stage 38.0.6)
+//
+// A separate, self-contained read: `GET /api/me/online-tracker`. The wire shape and
+// ALL of the arithmetic live in the shared pure module `src/net/onlineTracker.ts`, so
+// the client never re-implements (or drifts from) the server's definition of a played
+// match. The parser is strict by construction — it reads ONLY the known game and
+// category keys, so an unknown key in the payload is simply never looked at, every
+// missing combination is zero-filled, and `overall` is re-derived locally rather than
+// trusted. The same soft Loadable states as every other stats read.
+// ---------------------------------------------------------------------------
+
+export {
+  TRACKED_ONLINE_GAMES, ONLINE_CATEGORIES, emptyTracker, trackerIsEmpty,
+  type TrackedOnlineGame, type OnlineCategory, type OnlineCounters,
+  type OnlineCategorySplit, type OnlineTracker,
+} from './onlineTracker';
+
+/** Fetch the caller's OWN online participation matrix. Never throws. */
+export async function fetchOnlineTracker(base: string): Promise<Loadable<OnlineTrackerView>> {
+  const { status, data } = await getJson(base, '/api/me/online-tracker');
+  if (status === 200) return { state: 'ok', data: parseTrackerPayload(data) };
+  return failFor(status);
 }
