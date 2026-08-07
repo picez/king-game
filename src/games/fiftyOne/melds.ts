@@ -272,4 +272,83 @@ export function meldValue(cards: FiftyOneCard[]): number {
   return resolveMeld(cards)?.value ?? 0;
 }
 
+
+// ---------------------------------------------------------------------------
+// Lay-off placement (§9, owner clarification 38.0.9)
+//
+// A lay-off may extend a run at EITHER legal end. The old reducer always appended, so a
+// card that belongs at the START was refused: `[6♠,7♠,Joker=8♠] + 5♠` produced
+// `[6,7,J,5]`, which is not a run, even though `[5,6,7,J]` obviously is.
+//
+// The side is therefore EXPLICIT and server-authoritative. For a SET the side carries no
+// meaning (a set has no order), so it is normalised deterministically to `end` and the UI
+// never asks. For a RUN both sides can be legal at once — most visibly when the laid-off
+// card is a JOKER (`Joker + [4♠,5♠,6♠]` is 3♠ at the start or 7♠ at the end) — and only the
+// player can say which they meant.
+// ---------------------------------------------------------------------------
+
+/** Which end of a meld a lay-off attaches to. Sets normalise to `end`. */
+export type LayoffPlacement = 'start' | 'end';
+
+export const LAYOFF_PLACEMENTS: readonly LayoffPlacement[] = ['start', 'end'];
+
+export function isLayoffPlacement(v: unknown): v is LayoffPlacement {
+  return v === 'start' || v === 'end';
+}
+
+/**
+ * The exact card sequence a lay-off would produce. The selected cards keep THEIR order:
+ * `start` puts the whole selection before the meld, `end` after it. There is deliberately
+ * no way to express an insertion INSIDE a run — a forged index cannot exist.
+ */
+export function layoffCandidate(
+  meldCards: readonly FiftyOneCard[], cards: readonly FiftyOneCard[], placement: LayoffPlacement,
+): FiftyOneCard[] {
+  return placement === 'start' ? [...cards, ...meldCards] : [...meldCards, ...cards];
+}
+
+/** One legal way to lay `cards` onto a meld, with the resolved result it produces. */
+export interface LayoffOption {
+  placement: LayoffPlacement;
+  resolved: ResolvedMeld;
+}
+
+/**
+ * Every placement that is ACTUALLY legal for this lay-off — 0, 1 or 2 options.
+ *
+ * The UI uses it to decide whether to hide the Add control (0), act immediately (1) or ask
+ * the player which side they meant (2). The AI uses the same helper, and the reducer
+ * re-derives the result itself, so a client can never smuggle in a placement the rules
+ * would not produce.
+ *
+ * A SET yields at most ONE option (`end`): its order is meaningless, so offering a side
+ * choice would be a meaningless question.
+ */
+export function legalLayoffPlacements(
+  meldCards: readonly FiftyOneCard[], cards: readonly FiftyOneCard[],
+): LayoffOption[] {
+  if (cards.length === 0 || meldCards.length === 0) return [];
+  const out: LayoffOption[] = [];
+  const seen = new Set<string>();
+  for (const placement of LAYOFF_PLACEMENTS) {
+    const resolved = resolveMeld(layoffCandidate(meldCards, cards, placement));
+    if (!resolved) continue;
+    // A SET is order-free: normalise it to ONE option so the UI never asks a meaningless
+    // question. For a RUN, the order-independent resolver often accepts BOTH inputs and
+    // produces the SAME canonical meld (a joker-free card simply sorts into place) — that
+    // is one choice, not two. Only a genuinely DIFFERENT outcome (the joker case, where
+    // each side represents a different card) is worth asking about.
+    if (resolved.type === 'set') {
+      if (out.length === 0) out.push({ placement: 'end', resolved });
+      continue;
+    }
+    const signature = resolved.cards.map((c) => c.id).join(',')
+      + '|' + Object.entries(resolved.jokerRepresents).map(([k, v]) => `${k}:${v.rank}${v.suit}`).sort().join(',');
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    out.push({ placement, resolved });
+  }
+  return out;
+}
+
 export { jokerCount };

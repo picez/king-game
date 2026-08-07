@@ -244,16 +244,94 @@ const PROBE = `JSON.stringify((() => {
     }
   }
 
+  // 10. (38.0.9) STICKER GRID — a square cell whose image is fully visible, never a strip.
+  const stickerBtns = all('.chat-media-thumb');
+  const stickerGrid = document.querySelector('.reaction-bar__stickers');
+  for (const b of stickerBtns) {
+    const br = rect(b);
+    const ratio = br.w / br.h;
+    if (ratio < 0.75 || ratio > 1.34) add('sticker-not-square', Math.round(br.w) + 'x' + Math.round(br.h) + ' r=' + ratio.toFixed(2));
+    if (br.w < 43.5 || br.h < 43.5) add('sticker-small', Math.round(br.w) + 'x' + Math.round(br.h));
+    const img = b.querySelector('img');
+    if (img) {
+      const ir = rect(img);
+      if (!inside(ir, br)) add('sticker-img-outside', Math.round(ir.h) + ' in ' + Math.round(br.h));
+      // The visible image must not be a thin band of its own square box.
+      if (ir.w > 0.5 && ir.h / ir.w < 0.5) add('sticker-img-strip', Math.round(ir.w) + 'x' + Math.round(ir.h));
+      // …and it must actually fill most of the cell it was given.
+      if (br.h > 0.5 && ir.h / br.h < 0.5) add('sticker-img-squashed', Math.round(ir.h) + '/' + Math.round(br.h));
+      // Under object-fit:contain the BOX is the cell (square by design) and the painted
+      // content keeps its own aspect inside it — so the check is that the box FILLS the
+      // cell, which is what makes a lazy/undecoded sticker unable to shift the layout.
+      if (br.w > 0.5 && (ir.w / br.w < 0.7 || ir.h / br.h < 0.7)) {
+        add('sticker-img-underfills', Math.round(ir.w) + 'x' + Math.round(ir.h) + ' in ' + Math.round(br.w) + 'x' + Math.round(br.h));
+      }
+    }
+  }
+  const sbr = stickerBtns.map(rect);
+  for (let i = 0; i < sbr.length; i++) {
+    for (let j = i + 1; j < sbr.length; j++) if (hit(sbr[i], sbr[j])) add('sticker-overlap', i + '|' + j);
+  }
+  if (stickerGrid && stickerGrid.scrollWidth > stickerGrid.clientWidth + 1) {
+    add('sticker-grid-scroll-x', stickerGrid.scrollWidth + '>' + stickerGrid.clientWidth);
+  }
+  // Emoji buttons are tap targets too.
+  for (const b of all('.reaction-bar__btn')) {
+    const r = rect(b);
+    if (r.w < 43.5 || r.h < 43.5) add('emoji-small', Math.round(r.w) + 'x' + Math.round(r.h));
+  }
+
+  // 11. (38.0.9) MELD GROUP COMPACTNESS — a group must hug its own content.
+  groups.forEach((g, gi) => {
+    const gr = rect(g);
+    const inner = all('.fiftyone-meld', g).map(rect);
+    if (inner.length === 0) return;
+    const contentBottom = Math.max(...inner.map((x) => x.b));
+    const contentRight = Math.max(...inner.map((x) => x.r));
+    const head = g.querySelector('.fiftyone-meldgroup__head');
+    const headRight = head ? rect(head).r : contentRight;
+    const widest = Math.max(contentRight, headRight);
+    // The box ends just after its last meld — no tall empty tail.
+    if (gr.b - contentBottom > 26) add('group-empty-bottom', 'g' + gi + ' ' + Math.round(gr.b - contentBottom) + 'px');
+    // …and just after its widest row, unless the viewport forces a full-width column.
+    if (vw >= 560 && gr.r - widest > 48) add('group-empty-right', 'g' + gi + ' ' + Math.round(gr.r - widest) + 'px');
+    // A SHORT meld must never span half a wide screen. Width is judged by the widest CARD
+    // ROW: a 13-card run legitimately needs the space, a 3-card set never does.
+    const widestRow = Math.max(0, ...all('.fiftyone-meld__cards', g).map((row) => all('.fiftyone-meldcard', row).length));
+    if (vw >= 1000 && widestRow > 0 && widestRow <= 6 && gr.w > vw * 0.45) {
+      add('group-too-wide', 'g' + gi + ' ' + Math.round(gr.w) + ' of ' + vw + ' for ' + widestRow + ' cards');
+    }
+  });
+  // Groups on the SAME row are top-aligned and are not stretched to a common height.
+  const grs2 = groups.map(rect);
+  for (let i = 0; i < grs2.length; i++) {
+    for (let j = i + 1; j < grs2.length; j++) {
+      const a = grs2[i], b = grs2[j];
+      if (Math.abs(a.t - b.t) > 2) continue;            // different rows
+      const ca = Math.max(...all('.fiftyone-meld', groups[i]).map((x) => rect(x).b), a.t);
+      const cb = Math.max(...all('.fiftyone-meld', groups[j]).map((x) => rect(x).b), b.t);
+      const contentDiff = Math.abs((ca - a.t) - (cb - b.t));
+      if (contentDiff > 40 && Math.abs(a.h - b.h) < 4) {
+        add('group-stretched', i + '|' + j + ' equal h=' + Math.round(a.h) + ' but content differs by ' + Math.round(contentDiff));
+      }
+    }
+  }
+
   return {
     violations: v, groups: groups.length, melds: melds.length, cards: slots.length,
     launcher: !!launcher, sheet: !!sheet, dialog: !!dialog, hasPrompt: !!prompt,
+    stickers: stickerBtns.length,
+    groupBoxes: groups.map((g) => { const r = rect(g); return Math.round(r.w) + 'x' + Math.round(r.h); }),
   };
 })())`;
 
 const VIEWPORTS = [
   { tag: '360', w: 360, h: 800, mobile: true },
   { tag: '390', w: 390, h: 844, mobile: true },
-  { tag: 'desktop', w: 1280, h: 900, mobile: false },
+  { tag: '768', w: 768, h: 1024, mobile: true },
+  { tag: '1366', w: 1366, h: 900, mobile: false },
+  { tag: '1920', w: 1920, h: 1080, mobile: false },
+  { tag: '2560', w: 2560, h: 1440, mobile: false },
 ];
 
 const SOCIAL = 'social=sheet&chat=7&updates=1';
@@ -267,6 +345,14 @@ function scenarios() {
     { name: '4p-collapsed', q: `players=4&${SOCIAL}` },
     { name: '4p-chat', q: `players=4&${SOCIAL}&panel=chat` },
     { name: '4p-reactions', q: `players=4&${SOCIAL}&panel=reactions` },
+    // (38.0.9) A REAL click must not close the sheet.
+    { name: '4p-react-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.reaction-bar__btn'], stillOpen: true },
+    { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.chat-media-thumb'], stillOpen: true },
+    // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
+    { name: 'single-meld', q: 'players=4&melds=single' },
+    { name: 'uneven-groups', q: 'players=4&melds=uneven' },
+    { name: 'uneven-rtl', q: 'players=4&melds=uneven&dir=rtl&lang=ar' },
+    { name: '2p-single', q: 'players=2&melds=single' },
     // The destructive control lives in the sheet's footer, so the sheet is opened first.
     { name: '4p-confirm', q: `players=4&${SOCIAL}&panel=chat`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
     { name: '4p-longrun', q: 'players=4&melds=long' },
@@ -337,6 +423,17 @@ async function run() {
             await sleep(50);
           }
           if (!opened) failures.push(`${vp.tag} ${sc.name}: ${sc.open} never appeared`);
+          await cdp.evaluate(SETTLE);
+        }
+
+        // (38.0.9) A reaction/sticker click must leave the sheet OPEN.
+        if (sc.stillOpen) {
+          const open = await cdp.evaluate("!!document.querySelector('.social-sheet')");
+          const tab = await cdp.evaluate("(document.querySelector('.social-sheet__tab--on')||{}).textContent||''");
+          if (!open) failures.push(`${vp.tag} ${sc.name}: the sheet CLOSED after the click`);
+          else if (!/😀|Reaction|التفاعلات|Reaktionen|Реакції/.test(String(tab))) {
+            failures.push(`${vp.tag} ${sc.name}: the Reactions tab lost focus (tab="${tab}")`);
+          }
           await cdp.evaluate(SETTLE);
         }
 

@@ -129,6 +129,19 @@ function melds(): FiftyOneMeld[] {
       { id: 'S4', ownerSeat: seat(1), type: 'run', cards: run7, jokerRepresents: { 3: { suit: 'hearts', rank: '7' } }, value: 52 },
     ];
   }
+  if (meldSet === 'uneven') {
+    // The owner's screenshot: a group with ONE 3-card set beside a group with several melds.
+    return [
+      { id: 'U1', ownerSeat: seat(1), type: 'set', cards: set3, jokerRepresents: {}, value: 36 },
+      { id: 'U2', ownerSeat: seat(2), type: 'run', cards: run4, jokerRepresents: {}, value: 30 },
+      { id: 'U3', ownerSeat: seat(2), type: 'run', cards: run7, jokerRepresents: { 3: { suit: 'hearts', rank: '7' } }, value: 52 },
+      { id: 'U4', ownerSeat: seat(2), type: 'set', cards: set4, jokerRepresents: {}, value: 40 },
+    ];
+  }
+  if (meldSet === 'single') {
+    // ONE owner, ONE 3-card meld — the most obvious "half the screen" case.
+    return [{ id: 'S1', ownerSeat: seat(1), type: 'set', cards: set3, jokerRepresents: {}, value: 36 }];
+  }
   if (meldSet === 'redacted') return [];   // an online table before anyone opened
   return base;
 }

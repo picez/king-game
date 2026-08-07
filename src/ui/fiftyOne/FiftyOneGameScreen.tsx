@@ -4,10 +4,11 @@ import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import GameHelpModal from '../components/GameHelpModal';
 import type { Card, Rank, Suit } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
-import { resolveMeld } from '../../games/fiftyOne/melds';
+import { resolveMeld, legalLayoffPlacements, type LayoffOption } from '../../games/fiftyOne/melds';
 import { calcSelection, calcHandTotal } from '../../games/fiftyOne/calculator';
 import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
 import HandReorderTray from '../components/HandReorderTray';
+import FiftyOneLayoffDialog from './FiftyOneLayoffDialog';
 import { useManualHandOrder } from '../../hooks/useManualHandOrder';
 
 /** 51 cards carry a real unique id (two decks + jokers), so use it directly. */
@@ -115,6 +116,9 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   // only previews what a picked combination is worth + the hand's total penalty.
   const [calcMode, setCalcMode] = useState(false);
   const [calcSel, setCalcSel] = useState<string[]>([]);
+  // (38.0.9) An AMBIGUOUS lay-off waiting for the player to choose a side. Null until the
+  // shared helper reports TWO legal ends; cancelling dispatches nothing.
+  const [pendingLayoff, setPendingLayoff] = useState<{ meld: FiftyOneMeld; options: LayoffOption[] } | null>(null);
 
   const { phase, turnStep, currentSeat, roundNumber } = state;
   const opened = state.openedBySeat[humanSeat];
@@ -134,14 +138,42 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   // step for an unopened seat that can open using the discard top.
   const meldContext = meldStep || discardOpenAvailable;
 
-  // Clear any in-progress selection/staging whenever the turn/step/phase/round
-  // changes, OR the hand or table melds mutate (a draw, open, lay-off or discard
-  // invalidates ids the selection/staging referenced).
+  // (38.0.9 owner FAIL) The selection used to be reset ONLY on a length change, so a
+  // SAME-LENGTH mutation — most obviously `REPLACE_JOKER`, which swaps one card for the
+  // joker — left STALE ids behind. `selectedCards` then silently dropped them and the
+  // player was stuck with three cards picked and "select three cards" on screen, with no
+  // way out but a reload. That is the intermittent `6♠ + Joker + 8♠` report.
+  //
+  // A real turn change still clears everything; an ordinary state update instead
+  // RECONCILES the selection against the authoritative ids, so an equivalent re-render
+  // (an online snapshot, a reconnect, a rejected action) can never destroy a valid pick.
   useEffect(() => {
     setSelected([]);
     setStaged([]);
     setSelPicked(null);
-  }, [currentSeat, turnStep, phase, roundNumber, hand.length, state.publicMelds.length]);
+  }, [currentSeat, turnStep, phase, roundNumber]);
+
+  // The ids that really exist in the pool right now (hand + the openable discard top).
+  const poolIds = useMemo(() => new Set(pool.map((c) => c.id)), [pool]);
+  const poolKey = useMemo(() => [...poolIds].sort().join('|'), [poolIds]);
+
+  useEffect(() => {
+    // Drop only the ids that are genuinely gone. A staged meld that lost a card is no
+    // longer a meld, so the whole group is released (its remaining cards return to the
+    // hand display automatically — staging is a client-side view, never reducer state).
+    setSelected((cur) => {
+      const next = cur.filter((id) => poolIds.has(id));
+      return next.length === cur.length ? cur : next;
+    });
+    setStaged((cur) => {
+      const next = cur.filter((group) => group.every((id) => poolIds.has(id)));
+      return next.length === cur.length ? cur : next;
+    });
+    setSelPicked((p) => (p == null ? p : null));
+    // `poolKey` is the CONTENT identity of the pool — not its length — so a same-length
+    // mutation is seen, and an identical re-render is not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poolKey]);
 
   /**
    * Public melds grouped by owner seat (Stage 38.0.5.1) — a pure display regrouping.
@@ -245,13 +277,31 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     const card = byId.get(selected[0]);
     if (card) apply({ type: 'DISCARD', card });
   }
+  /**
+   * (38.0.9) Which sides of `meld` this selection may legally join. The SAME shared helper
+   * the reducer and the bot use — the UI never decides legality on its own, it only asks
+   * the player when the rules genuinely allow both ends.
+   */
+  function layoffOptions(meld: FiftyOneMeld): LayoffOption[] {
+    if (!meldStep || !opened) return [];
+    if (selectedCards.length < 1) return [];
+    if (hand.length - selectedCards.length < 1) return [];   // keep a card to discard
+    return legalLayoffPlacements(meld.cards, selectedCards);
+  }
+  /** Dispatch one lay-off with an explicit, server-validated side. */
+  function layoff(meld: FiftyOneMeld, option: LayoffOption) {
+    apply({ type: 'ADD_TO_MELD', meldId: meld.id, cards: selectedCards, placement: option.placement });
+    setPendingLayoff(null);
+  }
+  /** 0 legal sides → no control; 1 → act now; 2 → ask which end (the joker case). */
   function addToMeld(meld: FiftyOneMeld) {
-    apply({ type: 'ADD_TO_MELD', meldId: meld.id, cards: selectedCards });
+    const options = layoffOptions(meld);
+    if (options.length === 0) return;
+    if (options.length === 1) { layoff(meld, options[0]); return; }
+    setPendingLayoff({ meld, options });
   }
   function canAddTo(meld: FiftyOneMeld): boolean {
-    return meldStep && opened && selectedCards.length >= 1
-      && hand.length - selectedCards.length >= 1
-      && !!resolveMeld([...meld.cards, ...selectedCards]);
+    return layoffOptions(meld).length > 0;
   }
 
   /**
@@ -304,6 +354,13 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   return (
     <div className="screen fiftyone-screen">
       {showHelp && <GameHelpModal game="fifty-one" onClose={() => setShowHelp(false)} />}
+      {pendingLayoff && (
+        <FiftyOneLayoffDialog
+          options={pendingLayoff.options}
+          onPick={(o) => layoff(pendingLayoff.meld, o)}
+          onCancel={() => setPendingLayoff(null)}
+        />
+      )}
 
       <div className="fiftyone-topbar">
         <button type="button" className="btn btn--ghost fiftyone-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>

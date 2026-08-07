@@ -1163,3 +1163,54 @@ Use this file as the first read after archiving this chat. It is intentionally s
   printing — read the output file); `git diff --check` clean; libc 0; no package/lock drift.
 - **Gotcha:** a payout fixture must NOT fabricate `appliedRebuys` — `payoutStacks` cross-checks
   the durable rebuy COUNT and returns `invalid` when the ledger has no matching rows.
+
+### Stage 38.0.9 — 51 corrective UX/rules (COMPLETE, Unreleased)
+- Worked from HEAD `87f00f3`. SIX owner FAILs, all reproduced first. **No migration** (0014),
+  version 0.4.8, games 7, achievements 52, libc 0. **Poker economy/anti-dump source: ZERO
+  diff**; the other five engines: ZERO diff.
+- **RED (measured, then moved into permanent tests):**
+  A `4p-react-click`/`4p-sticker-click` → "the sheet CLOSED after the click" at EVERY viewport.
+  B at 360 a sticker cell was 81px tall with a **37px** visible image (`sticker-img-squashed`,
+  426 hits); lazy off-screen ones measured `0/81`.
+  C `group-empty-bottom: g2 145px` and `group-stretched: 0|2 equal h=308 but content differs
+  by 139`.
+  D `[6♠,7♠,🃏=8♠] + 5♠` → reducer returned the SAME reference; `[5,6,7,J]` is obviously valid.
+  E `🃏 + [4♠,5♠,6♠]` legal at both ends (`3♠` / `7♠`) and the action had no side field.
+  F the pure engine already accepted all six permutations of `6♠ 🃏 8♠` (6-J-8 = 21) — a
+  `REPLACE_JOKER` probe proved the hand keeps its LENGTH while its ids change, so the
+  length-keyed reset effect never fired and stale ids were silently dropped.
+- **FIX A:** `react()`/`sendMedia()` close the picker only when `!sheet`. Exactly 2
+  `closeSheet()` call sites + Escape + the launcher toggle; one `setPanel('none')` in total.
+- **FIX B:** `.chat-media-thumb` keeps `aspect-ratio: 1/1` + `min 44px` and its `img` is now
+  `width/height: 100%` + `object-fit: contain` (was `max-*: 100%`, i.e. intrinsic sizing);
+  the grid is `repeat(auto-fill, minmax(60px, 1fr))` + `grid-auto-rows: min-content` +
+  `align-items: start` + `overflow-x: hidden`. Emoji buttons got 44×44.
+- **FIX C:** `.fiftyone-meldgroup { flex: 0 1 auto; align-self: flex-start }` (was
+  `flex: 1 1 100%`), `.fiftyone-melds { align-items/align-content: flex-start }`, the old
+  desktop `flex: 1 1 22rem; max-width: 50%` rule deleted, and a phone-only
+  `@media (max-width: 559px) { flex: 1 1 100% }` because the cards genuinely need the row.
+- **FIX D/E — ONE owner RULE clarification (51_RULES §9).** `ADD_TO_MELD` now REQUIRES
+  `placement: 'start' | 'end'`. New shared pure helpers in `melds.ts`: `LayoffPlacement`,
+  `isLayoffPlacement`, `layoffCandidate`, `legalLayoffPlacements` (+ `LayoffOption`). The
+  helper DEDUPES by resolved signature, so two options appear ONLY when the sides produce
+  genuinely different melds (in practice: a joker) — a joker-free card sorts into the same
+  canonical run either way and asks nothing. Sets normalise to one `end` option. UI:
+  `FiftyOneLayoffDialog` (opaque `--panel`, 44px, focus trap+return, Escape/backdrop cancel,
+  single-flight pick) shown only for 2 options; 1 acts immediately, 0 hides the control. The
+  bot uses the same helper and always sends a placement. i18n `fiftyOne.layoff*` ×4.
+- **FIX F:** the reset effect is now `[currentSeat, turnStep, phase, roundNumber]` only; an
+  ordinary update RECONCILES `selected`/`staged` against a `poolKey` (the sorted CONTENT
+  identity of the pool), dropping only ids that really vanished and returning the SAME array
+  reference when nothing changed.
+- **Gate `npm run layout:fiftyone` extended to 144 checks**: viewports 360/390/768/1366/1920/
+  2560 × 24 scenarios, including REAL clicks (`stillOpen` assertion + the active tab), sticker
+  geometry (square cell, image fills it, no strip/overlap/x-scroll) and meld-group compactness
+  (`group-empty-bottom` ≤26px, `group-empty-right` ≤48px, `group-stretched`, `group-too-wide`
+  judged by the widest CARD ROW so a 13-card run is exempt). `--legacy` still reproduces the
+  RED (2337 violations).
+- **Gates:** `npm run verify` PASS (**291 files / 3536 tests** + build + E2E); layout:fiftyone
+  144/144; layout:poker 228 LAYOUT OK; git diff --check clean; libc 0; no package/lock drift.
+- **Gotchas:** (1) `resolveRunInternal` is ORDER-INDEPENDENT for joker-free cards, so both
+  placements often resolve identically — dedupe by signature or the chooser appears for every
+  lay-off. (2) A JS template literal in the QA probe cannot contain backticks — a
+  `object-fit: contain` comment broke the script.

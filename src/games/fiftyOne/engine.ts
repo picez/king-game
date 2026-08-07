@@ -12,7 +12,7 @@
 import type { Rng } from '../../core/rng';
 import type { PlayerType } from '../../models/types';
 import { dealFiftyOne, shuffleFiftyOne } from './deck';
-import { resolveMeld } from './melds';
+import { resolveMeld, isLayoffPlacement, layoffCandidate } from './melds';
 import {
   activeSeats,
   handPenalty,
@@ -397,12 +397,20 @@ export function fiftyOneReducer(
       const meldIdx = state.publicMelds.findIndex((m) => m.id === action.meldId);
       if (meldIdx < 0) return state;
       const hand = state.handsBySeat[seat];
+      // (38.0.9) A malformed payload must never throw — a non-array `cards` used to reach
+      // `pickFromHand` and blow up on iteration.
+      if (!Array.isArray(action.cards)) return state;
       const picked = pickFromHand(hand, action.cards);
       if (!picked || picked.length === 0) return state;
       if (hand.length - picked.length < 1) return state; // must keep a card to discard
 
+      // (38.0.9) The side is explicit and validated here — never trusted from the caller.
+      // An unknown/missing placement is refused outright rather than guessed.
+      if (!isLayoffPlacement(action.placement)) return state;
       const meld = state.publicMelds[meldIdx];
-      const combined = [...meld.cards, ...picked];
+      // The selection keeps ITS order; `start` puts it before the meld, `end` after it.
+      // There is no way to express an insertion inside the run, so no index can be forged.
+      const combined = layoffCandidate(meld.cards, picked, action.placement);
       const r = resolveMeld(combined);
       if (!r) return state;                              // must stay a legal meld (§9)
 

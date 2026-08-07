@@ -103,6 +103,11 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   justify-content: center;
+  /* (38.0.9 owner FAIL) Groups must NOT be stretched to the tallest one in their row —
+     a one-meld group was measured 308px tall beside content of only 169px. `flex-start`
+     tops them out and lets each keep its own height. */
+  align-items: flex-start;
+  align-content: flex-start;
   max-width: 100%;
 }
 .fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.2rem 0; }
@@ -111,16 +116,26 @@
    that owner's total meld value; the group is separated by a light background + divider
    rather than by a heavy nested panel per meld. Full width on a phone; two per row on a
    wide screen ONLY when they genuinely fit (the media query below). */
+/* (38.0.9 owner FAIL) A group HUGS ITS CONTENT. It used to be `flex: 1 1 100%`, so on a
+   wide screen a single 3-card meld was blown up to half the viewport with a large empty
+   area after the last card. It now sizes to its widest meld (`flex: 0 1 auto`) and stops
+   right after its last one; only a NARROW viewport lets it take the whole row, because
+   the cards would not otherwise fit. */
 .fiftyone-meldgroup {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-  flex: 1 1 100%;
+  flex: 0 1 auto;
+  align-self: flex-start;      /* never stretched to a neighbour's height */
   max-width: 100%;
   padding: 0.35rem 0.4rem;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.18);
+}
+/* On a phone the cards need the whole row, so the group may take it. */
+@media (max-width: 559px) {
+  .fiftyone-meldgroup { flex: 1 1 100%; }
 }
 .fiftyone-meldgroup--out { opacity: 0.55; }
 .fiftyone-meldgroup__head {
@@ -196,10 +211,8 @@
   min-height: 44px; min-width: 44px; padding: 0 0.4rem; line-height: 1; font-size: 1rem;
 }
 
-/* Two owner groups per row only when they genuinely fit (a phone stays one per row). */
-@media (min-width: 760px) {
-  .fiftyone-meldgroup { flex: 1 1 22rem; max-width: calc(50% - 0.2rem); }
-}
+/* Wide screens simply fit as many content-sized groups per row as the width allows —
+   the old artificial 2-up rule (`flex: 1 1 22rem; max-width: 50%`) is gone (38.0.9). */
 
 /* The top-bar social launcher + compact timer (Stage 38.0.5.1). In-flow top-bar items:
    collapsed, nothing about the social UI touches the table, the melds or the actions. */
@@ -312,3 +325,32 @@
 .fiftyone-calc__result { font-weight: 700; }
 .fiftyone-calc__result--ok { color: var(--success, #7fdca0); }
 .fiftyone-calc__result--no { color: var(--text-muted, #b9c7bd); }
+
+/* ---------------------------------------------------------------------------
+   Ambiguous lay-off side chooser (Stage 38.0.9, §9). Shown ONLY when the shared
+   `legalLayoffPlacements` really returned TWO legal ends — most visibly a joker,
+   which represents a different card at each end. Opaque, bounded, 44px targets.
+   --------------------------------------------------------------------------- */
+.fiftyone-layoff-backdrop {
+  position: fixed; inset: 0; z-index: 94;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(1rem, env(safe-area-inset-left)) 1rem max(1rem, env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.62);
+}
+.fiftyone-layoff-dialog {
+  width: min(100%, 22rem); max-height: 86vh; overflow-y: auto;
+  /* OPAQUE: `--surface` is a translucent wash and the felt read straight through it. */
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: 0.9rem;
+  padding: 0.9rem; box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.fiftyone-layoff-dialog__title { margin: 0; font-size: 0.98rem; font-weight: 800; }
+.fiftyone-layoff-dialog__options { display: flex; flex-direction: column; gap: 0.45rem; }
+.fiftyone-layoff-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  min-height: 44px; min-width: 44px; padding: 0.4rem 0.7rem; text-align: start;
+}
+.fiftyone-layoff-option__side { font-weight: 700; }
+.fiftyone-layoff-option__preview { font-variant-numeric: tabular-nums; opacity: 0.92; }
+.fiftyone-layoff-cancel { min-height: 44px; min-width: 44px; align-self: stretch; }

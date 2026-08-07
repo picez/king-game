@@ -14,7 +14,8 @@
 // It never makes an illegal move and always ends the turn on a legal discard.
 // ---------------------------------------------------------------------------
 
-import { resolveMeld, rankValue } from './melds';
+import { resolveMeld, rankValue, legalLayoffPlacements } from './melds';
+import type { LayoffPlacement } from './melds';
 import { topDiscard } from './rules';
 import type { Rank } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from './types';
@@ -150,11 +151,21 @@ function choosePostOpenMeld(hand: FiftyOneCard[]): FiftyOneCard[] | null {
 }
 
 /** A card that can be laid off onto an existing public meld, or null. */
-function chooseLayoff(hand: FiftyOneCard[], melds: FiftyOneMeld[]): { meldId: string; card: FiftyOneCard } | null {
+/**
+ * (38.0.9) The bot uses the SAME shared helper as the UI and the reducer, so it can never
+ * emit a placement the rules would refuse — and it now finds lay-offs that extend the START
+ * of a run, which the old `[...m.cards, card]` probe could never see. When both sides are
+ * legal the bot takes the FIRST option deterministically (`start` before `end`), so a replay
+ * of the same seed always produces the same move.
+ */
+function chooseLayoff(
+  hand: FiftyOneCard[], melds: FiftyOneMeld[],
+): { meldId: string; card: FiftyOneCard; placement: LayoffPlacement } | null {
   if (hand.length < 2) return null; // keep the last card to discard / go out
   for (const card of hand) {
     for (const m of melds) {
-      if (resolveMeld([...m.cards, card])) return { meldId: m.id, card };
+      const options = legalLayoffPlacements(m.cards, [card]);
+      if (options.length > 0) return { meldId: m.id, card, placement: options[0].placement };
     }
   }
   return null;
@@ -209,7 +220,7 @@ export function fiftyOneBotAction(state: FiftyOneState, seat: number): FiftyOneA
     const meld = choosePostOpenMeld(hand);
     if (meld) return { type: 'OPEN_MELDS', melds: [meld] };
     const layoff = chooseLayoff(hand, state.publicMelds);
-    if (layoff) return { type: 'ADD_TO_MELD', meldId: layoff.meldId, cards: [layoff.card] };
+    if (layoff) return { type: 'ADD_TO_MELD', meldId: layoff.meldId, cards: [layoff.card], placement: layoff.placement };
   }
   return { type: 'DISCARD', card: chooseDiscard(hand) };
 }

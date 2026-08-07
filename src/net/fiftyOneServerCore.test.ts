@@ -349,7 +349,7 @@ describe('51 public round_complete advances server-side (Stage 30.4)', () => {
       cards: [card('2', 'spades'), card('3', 'spades'), card('4', 'spades')], jokerRepresents: {}, value: 9,
     }];
     const res = applyActionRequest(room, clientForSeat(seat),
-      { type: 'ADD_TO_MELD', meldId: 'pm', cards: [card('A', 'spades')] } as AnyGameAction);
+      { type: 'ADD_TO_MELD', meldId: 'pm', cards: [card('A', 'spades')], placement: 'start' } as AnyGameAction);
     expect(res.ok).toBe(true);
     const after = asF(room.gameState);
     expect(after.publicMelds[0].cards.map((c) => c.rank)).toEqual(['A', '2', '3', '4']); // Ace-first

@@ -1557,3 +1557,23 @@ idempotency are completely unaffected, and nothing freezes or is confiscated. Th
 persisted as a canonical flag (never the malformed value) so a serialize→restore round trip
 cannot launder it into "legacy", and it is retired only by a committed fresh debit that
 stamps a new valid v1 policy.
+
+### 51 lay-off placement is server-authoritative (Stage 38.0.9)
+
+`ADD_TO_MELD` gained a REQUIRED `placement: 'start' | 'end'`. It is an instruction, not a
+result: the reducer takes the cards from the AUTHORITATIVE hand, inserts the selection —
+in the client's order — on the named side, re-resolves the whole meld with the shared
+`resolveMeld`, and returns the SAME state reference on any failure. A missing or unknown
+placement is refused rather than guessed, a non-array `cards` can no longer throw, and
+there is no way to express an insertion INSIDE a run, so no index can be forged.
+
+`legalLayoffPlacements()` in `src/games/fiftyOne/melds.ts` is the ONE shared helper: the UI
+uses it to decide whether to hide the Add control (0 options), act immediately (1) or ask
+which end (2); the bot uses it to pick a deterministic legal side; and the reducer re-derives
+the result independently, so a client that renders a "valid" preview still cannot make an
+illegal lay-off happen. Two options are reported only when the sides genuinely produce
+DIFFERENT melds — a joker-free card usually sorts into the same canonical run either way.
+
+LOCAL and ONLINE 51 drive the same screen, the same helper and the same reducer; the online
+path adds nothing but transport. No privacy surface changed: the action carries only public
+card ids, and `RoomSnapshot` is untouched.

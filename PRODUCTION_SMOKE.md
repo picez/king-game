@@ -813,3 +813,16 @@ not about making collusion impossible.
    buy-ins are returned — anti-abuse must never block a refund.
 9. A bankroll match that was already running before the deploy keeps the old behaviour
    (uncapped rebuys, ranked) until it ends.
+
+## Syrian 51 lay-off placement (Stage 38.0.9)
+
+1. In an online 51 room, open a meld `6♠ 7♠ 🃏`. With `5♠` in hand, select it and tap Add —
+   the public meld becomes `5♠ 6♠ 7♠ 🃏` and the joker still shows `8♠`.
+2. Watch the `ACTION_REQUEST`: it carries `placement: "start"`. Replay the same request with
+   `placement: "end"`, with the field removed, and with `placement: "middle"` — each is
+   refused and the table is unchanged.
+3. With `4♠ 5♠ 6♠` on the table, add a joker: the client asks which end, and the resulting
+   `jokerRepresents` matches the chosen side (`3♠` or `7♠`).
+4. Adding to a SET is accepted with either side and produces the same meld.
+5. Confirm the other player's screen shows the identical meld order after the update, and
+   after a reconnect (the redacted snapshot preserves order and `jokerRepresents`).

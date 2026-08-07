@@ -428,3 +428,24 @@ Each has a **recommended MVP default** the build will use unless the owner says 
   the authoritative sequence from §5/§6/§8 — the display never sorts it, never moves a joker
   and never mirrors the artwork under RTL.** No change to deck / opening 51 / joker-hand-25 /
   unopened-100 / configurable elimination / win-by-final-discard / discard-to-open.
+- **Stage 38.0.9 (2026-08-07):** **ONE owner rule clarification (§9) + five presentation
+  fixes.** (1) **RULE — lay-off placement.** After opening, a card (or an ordered selection)
+  may be added to the **legal START or the legal END** of a run; the addition must preserve
+  the run order and every existing joker's represented card. `ADD_TO_MELD` therefore carries
+  an explicit, server-authoritative `placement: 'start' | 'end'`: the reducer takes the cards
+  from the authoritative hand, inserts them on the named side, re-resolves the whole meld and
+  refuses anything else — an unknown/missing side is rejected outright and a forged one cannot
+  produce a meld the rules would not. There is deliberately no way to express an insertion
+  INSIDE a run. For a **SET** the side is meaningless and is normalised, so the UI never asks.
+  `legalLayoffPlacements()` is the ONE shared helper used by the UI, the bot and the tests; it
+  reports two options only when the two sides genuinely produce DIFFERENT melds — which in
+  practice means a **joker**, e.g. `🃏 + 4♠ 5♠ 6♠` is `3♠` at the start or `7♠` at the end, and
+  the player chooses. Joker replacement stays the separate `REPLACE_JOKER` action (§9a).
+  Regression: `[6♠,7♠,🃏=8♠] + 5♠ at start → [5♠,6♠,7♠,🃏=8♠]`, joker still `8♠`.
+  (2) **PRESENTATION ONLY — no rule changed:** meld groups hug their content instead of
+  growing to half the screen and being stretched to a neighbour's height; the room sheet stays
+  open after a reaction/sticker; sticker thumbnails render as full squares; and the meld
+  selection is reconciled against the authoritative card ids after every update, so a
+  same-length change (e.g. `REPLACE_JOKER`) can no longer strand a valid pick — the
+  intermittent `6♠ 🃏 8♠` report needed a reload only because of that stale selection, never
+  because of the rules (the resolver always accepted it, joker `7♠`, value 21).

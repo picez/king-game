@@ -1818,3 +1818,55 @@ server restart if one is ever observed.)
 - [ ] A new table can only be started once that one has properly finished — and it then
       behaves completely normally again.
 - [ ] Nothing anywhere shows a technical marker, an account id or an opponent's name.
+
+## Syrian 51 + room panel — corrective pass (Stage 38.0.9)
+
+Automated gates: `npx vitest run src/games/fiftyOne src/ui/fiftyOne src/net/fiftyOne` and
+`npm run layout:fiftyone` (**144 checks**, 360 → 2560, LTR + Arabic RTL; `--legacy`
+reproduces the old geometry). This is the manual pass.
+
+**The room panel**
+
+- [ ] Open the room menu → **Reactions**, tap an emoji: the reaction is sent and **the panel
+      stays open**, still on Reactions, still scrolled where you were.
+- [ ] Tap several in a row without re-opening anything.
+- [ ] Send a **sticker**: same — the panel stays open.
+- [ ] If you hit the "too many" limit, the notice is readable **over the open panel**.
+- [ ] The panel closes only on **✕**, the **backdrop**, **Escape**, or tapping the room
+      button again.
+- [ ] **Every sticker is a full square picture**, not a thin strip, at 360 and 390 and on a
+      desktop. Scrolling the grid loads more without the ones above jumping.
+- [ ] The other six games' panels behave exactly as before (Poker especially).
+
+**Melds on the table**
+
+- [ ] One player with a single 3-card meld does **not** get a box half the screen wide.
+- [ ] A player's box **ends just after their last combination** — no tall empty area.
+- [ ] A short box next to a tall one is **not** stretched to match it; they line up at the top.
+- [ ] Several players' boxes sit side by side compactly and wrap when they run out of room.
+- [ ] A 13-card run still shows every card, wrapping in order, with no sideways scrolling.
+- [ ] At 360/390 a box may take the full width — that is correct, the cards need it.
+- [ ] **Arabic RTL** mirrors the layout but a run still reads low→high and the card artwork
+      is not mirrored.
+
+**Adding to melds**
+
+- [ ] With `6♠ 7♠ 🃏` on the table and `5♠` in hand, **Add works** and the result is
+      `5♠ 6♠ 7♠ 🃏` with the joker still standing for `8♠`.
+- [ ] With `4♠ 5♠ 6♠` on the table, select a **joker** and tap Add: a small dialog offers
+      **At the start (🃏 = 3♠)** and **At the end (🃏 = 7♠)**. Pick one — the table shows
+      exactly that.
+- [ ] **Cancel** changes nothing. Double-tapping a choice adds the card **once**.
+- [ ] With a plain `3♠` or `7♠` there is **no dialog** — it just happens.
+- [ ] Adding to a **set** never asks a side.
+- [ ] The dialog is fully opaque, fits 360/390, mirrors in Arabic, and every button is easy
+      to tap; Escape and the backdrop cancel it.
+
+**The selection never gets stuck**
+
+- [ ] Hold `6♠`, `8♠` and a joker. Select them in **any order** — the preview says it is a
+      valid run and **Lay meld** is enabled.
+- [ ] Do it again right after **taking a joker back** from the table (which leaves you with
+      the same number of cards). It still works — **no reload needed**.
+- [ ] Do it again right after a draw, and online right after a reconnect.
+- [ ] If the server refuses a move, you can simply pick again — nothing is silently stuck.

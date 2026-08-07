@@ -188,15 +188,22 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const activeReactions = reactions.filter((r) => now - r.at < REACTION_TTL_MS);
   const activeFloats = floats.filter((f) => now - f.at < REACTION_TTL_MS);
 
+  /**
+   * (38.0.9 owner FAIL) Sending a reaction must NOT close the surface it was sent from.
+   * In the `sheet` variant the picker is a deliberate, modal workspace: the player wants to
+   * fire several reactions in a row, and closing after one wiped the panel, the tab and the
+   * scroll position. The historical `floating`/`docked` clusters keep their old
+   * close-after-send behaviour — Poker uses `docked` and must not change.
+   */
   function react(emoji: string) {
     onReact(emoji);
-    setReactOpen(false);
+    if (!sheet) setReactOpen(false);
   }
-  // A media send closes any open picker (chat sticker grid OR the reaction picker).
+  /** A media send closes the chat sticker grid; the SHEET's reaction picker stays open. */
   function sendMedia(item: ChatMediaItem) {
     onChatMedia(item.id);
     setMediaOpen(false);
-    setReactOpen(false);
+    if (!sheet) setReactOpen(false);
   }
   function leaveGame() {
     if (typeof window !== 'undefined' && !window.confirm(t('online.leaveGameConfirm'))) return;

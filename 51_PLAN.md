@@ -383,3 +383,20 @@ Resolve [`51_RULES.md` §16 Open questions](51_RULES.md#16-open-questions--confi
 (deck count, direction, finish-without-discard, lay-off-to-others, discard-take rules,
 elimination/finish, the 100-penalty trigger, "Hand" win, joker-per-meld cap). The MVP will
 proceed on the **recommended defaults** if the owner does not object.
+
+## Stage 38.0.9 — corrective UX/rules (COMPLETE, Unreleased)
+
+Six owner FAILs, all reproduced first. No migration, no version bump, no Poker change.
+
+| # | FAIL | root cause | fix |
+| --- | --- | --- | --- |
+| A | a reaction closed the room sheet | `react()`/`sendMedia()` called `setReactOpen(false)` unconditionally | close only in the historical `floating`/`docked` variants |
+| B | stickers rendered as a thin band | `img { max-width/height: 100% }` sized the image by its own intrinsic box; lazy images measured 0 | square cell + `width/height: 100%` + `object-fit: contain`; `auto-fill` columns |
+| C | meld groups half the screen, stretched | `.fiftyone-meldgroup { flex: 1 1 100% }` + default `align-items: stretch` | `flex: 0 1 auto` + `align-self: flex-start`; `.fiftyone-melds` tops out its rows |
+| D | a card could not join the START of a run | the reducer always appended (`[...meld.cards, ...picked]`) | explicit `placement`, validated server-side |
+| E | no side choice for an ambiguous joker | the action had no side at all | `legalLayoffPlacements()` + a chooser shown only when the two sides really differ |
+| F | `6♠ 🃏 8♠` needed a reload | the selection reset keyed on `hand.length`/`publicMelds.length`, so a SAME-LENGTH mutation left stale ids that were silently dropped | reconcile the selection against the authoritative ids on every content change |
+
+Browser matrix extended to **144 checks**: 360 / 390 / 768 / 1366 / 1920 / 2560 × 24
+scenarios, including REAL clicks on an emoji and a sticker, sticker/emoji geometry, and
+meld-group compactness (empty-bottom, empty-right, not-stretched, not-too-wide).

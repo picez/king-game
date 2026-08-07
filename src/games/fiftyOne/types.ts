@@ -10,6 +10,7 @@
 
 import type { PlayerType, Rank, Suit } from '../../models/types';
 import type { Rng } from '../../core/rng';
+import type { LayoffPlacement } from './melds';
 
 export type { PlayerType, Rank, Suit } from '../../models/types';
 
@@ -204,8 +205,17 @@ export type FiftyOneAction =
    * lays any valid meld with no 51 minimum (§7/§9, owner rule 30.9).
    */
   | { type: 'OPEN_MELDS'; melds: FiftyOneCard[][] }
-  /** Lay off card(s) onto an existing public meld — only after opening (§9). */
-  | { type: 'ADD_TO_MELD'; meldId: string; cards: FiftyOneCard[] }
+  /**
+   * Lay off card(s) onto an existing public meld — only after opening (§9).
+   *
+   * (38.0.9) `placement` is REQUIRED and says which END of the meld the selection attaches
+   * to; the selection keeps its own order. A run may legally extend at either end, and for
+   * a joker BOTH ends are often legal with different represented cards, so the side is the
+   * player's decision and must reach the authoritative reducer. A SET has no order, so the
+   * value is normalised there. The reducer re-derives the whole result and rejects anything
+   * that is not a legal meld, so a forged placement changes nothing.
+   */
+  | { type: 'ADD_TO_MELD'; meldId: string; cards: FiftyOneCard[]; placement: LayoffPlacement }
   /**
    * Swap a real card from hand for a joker sitting in a PUBLIC meld, taking the
    * joker into hand (§9a, owner rule 30.14). Legal only for an OPENED seat at its

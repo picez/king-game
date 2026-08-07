@@ -11,6 +11,31 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **Six things the owner hit in Syrian 51 and the room panel (Stage 38.0.9).**
+  - **Reactions no longer close the panel.** Sending an emoji or a sticker used to shut the
+    room sheet, so firing a few in a row meant re-opening it every time. It now stays open
+    on the Reactions tab, right where you were. Only ✕, the backdrop, Escape or the button
+    that opened it close it. The other games' floating/docked panels are unchanged.
+  - **Stickers are shown in full.** Each one was being squeezed into a thin horizontal band
+    (measured: a 37-pixel-tall image inside an 81-pixel cell). Every sticker now fills its
+    own square, at any screen width, and the grid picks 3–5 columns to fit.
+  - **Melds are compact again.** A player's melds used to be blown up to half the screen and
+    stretched down to match a taller neighbour, leaving a large empty area. Each player's box
+    now ends right after its last card and is only as wide as its longest combination.
+  - **You can add to the START of a run.** Laying `5♠` onto `6♠ 7♠ 🃏` was refused, because
+    the card was always appended to the end. Cards may now join either legal end, and the
+    joker keeps the card it already stood for.
+  - **You choose the joker's side.** Adding a joker to `4♠ 5♠ 6♠` is legal at both ends —
+    as `3♠` at the start or `7♠` at the end. A small dialog now shows both and lets you pick;
+    when only one end is legal it simply happens, with no dialog.
+  - **`6♠ + 🃏 + 8♠` works without reloading.** Occasionally a perfectly valid combination
+    could not be laid until the page was reloaded. A move that changed your cards without
+    changing how many you held (swapping a joker back, for instance) left the selection
+    pointing at cards that no longer existed. The selection is now checked against your real
+    hand after every update instead of being guessed from the number of cards.
+
+### Fixed
+
 - **Two holes in the new Poker anti-dumping limits (Stage 38.0.8.1).**
   - **Two tables at once.** Two people could open two paid tables together at the *same
     moment* and both would be funded, because the limit only looked at matches that had
