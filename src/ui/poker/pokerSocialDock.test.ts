@@ -79,7 +79,7 @@ describe('RoomSocial docked variant', () => {
 });
 
 describe('exactly one social surface is open at a time', () => {
-  const render = (openPanel: 'none' | 'reactions' | 'chat' | 'utility') => html(createElement(RoomSocial, {
+  const render = (openPanel: 'none' | 'chat' | 'utility') => html(createElement(RoomSocial, {
     ...socialProps, variant: 'docked', openPanel,
     utilitySlot: createElement(PokerActionLogButton, { open: openPanel === 'utility', unread: false, onToggle: () => {} }),
     utilityPanelSlot: openPanel === 'utility'
@@ -87,32 +87,29 @@ describe('exactly one social surface is open at a time', () => {
       : null,
   }));
 
-  it('default closed: no chat, no reactions, no history panel', () => {
+  it('default closed: no chat, no picker, no history panel', () => {
     const out = render('none');
     expect(out).not.toContain('chat-drawer');
-    expect(out).not.toContain('reaction-bar');
+    expect(out).not.toContain('chat-picker');
     expect(out).not.toContain('poker-log-panel');
   });
 
-  it('chat open → neither the reaction bar nor the history panel is rendered', () => {
+  it('chat open → the history panel is not rendered (the picker lives inside the chat)', () => {
     const out = render('chat');
     expect(out).toContain('chat-drawer');
-    expect(out).not.toContain('reaction-bar');
+    expect(out).toContain('chat-picker-btn');
     expect(out).not.toContain('poker-log-panel');
   });
 
-  it('history open → neither chat nor the reaction bar is rendered', () => {
+  it('history open → the chat is not rendered', () => {
     const out = render('utility');
     expect(out).toContain('poker-log-panel');
     expect(out).not.toContain('chat-drawer');
-    expect(out).not.toContain('reaction-bar');
   });
 
-  it('reactions open → neither chat nor history is rendered', () => {
-    const out = render('reactions');
-    expect(out).toContain('reaction-bar');
-    expect(out).not.toContain('chat-drawer');
-    expect(out).not.toContain('poker-log-panel');
+  it('(38.0.12) there is no separate reactions surface any more', () => {
+    expect(render('chat')).not.toContain('reaction-bar--docked');
+    expect(render('none')).not.toContain('reaction-bar');
   });
 });
 

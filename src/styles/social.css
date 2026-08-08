@@ -137,8 +137,11 @@
   padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border);
   font-weight: 700; color: var(--text);
 }
+/* The conversation is the history's ONE scroller in every variant, and it keeps a FLOOR:
+   the picker below it may only take what is left over, so the chat can never be squeezed
+   away (measured at d44171b: 80px at 360, 65px at 390, 0px at 1920 — Stage 38.0.12). */
 .chat-drawer__list {
-  flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  flex: 1 1 auto; overflow-y: auto; min-height: 6.5rem;
   padding: 0.7rem; display: flex; flex-direction: column; gap: 7px;
 }
 .chat-empty { color: var(--text-muted); text-align: center; margin-top: 1.5rem; font-size: 0.9rem; }
@@ -160,12 +163,6 @@
 .chat-input { flex: 1 1 auto; min-width: 0; }
 .chat-media-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
 
-/* Sticker picker: a scrollable thumbnail grid inside the drawer (never overflows). */
-.chat-media-picker {
-  flex: 0 0 auto; max-height: 42vh; overflow-y: auto;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-  padding: 0.6rem; border-top: 1px solid var(--border); background: var(--surface-2);
-}
 .chat-media-thumb {
   display: flex; align-items: center; justify-content: center;
   /* A square cell whose size does NOT depend on the image (so a lazy/undecoded sticker
@@ -235,7 +232,9 @@
 /* Docked panels: in flow, full width, self-scrolling — they push the action row down
    instead of covering it. */
 .chat-drawer--docked {
-  position: static; width: 100%; height: auto; max-height: min(42vh, 20rem);
+  /* (38.0.12) Raised from min(42vh, 20rem): the docked chat now also carries the picker,
+     and the history keeps a 6.5rem floor — the old cap left the picker ~14px. */
+  position: static; width: 100%; height: auto; max-height: min(56vh, 25rem);
   border-left: none; border-right: none;
   border: 1px solid var(--border-strong); border-radius: 0.7rem;
   box-shadow: none;
@@ -329,31 +328,39 @@
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 0.4rem;
 }
-.social-sheet__body .chat-drawer__list {
-  position: static; flex: 0 0 auto; min-height: 6rem; max-height: none;
-  overflow: visible;                    /* the body scrolls it — see the rule below */
+/* (38.0.12) The sheet renders the SAME chat as the drawer: the message list is its own
+   scroller and keeps its floor, the composer is a pinned row, the picker is bounded. The
+   body wrapper survives only for the caller's utility panel. */
+.social-sheet > .chat-drawer__list {
+  position: static; flex: 1 1 auto; max-height: none;
+  border: 1px solid var(--border); border-radius: 0.6rem; background: var(--surface-2);
 }
-/* (38.0.12 owner FAIL) NOTHING inside the sheet body scrolls on its own — the body is
-   the single scroller for the conversation. The owner's phone showed two scrollbars
-   side by side because the grids kept their own inside it. */
-.reaction-bar--sheet { width: 100%; border: none; box-shadow: none; background: transparent; padding: 0; }
-/* The composer sits OUTSIDE the scroller (a pinned row), so an expanded sticker grid
-   can never push the text field out of reach. */
 .social-sheet > .chat-drawer__compose {
   flex: 0 0 auto; padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
 }
-/* (38.0.12) The IN-CHAT picker: emoji that type into the message, then the stickers.
-   A pinned sibling BELOW the composer — the conversation stays visible and usable while
-   it is open, exactly like a messenger. It bounds itself and is its region's ONE
-   scroller (the grid inside it must not add a second one). */
+/* (38.0.12) The IN-CHAT picker — the SAME element in all three layout variants: a mode
+   switch, the emoji row and the sticker catalog, pinned BELOW the composer. It is a
+   sibling of the conversation, never a replacement for it.
+   `flex: 0 1 auto` + `min-height: 0` is what keeps the promise: the cap below is an
+   upper bound, and when the panel is short the picker SHRINKS instead of eating the
+   history (which holds its own floor). It is also its region's only scroller. */
 .chat-picker {
-  flex: 0 0 auto; max-height: 34vh; overflow-y: auto; overflow-x: hidden;
+  flex: 0 1 auto; min-height: 0;
+  max-height: min(30vh, 210px); overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 0.4rem;
   padding-top: 0.4rem; border-top: 1px solid var(--border);
 }
-.chat-picker .reaction-bar__stickers { max-height: none; overflow: visible; }
+.chat-picker .reaction-bar__stickers { max-height: none; overflow: visible; border-top: none; }
 .chat-picker .reaction-bar__emojis { display: flex; flex-wrap: wrap; gap: 4px; }
-.chat-emoji-btn { font-size: 1.05rem; }
+/* The two EXPLICIT emoji actions — a visible switch, never a hidden gesture. */
+.chat-picker__modes { display: flex; gap: 6px; flex: 0 0 auto; }
+.chat-picker__mode {
+  flex: 1 1 0; min-height: 36px; padding: 0 0.6rem; cursor: pointer;
+  font-size: 0.78rem; font-weight: 600; border-radius: 999px;
+  background: var(--panel); color: var(--text-muted); border: 1px solid var(--border-strong);
+}
+.chat-picker__mode--on { background: var(--surface-3); color: var(--text); border-color: var(--accent, #f5c518); }
+.chat-picker-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
 .social-sheet__foot {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
   border-top: 1px solid var(--border-strong); padding-top: 0.4rem;

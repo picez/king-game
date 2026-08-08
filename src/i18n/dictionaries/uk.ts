@@ -1119,6 +1119,9 @@ export const UK: Record<string, string> = {
   'chat.mediaPicker': 'Стікери',
   'chat.sendMedia': 'Надіслати стікер',
   'chat.noMedia': 'Стікерів немає',
+  'chat.emojiMode': 'Дія емодзі',
+  'chat.emojiToMessage': 'У повідомлення',
+  'chat.emojiToTable': 'На стіл',
   'account.hint': 'Необовʼязково. Локальна та онлайн-гра гостем працюють без входу — налаштування зберігаються на цьому пристрої.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Статистика',

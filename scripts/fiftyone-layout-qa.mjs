@@ -297,7 +297,7 @@ const PROBE = `JSON.stringify((() => {
   const sheetEl = document.querySelector('.social-sheet');
   // The conversation and the picker each bound themselves; NOTHING inside either of
   // them may add a scrollbar of its own.
-  for (const root of ['.social-sheet__body', '.chat-picker']) {
+  for (const root of ['.social-sheet__body', '.chat-picker', '.chat-drawer__list']) {
     const region = document.querySelector(root);
     if (!region) continue;
     for (const el of region.querySelectorAll('*')) {
@@ -305,6 +305,35 @@ const PROBE = `JSON.stringify((() => {
       const scrolls = (st.overflowY === 'auto' || st.overflowY === 'scroll')
         && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1;
       if (scrolls) add('sheet-nested-scroll', root + ' > ' + (el.className || '?').toString().split(' ')[0]);
+    }
+  }
+  // (38.0.12) With the picker open the conversation must SURVIVE beside it — the owner's
+  // FAIL was a sheet where the history had effectively vanished.
+  // The list may be taller than the box that CLIPS it (the sheet body scrolls it), so
+  // measure the VISIBLE band, not the element.
+  const visibleH = (el) => {
+    if (!el) return 0;
+    const r = rect(el);
+    let clip = el.parentElement, box = r;
+    while (clip) {
+      const st = getComputedStyle(clip);
+      if (st.overflowY === 'auto' || st.overflowY === 'scroll' || st.overflowY === 'hidden') {
+        const cr = rect(clip);
+        box = { t: Math.max(box.t, cr.t), b: Math.min(box.b, cr.b) };
+      }
+      clip = clip.parentElement;
+    }
+    return Math.max(0, box.b - box.t);
+  };
+  const pickerEl = document.querySelector('.chat-picker');
+  const historyEl = document.querySelector('.chat-drawer__list');
+  if (pickerEl && historyEl) {
+    const hv = visibleH(historyEl);
+    if (hv < 96) add('history-squeezed', Math.round(hv) + 'px');
+    const panelEl = document.querySelector('.social-sheet');
+    if (panelEl) {
+      const pr = rect(panelEl);
+      if (pr.h > 0.5 && hv / pr.h < 0.2) add('history-share', Math.round(100 * hv / pr.h) + '%');
     }
   }
   const compose = document.querySelector('.chat-drawer__compose');
@@ -357,6 +386,8 @@ const PROBE = `JSON.stringify((() => {
     violations: v, groups: groups.length, melds: melds.length, cards: slots.length,
     launcher: !!launcher, sheet: !!sheet, dialog: !!dialog, hasPrompt: !!prompt,
     stickers: stickerBtns.length,
+    hist: Math.round(visibleH(document.querySelector('.chat-drawer__list'))),
+    pick: (function(){ const h = document.querySelector('.chat-picker'); return h ? Math.round(rect(h).h) : 0; })(),
     groupBoxes: groups.map((g) => { const r = rect(g); return Math.round(r.w) + 'x' + Math.round(r.h); }),
   };
 })())`;
@@ -383,10 +414,10 @@ function scenarios() {
     // (38.0.12) The picker opens from INSIDE the chat and stays open while you use it;
     // an emoji types into the message, a sticker sends. The conversation, the composer
     // and the picker are all usable at once.
-    { name: '4p-picker', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn'], stillOpen: true, pickerOpen: true },
-    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
-    { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn', '.chat-media-thumb'], stillOpen: true, pickerOpen: true },
-    { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-media-btn'], pickerOpen: true },
+    { name: '4p-picker', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], stillOpen: true, pickerOpen: true },
+    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
+    { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', '.chat-media-thumb'], stillOpen: true, pickerOpen: true },
+    { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], pickerOpen: true },
     // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
     { name: 'single-meld', q: 'players=4&melds=single' },
     { name: 'uneven-groups', q: 'players=4&melds=uneven' },
@@ -501,7 +532,7 @@ async function run() {
           const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
           if (shot?.result?.data) writeFileSync(`${SHOTS}/${LEGACY ? 'RED-' : ''}${vp.tag}-${sc.name}.png`, Buffer.from(shot.result.data, 'base64'));
         }
-        const meta = `g${res.groups}/m${res.melds}/c${res.cards}`;
+        const meta = `g${res.groups}/m${res.melds}/c${res.cards}` + (res.pick ? `/h${res.hist}/p${res.pick}` : ``);
         console.log(`  ${sc.name.padEnd(18)} ${meta.padEnd(12)} ${res.violations.length ? `FAIL(${res.violations.length}) ${res.violations.slice(0, 2).join(' | ')}` : 'ok'}`);
       }
       cdp.close();          // an open CDP socket keeps node's event loop alive forever

@@ -1227,10 +1227,49 @@ UI-only; protocol, server authority and redaction unchanged.
   away. Online, `OnlineGame`'s poker branch builds the docked `RoomSocial` and passes it
   through `PokerOnlineGame`; local passes the history control the same way.
 - **One open surface at a time.** `RoomSocial` accepts a CONTROLLED `openPanel` +
-  `onPanelChange` (`none | reactions | chat | utility`). The poker branch owns that state,
-  so chat, the emoji picker and the action history can never stack on the same spot. The
-  history is supplied as two generic nodes — `utilitySlot` (the button) and
+  `onPanelChange` (`none | chat | utility` since Stage 38.0.12 — see below). The poker
+  branch owns that state, so the chat and the action history can never stack on the same
+  spot. The history is supplied as two generic nodes — `utilitySlot` (the button) and
   `utilityPanelSlot` (the panel) — so RoomSocial still contains no game-specific import.
+
+### Stage 38.0.12 — ONE social contract for all seven games
+
+Before this stage the seven games shipped **two different products**: Fifty-One (the `sheet`
+variant) had a messenger-style chat whose emoji typed into the message and **no way at all to
+send a table reaction**, while the other six kept a separate 😀 control whose emoji only sent a
+reaction and a chat with no emoji in it. The contract is now identical in every variant:
+
+- **One outer control: 💬 chat.** There is no `reactions` panel and no second launcher;
+  `SocialPanel` is `none | chat | utility`. The caller's `utilitySlot` button (Poker's action
+  history) still rides beside it and owns its own panel.
+- **One chat body — `chatPanel`, defined once** and rendered by all three variants:
+  `chat-drawer__list` (the conversation, its own scroller with a `6.5rem` floor),
+  `chat-drawer__compose` (the ONE `chat-picker-btn`, the field, Send), then `chat-picker`.
+  `floating` wraps it in the fixed right drawer, `docked` in the in-flow panel, `sheet` in the
+  modal — the wrapper is the only difference.
+- **The picker is a bounded SIBLING of the conversation** (`max-height: min(30vh, 210px)`,
+  `flex: 0 1 auto; min-height: 0`), so when the panel is short the PICKER shrinks and the
+  history keeps its floor. Measured at `d44171b`, the old viewport-fraction cap left the
+  history at 80px (360), 65px (390) and **0px** at 1920/2560; it is now 142px (sheet),
+  104px (docked) and 467px+ (floating) with the picker open.
+- **Emoji carry TWO EXPLICIT actions**, chosen by a visible switch (`chat-picker__mode`,
+  `aria-pressed`) — never a hidden long-press:
+  - **to message** → `insertEmoji` splices the emoji at `selectionStart/End` and restores the
+    caret after it, so a half-typed line survives;
+  - **to table** → `onReact` — the SAME Stage 7 reaction protocol, no new transport. The
+    server stamps the sender and every client anchors it with `reactionAnchorForSender` on the
+    **seat**, so duplicate display names are safe and no private data is involved.
+- **No send path closes anything.** `react`/`sendMedia` only call their callback; the chat and
+  the picker stay open. Escape peels one layer at a time (lightbox → picker → chat), the picker
+  button toggles only the picker, ✕/backdrop close the chat, and focus returns to the control
+  that opened each.
+- **The gate is generic.** `npm run layout:social` (`scripts/social-layout-qa.mjs` +
+  `scripts/layout-harness/social.tsx`) mounts the real `RoomSocial` in all three variants at
+  360/390/768/1366, LTR and Arabic RTL, and measures the contract — one chat control, no rival
+  reactions control, history alive beside the picker, composer/Send reachable, no nested
+  scroller inside the picker, square sticker cells — then drives the REAL clicks against
+  recorded callbacks (emoji→message inserts at the caret and sends nothing; emoji→table fires
+  `onReact` exactly once and leaves the text alone; a sticker fires `onChatMedia` once).
 - **The geometry is a gate, not a screenshot.** `scripts/poker-layout-qa.mjs` +
   `scripts/layout-harness/` mount the REAL components in a REAL browser and assert
   pairwise rectangle non-intersection on `getBoundingClientRect()` for pods vs board/pot/

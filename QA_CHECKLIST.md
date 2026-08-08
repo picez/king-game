@@ -378,14 +378,32 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — room social (reactions + chat, Stage 7)
 
-- [ ] In a room (lobby or game), tap **😀** → the reaction row opens; tapping an
-      emoji shows a floating reaction (sender name + emoji) for ~2.5s on **all**
-      devices in the room. It **never covers your hand or the current trick**.
+> **Stage 38.0.12 — one contract for all 7 games.** There is no separate 😀 control any
+> more: the ONLY outer social control is **💬**, and emoji/stickers live inside the chat
+> behind the 😀 button next to the message field. Check the list below in **every** game —
+> King, Durak, Deberc, Tarneeb, Preferans, Syrian 51 and Poker — the panel must look and
+> behave identically (only its position differs: right drawer / docked panel / bottom sheet).
+
+- [ ] In a room (lobby or game) tap **💬** → the chat opens with the conversation, the
+      message field, **Send** and one **😀** picker button beside the field. There is **no**
+      separate reactions button anywhere in the cluster.
+- [ ] Tap **😀** → the picker opens **under** the composer with a switch
+      «To message | To table». The conversation is **still visible above it** and the message
+      field is still reachable (check 360 and 390).
+- [ ] With **To table** selected, tapping an emoji shows a floating reaction (sender name +
+      emoji) for ~2.5s on **all** devices in the room, over that player's seat. It **never
+      covers your hand or the current trick**, the chat and picker **stay open**, and
+      whatever you had typed is untouched.
+- [ ] With **To message** selected, tapping an emoji **types it at the cursor** — put the
+      caret in the middle of a half-typed line and confirm nothing is wiped and the caret
+      lands after the emoji. Nothing is sent until you press Send.
+- [ ] Tapping a **sticker** sends it once; the chat and the picker stay open.
+- [ ] **Escape** closes the picker first, a second **Escape** closes the chat; the 😀 button
+      toggles only the picker; **✕** closes the whole chat.
 - [ ] Sending a **second reaction immediately** shows a "Too many messages /
       Wait…" toast (the **30s cooldown is server-side** — try from two devices to
       confirm it's per-player, not global).
-- [ ] Tap **💬** → the chat drawer opens (collapsed by default on mobile); send a
-      message → it appears for everyone with your name + avatar.
+- [ ] Send a **message** → it appears for everyone with your name + avatar.
 - [ ] A message with a bad word is **censored to `***`** for everyone (the filter
       runs server-side; a tampered client cannot bypass it). A URL becomes
       `[link]`. An over-long message is capped.

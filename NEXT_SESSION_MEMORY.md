@@ -1311,3 +1311,45 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Tests: `roomSocialSheetSections.test.ts` rewritten (11), `roomSocialSheet.test.ts` back to one
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
+
+### Stage 38.0.12 (unification) — ONE social contract for all 7 games (COMPLETE, Unreleased)
+- Worked from HEAD `d44171b`. **CORRECTS that stage's claim that 51 deliberately differs from
+  the other games** — it was an owner FAIL, not a decision. UI only: no migration (0014),
+  version 0.4.8, games 7, achievements 52, libc 0. `package.json` gained ONE script
+  (`layout:social`); no dependency change.
+- **RED (measured, kept as permanent tests).** (a) `src/ui/online/roomSocialUnified.test.ts`
+  failed **11 contracts** on d44171b: `floating still has a standalone reactions button`,
+  `floating picker button: expected 0 to be 1` (the six games' chat had NO emoji at all), no
+  mode switch anywhere ⇒ **51's chat picker could not send a table reaction**. (b) the new
+  browser gate reported `outer-reactions-control: 1` + `picker-button-missing` for
+  floating/docked at every viewport. (c) 51's own gate, once it measured the VISIBLE band
+  instead of the element box, showed the conversation collapsing to **80px (15%) at 360,
+  65px (12%) at 390, 4px at 768 and 0px at 1920/2560** with the picker open.
+- **Root cause of (c):** `.chat-picker { max-height: 34vh }` is a VIEWPORT fraction while the
+  sheet is capped at `min(80vh, 34rem)`; on a tall screen the picker ate the whole fixed-height
+  panel. Plus the list was `flex: 0 0 auto` with no floor.
+- **The contract now (identical in floating/docked/sheet):** one outer 💬 control (+ the
+  caller's `utilitySlot`); `SocialPanel` = `none|chat|utility`; ONE `chatPanel` (list →
+  composer → picker) defined once and rendered by all three wrappers; the picker is a bounded
+  SIBLING (`max-height: min(30vh, 210px)`, `flex: 0 1 auto; min-height: 0`) and the list holds
+  a `6.5rem` floor, so a short panel shrinks the PICKER. Docked cap raised
+  `min(42vh,20rem)` → `min(56vh,25rem)`. AFTER: history **142px (sheet) / 104px (docked) /
+  467–691px (floating)** with the picker open.
+- **Two EXPLICIT emoji actions** via `chat-picker__mode` (`aria-pressed`, `data-mode`):
+  `insertEmoji` splices at `selectionStart/End` + restores the caret; `react` = the existing
+  Stage 7 `onReact` (seat-anchored via `reactionAnchorForSender`, duplicate names safe, no new
+  transport). No send path closes anything; Escape peels lightbox → picker → chat.
+- **New generic gate `npm run layout:social`** (`scripts/social-layout-qa.mjs` +
+  `scripts/layout-harness/social.{html,tsx}`): 3 variants × 9 scenarios × 4 viewports =
+  **108 checks**, LTR + Arabic RTL, with REAL clicks against recorded callbacks (emoji→message
+  inserts at the caret and sends nothing; emoji→table fires `onReact` exactly once and leaves
+  the text alone; sticker fires once; none closes anything).
+  **Gotcha:** the floating drawer and the modal sheet are overlays BY DESIGN — only the DOCKED
+  panel may never intersect the action row; the first version of the probe flagged all three.
+- Removed: `roomSocialSheetSections.test.ts` (superseded), the `reaction-bar` panels,
+  `chat-media-picker`, `chat-emoji-btn`/`chat-media-btn`, `social-sheet__body` as the chat
+  scroller. i18n +3 keys ×4 (`chat.emojiMode/emojiToMessage/emojiToTable`).
+- **Gates:** `npm run verify` PASS (**292 files / 3559 tests** + build + E2E); `layout:social`
+  108 OK; `layout:fiftyone` 150 OK; `layout:poker` 228 OK; screenshots reviewed at 360/390 for
+  floating (King/Durak/…), docked (Poker), sheet (51) and Arabic RTL; `git diff --check` clean;
+  libc 0; no dependency drift.

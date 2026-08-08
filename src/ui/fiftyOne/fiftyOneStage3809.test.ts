@@ -25,25 +25,20 @@ const J = (): FiftyOneCard => ({ id: `j${n++}`, joker: true, suit: null, rank: n
 describe('FAIL A — a reaction must not close the sheet', () => {
   const src = read('src/ui/online/RoomSocial.tsx');
 
-  it('the sheet keeps its panel; the historical variants keep their old behaviour', () => {
-    expect(src).toMatch(/function react\(emoji: string\) \{\s*onReact\(emoji\);\s*if \(!sheet\) setReactOpen\(false\);/);
-    // (38.0.12) In the sheet a sticker send also leaves the in-chat picker open.
-    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*if \(!sheet\) \{ setMediaOpen\(false\); setReactOpen\(false\); \}/);
-    // No unconditional close survives anywhere in the send paths.
-    expect(src).not.toMatch(/onReact\(emoji\);\s*setReactOpen\(false\)/);
-    expect(src).not.toMatch(/onChatMedia\(item\.id\);\s*setMediaOpen\(false\);\s*setReactOpen\(false\)/);
+  it('no send path closes anything, in any variant (38.0.12 unified this)', () => {
+    expect(src).toMatch(/function react\(emoji: string\) \{\s*onReact\(emoji\);\s*\}/);
+    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*\}/);
+    expect(src).not.toMatch(/onReact\(emoji\);\s*set\w+\(false\)/);
+    expect(src).not.toMatch(/onChatMedia\(item\.id\);\s*set\w+\(false\)/);
   });
 
   it('only the deliberate gestures close it', () => {
-    // ✕, backdrop, Escape and the chat launcher (38.0.12 folded emoji/stickers into the
-    // chat itself) — and nothing else calls closeSheet/setPanel('none').
-    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeSheet}');
-    expect(src).toContain('className="social-sheet__close" onClick={closeSheet}');
-    expect(src).toMatch(/if \(sheetOpen\) \{ closeSheet\(\); return; \}/);
-    expect(src).toMatch(/onClick=\{\(\) => \(chatOpen \? closeSheet\(\) : setPanel\('chat'\)\)\}/);
-    // The Escape branch + the two launcher toggles; backdrop/✕ pass the function itself.
-    expect((src.match(/closeSheet\(\)/g) ?? []).length).toBe(3);
-    expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);   // inside closeSheet only
+    // ✕, backdrop, Escape and the chat launcher — and nothing else clears the panel.
+    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeChat}');
+    expect(src).toContain('className="social-sheet__close" onClick={closeChat}');
+    expect(src).toMatch(/if \(pickerOpen\) \{ closePicker\(\); return; \}/);
+    expect(src).toMatch(/onClick=\{\(\) => \(chatOpen \? closeChat\(\) : setPanel\('chat'\)\)\}/);
+    expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);   // inside closeChat only
   });
 
   it('Poker keeps the docked cluster, so its behaviour is untouched', () => {

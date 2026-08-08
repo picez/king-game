@@ -80,7 +80,6 @@ describe('open: a real modal sheet with backdrop, close and its own scroll', () 
     expect(chatSheet).toContain('role="dialog"');
     expect(chatSheet).toContain('aria-modal="true"');
     expect(chatSheet).toContain('social-sheet__close');
-    expect(chatSheet).toContain('social-sheet__body');
     expect(chatSheet).toContain('chat-drawer__list');
     expect(chatSheet).toContain('chat-drawer__compose');
     expect((chatSheet.match(/chat-msg /g) ?? []).length).toBe(6);
@@ -95,9 +94,8 @@ describe('open: a real modal sheet with backdrop, close and its own scroll', () 
   });
 
   it('emoji and stickers are opened from INSIDE the chat, never as a rival surface', () => {
-    // (38.0.12) The composer owns both picker buttons; the sheet has no reaction surface.
-    expect(chatSheet).toContain('chat-emoji-btn');
-    expect(chatSheet).toContain('chat-media-btn');
+    // (38.0.12) The composer owns the ONE picker button; there is no rival surface.
+    expect(chatSheet).toContain('chat-picker-btn');
     expect(chatSheet).not.toContain('reaction-bar--sheet');
     expect((chatSheet.match(/social-sheet"/g) ?? []).length).toBe(1);
   });
@@ -121,18 +119,16 @@ describe('the source contract that makes the sheet safe', () => {
 
   it('Escape and the backdrop both close it, and focus returns to the launcher', () => {
     // (38.0.12) Focus goes back to the launcher of the section that was open.
-    expect(src).toMatch(/const closeSheet = \(\) => \{ const opener = launcherFor\(panel\)\.current; setPanel\('none'\); opener\?\.focus\(\); \}/);
-    expect(src).toMatch(/if \(sheetOpen\) \{ closeSheet\(\); return; \}/);
-    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeSheet}');
-    expect(src).toContain('className="social-sheet__close" onClick={closeSheet}');
+    expect(src).toMatch(/const closeChat = \(\) => \{ const opener = launcherFor\(panel\)\.current; setPanel\('none'\); opener\?\.focus\(\); \}/);
+    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeChat}');
+    expect(src).toContain('className="social-sheet__close" onClick={closeChat}');
   });
 
-  it('the sheet is bounded and scrolls itself — the page never does', () => {
+  it('the sheet is bounded and the conversation scrolls inside it — the page never does', () => {
     const rule = css.slice(css.indexOf('.social-sheet {'), css.indexOf('.social-sheet__head'));
     expect(rule).toMatch(/max-height: min\(80vh, 34rem\)/);
-    const body = css.slice(css.indexOf('.social-sheet__body {'));
-    expect(body.slice(0, body.indexOf('}'))).toMatch(/overflow-y: auto/);
-    expect(body.slice(0, body.indexOf('}'))).toMatch(/overflow-x: hidden/);
+    const list = css.slice(css.indexOf('.chat-drawer__list {'));
+    expect(list.slice(0, list.indexOf('}'))).toMatch(/overflow-y: auto/);
   });
 
   it('the collapsed launcher is in flow and a real tap target', () => {

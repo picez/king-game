@@ -11,16 +11,20 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
-- **Emoji and stickers now live inside the chat, and the room panel scrolls once
-  (Stage 38.0.12).** The room panel used to be one surface with `Chat | Reactions` tabs,
-  so the picker opened on top of the conversation — and it scrolled inside a panel that
-  was itself scrolling, which showed two scrollbars side by side on a phone. The chat now
-  works like a messenger: an 😀 button next to 🖼️ in the message row opens a picker under
-  it, the conversation stays visible above, tapping an emoji **types it into your message**
-  (so you can write "Привіт 👍" and send it as one line) and tapping a sticker sends it
-  right away — the picker stays open either way. The message box is pinned where an
-  expanded sticker grid can no longer push it out of reach, and each part scrolls on its
-  own instead of nesting scrollbars.
+- **One chat, one emoji picker, in all seven games (Stage 38.0.12).** The room panel used
+  to differ from game to game: Syrian 51 had a messenger-style chat whose emoji typed into
+  the message but could not be thrown on the table, while the other six had a separate 😀
+  button whose emoji only flew over the table and a chat with no emoji at all. Every game
+  now has **one 💬 button**. Inside it: the conversation, the message box, Send, and one
+  😀 button next to the field that opens a picker underneath — with a visible switch for
+  what an emoji does:
+  - **To message** — it is typed in at the cursor, so you can drop it into the middle of a
+    half-written line and keep going;
+  - **To table** — it flies over your seat for everyone, exactly as the old reactions did.
+  Stickers send straight away. Nothing you send closes the chat or the picker, the message
+  box is always reachable, and the conversation stays visible beside the picker instead of
+  being pushed off screen (it used to shrink to 80px on a phone and to nothing on a large
+  screen). Escape closes the picker first and the chat second.
 
 ### Added
 

@@ -72,7 +72,7 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     // Sticker sources come ONLY from the generated catalog, never client input.
     expect(social).toContain("from '../../net/chatMediaCatalog'");
     expect(social).toContain('CHAT_MEDIA');
-    expect(social).toContain('chat-media-picker');
+    expect(social).toContain('chat-picker');
     // A click sends by catalog id (mediaId), not a URL.
     expect(social).toContain('onChatMedia(item.id)');
     // Sticker <img> src is bound to the catalog item, not a free-text field.
@@ -87,8 +87,8 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).toContain('alt={m.media.label}');
   });
 
-  it('the smiley/reaction picker also offers the whitelist stickers (Stage 11.1)', () => {
-    // The 😀 reaction picker gets a sticker grid alongside the emoji reactions.
+  it('the in-chat picker offers the whitelist stickers beside the emoji (Stage 11.1)', () => {
+    // (38.0.12) There is ONE picker now, inside the chat, and it holds both.
     expect(social).toContain('reaction-bar__emojis');
     expect(social).toContain('reaction-bar__stickers');
     // Stickers in the reaction picker send via the same whitelist id path.
@@ -105,10 +105,10 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).toContain('setFloats');
   });
 
-  it('the reaction picker labels its Emoji and Stickers sections (Stage 11.2)', () => {
-    expect(social).toContain('reaction-bar__heading');
-    expect(social).toContain("t('social.emoji')");
-    expect(social).toContain("t('chat.mediaPicker')");  // stickers section heading
+  it('the picker labels its two emoji actions and its sticker grid (Stage 38.0.12)', () => {
+    expect(social).toContain("t('chat.emojiToMessage')");
+    expect(social).toContain("t('chat.emojiToTable')");
+    expect(social).toContain("t('chat.mediaPicker')");  // the picker's own label
     expect(social).toContain('reaction-bar__emojis');
     expect(social).toContain('reaction-bar__stickers');
   });
