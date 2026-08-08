@@ -127,10 +127,14 @@ const PROBE = `JSON.stringify((() => {
   // Floating / in-flow social + utility surfaces.
   const cluster = one('.social-controls') || one('.poker-social-toolbar');
   const clusterBtns = [...document.querySelectorAll('.social-controls button, .poker-social-toolbar button, .poker-local-utility button')];
+  // IN-FLOW panels only. (38.0.13) The chat is no longer one of them: poker's 💬 opens the
+  // shared modal chat-dialog, which covers the page ON PURPOSE, exactly as it does in
+  // the other six games — that is the whole point of the unification. It is checked as a
+  // modal below instead of as an in-flow panel.
   const panels = [
-    ...all('.poker-log-panel'), ...all('.chat-drawer'), ...all('.reaction-bar'),
-    ...all('.poker-social-sheet'),
+    ...all('.poker-log-panel'), ...all('.reaction-bar'), ...all('.poker-social-sheet'),
   ];
+  const chatModal = one('.chat-dialog');
   // The rebuy panel is IN FLOW: it must not intersect the table, the toolbar or the controls.
   const rebuy = one('.poker-rebuy');
   const rebuyBtns = [...document.querySelectorAll('.poker-rebuy button')];
@@ -161,10 +165,18 @@ const PROBE = `JSON.stringify((() => {
     if (hit(localUtil, table)) add('localutil-over-table', overlap(localUtil, table));
   }
 
-  // 3. an OPEN panel (history / chat / reactions) must not cover the controls or the table
+  // 3. an OPEN IN-FLOW panel (history / reactions) must not cover the controls or the table
   for (const p of panels) {
     for (const c of critical) if (hit(p, c)) add('panel-over-control', overlap(p, c));
     if (hit(p, actions)) add('panel-over-actions', overlap(p, actions));
+  }
+  // 3b. (38.0.13) The chat modal: it MAY cover the table — but it must have its backdrop,
+  // stay inside the viewport, and never be layered under the utility panel.
+  if (chatModal) {
+    if (!document.querySelector('.chat-dialog-backdrop')) add('chat-no-backdrop', '');
+    if (chatModal.b > window.innerHeight + S) add('chat-below-viewport', Math.round(chatModal.b) + '>' + window.innerHeight);
+    if (chatModal.l < -S || chatModal.r > vw + S) add('chat-outside-viewport', Math.round(chatModal.l) + '..' + Math.round(chatModal.r));
+    for (const p of all('.poker-log-panel')) if (hit(p, chatModal)) add('log-over-chat', overlap(p, chatModal));
   }
 
   if (rebuy) {

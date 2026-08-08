@@ -105,9 +105,11 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).toContain('setFloats');
   });
 
-  it('the picker labels its two emoji actions and its sticker grid (Stage 38.0.12)', () => {
-    expect(social).toContain("t('chat.emojiToMessage')");
-    expect(social).toContain("t('chat.emojiToTable')");
+  it('the picker states what an emoji tap will do, and labels its sticker grid (38.0.13)', () => {
+    // The two mode BUTTONS are gone; an inert hint reports the focus-derived action.
+    expect(social).toContain("t('chat.emojiHintMessage')");
+    expect(social).toContain("t('chat.emojiHintTable')");
+    expect(social).not.toMatch(/emojiToMessage|emojiToTable/);
     expect(social).toContain("t('chat.mediaPicker')");  // the picker's own label
     expect(social).toContain('reaction-bar__emojis');
     expect(social).toContain('reaction-bar__stickers');

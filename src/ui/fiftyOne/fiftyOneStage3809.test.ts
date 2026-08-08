@@ -34,6 +34,9 @@ describe('FAIL A — a reaction must not close the sheet', () => {
 
   it('only the deliberate gestures close it', () => {
     // ✕, backdrop, Escape and the chat launcher — and nothing else clears the panel.
+    // (38.0.13) 51's chat is the SHARED dialog; the sheet survives for the ☰ menu.
+    expect(src).toContain('className="chat-dialog-backdrop" role="presentation" onClick={closeChat}');
+    expect(src).toContain('className="chat-dialog__close" onClick={closeChat}');
     expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeChat}');
     expect(src).toContain('className="social-sheet__close" onClick={closeChat}');
     expect(src).toMatch(/if \(pickerOpen\) \{ closePicker\(\); return; \}/);

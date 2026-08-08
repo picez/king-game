@@ -432,9 +432,10 @@
 .poker-finished__stacks li.is-winner { font-weight: 700; color: var(--accent, #e8b84b); }
 .poker-finished__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
 
-/* Panel close buttons must still be a real tap target (Stage 38.0.3 — measured 42×35). */
-.poker-log-panel__head .btn,
-.chat-drawer--docked .chat-drawer__head .btn { min-width: 44px; min-height: 44px; }
+/* Panel close buttons must still be a real tap target (Stage 38.0.3 — measured 42×35).
+   (38.0.13) The docked chat panel is gone — poker's 💬 opens the shared `.chat-dialog`,
+   whose own rule already sizes every control — so only the log panel needs this. */
+.poker-log-panel__head .btn { min-width: 44px; min-height: 44px; }
 
 /* Between-hands REBUY panel (§17, Stage 38.0.3B). In flow, under the hand review and
    above the social/action rows — it must never overlay the table or the controls. */

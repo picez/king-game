@@ -1232,7 +1232,15 @@ UI-only; protocol, server authority and redaction unchanged.
   spot. The history is supplied as two generic nodes — `utilitySlot` (the button) and
   `utilityPanelSlot` (the panel) — so RoomSocial still contains no game-specific import.
 
-### Stage 38.0.12 — ONE social contract for all seven games
+### Stage 38.0.12 — one social contract for all seven games (INSIDE the chat only)
+
+> **Corrected by Stage 38.0.13.** This stage unified what is INSIDE the chat and the text
+> below says the wrapper "is the only difference" — as if that were harmless. It was not.
+> `variant` still chose the chat's whole SHELL, so the seven games kept visibly and
+> geometrically different chats; the owner's production report ("Durak opens a tall right
+> drawer, 51 opens a compact modal") was correct, and the claim that identical function
+> meant an identical chat was wrong. Read this section together with 38.0.13 below, which
+> deletes the per-variant wrappers and the emoji mode switch described here.
 
 Before this stage the seven games shipped **two different products**: Fifty-One (the `sheet`
 variant) had a messenger-style chat whose emoji typed into the message and **no way at all to
@@ -1276,6 +1284,73 @@ reaction and a chat with no emoji in it. The contract is now identical in every 
   each other/topbar/actions, cluster vs controls, open panels vs controls, board-card
   clipping, page overflow and 44px tap targets. `npm run layout:poker` exits non-zero on
   any violation.
+
+### Stage 38.0.13 — ONE chat dialog, and an emoji action decided by FOCUS
+
+**The RED, measured — not described.** `npm run layout:social` now mounts the REAL online
+branches (`scripts/layout-harness/social-games.tsx`: `DurakGameScreen` + floating cluster,
+`FiftyOneGameScreen` + sheet launcher, `PokerGameScreen` + docked toolbar). At `75a3b6d`,
+with the same chat props and the same viewport, it measured three different chats:
+
+| viewport | Durak | Fifty-One | Poker |
+|---|---|---|---|
+| 360 | `.chat-drawer` 310×800 @50,0 · r 0px · no backdrop | `.social-sheet` 360×544 @0,256 · r 16/16/0/0 · backdrop | `.chat-drawer` 341×400 @10,591 · r 11.2px · no backdrop |
+| 390 | `.chat-drawer` 320×844 @70,0 | `.social-sheet` 390×544 @0,300 | `.chat-drawer` 371×400 @10,617 |
+| 1366 | `.chat-drawer` 320×900 @1046,0 | `.social-sheet` 512×544 @427,356 | `.chat-drawer` 701×400 @325,685 |
+
+They also differed in DOM (`chat-drawer__head|…` vs `social-sheet__head|…|social-sheet__foot`),
+and the picker carried a manual `PickerMode` switch ("To message" / "To table"). 467 violations.
+
+**Root cause.** `variant` conflated two unrelated decisions — *where the launcher lives* and
+*what the chat looks like*. 38.0.12 hoisted the chat's INNER parts into a shared `chatPanel`
+but left three wrappers around it (fixed right drawer / in-flow docked box / modal sheet), so
+the shell — position, width, height, radius, backdrop, footer — stayed per-game.
+
+**The contract now.**
+
+- **One `chatDialog`, declared once, rendered once, by every variant**: a fixed
+  `chat-dialog-backdrop` (`inset: 0`, `rgba(0,0,0,.62)`) → `chat-dialog` card → header
+  (`💬 Chat` + ✕) → `chat-dialog__list` (its own scroller, `6.5rem` floor) →
+  `chat-dialog__compose` (😀 picker button, field, Send) → bounded `chat-picker`. Phone: a
+  bottom sheet honouring `env(safe-area-inset-*)`. From `700px`: the same card, centred.
+  Measured after the fix — **identical for all three games** at every viewport, LTR and
+  Arabic RTL: 360×544 @0,256 (360), 390×544 @0,300 (390), 512×544 @427,178 (1366).
+- **`variant` positions LAUNCHERS only.** `floating` = the fixed corner cluster, `docked` =
+  the in-flow toolbar, `sheet` = two compact launchers (💬 chat, ☰ menu). The ☰ sheet keeps
+  what is NOT chat — voice, the caller's `utilityPanelSlot`, the destructive action — so 51
+  still reaches "Quit for good" without the chat growing a footer other games lack. Poker's
+  utility panel keeps its own docked shell; only the CHAT is unified.
+- **The page does not scroll behind the dialog.** `documentElement` gets `overflow: hidden`
+  plus a matching `padding-inline-end` while it is open. It is a modal, and it is also what
+  makes the geometry equal: the dialog centres on the initial containing block, which
+  excludes a classic scrollbar, so a game whose screen overflows (Poker at 1366) drew the
+  same dialog 7px to the left until the scroll lock removed the scrollbar.
+- **`PickerMode` is DELETED** — the type, the state, both buttons, their CSS and the
+  `chat.emojiToMessage` / `chat.emojiToTable` / `chat.emojiMode` keys in all four languages.
+- **Focus is the whole rule.** The message field's `onFocus`/`onBlur` drive `focusedRef`
+  (read live at click time — never a stale closure) and `inputFocused` (for the hint):
+  - field ACTIVE → the emoji is spliced at `selectionStart/End`, the caret follows it,
+    `onReact` is not called, and focus/keyboard stay in the field;
+  - field NOT active → `onReact(emoji)` exactly once, anchored on the sender's SEAT via
+    `reactionAnchorForSender`; the draft is untouched even when it is non-empty.
+  **`text.length` decides nothing** — a blurred field with a half-typed draft still means
+  "to the table". The inert `chat-picker__hint` (`pointer-events: none`) says which.
+- **Nothing in the picker may take focus.** The picker button, every emoji and every sticker
+  cell cancel `mousedown` (`keepFocus`), which blocks the focus change on desktop and on
+  touch while the `click` still fires; `closePicker` only pulls focus back to its button when
+  the field does not already hold it. At `75a3b6d` opening the picker moved focus to the
+  button — so `document.activeElement` alone could not have implemented this rule.
+- **Stickers are focus-independent**: always `onChatMedia`, exactly once, all 253 catalog
+  entries, `object-fit: contain`. No send path closes the chat or the picker.
+- **The gate proves it in a browser.** `npm run layout:social` runs two phases — the isolated
+  variant harness and the three real online branches — and drives REAL CDP mouse input
+  (`Input.dispatchMouseEvent`) and REAL typing (`Input.insertText`), because a synthetic
+  `el.click()` cannot move focus at all. It asserts the three games agree on the dialog's
+  class, position, radius, backdrop, child DOM and rectangle, and replays focused-caret,
+  blurred-empty, blurred-draft, focus-switch and sticker scenarios per game. 155 checks.
+  (Headless pages have no system focus, so both this gate and `layout:fiftyone` enable
+  `Emulation.setFocusEmulationEnabled` — otherwise `focus()` sets `activeElement` without
+  ever firing the event the chat listens to.)
 
 ### Online between-hands rebuy (§17, Stage 38.0.3C)
 

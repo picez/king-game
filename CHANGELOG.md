@@ -11,6 +11,30 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **The chat now looks and behaves the same in all seven games (Stage 38.0.13).** Stage
+  38.0.12 (below) gave every game the same chat *functions* and said that was enough. It
+  was not: pressing 💬 still opened a different-looking chat depending on the game. In
+  Durak, King, Deberc, Tarneeb and Preferans it was a tall panel down the right-hand edge
+  of the screen with no dimmed background; in Syrian 51 a small window at the bottom with
+  one; in Poker a box wedged in above the betting buttons. Measured side by side on a
+  390px phone: 320×844, 390×544 and 371×400 — three chats, one component.
+  Now there is **one chat window**. It opens from the same 💬 button, over a dimmed
+  background, as a sheet at the bottom of a phone and a compact centred card on a desktop
+  — the same size, the same rounded corners, the same layout in every game, in Arabic
+  too. The page behind it no longer scrolls while it is open. Poker's action-history panel
+  keeps its own place; only the chat was unified.
+- **Emoji no longer need a mode to be chosen (Stage 38.0.13).** The "To message" / "To
+  table" buttons are gone. The chat simply follows what you are doing:
+  - if you are **typing** (the message box is active), tapping an emoji drops it into your
+    message at the cursor — nothing is sent, nothing you typed is lost, and the keyboard
+    stays up;
+  - if you are **not typing**, tapping an emoji throws it onto the table over your seat,
+    once, and whatever is left in the message box stays exactly as it was.
+  Tap the message box to switch to typing; tap the conversation to switch back. A small
+  line above the emoji says which one will happen. Opening the picker or tapping an emoji
+  can no longer steal the cursor and change what your tap meant. Stickers are unaffected:
+  they are always sent as a message, whatever you are doing.
+
 - **One chat, one emoji picker, in all seven games (Stage 38.0.12).** The room panel used
   to differ from game to game: Syrian 51 had a messenger-style chat whose emoji typed into
   the message but could not be thrown on the table, while the other six had a separate 😀

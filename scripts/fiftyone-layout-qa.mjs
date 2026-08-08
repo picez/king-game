@@ -127,9 +127,12 @@ const PROBE = `JSON.stringify((() => {
   const scoreboard = one('.fiftyone-scoreboard');
   const piles = one('.fiftyone-piles');
   const launcher = one('.social-menu');
+  // (38.0.13) 51's social surfaces are now the SHARED chat dialog (💬) and the ☰ menu
+  // sheet (voice / quit). Both are modals; either one counts as "a modal is open".
+  const chatDlg = one('.chat-dialog');
   const sheet = one('.social-sheet');
   const dialog = one('.permleave-dialog');
-  const modalOpen = !!sheet || !!dialog;
+  const modalOpen = !!sheet || !!chatDlg || !!dialog;
 
   // Every card slot on the table, with its inner card / artwork / joker badge.
   const slots = [];
@@ -227,17 +230,27 @@ const PROBE = `JSON.stringify((() => {
     for (const el of content) if (hit(launcher, el)) add('social-over-content', ov(launcher, el));
   }
   if (!modalOpen) {
-    for (const p of all('.chat-drawer, .reaction-bar, .social-controls').map(rect)) {
+    for (const p of all('.chat-dialog, .reaction-bar, .social-controls').map(rect)) {
       for (const el of content) if (hit(p, el)) add('panel-over-content', ov(p, el));
     }
   }
-  // An open sheet must be a real modal: a backdrop, a close control, and its OWN scroll.
+  // An open modal must be a real one: a backdrop, a close control, and its OWN scroll.
   if (sheet) {
     if (!document.querySelector('.social-sheet-backdrop')) add('sheet-no-backdrop', '');
     if (!document.querySelector('.social-sheet__close')) add('sheet-no-close', '');
     const body = document.querySelector('.social-sheet__body');
     if (body && body.scrollWidth > body.clientWidth + 1) add('sheet-inner-scroll-x', body.scrollWidth + '>' + body.clientWidth);
     if (sheet.b > window.innerHeight + 1) add('sheet-off-screen', Math.round(sheet.b) + '>' + window.innerHeight);
+  }
+  if (chatDlg) {
+    if (!document.querySelector('.chat-dialog-backdrop')) add('chat-no-backdrop', '');
+    if (!document.querySelector('.chat-dialog__close')) add('chat-no-close', '');
+    if (chatDlg.b > window.innerHeight + 1) add('chat-off-screen', Math.round(chatDlg.b) + '>' + window.innerHeight);
+    if (chatDlg.l < -S || chatDlg.r > vw + S) add('chat-outside-viewport', Math.round(chatDlg.l) + '..' + Math.round(chatDlg.r));
+    // (38.0.13) The manual picker-mode switch must never come back.
+    for (const banned of ['chat-picker__mode', 'data-mode="table"']) {
+      if (document.body.innerHTML.includes(banned)) add('picker-mode-switch', banned);
+    }
   }
 
   // 8. page-level horizontal overflow.
@@ -246,7 +259,7 @@ const PROBE = `JSON.stringify((() => {
   if (screen && screen.scrollWidth > screen.clientWidth + 1) add('screen-overflow-x', screen.scrollWidth + '>' + screen.clientWidth);
 
   // 9. touch targets for everything this stage owns.
-  const TAP = '.social-menu__launcher, .social-sheet button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
+  const TAP = '.social-menu__launcher, .social-sheet button, .chat-dialog button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
   for (const b of all(TAP)) {
     const r = rect(b);
     if (r.w < 43.5 || r.h < 43.5) {
@@ -294,10 +307,10 @@ const PROBE = `JSON.stringify((() => {
   // 11. (38.0.12) The sheet has exactly ONE scrolling region, and the composer stays
   // reachable: the owner's phone showed two scrollbars side by side, and an expanded
   // sticker grid used to push the text field out of the sheet.
-  const sheetEl = document.querySelector('.social-sheet');
+  const sheetEl = document.querySelector('.chat-dialog') || document.querySelector('.social-sheet');
   // The conversation and the picker each bound themselves; NOTHING inside either of
   // them may add a scrollbar of its own.
-  for (const root of ['.social-sheet__body', '.chat-picker', '.chat-drawer__list']) {
+  for (const root of ['.social-sheet__body', '.chat-picker', '.chat-dialog__list']) {
     const region = document.querySelector(root);
     if (!region) continue;
     for (const el of region.querySelectorAll('*')) {
@@ -326,17 +339,17 @@ const PROBE = `JSON.stringify((() => {
     return Math.max(0, box.b - box.t);
   };
   const pickerEl = document.querySelector('.chat-picker');
-  const historyEl = document.querySelector('.chat-drawer__list');
+  const historyEl = document.querySelector('.chat-dialog__list');
   if (pickerEl && historyEl) {
     const hv = visibleH(historyEl);
     if (hv < 96) add('history-squeezed', Math.round(hv) + 'px');
-    const panelEl = document.querySelector('.social-sheet');
+    const panelEl = document.querySelector('.chat-dialog');
     if (panelEl) {
       const pr = rect(panelEl);
       if (pr.h > 0.5 && hv / pr.h < 0.2) add('history-share', Math.round(100 * hv / pr.h) + '%');
     }
   }
-  const compose = document.querySelector('.chat-drawer__compose');
+  const compose = document.querySelector('.chat-dialog__compose');
   if (sheetEl && compose) {
     const cr = rect(compose);
     const sr = rect(sheetEl);
@@ -384,9 +397,9 @@ const PROBE = `JSON.stringify((() => {
 
   return {
     violations: v, groups: groups.length, melds: melds.length, cards: slots.length,
-    launcher: !!launcher, sheet: !!sheet, dialog: !!dialog, hasPrompt: !!prompt,
+    launcher: !!launcher, sheet: !!sheet || !!chatDlg, chat: !!chatDlg, dialog: !!dialog, hasPrompt: !!prompt,
     stickers: stickerBtns.length,
-    hist: Math.round(visibleH(document.querySelector('.chat-drawer__list'))),
+    hist: Math.round(visibleH(document.querySelector('.chat-dialog__list'))),
     pick: (function(){ const h = document.querySelector('.chat-picker'); return h ? Math.round(rect(h).h) : 0; })(),
     groupBoxes: groups.map((g) => { const r = rect(g); return Math.round(r.w) + 'x' + Math.round(r.h); }),
   };
@@ -415,7 +428,9 @@ function scenarios() {
     // an emoji types into the message, a sticker sends. The conversation, the composer
     // and the picker are all usable at once.
     { name: '4p-picker', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], stillOpen: true, pickerOpen: true },
-    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
+    // (38.0.13) An emoji is TEXT only while the message field is ACTIVE, so the field is
+    // focused first; blurred, the same tap would (correctly) fly to the table instead.
+    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', 'focus:.chat-input', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
     { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', '.chat-media-thumb'], stillOpen: true, pickerOpen: true },
     { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], pickerOpen: true },
     // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
@@ -423,8 +438,10 @@ function scenarios() {
     { name: 'uneven-groups', q: 'players=4&melds=uneven' },
     { name: 'uneven-rtl', q: 'players=4&melds=uneven&dir=rtl&lang=ar' },
     { name: '2p-single', q: 'players=2&melds=single' },
-    // The destructive control lives in the sheet's footer, so the sheet is opened first.
-    { name: '4p-confirm', q: `players=4&${SOCIAL}&panel=chat`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
+    // (38.0.13) The destructive control lives in the ☰ MENU sheet's footer (the chat
+    // dialog is chat and nothing else), so the menu is opened first.
+    { name: '4p-menu', q: `players=4&${SOCIAL}&panel=utility` },
+    { name: '4p-confirm', q: `players=4&${SOCIAL}&panel=utility`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
     { name: '4p-longrun', q: 'players=4&melds=long' },
     { name: '4p-longrun-social', q: `players=4&melds=long&${SOCIAL}` },
     { name: '4p-jokers', q: 'players=4&melds=jokers' },
@@ -463,6 +480,10 @@ async function run() {
       const cdp = new CDP(page.webSocketDebuggerUrl);
       await cdp.open();
       await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
+      // A headless page has no system focus, so `el.focus()` sets `activeElement` but
+      // fires NO focus event — and since 38.0.13 the focus EVENT is what tells the chat
+      // where an emoji should go. Emulating focus makes the gate see what a phone sees.
+      await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
       await cdp.send('Emulation.setDeviceMetricsOverride',
         { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile, screenWidth: vp.w, screenHeight: vp.h });
       console.log(`\n[${vp.tag} ${vp.w}x${vp.h}]${LEGACY ? ' (LEGACY / RED)' : ''}`);
@@ -481,10 +502,14 @@ async function run() {
         const settled = await cdp.evaluate(SETTLE);
         if (!settled || settled.ready !== true) failures.push(`${vp.tag} ${sc.name}: harness never signalled ready`);
 
-        for (const sel of sc.click ?? []) {
-          const clicked = await cdp.evaluate(
-            `(() => { const el = document.querySelector('${sel}'); if (!el) return false; el.click(); return true; })()`);
-          if (!clicked) failures.push(`${vp.tag} ${sc.name}: cannot click ${sel}`);
+        for (const step of sc.click ?? []) {
+          // `focus:<sel>` FOCUSES instead of clicking: `HTMLElement.click()` never moves
+          // focus, and since 38.0.13 focus is what an emoji tap reads.
+          const focusing = step.startsWith('focus:');
+          const sel = focusing ? step.slice(6) : step;
+          const done = await cdp.evaluate(
+            `(() => { const el = document.querySelector('${sel}'); if (!el) return false; el.${focusing ? 'focus' : 'click'}(); return true; })()`);
+          if (!done) failures.push(`${vp.tag} ${sc.name}: cannot ${focusing ? 'focus' : 'click'} ${sel}`);
         }
         if (sc.open) {
           let opened = false;
@@ -499,9 +524,9 @@ async function run() {
         // (38.0.9/38.0.12) An emoji/sticker click must leave the CHAT open, and the
         // in-chat picker with it — the player keeps typing and sending.
         if (sc.stillOpen) {
-          const open = await cdp.evaluate("!!document.querySelector('.social-sheet')");
-          const title = await cdp.evaluate("(document.querySelector('.social-sheet__title')||{}).textContent||''");
-          if (!open) failures.push(`${vp.tag} ${sc.name}: the sheet CLOSED after the click`);
+          const open = await cdp.evaluate("!!document.querySelector('.chat-dialog')");
+          const title = await cdp.evaluate("(document.querySelector('.chat-dialog__title')||{}).textContent||''");
+          if (!open) failures.push(`${vp.tag} ${sc.name}: the chat CLOSED after the click`);
           else if (!/💬|Chat|الدردشة|Чат/.test(String(title))) {
             failures.push(`${vp.tag} ${sc.name}: the chat lost focus (title="${title}")`);
           }

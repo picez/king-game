@@ -297,8 +297,12 @@ describe('the social UI is ONE top-bar launcher and a modal sheet', () => {
   });
 
   it('RoomSocial stays game-agnostic (no Fifty-One or Poker import)', () => {
+    // Comments are stripped first, as in the sibling suites: a doc comment recording WHICH
+    // game measured WHAT (Stage 38.0.13 pins the per-game RED geometry there) is evidence,
+    // not a dependency. An import, a type or a runtime branch on a game still fails.
+    const code = socialSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(socialSrc).not.toMatch(/import[^;]*(poker|fiftyOne|fifty-one)/i);
-    expect(socialSrc).not.toMatch(/fifty-one|fiftyone/i);
+    expect(code).not.toMatch(/fifty-one|fiftyone/i);
   });
 
   it('the other games keep their layout (four floating mounts, poker still docked)', () => {

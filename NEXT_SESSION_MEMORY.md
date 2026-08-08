@@ -1312,7 +1312,66 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.13 — ONE chat dialog + focus-based emoji (COMPLETE, Unreleased)
+- Worked from HEAD `75a3b6d`. **CORRECTS Stage 38.0.12's claim that identical chat FUNCTION
+  meant an identical chat.** It did not: 38.0.12 shared the chat's inner parts (`chatPanel`)
+  but left `variant` choosing the whole SHELL, so the seven games still opened visibly and
+  geometrically different chats. UI only: no migration (latest still 0014), version 0.4.8,
+  games 7, achievements 52, libc 0, no `package.json` change.
+- **RED (measured in a real browser at `75a3b6d`, 467 violations).** The gate now mounts the
+  REAL online branches (`scripts/layout-harness/social-games.{html,tsx}`): Durak +
+  `DurakGameScreen`, 51 + `FiftyOneGameScreen`, Poker + `PokerGameScreen`. At 390:
+  `durak .chat-drawer 320x844@70,0 r=0 no-backdrop` | `fiftyone .social-sheet 390x544@0,300
+  r=16/16/0/0 backdrop` | `poker .chat-drawer 371x400@10,617 r=11.2px no-backdrop`; different
+  child DOM too. Plus `picker-mode-switch: chat-picker__mode|data-mode="message"|"table"` and
+  **`the picker button STOLE focus (active=… chat-picker-btn)`** — which is exactly why a
+  naive `document.activeElement` check could not have implemented the new rule.
+- **Root cause:** `variant` conflated *where the launcher lives* with *what the chat looks
+  like*. Fix: ONE `chatDialog` declared once and rendered by every variant; `variant` now
+  positions launchers only.
+- **The dialog:** `chat-dialog-backdrop` (fixed, inset 0, rgba(0,0,0,.62)) → `chat-dialog`
+  (`min(100%,32rem)` × `min(80vh,34rem)`, safe-area padding, bottom sheet on a phone, centred
+  card from `700px`) → head (`💬 Chat` + ✕) → `chat-dialog__list` (6.5rem floor) →
+  `chat-dialog__compose` → bounded `chat-picker`. `.chat-drawer*` is gone from TSX and CSS.
+  AFTER, identical for all three games at every viewport LTR+RTL: **360×544@0,256 (360),
+  390×544@0,300 (390), 512×544@128,240 (768), 512×544@427,178 (1366)**.
+- **Scroll lock:** while chat is open `documentElement` gets `overflow:hidden` + matching
+  `padding-inline-end`. It is modal correctness AND the last 7px of geometry: a fixed dialog
+  centres on the ICB, which excludes a classic scrollbar, so Poker (its screen overflows at
+  1366) drew the dialog at l=420 vs Durak/51's 427 until the lock removed the scrollbar.
+- **`sheet` variant now has TWO launchers:** 💬 (the shared dialog) and ☰ (voice /
+  `utilityPanelSlot` / `dangerSlot`). Without the second one 51 would lose voice + "Quit for
+  good", which used to live in the chat sheet's footer. Poker's utility panel keeps its own
+  docked shell — only the CHAT is unified.
+- **`PickerMode` DELETED** (type, state, both buttons, CSS, and `chat.emojiMode/emojiToMessage/
+  emojiToTable` ×4 languages). Replaced by focus: `onFocus/onBlur` → `focusedRef` (read live at
+  click time) + `inputFocused` (drives the inert `chat-picker__hint`, `pointer-events:none`).
+  Focused → splice at `selectionStart/End`, caret follows, nothing sent, focus kept. Blurred →
+  `onReact` once, seat-anchored, draft untouched. **`text.length` decides nothing.**
+  `keepFocus` cancels `mousedown` on the picker button, every emoji and every sticker cell
+  (blocks the focus change on desktop AND touch, click still fires); `closePicker` only pulls
+  focus back to its button when the field does not hold it.
+- **Gate `npm run layout:social` rebuilt: 155 checks.** PHASE A = the isolated variant harness;
+  PHASE B = the three real branches, compared field by field (cls/position/radius/backdrop/
+  child DOM/w/h/l/t) and replayed through focused-caret, blurred-empty, blurred-draft,
+  focus-switch and sticker scenarios. Behaviour is driven with REAL `Input.dispatchMouseEvent`
+  + `Input.insertText`, because `el.click()` cannot move focus.
+  **Gotcha:** a headless page has no system focus, so `el.focus()` sets `activeElement` WITHOUT
+  firing the event React listens to — both this gate and `layout:fiftyone` now enable
+  `Emulation.setFocusEmulationEnabled`. 51's gate also gained a `focus:<sel>` click step and
+  moved `4p-confirm` to `panel=utility` (permleave lives in the ☰ menu now).
+- Tests: `roomSocialUnified.test.ts` rewritten for 38.0.13 (30, incl. byte-identical dialog
+  markup across variants); `roomSocialSheet.test.ts` (two launchers, chat = shared dialog, menu
+  = sheet); `pokerSocialDock.test.ts`, `fiftyOneStage3809.test.ts`, `roomSocialWiring.test.ts`,
+  `fiftyOneMobileLayout.test.ts` updated.
+- **Gates:** `npm run verify` PASS; `layout:social` **155 OK**; `layout:fiftyone` **156 OK**;
+  `layout:poker` **228 OK**; after-screenshots reviewed at 360/390/1366 for Durak, 51 and Poker
+  incl. Arabic RTL; `git diff --check` clean; libc 0; no dependency/lockfile drift.
+
 ### Stage 38.0.12 (unification) — ONE social contract for all 7 games (COMPLETE, Unreleased)
+> **Superseded in part by Stage 38.0.13 (above).** What follows unified the chat's INSIDE
+> only. The wrapper it calls "the only difference" was in fact the owner-visible defect, and
+> the two explicit emoji modes described below have been deleted in favour of focus.
 - Worked from HEAD `d44171b`. **CORRECTS that stage's claim that 51 deliberately differs from
   the other games** — it was an owner FAIL, not a decision. UI only: no migration (0014),
   version 0.4.8, games 7, achievements 52, libc 0. `package.json` gained ONE script

@@ -1119,9 +1119,8 @@ export const AR: Record<string, string> = {
   'chat.mediaPicker': 'ملصقات',
   'chat.sendMedia': 'إرسال ملصق',
   'chat.noMedia': 'لا توجد ملصقات',
-  'chat.emojiMode': 'إجراء الرمز',
-  'chat.emojiToMessage': 'إلى الرسالة',
-  'chat.emojiToTable': 'إلى الطاولة',
+  'chat.emojiHintMessage': 'الرموز تُضاف إلى رسالتك',
+  'chat.emojiHintTable': 'الرموز تظهر على الطاولة',
   'account.hint': 'اختياري. اللعب المحلي واللعب كضيف عبر الإنترنت يعملان دون تسجيل الدخول — تُحفظ إعداداتك على هذا الجهاز.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'الإحصائيات',

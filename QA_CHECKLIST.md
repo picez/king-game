@@ -378,28 +378,45 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — room social (reactions + chat, Stage 7)
 
-> **Stage 38.0.12 — one contract for all 7 games.** There is no separate 😀 control any
-> more: the ONLY outer social control is **💬**, and emoji/stickers live inside the chat
-> behind the 😀 button next to the message field. Check the list below in **every** game —
-> King, Durak, Deberc, Tarneeb, Preferans, Syrian 51 and Poker — the panel must look and
-> behave identically (only its position differs: right drawer / docked panel / bottom sheet).
+> **Stage 38.0.13 — ONE chat window, and focus decides the emoji.** There is no separate
+> 😀 control and no «To message / To table» switch any more. The ONLY outer social control
+> is **💬**, and it opens the SAME dialog in all seven games — a dimmed backdrop, one card
+> (bottom sheet on a phone, centred card from 700px), header «💬 Chat» + ✕, the
+> conversation, the composer, then the picker. Check the list below in **every** game —
+> King, Durak, Deberc, Tarneeb, Preferans, Syrian 51 and Poker. Only the *button's*
+> position differs (corner cluster / docked toolbar / top-bar launcher); the chat window
+> itself must be identical. 51 and any game with voice keep a second **☰** launcher for
+> voice / "Quit for good" / a game's own panel — that is NOT a second chat.
 
 - [ ] In a room (lobby or game) tap **💬** → the chat opens with the conversation, the
       message field, **Send** and one **😀** picker button beside the field. There is **no**
       separate reactions button anywhere in the cluster.
-- [ ] Tap **😀** → the picker opens **under** the composer with a switch
-      «To message | To table». The conversation is **still visible above it** and the message
-      field is still reachable (check 360 and 390).
-- [ ] With **To table** selected, tapping an emoji shows a floating reaction (sender name +
-      emoji) for ~2.5s on **all** devices in the room, over that player's seat. It **never
-      covers your hand or the current trick**, the chat and picker **stay open**, and
-      whatever you had typed is untouched.
-- [ ] With **To message** selected, tapping an emoji **types it at the cursor** — put the
-      caret in the middle of a half-typed line and confirm nothing is wiped and the caret
-      lands after the emoji. Nothing is sent until you press Send.
-- [ ] Tapping a **sticker** sends it once; the chat and the picker stay open.
+- [ ] **Side-by-side check (the Stage 38.0.13 FAIL).** Open the chat in **Durak**, then in
+      **Syrian 51**, then in **Poker**, on the same phone: same width, same height, same
+      rounded top corners, same dimmed backdrop, same header — no tall right-hand drawer
+      anywhere. The page behind must not scroll while the chat is open.
+- [ ] Tap **😀** → the picker opens **under** the composer. The conversation is **still
+      visible above it** and the message field is still reachable (check 360 and 390).
+      A small line above the emoji says what a tap will do — it is text, not a button.
+- [ ] **Not typing → the table.** Open the picker without touching the message field and
+      tap an emoji: a floating reaction (sender name + emoji) appears for ~2.5s on **all**
+      devices in the room, over that player's seat. It **never covers your hand or the
+      current trick**, the chat and picker **stay open**, and anything already in the
+      message box is untouched.
+- [ ] **Typing → the message.** Tap the message field, type a few characters, put the caret
+      in the MIDDLE, then tap an emoji: it lands at the caret, nothing is wiped, the caret
+      follows it, the keyboard stays up and **nothing is sent**. Press Send to send it.
+- [ ] **Switching intent, one session.** With the picker open: tap the field → the next
+      emoji is typed; tap the conversation (so the keyboard closes) → the next emoji flies
+      to the table. Leave a half-typed draft in the box and confirm a blurred tap still goes
+      to the **table** and leaves the draft alone.
+- [ ] **The picker never steals the cursor.** While typing, open/close the picker: the
+      cursor stays in the message field (the keyboard must not drop) and the next emoji is
+      still typed, not thrown.
+- [ ] Tapping a **sticker** sends it once — whether or not you were typing — and the chat
+      and the picker stay open; the draft is untouched.
 - [ ] **Escape** closes the picker first, a second **Escape** closes the chat; the 😀 button
-      toggles only the picker; **✕** closes the whole chat.
+      toggles only the picker; **✕** and the **backdrop** close the whole chat.
 - [ ] Sending a **second reaction immediately** shows a "Too many messages /
       Wait…" toast (the **30s cooldown is server-side** — try from two devices to
       confirm it's per-player, not global).
@@ -410,8 +427,9 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] Sending two messages within ~3s → the second shows a rate-limit toast.
 - [ ] A new joiner sees the **recent chat history**; reactions/chat survive a
       reconnect but are **cleared on a server restart** (expected for MVP).
-- [ ] No horizontal overflow on 360/390 with the drawer open; RTL (Arabic) mirrors
-      the drawer/controls to the left.
+- [ ] No horizontal overflow on 360/390 with the chat open, and nothing is hidden under the
+      phone's home indicator (safe area); RTL (Arabic) mirrors the controls to the left while
+      the chat window itself stays centred, exactly as in LTR.
 - [ ] **Reaction anchors over the SENDER for every viewer (Stage 29.5) — cross-device.**
       With **2+ devices** in the same game, each device sends a reaction in turn and confirms it
       floats over **that sender's own visible seat** on *all* screens (your own always bottom; an

@@ -72,9 +72,12 @@ describe('RoomSocial docked variant', () => {
     expect(out).toContain('social-controls--raised');
   });
 
-  it('the docked chat panel is in flow, not the fixed side drawer', () => {
+  it('(38.0.13) the docked variant opens the SHARED chat dialog, not a docked panel', () => {
     const out = html(createElement(RoomSocial, { ...socialProps, variant: 'docked', openPanel: 'chat' }));
-    expect(out).toContain('chat-drawer--docked');
+    expect(out).toContain('chat-dialog-backdrop');
+    expect(out).toContain('class="chat-dialog"');
+    // The in-flow chat panel is gone: poker's chat is the same modal as every other game.
+    expect(out).not.toContain('chat-drawer');
   });
 });
 
@@ -89,14 +92,14 @@ describe('exactly one social surface is open at a time', () => {
 
   it('default closed: no chat, no picker, no history panel', () => {
     const out = render('none');
-    expect(out).not.toContain('chat-drawer');
+    expect(out).not.toContain('chat-dialog');
     expect(out).not.toContain('chat-picker');
     expect(out).not.toContain('poker-log-panel');
   });
 
   it('chat open → the history panel is not rendered (the picker lives inside the chat)', () => {
     const out = render('chat');
-    expect(out).toContain('chat-drawer');
+    expect(out).toContain('chat-dialog');
     expect(out).toContain('chat-picker-btn');
     expect(out).not.toContain('poker-log-panel');
   });
@@ -104,7 +107,7 @@ describe('exactly one social surface is open at a time', () => {
   it('history open → the chat is not rendered', () => {
     const out = render('utility');
     expect(out).toContain('poker-log-panel');
-    expect(out).not.toContain('chat-drawer');
+    expect(out).not.toContain('chat-dialog');
   });
 
   it('(38.0.12) there is no separate reactions surface any more', () => {
@@ -163,7 +166,9 @@ describe('mobile ergonomics are pinned in CSS', () => {
 
   it('every docked control keeps a 44px tap target', () => {
     expect(css).toMatch(/\.social-controls--docked \.social-fab\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/);
-    expect(pokerCss).toMatch(/\.poker-log-panel__head \.btn[\s\S]{0,120}min-height:\s*44px/);
+    expect(pokerCss).toMatch(/\.poker-log-panel__head \.btn\s*\{[^}]*min-height:\s*44px/);
+    // …and so does every control inside the shared chat dialog (38.0.13).
+    expect(css).toMatch(/\.chat-dialog button\s*\{[^}]*min-height:\s*44px/);
   });
 
   it('the docked history panel is in flow, not anchored over the controls', () => {

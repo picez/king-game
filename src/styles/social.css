@@ -125,24 +125,60 @@
   border-top: 1px solid var(--border);
 }
 
-/* Chat drawer — right side, collapsed by default; never covers by default. */
-.chat-drawer {
-  position: fixed; top: 0; right: 0; height: 100%;
-  width: min(320px, 86vw); z-index: 70;
-  background: var(--panel-2); border-left: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-pop); display: flex; flex-direction: column;
+/* ── THE chat dialog (Stage 38.0.13) ─────────────────────────────────────────
+   ONE shell for all seven games. Before this, `variant` chose the shell as well as the
+   launcher, so the same component opened three different chats — measured at 75a3b6d,
+   390px wide: Durak a fixed 320x844 right-hand drawer with NO backdrop, Fifty-One a
+   390x544 modal card WITH one, Poker a 371x400 in-flow box with an 11.2px radius.
+   The dialog is `position: fixed` from a viewport-anchored backdrop, so its geometry
+   depends on the VIEWPORT alone — never on where in the page the launcher happened to
+   sit. Phone: a bottom sheet that honours the safe area. Desktop: a centred card. */
+.chat-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 88;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, 0.62);
 }
-.chat-drawer__head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border);
-  font-weight: 700; color: var(--text);
+.chat-dialog {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  width: min(100%, 32rem);
+  max-height: min(80vh, 34rem);
+  /* OPAQUE on purpose: `--surface` is a translucent wash and the table read through it. */
+  background: var(--panel); color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: var(--shadow-3, var(--shadow-2));
+  padding:
+    0.5rem
+    max(0.6rem, env(safe-area-inset-right))
+    calc(0.5rem + env(safe-area-inset-bottom))
+    max(0.6rem, env(safe-area-inset-left));
 }
-/* The conversation is the history's ONE scroller in every variant, and it keeps a FLOOR:
-   the picker below it may only take what is left over, so the chat can never be squeezed
-   away (measured at d44171b: 80px at 360, 65px at 390, 0px at 1920 — Stage 38.0.12). */
-.chat-drawer__list {
-  flex: 1 1 auto; overflow-y: auto; min-height: 6.5rem;
-  padding: 0.7rem; display: flex; flex-direction: column; gap: 7px;
+/* Desktop: the same card, centred and free of the phone's bottom-sheet edges. */
+@media (min-width: 700px) {
+  .chat-dialog-backdrop { align-items: center; padding: 1rem; }
+  .chat-dialog { border-radius: 1rem; padding-bottom: 0.5rem; }
+}
+.chat-dialog__head { display: flex; align-items: center; gap: 0.4rem; }
+.chat-dialog__title {
+  flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 0.2rem;
+  font-size: 0.95rem; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-dialog__close {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: 1rem; cursor: pointer;
+}
+/* EVERY control inside the dialog is a real phone tap target. */
+.chat-dialog button { min-height: 44px; min-width: 44px; }
+.chat-dialog .chat-media-thumb { padding: 2px; }
+/* The conversation is the history's ONE scroller, and it keeps a FLOOR: the picker below
+   it may only take what is left over, so the chat can never be squeezed away (measured at
+   d44171b: 80px at 360, 65px at 390, 0px at 1920 — Stage 38.0.12). */
+.chat-dialog__list {
+  flex: 1 1 auto; min-height: 6.5rem; overflow-y: auto; overflow-x: hidden;
+  padding: 0.5rem; display: flex; flex-direction: column; gap: 7px;
+  border: 1px solid var(--border); border-radius: 0.6rem; background: var(--surface-2);
 }
 .chat-empty { color: var(--text-muted); text-align: center; margin-top: 1.5rem; font-size: 0.9rem; }
 .chat-msg { display: flex; gap: 6px; align-items: flex-start; }
@@ -156,9 +192,9 @@
   background: var(--surface-2); padding: 4px 9px; border-radius: 11px; max-width: 100%;
 }
 .chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
-.chat-drawer__compose {
-  display: flex; gap: 6px; padding: 0.6rem; border-top: 1px solid var(--border);
-  align-items: center;
+.chat-dialog__compose {
+  flex: 0 0 auto; display: flex; gap: 6px; align-items: center;
+  padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
 }
 .chat-input { flex: 1 1 auto; min-width: 0; }
 .chat-media-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
@@ -194,8 +230,9 @@
 }
 .chat-lightbox__img { max-width: min(90vw, 420px); max-height: 80vh; object-fit: contain; border-radius: 12px; }
 
-/* RTL: mirror the drawer + the corner controls to the left edge. */
-[dir="rtl"] .chat-drawer { right: auto; left: 0; border-left: none; border-right: 1px solid var(--border-strong); }
+/* RTL: mirror the corner controls to the left edge. The chat dialog needs no mirroring —
+   it is centred on the viewport in both directions, which is part of why every game now
+   measures the same rectangle. */
 [dir="rtl"] .social-controls { right: auto; left: 12px; align-items: flex-start; }
 [dir="rtl"] .social-toast { right: auto; left: 12px; }
 
@@ -229,17 +266,9 @@
 .social-controls--docked .social-controls__row * { flex-shrink: 0; }
 .social-fab--leave { background: var(--danger-soft); border-color: var(--danger); }
 
-/* Docked panels: in flow, full width, self-scrolling — they push the action row down
-   instead of covering it. */
-.chat-drawer--docked {
-  /* (38.0.12) Raised from min(42vh, 20rem): the docked chat now also carries the picker,
-     and the history keeps a 6.5rem floor — the old cap left the picker ~14px. */
-  position: static; width: 100%; height: auto; max-height: min(56vh, 25rem);
-  border-left: none; border-right: none;
-  border: 1px solid var(--border-strong); border-radius: 0.7rem;
-  box-shadow: none;
-}
-[dir="rtl"] .chat-drawer--docked { border: 1px solid var(--border-strong); }
+/* (38.0.13) There is no docked chat panel any more: the docked variant is a TOOLBAR, and
+   pressing its 💬 opens the same modal `.chat-dialog` as every other game. Only the
+   caller's own utility panel still docks in flow under the row. */
 .reaction-bar--docked { width: 100%; }
 
 /* ── Permanent "Quit for good" (Stage 38.0.5) ───────────────────────────────
@@ -288,8 +317,9 @@
    table, the cards or the action bar. OPEN, the sheet is a dialog and covers the page
    ON PURPOSE — with a backdrop, a close button, a bounded height and its own scroll.
    Game-agnostic: no game selector appears anywhere in this block. */
-/* One launcher PER SECTION (38.0.12): reactions and chat are separate surfaces, so
-   neither is ever layered over the other. */
+/* (38.0.13) The sheet variant's TWO launchers: 💬 opens the shared `.chat-dialog`, ☰ opens
+   this sheet, which now holds only what is NOT chat (voice, the caller's utility panel and
+   the destructive action). Neither surface is ever layered over the other. */
 .social-menu { display: inline-flex; gap: 0.35rem; }
 .social-menu__launcher { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.15rem; }
 
@@ -328,19 +358,9 @@
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 0.4rem;
 }
-/* (38.0.12) The sheet renders the SAME chat as the drawer: the message list is its own
-   scroller and keeps its floor, the composer is a pinned row, the picker is bounded. The
-   body wrapper survives only for the caller's utility panel. */
-.social-sheet > .chat-drawer__list {
-  position: static; flex: 1 1 auto; max-height: none;
-  border: 1px solid var(--border); border-radius: 0.6rem; background: var(--surface-2);
-}
-.social-sheet > .chat-drawer__compose {
-  flex: 0 0 auto; padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
-}
-/* (38.0.12) The IN-CHAT picker — the SAME element in all three layout variants: a mode
-   switch, the emoji row and the sticker catalog, pinned BELOW the composer. It is a
-   sibling of the conversation, never a replacement for it.
+/* (38.0.12) The IN-CHAT picker — one element inside the ONE dialog: the emoji row and the
+   sticker catalog, pinned BELOW the composer. It is a sibling of the conversation, never a
+   replacement for it.
    `flex: 0 1 auto` + `min-height: 0` is what keeps the promise: the cap below is an
    upper bound, and when the panel is short the picker SHRINKS instead of eating the
    history (which holds its own floor). It is also its region's only scroller. */
@@ -352,14 +372,15 @@
 }
 .chat-picker .reaction-bar__stickers { max-height: none; overflow: visible; border-top: none; }
 .chat-picker .reaction-bar__emojis { display: flex; flex-wrap: wrap; gap: 4px; }
-/* The two EXPLICIT emoji actions — a visible switch, never a hidden gesture. */
-.chat-picker__modes { display: flex; gap: 6px; flex: 0 0 auto; }
-.chat-picker__mode {
-  flex: 1 1 0; min-height: 36px; padding: 0 0.6rem; cursor: pointer;
-  font-size: 0.78rem; font-weight: 600; border-radius: 999px;
-  background: var(--panel); color: var(--text-muted); border: 1px solid var(--border-strong);
+/* (38.0.13) What the next emoji tap will do, in words. INERT by design — the two mode
+   buttons it replaced ("To message" / "To table") asked the player to state an intent the
+   keyboard already states. Never a control: no cursor, no pointer events, no tab stop. */
+.chat-picker__hint {
+  flex: 0 0 auto; margin: 0; padding: 0 0.2rem;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--text-muted); pointer-events: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chat-picker__mode--on { background: var(--surface-3); color: var(--text); border-color: var(--accent, #f5c518); }
 .chat-picker-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
 .social-sheet__foot {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;

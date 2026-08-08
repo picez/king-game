@@ -106,19 +106,19 @@ async function runViewport(cdp, vp) {
 
   // ── Lobby social ───────────────────────────────────────────────────────────
   await openChat(cdp);
-  await shot(cdp, `${tag}-lobby-1-chat-open`, { drawer: '.chat-drawer', compose: '.chat-drawer__compose', controls: '.social-controls' });
+  await shot(cdp, `${tag}-lobby-1-chat-open`, { dialog: '.chat-dialog', compose: '.chat-dialog__compose', controls: '.social-controls' });
   // Send a text message, then (spaced past the 3s rate limit) a media sticker.
   await cdp.evaluate(TYPE('.chat-input', 'gg — nice deal! 🎉'));
   await sleep(150);
-  await cdp.evaluate(`(()=>{const b=document.querySelector('.chat-drawer__compose .btn--primary');if(b)b.click()})()`);
+  await cdp.evaluate(`(()=>{const b=document.querySelector('.chat-dialog__compose .btn--primary');if(b)b.click()})()`);
   await sleep(3300);
   await cdp.evaluate(CLICKSEL('.chat-media-btn'));                            // open in-drawer sticker picker
   await sleep(400);
   await shot(cdp, `${tag}-lobby-2-media-picker`, { picker: '.chat-media-picker', thumb: '.chat-media-thumb' });
   await cdp.evaluate(CLICKSEL('.chat-media-thumb', 0));                       // send first sticker
   await sleep(700);
-  await shot(cdp, `${tag}-lobby-3-chat-messages`, { drawer: '.chat-drawer', textMsg: '.chat-msg__text', mediaMsg: '.chat-msg__media img' });
-  await cdp.evaluate(CLICKSEL('.chat-drawer__head .btn--ghost'));            // close chat
+  await shot(cdp, `${tag}-lobby-3-chat-messages`, { dialog: '.chat-dialog', textMsg: '.chat-msg__text', mediaMsg: '.chat-msg__media img' });
+  await cdp.evaluate(CLICKSEL('.chat-dialog__close'));            // close chat
   await sleep(300);
   // Reaction picker (emoji + sticker grid) + a floating emoji reaction.
   await openReactionPicker(cdp);
@@ -128,7 +128,7 @@ async function runViewport(cdp, vp) {
   await shot(cdp, `${tag}-lobby-5-float-reaction`, { float: '.reactions-float .reaction-chip' });
 
   // ── Start the game → active Durak with a hand ────────────────────────────────
-  await cdp.evaluate(`(()=>{const b=[...document.querySelectorAll('.btn--primary')].find(x=>!x.closest('.chat-drawer'));if(b)b.click()})()`); // Start
+  await cdp.evaluate(`(()=>{const b=[...document.querySelectorAll('.btn--primary')].find(x=>!x.closest('.chat-dialog'));if(b)b.click()})()`); // Start
   await sleep(1500);
   await shot(cdp, `${tag}-game-1-hand-social`, { hand: '.durak-hand', card: '.durak-hand .card', controls: '.social-controls--raised' });
   await openReactionPicker(cdp);
