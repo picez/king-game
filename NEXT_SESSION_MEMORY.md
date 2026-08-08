@@ -1247,3 +1247,39 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `git diff --check` clean; libc 0; no package/lock drift.
 - **Gotcha:** the source folder also holds 237 PNGs — this stage imported GIFs ONLY
   (`--only=gif`). Importing them later is a separate, explicit decision.
+
+### Stage 38.0.12 — room sheet: one scroller + reactions as their own section (COMPLETE, Unreleased)
+- Worked from HEAD `ec56060`. Two owner FAILs from a phone screenshot of the 51 room sheet.
+  UI only: **no migration** (0014), version 0.4.8, games 7, achievements 52, libc 0. Poker
+  (`variant='docked'`) and the historical `floating` cluster are behaviourally untouched —
+  every CSS override is scoped to `.social-sheet…`.
+- **FAIL 1 "два скрола" — THREE nested scrollers, not two.** `.social-sheet__body` scrolls,
+  and inside it `.reaction-bar__stickers` (`max-height: 38vh; overflow-y: auto`),
+  `.chat-media-picker` (`42vh`) and `.chat-drawer__list` all kept their own. The list one was
+  only found by the NEW measured probe — the screenshot showed the sticker pair. FIX: the body
+  is the single scroller; the three descendants get `max-height: none; overflow: visible`
+  inside the sheet. The chat auto-scroll now targets `list.closest('.social-sheet__body') ??
+  list`, so it still lands on the real scroller in every variant.
+- **FAIL 2 "реакції поверх чату" — owner chose a SEPARATE PANEL** (asked, not assumed): the
+  `Чат | Реакції` tab strip is gone; `.social-menu` renders one launcher per section (😀
+  reactions, 💬 chat with the unread badge, ☰ only when the caller passes `utilitySlot`), each
+  toggling its own panel. The head shows `.social-sheet__title` (`😀 Reactions` / `💬 Chat`);
+  `closeSheet` returns focus via `launcherFor(panel)` to the launcher that opened it.
+  `setPanel('none')` still exists exactly once (inside `closeSheet`).
+- **Composer pinned OUTSIDE the scroller** (`{chatOpen && chatCompose}` after the body,
+  `.social-sheet > .chat-drawer__compose`): with 253 stickers expanded it used to scroll far
+  out of reach. Opening it also scrolls the picker into view (`mediaOpen` effect).
+- **Gate `npm run layout:fiftyone` 144 → 150 checks**: new scenario `4p-chat-media` (opens the
+  in-composer picker) and two new measured violations — `sheet-nested-scroll` (ANY descendant
+  of the body with a real `overflow-y: auto/scroll` overflow) and `compose-hidden`/
+  `compose-out-of-sheet`. The `stillOpen` assertion reads `.social-sheet__title` now (the tab
+  it used to read no longer exists). The nested-scroll probe **reproduced RED**: 24 hits for
+  `chat-drawer__list` across all 6 viewports before the fix.
+- **Tests:** new `src/ui/online/roomSocialSheetSections.test.ts` (10 SSR/source/CSS contracts);
+  updated `roomSocialSheet.test.ts` (2 launchers, heading instead of tabs, new `closeSheet`)
+  and `fiftyOneStage3809.test.ts` FAIL A (per-section launchers; `closeSheet()` count 2 → 4).
+- **Gates:** `npm run verify` PASS (**292 files / 3553 tests** + build + E2E); layout:fiftyone
+  **150 LAYOUT OK**; layout:poker OK; screenshots at 360/390 re-checked by eye; `git diff
+  --check` clean; libc 0; no package/lock drift.
+- **Gotcha:** `.chat-drawer__list` is `flex: 1 1 auto` in the drawer; inside the sheet it must
+  be `flex: 0 0 auto` + `overflow: visible`, otherwise it keeps a scrollbar of its own.

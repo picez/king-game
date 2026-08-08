@@ -291,6 +291,29 @@ const PROBE = `JSON.stringify((() => {
     if (r.w < 43.5 || r.h < 43.5) add('emoji-small', Math.round(r.w) + 'x' + Math.round(r.h));
   }
 
+  // 11. (38.0.12) The sheet has exactly ONE scrolling region, and the composer stays
+  // reachable: the owner's phone showed two scrollbars side by side, and an expanded
+  // sticker grid used to push the text field out of the sheet.
+  const sheetEl = document.querySelector('.social-sheet');
+  const sheetBody = document.querySelector('.social-sheet__body');
+  if (sheetBody) {
+    for (const el of sheetBody.querySelectorAll('*')) {
+      const st = getComputedStyle(el);
+      const scrolls = (st.overflowY === 'auto' || st.overflowY === 'scroll')
+        && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1;
+      if (scrolls) add('sheet-nested-scroll', (el.className || '?').toString().split(' ')[0]);
+    }
+  }
+  const compose = document.querySelector('.chat-drawer__compose');
+  if (sheetEl && compose) {
+    const cr = rect(compose);
+    const sr = rect(sheetEl);
+    if (!live(cr)) add('compose-hidden', 'zero size');
+    else if (cr.b > sr.b + S || cr.t < sr.t - S) {
+      add('compose-out-of-sheet', Math.round(cr.t) + '-' + Math.round(cr.b) + ' in ' + Math.round(sr.t) + '-' + Math.round(sr.b));
+    }
+  }
+
   // 11. (38.0.9) MELD GROUP COMPACTNESS — a group must hug its own content.
   groups.forEach((g, gi) => {
     const gr = rect(g);
@@ -358,6 +381,9 @@ function scenarios() {
     // (38.0.9) A REAL click must not close the sheet.
     { name: '4p-react-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.reaction-bar__btn'], stillOpen: true },
     { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.chat-media-thumb'], stillOpen: true },
+    // (38.0.12) The chat section with its in-composer sticker picker expanded: still one
+    // scroller, and the text field must stay inside the sheet.
+    { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-media-btn'] },
     // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
     { name: 'single-meld', q: 'players=4&melds=single' },
     { name: 'uneven-groups', q: 'players=4&melds=uneven' },
@@ -436,13 +462,14 @@ async function run() {
           await cdp.evaluate(SETTLE);
         }
 
-        // (38.0.9) A reaction/sticker click must leave the sheet OPEN.
+        // (38.0.9) A reaction/sticker click must leave the sheet OPEN, still on the
+        // section it was fired from — since 38.0.12 that section owns the whole sheet.
         if (sc.stillOpen) {
           const open = await cdp.evaluate("!!document.querySelector('.social-sheet')");
-          const tab = await cdp.evaluate("(document.querySelector('.social-sheet__tab--on')||{}).textContent||''");
+          const title = await cdp.evaluate("(document.querySelector('.social-sheet__title')||{}).textContent||''");
           if (!open) failures.push(`${vp.tag} ${sc.name}: the sheet CLOSED after the click`);
-          else if (!/😀|Reaction|التفاعلات|Reaktionen|Реакції/.test(String(tab))) {
-            failures.push(`${vp.tag} ${sc.name}: the Reactions tab lost focus (tab="${tab}")`);
+          else if (!/😀|Reaction|التفاعلات|Reaktionen|Реакції/.test(String(title))) {
+            failures.push(`${vp.tag} ${sc.name}: the Reactions section lost focus (title="${title}")`);
           }
           await cdp.evaluate(SETTLE);
         }

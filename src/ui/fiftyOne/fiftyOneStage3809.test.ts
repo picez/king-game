@@ -33,15 +33,16 @@ describe('FAIL A — a reaction must not close the sheet', () => {
     expect(src).not.toMatch(/onChatMedia\(item\.id\);\s*setMediaOpen\(false\);\s*setReactOpen\(false\)/);
   });
 
-  it('only the four deliberate gestures close it', () => {
-    // ✕, backdrop, Escape and the launcher — and nothing else calls closeSheet/setPanel('none').
+  it('only the deliberate gestures close it', () => {
+    // ✕, backdrop, Escape and the section's OWN launcher (38.0.12 gave each section one)
+    // — and nothing else calls closeSheet/setPanel('none').
     expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeSheet}');
     expect(src).toContain('className="social-sheet__close" onClick={closeSheet}');
     expect(src).toMatch(/if \(sheetOpen\) \{ closeSheet\(\); return; \}/);
-    expect(src).toMatch(/onClick=\{\(\) => \(sheetOpen \? closeSheet\(\) : setPanel\('chat'\)\)\}/);
-    // Exactly TWO other call sites (backdrop + ✕) plus the Escape branch and the launcher
-    // toggle — and no `setPanel('none')` hidden anywhere else.
-    expect((src.match(/closeSheet\(\)/g) ?? []).length).toBe(2);
+    expect(src).toMatch(/onClick=\{\(\) => \(reactOpen \? closeSheet\(\) : setPanel\('reactions'\)\)\}/);
+    expect(src).toMatch(/onClick=\{\(\) => \(chatOpen \? closeSheet\(\) : setPanel\('chat'\)\)\}/);
+    // The Escape branch + the three launcher toggles; backdrop/✕ pass the function itself.
+    expect((src.match(/closeSheet\(\)/g) ?? []).length).toBe(4);
     expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);   // inside closeSheet only
   });
 

@@ -289,7 +289,9 @@
    table, the cards or the action bar. OPEN, the sheet is a dialog and covers the page
    ON PURPOSE — with a backdrop, a close button, a bounded height and its own scroll.
    Game-agnostic: no game selector appears anywhere in this block. */
-.social-menu { display: inline-flex; }
+/* One launcher PER SECTION (38.0.12): reactions and chat are separate surfaces, so
+   neither is ever layered over the other. */
+.social-menu { display: inline-flex; gap: 0.35rem; }
 .social-menu__launcher { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.15rem; }
 
 .social-sheet-backdrop {
@@ -311,17 +313,12 @@
   gap: 0.4rem;
 }
 .social-sheet__head { display: flex; align-items: center; gap: 0.4rem; }
-.social-sheet__tabs {
-  display: flex; gap: 0.3rem; flex: 1 1 auto; min-width: 0;
-  overflow-x: auto; scrollbar-width: none;
+/* The heading of the ONE section the sheet is showing (it replaced the tab strip). */
+.social-sheet__title {
+  flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 0.2rem;
+  font-size: 0.95rem; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.social-sheet__tabs::-webkit-scrollbar { display: none; }
-.social-sheet__tab {
-  position: relative; flex: 0 0 auto; min-height: 44px; padding: 0 0.7rem;
-  border-radius: 999px; cursor: pointer; font-size: 0.86rem; font-weight: 600;
-  background: var(--panel); color: var(--text); border: 1px solid var(--border-strong);
-}
-.social-sheet__tab--on { background: var(--surface-3); border-color: var(--accent); }
 .social-sheet__close {
   flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
   background: var(--panel); border: 1px solid var(--border-strong);
@@ -333,9 +330,23 @@
   display: flex; flex-direction: column; gap: 0.4rem;
 }
 .social-sheet__body .chat-drawer__list {
-  position: static; flex: 1 1 auto; min-height: 6rem; max-height: none;
+  position: static; flex: 0 0 auto; min-height: 6rem; max-height: none;
+  overflow: visible;                    /* the body scrolls it — see the rule below */
+}
+/* (38.0.12 owner FAIL) NOTHING inside the sheet body scrolls on its own. Both media
+   grids carry their own `max-height` + `overflow-y: auto` for the floating/docked
+   clusters, which nested a second scrollbar inside the sheet's — the owner's phone
+   showed two side by side. The body is the single scroller here. */
+.social-sheet__body .reaction-bar__stickers,
+.social-sheet__body .chat-media-picker {
+  max-height: none; overflow: visible;
 }
 .reaction-bar--sheet { width: 100%; border: none; box-shadow: none; background: transparent; padding: 0; }
+/* The composer sits OUTSIDE the scroller (a pinned row), so an expanded sticker grid
+   can never push the text field out of reach. */
+.social-sheet > .chat-drawer__compose {
+  flex: 0 0 auto; padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
+}
 .social-sheet__foot {
   display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
   border-top: 1px solid var(--border-strong); padding-top: 0.4rem;

@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Reactions are their own panel, and the room sheet scrolls once (Stage 38.0.12).** The
+  room panel used to be one surface with `Chat | Reactions` tabs, so the sticker picker
+  opened on top of the conversation — and it scrolled inside a panel that was itself
+  scrolling, which showed two scrollbars side by side on a phone. Reactions now have their
+  own 😀 button next to 💬, each opening its own panel with a plain heading and no tabs.
+  Inside either panel only the panel itself scrolls, and the message box stays pinned at
+  the bottom where an expanded sticker grid can no longer push it out of reach.
+
 ### Added
 
 - **160 new animated stickers in the room picker (Stage 38.0.11).** The sticker grid grew

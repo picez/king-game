@@ -115,9 +115,16 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const docked = variant === 'docked';
   const sheet = variant === 'sheet';
   const sheetOpen = sheet && panel !== 'none';
-  const launcherRef = useRef<HTMLButtonElement>(null);
+  // (38.0.12) Each sheet section has its OWN launcher, so reactions are a separate
+  // surface instead of a tab layered over the chat. Focus returns to whichever one
+  // opened the sheet.
+  const reactLauncherRef = useRef<HTMLButtonElement>(null);
+  const chatLauncherRef = useRef<HTMLButtonElement>(null);
+  const utilityLauncherRef = useRef<HTMLButtonElement>(null);
+  const launcherFor = (p: SocialPanel) =>
+    (p === 'reactions' ? reactLauncherRef : p === 'utility' ? utilityLauncherRef : chatLauncherRef);
   /** Close the sheet and hand focus back to the launcher that opened it. */
-  const closeSheet = () => { setPanel('none'); launcherRef.current?.focus(); };
+  const closeSheet = () => { const opener = launcherFor(panel).current; setPanel('none'); opener?.focus(); };
   const [mediaOpen, setMediaOpen] = useState(false);
   const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
@@ -145,11 +152,24 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
   // Mark chat seen while the drawer is open; keep it scrolled to the newest.
   useEffect(() => {
-    if (chatOpen) {
-      setSeen(chat.length);
-      listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-    }
+    if (!chatOpen) return;
+    setSeen(chat.length);
+    // Scroll whichever element actually scrolls: the drawer's own list in the
+    // floating/docked clusters, or the sheet body — which since 38.0.12 is the sheet's
+    // ONE scroller, so the list no longer has a scrollbar of its own.
+    const list = listRef.current;
+    if (!list) return;
+    const scroller = list.closest('.social-sheet__body') ?? list;
+    scroller.scrollTo({ top: scroller.scrollHeight });
   }, [chatOpen, chat.length]);
+
+  // The composer's sticker picker opens BELOW the conversation, inside the sheet's single
+  // scroller — bring it into view instead of leaving it off-screen.
+  useEffect(() => {
+    if (!mediaOpen) return;
+    const scroller = listRef.current?.closest('.social-sheet__body');
+    scroller?.scrollTo({ top: scroller.scrollHeight });
+  }, [mediaOpen]);
 
   // Float a freshly-arrived media message briefly on the table (like a reaction).
   // First run only SEEDS the seen-set (joining/reconnect history must not float);
@@ -219,6 +239,11 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const noticeText = notice
     ? (notice.code === 'RATE_LIMITED' ? t('chat.tooMany') : t('chat.blocked'))
     : null;
+
+  /** The open section's own heading — the sheet holds exactly one section (38.0.12). */
+  const sheetTitle = reactOpen ? `😀 ${t('social.reactions')}`
+    : chatOpen ? `💬 ${t('chat.title')}`
+      : `☰ ${t('social.menu')}`;
 
   // --- shared pieces, so every variant renders the SAME surfaces -------------
   const stickerGrid = CHAT_MEDIA.length > 0 ? (
@@ -311,52 +336,65 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
       {sheet && (
         <div className="social-menu">
           <button
-            ref={launcherRef}
+            ref={reactLauncherRef}
             type="button"
             className="social-fab social-menu__launcher"
             aria-haspopup="dialog"
-            aria-expanded={sheetOpen}
-            aria-label={t('social.menu')}
-            title={t('social.menu')}
-            onClick={() => (sheetOpen ? closeSheet() : setPanel('chat'))}
+            aria-expanded={reactOpen}
+            aria-label={t('social.reactions')}
+            title={t('social.reactions')}
+            onClick={() => (reactOpen ? closeSheet() : setPanel('reactions'))}
+          >
+            😀
+          </button>
+          <button
+            ref={chatLauncherRef}
+            type="button"
+            className="social-fab social-menu__launcher"
+            aria-haspopup="dialog"
+            aria-expanded={chatOpen}
+            aria-label={t('chat.title')}
+            title={t('chat.title')}
+            onClick={() => (chatOpen ? closeSheet() : setPanel('chat'))}
           >
             💬
             {unread > 0 && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
           </button>
+          {utilitySlot && (
+            <button
+              ref={utilityLauncherRef}
+              type="button"
+              className="social-fab social-menu__launcher"
+              aria-haspopup="dialog"
+              aria-expanded={panel === 'utility'}
+              aria-label={t('social.menu')}
+              title={t('social.menu')}
+              onClick={() => (panel === 'utility' ? closeSheet() : setPanel('utility'))}
+            >
+              ☰
+            </button>
+          )}
           {sheetOpen && (
             <div className="social-sheet-backdrop" role="presentation" onClick={closeSheet}>
               {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-              <div className="social-sheet" role="dialog" aria-modal="true" aria-label={t('social.menu')}
+              <div className="social-sheet" role="dialog" aria-modal="true" aria-label={sheetTitle}
                 onClick={(e) => e.stopPropagation()}>
                 <div className="social-sheet__head">
-                  <div className="social-sheet__tabs" role="tablist" aria-label={t('social.menu')}>
-                    <button type="button" role="tab" aria-selected={chatOpen}
-                      className={`social-sheet__tab ${chatOpen ? 'social-sheet__tab--on' : ''}`}
-                      onClick={() => setPanel('chat')}>
-                      💬 {t('chat.title')}
-                      {unread > 0 && !chatOpen && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
-                    </button>
-                    <button type="button" role="tab" aria-selected={reactOpen}
-                      className={`social-sheet__tab ${reactOpen ? 'social-sheet__tab--on' : ''}`}
-                      onClick={() => setPanel('reactions')}>
-                      😀 {t('social.reactions')}
-                    </button>
-                    {utilitySlot && (
-                      <button type="button" role="tab" aria-selected={panel === 'utility'}
-                        className={`social-sheet__tab ${panel === 'utility' ? 'social-sheet__tab--on' : ''}`}
-                        onClick={() => setPanel('utility')}>
-                        ☰
-                      </button>
-                    )}
-                  </div>
+                  {/* No tab strip (38.0.12): the sheet shows the ONE section its launcher
+                      opened, so reactions never sit on top of the chat. */}
+                  <h2 className="social-sheet__title">{sheetTitle}</h2>
                   <button type="button" className="social-sheet__close" onClick={closeSheet} aria-label={t('btn.back')}>✕</button>
                 </div>
-                {/* ONE scrolling body with its own max-height — the page never scrolls for it. */}
+                {/* THE single scrolling region: no descendant of it scrolls on its own, so a
+                    phone never shows two nested scrollbars (38.0.12 owner FAIL). */}
                 <div className="social-sheet__body">
-                  {chatOpen && <>{chatList}{chatMediaPicker}{chatCompose}</>}
+                  {chatOpen && <>{chatList}{chatMediaPicker}</>}
                   {reactOpen && <div className="reaction-bar reaction-bar--sheet">{emojiGrid}{stickerGrid}</div>}
                   {panel === 'utility' && utilityPanelSlot}
                 </div>
+                {/* The composer is pinned OUTSIDE the scroller: with the whole sticker
+                    catalog expanded it used to scroll far out of reach. */}
+                {chatOpen && chatCompose}
                 <div className="social-sheet__foot">
                   {voiceButton}
                   {onLeaveGame && (

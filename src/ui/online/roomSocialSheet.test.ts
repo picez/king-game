@@ -31,12 +31,14 @@ function render(props: Record<string, unknown> = {}): string {
   } as never)));
 }
 
-describe('collapsed: ONE launcher, no toolbar, no panel', () => {
+describe('collapsed: one launcher PER SECTION, no toolbar, no panel', () => {
   const out = render({ variant: 'sheet', openPanel: 'none', onPanelChange: noop });
 
-  it('renders a single launcher and nothing else interactive', () => {
+  it('renders the section launchers and nothing else interactive', () => {
     expect(out).toContain('social-menu__launcher');
-    expect((out.match(/social-menu__launcher/g) ?? []).length).toBe(1);
+    // (38.0.12) Reactions and chat each own a launcher; the utility one appears only
+    // when the caller passes a `utilitySlot`.
+    expect((out.match(/social-menu__launcher/g) ?? []).length).toBe(2);
     expect(out).not.toContain('social-controls');
     expect(out).not.toContain('social-controls__row');
   });
@@ -102,9 +104,13 @@ describe('open: a real modal sheet with backdrop, close and its own scroll', () 
     expect(chatSheet).not.toContain('reaction-bar--sheet');
   });
 
-  it('the tabs report which surface is showing', () => {
-    expect(chatSheet).toMatch(/role="tab" aria-selected="true"/);
-    expect((chatSheet.match(/role="tab"/g) ?? []).length).toBe(2);
+  it('the heading reports which section is showing — there is no tab strip', () => {
+    expect(chatSheet).toContain('social-sheet__title');
+    expect(chatSheet).not.toContain('role="tab"');
+    const react = render({ variant: 'sheet', openPanel: 'reactions', onPanelChange: noop });
+    const title = (s: string) => s.slice(s.indexOf('social-sheet__title'), s.indexOf('social-sheet__close'));
+    expect(title(chatSheet)).toContain('💬');
+    expect(title(react)).toContain('😀');
   });
 
   it('a floating chat drawer is NOT also rendered in sheet mode', () => {
@@ -118,7 +124,8 @@ describe('the source contract that makes the sheet safe', () => {
   const css = readFileSync(join(process.cwd(), 'src/styles/social.css'), 'utf8');
 
   it('Escape and the backdrop both close it, and focus returns to the launcher', () => {
-    expect(src).toMatch(/const closeSheet = \(\) => \{ setPanel\('none'\); launcherRef\.current\?\.focus\(\); \}/);
+    // (38.0.12) Focus goes back to the launcher of the section that was open.
+    expect(src).toMatch(/const closeSheet = \(\) => \{ const opener = launcherFor\(panel\)\.current; setPanel\('none'\); opener\?\.focus\(\); \}/);
     expect(src).toMatch(/if \(sheetOpen\) \{ closeSheet\(\); return; \}/);
     expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeSheet}');
     expect(src).toContain('className="social-sheet__close" onClick={closeSheet}');
