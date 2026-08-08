@@ -86,8 +86,18 @@ class CDP {
 const SETTLE = `(async () => {
   if (document.fonts && document.fonts.ready) await document.fonts.ready;
   for (let i = 0; i < 60 && window.__f51ready !== true; i++) await new Promise(r => setTimeout(r, 50));
-  const imgs = [...document.images].filter((im) => im.getBoundingClientRect().width > 0.5);
-  await Promise.all(imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())));
+  // Only what the viewport actually shows: the sticker grid mounts the whole catalog
+  // with loading="lazy", and decode() on an off-screen sticker the browser has
+  // deliberately not fetched never settles (it would hang the whole settle step).
+  const imgs = [...document.images].filter((im) => {
+    const r = im.getBoundingClientRect();
+    return r.width > 0.5 && r.bottom > 0 && r.top < window.innerHeight
+      && r.right > 0 && r.left < window.innerWidth;
+  });
+  await Promise.all(imgs.map((im) => Promise.race([
+    im.decode ? im.decode().catch(() => {}) : Promise.resolve(),
+    new Promise((r) => setTimeout(r, 2000)),
+  ])));
   await new Promise((r) => requestAnimationFrame(() => r()));
   await new Promise((r) => requestAnimationFrame(() => r()));
   return { images: imgs.length, ready: window.__f51ready === true };

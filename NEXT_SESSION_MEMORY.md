@@ -1214,3 +1214,36 @@ Use this file as the first read after archiving this chat. It is intentionally s
   placements often resolve identically — dedupe by signature or the chooser appears for every
   lay-off. (2) A JS template literal in the QA probe cannot contain backticks — a
   `object-fit: contain` comment broke the script.
+
+### Stage 38.0.11 — incremental GIF import (COMPLETE, Unreleased)
+- Worked from HEAD `30a11e6`. Assets + importer + guards only: **no migration** (0014),
+  version 0.4.8, games 7, achievements 52, libc 0, no rules/protocol/UI-behaviour change.
+- **`scripts/gen-chat-media.mjs` is now INCREMENTAL/ADDITIVE by default.** It used to
+  `rmSync` `public/chat-media` and regenerate everything — that would have renamed/reordered
+  the shipped stickers (a chat message references a sticker by ID alone). It now reads the
+  existing catalog back (JSON slice after the `= ` marker — NOT `indexOf('[')`, the
+  `ChatMediaItem[]` annotation has one too), keeps every item verbatim, and APPENDS. A source
+  file is imported only when its **sha256 is new**, so a renamed copy of an already-imported
+  asset is skipped and one picture can never sit under two ids. New flags: `--only=gif`
+  (extension filter), `--rebuild` (the old destructive path, deliberate use only),
+  `--dry-run`. Caps `MAX_FILE_BYTES = 100 KB` / `MAX_TOTAL_BYTES = 10 MB` (mirrored in the
+  test) — over-limit files are reported as skipped, never silently optimised.
+- **Import result** (`D:\myfiles\gifs`, 446 files / 209 GIF / 237 non-GIF): 49 already
+  present, 0 content duplicates, 0 over-limit, **160 genuinely new GIFs**. Catalog 93 → 253
+  items, folder 2.11 → 7.66 MB. Catalog diff is **960 insertions / 0 deletions**.
+- **`src/net/chatMediaCatalog.test.ts` guards** (new `chat-media assets on disk` block +
+  a legacy-prefix test): catalog ⇄ folder is a bijection, filename == id + ext, no duplicate
+  content hash, per-file/total size budget, every gif is a real GIF87a/89a with **≥2 Graphic
+  Control Extensions (still animated)**, every image entry a real PNG, and the 93 pre-38.0.11
+  ids still head the catalog in their original order.
+- **`scripts/fiftyone-layout-qa.mjs` settle fix (found by this stage, real).** `SETTLE`
+  awaited `decode()` on EVERY laid-out image; the picker mounts the whole catalog with
+  `loading="lazy"`, and decode() on an off-screen sticker the browser never fetches does not
+  settle → the CDP call hit its 20 s cap and 18 checks reported "harness never signalled
+  ready". It now decodes only images intersecting the viewport, each raced against 2 s.
+- **Gates:** `npm run verify` PASS; `npm run layout:fiftyone` **144 checks, LAYOUT OK** with
+  all 253 stickers live (360/390/768/1366/1920/2560, `dir=rtl&lang=ar`, real sticker/reaction
+  clicks asserting the sheet stays open); screenshot evidence at 360 re-checked by eye;
+  `git diff --check` clean; libc 0; no package/lock drift.
+- **Gotcha:** the source folder also holds 237 PNGs — this stage imported GIFs ONLY
+  (`--only=gif`). Importing them later is a separate, explicit decision.

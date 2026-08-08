@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added
+
+- **160 new animated stickers in the room picker (Stage 38.0.11).** The sticker grid grew
+  from 93 to 253 items. Only genuinely new pictures were added: every candidate was compared
+  by content, so a sticker that was already there under a different file name was skipped,
+  and none of the existing stickers changed, moved or lost its id — the new ones are simply
+  appended after them. They are the original animated GIFs, copied untouched (no re-encoding,
+  no flattening, transparency intact).
+
 ### Fixed
 
 - **Six things the owner hit in Syrian 51 and the room panel (Stage 38.0.9).**

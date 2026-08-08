@@ -1,27 +1,58 @@
 // ---------------------------------------------------------------------------
-// Chat-media asset importer (Stage 11.0). Copies a WHITELIST of image/GIF files
-// from a local source folder into public/chat-media/ with sanitised ascii names,
-// then generates src/net/chatMediaCatalog.ts (the server-approved whitelist the
-// chat uses). Run manually when the source assets change:
+// Chat-media asset importer (Stage 11.0; incremental since Stage 38.0.11).
+// Copies image/GIF files from a local source folder into public/chat-media/
+// with sanitised ascii names, then generates src/net/chatMediaCatalog.ts (the
+// server-approved whitelist the chat uses). Run manually when the source assets
+// change:
 //
-//   node scripts/gen-chat-media.mjs [sourceDir]
+//   node scripts/gen-chat-media.mjs [sourceDir] [--only=gif] [--rebuild] [--dry-run]
 //
 // Defaults sourceDir to D:\myfiles\gifs. Only .gif/.png/.jpg/.jpeg/.webp are
 // copied; anything else is ignored. The source folder is NEVER committed — only
 // the sanitised copies under public/chat-media and the generated catalog are.
+//
+// DEFAULT MODE IS INCREMENTAL AND ADDITIVE: every file already in
+// public/chat-media stays byte-identical, keeps its name and keeps its position
+// (and id) in the catalog. A source file is imported only when its CONTENT hash
+// is new — a renamed copy of an already-imported asset is skipped, so the same
+// picture can never appear twice under two ids. New items are appended in
+// source-filename order, so a re-run is deterministic. `--rebuild` restores the
+// old destructive behaviour (wipe the folder and regenerate from scratch) and
+// must only be used deliberately — it renames/reorders existing media.
+//
+// `--only=gif[,png,…]` restricts the import to those extensions (the rest of the
+// source folder is left alone). Files above MAX_FILE_BYTES are never copied;
+// they are reported as skipped so they can be optimised by hand first.
 // ---------------------------------------------------------------------------
 
-import { readdirSync, mkdirSync, copyFileSync, rmSync, writeFileSync, statSync } from 'node:fs';
+import { readdirSync, mkdirSync, copyFileSync, rmSync, writeFileSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { join, extname, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = process.argv[2] || 'D:\\myfiles\\gifs';
+const args = process.argv.slice(2);
+const flags = args.filter((a) => a.startsWith('--'));
+const SRC = args.find((a) => !a.startsWith('--')) || 'D:\\myfiles\\gifs';
 const DEST = join(ROOT, 'public', 'chat-media');
 const CATALOG = join(ROOT, 'src', 'net', 'chatMediaCatalog.ts');
 
+const REBUILD = flags.includes('--rebuild');
+const DRY_RUN = flags.includes('--dry-run');
+const onlyFlag = flags.find((f) => f.startsWith('--only='));
+
 const ALLOWED = new Set(['.gif', '.png', '.jpg', '.jpeg', '.webp']);
+// Kept in sync with the guards in src/net/chatMediaCatalog.test.ts.
+const MAX_FILE_BYTES = 100 * 1024;
+const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
+
+const only = onlyFlag
+  ? new Set(onlyFlag.slice('--only='.length).split(',').filter(Boolean)
+      .map((e) => (e.startsWith('.') ? e : `.${e}`).toLowerCase()))
+  : null;
+
 const mediaType = (ext) => (ext === '.gif' ? 'gif' : 'image');
+const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
 /** ascii slug: lowercase, non-alnum → single hyphen, trimmed. */
 function slug(name) {
@@ -41,45 +72,27 @@ function toLabel(name) {
   return s.split(' ').filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Sticker';
 }
 
-function run() {
-  let entries;
-  try {
-    entries = readdirSync(SRC).filter((f) => ALLOWED.has(extname(f).toLowerCase())).sort();
-  } catch (e) {
-    console.error(`Cannot read source folder ${SRC}: ${String(e?.message ?? e)}`);
-    process.exit(1);
+/** The items already in the generated catalog, in order (empty when regenerating). */
+function readExistingItems() {
+  if (!existsSync(CATALOG)) return [];
+  const text = readFileSync(CATALOG, 'utf8');
+  const marker = 'export const CHAT_MEDIA: ChatMediaItem[] = ';
+  const start = text.indexOf(marker);
+  if (start < 0) throw new Error(`Cannot find CHAT_MEDIA in ${CATALOG}`);
+  const open = start + marker.length; // NOT indexOf('[') — the type annotation has one too.
+  const close = text.indexOf('\n];', open);
+  if (text[open] !== '[' || close < 0) throw new Error(`Cannot parse CHAT_MEDIA in ${CATALOG}`);
+  const items = JSON.parse(text.slice(open, close + 2));
+  for (const it of items) {
+    const file = it.src.replace('/chat-media/', '');
+    if (!existsSync(join(DEST, file))) {
+      throw new Error(`Catalog references a missing file: ${it.src}. Refusing to regenerate.`);
+    }
   }
+  return items;
+}
 
-  rmSync(DEST, { recursive: true, force: true });
-  mkdirSync(DEST, { recursive: true });
-
-  const usedNames = new Set();
-  const usedIds = new Set();
-  const items = [];
-  let totalBytes = 0;
-  let largest = { name: '', bytes: 0 };
-
-  for (const file of entries) {
-    const ext = extname(file).toLowerCase();
-    const base = basename(file, extname(file));
-    let id = slug(base) || 'sticker';
-    // Collision-proof the id/filename with a -2/-3 suffix.
-    let unique = id;
-    for (let n = 2; usedIds.has(unique); n++) unique = `${id}-${n}`;
-    id = unique;
-    usedIds.add(id);
-    let outName = `${id}${ext}`;
-    while (usedNames.has(outName)) outName = `${id}-x${ext}`; // extra guard (shouldn't hit)
-    usedNames.add(outName);
-
-    copyFileSync(join(SRC, file), join(DEST, outName));
-    const bytes = statSync(join(DEST, outName)).size;
-    totalBytes += bytes;
-    if (bytes > largest.bytes) largest = { name: outName, bytes };
-
-    items.push({ id, src: `/chat-media/${outName}`, type: mediaType(ext), label: toLabel(base) });
-  }
-
+function writeCatalog(items) {
   const header = `// AUTO-GENERATED by scripts/gen-chat-media.mjs — do not edit by hand.
 // The server-approved whitelist of chat sticker media (Stage 11.0). Pure data:
 // no Node/React, importable by BOTH the server (validation) and the client (UI).
@@ -107,11 +120,98 @@ export function getChatMedia(id: unknown): ChatMediaItem | null {
 }
 `;
   writeFileSync(CATALOG, header + body, 'utf8');
+}
+
+function run() {
+  let entries;
+  try {
+    entries = readdirSync(SRC)
+      .filter((f) => {
+        const ext = extname(f).toLowerCase();
+        return ALLOWED.has(ext) && (!only || only.has(ext));
+      })
+      .sort();
+  } catch (e) {
+    console.error(`Cannot read source folder ${SRC}: ${String(e?.message ?? e)}`);
+    process.exit(1);
+  }
+
+  if (REBUILD) {
+    rmSync(DEST, { recursive: true, force: true });
+    mkdirSync(DEST, { recursive: true });
+  } else {
+    mkdirSync(DEST, { recursive: true });
+  }
+
+  const items = REBUILD ? [] : readExistingItems();
+  const usedIds = new Set(items.map((m) => m.id));
+  const usedNames = new Set(items.map((m) => m.src.replace('/chat-media/', '')));
+  // Content identity of everything already imported — a new source file is only
+  // copied when its hash is absent here (a rename is NOT a new sticker).
+  const hashes = new Map();
+  let totalBytes = 0;
+  for (const name of readdirSync(DEST)) {
+    const path = join(DEST, name);
+    hashes.set(sha256(path), name);
+    totalBytes += statSync(path).size;
+  }
+
+  const preexisting = new Set(hashes.keys());
+  const added = [];
+  const alreadyPresent = [];
+  const duplicates = [];
+  const skipped = [];
+
+  for (const file of entries) {
+    const path = join(SRC, file);
+    const bytes = statSync(path).size;
+    const hash = sha256(path);
+    const known = hashes.get(hash);
+    if (known) {
+      // Already imported before this run, or a second source file with the very
+      // same bytes as one this run just imported — either way, never a new item.
+      (preexisting.has(hash) ? alreadyPresent : duplicates).push({ file, known, bytes });
+      continue;
+    }
+    if (bytes > MAX_FILE_BYTES) {
+      skipped.push({ file, bytes, reason: `over ${MAX_FILE_BYTES}B` });
+      continue;
+    }
+
+    const ext = extname(file).toLowerCase();
+    const base = basename(file, extname(file));
+    let id = slug(base) || 'sticker';
+    let unique = id;
+    for (let n = 2; usedIds.has(unique); n++) unique = `${id}-${n}`;
+    id = unique;
+    usedIds.add(id);
+    let outName = `${id}${ext}`;
+    while (usedNames.has(outName)) outName = `${id}-x${ext}`; // extra guard (shouldn't hit)
+    usedNames.add(outName);
+
+    if (!DRY_RUN) copyFileSync(path, join(DEST, outName));
+    hashes.set(hash, outName);
+    totalBytes += bytes;
+    added.push({ file, out: outName, id, bytes });
+    items.push({ id, src: `/chat-media/${outName}`, type: mediaType(ext), label: toLabel(base) });
+  }
+
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    console.error(`chat-media: total ${totalBytes}B exceeds the ${MAX_TOTAL_BYTES}B budget.`);
+    process.exit(1);
+  }
+  if (!DRY_RUN) writeCatalog(items);
 
   const mb = (totalBytes / 1024 / 1024).toFixed(2);
-  console.log(`chat-media: copied ${items.length} files (${mb} MB) → public/chat-media/`);
-  console.log(`largest: ${largest.name} (${(largest.bytes / 1024).toFixed(0)} KB)`);
-  console.log(`catalog: ${CATALOG}`);
+  console.log(`chat-media${DRY_RUN ? ' (dry run)' : ''}: source ${entries.length} candidate files in ${SRC}`);
+  console.log(`  already present (same content): ${alreadyPresent.length}`);
+  console.log(`  duplicate content (skipped)   : ${duplicates.length}`);
+  console.log(`  over the size limit (skipped) : ${skipped.length}`);
+  console.log(`  newly imported                : ${added.length}`);
+  console.log(`catalog: ${items.length} items, folder ${mb} MB → ${CATALOG}`);
+  for (const d of duplicates) console.log(`  dup  ${d.file} == ${d.known}`);
+  for (const s of skipped) console.log(`  skip ${s.file} (${s.bytes}B, ${s.reason})`);
+  for (const a of added) console.log(`  add  ${a.file} → ${a.out} (id ${a.id}, ${a.bytes}B)`);
 }
 
 run();
