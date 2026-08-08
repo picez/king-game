@@ -295,13 +295,16 @@ const PROBE = `JSON.stringify((() => {
   // reachable: the owner's phone showed two scrollbars side by side, and an expanded
   // sticker grid used to push the text field out of the sheet.
   const sheetEl = document.querySelector('.social-sheet');
-  const sheetBody = document.querySelector('.social-sheet__body');
-  if (sheetBody) {
-    for (const el of sheetBody.querySelectorAll('*')) {
+  // The conversation and the picker each bound themselves; NOTHING inside either of
+  // them may add a scrollbar of its own.
+  for (const root of ['.social-sheet__body', '.chat-picker']) {
+    const region = document.querySelector(root);
+    if (!region) continue;
+    for (const el of region.querySelectorAll('*')) {
       const st = getComputedStyle(el);
       const scrolls = (st.overflowY === 'auto' || st.overflowY === 'scroll')
         && el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1;
-      if (scrolls) add('sheet-nested-scroll', (el.className || '?').toString().split(' ')[0]);
+      if (scrolls) add('sheet-nested-scroll', root + ' > ' + (el.className || '?').toString().split(' ')[0]);
     }
   }
   const compose = document.querySelector('.chat-drawer__compose');
@@ -377,13 +380,13 @@ function scenarios() {
     { name: '4p', q: 'players=4' },
     { name: '4p-collapsed', q: `players=4&${SOCIAL}` },
     { name: '4p-chat', q: `players=4&${SOCIAL}&panel=chat` },
-    { name: '4p-reactions', q: `players=4&${SOCIAL}&panel=reactions` },
-    // (38.0.9) A REAL click must not close the sheet.
-    { name: '4p-react-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.reaction-bar__btn'], stillOpen: true },
-    { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=reactions`, click: ['.chat-media-thumb'], stillOpen: true },
-    // (38.0.12) The chat section with its in-composer sticker picker expanded: still one
-    // scroller, and the text field must stay inside the sheet.
-    { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-media-btn'] },
+    // (38.0.12) The picker opens from INSIDE the chat and stays open while you use it;
+    // an emoji types into the message, a sticker sends. The conversation, the composer
+    // and the picker are all usable at once.
+    { name: '4p-picker', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn'], stillOpen: true, pickerOpen: true },
+    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
+    { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-emoji-btn', '.chat-media-thumb'], stillOpen: true, pickerOpen: true },
+    { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-media-btn'], pickerOpen: true },
     // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
     { name: 'single-meld', q: 'players=4&melds=single' },
     { name: 'uneven-groups', q: 'players=4&melds=uneven' },
@@ -462,16 +465,26 @@ async function run() {
           await cdp.evaluate(SETTLE);
         }
 
-        // (38.0.9) A reaction/sticker click must leave the sheet OPEN, still on the
-        // section it was fired from — since 38.0.12 that section owns the whole sheet.
+        // (38.0.9/38.0.12) An emoji/sticker click must leave the CHAT open, and the
+        // in-chat picker with it — the player keeps typing and sending.
         if (sc.stillOpen) {
           const open = await cdp.evaluate("!!document.querySelector('.social-sheet')");
           const title = await cdp.evaluate("(document.querySelector('.social-sheet__title')||{}).textContent||''");
           if (!open) failures.push(`${vp.tag} ${sc.name}: the sheet CLOSED after the click`);
-          else if (!/😀|Reaction|التفاعلات|Reaktionen|Реакції/.test(String(title))) {
-            failures.push(`${vp.tag} ${sc.name}: the Reactions section lost focus (title="${title}")`);
+          else if (!/💬|Chat|الدردشة|Чат/.test(String(title))) {
+            failures.push(`${vp.tag} ${sc.name}: the chat lost focus (title="${title}")`);
           }
           await cdp.evaluate(SETTLE);
+        }
+        if (sc.pickerOpen) {
+          const picker = await cdp.evaluate("!!document.querySelector('.chat-picker')");
+          if (!picker) failures.push(`${vp.tag} ${sc.name}: the in-chat picker is not open`);
+          await cdp.evaluate(SETTLE);
+        }
+        // An emoji is TEXT here: it must land in the message being composed.
+        if (sc.typed) {
+          const typed = await cdp.evaluate("(document.querySelector('.chat-input')||{}).value||''");
+          if (!String(typed).trim()) failures.push(`${vp.tag} ${sc.name}: the emoji did not reach the message box`);
         }
 
         const res = JSON.parse(await cdp.evaluate(PROBE));

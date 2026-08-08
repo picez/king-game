@@ -115,14 +115,12 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const docked = variant === 'docked';
   const sheet = variant === 'sheet';
   const sheetOpen = sheet && panel !== 'none';
-  // (38.0.12) Each sheet section has its OWN launcher, so reactions are a separate
-  // surface instead of a tab layered over the chat. Focus returns to whichever one
-  // opened the sheet.
-  const reactLauncherRef = useRef<HTMLButtonElement>(null);
+  // (38.0.12) In the sheet, emoji and stickers live INSIDE the chat behind the composer's
+  // own picker button — so a player keeps typing and sending while it is open. The only
+  // launchers are chat and (when the caller supplies one) the utility slot.
   const chatLauncherRef = useRef<HTMLButtonElement>(null);
   const utilityLauncherRef = useRef<HTMLButtonElement>(null);
-  const launcherFor = (p: SocialPanel) =>
-    (p === 'reactions' ? reactLauncherRef : p === 'utility' ? utilityLauncherRef : chatLauncherRef);
+  const launcherFor = (p: SocialPanel) => (p === 'utility' ? utilityLauncherRef : chatLauncherRef);
   /** Close the sheet and hand focus back to the launcher that opened it. */
   const closeSheet = () => { const opener = launcherFor(panel).current; setPanel('none'); opener?.focus(); };
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -132,6 +130,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const [seen, setSeen] = useState(0);
   const [floats, setFloats] = useState<FloatSticker[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   // Chat media ids already accounted for (so joining history never floats, and a
   // message floats at most once). Seeded on the first chat effect.
   const seenMediaIds = useRef<Set<string>>(new Set());
@@ -163,8 +162,8 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     scroller.scrollTo({ top: scroller.scrollHeight });
   }, [chatOpen, chat.length]);
 
-  // The composer's sticker picker opens BELOW the conversation, inside the sheet's single
-  // scroller — bring it into view instead of leaving it off-screen.
+  // Opening the picker shortens the conversation above it — keep the newest message in
+  // view instead of leaving the reader mid-history.
   useEffect(() => {
     if (!mediaOpen) return;
     const scroller = listRef.current?.closest('.social-sheet__body');
@@ -219,11 +218,23 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     onReact(emoji);
     if (!sheet) setReactOpen(false);
   }
-  /** A media send closes the chat sticker grid; the SHEET's reaction picker stays open. */
+  /**
+   * A media send closes the drawer's sticker grid; in the SHEET the picker stays open,
+   * so several stickers can be fired without re-opening it (38.0.12).
+   */
   function sendMedia(item: ChatMediaItem) {
     onChatMedia(item.id);
-    setMediaOpen(false);
-    if (!sheet) setReactOpen(false);
+    if (!sheet) { setMediaOpen(false); setReactOpen(false); }
+  }
+  /**
+   * (38.0.12) In the chat the emoji are TEXT: a tap types the emoji into the message
+   * being composed instead of firing a table reaction, so the player can write
+   * "Привіт 👍" and keep the picker open. The floating/docked clusters still send a
+   * reaction straight from their own emoji bar.
+   */
+  function insertEmoji(emoji: string) {
+    setText((prev) => (prev + emoji).slice(0, MAX_CHAT_LEN));
+    inputRef.current?.focus();
   }
   function leaveGame() {
     if (typeof window !== 'undefined' && !window.confirm(t('online.leaveGameConfirm'))) return;
@@ -241,9 +252,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     : null;
 
   /** The open section's own heading — the sheet holds exactly one section (38.0.12). */
-  const sheetTitle = reactOpen ? `😀 ${t('social.reactions')}`
-    : chatOpen ? `💬 ${t('chat.title')}`
-      : `☰ ${t('social.menu')}`;
+  const sheetTitle = chatOpen ? `💬 ${t('chat.title')}` : `☰ ${t('social.menu')}`;
 
   // --- shared pieces, so every variant renders the SAME surfaces -------------
   const stickerGrid = CHAT_MEDIA.length > 0 ? (
@@ -294,14 +303,40 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
   const chatCompose = (
     <form className="chat-drawer__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
+      {/* (38.0.12) The sheet's chat gets an emoji button of its own, next to the sticker
+          one — both open the SAME in-chat picker, which never hides the conversation. */}
+      {sheet && (
+        <button type="button" className="btn btn--ghost btn--small chat-media-btn chat-emoji-btn"
+          aria-expanded={mediaOpen} aria-label={t('social.emoji')} title={t('social.emoji')}
+          onClick={() => setMediaOpen((o) => !o)}>😀</button>
+      )}
       <button type="button" className="btn btn--ghost btn--small chat-media-btn"
         aria-expanded={mediaOpen} aria-label={t('chat.openMedia')}
         onClick={() => setMediaOpen((o) => !o)}>🖼️</button>
-      <input className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
+      <input ref={inputRef} className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
         onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
       <button type="submit" className="btn btn--primary btn--small" disabled={!text.trim()}>{t('chat.send')}</button>
     </form>
   );
+
+  /**
+   * The in-chat picker (sheet variant): emoji that TYPE into the message on top, the
+   * sticker catalog below. It is a sibling of the conversation, never a layer over it,
+   * and it is the only scroller of its own region.
+   */
+  const chatPicker = mediaOpen ? (
+    <div className="chat-picker" role="group" aria-label={t('chat.mediaPicker')}>
+      <div className="reaction-bar__emojis">
+        {REACTIONS.map((e) => (
+          <button key={e} type="button" className="reaction-bar__btn"
+            onClick={() => insertEmoji(e)} aria-label={`${t('social.emoji')} ${e}`}>
+            {e}
+          </button>
+        ))}
+      </div>
+      {stickerGrid}
+    </div>
+  ) : null;
 
   return (
     <>
@@ -336,18 +371,6 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
       {sheet && (
         <div className="social-menu">
           <button
-            ref={reactLauncherRef}
-            type="button"
-            className="social-fab social-menu__launcher"
-            aria-haspopup="dialog"
-            aria-expanded={reactOpen}
-            aria-label={t('social.reactions')}
-            title={t('social.reactions')}
-            onClick={() => (reactOpen ? closeSheet() : setPanel('reactions'))}
-          >
-            😀
-          </button>
-          <button
             ref={chatLauncherRef}
             type="button"
             className="social-fab social-menu__launcher"
@@ -380,21 +403,21 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
               <div className="social-sheet" role="dialog" aria-modal="true" aria-label={sheetTitle}
                 onClick={(e) => e.stopPropagation()}>
                 <div className="social-sheet__head">
-                  {/* No tab strip (38.0.12): the sheet shows the ONE section its launcher
-                      opened, so reactions never sit on top of the chat. */}
+                  {/* No tab strip (38.0.12): the sheet is the chat, and emoji/stickers are
+                      a panel INSIDE it rather than a surface layered over it. */}
                   <h2 className="social-sheet__title">{sheetTitle}</h2>
                   <button type="button" className="social-sheet__close" onClick={closeSheet} aria-label={t('btn.back')}>✕</button>
                 </div>
                 {/* THE single scrolling region: no descendant of it scrolls on its own, so a
                     phone never shows two nested scrollbars (38.0.12 owner FAIL). */}
                 <div className="social-sheet__body">
-                  {chatOpen && <>{chatList}{chatMediaPicker}</>}
-                  {reactOpen && <div className="reaction-bar reaction-bar--sheet">{emojiGrid}{stickerGrid}</div>}
+                  {chatOpen && chatList}
                   {panel === 'utility' && utilityPanelSlot}
                 </div>
-                {/* The composer is pinned OUTSIDE the scroller: with the whole sticker
-                    catalog expanded it used to scroll far out of reach. */}
+                {/* Composer and picker are pinned OUTSIDE the scroller, so the conversation
+                    stays readable and the text field can never be pushed out of reach. */}
                 {chatOpen && chatCompose}
+                {chatOpen && chatPicker}
                 <div className="social-sheet__foot">
                   {voiceButton}
                   {onLeaveGame && (

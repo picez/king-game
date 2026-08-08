@@ -31,14 +31,14 @@ function render(props: Record<string, unknown> = {}): string {
   } as never)));
 }
 
-describe('collapsed: one launcher PER SECTION, no toolbar, no panel', () => {
+describe('collapsed: ONE launcher, no toolbar, no panel', () => {
   const out = render({ variant: 'sheet', openPanel: 'none', onPanelChange: noop });
 
-  it('renders the section launchers and nothing else interactive', () => {
+  it('renders a single launcher and nothing else interactive', () => {
     expect(out).toContain('social-menu__launcher');
-    // (38.0.12) Reactions and chat each own a launcher; the utility one appears only
-    // when the caller passes a `utilitySlot`.
-    expect((out.match(/social-menu__launcher/g) ?? []).length).toBe(2);
+    // (38.0.12) Chat is the only launcher; emoji/stickers open from inside the chat, and
+    // the utility launcher appears only when the caller passes a `utilitySlot`.
+    expect((out.match(/social-menu__launcher/g) ?? []).length).toBe(1);
     expect(out).not.toContain('social-controls');
     expect(out).not.toContain('social-controls__row');
   });
@@ -94,23 +94,19 @@ describe('open: a real modal sheet with backdrop, close and its own scroll', () 
     expect(foot).toContain('probe-danger');
   });
 
-  it('reactions open as the SAME single surface — never stacked with chat', () => {
-    const react = render({ variant: 'sheet', openPanel: 'reactions', onPanelChange: noop, chat: chat(6) });
-    expect(react).toContain('reaction-bar--sheet');
-    expect(react).toContain('reaction-bar__emojis');
-    expect(react).not.toContain('chat-drawer__compose');
-    expect((react.match(/social-sheet"/g) ?? []).length).toBe(1);
-    // …and the chat sheet does not render the reaction grid.
+  it('emoji and stickers are opened from INSIDE the chat, never as a rival surface', () => {
+    // (38.0.12) The composer owns both picker buttons; the sheet has no reaction surface.
+    expect(chatSheet).toContain('chat-emoji-btn');
+    expect(chatSheet).toContain('chat-media-btn');
     expect(chatSheet).not.toContain('reaction-bar--sheet');
+    expect((chatSheet.match(/social-sheet"/g) ?? []).length).toBe(1);
   });
 
-  it('the heading reports which section is showing — there is no tab strip', () => {
+  it('the heading reports the section — there is no tab strip', () => {
     expect(chatSheet).toContain('social-sheet__title');
     expect(chatSheet).not.toContain('role="tab"');
-    const react = render({ variant: 'sheet', openPanel: 'reactions', onPanelChange: noop });
-    const title = (s: string) => s.slice(s.indexOf('social-sheet__title'), s.indexOf('social-sheet__close'));
-    expect(title(chatSheet)).toContain('💬');
-    expect(title(react)).toContain('😀');
+    const title = chatSheet.slice(chatSheet.indexOf('social-sheet__title'), chatSheet.indexOf('social-sheet__close'));
+    expect(title).toContain('💬');
   });
 
   it('a floating chat drawer is NOT also rendered in sheet mode', () => {

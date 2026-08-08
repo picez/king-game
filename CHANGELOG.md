@@ -11,13 +11,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
-- **Reactions are their own panel, and the room sheet scrolls once (Stage 38.0.12).** The
-  room panel used to be one surface with `Chat | Reactions` tabs, so the sticker picker
-  opened on top of the conversation — and it scrolled inside a panel that was itself
-  scrolling, which showed two scrollbars side by side on a phone. Reactions now have their
-  own 😀 button next to 💬, each opening its own panel with a plain heading and no tabs.
-  Inside either panel only the panel itself scrolls, and the message box stays pinned at
-  the bottom where an expanded sticker grid can no longer push it out of reach.
+- **Emoji and stickers now live inside the chat, and the room panel scrolls once
+  (Stage 38.0.12).** The room panel used to be one surface with `Chat | Reactions` tabs,
+  so the picker opened on top of the conversation — and it scrolled inside a panel that
+  was itself scrolling, which showed two scrollbars side by side on a phone. The chat now
+  works like a messenger: an 😀 button next to 🖼️ in the message row opens a picker under
+  it, the conversation stays visible above, tapping an emoji **types it into your message**
+  (so you can write "Привіт 👍" and send it as one line) and tapping a sticker sends it
+  right away — the picker stays open either way. The message box is pinned where an
+  expanded sticker grid can no longer push it out of reach, and each part scrolls on its
+  own instead of nesting scrollbars.
 
 ### Added
 

@@ -1283,3 +1283,31 @@ Use this file as the first read after archiving this chat. It is intentionally s
   --check` clean; libc 0; no package/lock drift.
 - **Gotcha:** `.chat-drawer__list` is `flex: 1 1 auto` in the drawer; inside the sheet it must
   be `flex: 0 0 auto` + `overflow: visible`, otherwise it keeps a scrollbar of its own.
+
+### Stage 38.0.12.1 — corrective: the picker belongs INSIDE the chat (COMPLETE, Unreleased)
+- Worked from HEAD `3455081`. 38.0.12 read "окремою кнопкою" as a second top-level launcher;
+  the owner meant a MESSENGER-style picker: an emoji button in the message row that opens an
+  extra panel, so you can chat and send emoji **at the same time**. Both follow-up choices
+  were ASKED, not assumed: emoji **insert into the input**, and the standalone 😀 launcher is
+  **removed** ("все в чаті"). No migration (0014), 0.4.8, games 7, achievements 52, libc 0.
+- **Shape now:** `.social-menu` = ONE 💬 launcher (+ ☰ only with a `utilitySlot`); the sheet is
+  the chat; the composer carries `chat-emoji-btn` 😀 and the existing 🖼️, both toggling the same
+  `mediaOpen` picker; `.chat-picker` is a PINNED SIBLING under the composer (emoji row, then the
+  sticker grid). `sheetTitle` is chat/utility only; the sheet's `reactions` branch is gone.
+- **Emoji are TEXT in the chat:** `insertEmoji` appends to `text` (clamped by `MAX_CHAT_LEN`) and
+  refocuses `inputRef`. `react()` (a floating table reaction) survives ONLY in the
+  floating/docked clusters, which the other six games use — 51's sheet no longer has a direct
+  reaction sender, which is the owner's explicit call.
+- `sendMedia` no longer closes the picker in the sheet (`if (!sheet) { setMediaOpen(false);
+  setReactOpen(false); }`) so several stickers can be fired in a row.
+- **Scrolling:** two INDEPENDENT bounded regions, neither nested — `.social-sheet__body` (the
+  conversation) and `.chat-picker` (`max-height: 34vh`), each the only scroller of its region.
+  `.chat-picker .reaction-bar__stickers` must stay `max-height: none; overflow: visible`.
+- **Gate `layout:fiftyone` still 150 checks**, rewired: `4p-picker` / `4p-emoji-click` /
+  `4p-sticker-click` / `4p-chat-media` all drive `panel=chat` + a real click on
+  `.chat-emoji-btn`; new flags `pickerOpen` (`.chat-picker` present) and `typed`
+  (`.chat-input` value non-empty after tapping an emoji — proves the insert). `stillOpen` now
+  matches the CHAT title. The nested-scroll probe checks BOTH regions.
+- Tests: `roomSocialSheetSections.test.ts` rewritten (11), `roomSocialSheet.test.ts` back to one
+  launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
+  count 4 → 3).

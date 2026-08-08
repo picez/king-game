@@ -1,13 +1,14 @@
 // ---------------------------------------------------------------------------
 // Stage 38.0.12 — the two owner FAILs on the room sheet.
 //
-//  A. TWO scrollbars: the sheet body scrolls AND the sticker grid inside it kept its
-//     own `max-height: 38vh; overflow-y: auto`, so a phone showed nested scrollers.
-//  B. Reactions sat ON TOP OF the chat as a tab of the same surface. They are now
-//     their own section behind their own launcher.
+//  A. TWO scrollbars: the sheet body scrolled AND the grids inside it kept their own.
+//  B. Emoji/stickers were a separate surface layered over the chat. They are now a
+//     picker INSIDE the chat, opened from the composer, so a player can keep reading,
+//     typing and sending while it is open — emoji TYPE into the message, stickers send.
 //
 // The vitest env is `node` (no jsdom), so structure is proved by SSR markup + source
-// and CSS contracts; the real geometry is measured by `npm run layout:fiftyone`.
+// and CSS contracts; the real geometry and the real clicks are measured by
+// `npm run layout:fiftyone`.
 // ---------------------------------------------------------------------------
 
 import { describe, it, expect } from 'vitest';
@@ -36,96 +37,90 @@ function sheet(openPanel: SocialPanel): string {
   })));
 }
 
-describe('FAIL B — reactions are their own section, not a layer over the chat', () => {
+describe('FAIL B — emoji and stickers live inside the chat', () => {
   const src = read('src/ui/online/RoomSocial.tsx');
 
-  it('the collapsed menu offers one launcher per section', () => {
+  it('the collapsed menu is just the chat launcher', () => {
     const html = sheet('none');
-    expect(html).toContain('😀');
     expect(html).toContain('💬');
-    expect((html.match(/social-menu__launcher/g) ?? []).length).toBe(2); // no utilitySlot here
-    expect(html).not.toContain('social-sheet');                          // nothing open yet
+    expect((html.match(/social-menu__launcher/g) ?? []).length).toBe(1);
+    expect(html).not.toContain('social-sheet');
   });
 
-  it('the sheet has NO tab strip any more — it shows the section it was opened for', () => {
-    for (const panel of ['reactions', 'chat'] as const) {
-      const html = sheet(panel);
-      expect(html, panel).toContain('social-sheet__title');
-      expect(html, panel).not.toContain('social-sheet__tab');
-      expect(html, panel).not.toContain('role="tablist"');
-    }
+  it('the sheet has no tab strip and no reaction surface of its own', () => {
+    const html = sheet('chat');
+    expect(html).toContain('social-sheet__title');
+    expect(html).not.toContain('social-sheet__tab');
+    expect(html).not.toContain('role="tablist"');
+    expect(html).not.toContain('reaction-bar--sheet');
     expect(src).not.toContain('social-sheet__tabs');
   });
 
-  it('the reactions section carries the pickers and NOT the chat', () => {
-    const html = sheet('reactions');
-    expect(html).toContain('reaction-bar--sheet');
-    expect(html).toContain('reaction-bar__stickers');
-    expect(html).not.toContain('chat-drawer__list');
-    expect(html).not.toContain('chat-drawer__compose');
-  });
-
-  it('the chat section carries the conversation and NOT the reaction pickers', () => {
+  it('the composer carries BOTH picker buttons, and the picker starts closed', () => {
     const html = sheet('chat');
-    expect(html).toContain('chat-drawer__list');
-    expect(html).toContain('chat-drawer__compose');
-    expect(html).not.toContain('reaction-bar--sheet');
-    expect(html).not.toContain('reaction-bar__emojis');
+    expect(html).toContain('chat-emoji-btn');           // 😀
+    expect(html).toContain('chat-media-btn');           // 🖼️
+    expect(html).toContain('chat-drawer__list');        // the conversation is still there
+    expect(html).not.toContain('chat-picker');          // …until a button opens it
+    // Both buttons drive the same in-chat picker.
+    expect((src.match(/onClick=\{\(\) => setMediaOpen\(\(o\) => !o\)\}/g) ?? []).length).toBe(2);
   });
 
-  it('each launcher toggles only its own section, and focus returns to that launcher', () => {
-    expect(src).toMatch(/onClick=\{\(\) => \(reactOpen \? closeSheet\(\) : setPanel\('reactions'\)\)\}/);
+  it('an emoji TYPES into the message; it does not fire a table reaction', () => {
+    expect(src).toMatch(/onClick=\{\(\) => insertEmoji\(e\)\}/);
+    expect(src).toContain('setText((prev) => (prev + emoji).slice(0, MAX_CHAT_LEN));');
+    expect(src).toContain('inputRef.current?.focus();');
+    // The picker's own grid never calls react().
+    const picker = src.slice(src.indexOf('const chatPicker = mediaOpen'), src.indexOf('return ('));
+    expect(picker).not.toContain('react(');
+    // The floating/docked clusters keep sending a reaction from their bar.
+    expect(src).toMatch(/const emojiGrid = \([\s\S]*?onClick=\{\(\) => react\(e\)\}/);
+  });
+
+  it('sending from the sheet leaves the chat AND the picker open', () => {
+    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*if \(!sheet\) \{ setMediaOpen\(false\); setReactOpen\(false\); \}/);
+    expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);   // inside closeSheet only
+  });
+
+  it('only the deliberate gestures close the sheet, focus returns to its launcher', () => {
+    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeSheet}');
+    expect(src).toContain('className="social-sheet__close" onClick={closeSheet}');
+    expect(src).toMatch(/if \(sheetOpen\) \{ closeSheet\(\); return; \}/);
     expect(src).toMatch(/onClick=\{\(\) => \(chatOpen \? closeSheet\(\) : setPanel\('chat'\)\)\}/);
-    expect(src).toContain('const opener = launcherFor(panel).current; setPanel(\'none\'); opener?.focus();');
-    // Still exactly one place that clears the panel.
-    expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);
-  });
-
-  it('sending from the sheet still never closes it (Stage 38.0.9 stands)', () => {
-    expect(src).toMatch(/function react\(emoji: string\) \{\s*onReact\(emoji\);\s*if \(!sheet\) setReactOpen\(false\);/);
-    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*setMediaOpen\(false\);\s*if \(!sheet\) setReactOpen\(false\);/);
+    expect(src).toContain("const opener = launcherFor(panel).current; setPanel('none'); opener?.focus();");
   });
 });
 
-describe('FAIL A — the sheet has exactly one scrolling region', () => {
+describe('FAIL A — one scroller per region', () => {
   const css = read('src/styles/social.css');
   const src = read('src/ui/online/RoomSocial.tsx');
 
-  it('the body is the scroller', () => {
+  it('the conversation scrolls in the body, and nothing inside it scrolls too', () => {
     const body = css.slice(css.indexOf('.social-sheet__body {'));
     expect(body.slice(0, body.indexOf('}'))).toContain('overflow-y: auto');
-  });
-
-  it('the message list is scrolled BY the body, not by itself', () => {
-    const rule = css.slice(css.indexOf('.social-sheet__body .chat-drawer__list {'));
-    expect(rule.slice(0, rule.indexOf('}'))).toContain('overflow: visible');
+    const list = css.slice(css.indexOf('.social-sheet__body .chat-drawer__list {'));
+    expect(list.slice(0, list.indexOf('}'))).toContain('overflow: visible');
     // …so the auto-scroll targets the real scroller.
     expect(src).toContain("const scroller = list.closest('.social-sheet__body') ?? list;");
-    expect(src).toContain('scroller.scrollTo({ top: scroller.scrollHeight });');
   });
 
-  it('neither media grid scrolls on its own inside the sheet', () => {
-    const rule = css.slice(
-      css.indexOf('.social-sheet__body .reaction-bar__stickers,'),
-      css.indexOf('.reaction-bar--sheet {'),
-    );
-    expect(rule).toContain('.social-sheet__body .chat-media-picker');
-    expect(rule).toContain('max-height: none');
-    expect(rule).toContain('overflow: visible');
-    // The floating/docked clusters keep their own bounded, scrolling grids.
+  it('the picker bounds itself and its grid does not add a second scrollbar', () => {
+    const picker = css.slice(css.indexOf('.chat-picker {'));
+    const rule = picker.slice(0, picker.indexOf('}'));
+    expect(rule).toContain('max-height: 34vh');
+    expect(rule).toContain('overflow-y: auto');
+    expect(css).toMatch(/\.chat-picker \.reaction-bar__stickers \{[^}]*max-height: none[^}]*overflow: visible/);
+    // The floating/docked clusters keep their own bounded, scrolling grid.
     const grid = css.slice(css.indexOf('.reaction-bar__stickers {'), css.indexOf('.reaction-bar__stickers::'));
     expect(grid).toContain('max-height: 38vh');
     expect(grid).toContain('overflow-y: auto');
   });
 
-  it('the composer is pinned outside the scroller so the sticker grid cannot bury it', () => {
+  it('composer and picker are pinned OUTSIDE the scroller, picker below the composer', () => {
     const body = src.slice(src.indexOf('<div className="social-sheet__body">'));
-    const bodyEnd = body.indexOf('</div>');
-    expect(body.slice(0, bodyEnd)).not.toContain('chatCompose');
-    expect(src).toContain('{chatOpen && chatCompose}');
+    expect(body.slice(0, body.indexOf('</div>'))).not.toContain('chatCompose');
+    expect(src).toMatch(/\{chatOpen && chatCompose\}\s*\{chatOpen && chatPicker\}/);
     const pinned = css.slice(css.indexOf('.social-sheet > .chat-drawer__compose {'));
     expect(pinned.slice(0, pinned.indexOf('}'))).toContain('flex: 0 0 auto');
-    // …and the picker it opens below the conversation is scrolled into view.
-    expect(src).toMatch(/if \(!mediaOpen\) return;[\s\S]{0,200}scroller\?\.scrollTo/);
   });
 });
