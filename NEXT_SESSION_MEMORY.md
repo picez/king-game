@@ -1312,6 +1312,29 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16.1 — the stage spans the whole layout (CORRECTIVE, COMPLETE, Unreleased)
+- Worked from HEAD `257867e`. **CORRECTS 38.0.16's reserved rail**, which is the mistake to
+  remember: making closed == open == picker is NOT the same as costing the game nothing. The
+  rail shrank all three equally, so the gate passed while 51/Preferans lost 376px with the
+  chat SHUT (stage 1544/1920, 2184/2560; the 51 board 1904 → 1528 at 1920).
+- **Fix:** the `@media (min-width: 1620px)` rail block is DELETED. The chat follows the
+  unchanged scene in normal flow at every width.
+- **New invariant (the important part):** `layout:social` now asserts `.game-stage` width ==
+  `.room-layout` width ±1px AND stage inline offset 0, in EVERY state, on top of the
+  closed/open/picker equality. **669 checks.** Each game/viewport also prints `SCENE … board
+  WxH` so a shrink is visible as a number.
+- **A baseline attempt that did NOT work, do not repeat it:** rendering the harness with
+  `region=off` is not a baseline — the media query reserved the rail even with one grid
+  child, so both sides were equally narrowed, and King/Deberc showed unrelated ±51px deltas.
+  The stage-vs-layout width comparison is the reliable formulation. (`region=off` survives in
+  the harness as a debugging aid.)
+- **Why no rail exists at all:** every screen is a `min-height: 100vh` column that fills the
+  viewport and centres its content, so there is no spare width beside it; an in-flow column
+  always takes from the stage, and re-centring to compensate is the shift being prevented. A
+  future rail must be earned by a screen DECLARING a smaller desired width, never assumed
+  from viewport width.
+- Scope B (rich chat) untouched and still green.
+
 ### Stage 38.0.16 — stable game stage + combined text/sticker message (COMPLETE, Unreleased)
 - Worked from HEAD `7105e1f`. UI + chat transport only: no migration (latest still 0014),
   version 0.4.8, games 7, achievements 52, libc 0, no `package.json` change.

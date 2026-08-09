@@ -334,10 +334,15 @@ function PokerHarness({ state, panel, setPanel, common }: {
  * the screen bare would prove nothing about where a panel takes its space from.
  */
 function Room() {
+  // `region=off` renders the stage with NO social region at all — the BASELINE the gate
+  // measures every chat state against (38.0.16.1). Without it a gate can only prove
+  // closed === open === picker, which 38.0.16's permanently reserved rail satisfied while
+  // quietly shrinking all three.
+  const noRegion = qs.get('region') === 'off';
   return (
     <div className="room-layout">
       <div className="game-stage"><Harness /></div>
-      <div className="social-region" id={SOCIAL_REGION_ID} />
+      {noRegion ? null : <div className="social-region" id={SOCIAL_REGION_ID} />}
     </div>
   );
 }

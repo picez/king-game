@@ -61,7 +61,9 @@ describe('the dock is IN FLOW and ahead of the action row', () => {
 describe('(38.0.14) ONE in-flow cluster — no variants, no overlay', () => {
   it('renders a normal-flow cluster whatever the caller does', () => {
     const out = html(createElement(RoomSocial, { ...socialProps, handVisible: true }));
-    expect(out).toContain('class="room-social ');
+    // (38.0.16) The cluster carries no state class any more: the row is always the same
+    // row, and the panels live in the social region.
+    expect(out).toContain('class="room-social"');
     expect(out).toContain('room-social__bar');
     // The fixed corner cluster and its "raised" lift are gone with the variants.
     expect(out).not.toContain('social-controls');

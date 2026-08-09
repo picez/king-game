@@ -20,10 +20,16 @@ also reported at `GET /health/diagnostics` (`version` field).
   The game and the chat are now two separate regions. Whatever you open, the table, the
   seats, the deck, the melds, your hand and the action buttons stay exactly where they
   were, to the pixel — measured in all seven games at 360, 390, 768, 1366, 1920 and 2560,
-  in Arabic too. On a wide screen the chat sits in a rail beside the game, and the rail's
-  space is reserved whether it is open or not, so opening it never nudges the table. On
-  narrower screens the chat follows the whole game scene: the page gets taller and you
-  scroll to it, exactly as before, but nothing is taken away from the table.
+  in Arabic too. The chat follows the whole game scene: the page gets taller and you scroll
+  to it, and nothing is taken away from the table.
+
+- **The game uses the whole screen again on a wide monitor (Stage 38.0.16.1).** The first
+  attempt at the fix above kept a column permanently reserved for the chat on screens wider
+  than 1620px. It did stop the table changing size when you opened the chat — by making it
+  smaller all the time. With the chat **shut**, 376px was held back from the game: the
+  Syrian 51 table ran 1528px wide on a 1920 screen instead of ~1904, and 2184 instead of
+  2560; Preferans lost the same. That reservation is gone. The game now spans the full
+  width in every state, on every screen, and the chat opens below the scene.
 
 ### Added
 

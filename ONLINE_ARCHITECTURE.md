@@ -1347,6 +1347,45 @@ correct for a chat that runs beside a live, server-timed game.
   gameplay zone, no swallowed taps, and no page-width overflow — at 360/390/768/1366, LTR
   and Arabic RTL.
 
+### Stage 38.0.16.1 — the stage spans the whole layout, always
+
+**The correction.** Stage 38.0.16 (below) claimed a permanently reserved rail was the right
+way to keep the game from resizing. **That claim was wrong**, and the gate that blessed it
+was too: it compared closed / open / picker only to each other, so a layout that shrank all
+three equally passed. Measured at `257867e` with the chat **SHUT**:
+
+| viewport | game | stage inside layout | taken from the game |
+|---|---|---|---|
+| 1920 | fifty-one | 1544 / 1920 | **376px** |
+| 2560 | fifty-one | 2184 / 2560 | **376px** |
+| 1920 | preferans | 1544 / 1920 | **376px** |
+
+…so the 51 board ran 1528px on a 1920 screen where it used to run ~1904.
+
+**The rule now (machine-checked, not a promise).** `layout:social` asserts, for all seven
+games at 360/390/768/1366/1920/2560 in LTR and Arabic RTL, in EVERY chat state:
+
+- `.game-stage` width == `.room-layout` width (±1px), and the stage starts at the layout's
+  own inline edge — **no reservation, from any cause**;
+- closed == open == picker (±1px) on x/y/w/h for stage, board/felt, seats, deck, melds, hand
+  and action controls;
+- 0 chat/gameplay intersections, 0 swallowed taps, 0 backdrops, 0 `aria-modal`, no scroll
+  lock, no horizontal page overflow;
+- a legal action still reaches the game exactly once with the chat open, the timer keeps
+  advancing, and neither the move nor the STATE_UPDATE closes the chat.
+
+**Why there is no rail at all.** A rail is only honest if it occupies space the scene does
+not want. Every screen here is a `min-height: 100vh` column that fills the viewport and
+centres its content in it, so no such space exists: an in-flow column takes width from the
+stage, and re-centring the game to compensate is the very layout shift this is meant to
+prevent. The decision therefore is not "how wide is the viewport" — a future screen that
+genuinely wants less than the full width must **declare** a desired width, and a rail may
+then live in the space it declined. Until one does, the chat follows the unchanged scene in
+normal flow: the document gets taller, the game does not get smaller.
+
+`scrollbar-gutter: stable` stays: it costs the same 15px in every state, which is what stops
+a growing document from stealing width the moment the chat opens.
+
 ### Stage 38.0.16 — a stage that never moves, and one message that carries both
 
 **The RED, measured — not described.** Three owner screenshots (Durak with no chat, with the
@@ -1377,13 +1416,12 @@ the picker took more. The chat was in the very container the game's size is comp
   costs the same space in every state. The chat panel and the caller's utility panel render
   through `createPortal` into `#social-region`. One component, one state, DOM elsewhere. With
   no region in the tree (lobby, isolated harness) they render in place, as in 38.0.14.
-- **Wide desktop (≥1620px): a reserved rail.** `grid-template-columns: minmax(0,1fr) 22.5rem`
-  — reserved whether or not the chat is open, so opening it cannot add a column, re-centre
-  the game or reflow a card. The threshold is 900px of stage + 2 × 360px of rail: the rail
-  exists only where it fits beside the game instead of squeezing it.
-- **Below that: normal flow after the scene.** The region follows the whole game scene, the
-  document gets taller, and the player scrolls — the chat is never inserted between the table
-  and the hand.
+- **~~Wide desktop (≥1620px): a reserved rail.~~ WRONG — corrected by Stage 38.0.16.1
+  below.** That reservation shrank the game permanently instead of only when the chat was
+  open. There is no rail.
+- **Normal flow after the scene, at every width.** The region follows the whole game scene,
+  the document gets taller, and the player scrolls — the chat is never inserted between the
+  table and the hand, and never beside it.
 - **`scrollbar-gutter: stable`** on `html`, so the 15px a growing document used to steal is
   reserved in every state instead.
 - **Nothing regressed from 38.0.14**: no backdrop, no `aria-modal`, no scroll lock, no fixed

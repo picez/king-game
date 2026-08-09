@@ -53,11 +53,21 @@ npm run layout:poker      # 228 checks — pods/board/pot/controls
 npm run social-shots      # closed / open / picker / combined / sent screenshots
 ```
 
-`layout:social` owns the **stage-geometry invariant**, which is the one to watch: with the
-chat closed, open, and open with the picker, the game's own elements — stage, board/felt,
-seats, deck, melds, hand and action controls — must agree to within **1 CSS px** on x, y,
-width and height, at 360 / 390 / 768 / 1366 / 1920 / 2560, LTR and Arabic RTL. Opening a
-panel may make the DOCUMENT taller. It may not make the TABLE smaller.
+`layout:social` owns the **stage-geometry invariant**, which is the one to watch, and it has
+TWO halves — 38.0.16.1 added the second after the first alone passed a layout that shrank
+the game permanently:
+
+1. **No reservation.** `.game-stage` must span the whole `.room-layout` (±1px) and start at
+   its inline edge, in every chat state. A rail reserved on viewport width alone made 51 and
+   Preferans 376px narrower with the chat SHUT and still passed step 2.
+2. **No change between states.** With the chat closed, open, and open with the picker, the
+   game's own elements — stage, board/felt, seats, deck, melds, hand and action controls —
+   must agree to within **1 CSS px** on x, y, width and height.
+
+Both run for all seven games at 360 / 390 / 768 / 1366 / 1920 / 2560, LTR and Arabic RTL.
+Opening a panel may make the DOCUMENT taller. It may not make the TABLE smaller — ever, in
+any state. The measured scene width is printed per game/viewport (`SCENE …`) so a regression
+is visible as a number, not only as a pass/fail.
 
 `social-shots` is strict: a missing element is a failure and the run exits non-zero. Look at
 `1-closed` and `2-open` side by side — the game must be indistinguishable between them.

@@ -85,20 +85,24 @@
    every state costs the same 15px whether the chat is open or shut — which is the point. */
 html { scrollbar-gutter: stable; }
 
-/* WIDE DESKTOP — the rail. It is reserved at this width whether or not the chat is open,
-   so opening it can never add a column, re-centre the game or reflow a single card. The
-   threshold is deliberate: 900px of stage + 2 × 360px of rail, so the rail only exists
-   where it genuinely fits beside the game rather than squeezing it. */
-@media (min-width: 1620px) {
-  .room-layout { grid-template-columns: minmax(0, 1fr) 22.5rem; column-gap: 1rem; }
-  .social-region {
-    position: sticky; top: 0;
-    max-height: 100vh; padding-block: 0.6rem;
-  }
-  /* In the rail the chat gets the height it can honestly use — it is beside the game, not
-     on top of it, so a taller panel costs the table nothing. */
-  .social-region .chat-panel { max-height: calc(100vh - 2rem); }
-}
+/* (38.0.16.1 — owner FAIL, correcting 38.0.16) THERE IS NO SIDE RAIL, and the reasoning is
+   worth keeping because it is the trap this file fell into twice.
+
+   38.0.16 reserved a 22.5rem rail at ≥1620px "whether or not the chat is open, so opening
+   it can never add a column". That did make closed == open == picker — by shrinking all
+   three. Measured at 257867e: 376px taken away from the game with the chat SHUT, so the
+   Fifty-One board ran 1528px inside a 1920px page instead of ~1904, and 2184 inside 2560.
+   The gate was blind to it because it only compared the three chat states to each other.
+
+   A rail is only honest if it occupies space the scene does not want. Every screen here is
+   a `min-height: 100vh` column that fills the viewport and centres its content in it, so
+   there is no such space: any in-flow column takes width from the stage, and re-centring
+   the game to compensate is exactly the layout shift this is meant to prevent. So the
+   contract is absolute and machine-checked (`layout:social`): THE STAGE SPANS THE WHOLE
+   ROOM LAYOUT IN EVERY STATE, and the chat follows the unchanged scene in normal flow —
+   the document gets taller, the game does not get smaller. A future screen that genuinely
+   wants less than the full width must SAY so (a declared desired width), and the rail may
+   then live in the space it declined; it may never be assumed from viewport width. */
 
 .room-social {
   display: flex; flex-direction: column; gap: 0.4rem;
@@ -208,11 +212,13 @@ html { scrollbar-gutter: stable; }
    the whole table. (A separate grid sidecar was considered and rejected — none of the
    seven screens has a proven free column, and inventing one per game is exactly the kind
    of per-game divergence Stage 38.0.13 was fixing.) */
+/* (38.0.16.1) On a wide screen the panel is capped so a chat never stretches across a
+   2560px table — but it is CENTRED under the scene, not pinned to a corner. Left-aligned it
+   read as a small card dropped in the corner of a huge empty page; centred, it sits where
+   the player's eyes already are, under the middle of the board they were just looking at. */
 @media (min-width: 900px) {
-  .chat-panel { max-width: 34rem; align-self: flex-start; }
+  .chat-panel { max-width: 34rem; align-self: center; }
 }
-[dir="rtl"] .chat-panel { align-self: auto; }
-@media (min-width: 900px) { [dir="rtl"] .chat-panel { align-self: flex-end; } }
 .chat-panel__head { display: flex; align-items: center; gap: 0.4rem; }
 .chat-panel__title {
   flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 0.2rem;

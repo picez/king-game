@@ -109,12 +109,27 @@ class CDP {
   }
 }
 
-const GAMES = [
-  { tag: 'durak', q: 'game=durak&seats=4' },
-  { tag: 'fiftyone', q: 'game=fiftyone&seats=4' },
-  { tag: 'poker', q: 'game=poker&seats=4' },
+const Q = {
+  durak: 'game=durak&seats=4',
+  fiftyone: 'game=fiftyone&seats=4',
+  preferans: 'game=preferans&seats=3',
+  poker: 'game=poker&seats=4',
+};
+const VP = {
+  360: { w: 360, h: 800, mobile: true },
+  390: { w: 390, h: 844, mobile: true },
+  1366: { w: 1366, h: 768, mobile: false },
+  1920: { w: 1920, h: 1080, mobile: false },
+  2560: { w: 2560, h: 1440, mobile: false },
+};
+/** (38.0.16.1) The set the owner reviews, plus one Arabic RTL phone and one RTL desktop. */
+const COMBOS = [
+  ['durak', 360, 'ltr'], ['durak', 390, 'ltr'], ['durak', 1366, 'ltr'], ['durak', 1920, 'ltr'],
+  ['fiftyone', 360, 'ltr'], ['fiftyone', 390, 'ltr'], ['fiftyone', 1920, 'ltr'], ['fiftyone', 2560, 'ltr'],
+  ['preferans', 390, 'ltr'], ['preferans', 1920, 'ltr'], ['preferans', 2560, 'ltr'],
+  ['poker', 390, 'ltr'], ['poker', 1366, 'ltr'], ['poker', 1920, 'ltr'],
+  ['durak', 390, 'rtl'], ['durak', 1920, 'rtl'],
 ];
-const VIEWPORTS = [{ tag: '390', w: 390, h: 844, mobile: true }, { tag: '1920', w: 1920, h: 1080, mobile: false }];
 const LAUNCHER = '.room-social__bar .social-fab';
 const CHAT = '.chat-panel';
 const PICKER = '.chat-picker';
@@ -137,11 +152,13 @@ async function main() {
     await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
     await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
 
-    for (const vp of VIEWPORTS) {
-      await cdp.send('Emulation.setDeviceMetricsOverride', {
-        width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
-      for (const g of GAMES) {
-        const tag = `${vp.tag}-${g.tag}`;
+    for (const [game, vpTag, dir] of COMBOS) {
+      const vp = VP[vpTag];
+      const g = { tag: game, q: Q[game] + (dir === 'rtl' ? '&dir=rtl&lang=ar' : '') };
+      {
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+          width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
+        const tag = `${vpTag}-${dir}-${game}`;
         const fail = (m) => failures.push(`${tag}: ${m}`);
         /** A shot is only taken once the state it is supposed to show actually exists. */
         const shot = async (name, required) => {

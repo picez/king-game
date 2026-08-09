@@ -764,17 +764,27 @@ async function newPage(vp) {
   return cdp;
 }
 
+/**
+ * Navigate and wait for the page to exist. (38.0.16.1) The gate now performs ~250
+ * navigations per run — 7 games × 6 viewports × 2 directions plus the behaviour scenarios —
+ * and against a DEV server an occasional transform takes longer than the old 8s window, so
+ * single combinations failed as "NOTHING rendered" at random (measured twice, on different
+ * combinations, with no code between the runs). A flaky gate is a useless gate: the window
+ * is 20s and one reload is retried before giving up.
+ */
 async function load(cdp, url, marker) {
-  await cdp.send('Page.navigate', { url });
-  for (let i = 0; i < 80; i++) {
-    if (await cdp.evaluate(`!!document.querySelector('${marker}')`)) {
-      if (LEGACY) {
-        await cdp.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(LEGACY_CSS)}; document.head.appendChild(s); return true; })()`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await cdp.send('Page.navigate', { url });
+    for (let i = 0; i < 200; i++) {
+      if (await cdp.evaluate(`!!document.querySelector('${marker}')`)) {
+        if (LEGACY) {
+          await cdp.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(LEGACY_CSS)}; document.head.appendChild(s); return true; })()`);
+        }
+        const settled = await cdp.evaluate(SETTLE);
+        return settled?.ready === true;
       }
-      const settled = await cdp.evaluate(SETTLE);
-      return settled?.ready === true;
+      await sleep(100);
     }
-    await sleep(100);
   }
   return null;
 }
@@ -846,9 +856,31 @@ async function main() {
           const ok = await load(cdp, `${GAMES_BASE}?${g.q}${dirQ}&chat=8`, '#root > *');
           if (ok === null) { failures.push(`${label}: NOTHING rendered`); continue; }
 
-          // (38.0.16) The stage BEFORE anything is opened — the reference every later
-          // state is compared against.
+          // (38.0.16.1) THE BASELINE INVARIANT. 38.0.16 only compared closed/open/picker to
+          // each other, and its permanently reserved 22.5rem rail satisfied that while
+          // shrinking all three: at 1920 the 51 board fell 1904 → 1513px with the chat SHUT.
+          // So the rule is now absolute, not relative — the game stage occupies the WHOLE
+          // room layout in every state. A chat may cost the game nothing, ever, and no
+          // reservation may be made on viewport width alone.
           const geoSels = STAGE_GEO[g.tag];
+          const stageFull = async (state) => {
+            const m = await cdp.json(`(() => {
+              const l = document.querySelector('.room-layout'), st = document.querySelector('.game-stage');
+              if (!l || !st) return null;
+              const lr = l.getBoundingClientRect(), sr = st.getBoundingClientRect();
+              return { layout: +lr.width.toFixed(2), stage: +sr.width.toFixed(2),
+                       x: +(sr.left - lr.left).toFixed(2) };
+            })()`);
+            if (!m) return [`no room layout / stage (${state})`];
+            const bad = [];
+            if (Math.abs(m.stage - m.layout) > 1) {
+              bad.push(`the stage is ${m.stage}px inside a ${m.layout}px layout (${state}) — ${(m.layout - m.stage).toFixed(2)}px reserved away from the game`);
+            }
+            if (Math.abs(m.x) > 1) bad.push(`the stage starts ${m.x}px into the layout (${state})`);
+            return bad;
+          };
+          for (const v of await stageFull('chat closed')) failures.push(`${label}: ${v}`);
+          checks++;
           const geoClosed = JSON.parse(await cdp.evaluate(geoProbe(geoSels)));
 
           // Open the chat through the game's OWN launcher — the production path.
@@ -870,6 +902,11 @@ async function main() {
           // nothing else. The game's own geometry is the same in all three states.
           for (const v of geoDiff(geoClosed, geoOpen, 'the chat opened')) failures.push(`${label}: ${v}`);
           for (const v of geoDiff(geoClosed, geoPicker, 'the picker opened')) failures.push(`${label}: ${v}`);
+          for (const v of await stageFull('chat open')) failures.push(`${label}: ${v}`);
+          checks++;
+          // The measured scene width, printed for every game/viewport — the table the owner
+          // reads to see that 51 and Preferans are full width again.
+          if (geoClosed.board) measured.push(`SCENE ${vp.tag} ${name} board ${geoClosed.board.w}x${geoClosed.board.h}`);
           checks += 2;
 
           const res = JSON.parse(await cdp.evaluate(PROBE));

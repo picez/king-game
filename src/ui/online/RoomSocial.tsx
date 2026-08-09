@@ -500,7 +500,9 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           here, in flow, exactly as in 38.0.14. */}
       {panelHost
         ? createPortal(<>{utilityPanelSlot}{chatPanel}</>, panelHost)
-        : <div className="room-social room-social--inline">{utilityPanelSlot}{chatPanel}</div>}
+        : (utilityPanelSlot || chatPanel)
+          ? <div className="room-social room-social--inline">{utilityPanelSlot}{chatPanel}</div>
+          : null}
 
       {/* Lightbox: larger preview of a tapped sticker (click/Escape closes). */}
       {lightbox && (
