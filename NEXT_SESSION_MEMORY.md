@@ -1312,45 +1312,53 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
-### Stage 38.0.15 — the emoji destination is EXPLICIT, not derived (COMPLETE, Unreleased)
-- Worked from HEAD `8ea0cb8`. **CORRECTS Stage 38.0.13's focus heuristic.** UI only: no
-  migration (latest still 0014), version 0.4.8, games 7, achievements 52, libc 0, no
-  `package.json` change.
-- **Owner report:** typing in the chat and then adding an emoji sent it instead of appending
-  it — "треба щоб клієнт написав привіт і додав в кінці емоджі".
-- **Investigation (do not re-run blind):** the focused branch was NOT broken. Measured on the
-  REAL branches (`social-games.html`, real CDP mouse + `Input.insertText`, 390×844, with and
-  without `__pushState()`): King/Durak/51/Poker all turned `привіт` into `привіт👍`, sent
-  nothing and kept focus. The defect is the CONTRACT: the destination came from
-  `document.activeElement`, which the player cannot see. Blur the field any ordinary way —
-  scroll/tap the history, dismiss the phone keyboard, tap the table — and the same tap sends
-  the emoji away with the draft left unsent. The inert hint changed, but nobody reads a hint
-  mid-sentence.
-- **The fix (owner-chosen):** the picker holds TWO labelled sections built by ONE `emojiRow`
-  factory — `emojiRow('message', …, insertEmoji)` and `emojiRow('table', …, react)` — plus
-  the sticker grid. `inputFocused` / `focusedRef` / `setFocused` / `emojiAction` and the
-  input's `onFocus`/`onBlur` are DELETED. `insertEmoji` honours the caret when the field is
-  active and APPENDS otherwise (a never-focused input reports `selectionStart === 0`, which
-  would silently PREPEND). `react` still only calls `onReact`. `closePicker` returns focus to
-  the 😀 button unless the input holds it. `keepFocus` stays (3 uses: picker button, the row
-  factory, sticker thumb) — the caret must survive a tap.
-- i18n ×4: `chat.emojiHintMessage`/`chat.emojiHintTable` → `chat.emojiToMessage` (`У
-  повідомлення`) / `chat.emojiToTable` (`На стіл (реакція)`). CSS: `.chat-picker__section`
-  (+ divider between sections); `.chat-picker__hint` is now the section heading, still inert.
-- **Gate `layout:social` = 203 checks.** New PROBE §3b: exactly 2 emoji rows, equal button
-  counts, every section labelled, labels `pointer-events: none`, 44px emoji targets. Four
-  behaviours replace the focus pair, each row proved in BOTH focus states: `msg-caret`,
-  `msg-blurred` (the owner's case: append, send nothing), `table-focused` (reachable while
-  typing — impossible under 38.0.13), `table-blurred`.
-  **Gotcha fixed in the harness:** `CDP.click` also had to centre the target inside its own
-  scrollable ancestor. `scrollIntoView` alone scrolled the PAGE at 1366 and left the first
-  sticker clipped below the picker (thumb top 839 vs picker bottom 828, `scrollTop` 0), so
-  the click landed on the button underneath — `sticker fired 0x`. Two emoji rows push the
-  sticker grid past the 210px cap, which is what exposed it.
-- Tests: `roomSocialUnified.test.ts` focus block replaced by the 38.0.15 contract (+ `fnBody`
-  helper — scope source regexes to a function body, `[^]*?` spans the whole file);
-  `roomSocialWiring.test.ts` hint assertion updated; `fiftyone-layout-qa.mjs` `4p-emoji-click`
-  now clicks `.reaction-bar__emojis--message .reaction-bar__btn`.
+### Stage 38.0.15 — ONE emoji set, contextual destination (COMPLETE, Unreleased)
+- Two passes. Pass 1 (`12cef31`) split the emoji into two labelled rows and the owner
+  REJECTED it: two rows = every emoji twice on screen. Pass 2 (this one) is the accepted
+  shape. UI only: no migration (latest still 0014), version 0.4.8, games 7, achievements 52,
+  libc 0, no `package.json` change.
+- **Owner report (pass 1):** typing in the chat and then adding an emoji sent it instead of
+  appending it. **Investigation (do not re-run blind):** the focused branch was NOT broken —
+  measured on the REAL branches (`social-games.html`, real CDP mouse + `Input.insertText`,
+  390×844, with and without `__pushState()`), King/Durak/51/Poker all turned `привіт` into
+  `привіт👍`, sent nothing and kept focus. The defect was that the destination came from
+  `document.activeElement`, which the player cannot see: any ordinary blur (scroll/tap the
+  history, the phone dismissing the keyboard, a tap on the table) flipped the same tap into a
+  table reaction with the draft left unsent.
+- **Owner ruling (pass 2):** ONE emoji set, no split, contextual behaviour, and the intent
+  read at the START of the press.
+- **RED, measured at `12cef31`** on real Durak/51/Poker × 360/390 × LTR/RTL:
+  `emojiContainers` **2**, `emojiButtons` **14** for 7 REACTIONS, every emoji duplicated,
+  both headings on screen (11/12 combos; the 12th died on a CDP timeout in the harness).
+- **GREEN, same matrix:** `emojiContainers` **1**, `emojiButtons` **7** = `REACTIONS.length`,
+  `unique` 7, `headings` 0, no destination text, `stickers` 253.
+- **The shape:** ONE `.chat-picker__emoji` div, ONE `REACTIONS.map`, one button per emoji.
+  `emojiRow`, `.chat-picker__section`, `.chat-picker__hint`, `reaction-bar__emojis*` and the
+  `chat.emojiTo{Message,Table}` keys are DELETED in all four languages — not hidden.
+- **The rule:** `intentRef` is captured on **`pointerdown`** (`captureIntent` → `isTyping()`),
+  the first event of the gesture, and merely SPENT on click by `pickEmoji` (`intentRef.current
+  ?? isTyping()`, then cleared) → typing ? `insertEmoji` : `react`. `pointerdown` matters
+  because on a phone the tap itself can dismiss the keyboard, and a blur landing between the
+  finger and the `click` would otherwise flip a destination the player already chose.
+  `keepFocus` (mousedown `preventDefault`) still guards the opener, the emoji and the sticker
+  thumb — 3 uses; it is what stops the button taking the caret. NOTE: `keepFocus` stays on
+  **mousedown**, never `pointerdown` — cancelling pointerdown would kill touch scrolling in
+  the sticker grid.
+- **Gate `layout:social` = 228 checks.** PROBE §3b counts emoji containers BY SHAPE
+  (`new Set(btns.map((b) => b.parentElement))`, so a duplicate fails whatever it is called),
+  plus `.chat-picker__emoji` === 1, no duplicated emoji, no heading element, no destination
+  text, 44px targets. Behaviours on the REAL branches: full set (`typing-caret`,
+  `blurred-draft`, `blurred-empty`, `opened-while-typing`, `focus-switch`, `sticker`) at
+  390 LTR; the two branch-deciding ones at 360 and in Arabic RTL. The reduced set is PRINTED
+  (`behaviour: …`) so nothing is capped silently.
+  **Gotcha kept from pass 1:** `CDP.click` centres the target inside its own scrollable
+  ancestor — `scrollIntoView` alone scrolled the PAGE at 1366 and left the first sticker
+  clipped below the picker (thumb top 839 vs picker bottom 828, `scrollTop` 0).
+- Tests: `roomSocialUnified.test.ts` — a 38.0.15-corrective block (one container, one map,
+  labels deleted, pointerdown intent, insert-vs-react bodies) with a `fnBody` helper, because
+  `[^]*?` in a source regex spans the whole file; count on `code` (comments stripped) or a
+  comment mentioning `REACTIONS.map` inflates it. `roomSocialWiring.test.ts` updated;
+  `fiftyone-layout-qa.mjs` `4p-emoji-click` back to `.reaction-bar__btn`.
 - **Known stale, untouched:** `scripts/social-shots.mjs` still drives `.chat-dialog` /
   `.chat-media-btn` / `.social-controls--raised`, all deleted back in 38.0.13/38.0.14. It is a
   screenshot helper, not a gate; it was already broken before this stage.

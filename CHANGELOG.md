@@ -11,20 +11,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
-- **An emoji now goes where you asked it to (Stage 38.0.15).** Stage 38.0.13 (below) let
-  the chat guess: an emoji joined your message while the message box was active, and flew
-  onto the table when it was not. Nobody can see which of those is true mid-sentence. Type
-  "привіт", glance at the conversation or let the phone put the keyboard away, reach for an
-  emoji — and it was sent to the table instead of finishing your sentence, with the typed
-  text still sitting unsent in the box.
-  The picker now says it outright, in two rows:
-  - **Into your message** — the emoji is typed in, at the cursor if you are mid-line and at
-    the end otherwise, exactly as you would expect when adding one to "привіт". Nothing is
-    sent, nothing you typed is lost, and you can keep typing.
-  - **On the table (reaction)** — the emoji flies over your seat for everyone, once, and
-    your draft, your cursor and your keyboard are left alone. This works while you are
-    typing too, which the old guess made impossible.
-  Stickers are unchanged: a sticker is a message, so it is still sent straight away.
+- **One set of emoji in the chat picker (Stage 38.0.15).** An interim build split them into
+  two labelled rows — "Into your message" and "On the table" — which simply showed every
+  emoji twice: measured in the real Durak, Syrian 51 and Poker tables at 360 and 390, in
+  Arabic too, 14 buttons for 7 emoji. The duplicate row and both headings are gone.
+  There is now **one row of emoji**, and the same button does the right thing:
+  - while you are **typing**, it drops the emoji into your message at the cursor — nothing
+    is sent, nothing you typed is lost, the keyboard stays up, and the line leaves only
+    when you press Send;
+  - when you are **not typing**, it throws the emoji onto the table over your seat, once,
+    and whatever is in the message box stays exactly as it was, untouched.
+  Which of the two happens is decided the moment your finger lands, so a keyboard closing
+  under your thumb can no longer change what your tap meant. Stickers are unchanged: a
+  sticker is a message, so it is still sent straight away, all 253 of them.
 
 - **The chat no longer takes over the game (Stage 38.0.14).** Stage 38.0.13 (below) gave
   every game the same chat window — as a pop-up over the table, and that was worse than
@@ -42,7 +41,7 @@ also reported at `GET /health/diagnostics` (`version` field).
   On a phone the panel is a full-width card with a capped height, so your hand is one
   short scroll below it; on a wide screen it is the same card, capped so it does not
   stretch across the table. Everything else is unchanged — stickers still send straight
-  away, and the emoji rows work as described under Stage 38.0.15 above.
+  away, and the emoji work as described under Stage 38.0.15 above.
 
 ### Changed
 

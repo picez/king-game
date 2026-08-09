@@ -89,7 +89,7 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
 
   it('the in-chat picker offers the whitelist stickers beside the emoji (Stage 11.1)', () => {
     // (38.0.12) There is ONE picker now, inside the chat, and it holds both.
-    expect(social).toContain('reaction-bar__emojis');
+    expect(social).toContain('chat-picker__emoji');
     expect(social).toContain('reaction-bar__stickers');
     // Stickers in the reaction picker send via the same whitelist id path.
     expect(social).toMatch(/reaction-bar__stickers[^]*CHAT_MEDIA\.map/);
@@ -105,13 +105,12 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).toContain('setFloats');
   });
 
-  it('the picker labels each emoji DESTINATION and its sticker grid (38.0.15)', () => {
-    // Two labelled rows, not one row whose meaning depends on where the focus happens to be.
-    expect(social).toContain("t('chat.emojiToMessage')");
-    expect(social).toContain("t('chat.emojiToTable')");
-    expect(social).not.toMatch(/emojiHintMessage|emojiHintTable/);
+  it('ONE emoji set, no destination labels, one sticker grid (38.0.15 corrective)', () => {
+    const body = social.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect((body.match(/className="chat-picker__emoji"/g) ?? []).length).toBe(1);
+    expect((body.match(/REACTIONS\.map/g) ?? []).length).toBe(1);
+    expect(body).not.toMatch(/emojiToMessage|emojiToTable|emojiHint|chat-picker__hint/);
     expect(social).toContain("t('chat.mediaPicker')");  // the picker's own label
-    expect(social).toContain('reaction-bar__emojis');
     expect(social).toContain('reaction-bar__stickers');
   });
 });

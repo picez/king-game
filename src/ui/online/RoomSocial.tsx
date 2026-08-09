@@ -127,11 +127,23 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
    * 75a3b6d: opening the picker moved focus to the button.
    */
   const keepFocus = (e: { preventDefault: () => void }) => { e.preventDefault(); };
+  /**
+   * (38.0.15 corrective) There is ONE set of emoji, and what a tap on it does depends on
+   * whether the player was typing. That answer must be read at the START of the press,
+   * before anything can move the focus: on a phone the tap itself can dismiss the keyboard,
+   * and any stray blur between the finger landing and the `click` firing would silently
+   * flip the intent the player already expressed. `pointerdown` is the first event of the
+   * gesture — earlier than `mousedown`, earlier than the synthetic mouse events a touch
+   * produces — so the intent is captured there and merely SPENT on click.
+   * `null` = no press captured (keyboard activation): fall back to the live focus.
+   */
+  const intentRef = useRef<boolean | null>(null);
+  const isTyping = () => typeof document !== 'undefined' && document.activeElement === inputRef.current;
+  const captureIntent = () => { intentRef.current = isTyping(); };
   /** Close ONLY the picker; the conversation — and the caret — stay exactly where they were. */
   const closePicker = () => {
     setPickerOpen(false);
-    const typing = typeof document !== 'undefined' && document.activeElement === inputRef.current;
-    if (!typing) pickerBtnRef.current?.focus();
+    if (!isTyping()) pickerBtnRef.current?.focus();
   };
   const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
@@ -224,13 +236,22 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const activeFloats = floats.filter((f) => now - f.at < REACTION_TTL_MS);
 
   /**
-   * The «on the table» row → the EXISTING server reaction (Stage 7 protocol, no new
-   * transport). The server stamps the sender and every client anchors it on that player's
-   * SEAT, so two players sharing a display name are still told apart. It never touches the
-   * draft, never moves the caret and never closes anything.
+   * NOT typing → the EXISTING server reaction (Stage 7 protocol, no new transport). The
+   * server stamps the sender and every client anchors it on that player's SEAT, so two
+   * players sharing a display name are still told apart. It never touches the draft — not
+   * even a non-empty one — never pulls focus into the field, and never closes anything.
    */
   function react(emoji: string) {
     onReact(emoji);
+  }
+  /**
+   * THE one emoji control. The destination is not a mode, a row or a guess made at click
+   * time: it is the intent captured when the press began (see `captureIntent`).
+   */
+  function pickEmoji(emoji: string) {
+    const typing = intentRef.current ?? isTyping();
+    intentRef.current = null;
+    if (typing) insertEmoji(emoji); else react(emoji);
   }
   /**
    * A sticker/GIF is ALWAYS chat media — it is a message, not a character, so there is
@@ -240,17 +261,15 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     onChatMedia(item.id);
   }
   /**
-   * The «into your message» row → the emoji is TEXT. With the caret live it lands AT THE
-   * CARET, so it can be dropped into the middle of a half-typed line without wiping it.
-   * With the field NOT active there is no caret to honour — a never-focused input reports
-   * `selectionStart === 0`, which would silently PREPEND — so it APPENDS instead, which is
-   * the owner's ask: write «привіт», then add an emoji at the end. It sends nothing.
+   * TYPING → the emoji is TEXT: it lands AT THE CARET, so it can be dropped into the middle
+   * of a half-typed line without wiping it, and the caret follows it. Nothing is sent —
+   * neither `onReact` nor `onChat`; the line leaves only when the player presses Send or
+   * Enter. The field keeps the focus and, on a phone, the keyboard.
    */
   function insertEmoji(emoji: string) {
     const el = inputRef.current;
-    const caretActive = typeof document !== 'undefined' && document.activeElement === el;
-    const start = caretActive ? (el?.selectionStart ?? text.length) : text.length;
-    const end = caretActive ? (el?.selectionEnd ?? text.length) : text.length;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
     const next = (text.slice(0, start) + emoji + text.slice(end)).slice(0, MAX_CHAT_LEN);
     setText(next);
     const caret = Math.min(start + emoji.length, next.length);
@@ -313,43 +332,28 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   );
 
   /**
-   * ONE emoji row, built once so the two destinations can never drift apart in markup,
-   * tap-target size or a11y. `onPick` is the ONLY difference between them, and the label
-   * above it is an inert heading — the row itself IS the choice, so there is no mode to
-   * set, nothing to remember and nothing to read back.
+   * The in-chat picker: ONE emoji set and the sticker catalog. It is a BOUNDED SIBLING of
+   * the conversation — never a replacement for it — and the single scroller of its region.
+   *
+   * (38.0.15 corrective, owner FAIL) There is exactly ONE `chat-picker__emoji` container,
+   * ONE `REACTIONS.map`, and therefore each emoji exists exactly once in the DOM. The
+   * duplicated «into your message» / «on the table» rows are gone — deleted, not hidden —
+   * along with their headings, their wrappers, their CSS and their i18n keys. The same
+   * button carries both destinations, chosen by what the player was doing when the press
+   * began: typing → into the draft at the caret; not typing → onto the table over their
+   * seat. Stickers are untouched by all of this: a sticker is a message.
    */
-  const emojiRow = (kind: 'message' | 'table', label: string, onPick: (emoji: string) => void) => (
-    <div className="chat-picker__section">
-      <p className="chat-picker__hint">{label}</p>
-      <div className={`reaction-bar__emojis reaction-bar__emojis--${kind}`} role="group" aria-label={label}>
+  const chatPicker = pickerOpen ? (
+    <div className="chat-picker" role="group" aria-label={t('chat.mediaPicker')}>
+      <div className="chat-picker__emoji">
         {REACTIONS.map((e) => (
           <button key={e} type="button" className="reaction-bar__btn"
-            onMouseDown={keepFocus} onClick={() => onPick(e)} aria-label={`${label} ${e}`}>
+            onPointerDown={captureIntent} onMouseDown={keepFocus}
+            onClick={() => pickEmoji(e)} aria-label={`${t('social.emoji')} ${e}`}>
             {e}
           </button>
         ))}
       </div>
-    </div>
-  );
-
-  /**
-   * The in-chat picker: two labelled emoji rows and the sticker catalog. It is a BOUNDED
-   * SIBLING of the conversation — never a replacement for it — and the single scroller of
-   * its region.
-   *
-   * (38.0.15 — owner FAIL on 38.0.13) The destination is EXPLICIT again. 38.0.13 derived
-   * it from whether the message field held focus, which meant one tap did two different
-   * things depending on state the player cannot see: type a draft, scroll the history or
-   * let the phone dismiss the keyboard, and the next emoji flew onto the table instead of
-   * joining the sentence. The hint moved, but nobody reads a hint while typing. Now the
-   * top row ALWAYS writes into the message (at the caret, or appended when there is no
-   * caret) and the bottom row ALWAYS goes to the table. Neither can surprise the player,
-   * and a sticker stays what it always was: a message.
-   */
-  const chatPicker = pickerOpen ? (
-    <div className="chat-picker" role="group" aria-label={t('chat.mediaPicker')}>
-      {emojiRow('message', t('chat.emojiToMessage'), insertEmoji)}
-      {emojiRow('table', t('chat.emojiToTable'), react)}
       {stickerGrid}
     </div>
   ) : null;

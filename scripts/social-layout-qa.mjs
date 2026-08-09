@@ -234,21 +234,26 @@ const PROBE = `JSON.stringify((() => {
   for (const banned of ['chat-picker__mode', 'data-mode="message"', 'data-mode="table"']) {
     if (html.includes(banned)) add('picker-mode-switch', banned);
   }
-  // 3b. (38.0.15) With the picker open there are exactly TWO emoji rows, each labelled and
-  //     each holding the same emoji at the same tap size — the label is what tells them
-  //     apart, so neither may be shorter, smaller or unlabelled than the other.
+  // 3b. (38.0.15 corrective — owner FAIL) The picker holds exactly ONE emoji container and
+  //     each emoji EXACTLY ONCE. The rejected build had two labelled rows: measured on the
+  //     real branches, emojiContainers 2 and 14 buttons for 7 emoji, every one of them
+  //     twice. A duplicate must fail here whatever it is called, so the probe counts the
+  //     containers by shape (any emoji-bearing block in the picker), not by one class name.
   if (q('.chat-picker')) {
-    const rows = [...document.querySelectorAll('.chat-picker .reaction-bar__emojis')];
-    const msg = document.querySelectorAll('.reaction-bar__emojis--message .reaction-bar__btn').length;
-    const tbl = document.querySelectorAll('.reaction-bar__emojis--table .reaction-bar__btn').length;
-    if (rows.length !== 2) add('emoji-rows', String(rows.length));
-    if (!msg || msg !== tbl) add('emoji-rows-differ', msg + ' vs ' + tbl);
-    for (const sec of document.querySelectorAll('.chat-picker__section')) {
-      const label = sec.querySelector('.chat-picker__hint');
-      if (!label || !(label.textContent || '').trim()) add('emoji-row-unlabelled', 'missing');
-      else if (getComputedStyle(label).pointerEvents !== 'none') add('emoji-row-label-clickable', label.textContent.trim());
+    const btns = [...document.querySelectorAll('.chat-picker .reaction-bar__btn')];
+    const boxes = new Set(btns.map((b) => b.parentElement));
+    const chars = btns.map((b) => (b.textContent || '').trim());
+    const dupes = [...new Set(chars.filter((c, i) => chars.indexOf(c) !== i))];
+    if (boxes.size !== 1) add('emoji-containers', String(boxes.size));
+    if (document.querySelectorAll('.chat-picker__emoji').length !== 1) {
+      add('emoji-container-class', String(document.querySelectorAll('.chat-picker__emoji').length));
     }
-    for (const b of document.querySelectorAll('.chat-picker .reaction-bar__btn')) {
+    if (dupes.length) add('emoji-duplicated', dupes.join('') + ' in ' + btns.length + ' buttons');
+    // No destination heading may survive — deleted, not hidden.
+    if (q('.chat-picker__hint') || q('.chat-picker__section')) add('destination-heading', 'present');
+    if (/У повідомлення|На стіл|Into your message|On the table|إلى رسالتك|على الطاولة|In die Nachricht|Auf den Tisch/
+      .test(q('.chat-picker').textContent || '')) add('destination-label-text', 'present');
+    for (const b of btns) {
       const r = rect(b);
       if (live(r) && (r.w < 43.5 || r.h < 43.5)) add('emoji-small', Math.round(r.w) + 'x' + Math.round(r.h));
     }
@@ -366,7 +371,9 @@ const STATE = `JSON.stringify((() => {
     chatOpen: !!listNode(),
     pickerOpen: !!q('.chat-picker'),
     calls: window.__socialCalls || [],
-    labels: [...document.querySelectorAll('.chat-picker__hint')].map((e) => (e.textContent || '').trim()),
+    emojiButtons: document.querySelectorAll('.chat-picker .reaction-bar__btn').length,
+    uniqueEmoji: new Set([...document.querySelectorAll('.chat-picker .reaction-bar__btn')]
+      .map((b) => (b.textContent || '').trim())).size,
   };
 })())`;
 
@@ -408,10 +415,11 @@ function scenarios() {
     { name: 'collapsed', q: 'panel=none' },
     { name: 'chat', q: 'panel=chat' },
     { name: 'picker', q: 'panel=chat', picker: true },
-    { name: 'msg-caret', q: 'panel=chat', picker: true, act: 'msg-caret' },
-    { name: 'msg-blurred', q: 'panel=chat', picker: true, act: 'msg-blurred' },
-    { name: 'table-focused', q: 'panel=chat', picker: true, act: 'table-focused' },
-    { name: 'table-blurred', q: 'panel=chat', picker: true, act: 'table-blurred' },
+    { name: 'typing-caret', q: 'panel=chat', picker: true, act: 'typing-caret' },
+    { name: 'blurred-draft', q: 'panel=chat', picker: true, act: 'blurred-draft' },
+    { name: 'blurred-empty', q: 'panel=chat', picker: true, act: 'blurred-empty' },
+    { name: 'opened-while-typing', q: 'panel=chat', picker: true, act: 'opened-while-typing' },
+    { name: 'focus-switch', q: 'panel=chat', picker: true, act: 'focus-switch' },
     { name: 'sticker', q: 'panel=chat', picker: true, act: 'sticker' },
     { name: 'rtl-picker', q: 'panel=chat&dir=rtl&lang=ar', picker: true },
     { name: 'utility', q: 'panel=utility&util=1' },
@@ -522,17 +530,18 @@ const NONBLOCKING = `JSON.stringify((() => {
   };
 })())`;
 
-const MSG_EMOJI = '.reaction-bar__emojis--message .reaction-bar__btn';
-const TABLE_EMOJI = '.reaction-bar__emojis--table .reaction-bar__btn';
+const EMOJI = '.chat-picker .reaction-bar__btn';
+const SEND = '.chat-panel__compose [type="submit"]';
 const STICKER = '.chat-picker .chat-media-thumb';
 const HISTORY = '.chat-panel__list, .chat-dialog__list, .chat-drawer__list';
 
 /**
- * (38.0.15) The EXPLICIT-destination emoji contract, driven with REAL input. Each row is
- * exercised in BOTH focus states, because that is precisely what 38.0.13 got wrong: the
- * same tap sent an emoji away once the field had lost focus (scrolled history, dismissed
- * keyboard, a tap on the table), so a player who typed «привіт» and then reached for an
- * emoji watched it fly onto the table instead of joining the sentence.
+ * (38.0.15 corrective) ONE emoji set whose destination follows what the player was doing
+ * when the press began, driven with REAL input — a synthetic `el.click()` cannot move
+ * focus, so it cannot tell a typist's tap from a bystander's. The intent is captured on
+ * `pointerdown`, which is the first event of the gesture: on a phone the tap itself can
+ * dismiss the keyboard, and a blur landing between the finger and the `click` would
+ * otherwise flip the destination after the player had already chosen it.
  * Returns the violations it found so the caller can label them with viewport/variant/game.
  */
 async function runBehaviour(cdp, act, label) {
@@ -541,9 +550,10 @@ async function runBehaviour(cdp, act, label) {
   const setCaret = (a, b) => cdp.evaluate(
     `(() => { const el = document.querySelector('.chat-input'); if (!el) return false; el.setSelectionRange(${a}, ${b}); return true; })()`);
 
-  if (act === 'msg-caret') {
-    // Type "ab", put the caret between them, then tap a MESSAGE emoji: it lands at the
-    // caret, wipes nothing, sends nothing, and the field keeps focus AND the keyboard.
+  if (act === 'typing-caret') {
+    // Typing: the caret sits between "a" and "b". The emoji lands there, wipes nothing,
+    // sends nothing, and the field keeps focus AND the keyboard. Then Send posts ONE chat
+    // message carrying the emoji — the only way anything leaves this branch.
     if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
     await cdp.type('ab');
     await setCaret(1, 1);
@@ -555,18 +565,28 @@ async function runBehaviour(cdp, act, label) {
     const afterPicker = await state();
     if (!afterPicker.pickerOpen) bad.push('the picker never opened');
     if (!afterPicker.focused) bad.push(`the picker button STOLE focus (active=${afterPicker.active})`);
-    if (afterPicker.labels.length !== 2) bad.push(`the picker shows ${afterPicker.labels.length} row labels, expected 2`);
-    if (!await cdp.click(MSG_EMOJI)) bad.push('cannot click a message emoji');
+    if (afterPicker.emojiButtons !== afterPicker.uniqueEmoji) {
+      bad.push(`${afterPicker.emojiButtons} emoji buttons for ${afterPicker.uniqueEmoji} emoji`);
+    }
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
     const after = await state();
     if (!/^a.+b$/u.test(after.text ?? '')) bad.push(`emoji did not land at the caret (value="${after.text}")`);
     if (!after.focused) bad.push(`the emoji button STOLE focus (active=${after.active})`);
-    if (after.calls.length !== 0) bad.push(`a message emoji SENT something (${JSON.stringify(after.calls)})`);
+    if (after.calls.length !== 0) bad.push(`typing + emoji SENT something (${JSON.stringify(after.calls)})`);
+    const typed = after.text;
+    if (!await cdp.click(SEND)) bad.push('cannot press Send');
+    const sent = await state();
+    const chats = sent.calls.filter((c) => c.kind === 'chat');
+    if (chats.length !== 1 || chats[0].value !== typed) {
+      bad.push(`Send posted ${JSON.stringify(chats)}, expected one "${typed}"`);
+    }
+    if (sent.text !== '') bad.push(`Send left "${sent.text}" in the field`);
   }
 
-  if (act === 'msg-blurred') {
-    // THE OWNER'S CASE. A draft is typed, then the field loses focus (here: the player taps
-    // the history to read it — on a phone the keyboard closing does the same). The MESSAGE
-    // row must still write into the draft, APPENDED at the end, and still send nothing.
+  if (act === 'blurred-draft') {
+    // A draft is typed, then the field loses focus (here: a tap on the history; on a phone
+    // the keyboard closing does the same). The SAME emoji now goes to the table — once —
+    // the non-empty draft is untouched, and the field is not pulled back into focus.
     if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
     await cdp.type('привіт');
     if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
@@ -574,39 +594,53 @@ async function runBehaviour(cdp, act, label) {
     const blurred = await state();
     if (blurred.focused) bad.push('tapping the history did not blur the field');
     if (!blurred.pickerOpen) bad.push('tapping the history closed the picker');
-    if (!await cdp.click(MSG_EMOJI)) bad.push('cannot click a message emoji');
-    const after = await state();
-    if (after.calls.length !== 0) bad.push(`a message emoji SENT something (${JSON.stringify(after.calls)})`);
-    if (!(after.text ?? '').startsWith('привіт')) bad.push(`the draft was damaged ("${after.text}")`);
-    if ((after.text ?? '') === 'привіт') bad.push('the emoji never reached the draft');
-    if ((after.text ?? '').length <= 'привіт'.length) bad.push(`nothing was appended ("${after.text}")`);
-  }
-
-  if (act === 'table-focused') {
-    // Mid-sentence, the TABLE row still goes to the table — exactly once — and leaves the
-    // draft and the caret alone. (Under 38.0.13 this destination was unreachable while typing.)
-    if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
-    await cdp.type('hi');
-    if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
-    if (!await cdp.click(TABLE_EMOJI)) bad.push('cannot click a table emoji');
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
     const after = await state();
     const reacts = after.calls.filter((c) => c.kind === 'react');
     if (reacts.length !== 1) bad.push(`react fired ${reacts.length}x`);
-    if (after.text !== 'hi') bad.push(`a table reaction changed the draft ("${after.text}")`);
-    if (!after.focused) bad.push('a table reaction cost the typist their focus');
+    if (after.text !== 'привіт') bad.push(`a table reaction changed the draft ("${after.text}")`);
+    if (after.focused) bad.push('a table reaction pulled focus into the field');
   }
 
-  if (act === 'table-blurred') {
-    // Picker opened without ever touching the field → the table row still reacts once and
+  if (act === 'blurred-empty') {
+    // Picker opened without ever touching the field → the emoji goes to the table once and
     // the empty draft stays empty.
     if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
     const opened = await state();
     if (opened.focused) bad.push('the picker button focused the field on its own');
-    if (!await cdp.click(TABLE_EMOJI)) bad.push('cannot click a table emoji');
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
     const after = await state();
     const reacts = after.calls.filter((c) => c.kind === 'react');
     if (reacts.length !== 1) bad.push(`react fired ${reacts.length}x`);
     if (after.text !== '') bad.push(`the field gained text ("${after.text}")`);
+  }
+
+  if (act === 'opened-while-typing') {
+    // The picker is opened FROM an active field: the opener must not take the caret, so the
+    // very first emoji still belongs to the message.
+    if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
+    await cdp.type('hi');
+    if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
+    const after = await state();
+    if (after.calls.length !== 0) bad.push(`SENT something (${JSON.stringify(after.calls)})`);
+    if ((after.text ?? '') === 'hi') bad.push('nothing was inserted');
+    if (!(after.text ?? '').startsWith('hi')) bad.push(`the draft was damaged ("${after.text}")`);
+  }
+
+  if (act === 'focus-switch') {
+    // One session, both destinations, one emoji set: type → insert; tap the history → table.
+    if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
+    if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
+    const inserted = await state();
+    if ((inserted.text ?? '').length === 0) bad.push('a typist\'s tap inserted nothing');
+    if (inserted.calls.length !== 0) bad.push('a typist\'s tap SENT something');
+    if (!await cdp.click(HISTORY)) bad.push('cannot click the history');
+    if (!await cdp.click(EMOJI)) bad.push('cannot click an emoji');
+    const after = await state();
+    if (after.calls.filter((c) => c.kind === 'react').length !== 1) bad.push('the blurred tap did not send exactly one reaction');
+    if (after.text !== inserted.text) bad.push(`the blurred tap changed the message ("${after.text}")`);
   }
 
   if (act === 'sticker') {
@@ -801,10 +835,19 @@ async function main() {
           measured.push(`${vp.tag} ${name} ${meta}`);
           console.log(`  ${name.padEnd(26)} ${meta}`);
 
-          // Behaviour is proved on the phone width the owner uses, for the three games
-          // that also carry a clickable gameplay control (the rest are geometry-only).
-          if (vp.tag === '390' && dirTag === 'ltr' && g.action) {
-            for (const act of ['msg-caret', 'msg-blurred', 'table-focused', 'table-blurred', 'sticker']) {
+          // (38.0.15 corrective) Behaviour is proved on REAL branches at BOTH phone widths
+          // and in BOTH directions. The full set runs at 390 LTR — the width the owner
+          // reports from — and the two branch-deciding cases run at 360 and in Arabic RTL,
+          // where the picker wraps differently. Nothing is capped silently: the reduced set
+          // is named in the log line below.
+          const FULL = ['typing-caret', 'blurred-draft', 'blurred-empty', 'opened-while-typing', 'focus-switch', 'sticker'];
+          const CORE = ['typing-caret', 'blurred-draft'];
+          const acts = ['360', '390'].includes(vp.tag) && g.action
+            ? (vp.tag === '390' && dirTag === 'ltr' ? FULL : CORE)
+            : [];
+          if (acts.length) {
+            console.log(`    behaviour: ${acts.join(', ')}`);
+            for (const act of acts) {
               const ok2 = await load(cdp, `${GAMES_BASE}?${g.q}&chat=8&panel=chat`, '#root > *');
               if (ok2 === null) { failures.push(`${label}/${act}: NOTHING rendered`); continue; }
               failures.push(...await runBehaviour(cdp, act, `${label}/${act}`));
@@ -842,7 +885,7 @@ async function main() {
     for (const f of failures) console.log(`  - ${f}`);
     process.exit(1);
   }
-  console.log('SOCIAL LAYOUT OK — one chat for every game, and the ROW decides where an emoji goes.');
+  console.log('SOCIAL LAYOUT OK — one chat, ONE emoji set, and the press decides where an emoji goes.');
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
