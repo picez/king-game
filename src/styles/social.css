@@ -39,35 +39,48 @@
   0% { opacity: 0; } 8% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; }
 }
 
+/* The ONLY fixed element left here (Stage 38.0.14): a transient, NON-INTERACTIVE
+   status toast. `pointer-events: none` so even it cannot swallow a tap meant for the
+   game underneath. */
 .social-toast {
-  position: fixed; right: 12px; bottom: 132px; z-index: 62;
+  position: fixed; right: 12px; bottom: 132px; z-index: 62; pointer-events: none;
   background: var(--danger-soft); color: var(--danger-light);
   border: 1px solid var(--danger); border-radius: 10px;
   padding: 0.45rem 0.7rem; font-size: 0.82rem; box-shadow: var(--shadow-2);
 }
 
-/* Bottom-right controls. Default sits in the corner (lobby / public screens);
-   on the playing screen `--raised` lifts them clear of the player's hand so the
-   cards are never covered. */
-.social-controls {
-  position: fixed; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 61;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+/* ── The in-flow social cluster (Stage 38.0.14) ──────────────────────────────
+   The owner's CRITICAL FAIL was a chat that took the whole screen: a viewport backdrop,
+   `aria-modal`, a locked page scroll and taps that never reached the table. Measured at
+   8523361 across all seven games, a legal card click reached the game 0 times while the
+   authoritative timer kept counting down.
+
+   So there is no fixed cluster and no overlay any more. RoomSocial renders ONE column in
+   NORMAL FLOW, in the safe zone each game hands it (after the public board, before the
+   private hand / action row). Opening the chat costs LAYOUT SPACE, which the game's own
+   flex column absorbs — it never covers the cards. Logical properties only, so it mirrors
+   correctly under RTL. */
+.room-social {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  width: 100%; min-width: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
-.social-controls--raised { bottom: calc(9.5rem + env(safe-area-inset-bottom)); }
+/* The compact control row: timer, the caller's utility control, voice, chat, leave,
+   and the destructive action. It scrolls sideways if the buttons do not fit; the PAGE
+   never does. */
+.room-social__bar {
+  display: flex; gap: 8px; align-items: center;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+}
+.room-social__bar::-webkit-scrollbar { display: none; }
+/* Nothing in the row may shrink below the 44px tap minimum — not the buttons, and not a
+   control nested one level deeper inside a caller's own box (measured at 37x44). */
+.room-social__bar > * { flex: 0 0 auto; }
+.room-social__bar * { flex-shrink: 0; }
+.room-social__bar .social-fab { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
 .social-toast--raised { bottom: calc(12.5rem + env(safe-area-inset-bottom)); }
-.social-controls__row { display: flex; gap: 8px; }
-/* "Leave game" — a clearly-labelled danger pill shown ONLY during an active
-   online game (sits above the reaction/chat FABs, clear of the hand). */
-.social-leave {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 0.4rem 0.85rem; min-height: var(--tap-min);
-  background: var(--danger-soft); color: var(--danger-light);
-  border: 1px solid var(--danger); border-radius: 999px;
-  font-size: 0.84rem; font-weight: 700; cursor: pointer;
-  box-shadow: var(--shadow-2); white-space: nowrap;
-}
-.social-leave:hover { background: rgba(229, 72, 77, 0.28); }
-.social-leave:active { transform: translateY(1px); }
 .social-fab {
   position: relative; width: 46px; height: 46px; border-radius: 50%;
   background: var(--panel); border: 1px solid var(--border-strong);
@@ -125,57 +138,56 @@
   border-top: 1px solid var(--border);
 }
 
-/* ── THE chat dialog (Stage 38.0.13) ─────────────────────────────────────────
-   ONE shell for all seven games. Before this, `variant` chose the shell as well as the
-   launcher, so the same component opened three different chats — measured at 75a3b6d,
-   390px wide: Durak a fixed 320x844 right-hand drawer with NO backdrop, Fifty-One a
-   390x544 modal card WITH one, Poker a 371x400 in-flow box with an 11.2px radius.
-   The dialog is `position: fixed` from a viewport-anchored backdrop, so its geometry
-   depends on the VIEWPORT alone — never on where in the page the launcher happened to
-   sit. Phone: a bottom sheet that honours the safe area. Desktop: a centred card. */
-.chat-dialog-backdrop {
-  position: fixed; inset: 0; z-index: 88;
-  display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(0, 0, 0, 0.62);
-}
-.chat-dialog {
+/* ── THE chat panel (Stage 38.0.13, made NON-MODAL in 38.0.14) ───────────────
+   One element, the same in every game: a heading with a close button, the bounded
+   history, the composer and the bounded picker. It is a plain in-flow card:
+     - NO backdrop and no dimming — the game stays fully readable;
+     - NO `position: fixed/absolute` — it can never be layered over the table;
+     - a BOUNDED height, so on a phone it takes a predictable band and the hand and the
+       action row stay one short scroll away instead of being covered.
+   Its colours, border, radius, spacing and typography are defined once, here, which is
+   what makes the seven games identical without any of them positioning it. */
+.chat-panel {
   display: flex; flex-direction: column; gap: 0.4rem;
-  width: min(100%, 32rem);
-  max-height: min(80vh, 34rem);
-  /* OPAQUE on purpose: `--surface` is a translucent wash and the table read through it. */
+  width: 100%; min-width: 0;
+  max-height: min(46vh, 24rem);
+  /* OPAQUE on purpose: `--surface` is a translucent wash and the felt read through it. */
   background: var(--panel); color: var(--text);
   border: 1px solid var(--border-strong);
-  border-radius: 1rem 1rem 0 0;
-  box-shadow: var(--shadow-3, var(--shadow-2));
+  border-radius: 0.9rem;
   padding:
     0.5rem
-    max(0.6rem, env(safe-area-inset-right))
-    calc(0.5rem + env(safe-area-inset-bottom))
-    max(0.6rem, env(safe-area-inset-left));
+    max(0.5rem, env(safe-area-inset-right))
+    0.5rem
+    max(0.5rem, env(safe-area-inset-left));
 }
-/* Desktop: the same card, centred and free of the phone's bottom-sheet edges. */
-@media (min-width: 700px) {
-  .chat-dialog-backdrop { align-items: center; padding: 1rem; }
-  .chat-dialog { border-radius: 1rem; padding-bottom: 0.5rem; }
+/* Wide screens have room to spare: the same card, capped so it does not stretch across
+   the whole table. (A separate grid sidecar was considered and rejected — none of the
+   seven screens has a proven free column, and inventing one per game is exactly the kind
+   of per-game divergence Stage 38.0.13 was fixing.) */
+@media (min-width: 900px) {
+  .chat-panel { max-width: 34rem; align-self: flex-start; }
 }
-.chat-dialog__head { display: flex; align-items: center; gap: 0.4rem; }
-.chat-dialog__title {
+[dir="rtl"] .chat-panel { align-self: auto; }
+@media (min-width: 900px) { [dir="rtl"] .chat-panel { align-self: flex-end; } }
+.chat-panel__head { display: flex; align-items: center; gap: 0.4rem; }
+.chat-panel__title {
   flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 0.2rem;
   font-size: 0.95rem; font-weight: 700; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chat-dialog__close {
+.chat-panel__close {
   flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
   background: var(--panel); border: 1px solid var(--border-strong);
   color: var(--text); font-size: 1rem; cursor: pointer;
 }
-/* EVERY control inside the dialog is a real phone tap target. */
-.chat-dialog button { min-height: 44px; min-width: 44px; }
-.chat-dialog .chat-media-thumb { padding: 2px; }
+/* EVERY control inside the panel is a real phone tap target. */
+.chat-panel button { min-height: 44px; min-width: 44px; }
+.chat-panel .chat-media-thumb { padding: 2px; }
 /* The conversation is the history's ONE scroller, and it keeps a FLOOR: the picker below
    it may only take what is left over, so the chat can never be squeezed away (measured at
    d44171b: 80px at 360, 65px at 390, 0px at 1920 — Stage 38.0.12). */
-.chat-dialog__list {
+.chat-panel__list {
   flex: 1 1 auto; min-height: 6.5rem; overflow-y: auto; overflow-x: hidden;
   padding: 0.5rem; display: flex; flex-direction: column; gap: 7px;
   border: 1px solid var(--border); border-radius: 0.6rem; background: var(--surface-2);
@@ -192,7 +204,7 @@
   background: var(--surface-2); padding: 4px 9px; border-radius: 11px; max-width: 100%;
 }
 .chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
-.chat-dialog__compose {
+.chat-panel__compose {
   flex: 0 0 auto; display: flex; gap: 6px; align-items: center;
   padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
 }
@@ -230,46 +242,16 @@
 }
 .chat-lightbox__img { max-width: min(90vw, 420px); max-height: 80vh; object-fit: contain; border-radius: 12px; }
 
-/* RTL: mirror the corner controls to the left edge. The chat dialog needs no mirroring —
-   it is centred on the viewport in both directions, which is part of why every game now
-   measures the same rectangle. */
-[dir="rtl"] .social-controls { right: auto; left: 12px; align-items: flex-start; }
+/* RTL: the toast is the only fixed element left, so it is the only one to mirror.
+   The in-flow cluster and the chat panel inherit the document direction for free —
+   which is why Arabic needs no geometry of its own. */
 [dir="rtl"] .social-toast { right: auto; left: 12px; }
 
-
-/* ---------------------------------------------------------------------------
-   DOCKED social cluster (Stage 38.0.3). `RoomSocial variant="docked"` renders the
-   same controls as a compact HORIZONTAL toolbar in NORMAL FLOW instead of a fixed
-   bottom-corner column, and any open panel becomes a normal-flow sibling under it.
-   A game whose action controls sit at the bottom of the screen (Poker) must use this:
-   a fixed cluster was measured landing directly on top of those controls on a phone.
-   The row scrolls horizontally if the buttons do not fit, but the PAGE never does.
-   Logical properties only, so it mirrors correctly under RTL.
-   --------------------------------------------------------------------------- */
-.social-controls--docked {
-  position: static; inset: auto; z-index: auto;
-  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
-  width: 100%; padding-bottom: env(safe-area-inset-bottom);
-}
-.social-controls--docked .social-controls__row {
-  display: flex; gap: 8px; align-items: center;
-  overflow-x: auto; overflow-y: hidden;            /* the ROW scrolls, never the page */
-  scrollbar-width: none; -webkit-overflow-scrolling: touch;
-  padding: 2px 0;
-}
-.social-controls--docked .social-controls__row::-webkit-scrollbar { display: none; }
-/* Never let a button shrink below the 44px tap minimum inside the scrolling row. */
-.social-controls--docked .social-controls__row > * { flex: 0 0 auto; }
-.social-controls--docked .social-fab { flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
-/* A control nested one level deeper (e.g. a game's log button inside its own box)
-   must not be squeezed by the scrolling row either — measured at 37x44. */
-.social-controls--docked .social-controls__row * { flex-shrink: 0; }
+/* (38.0.14) The `floating` / `docked` / `sheet` variants are gone: a single in-flow
+   cluster replaced all three, so there is nothing left to switch between. The rules the
+   docked toolbar proved (a horizontally scrolling row, 44px targets, safe-area padding)
+   moved to `.room-social__bar` above. */
 .social-fab--leave { background: var(--danger-soft); border-color: var(--danger); }
-
-/* (38.0.13) There is no docked chat panel any more: the docked variant is a TOOLBAR, and
-   pressing its 💬 opens the same modal `.chat-dialog` as every other game. Only the
-   caller's own utility panel still docks in flow under the row. */
-.reaction-bar--docked { width: 100%; }
 
 /* ── Permanent "Quit for good" (Stage 38.0.5) ───────────────────────────────
    The TRIGGER is an ordinary member of the RoomSocial control row, so it inherits
@@ -306,58 +288,11 @@
 .permleave-dialog__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .permleave-dialog__actions .btn { flex: 1 1 10rem; min-height: 44px; }
 
-/* ── `sheet` variant: one launcher + a modal bottom sheet (Stage 38.0.5.1) ───
-   The docked toolbar (38.0.3/38.0.4) never covered anything, but it cost a whole
-   horizontal band of a phone screen between the game content and the prompt, and it
-   read as clutter. `sheet` collapses ALL of it into ONE 44×44 launcher the caller can
-   place in its own top bar, plus a modal sheet holding chat, reactions, voice, the
-   utility panel and the destructive action.
+/* (38.0.14) The `sheet` variant's launchers and its modal bottom sheet are gone with the
+   variants. Voice, the caller's utility panel and the destructive action are ordinary
+   members of the in-flow control row now, so Fifty-One reaches all of them without a
+   modal — and without the chat ever becoming one. */
 
-   Collapsed, the launcher is an ordinary in-flow element: it can never overlap the
-   table, the cards or the action bar. OPEN, the sheet is a dialog and covers the page
-   ON PURPOSE — with a backdrop, a close button, a bounded height and its own scroll.
-   Game-agnostic: no game selector appears anywhere in this block. */
-/* (38.0.13) The sheet variant's TWO launchers: 💬 opens the shared `.chat-dialog`, ☰ opens
-   this sheet, which now holds only what is NOT chat (voice, the caller's utility panel and
-   the destructive action). Neither surface is ever layered over the other. */
-.social-menu { display: inline-flex; gap: 0.35rem; }
-.social-menu__launcher { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: 1.15rem; }
-
-.social-sheet-backdrop {
-  position: fixed; inset: 0; z-index: 88;
-  display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(0, 0, 0, 0.62);
-}
-.social-sheet {
-  display: flex; flex-direction: column;
-  width: min(100%, 32rem);
-  max-height: min(80vh, 34rem);
-  /* OPAQUE on purpose: `--surface` is a translucent white wash, and the game table
-     showed straight through the sheet. `--panel` ends in a solid colour. */
-  background: var(--panel); color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 1rem 1rem 0 0;
-  box-shadow: var(--shadow-3, var(--shadow-2));
-  padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom));
-  gap: 0.4rem;
-}
-.social-sheet__head { display: flex; align-items: center; gap: 0.4rem; }
-/* The heading of the ONE section the sheet is showing (it replaced the tab strip). */
-.social-sheet__title {
-  flex: 1 1 auto; min-width: 0; margin: 0; padding: 0 0.2rem;
-  font-size: 0.95rem; font-weight: 700; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.social-sheet__close {
-  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
-  background: var(--panel); border: 1px solid var(--border-strong);
-  color: var(--text); font-size: 1rem; cursor: pointer;
-}
-/* ONE scrolling region — the PAGE behind the sheet never gains a scrollbar. */
-.social-sheet__body {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  display: flex; flex-direction: column; gap: 0.4rem;
-}
 /* (38.0.12) The IN-CHAT picker — one element inside the ONE dialog: the emoji row and the
    sticker catalog, pinned BELOW the composer. It is a sibling of the conversation, never a
    replacement for it.
@@ -382,12 +317,3 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .chat-picker-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
-.social-sheet__foot {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
-  border-top: 1px solid var(--border-strong); padding-top: 0.4rem;
-}
-.social-sheet__foot > * { flex: 0 0 auto; }
-/* EVERY control inside the sheet is a real phone tap target. Measured before this rule:
-   the composer's sticker button was 39×35, Send 64×35 and each emoji 42×30. */
-.social-sheet button { min-height: 44px; min-width: 44px; }
-.social-sheet .chat-media-thumb { padding: 2px; }

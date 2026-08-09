@@ -236,25 +236,27 @@ describe('the meld stylesheet cannot re-create the clipping', () => {
   });
 });
 
-describe('the social UI is ONE top-bar launcher and a modal sheet', () => {
+describe('the social UI is ONE in-flow block (Stage 38.0.14)', () => {
   const screenSrc = readFileSync(join(process.cwd(), 'src/ui/fiftyOne/FiftyOneGameScreen.tsx'), 'utf8');
   const onlineSrc = readFileSync(join(process.cwd(), 'src/ui/fiftyOne/FiftyOneOnlineGame.tsx'), 'utf8');
   const localSrc = readFileSync(join(process.cwd(), 'src/ui/fiftyOne/FiftyOneLocalGame.tsx'), 'utf8');
   const roomSrc = readFileSync(join(process.cwd(), 'src/ui/online/OnlineGame.tsx'), 'utf8');
   const socialSrc = readFileSync(join(process.cwd(), 'src/ui/online/RoomSocial.tsx'), 'utf8');
 
-  it('the launcher lives in the TOP BAR, above the scoreboard and the melds', () => {
+  it('(38.0.14) the social block sits IN FLOW after the melds, before the prompt', () => {
     const out = html(screen({
-      menuSlot: createElement('div', { className: 'probe-menu' }),
+      socialSlot: createElement('div', { className: 'probe-menu' }),
       timerSlot: createElement('div', { className: 'probe-timer' }),
     }));
     const topbar = out.indexOf('fiftyone-topbar');
     const menu = out.indexOf('probe-menu');
     const melds = out.indexOf('fiftyone-melds');
     const prompt = out.indexOf('fiftyone-prompt');
-    expect(menu).toBeGreaterThan(topbar);
-    expect(menu).toBeLessThan(melds);
-    expect(melds).toBeLessThan(prompt);
+    // After the public melds and BEFORE the prompt/actions/hand: opening the chat costs
+    // layout space there and can never cover them (the Stage 38.0.14 owner FAIL).
+    expect(melds).toBeGreaterThan(topbar);
+    expect(menu).toBeGreaterThan(melds);
+    expect(menu).toBeLessThan(prompt);
     expect(out).toContain('probe-timer');
   });
 
@@ -273,19 +275,21 @@ describe('the social UI is ONE top-bar launcher and a modal sheet', () => {
     expect(out).not.toContain('social-');
   });
 
-  it('online 51 mounts the SHEET RoomSocial exactly once, with the danger slot', () => {
+  it('online 51 mounts ONE in-flow RoomSocial, with the danger slot', () => {
     const from = roomSrc.indexOf("if (net.room?.gameType === 'fifty-one')");
     const to = roomSrc.indexOf("if (net.room?.gameType === 'poker')");
     expect(from).toBeGreaterThan(-1);
     expect(to).toBeGreaterThan(from);
     const branch = roomSrc.slice(from, to);
-    expect(branch).toContain('variant="sheet"');
+    // (38.0.14) No layout variants left (VoiceControl keeps its own unrelated `variant`).
+    expect(branch).not.toContain('variant="sheet"');
+    expect(branch).not.toContain('variant="docked"');
     expect(branch).toContain('dangerSlot={permanentLeaveSlot}');
-    expect(branch).toContain('menuSlot={fiftyOneMenu}');
+    expect(branch).toContain('socialSlot={fiftyOneSocial}');
     expect(branch).toContain('timerSlot={timerEl}');
     expect((branch.match(/<RoomSocial/g) ?? []).length).toBe(1);
     expect(branch).not.toContain('renderSocial(');
-    expect(onlineSrc).toContain('menuSlot={menuSlot}');
+    expect(onlineSrc).toContain('socialSlot={socialSlot}');
     expect(onlineSrc).toContain('timerSlot={timerSlot}');
   });
 
@@ -305,16 +309,20 @@ describe('the social UI is ONE top-bar launcher and a modal sheet', () => {
     expect(code).not.toMatch(/fifty-one|fiftyone/i);
   });
 
-  it('the other games keep their layout (four floating mounts, poker still docked)', () => {
+  it('(38.0.14) every game hands the SAME node to a generic in-flow slot', () => {
+    // Four games build it through `renderSocial(true, …)`; 51 and Poker build their own
+    // RoomSocial (they own extra slots). None of them renders it as a sibling overlay.
     expect((roomSrc.match(/renderSocial\(true/g) ?? []).length).toBe(4);
+    expect((roomSrc.match(/socialSlot=\{renderSocial\(true/g) ?? []).length).toBe(4);
+    expect(roomSrc).not.toContain('variant="docked"');
+    expect(roomSrc).not.toContain('variant="sheet"');
     const poker = roomSrc.slice(roomSrc.indexOf("if (net.room?.gameType === 'poker') {"));
-    expect(poker).toContain('variant="docked"');
-    expect(poker).not.toContain('variant="sheet"');
+    expect(poker).toContain('socialSlot={social}');
     expect(poker).not.toContain('dangerSlot');
   });
 
   it('the 51 screen never imports RoomSocial itself (generic slots only)', () => {
     expect(screenSrc).not.toContain('RoomSocial');
-    expect(screenSrc).toMatch(/menuSlot\?: ReactNode/);
+    expect(screenSrc).toMatch(/socialSlot\?: ReactNode/);
   });
 });

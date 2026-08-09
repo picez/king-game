@@ -141,7 +141,7 @@ describe('wiring — one control online (RoomSocial utilitySlot) and one locally
   it('local renders the same component once, in the shared in-flow dock', () => {
     // The fixed corner cluster is gone (Stage 38.0.3) — it covered the action controls.
     expect(local).not.toContain('poker-local-utility');
-    expect(local).toContain('social-controls--docked');
+    expect(local).toContain('room-social__bar');
     expect(local.match(/<PokerActionLog/g) ?? []).toHaveLength(1);
     expect(local).toContain("variant=\"standalone\"");
   });

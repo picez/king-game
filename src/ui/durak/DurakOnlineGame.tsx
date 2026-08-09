@@ -15,6 +15,9 @@ interface Props {
   /** Seats whose human is offline (for offline badges / "AI may play" hints). */
   disconnectedSeats?: number[];
   /** Online rematch controls (Stage 25.9) for the finish screen. */
+  /** Generic room-social node (Stage 38.0.14), handed to the game screen so it renders
+   *  IN NORMAL FLOW in that screen's safe zone instead of over the table. */
+  socialSlot?: ReactNode;
   rematch?: RematchUi | null;
 }
 
@@ -23,7 +26,7 @@ interface Props {
  * DurakGameScreen, but actions go through the network and bots/other players are
  * driven by the server. Renders nothing King-specific (no GameRouter).
  */
-export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
+export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch, socialSlot }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -35,7 +38,7 @@ export default function DurakOnlineGame({ state, myPlayerId, dispatch, onExit, d
     return <DurakFinished state={state} humanId={me.id} onPlayAgain={onExit} onExit={onExit} rematch={rematch} />;
   }
   return (
-    <DurakGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} />
+    <DurakGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} socialSlot={socialSlot} />
   );
 }
 

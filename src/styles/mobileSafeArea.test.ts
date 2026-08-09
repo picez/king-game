@@ -59,8 +59,11 @@ describe('touch tap targets meet the 44px floor', () => {
     expect(x).toContain('min-width: var(--tap-min)');
     expect(x).toContain('min-height: var(--tap-min)');
   });
-  it('the online "Leave game" pill uses the tap floor (no sub-44px min-height)', () => {
-    expect(social).toMatch(/\.social-leave\s*\{[\s\S]*?min-height:\s*var\(--tap-min\)/);
+  it('every control in the in-flow social row keeps the 44px floor (Stage 38.0.14)', () => {
+    // The labelled fixed "Leave game" pill is gone with the fixed cluster; the row's
+    // buttons (chat, voice, leave, the destructive action) are all 44x44 FABs now.
+    expect(social).toMatch(/\.room-social__bar \.social-fab\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/);
+    expect(social).toMatch(/\.chat-panel button\s*\{[^}]*min-height:\s*44px/);
   });
 });
 
@@ -69,9 +72,12 @@ describe('no fixed BOTTOM control sits under the home indicator', () => {
   // to its offset so the home indicator never overlaps it.
   const cases: Array<[string, RegExp[]]> = [
     ['src/styles/pwa.css', [/\.pwa-install\b[\s\S]*?bottom:\s*calc\([^)]*env\(safe-area-inset-bottom/]],
+    // (38.0.14) Room social has no fixed bottom control any more — it is an in-flow
+    // column. What must still respect the home indicator is its own bottom padding and
+    // the chat panel's, so nothing sits under the indicator when it ends the page.
     ['src/styles/social.css', [
-      /\.social-controls\s*\{[\s\S]*?bottom:\s*calc\([^)]*env\(safe-area-inset-bottom/,
-      /\.social-controls--raised\s*\{[^}]*env\(safe-area-inset-bottom/,
+      /\.room-social\s*\{[\s\S]*?padding-bottom:\s*env\(safe-area-inset-bottom/,
+      /\.chat-panel\s*\{[\s\S]*?env\(safe-area-inset-left/,
     ]],
     ['src/styles/game.css', [/padding-bottom:\s*calc\([^)]*env\(safe-area-inset-bottom/]],
   ];

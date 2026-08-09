@@ -433,8 +433,8 @@
 .poker-finished__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
 
 /* Panel close buttons must still be a real tap target (Stage 38.0.3 — measured 42×35).
-   (38.0.13) The docked chat panel is gone — poker's 💬 opens the shared `.chat-dialog`,
-   whose own rule already sizes every control — so only the log panel needs this. */
+   (38.0.14) The chat is the shared in-flow `.chat-panel`, whose own rule already sizes
+   every control — so only the log panel needs this. */
 .poker-log-panel__head .btn { min-width: 44px; min-height: 44px; }
 
 /* Between-hands REBUY panel (§17, Stage 38.0.3B). In flow, under the hand review and

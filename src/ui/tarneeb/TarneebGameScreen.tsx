@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
@@ -30,6 +30,13 @@ interface Props {
   /** Online mode: the SERVER drives bots + the hand_complete advance, so the
    *  "Next hand" button is hidden (a note shows instead). Default false (local). */
   online?: boolean;
+  /**
+   * Generic room-social node (Stage 38.0.14) — the online control row plus, when it is
+   * open, the chat panel. Rendered IN NORMAL FLOW after the public table and before the
+   * private hand / action controls, so it takes layout space instead of covering them.
+   * Local play passes nothing and is byte-identical to before.
+   */
+  socialSlot?: ReactNode;
   /** Seats whose human is offline (online only) — for offline badges / hints. */
   disconnectedSeats?: number[];
 }
@@ -63,7 +70,7 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
 
 /** The local human's table view for one Tarneeb hand. */
-export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats }: Props) {
+export default function TarneebGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats, socialSlot }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [showTricks, setShowTricks] = useState(false);
@@ -303,6 +310,9 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
         </div>
       )}
 
+
+      {/* Room social (Stage 38.0.14): in flow, clear of the hand and the actions. */}
+      {socialSlot}
       {/* The human's hand. */}
       <HandReorderTray
         items={handOrder.ordered}

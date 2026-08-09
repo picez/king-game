@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useGame } from '../hooks/useGame';
 import { useI18n } from '../i18n';
 import { useEscToClose } from '../hooks/useEscToClose';
@@ -20,7 +20,16 @@ const SUIT_COLOR_CLASS: Record<Suit, string> = {
   clubs:    'trump-suit--black',
 };
 
-export default function GameScreen() {
+interface Props {
+  /**
+   * Generic room-social node (Stage 38.0.14) — the online control row plus, when it is
+   * open, the chat panel. Rendered IN NORMAL FLOW between the table and the hand, so it
+   * takes layout space instead of covering the cards. Local play passes nothing.
+   */
+  socialSlot?: ReactNode;
+}
+
+export default function GameScreen({ socialSlot }: Props = {}) {
   const { state, dispatch } = useGame();
   const { t } = useI18n();
   const [showScores, setShowScores] = useState(false);
@@ -124,6 +133,9 @@ export default function GameScreen() {
       <div className="game-body">
         <TablePlayers viewerId={currentPlayer.id} />
       </div>
+
+      {/* ── Room social (Stage 38.0.14): in flow, between the table and the hand ── */}
+      {socialSlot}
 
       {/* ── Active player footer ── */}
       <div className="game-footer">

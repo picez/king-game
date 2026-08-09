@@ -16,13 +16,13 @@ interface Props {
   onChatMedia: (mediaId: string) => void;
   notice: SocialNotice | null;
   onClearNotice: () => void;
-  /** True while the player's hand is on screen (the `playing` GameScreen): lift
-   *  the corner controls above the hand so they never cover the cards. */
+  /** True while the player's hand is on screen — lifts the transient rate-limit toast
+   *  (the only fixed element left here) clear of the cards. */
   handVisible?: boolean;
   /** When set (ACTIVE game only — not the lobby), shows a "Leave game" action
    *  that returns to the menu while keeping the seat reconnectable (Resume). */
   onLeaveGame?: () => void;
-  /** Optional compact voice control (Stage 25.4), rendered in the corner button row. */
+  /** Optional compact voice control (Stage 25.4), rendered in the control row. */
   voiceButton?: ReactNode;
   /** The viewer's seat + the table size (Stage 27.1) — used to float a reaction over the
    *  sender's seat. Null/0 (spectator / lobby / unknown) → the reaction stays centred. */
@@ -31,45 +31,23 @@ interface Props {
   /** True when the current game mirrors seats left↔right on screen (Tarneeb) — flips the
    *  reaction anchor so it lands over the sender's actual visible seat (Stage 29.5). */
   reactionsMirrored?: boolean;
-  /** Optional per-turn timer node (Stage 29.7) — rendered inside this control cluster
-   *  (next to voice/emoji/chat) instead of over the table. Null/undefined = timer off. */
+  /** Optional per-turn timer node (Stage 29.7) — rendered inside this control row
+   *  (next to voice/chat) instead of over the table. Null/undefined = timer off. */
   timerSlot?: ReactNode;
   /** Optional GENERIC utility control (Stage 37.7 §16 I) — a game-agnostic ReactNode
-   *  rendered in the corner button row next to chat/emoji/voice (e.g. a Poker action-log
-   *  toggle). No game dependency lives in RoomSocial; the caller supplies the node. */
+   *  rendered in the control row next to chat/voice (e.g. a Poker action-log toggle).
+   *  No game dependency lives in RoomSocial; the caller supplies the node. */
   utilitySlot?: ReactNode;
-  /** The PANEL belonging to `utilitySlot`, rendered with the other panels (Stage 38.0.3)
-   *  so a docked cluster keeps it in normal flow instead of over the game's controls.
-   *  Still game-agnostic: RoomSocial renders whatever node it is handed. */
+  /** The PANEL belonging to `utilitySlot`, rendered in normal flow under the row
+   *  (Stage 38.0.3) instead of over the game's controls. Still game-agnostic. */
   utilityPanelSlot?: ReactNode;
   /**
    * Optional DESTRUCTIVE room action (Stage 38.0.5) — a game-agnostic ReactNode rendered
-   * at the END of the control button row, in BOTH layout variants. The permanent
-   * "Leave game" control lives here so it inherits the cluster's proven safe position
-   * (never over the table, the hand, the melds or a game's action bar) and its 44px
-   * touch-target sizing. RoomSocial knows nothing about what the node does.
+   * at the END of the control row. The permanent "Leave game" control lives here so it
+   * inherits the row's proven safe position (never over the table, the hand, the melds or
+   * a game's action bar) and its 44px touch-target sizing.
    */
   dangerSlot?: ReactNode;
-  /**
-   * Where the LAUNCHER and the caller's utility controls live (Stage 38.0.3).
-   *
-   * (Stage 38.0.13 — owner FAIL) This prop decides NOTHING about the chat any more. It
-   * used to pick the chat's whole SHELL as well, which is how the seven games ended up
-   * with visibly different chats from one component: measured at 75a3b6d, 390px wide,
-   * Durak opened a fixed 320×844 right-hand drawer with no backdrop while Fifty-One
-   * opened a 390×544 modal card with one, and Poker a 371×400 in-flow box. Now every
-   * variant opens the SAME `chat-dialog`; only the button placement differs:
-   *  - `floating` (default) — the historical fixed bottom-corner cluster;
-   *  - `docked` — the cluster and any caller panel render IN NORMAL FLOW wherever the
-   *    caller placed this component, so they occupy layout space instead of covering
-   *    it. A game whose action controls sit at the bottom of the screen (Poker) must
-   *    use this: a fixed cluster provably lands on top of those controls on a phone.
-   *  - `sheet` (Stage 38.0.5.1) — TWO compact launchers (💬 with the unread badge, and
-   *    ☰ for voice / the utility panel / the destructive action) rendered wherever the
-   *    caller placed them, costing no toolbar row at all when nothing is open.
-   * RoomSocial stays game-agnostic — this is a layout mode, not a game switch.
-   */
-  variant?: 'floating' | 'docked' | 'sheet';
   /**
    * Optional CONTROLLED panel selection. Chat, the reaction picker and a caller-owned
    * `utilitySlot` panel are mutually exclusive: two of them open at once would stack
@@ -101,19 +79,25 @@ interface FloatSticker {
 }
 
 /**
- * Room-social overlay (Stage 7): the floating reaction/sticker display, the launcher
- * cluster and THE chat dialog. Collapsed it is non-blocking — it never covers the hand or
- * the current trick — and the chat is closed by default (mobile-safe).
+ * Room social (Stage 7): the floating reaction/sticker display, one compact control row
+ * and the chat panel. Reactions and chat are room-social UX only; they are NOT game
+ * state. No userId/token is shown — only display name + emoji avatar.
  *
- * (Stage 38.0.13) `variant` positions the LAUNCHERS only. Pressing 💬 opens ONE canonical
- * dialog — the same element, the same CSS, the same geometry — in all seven games, and a
- * tap on an emoji inside it reads the message field's FOCUS to decide whether the emoji
- * joins the message or flies onto the table. There is no mode to switch.
+ * (Stage 38.0.14 — owner CRITICAL FAIL) The whole component now lives in NORMAL DOCUMENT
+ * FLOW, wherever the game mounted it. 38.0.13 made the chat one canonical dialog — and
+ * made it a MODAL, which was worse than the inconsistency it fixed: measured at 8523361
+ * over all seven games, a 100%-viewport `rgba(0,0,0,.62)` backdrop dimmed the table,
+ * `aria-modal="true"` announced the game as inert, `documentElement { overflow: hidden }`
+ * froze the page, and every sampled tap over the board, the melds, the hand and the action
+ * row landed in the chat instead — a legal card click reached the game **0 times** while
+ * the authoritative timer kept running. A chat may never do that to a live game.
  *
- * Reactions and chat are room-social UX only; they are NOT game state. No userId/token is
- * shown — only display name + emoji avatar.
+ * So: no backdrop, no `aria-modal`, no focus trap, no scroll lock, no fixed overlay. The
+ * open panel ADDS layout space in the safe zone each game gives it, and the hand, the
+ * action bar and the timer keep working underneath it — the player moves without closing
+ * the chat, and neither the move nor the STATE_UPDATE that follows closes it.
  */
-export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null, utilityPanelSlot = null, dangerSlot = null, variant = 'floating', openPanel, onPanelChange }: Props) {
+export default function RoomSocial({ reactions, chat, myClientId, onReact, onChat, onChatMedia, notice, onClearNotice, handVisible = false, onLeaveGame, voiceButton, mySeatIndex = null, seatCount = 0, reactionsMirrored = false, timerSlot = null, utilitySlot = null, utilityPanelSlot = null, dangerSlot = null, openPanel, onPanelChange }: Props) {
   const { t } = useI18n();
   // Panel selection is CONTROLLED when the caller passes `openPanel` (so a caller-owned
   // utility panel is mutually exclusive with chat/reactions), else local.
@@ -123,21 +107,14 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     if (onPanelChange) onPanelChange(next); else setOwnPanel(next);
   };
   const chatOpen = panel === 'chat';
-  const docked = variant === 'docked';
-  const sheet = variant === 'sheet';
-  /** The sheet's ☰ MENU (voice / utility panel / destructive action). Chat is never here. */
-  const hasMenu = !!(utilitySlot || utilityPanelSlot || voiceButton || onLeaveGame || dangerSlot);
-  const menuOpen = sheet && hasMenu && panel === 'utility';
-  // (38.0.12) EVERY variant offers exactly one outer control for chat (plus the caller's
-  // utility slot). Emoji and stickers live INSIDE the chat, behind the composer's picker,
-  // so the player keeps reading, typing and sending while it is open.
+  // (38.0.12) There is exactly one outer control for chat (plus the caller's utility
+  // slot). Emoji and stickers live INSIDE the chat, behind the composer's picker, so the
+  // player keeps reading, typing and sending while it is open.
   const chatLauncherRef = useRef<HTMLButtonElement>(null);
-  const utilityLauncherRef = useRef<HTMLButtonElement>(null);
-  const launcherFor = (p: SocialPanel) => (p === 'utility' ? utilityLauncherRef : chatLauncherRef);
-  /** Close the chat (or the utility panel) and hand focus back to its launcher. */
+  /** Close the chat (or the caller's panel) and hand focus back to the 💬 launcher. */
   const closeChat = () => {
-    const opener = launcherFor(panel).current;
-    focusedRef.current = false;              // the field is going away with the dialog
+    const opener = chatLauncherRef.current;
+    focusedRef.current = false;              // the field is going away with the panel
     setInputFocused(false);
     setPanel('none');
     opener?.focus();
@@ -172,6 +149,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const [seen, setSeen] = useState(0);
   const [floats, setFloats] = useState<FloatSticker[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // Chat media ids already accounted for (so joining history never floats, and a
   // message floats at most once). Seeded on the first chat effect.
@@ -199,25 +177,19 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [chatOpen, chat.length]);
 
-  // While the chat dialog is open the PAGE behind it does not scroll. Two reasons, and the
-  // second is the one that makes the seven games measurably identical:
-  //  1. it is a modal — scrolling the table under an open dialog is never what was meant;
-  //  2. the dialog is centred on the initial containing block, which EXCLUDES a classic
-  //     scrollbar. A game whose screen happens to be taller than the viewport therefore
-  //     drew the same dialog 7px further left than one that fits (measured at 1366:
-  //     Poker 420 vs Durak/51 427). Locking the scroll removes the scrollbar; the matching
-  //     padding keeps the page from jumping sideways as it goes.
+  // (38.0.14) There is deliberately NO page-scroll lock. 38.0.13 froze
+  // `documentElement.overflow` while the chat was open, which is exactly what a chat must
+  // never do to a live game: the player could not scroll to their own hand.
+  //
+  // The panel opens IN FLOW, so on a tall board it can appear below the fold. Bring it
+  // into view once — by SCROLLING THE PAGE, which is exactly what the player could have
+  // done by hand, and which leaves the hand and the action row one scroll away.
   useEffect(() => {
-    if (!chatOpen || typeof document === 'undefined') return;
-    const root = document.documentElement;
-    const gap = window.innerWidth - root.clientWidth;
-    const prevOverflow = root.style.overflow;
-    const prevPad = root.style.paddingInlineEnd;
-    root.style.overflow = 'hidden';
-    if (gap > 0) root.style.paddingInlineEnd = `${gap}px`;
-    return () => { root.style.overflow = prevOverflow; root.style.paddingInlineEnd = prevPad; };
+    if (!chatOpen) return;
+    panelRef.current?.scrollIntoView({ block: 'nearest' });
   }, [chatOpen]);
 
+  //
   // Opening the picker shortens the conversation above it — keep the newest message in
   // view instead of leaving the reader mid-history.
   useEffect(() => {
@@ -309,12 +281,10 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     ? (notice.code === 'RATE_LIMITED' ? t('chat.tooMany') : t('chat.blocked'))
     : null;
 
-  /** The ☰ menu's heading — the sheet variant's non-chat surface (voice / utility / quit). */
-  const menuTitle = `☰ ${t('social.menu')}`;
   /** What the next emoji tap will do, in words. Non-interactive: never a mode to pick. */
   const emojiAction = inputFocused ? t('chat.emojiHintMessage') : t('chat.emojiHintTable');
 
-  // --- shared pieces, so every variant renders the SAME surfaces -------------
+  // --- shared pieces, all rendered inside the ONE in-flow cluster ------------
   const stickerGrid = CHAT_MEDIA.length > 0 ? (
     <div className="reaction-bar__stickers" role="listbox" aria-label={t('chat.mediaPicker')}>
       {CHAT_MEDIA.map((item) => (
@@ -328,7 +298,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   ) : null;
 
   const chatList = (
-    <div className="chat-dialog__list" ref={listRef}>
+    <div className="chat-panel__list" ref={listRef}>
       {chat.length === 0
         ? <p className="chat-empty">{t('chat.empty')}</p>
         : chat.map((m) => (
@@ -338,7 +308,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   );
 
   const chatCompose = (
-    <form className="chat-dialog__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
+    <form className="chat-panel__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
       {/* ONE picker control, next to the field, in every variant — and it does not take
           focus, so whatever the player was doing before the tap still holds. */}
       <button ref={pickerBtnRef} type="button" className="btn btn--ghost btn--small chat-picker-btn"
@@ -379,25 +349,21 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   ) : null;
 
   /**
-   * THE chat (Stage 38.0.13). Declared ONCE and rendered by every layout variant, so all
-   * seven games open the very same dialog: a backdrop, one card, a "Chat" header with ✕,
-   * the bounded history, the composer and the bounded picker. `variant` decides where the
-   * 💬 button sits — never what opens when it is pressed.
+   * THE chat (Stage 38.0.13, made NON-MODAL in 38.0.14). One element, the same in all
+   * seven games: a heading with ✕, the bounded history, the composer and the bounded
+   * picker. It is a plain in-flow `section` — a labelled region, NOT a dialog: no
+   * backdrop, no `aria-modal`, no focus trap, nothing that makes the game inert.
    */
-  const chatDialog = chatOpen ? (
-    <div className="chat-dialog-backdrop" role="presentation" onClick={closeChat}>
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-      <div className="chat-dialog" role="dialog" aria-modal="true" aria-label={t('chat.title')}
-        onClick={(e) => e.stopPropagation()}>
-        <div className="chat-dialog__head">
-          <h2 className="chat-dialog__title">💬 {t('chat.title')}</h2>
-          <button type="button" className="chat-dialog__close" onClick={closeChat} aria-label={t('btn.back')}>✕</button>
-        </div>
-        {chatList}
-        {chatCompose}
-        {chatPicker}
+  const chatPanel = chatOpen ? (
+    <section className="chat-panel" ref={panelRef} aria-label={t('chat.title')}>
+      <div className="chat-panel__head">
+        <h2 className="chat-panel__title">💬 {t('chat.title')}</h2>
+        <button type="button" className="chat-panel__close" onClick={closeChat} aria-label={t('btn.back')}>✕</button>
       </div>
-    </div>
+      {chatList}
+      {chatCompose}
+      {chatPicker}
+    </section>
   ) : null;
 
   return (
@@ -427,110 +393,37 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
       {noticeText && <div className={`social-toast ${handVisible ? 'social-toast--raised' : ''}`} role="status">{noticeText}</div>}
 
-      {/* `sheet` (Stage 38.0.5.1): compact launchers instead of a toolbar. Collapsed there
-          is no row at all — the owner's complaint about the docked row was that it ate a
-          whole band of the phone between the melds and the prompt.
-          (38.0.13) The 💬 launcher opens the SHARED `chatDialog` below, exactly like the
-          other two variants; the ☰ sheet keeps only what is NOT chat — voice, the caller's
-          utility panel and the destructive action. */}
-      {sheet && (
-        <div className="social-menu">
-          <button
-            ref={chatLauncherRef}
-            type="button"
-            className="social-fab social-menu__launcher"
-            aria-haspopup="dialog"
-            aria-expanded={chatOpen}
-            aria-label={t('chat.title')}
-            title={t('chat.title')}
-            onClick={() => (chatOpen ? closeChat() : setPanel('chat'))}
-          >
-            💬
-            {unread > 0 && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
-          </button>
-          {hasMenu && (
-            <button
-              ref={utilityLauncherRef}
-              type="button"
-              className="social-fab social-menu__launcher"
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              aria-label={t('social.menu')}
-              title={t('social.menu')}
-              onClick={() => (menuOpen ? closeChat() : setPanel('utility'))}
-            >
-              ☰
-            </button>
-          )}
-          {menuOpen && (
-            <div className="social-sheet-backdrop" role="presentation" onClick={closeChat}>
-              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-              <div className="social-sheet" role="dialog" aria-modal="true" aria-label={menuTitle}
-                onClick={(e) => e.stopPropagation()}>
-                <div className="social-sheet__head">
-                  <h2 className="social-sheet__title">{menuTitle}</h2>
-                  <button type="button" className="social-sheet__close" onClick={closeChat} aria-label={t('btn.back')}>✕</button>
-                </div>
-                {utilityPanelSlot && <div className="social-sheet__body">{utilityPanelSlot}</div>}
-                <div className="social-sheet__foot">
-                  {voiceButton}
-                  {onLeaveGame && (
-                    <button type="button" className="social-fab social-fab--leave" onClick={leaveGame}
-                      aria-label={t('online.leaveGame')} title={t('online.leaveGame')}>🚪</button>
-                  )}
-                  {/* The destructive action keeps its OWN confirmation (the caller owns it). */}
-                  {dangerSlot}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Controls. `floating` keeps the historical fixed bottom-corner cluster (column,
-          panels above it). `docked` renders the SAME controls as a compact horizontal
-          toolbar in NORMAL FLOW, with any open panel below it — so the cluster and its
-          panels take layout space instead of covering the game's action controls
-          (Stage 38.0.3 owner FAIL). */}
-      {!sheet && (
-      <div className={`social-controls ${docked ? 'social-controls--docked' : ''} ${handVisible && !docked ? 'social-controls--raised' : ''}`}>
-        {/* Per-turn timer (Stage 29.7) sits at the TOP of the cluster — near voice/emoji/chat,
-            clear of the hand/table. Null when the host left the timer off. */}
-        {!docked && timerSlot}
-        {!docked && onLeaveGame && (
-          <button type="button" className="social-leave" onClick={leaveGame}>
-            🚪 {t('online.leaveGame')}
-          </button>
-        )}
-        {!docked && utilityPanelSlot}
-        <div className="social-controls__row">
-          {docked && timerSlot}
+      {/* (38.0.14) EVERYTHING interactive lives here, in NORMAL FLOW, inside the safe zone
+          the game gave this component: one compact control row, the caller's utility panel
+          and — when it is open — the chat. Nothing is fixed, nothing is absolute, nothing
+          covers the table, the melds, the hand or the action bar. Opening the chat costs
+          layout space, which the game's own flex column absorbs. */}
+      <div className={`room-social ${chatOpen ? 'room-social--open' : ''}`}>
+        <div className="room-social__bar">
+          {/* Per-turn timer (Stage 29.7) rides with the controls, never over the table. */}
+          {timerSlot}
           {utilitySlot}
           {voiceButton}
           {/* (38.0.12) ONE social control: chat. Emoji are inside it, in every game. */}
           <button ref={chatLauncherRef} type="button" className="social-fab"
-            aria-expanded={chatOpen} aria-label={t('chat.title')}
+            aria-expanded={chatOpen} aria-label={t('chat.title')} title={t('chat.title')}
             onClick={() => (chatOpen ? closeChat() : setPanel('chat'))}>
             💬
             {unread > 0 && <span className="social-fab__badge">{unread > 9 ? '9+' : unread}</span>}
           </button>
-          {docked && onLeaveGame && (
+          {onLeaveGame && (
             <button type="button" className="social-fab social-fab--leave" onClick={leaveGame}
               aria-label={t('online.leaveGame')} title={t('online.leaveGame')}>
               🚪
             </button>
           )}
-          {/* (38.0.5) The destructive permanent-leave control — same row, both variants. */}
+          {/* (38.0.5) The destructive permanent-leave control — same row, every game. */}
           {dangerSlot}
         </div>
-        {/* Docked: the open panel is a normal-flow sibling UNDER the toolbar row. */}
-        {docked && utilityPanelSlot}
+        {/* The caller's own panel (Poker's action log): a normal-flow sibling too. */}
+        {utilityPanelSlot}
+        {chatPanel}
       </div>
-      )}
-
-      {/* THE chat — the same dialog for every variant and therefore for every game
-          (Stage 38.0.13). It is declared once, above, and rendered here once. */}
-      {chatDialog}
 
       {/* Lightbox: larger preview of a tapped sticker (click/Escape closes). */}
       {lightbox && (

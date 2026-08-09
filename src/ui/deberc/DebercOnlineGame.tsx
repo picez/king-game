@@ -15,6 +15,9 @@ interface Props {
   /** Seats whose human is offline (for offline badges). */
   disconnectedSeats?: number[];
   /** Online rematch controls (Stage 25.9). */
+  /** Generic room-social node (Stage 38.0.14), handed to the game screen so it renders
+   *  IN NORMAL FLOW in that screen's safe zone instead of over the table. */
+  socialSlot?: ReactNode;
   rematch?: RematchUi | null;
 }
 
@@ -23,7 +26,7 @@ interface Props {
  * the network and bots / other players + the public-screen advances (NEXT_TRICK /
  * NEXT_HAND) are driven by the server — this component never dispatches them.
  */
-export default function DebercOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
+export default function DebercOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch, socialSlot }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -34,7 +37,7 @@ export default function DebercOnlineGame({ state, myPlayerId, dispatch, onExit, 
     return <DebercFinished state={state} humanId={me.id} onPlayAgain={onExit} onExit={onExit} rematch={rematch} />;
   }
   return (
-    <DebercGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} />
+    <DebercGameScreen state={state} humanId={me.id} apply={dispatch} onExit={onExit} disconnectedSeats={disconnectedSeats} socialSlot={socialSlot} />
   );
 }
 

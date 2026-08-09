@@ -99,11 +99,19 @@ class CDP {
     const raw = await this.evaluate(`JSON.stringify(${expression})`);
     try { return JSON.parse(raw); } catch { return null; }
   }
-  /** A REAL mouse click at the element's centre — the only kind that moves focus. */
+  /**
+   * A REAL mouse click at the element's centre — the only kind that moves focus. The
+   * target is scrolled into view first, because since Stage 38.0.14 the social cluster is
+   * IN FLOW: on a tall board a control can sit below the fold, which a player reaches by
+   * scrolling. A click dispatched at off-screen coordinates would simply miss.
+   */
   async click(sel) {
     const box = await this.json(`(() => { const e = document.querySelector(${JSON.stringify(sel)});
-      if (!e) return null; const r = e.getBoundingClientRect();
+      if (!e) return null;
+      let r = e.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) { e.scrollIntoView({ block: 'center' }); r = e.getBoundingClientRect(); }
       if (r.width < 1 || r.height < 1) return null;
+      if (r.bottom < 0 || r.top > window.innerHeight) return null;
       return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 18) }; })()`);
     if (!box) return false;
     for (const type of ['mousePressed', 'mouseReleased']) {
@@ -152,10 +160,10 @@ const HELPERS = `
   const live = (r) => !!r && r.w > 0.5 && r.h > 0.5;
   const q = (sel) => document.querySelector(sel);
   const one = (sel) => { const el = q(sel); return el ? rect(el) : null; };
-  const listNode = () => q('.chat-dialog__list, .chat-drawer__list');
-  const shellNode = () => { const l = listNode(); return l ? l.closest('.chat-dialog, .chat-drawer, .social-sheet') : null; };
+  const listNode = () => q('.chat-panel__list, .chat-dialog__list, .chat-drawer__list');
+  const shellNode = () => { const l = listNode(); return l ? l.closest('.chat-panel, .chat-dialog, .chat-drawer, .social-sheet') : null; };
   const backdropNode = () => q('.chat-dialog-backdrop, .social-sheet-backdrop');
-  const composeNode = () => q('.chat-dialog__compose, .chat-drawer__compose');
+  const composeNode = () => q('.chat-panel__compose, .chat-dialog__compose, .chat-drawer__compose');
   const hit = (a, b) => !!a && !!b && a.l < b.r - S && b.l < a.r - S && a.t < b.b - S && b.t < a.b - S;
   const visibleH = (el) => {
     if (!el) return 0;
@@ -182,7 +190,7 @@ const PROBE = `JSON.stringify((() => {
   const vw = window.innerWidth, vh = window.innerHeight;
 
   // 1. Outer controls: exactly ONE chat control, and no rival reactions control.
-  const outer = [...document.querySelectorAll('.social-controls__row .social-fab, .social-menu__launcher')];
+  const outer = [...document.querySelectorAll('.room-social__bar .social-fab, .social-controls__row .social-fab, .social-menu__launcher')];
   const chatBtns = outer.filter((b) => (b.textContent || '').includes('💬'));
   const emojiBtns = outer.filter((b) => (b.textContent || '').trim().startsWith('😀'));
   if (chatBtns.length !== 1) add('outer-chat-controls', String(chatBtns.length));
@@ -205,7 +213,7 @@ const PROBE = `JSON.stringify((() => {
   const shell = shellEl ? rect(shellEl) : null;
   const list = listNode() ? rect(listNode()) : null;
   const compose = composeNode() ? rect(composeNode()) : null;
-  const send = one('.chat-dialog__compose [type="submit"], .chat-drawer__compose [type="submit"]');
+  const send = one('.chat-panel__compose [type="submit"], .chat-dialog__compose [type="submit"], .chat-drawer__compose [type="submit"]');
   const pickerBtn = one('.chat-picker-btn');
   const picker = one('.chat-picker');
   if (shell && list) {
@@ -213,9 +221,14 @@ const PROBE = `JSON.stringify((() => {
     if (!live(compose)) add('composer-missing', 'zero size');
     if (!live(send)) add('send-missing', 'zero size');
     if (!live(pickerBtn)) add('picker-button-missing', 'zero size');
-    if (shell.b > vh + S) add('panel-below-viewport', Math.round(shell.b) + '>' + vh);
+    // (38.0.14) The panel is IN FLOW on a scrollable page, so it may legitimately run
+    // past the fold — what may never happen is it starting off screen, or leaving the
+    // viewport sideways, or the composer escaping the panel itself.
+    if (shell.t > vh - S || shell.b < S) add('panel-off-screen', Math.round(shell.t) + '..' + Math.round(shell.b));
     if (shell.l < -S || shell.r > vw + S) add('panel-outside-viewport', Math.round(shell.l) + '..' + Math.round(shell.r));
-    if (compose && compose.b > vh + S) add('composer-below-viewport', Math.round(compose.b) + '>' + vh);
+    if (compose && (compose.t < shell.t - S || compose.b > shell.b + S)) {
+      add('composer-out-of-panel', Math.round(compose.t) + '-' + Math.round(compose.b));
+    }
   }
 
   // 5. With the picker open the HISTORY must survive beside it, and the composer stay put.
@@ -226,7 +239,6 @@ const PROBE = `JSON.stringify((() => {
       add('history-share', Math.round(100 * histVisible / shell.h) + '% of ' + Math.round(shell.h));
     }
     if (picker.h > 0.5 * vh + S) add('picker-too-tall', Math.round(picker.h) + '>' + Math.round(0.5 * vh));
-    if (picker.b > vh + S) add('picker-below-viewport', Math.round(picker.b) + '>' + vh);
     if (hit(picker, list)) add('picker-covers-history', 'overlap');
     if (compose && hit(picker, compose)) add('picker-covers-composer', 'overlap');
     const pk = q('.chat-picker');
@@ -268,13 +280,19 @@ const PROBE = `JSON.stringify((() => {
   // 8. The chat SHELL signature — what PHASE B compares across the seven games.
   const st = shellEl ? getComputedStyle(shellEl) : null;
   const bd = backdropNode();
+  // (38.0.14) Position/size are NOT part of it any more: the panel is in NORMAL FLOW, so
+  // where it lands legitimately depends on each game's layout. What must be identical is
+  // the component — its element, its flow behaviour, and its whole visual language.
   const sig = shellEl ? {
     cls: shellEl.className,
     position: st.position,
     radius: st.borderRadius,
     backdrop: bd ? getComputedStyle(bd).backgroundColor : 'none',
-    w: Math.round(shell.w), h: Math.round(shell.h),
-    l: Math.round(shell.l), t: Math.round(shell.t),
+    bg: st.backgroundColor,
+    border: st.borderTopWidth + ' ' + st.borderTopStyle + ' ' + st.borderTopColor,
+    font: st.fontFamily + ' ' + st.fontSize + ' ' + st.color,
+    gap: st.rowGap,
+    pad: st.paddingTop + '/' + st.paddingBottom,
     dom: [...shellEl.children].map((c) => (c.className || c.tagName).toString().split(' ')[0]).join('|'),
   } : null;
 
@@ -313,32 +331,152 @@ const VIEWPORTS = [
   { tag: '1366', w: 1366, h: 900, mobile: false },
 ];
 
-const VARIANTS = ['floating', 'docked', 'sheet'];
+// (38.0.14) There are no layout variants left — one in-flow cluster serves every game.
+const VARIANTS = ['inflow'];
 
-/** PHASE B: the three REAL online branches, one per launcher layout. */
+/**
+ * PHASE B: the REAL online branch of every game (Stage 38.0.14).
+ * `action` is a LEGAL gameplay control the gate clicks WHILE the chat is open — the
+ * proof that an open chat does not block the game. Games without one are still measured
+ * geometrically.
+ */
 const GAMES = [
-  { tag: 'durak', q: 'game=durak&seats=4' },
-  { tag: 'fiftyone', q: 'game=fiftyone&seats=4' },
-  { tag: 'poker', q: 'game=poker&seats=4' },
+  { tag: 'king', q: 'game=king&seats=4', action: null },
+  { tag: 'durak', q: 'game=durak&seats=4', action: '.hand-reorder-wrap .card' },
+  { tag: 'deberc', q: 'game=deberc&seats=4', action: null },
+  { tag: 'tarneeb', q: 'game=tarneeb&seats=4', action: null },
+  { tag: 'preferans', q: 'game=preferans&seats=3', action: null },
+  { tag: 'fiftyone', q: 'game=fiftyone&seats=4', action: '.fiftyone-actions .btn' },
+  { tag: 'poker', q: 'game=poker&seats=4', action: '.poker-actions__primary button' },
 ];
 
-function scenarios(variant) {
+/** Everything a player must be able to see and press while the chat is open. */
+const GAMEPLAY_ZONES = [
+  '.game-body', '.game-footer', '.durak-board', '.durak-controls', '.deberc-firstdealer',
+  '.tarneeb-board', '.tarneeb-centre', '.preferans-board', '.fiftyone-piles', '.fiftyone-melds',
+  '.fiftyone-actions', '.poker-table', '.poker-actions', '.hand-reorder-wrap',
+];
+
+function scenarios() {
   return [
-    { name: 'collapsed', q: `variant=${variant}&panel=none` },
-    { name: 'chat', q: `variant=${variant}&panel=chat` },
-    { name: 'picker', q: `variant=${variant}&panel=chat`, picker: true },
-    { name: 'emoji-focused', q: `variant=${variant}&panel=chat`, picker: true, act: 'focused-caret' },
-    { name: 'emoji-blurred', q: `variant=${variant}&panel=chat`, picker: true, act: 'blurred-draft' },
-    { name: 'sticker', q: `variant=${variant}&panel=chat`, picker: true, act: 'sticker' },
-    { name: 'rtl-picker', q: `variant=${variant}&panel=chat&dir=rtl&lang=ar`, picker: true },
-    { name: 'utility', q: `variant=${variant}&panel=utility&util=1` },
-    { name: 'reaction-anchor', q: `variant=${variant}&panel=none&react=1&seat=0&seats=4`, anchor: 'reaction-anchor--left' },
+    { name: 'collapsed', q: 'panel=none' },
+    { name: 'chat', q: 'panel=chat' },
+    { name: 'picker', q: 'panel=chat', picker: true },
+    { name: 'emoji-focused', q: 'panel=chat', picker: true, act: 'focused-caret' },
+    { name: 'emoji-blurred', q: 'panel=chat', picker: true, act: 'blurred-draft' },
+    { name: 'sticker', q: 'panel=chat', picker: true, act: 'sticker' },
+    { name: 'rtl-picker', q: 'panel=chat&dir=rtl&lang=ar', picker: true },
+    { name: 'utility', q: 'panel=utility&util=1' },
+    { name: 'reaction-anchor', q: 'panel=none&react=1&seat=0&seats=4', anchor: 'reaction-anchor--left' },
   ];
 }
 
+/**
+ * (Stage 38.0.14) The NON-BLOCKING probe. The owner's FAIL was a chat that dimmed the
+ * table, swallowed every tap and froze the page scroll while the authoritative timer kept
+ * running. This measures each of those separately, so a regression names itself:
+ *   - a viewport backdrop exists at all;
+ *   - the chat sits ON TOP of any gameplay zone;
+ *   - `elementFromPoint` over a gameplay zone lands inside the chat (taps are swallowed);
+ *   - html/body scrolling is locked;
+ *   - the chat panel is positioned out of flow;
+ *   - the chat declares modal semantics.
+ */
+const NONBLOCKING = `JSON.stringify((() => {
+  ${HELPERS}
+  const v = [];
+  const add = (kind, detail) => v.push(kind + ': ' + detail);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const zones = ${JSON.stringify(GAMEPLAY_ZONES)};
+
+  const panelEl = shellNode();
+  const panel = panelEl ? rect(panelEl) : null;
+
+  // 1. No backdrop, and no modal semantics.
+  const backdrop = backdropNode();
+  if (backdrop) {
+    const br = rect(backdrop);
+    add('chat-backdrop', Math.round(br.w) + 'x' + Math.round(br.h) + ' ' + getComputedStyle(backdrop).backgroundColor);
+  }
+  if (panelEl && panelEl.getAttribute('aria-modal') === 'true') add('chat-aria-modal', 'true');
+
+  // 2. The page scroll is NOT locked.
+  for (const el of [document.documentElement, document.body]) {
+    const st = getComputedStyle(el);
+    if (st.overflow === 'hidden' || st.overflowY === 'hidden') {
+      add('scroll-locked', el.tagName.toLowerCase() + ' overflow=' + st.overflow + '/' + st.overflowY);
+    }
+  }
+
+  // 3. The chat panel takes LAYOUT SPACE — it is never an out-of-flow overlay.
+  if (panelEl) {
+    const pos = getComputedStyle(panelEl).position;
+    if (pos === 'fixed' || pos === 'absolute' || pos === 'sticky') add('chat-out-of-flow', pos);
+    for (const p of [panelEl.parentElement, panelEl.parentElement && panelEl.parentElement.parentElement]) {
+      if (!p) continue;
+      const ps = getComputedStyle(p);
+      if ((ps.position === 'fixed' || ps.position === 'absolute')
+        && rect(p).w > 0.9 * vw && rect(p).h > 0.9 * vh) {
+        add('chat-in-viewport-overlay', (p.className || p.tagName).toString().split(' ')[0] + ' ' + ps.position);
+      }
+    }
+  }
+
+  // 4. The chat and the launcher cluster never sit on a gameplay zone.
+  const cluster = q('.room-social__bar, .social-controls, .social-menu');
+  const clusterR = cluster ? rect(cluster) : null;
+  const hits = [];
+  for (const sel of zones) {
+    for (const el of document.querySelectorAll(sel)) {
+      const r = rect(el);
+      if (!live(r)) continue;
+      if (panel && hit(panel, r)) {
+        hits.push(sel);
+        add('chat-over-gameplay', sel + ' ' + Math.round(Math.min(panel.r, r.r) - Math.max(panel.l, r.l))
+          + 'x' + Math.round(Math.min(panel.b, r.b) - Math.max(panel.t, r.t)));
+      }
+      if (clusterR && hit(clusterR, r)) add('launcher-over-gameplay', sel);
+    }
+  }
+
+  // 5. Taps over gameplay must reach GAMEPLAY. elementFromPoint skips pointer-events:none
+  //    layers, so the floating reaction layer is correctly ignored here.
+  const swallowed = [];
+  for (const sel of zones) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    const r = rect(el);
+    if (!live(r)) continue;
+    for (const [x, y] of [[r.l + r.w / 2, r.t + Math.min(r.h / 2, 24)], [r.l + r.w / 2, r.b - 4]]) {
+      if (x < 0 || y < 0 || x > vw || y > vh) continue;
+      const top = document.elementFromPoint(x, y);
+      if (!top) continue;
+      if (top.closest('.chat-panel, .chat-dialog, .chat-dialog-backdrop, .social-sheet, .social-sheet-backdrop')) {
+        swallowed.push(sel);
+        add('tap-swallowed', sel + ' @' + Math.round(x) + ',' + Math.round(y)
+          + ' -> ' + (top.className || top.tagName).toString().split(' ')[0]);
+      }
+    }
+  }
+
+  // 6. The page still never scrolls sideways.
+  const de = document.documentElement;
+  if (de.scrollWidth > de.clientWidth + 1) add('page-scroll-x', de.scrollWidth + '>' + de.clientWidth);
+
+  return {
+    violations: v,
+    backdrop: !!backdrop,
+    panelPos: panelEl ? getComputedStyle(panelEl).position : null,
+    panelH: panel ? Math.round(panel.h) : 0,
+    overlaps: [...new Set(hits)],
+    swallowed: [...new Set(swallowed)],
+    docOverflow: getComputedStyle(document.documentElement).overflow,
+  };
+})())`;
+
 const EMOJI = '.chat-picker .reaction-bar__btn';
 const STICKER = '.chat-picker .chat-media-thumb';
-const HISTORY = '.chat-dialog__list, .chat-drawer__list';
+const HISTORY = '.chat-panel__list, .chat-dialog__list, .chat-drawer__list';
 
 /**
  * The focus-based emoji contract, driven with REAL input. Returns the violations it
@@ -489,7 +627,7 @@ async function main() {
 
       // ---- PHASE A: the isolated variant harness --------------------------------------
       for (const variant of VARIANTS) {
-        for (const sc of scenarios(variant).filter((x) => !ONLY || `${variant}/${x.name}`.includes(ONLY))) {
+        for (const sc of scenarios().filter((x) => !ONLY || `${variant}/${x.name}`.includes(ONLY))) {
           const label = `${vp.tag} ${variant}/${sc.name}`;
           const ok = await load(cdp, `${BASE}?${sc.q}`, '.probe-table');
           if (ok === null) { failures.push(`${label}: NOTHING rendered`); continue; }
@@ -535,7 +673,7 @@ async function main() {
           if (ok === null) { failures.push(`${label}: NOTHING rendered`); continue; }
 
           // Open the chat through the game's OWN launcher — the production path.
-          const launcher = '.social-menu__launcher, .social-controls__row .social-fab';
+          const launcher = '.room-social__bar .social-fab, .social-menu__launcher, .social-controls__row .social-fab';
           const opened = await cdp.evaluate(`(() => {
             const btns = [...document.querySelectorAll('${launcher}')].filter((b) => (b.textContent || '').includes('💬'));
             if (btns.length !== 1) return btns.length;
@@ -551,6 +689,50 @@ async function main() {
           checks++;
           if (!res.sig) { failures.push(`${label}: the chat never opened`); continue; }
           for (const violation of res.violations) failures.push(`${label}: ${violation}`);
+
+          // ---- Stage 38.0.14: the chat must not block the game ------------------------
+          const nb = JSON.parse(await cdp.evaluate(NONBLOCKING));
+          checks++;
+          for (const violation of nb.violations) failures.push(`${label}: ${violation}`);
+
+          // A LEGAL gameplay control is clicked WITH THE CHAT OPEN. It must reach the
+          // game exactly once, and the chat must survive both the click and the
+          // STATE_UPDATE that a real server would send straight after it.
+          if (g.action) {
+            const before = await cdp.json('(window.__gameActions || []).length');
+            // Scroll it into view first: the panel takes layout space by design, so the
+            // hand/action row may sit below the fold — reachable, which is the point.
+            await cdp.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(g.action)});
+              if (el) el.scrollIntoView({ block: 'center' }); return true; })()`);
+            await cdp.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+            const reachable = await cdp.json(`(() => {
+              const el = document.querySelector(${JSON.stringify(g.action)});
+              if (!el) return 'missing';
+              const r = el.getBoundingClientRect();
+              const top = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 18));
+              if (!top) return 'off-screen';
+              return top === el || el.contains(top) || top.contains(el) ? true
+                : (top.className || top.tagName).toString();
+            })()`);
+            if (reachable !== true) failures.push(`${label}: the legal action ${g.action} is not hittable (${reachable})`);
+            if (!await cdp.click(g.action)) failures.push(`${label}: cannot click ${g.action}`);
+            const after = await cdp.json('(window.__gameActions || []).length');
+            if (after !== before + 1) {
+              failures.push(`${label}: clicking ${g.action} with the chat open reached the game ${after - before}x (expected 1)`);
+            }
+            const openAfter = await cdp.json("!!(document.querySelector('.chat-panel__list'))");
+            if (!openAfter) failures.push(`${label}: making a move CLOSED the chat`);
+            // …and a STATE_UPDATE (new state object + a ticking timer) leaves it open.
+            const timerBefore = await cdp.json("(document.querySelector('.probe-timer') || {}).textContent || ''");
+            await cdp.evaluate('window.__pushState && window.__pushState()');
+            await cdp.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+            const timerAfter = await cdp.json("(document.querySelector('.probe-timer') || {}).textContent || ''");
+            const stillOpen = await cdp.json("!!(document.querySelector('.chat-panel__list'))");
+            if (!stillOpen) failures.push(`${label}: a STATE_UPDATE CLOSED the chat`);
+            if (timerBefore === timerAfter) failures.push(`${label}: the timer did not advance across the STATE_UPDATE ("${timerAfter}")`);
+            checks++;
+          }
+
           const key = `${vp.tag}/${dirTag}`;
           if (!shells.has(key)) shells.set(key, new Map());
           shells.get(key).set(g.tag, res.sig);
@@ -559,12 +741,14 @@ async function main() {
             if (shot?.result?.data) writeFileSync(`${SHOTS}/${LEGACY ? 'RED-' : ''}${vp.tag}-${g.tag}-${dirTag}-chat.png`, Buffer.from(shot.result.data, 'base64'));
           }
           const s = res.sig;
-          const meta = `${s.cls.split(' ')[0]} ${s.w}x${s.h}@${s.l},${s.t} r=${s.radius} bd=${s.backdrop === 'none' ? 'none' : 'yes'}`;
+          const meta = `${s.cls.split(' ')[0]} pos=${s.position} r=${s.radius} bd=${s.backdrop === 'none' ? 'none' : 'YES'}`
+            + ` h${nb.panelH} over[${nb.overlaps.join(',') || '-'}] swallow[${nb.swallowed.join(',') || '-'}]`;
           measured.push(`${vp.tag} ${name} ${meta}`);
           console.log(`  ${name.padEnd(26)} ${meta}`);
 
-          // Behaviour is proved once per game, on the phone width the owner uses.
-          if (vp.tag === '390' && dirTag === 'ltr') {
+          // Behaviour is proved on the phone width the owner uses, for the three games
+          // that also carry a clickable gameplay control (the rest are geometry-only).
+          if (vp.tag === '390' && dirTag === 'ltr' && g.action) {
             for (const act of ['focused-caret', 'blurred-empty', 'blurred-draft', 'focus-switch', 'sticker']) {
               const ok2 = await load(cdp, `${GAMES_BASE}?${g.q}&chat=8&panel=chat`, '#root > *');
               if (ok2 === null) { failures.push(`${label}/${act}: NOTHING rendered`); continue; }
@@ -583,10 +767,9 @@ async function main() {
       if (entries.length < 2) continue;
       const [refName, ref] = entries[0];
       for (const [name, sig] of entries.slice(1)) {
-        for (const field of ['cls', 'position', 'radius', 'backdrop', 'dom', 'w', 'h', 'l', 't']) {
+        for (const field of ['cls', 'position', 'radius', 'backdrop', 'bg', 'border', 'font', 'gap', 'pad', 'dom']) {
           const a = ref[field], b = sig[field];
-          const same = typeof a === 'number' ? Math.abs(a - b) <= 1 : a === b;
-          if (!same) failures.push(`${key}: ${refName} and ${name} disagree on the chat ${field} — "${a}" vs "${b}"`);
+          if (a !== b) failures.push(`${key}: ${refName} and ${name} disagree on the chat ${field} — "${a}" vs "${b}"`);
         }
       }
       checks++;
@@ -598,7 +781,7 @@ async function main() {
 
   console.log(`\n${checks} social layout checks run.`);
   console.log('chat shell per game (the 38.0.13 contract):');
-  for (const m of measured.filter((x) => /durak|fiftyone|poker/.test(x))) console.log(`  ${m}`);
+  for (const m of measured.filter((x) => /king|durak|deberc|tarneeb|preferans|fiftyone|poker/.test(x))) console.log(`  ${m}`);
   if (failures.length) {
     console.log(`\n${failures.length} violations:`);
     for (const f of failures) console.log(`  - ${f}`);

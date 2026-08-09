@@ -9,7 +9,7 @@
 // sticker) against recorded callbacks.
 //
 // Query params (all optional):
-//   variant=floating|docked|sheet   panel=none|chat|utility   chat=N
+//   panel=none|chat|utility   chat=N
 //   dir=ltr|rtl  lang=en|uk|de|ar   util=1 (poker-style utility slot + panel)
 //   seat=N  seats=N  react=<seat>   (seed a table reaction from that seat)
 // ---------------------------------------------------------------------------
@@ -23,7 +23,6 @@ import type { ChatMessage } from '../../src/net/messages';
 import type { ReactionEvent } from '../../src/hooks/useNetworkGame';
 
 const qs = new URLSearchParams(location.search);
-const variant = (qs.get('variant') ?? 'floating') as 'floating' | 'docked' | 'sheet';
 const startPanel = (qs.get('panel') ?? 'none') as SocialPanel;
 const chatCount = Number(qs.get('chat') ?? 6);
 const dir = qs.get('dir') === 'rtl' ? 'rtl' : 'ltr';
@@ -98,7 +97,6 @@ function Harness() {
       mySeatIndex={mySeat}
       seatCount={seatCount}
       timerSlot={<span className="probe-timer">0:30</span>}
-      variant={variant}
       openPanel={panel}
       onPanelChange={setPanel}
       {...utility}
@@ -112,12 +110,11 @@ function Harness() {
       <div className="probe-table" style={{ flex: '1 1 auto', padding: '0.6rem' }}>
         <p className="probe-line">Table content</p>
       </div>
-      {variant !== 'floating' && <div className="probe-dock">{social}</div>}
+      <div className="probe-dock">{social}</div>
       <div className="probe-actions" style={{ display: 'flex', gap: '8px', padding: '0.6rem' }}>
         <button type="button" className="btn btn--primary">Action A</button>
         <button type="button" className="btn">Action B</button>
       </div>
-      {variant === 'floating' && social}
     </div>
   );
 }

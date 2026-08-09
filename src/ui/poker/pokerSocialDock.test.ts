@@ -58,32 +58,29 @@ describe('the dock is IN FLOW and ahead of the action row', () => {
   });
 });
 
-describe('RoomSocial docked variant', () => {
-  it('docked renders a static cluster, never the fixed "raised" overlay', () => {
-    const out = html(createElement(RoomSocial, { ...socialProps, variant: 'docked', handVisible: true }));
-    expect(out).toContain('social-controls--docked');
+describe('(38.0.14) ONE in-flow cluster — no variants, no overlay', () => {
+  it('renders a normal-flow cluster whatever the caller does', () => {
+    const out = html(createElement(RoomSocial, { ...socialProps, handVisible: true }));
+    expect(out).toContain('class="room-social ');
+    expect(out).toContain('room-social__bar');
+    // The fixed corner cluster and its "raised" lift are gone with the variants.
+    expect(out).not.toContain('social-controls');
     expect(out).not.toContain('social-controls--raised');
   });
 
-  it('floating (every other game) is untouched', () => {
-    const out = html(createElement(RoomSocial, { ...socialProps, handVisible: true }));
-    expect(out).toContain('social-controls');
-    expect(out).not.toContain('social-controls--docked');
-    expect(out).toContain('social-controls--raised');
-  });
-
-  it('(38.0.13) the docked variant opens the SHARED chat dialog, not a docked panel', () => {
-    const out = html(createElement(RoomSocial, { ...socialProps, variant: 'docked', openPanel: 'chat' }));
-    expect(out).toContain('chat-dialog-backdrop');
-    expect(out).toContain('class="chat-dialog"');
-    // The in-flow chat panel is gone: poker's chat is the same modal as every other game.
+  it('the open chat is an in-flow section, never a modal', () => {
+    const out = html(createElement(RoomSocial, { ...socialProps, openPanel: 'chat' }));
+    expect(out).toContain('<section class="chat-panel"');
+    expect(out).not.toContain('backdrop');
+    expect(out).not.toContain('aria-modal');
     expect(out).not.toContain('chat-drawer');
+    expect(out).not.toContain('chat-dialog');
   });
 });
 
 describe('exactly one social surface is open at a time', () => {
   const render = (openPanel: 'none' | 'chat' | 'utility') => html(createElement(RoomSocial, {
-    ...socialProps, variant: 'docked', openPanel,
+    ...socialProps, openPanel,
     utilitySlot: createElement(PokerActionLogButton, { open: openPanel === 'utility', unread: false, onToggle: () => {} }),
     utilityPanelSlot: openPanel === 'utility'
       ? createElement(PokerActionLogPanel, { state: betting(), docked: true, onClose: () => {} })
@@ -92,14 +89,14 @@ describe('exactly one social surface is open at a time', () => {
 
   it('default closed: no chat, no picker, no history panel', () => {
     const out = render('none');
-    expect(out).not.toContain('chat-dialog');
+    expect(out).not.toContain('chat-panel');
     expect(out).not.toContain('chat-picker');
     expect(out).not.toContain('poker-log-panel');
   });
 
   it('chat open → the history panel is not rendered (the picker lives inside the chat)', () => {
     const out = render('chat');
-    expect(out).toContain('chat-dialog');
+    expect(out).toContain('chat-panel');
     expect(out).toContain('chat-picker-btn');
     expect(out).not.toContain('poker-log-panel');
   });
@@ -107,7 +104,7 @@ describe('exactly one social surface is open at a time', () => {
   it('history open → the chat is not rendered', () => {
     const out = render('utility');
     expect(out).toContain('poker-log-panel');
-    expect(out).not.toContain('chat-dialog');
+    expect(out).not.toContain('chat-panel');
   });
 
   it('(38.0.12) there is no separate reactions surface any more', () => {
@@ -121,8 +118,8 @@ describe('wiring', () => {
   const local = readFileSync(join(process.cwd(), 'src/ui/poker/PokerLocalGame.tsx'), 'utf8');
   const social = readFileSync(join(process.cwd(), 'src/ui/online/RoomSocial.tsx'), 'utf8');
 
-  it('the poker branch docks the cluster and owns the open panel', () => {
-    expect(online).toContain('variant="docked"');
+  it('the poker branch hands the cluster to the screen and owns the open panel', () => {
+    expect(online).toContain('socialSlot={social}');
     expect(online).toContain('openPanel={socialPanel}');
     expect(online).toContain('onPanelChange={setSocialPanel}');
     expect(online).toContain('socialSlot={social}');
@@ -134,9 +131,9 @@ describe('wiring', () => {
     expect(online).not.toMatch(/renderSocial\([^)]*PokerActionLog/);
   });
 
-  it('local poker docks the same control instead of a fixed corner cluster', () => {
+  it('local poker uses the same in-flow row instead of a fixed corner cluster', () => {
     expect(local).toContain('socialSlot=');
-    expect(local).toContain('social-controls--docked');
+    expect(local).toContain('room-social__bar');
     expect(local).not.toContain('poker-local-utility');
   });
 
@@ -152,23 +149,26 @@ describe('mobile ergonomics are pinned in CSS', () => {
   const css = readFileSync(join(process.cwd(), 'src/styles/social.css'), 'utf8');
   const pokerCss = readFileSync(join(process.cwd(), 'src/styles/poker.css'), 'utf8');
 
-  it('the docked cluster leaves the fixed positioning behind', () => {
-    expect(css).toMatch(/\.social-controls--docked\s*\{[^}]*position:\s*static/);
+  it('the cluster has no fixed positioning at all', () => {
+    const code = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = code.slice(code.indexOf('.room-social {'), code.indexOf('.room-social__bar {'));
+    expect(rule).not.toContain('position:');
+    expect(code).not.toContain('.social-controls');
   });
 
-  it('the toolbar row scrolls horizontally instead of the page', () => {
-    expect(css).toMatch(/\.social-controls--docked \.social-controls__row\s*\{[^}]*overflow-x:\s*auto/);
+  it('the control row scrolls horizontally instead of the page', () => {
+    expect(css).toMatch(/\.room-social__bar\s*\{[^}]*overflow-x:\s*auto/);
   });
 
-  it('safe-area inset is honoured at the bottom of the dock', () => {
-    expect(css).toMatch(/\.social-controls--docked\s*\{[^}]*env\(safe-area-inset-bottom\)/);
+  it('safe-area inset is honoured at the bottom of the cluster', () => {
+    expect(css).toMatch(/\.room-social\s*\{[^}]*env\(safe-area-inset-bottom\)/);
   });
 
-  it('every docked control keeps a 44px tap target', () => {
-    expect(css).toMatch(/\.social-controls--docked \.social-fab\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/);
+  it('every control keeps a 44px tap target', () => {
+    expect(css).toMatch(/\.room-social__bar \.social-fab\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/);
     expect(pokerCss).toMatch(/\.poker-log-panel__head \.btn\s*\{[^}]*min-height:\s*44px/);
-    // …and so does every control inside the shared chat dialog (38.0.13).
-    expect(css).toMatch(/\.chat-dialog button\s*\{[^}]*min-height:\s*44px/);
+    // …and so does every control inside the shared chat panel (38.0.13/38.0.14).
+    expect(css).toMatch(/\.chat-panel button\s*\{[^}]*min-height:\s*44px/);
   });
 
   it('the docked history panel is in flow, not anchored over the controls', () => {

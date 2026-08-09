@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
@@ -27,6 +27,13 @@ interface Props {
   notice?: DebercNotice | null;
   /** Seats whose human is offline (online play) — for offline badges. */
   disconnectedSeats?: number[];
+  /**
+   * Generic room-social node (Stage 38.0.14) — the online control row plus, when it is
+   * open, the chat panel. Rendered IN NORMAL FLOW after the public table and before the
+   * private hand / action controls, so it takes layout space instead of covering them.
+   * Local play passes nothing and is byte-identical to before.
+   */
+  socialSlot?: ReactNode;
   /** Seconds left on the human's meld-declaring turn (local play), or null. */
   declareSecondsLeft?: number | null;
 }
@@ -52,7 +59,7 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 }
 
 /** The local human's table view for a Deberc hand (bidding + 9-trick play). */
-export default function DebercGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats, declareSecondsLeft }: Props) {
+export default function DebercGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats, declareSecondsLeft, socialSlot }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [showScore, setShowScore] = useState(false);
@@ -430,6 +437,9 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </div>
       )}
 
+
+      {/* Room social (Stage 38.0.14): in flow, clear of the hand and the actions. */}
+      {socialSlot}
       <HandReorderTray
         items={handOrder.ordered}
         cardId={singleDeckCardId}

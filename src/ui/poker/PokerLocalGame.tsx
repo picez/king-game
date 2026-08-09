@@ -126,8 +126,8 @@ export default function PokerLocalGame({ onExit }: { onExit: () => void }) {
       state={view} mySeat={seat} apply={apply} onExit={onExit}
       rebuySlot={rebuySlot}
       socialSlot={
-        <div className="social-controls social-controls--docked">
-          <div className="social-controls__row">
+        <div className="room-social">
+          <div className="room-social__bar">
             <PokerActionLog state={view} variant="standalone" docked />
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { GameState } from '../models/types';
 import type { GameAction } from '../core/gameEngine';
 import type { RematchUi } from '../ui/online/RematchControls';
@@ -32,6 +32,13 @@ interface GameContextType {
   seatAvatarImages?: Record<number, string>;
   /** Online only (Stage 25.9): rematch controls for the King finish screen. */
   rematch?: RematchUi | null;
+  /**
+   * Online only (Stage 38.0.14): the GENERIC room-social node (control row + chat panel),
+   * rendered by King's screens IN NORMAL FLOW in their safe zone. King reaches its screens
+   * through `GameRouter`, so the node travels in the context rather than as a prop chain.
+   * Local pass-and-play leaves it undefined and renders no online chat at all.
+   */
+  socialSlot?: ReactNode;
 }
 
 export const GameContext = createContext<GameContextType>({

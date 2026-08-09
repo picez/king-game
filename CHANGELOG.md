@@ -9,6 +9,26 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The chat no longer takes over the game (Stage 38.0.14).** Stage 38.0.13 (below) gave
+  every game the same chat window — as a pop-up over the table, and that was worse than
+  the problem it solved. While it was open the whole game was dimmed behind it, the page
+  would not scroll, and taps meant for your cards or the Call/Draw/Take buttons hit the
+  chat instead: measured across all seven games, pressing a legal card **did nothing at
+  all** while the turn timer kept counting down. In Durak the chat sat on the table and
+  the cards; in Syrian 51 on the melds and the action row.
+  The chat is now an ordinary panel **on the page**, not over it. It opens between the
+  table and your hand and simply takes up space there — no dimming, no pop-up. You can
+  read the chat and keep playing: your cards and the action buttons stay live, a move goes
+  through without closing the chat, and the chat stays open when the next state arrives
+  from the server. The timer, voice, "Leave game" and "Quit for good" ride in the same
+  compact row of buttons, and Poker's action history keeps its own place.
+  On a phone the panel is a full-width card with a capped height, so your hand is one
+  short scroll below it; on a wide screen it is the same card, capped so it does not
+  stretch across the table. Everything else is unchanged — the emoji still follow whether
+  you are typing, stickers still send straight away.
+
 ### Changed
 
 - **The chat now looks and behaves the same in all seven games (Stage 38.0.13).** Stage

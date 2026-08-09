@@ -15,7 +15,7 @@
 //   dir=ltr|rtl         document direction   lang=en|uk|de|ar
 //   faces=classic|clean card-face theme (the real `data-card-faces` switch)
 //   melds=default|long|jokers|sameowner|redacted   the public-meld fixture
-//   social=none|sheet   mount the production online social launcher
+//   social=none|sheet   mount the production online social cluster (in flow)
 //   panel=none|chat|reactions   which surface the sheet opens with (controlled)
 //   chat=<n>            seed n chat messages (drives the unread badge)
 //   unread=1            leave them unseen so the badge renders
@@ -68,7 +68,7 @@ if (legacy) {
     .fiftyone-meld { max-width: min(100%, 18rem) !important; }
     .fiftyone-meld__cards > * { flex: 0 0 72px !important; width: 72px !important; height: 112px !important; }
     .fiftyone-meld__cards .card { width: 72px !important; height: 112px !important; }
-    .social-menu { position: fixed !important; inset-inline-end: 10px; bottom: 30vh; z-index: 40; }
+    .room-social { position: fixed !important; inset-inline-end: 10px; bottom: 30vh; z-index: 40; }
     .fiftyone-meld__ctrls button { min-width: 28px !important; min-height: 28px !important; }
   `;
   document.head.appendChild(style);
@@ -235,7 +235,6 @@ function Harness() {
       voiceButton={<button type="button" className="social-fab" aria-label="voice">🎙️</button>}
       mySeatIndex={0} seatCount={players}
       dangerSlot={<PermanentLeaveControl state={{ status: 'idle' }} onConfirm={noop} />}
-      variant="sheet"
       openPanel={panel}
       onPanelChange={setPanel}
     />
@@ -244,7 +243,7 @@ function Harness() {
   return (
     <FiftyOneGameScreen
       state={state} humanSeat={0} apply={noop} onExit={noop} online={withSocial}
-      menuSlot={social}
+      socialSlot={social}
       timerSlot={withSocial ? <div className="turn-timer turn-timer--compact"><span>0:30</span></div> : undefined}
     />
   );

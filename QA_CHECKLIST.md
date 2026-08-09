@@ -378,23 +378,36 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 ## Manual — room social (reactions + chat, Stage 7)
 
-> **Stage 38.0.13 — ONE chat window, and focus decides the emoji.** There is no separate
-> 😀 control and no «To message / To table» switch any more. The ONLY outer social control
-> is **💬**, and it opens the SAME dialog in all seven games — a dimmed backdrop, one card
-> (bottom sheet on a phone, centred card from 700px), header «💬 Chat» + ✕, the
-> conversation, the composer, then the picker. Check the list below in **every** game —
-> King, Durak, Deberc, Tarneeb, Preferans, Syrian 51 and Poker. Only the *button's*
-> position differs (corner cluster / docked toolbar / top-bar launcher); the chat window
-> itself must be identical. 51 and any game with voice keep a second **☰** launcher for
-> voice / "Quit for good" / a game's own panel — that is NOT a second chat.
+> **Stage 38.0.14 — the chat is a PANEL ON THE PAGE, never a pop-up over the game.**
+> There is no backdrop, no dimming and no pop-up. Pressing **💬** opens the same panel in
+> all seven games, **in the page's flow** between the table and your hand: it takes up
+> space, pushes the hand down, and leaves everything else live. The timer, voice, 🚪 Leave
+> game and the "Quit for good" control ride in one compact row of buttons beside 💬.
+> Check the list below in **every** game — King, Durak, Deberc, Tarneeb, Preferans,
+> Syrian 51 and Poker.
+>
+> **Stage 38.0.13 — focus decides the emoji.** There is no separate 😀 control and no
+> «To message / To table» switch.
+
+- [ ] **THE Stage 38.0.14 CHECK — play a card with the chat open.** In a real online game,
+      on your turn: open **💬**, leave it open, scroll down to your hand and tap a legal
+      card (in Poker: Call/Check/Fold; in 51: Draw from deck). The move **must go through**,
+      the chat **must stay open**, and it must still be open after the next state arrives
+      from the server. The turn timer keeps ticking and stays readable throughout.
+- [ ] **Nothing is dimmed or blocked.** With the chat open the table, the melds and the
+      action row are at full brightness, the page still scrolls, and tapping anywhere on
+      the game reaches the game (not the chat). There is no dark overlay anywhere.
+- [ ] **Nothing is covered.** The chat sits between the public table and your hand — check
+      Durak (board + cards), Syrian 51 (melds + Draw/Take row), Poker (board + betting
+      controls). Closing it with **✕** returns the layout exactly as it was.
 
 - [ ] In a room (lobby or game) tap **💬** → the chat opens with the conversation, the
       message field, **Send** and one **😀** picker button beside the field. There is **no**
       separate reactions button anywhere in the cluster.
-- [ ] **Side-by-side check (the Stage 38.0.13 FAIL).** Open the chat in **Durak**, then in
-      **Syrian 51**, then in **Poker**, on the same phone: same width, same height, same
-      rounded top corners, same dimmed backdrop, same header — no tall right-hand drawer
-      anywhere. The page behind must not scroll while the chat is open.
+- [ ] **Side-by-side check.** Open the chat in **Durak**, then in **Syrian 51**, then in
+      **Poker**, on the same phone: the same card — same width, same rounded corners, same
+      header, same colours — in the same place relative to the table. No tall right-hand
+      drawer and no centred pop-up anywhere.
 - [ ] Tap **😀** → the picker opens **under** the composer. The conversation is **still
       visible above it** and the message field is still reachable (check 360 and 390).
       A small line above the emoji says what a tap will do — it is text, not a button.
@@ -428,8 +441,10 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] A new joiner sees the **recent chat history**; reactions/chat survive a
       reconnect but are **cleared on a server restart** (expected for MVP).
 - [ ] No horizontal overflow on 360/390 with the chat open, and nothing is hidden under the
-      phone's home indicator (safe area); RTL (Arabic) mirrors the controls to the left while
-      the chat window itself stays centred, exactly as in LTR.
+      phone's home indicator (safe area). In RTL (Arabic) the panel and the control row
+      mirror cleanly with the rest of the screen.
+- [ ] **Keyboard.** Tapping the message box raises the keyboard without hiding the box
+      itself; the conversation is still readable above it.
 - [ ] **Reaction anchors over the SENDER for every viewer (Stage 29.5) — cross-device.**
       With **2+ devices** in the same game, each device sends a reaction in turn and confirms it
       floats over **that sender's own visible seat** on *all* screens (your own always bottom; an

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '../../i18n';
 import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
@@ -58,6 +58,13 @@ interface Props {
   apply: (a: DurakAction) => void;
   onExit: () => void;
   notice?: DurakNotice | null;
+  /**
+   * Generic room-social node (Stage 38.0.14) — the online control row plus, when it is
+   * open, the chat panel. Rendered IN NORMAL FLOW after the public table and before the
+   * private hand / action controls, so it takes layout space instead of covering them.
+   * Local play passes nothing and is byte-identical to before.
+   */
+  socialSlot?: ReactNode;
   /** Seats whose human is currently offline (online play) — for offline badges. */
   disconnectedSeats?: number[];
 }
@@ -89,7 +96,7 @@ function sortHand(cards: Card[], trump: Suit): Card[] {
 }
 
 /** The local human's table view: opponents, trump/deck, table pairs, hand, actions. */
-export default function DurakGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats }: Props) {
+export default function DurakGameScreen({ state, humanId, apply, onExit, notice, disconnectedSeats, socialSlot }: Props) {
   const { t } = useI18n();
   const [transferMode, setTransferMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -233,6 +240,9 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
         <span className="durak-prompt__text">{prompt}</span>
       </div>
 
+
+      {/* Room social (Stage 38.0.14): in flow, clear of the hand and the actions. */}
+      {socialSlot}
       <div className="durak-controls">
         {canPass && <button type="button" className="btn btn--outline" onClick={() => apply({ type: 'PASS_ATTACK' })}>✓ {t('durak.pass')}</button>}
         {canTake && <button type="button" className="btn btn--danger" onClick={() => apply({ type: 'TAKE_CARDS' })}>✋ {t('durak.take')}</button>}

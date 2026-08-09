@@ -33,21 +33,23 @@ describe('FAIL A — a reaction must not close the sheet', () => {
   });
 
   it('only the deliberate gestures close it', () => {
-    // ✕, backdrop, Escape and the chat launcher — and nothing else clears the panel.
-    // (38.0.13) 51's chat is the SHARED dialog; the sheet survives for the ☰ menu.
-    expect(src).toContain('className="chat-dialog-backdrop" role="presentation" onClick={closeChat}');
-    expect(src).toContain('className="chat-dialog__close" onClick={closeChat}');
-    expect(src).toContain('className="social-sheet-backdrop" role="presentation" onClick={closeChat}');
-    expect(src).toContain('className="social-sheet__close" onClick={closeChat}');
+    // ✕, Escape and the chat launcher — and nothing else clears the panel.
+    // (38.0.14) There is no backdrop to click any more: the chat is not a modal.
+    expect(src).toContain('className="chat-panel__close" onClick={closeChat}');
+    // No backdrop ELEMENT exists to click (the word survives only in the comment that
+    // records why it was removed).
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toContain('backdrop');
     expect(src).toMatch(/if \(pickerOpen\) \{ closePicker\(\); return; \}/);
     expect(src).toMatch(/onClick=\{\(\) => \(chatOpen \? closeChat\(\) : setPanel\('chat'\)\)\}/);
     expect((src.match(/setPanel\('none'\)/g) ?? []).length).toBe(1);   // inside closeChat only
   });
 
-  it('Poker keeps the docked cluster, so its behaviour is untouched', () => {
+  it('(38.0.14) Poker mounts the same in-flow node through its generic slot', () => {
     const online = read('src/ui/online/OnlineGame.tsx');
     const poker = online.slice(online.indexOf("if (net.room?.gameType === 'poker') {"));
-    expect(poker).toContain('variant="docked"');
+    expect(poker).toContain('socialSlot={social}');
+    expect(poker).not.toContain('variant="docked"');
     expect(poker).not.toContain('variant="sheet"');
   });
 });

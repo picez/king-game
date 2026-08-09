@@ -103,10 +103,10 @@ describe('i18n parity across EN/UK/DE/AR', () => {
 
 describe('mobile ergonomics', () => {
   const css = read('src/styles/social.css');
-  it('the trigger meets the 44x44 touch target in both cluster variants', () => {
+  it('the trigger meets the 44x44 touch target', () => {
     expect(css).toMatch(/\.permleave-trigger\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/);
-    // The docked toolbar sizes every .social-fab (the trigger IS one) to 44px.
-    expect(css).toMatch(/\.social-controls--docked \.social-fab \{[^}]*min-width: 44px; min-height: 44px/);
+    // (38.0.14) The one in-flow control row sizes every .social-fab (the trigger IS one).
+    expect(css).toMatch(/\.room-social__bar \.social-fab \{[^}]*min-width: 44px; min-height: 44px/);
   });
   it('the dialog buttons meet 44px and wrap on a narrow screen', () => {
     expect(css).toMatch(/\.permleave-dialog__actions \.btn \{[^}]*min-height: 44px/);
@@ -118,9 +118,10 @@ describe('mobile ergonomics', () => {
   });
   it('the trigger is a normal in-flow member of the control row (never a table overlay)', () => {
     const social = read('src/ui/online/RoomSocial.tsx');
-    // dangerSlot renders INSIDE .social-controls__row, which both variants position safely.
-    expect(social).toMatch(/social-controls__row[\s\S]*?\{dangerSlot\}[\s\S]*?<\/div>/);
+    // (38.0.14) dangerSlot renders INSIDE .room-social__bar, which is itself in flow.
+    expect(social).toMatch(/room-social__bar[\s\S]*?\{dangerSlot\}[\s\S]*?<\/div>/);
     expect(css).not.toMatch(/\.permleave-trigger \{[^}]*position: (fixed|absolute)/);
+    expect(css).not.toMatch(/\.room-social \{[^}]*position: (fixed|absolute)/);
   });
 });
 

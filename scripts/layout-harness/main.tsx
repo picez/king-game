@@ -8,7 +8,7 @@
 // components composed exactly as `OnlineGame` composes them for an online poker room
 // (PokerGameScreen + RoomSocial + timer + voice + the action-log utilitySlot), in a
 // real browser, so `scripts/poker-layout-qa.mjs` can measure actual bounding boxes
-// and open the real panels.
+// and open the real panels. (38.0.14) The cluster is `room-social`, in normal flow.
 //
 // Query params (all optional):
 //   seats=2..6  street=preflop|flop|turn|river  dir=ltr|rtl  lang=en|uk|de|ar
@@ -133,8 +133,8 @@ function Harness() {
         state={state} mySeat={0} apply={noop} onExit={noop}
         rebuySlot={rebuySlot}
         socialSlot={
-          <div className="social-controls social-controls--docked">
-            <div className="social-controls__row">
+          <div className="room-social">
+            <div className="room-social__bar">
               <PokerActionLog state={state} variant="standalone" docked />
             </div>
           </div>
@@ -152,7 +152,6 @@ function Harness() {
       voiceButton={<button type="button" className="social-fab" aria-label="voice">🎙️</button>}
       mySeatIndex={0} seatCount={seats}
       timerSlot={<div className="turn-timer turn-timer--compact"><span>0:20</span></div>}
-      variant="docked"
       openPanel={panel}
       onPanelChange={setPanel}
       utilitySlot={<PokerActionLogButton open={logOpen} unread={unread} onToggle={(n) => setPanel(n ? 'utility' : 'none')} />}

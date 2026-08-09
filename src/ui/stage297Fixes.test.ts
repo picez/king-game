@@ -30,17 +30,19 @@ describe('Timer rides in the social cluster, not a table overlay (Scope A)', () 
     // measured covering their bottom controls / laid-out melds — and thread the SAME timer
     // node through that component's timerSlot. Both paths are asserted.
     expect((online.match(/renderSocial\([^)]*timerEl[,)]/g) ?? []).length).toBe(4);
-    expect(online).toMatch(/variant="docked"[\s\S]*timerSlot=\{timerEl\}|timerSlot=\{timerEl\}[\s\S]*variant="docked"/);
+    // (38.0.14) Poker's own RoomSocial is in flow like every other game's; the timer node
+    // still reaches it through the same generic slot.
+    expect(online).toMatch(/timerSlot=\{timerEl\}[\s\S]*socialSlot=\{social\}/);
     // The old fixed table overlay is gone.
     expect(online).not.toContain('turn-timer--overlay');
     expect(css).not.toContain('.turn-timer--overlay');
   });
 
-  it('RoomSocial renders the timerSlot inside the .social-controls cluster', () => {
-    // The timer sits inside the cluster in BOTH layouts: at the top of the floating
-    // column, and inside the row of the docked toolbar (Stage 38.0.3).
-    expect(social).toMatch(/social-controls[\s\S]*\{!docked && timerSlot\}/);
-    expect(social).toMatch(/social-controls__row[\s\S]*\{docked && timerSlot\}/);
+  it('RoomSocial renders the timerSlot inside the in-flow control row', () => {
+    // (38.0.14) There is ONE cluster now, so there is one place for the timer: the row,
+    // never a table overlay.
+    expect(social).toMatch(/room-social__bar[\s\S]{0,400}\{timerSlot\}/);
+    expect(social).not.toContain('social-controls');
   });
 
   it('the social timer pill flows (not position:fixed) and never blocks taps', () => {

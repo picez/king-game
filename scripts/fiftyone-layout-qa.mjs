@@ -126,13 +126,12 @@ const PROBE = `JSON.stringify((() => {
   const hand = one('.hand-reorder') || one('.fiftyone-hand') || one('.hand');
   const scoreboard = one('.fiftyone-scoreboard');
   const piles = one('.fiftyone-piles');
-  const launcher = one('.social-menu');
-  // (38.0.13) 51's social surfaces are now the SHARED chat dialog (💬) and the ☰ menu
-  // sheet (voice / quit). Both are modals; either one counts as "a modal is open".
-  const chatDlg = one('.chat-dialog');
-  const sheet = one('.social-sheet');
+  const launcher = one('.room-social__bar');
+  // (38.0.14) 51's chat is an ORDINARY IN-FLOW PANEL. The only modal left in this screen
+  // is the destructive permanent-leave confirmation, which is a modal on purpose.
+  const chatDlg = one('.chat-panel');
   const dialog = one('.permleave-dialog');
-  const modalOpen = !!sheet || !!chatDlg || !!dialog;
+  const modalOpen = !!dialog;
 
   // Every card slot on the table, with its inner card / artwork / joker badge.
   const slots = [];
@@ -230,23 +229,25 @@ const PROBE = `JSON.stringify((() => {
     for (const el of content) if (hit(launcher, el)) add('social-over-content', ov(launcher, el));
   }
   if (!modalOpen) {
-    for (const p of all('.chat-dialog, .reaction-bar, .social-controls').map(rect)) {
+    for (const p of all('.reaction-bar').map(rect)) {
       for (const el of content) if (hit(p, el)) add('panel-over-content', ov(p, el));
     }
   }
   // An open modal must be a real one: a backdrop, a close control, and its OWN scroll.
-  if (sheet) {
-    if (!document.querySelector('.social-sheet-backdrop')) add('sheet-no-backdrop', '');
-    if (!document.querySelector('.social-sheet__close')) add('sheet-no-close', '');
-    const body = document.querySelector('.social-sheet__body');
-    if (body && body.scrollWidth > body.clientWidth + 1) add('sheet-inner-scroll-x', body.scrollWidth + '>' + body.clientWidth);
-    if (sheet.b > window.innerHeight + 1) add('sheet-off-screen', Math.round(sheet.b) + '>' + window.innerHeight);
-  }
   if (chatDlg) {
-    if (!document.querySelector('.chat-dialog-backdrop')) add('chat-no-backdrop', '');
-    if (!document.querySelector('.chat-dialog__close')) add('chat-no-close', '');
-    if (chatDlg.b > window.innerHeight + 1) add('chat-off-screen', Math.round(chatDlg.b) + '>' + window.innerHeight);
+    // (38.0.14) The chat may NOT be a modal: no backdrop, no aria-modal, no scroll lock,
+    // and it must take layout space rather than cover the melds/prompt/actions/hand.
+    if (document.querySelector('.chat-dialog-backdrop, .social-sheet-backdrop')) add('chat-backdrop', 'present');
+    if (!document.querySelector('.chat-panel__close')) add('chat-no-close', '');
+    const panelEl = document.querySelector('.chat-panel');
+    const pos = getComputedStyle(panelEl).position;
+    if (pos === 'fixed' || pos === 'absolute') add('chat-out-of-flow', pos);
+    if (panelEl.getAttribute('aria-modal') === 'true') add('chat-aria-modal', 'true');
+    if (getComputedStyle(document.documentElement).overflowY === 'hidden') add('scroll-locked', 'html');
     if (chatDlg.l < -S || chatDlg.r > vw + S) add('chat-outside-viewport', Math.round(chatDlg.l) + '..' + Math.round(chatDlg.r));
+    for (const el of [prompt, actions, hand].filter(Boolean)) {
+      if (hit(chatDlg, el)) add('chat-over-gameplay', ov(chatDlg, el));
+    }
     // (38.0.13) The manual picker-mode switch must never come back.
     for (const banned of ['chat-picker__mode', 'data-mode="table"']) {
       if (document.body.innerHTML.includes(banned)) add('picker-mode-switch', banned);
@@ -259,7 +260,7 @@ const PROBE = `JSON.stringify((() => {
   if (screen && screen.scrollWidth > screen.clientWidth + 1) add('screen-overflow-x', screen.scrollWidth + '>' + screen.clientWidth);
 
   // 9. touch targets for everything this stage owns.
-  const TAP = '.social-menu__launcher, .social-sheet button, .chat-dialog button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
+  const TAP = '.room-social__bar .social-fab, .chat-panel button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
   for (const b of all(TAP)) {
     const r = rect(b);
     if (r.w < 43.5 || r.h < 43.5) {
@@ -307,10 +308,10 @@ const PROBE = `JSON.stringify((() => {
   // 11. (38.0.12) The sheet has exactly ONE scrolling region, and the composer stays
   // reachable: the owner's phone showed two scrollbars side by side, and an expanded
   // sticker grid used to push the text field out of the sheet.
-  const sheetEl = document.querySelector('.chat-dialog') || document.querySelector('.social-sheet');
+  const sheetEl = document.querySelector('.chat-panel');
   // The conversation and the picker each bound themselves; NOTHING inside either of
   // them may add a scrollbar of its own.
-  for (const root of ['.social-sheet__body', '.chat-picker', '.chat-dialog__list']) {
+  for (const root of ['.chat-picker', '.chat-panel__list']) {
     const region = document.querySelector(root);
     if (!region) continue;
     for (const el of region.querySelectorAll('*')) {
@@ -339,17 +340,17 @@ const PROBE = `JSON.stringify((() => {
     return Math.max(0, box.b - box.t);
   };
   const pickerEl = document.querySelector('.chat-picker');
-  const historyEl = document.querySelector('.chat-dialog__list');
+  const historyEl = document.querySelector('.chat-panel__list');
   if (pickerEl && historyEl) {
     const hv = visibleH(historyEl);
     if (hv < 96) add('history-squeezed', Math.round(hv) + 'px');
-    const panelEl = document.querySelector('.chat-dialog');
+    const panelEl = document.querySelector('.chat-panel');
     if (panelEl) {
       const pr = rect(panelEl);
       if (pr.h > 0.5 && hv / pr.h < 0.2) add('history-share', Math.round(100 * hv / pr.h) + '%');
     }
   }
-  const compose = document.querySelector('.chat-dialog__compose');
+  const compose = document.querySelector('.chat-panel__compose');
   if (sheetEl && compose) {
     const cr = rect(compose);
     const sr = rect(sheetEl);
@@ -397,9 +398,9 @@ const PROBE = `JSON.stringify((() => {
 
   return {
     violations: v, groups: groups.length, melds: melds.length, cards: slots.length,
-    launcher: !!launcher, sheet: !!sheet || !!chatDlg, chat: !!chatDlg, dialog: !!dialog, hasPrompt: !!prompt,
+    launcher: !!launcher, sheet: !!chatDlg, chat: !!chatDlg, dialog: !!dialog, hasPrompt: !!prompt,
     stickers: stickerBtns.length,
-    hist: Math.round(visibleH(document.querySelector('.chat-dialog__list'))),
+    hist: Math.round(visibleH(document.querySelector('.chat-panel__list'))),
     pick: (function(){ const h = document.querySelector('.chat-picker'); return h ? Math.round(rect(h).h) : 0; })(),
     groupBoxes: groups.map((g) => { const r = rect(g); return Math.round(r.w) + 'x' + Math.round(r.h); }),
   };
@@ -438,10 +439,10 @@ function scenarios() {
     { name: 'uneven-groups', q: 'players=4&melds=uneven' },
     { name: 'uneven-rtl', q: 'players=4&melds=uneven&dir=rtl&lang=ar' },
     { name: '2p-single', q: 'players=2&melds=single' },
-    // (38.0.13) The destructive control lives in the ☰ MENU sheet's footer (the chat
-    // dialog is chat and nothing else), so the menu is opened first.
-    { name: '4p-menu', q: `players=4&${SOCIAL}&panel=utility` },
-    { name: '4p-confirm', q: `players=4&${SOCIAL}&panel=utility`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
+    // (38.0.14) The destructive control is an ordinary member of the in-flow control
+    // row now — no menu to open first.
+    { name: '4p-menu', q: `players=4&${SOCIAL}` },
+    { name: '4p-confirm', q: `players=4&${SOCIAL}`, click: ['.permleave-trigger'], open: '.permleave-dialog' },
     { name: '4p-longrun', q: 'players=4&melds=long' },
     { name: '4p-longrun-social', q: `players=4&melds=long&${SOCIAL}` },
     { name: '4p-jokers', q: 'players=4&melds=jokers' },
@@ -524,8 +525,8 @@ async function run() {
         // (38.0.9/38.0.12) An emoji/sticker click must leave the CHAT open, and the
         // in-chat picker with it — the player keeps typing and sending.
         if (sc.stillOpen) {
-          const open = await cdp.evaluate("!!document.querySelector('.chat-dialog')");
-          const title = await cdp.evaluate("(document.querySelector('.chat-dialog__title')||{}).textContent||''");
+          const open = await cdp.evaluate("!!document.querySelector('.chat-panel')");
+          const title = await cdp.evaluate("(document.querySelector('.chat-panel__title')||{}).textContent||''");
           if (!open) failures.push(`${vp.tag} ${sc.name}: the chat CLOSED after the click`);
           else if (!/💬|Chat|الدردشة|Чат/.test(String(title))) {
             failures.push(`${vp.tag} ${sc.name}: the chat lost focus (title="${title}")`);

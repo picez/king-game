@@ -16,6 +16,9 @@ interface Props {
   /** Seats whose human is offline (for offline badges / "AI may play" hints). */
   disconnectedSeats?: number[];
   /** Online rematch controls (Stage 25.9). */
+  /** Generic room-social node (Stage 38.0.14), handed to the game screen so it renders
+   *  IN NORMAL FLOW in that screen's safe zone instead of over the table. */
+  socialSlot?: ReactNode;
   rematch?: RematchUi | null;
 }
 
@@ -27,7 +30,7 @@ interface Props {
  * renders nothing King-specific (no GameRouter). The `online` flag makes the
  * screen read-only when it is not this client's turn and hides "Next hand".
  */
-export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch }: Props) {
+export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExit, disconnectedSeats, rematch, socialSlot }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
   // 2 s reveal after each trick (Stage 27.0) — no server trick_complete screen, so hold it client-side.
@@ -49,6 +52,7 @@ export default function PreferansOnlineGame({ state, myPlayerId, dispatch, onExi
       reviewTrick={reviewTrick}
       online
       disconnectedSeats={disconnectedSeats}
+      socialSlot={socialSlot}
     />
   );
 }

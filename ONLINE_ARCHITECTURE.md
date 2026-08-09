@@ -1285,7 +1285,74 @@ reaction and a chat with no emoji in it. The contract is now identical in every 
   clipping, page overflow and 44px tap targets. `npm run layout:poker` exits non-zero on
   any violation.
 
+### Stage 38.0.14 — the chat is NON-MODAL and lives in normal flow
+
+**The RED, measured across all seven real online branches.** `npm run layout:social` now
+mounts every game (`scripts/layout-harness/social-games.tsx`: King via `GameRouter`, plus
+Durak, Deberc, Tarneeb, Preferans, Fifty-One and Poker) and records each game's own
+`apply`/`dispatch`. At `8523361`, with the chat open, over 4 viewports × 7 games —
+**383 violations**:
+
+| what | count | evidence |
+|---|---|---|
+| `chat-backdrop` | 28 | `390x844 rgba(0, 0, 0, 0.62)` — the whole viewport dimmed |
+| `chat-aria-modal` | 28 | the panel announced the game as inert |
+| `scroll-locked` | 28 | `html overflow=hidden/hidden` |
+| `chat-in-viewport-overlay` | 28 | `chat-dialog-backdrop fixed` |
+| `chat-over-gameplay` | 63 | e.g. 390 Durak `.durak-board 371x205`, `.durak-controls 371x42`, `.hand-reorder-wrap 371x233`; 51 `.fiftyone-melds 374x216`, `.fiftyone-actions 374x48` |
+| `tap-swallowed` | 146 | `elementFromPoint` over the board/melds/hand/actions returned `chat-dialog-backdrop`, `chat-msg`, `input`, `chat-picker`… |
+| legal action blocked | 12 + 12 | *"the legal action `.hand-reorder-wrap .card` is not hittable"* and *"clicking … with the chat open reached the game **0x** (expected 1)"* |
+| move / STATE_UPDATE closed the chat | 3 + 3 | the click landed on the backdrop, which closes it |
+
+**Root cause.** Three separate decisions, each defensible alone, combined into a chat that
+owns the screen: a `position: fixed` full-viewport **backdrop** (which both dims and
+intercepts), **`aria-modal="true"`** (which tells assistive tech the game is inert), and a
+**page-scroll lock** on `documentElement` (added in 38.0.13 to equalise the dialog's
+geometry across games). A modal is correct for an irreversible confirmation. It is never
+correct for a chat that runs beside a live, server-timed game.
+
+**The contract now.**
+
+- **Nothing is out of flow.** `RoomSocial` renders ONE `room-social` column — a compact
+  `room-social__bar` (timer, the caller's utility control, voice, 💬, leave, the
+  destructive action), the caller's utility panel, and, when open, the `chat-panel`
+  section. No backdrop, no `aria-modal`, no `role="dialog"`, no focus trap, no scroll
+  lock, no `position: fixed/absolute/sticky` anywhere in the cluster. The only fixed
+  elements left in `social.css` are the pointer-through reaction layer, the pointer-through
+  toast, the sticker lightbox, and the permanent-leave confirmation — a modal on purpose.
+- **One generic slot, seven screens.** `GameScreen` (King), `DurakGameScreen`,
+  `DebercGameScreen`, `TarneebGameScreen`, `PreferansGameScreen`, `FiftyOneGameScreen` and
+  `PokerGameScreen` each take `socialSlot?: ReactNode` and render it **after the public
+  table and before the private hand / action controls**. No screen imports `RoomSocial`;
+  `OnlineGame` builds the node once and hands it to each branch (King through
+  `GameContext.socialSlot`, because its screens are reached via `GameRouter`). Local play
+  passes nothing. 51's `menuSlot` and Poker's existing `socialSlot` are now the same prop.
+- **`variant` is gone.** `floating` / `docked` / `sheet` — and with them the fixed corner
+  cluster, the sheet launchers and the modal bottom sheet — no longer exist. Voice, the
+  utility panel and the destructive action are ordinary members of the one control row, so
+  Fifty-One reaches all of them without a modal.
+- **Opening the chat costs LAYOUT SPACE.** The panel is capped at `min(46vh, 24rem)` and
+  the game's own flex column absorbs it; on a wide screen it is capped at `34rem` so it
+  does not stretch across the table. (A grid sidecar was considered and rejected: none of
+  the seven screens has a proven free column, and inventing one per game would recreate
+  exactly the per-game divergence 38.0.13 was fixing.) Because the panel is in flow it can
+  open below the fold on a tall board, so it calls `scrollIntoView({ block: 'nearest' })`
+  once — it SCROLLS the page, it never freezes it, and the hand stays one scroll away.
+- **The gate proves the game still works.** For Durak, Fifty-One and Poker the gate opens
+  the chat, scrolls a **legal** control into view, checks `elementFromPoint` returns that
+  control, clicks it with real mouse input and asserts the game's own callback fired
+  **exactly once**, the chat is still open, a simulated `STATE_UPDATE` leaves it open, and
+  the timer text advanced while it was open. For all seven games it asserts no backdrop,
+  no `aria-modal`, no scroll lock, no out-of-flow positioning, no intersection with any
+  gameplay zone, no swallowed taps, and no page-width overflow — at 360/390/768/1366, LTR
+  and Arabic RTL.
+
 ### Stage 38.0.13 — ONE chat dialog, and an emoji action decided by FOCUS
+
+> **Corrected by Stage 38.0.14.** Everything below about ONE canonical chat still holds —
+> except that making it a MODAL (backdrop, `aria-modal`, scroll lock, viewport-centred
+> `position: fixed`) broke the game underneath it. The dialog is now an in-flow
+> `chat-panel`; the focus-based emoji contract is unchanged.
 
 **The RED, measured — not described.** `npm run layout:social` now mounts the REAL online
 branches (`scripts/layout-harness/social-games.tsx`: `DurakGameScreen` + floating cluster,

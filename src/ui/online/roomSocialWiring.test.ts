@@ -51,12 +51,12 @@ describe('active-game "Leave game" wiring', () => {
 
   it('RoomSocial shows the Leave game action only when onLeaveGame is provided', () => {
     expect(social).toContain('onLeaveGame');
-    expect(social).toContain('social-leave');
     expect(social).toContain("t('online.leaveGame')");
-    // Leave-game is still gated on the callback in BOTH layouts (a labelled pill in the
-    // floating column; a compact button in the docked toolbar row) — Stage 38.0.3.
-    expect(social).toMatch(/\{!docked && onLeaveGame && \(/);
-    expect(social).toMatch(/\{docked && onLeaveGame && \(/);  // gated on the prop (active game only)
+    // (38.0.14) One cluster, one leave control, still gated on the callback so the lobby
+    // never shows it.
+    expect(social).toMatch(/\{onLeaveGame && \(/);
+    expect((social.match(/\{onLeaveGame && \(/g) ?? []).length).toBe(1);
+    expect(social).toContain('social-fab--leave');
   });
 });
 

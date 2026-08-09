@@ -23,7 +23,7 @@ interface Props {
   /** ONE compact social/menu launcher (Stage 38.0.5.1), rendered in the game screen's
    *  TOP BAR. Collapsed it costs a single 44×44 target and no toolbar row at all; it
    *  opens a modal sheet. Game-agnostic node; LOCAL play passes nothing. */
-  menuSlot?: ReactNode;
+  socialSlot?: ReactNode;
   /** Compact turn timer for the same top bar (null when the host left the timer off). */
   timerSlot?: ReactNode;
 }
@@ -37,7 +37,7 @@ interface Props {
  * client's turn (the action bar disables off-turn) and replaces the "Next round"
  * button with a waiting note. Renders nothing King-specific (no GameRouter).
  */
-export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, menuSlot, timerSlot }: Props) {
+export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit, rematch, socialSlot, timerSlot }: Props) {
   const { t } = useI18n();
   const me = myPlayerId ? state.players.find((p) => p.id === myPlayerId) : null;
 
@@ -55,7 +55,7 @@ export default function FiftyOneOnlineGame({ state, myPlayerId, dispatch, onExit
       apply={dispatch}
       onExit={onExit}
       online
-      menuSlot={menuSlot}
+      socialSlot={socialSlot}
       timerSlot={timerSlot}
     />
   );

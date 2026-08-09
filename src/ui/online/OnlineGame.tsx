@@ -188,6 +188,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   const permanentLeaveSlot = canLeavePermanently
     ? <PermanentLeaveControl state={net.permanentLeave} onConfirm={net.leavePermanently} />
     : null;
+  // (38.0.14) The node is IN-FLOW now: every branch hands it to its game screen through
+  // the generic `socialSlot`, and the screen renders it in its own safe zone. The lobby /
+  // dealing screens render it as an ordinary trailing block of the page.
   const renderSocial = (handVisible: boolean, onLeaveGame?: () => void, timerSlot?: ReactNode, utilitySlot?: ReactNode) => (
     <>
       {inviteToast}
@@ -351,8 +354,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
+          socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
         />
-        {renderSocial(true, leaveGameToMenu, timerEl)}
       </>
     );
   }
@@ -369,8 +372,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
+          socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
         />
-        {renderSocial(true, leaveGameToMenu, timerEl)}
       </>
     );
   }
@@ -388,11 +391,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
+          socialSlot={renderSocial(true, undefined, timerEl)}
         />
-        {/* No Leave-game pill here: Tarneeb's full-width bid/trump action bars would
-            collide with it. The board's top-left ✕ already leaves the game
-            (reconnectable). Social keeps only the compact emoji/chat corner + timer. */}
-        {renderSocial(true, undefined, timerEl)}
+        {/* No Leave-game pill here: Tarneeb's board ✕ already leaves the game
+            (reconnectable). Social keeps only the compact control row + timer. */}
       </>
     );
   }
@@ -410,10 +412,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           onExit={leaveGameToMenu}
           rematch={rematchUi}
           disconnectedSeats={disconnectedSeats}
+          socialSlot={renderSocial(true, undefined, timerEl)}
         />
         {/* Like Tarneeb: no Leave-game pill (the board ✕ leaves, reconnectable);
-            social keeps the compact emoji/chat corner + timer. */}
-        {renderSocial(true, undefined, timerEl)}
+            social keeps the compact control row + timer. */}
       </>
     );
   }
@@ -422,12 +424,12 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // server drives bots + the public round_complete advance (seeded
   // START_NEXT_ROUND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'fifty-one') {
-    // Stage 38.0.4 docked the cluster in flow (fixing the overlap); Stage 38.0.5.1
-    // replaces that toolbar with ONE compact launcher in the 51 top bar plus a modal
-    // sheet, because the docked row still ate a whole band of the phone screen between
-    // the melds and the prompt. Collapsed, 51's gameplay column carries no social UI at
-    // all. Still the SAME game-agnostic RoomSocial — only its layout variant differs.
-    const fiftyOneMenu = (
+    // (38.0.14) 51 hands the SAME game-agnostic RoomSocial to its generic `socialSlot`,
+    // which the screen renders IN NORMAL FLOW between the public melds and the prompt.
+    // 38.0.5.1's top-bar launcher + bottom sheet and 38.0.13's centred modal both covered
+    // the melds and the action row; the modal also froze the page scroll, so the player
+    // could not act at all while the chat was open.
+    const fiftyOneSocial = (
       <>
         {inviteToast}
         <RoomSocial
@@ -438,7 +440,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           voiceButton={<VoiceControl voice={voice} variant="compact" />}
           mySeatIndex={mySeatIndex} seatCount={seatCount}
           dangerSlot={permanentLeaveSlot}
-          variant="sheet"
           openPanel={socialPanel}
           onPanelChange={setSocialPanel}
         />
@@ -452,7 +453,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         onExit={leaveGameToMenu}
         rematch={rematchUi}
         disconnectedSeats={disconnectedSeats}
-        menuSlot={fiftyOneMenu}
+        socialSlot={fiftyOneSocial}
         timerSlot={timerEl}
       />
     );
@@ -501,7 +502,6 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           voiceButton={<VoiceControl voice={voice} variant="compact" />}
           mySeatIndex={mySeatIndex} seatCount={seatCount}
           timerSlot={timerEl}
-          variant="docked"
           openPanel={socialPanel}
           onPanelChange={setSocialPanel}
           utilitySlot={
@@ -557,10 +557,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,
         turnTimerSec: net.room?.turnTimerSec ?? 0, timer: net.timer, myPlayerId: net.myPlayerId, disconnectedSeats,
         seatAvatarImages, rematch: rematchUi,
+        socialSlot: renderSocial(status === 'playing', leaveGameToMenu),
       }}>
         {showAction ? <GameRouter /> : <OnlineWaitingScreen myPlayerId={net.myPlayerId} />}
       </GameContext.Provider>
-      {renderSocial(status === 'playing', leaveGameToMenu)}
     </>
   );
 }

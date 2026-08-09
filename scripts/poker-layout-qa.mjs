@@ -125,16 +125,14 @@ const PROBE = `JSON.stringify((() => {
     ...all('.poker-amount-input'), ...all('.poker-preset'), ...all('.poker-slider'),
   ];
   // Floating / in-flow social + utility surfaces.
-  const cluster = one('.social-controls') || one('.poker-social-toolbar');
-  const clusterBtns = [...document.querySelectorAll('.social-controls button, .poker-social-toolbar button, .poker-local-utility button')];
-  // IN-FLOW panels only. (38.0.13) The chat is no longer one of them: poker's 💬 opens the
-  // shared modal chat-dialog, which covers the page ON PURPOSE, exactly as it does in
-  // the other six games — that is the whole point of the unification. It is checked as a
-  // modal below instead of as an in-flow panel.
+  const cluster = one('.room-social__bar') || one('.social-controls') || one('.poker-social-toolbar');
+  const clusterBtns = [...document.querySelectorAll('.room-social__bar button, .social-controls button, .poker-social-toolbar button, .poker-local-utility button')];
+  // (38.0.14) EVERY social surface is in flow again, chat included — so the chat is back
+  // in this list: it may never cover the board, the bet controls or the action row.
   const panels = [
-    ...all('.poker-log-panel'), ...all('.reaction-bar'), ...all('.poker-social-sheet'),
+    ...all('.poker-log-panel'), ...all('.chat-panel'), ...all('.reaction-bar'),
   ];
-  const chatModal = one('.chat-dialog');
+  const chatPanel = one('.chat-panel');
   // The rebuy panel is IN FLOW: it must not intersect the table, the toolbar or the controls.
   const rebuy = one('.poker-rebuy');
   const rebuyBtns = [...document.querySelectorAll('.poker-rebuy button')];
@@ -170,13 +168,13 @@ const PROBE = `JSON.stringify((() => {
     for (const c of critical) if (hit(p, c)) add('panel-over-control', overlap(p, c));
     if (hit(p, actions)) add('panel-over-actions', overlap(p, actions));
   }
-  // 3b. (38.0.13) The chat modal: it MAY cover the table — but it must have its backdrop,
-  // stay inside the viewport, and never be layered under the utility panel.
-  if (chatModal) {
-    if (!document.querySelector('.chat-dialog-backdrop')) add('chat-no-backdrop', '');
-    if (chatModal.b > window.innerHeight + S) add('chat-below-viewport', Math.round(chatModal.b) + '>' + window.innerHeight);
-    if (chatModal.l < -S || chatModal.r > vw + S) add('chat-outside-viewport', Math.round(chatModal.l) + '..' + Math.round(chatModal.r));
-    for (const p of all('.poker-log-panel')) if (hit(p, chatModal)) add('log-over-chat', overlap(p, chatModal));
+  // 3b. (38.0.14) The chat is NOT a modal: no backdrop may exist, it must stay inside the
+  // viewport sideways, and it must never sit on the table or the betting controls (that
+  // is already covered by the in-flow panel loop above).
+  if (chatPanel) {
+    if (document.querySelector('.chat-dialog-backdrop, .social-sheet-backdrop')) add('chat-backdrop', 'present');
+    if (chatPanel.l < -S || chatPanel.r > vw + S) add('chat-outside-viewport', Math.round(chatPanel.l) + '..' + Math.round(chatPanel.r));
+    if (hit(chatPanel, table)) add('chat-over-table', overlap(chatPanel, table));
   }
 
   if (rebuy) {

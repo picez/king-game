@@ -1312,7 +1312,55 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.14 — the chat is NON-MODAL, in normal flow (COMPLETE, Unreleased)
+- Worked from HEAD `8523361`. **CORRECTS Stage 38.0.13**: making the one canonical chat a
+  MODAL broke the live game. UI only: no migration (latest still 0014), version 0.4.8,
+  games 7, achievements 52, libc 0, no `package.json` change.
+- **RED (383 violations, 7 real online branches × 4 viewports).** `chat-backdrop` 28×
+  (`390x844 rgba(0,0,0,.62)`), `chat-aria-modal` 28×, `scroll-locked: html overflow=hidden`
+  28×, `chat-in-viewport-overlay` 28×, `chat-over-gameplay` 63× (390 Durak `.durak-board
+  371x205`, `.durak-controls 371x42`, `.hand-reorder-wrap 371x233`; 51 `.fiftyone-melds
+  374x216`, `.fiftyone-actions 374x48`), `tap-swallowed` 146×, and the decisive one:
+  **clicking a legal card/action with the chat open reached the game 0x (expected 1)** in
+  Durak/51/Poker at every viewport, while the timer kept running; the click hit the
+  backdrop, which CLOSED the chat.
+- **Root cause:** fixed full-viewport backdrop (dims + intercepts) + `aria-modal` +
+  `documentElement{overflow:hidden}` (added in 38.0.13 to equalise geometry).
+- **The fix:** ONE `room-social` column in NORMAL FLOW — `room-social__bar` (timer,
+  utilitySlot, voice, 💬, leave, dangerSlot) + utilityPanelSlot + `chat-panel` section
+  (`aria-label`, NOT `role=dialog`). No backdrop / aria-modal / focus trap / scroll lock /
+  fixed positioning. Panel capped `min(46vh,24rem)`, `34rem` from 900px, safe-area padding.
+  `scrollIntoView({block:'nearest'})` once on open (scrolls the PAGE, never freezes it).
+- **`variant` DELETED** (`floating|docked|sheet`), and with it `.social-controls*`,
+  `.social-menu*`, `.social-sheet*`, `.chat-drawer*`, `.chat-dialog*`. Voice / utility /
+  quit are ordinary members of the one row, so 51 needs no modal sheet.
+- **Generic slot in all 7 screens:** `GameScreen` (King), Durak, Deberc, Tarneeb,
+  Preferans, FiftyOne (was `menuSlot`), Poker — each takes `socialSlot?: ReactNode` and
+  renders it after the public table, before the hand/actions. No screen imports RoomSocial.
+  King travels via **`GameContext.socialSlot`** (GameRouter → `<GameScreen socialSlot/>`;
+  the six short review screens get it appended in flow). `LocalGame` gets nothing.
+- **Trade-off, deliberate:** on a tall board the hand ends up below the fold with the chat
+  open — reachable by scrolling, which the owner's spec explicitly allows. A desktop grid
+  sidecar was rejected (no proven free column in any of the seven screens; per-game
+  sidecars would recreate the 38.0.13 divergence).
+- **Gate `layout:social` = 195 checks**: PHASE A the isolated harness (now one in-flow
+  layout, no variant matrix), PHASE B all SEVEN real branches. Per game it asserts no
+  backdrop / no aria-modal / no scroll lock / no out-of-flow position / no intersection
+  with any gameplay zone / no swallowed `elementFromPoint` / no page overflow, at
+  360/390/768/1366 LTR+RTL; for Durak/51/Poker it scrolls a LEGAL control into view, clicks
+  it with real mouse input and asserts the game callback fired exactly once, the chat
+  survived the move AND a simulated STATE_UPDATE, and the timer advanced.
+  **Gotcha:** `CDP.click` must `scrollIntoView` first — with an in-flow cluster a control
+  can sit below the fold and a click at off-screen coordinates silently misses (this is
+  what made Deberc's picker look "not open").
+- Tests: `roomSocialUnified.test.ts` rewritten for 38.0.14 (25); `roomSocialSheet.test.ts`
+  DELETED (the variant is gone); `pokerSocialDock.test.ts`, `permanentLeaveUi.test.ts`,
+  `mobileSafeArea.test.ts`, `stage297Fixes.test.ts`, `roomSocialWiring.test.ts`,
+  `actionLog.test.ts`, `fiftyOneMobileLayout.test.ts`, `fiftyOneStage3809.test.ts` updated.
+
 ### Stage 38.0.13 — ONE chat dialog + focus-based emoji (COMPLETE, Unreleased)
+> **Corrected by Stage 38.0.14 (above):** one canonical chat was right; making it a modal
+> was not — it blocked the live game.
 - Worked from HEAD `75a3b6d`. **CORRECTS Stage 38.0.12's claim that identical chat FUNCTION
   meant an identical chat.** It did not: 38.0.12 shared the chat's inner parts (`chatPanel`)
   but left `variant` choosing the whole SHELL, so the seven games still opened visibly and

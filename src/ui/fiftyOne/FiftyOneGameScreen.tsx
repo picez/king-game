@@ -28,15 +28,16 @@ interface Props {
    */
   online?: boolean;
   /**
-   * ONE compact, game-agnostic launcher rendered in the TOP BAR (Stage 38.0.5.1).
+   * Generic room-social node (Stage 38.0.14) — the online control row plus, when it is
+   * open, the chat panel.
    *
-   * 38.0.4 docked the whole social toolbar in normal flow between the melds and the
-   * prompt. That fixed the overlap but cost a full band of a phone screen and read as
-   * clutter, so the toolbar is gone: online play now passes a single launcher (with its
-   * unread badge) that opens a modal sheet. Collapsed, the gameplay column has NO social
-   * row at all. LOCAL play passes nothing and is byte-identical to before.
+   * 38.0.5.1 put a launcher in the TOP BAR and opened a modal sheet; 38.0.13 made that a
+   * centred modal dialog. Both covered the melds and the action row, and the modal froze
+   * the page, so the player could not act while the chat was open. It is now an ordinary
+   * in-flow block between the public melds and the prompt/actions: opening it takes
+   * layout space and nothing else. LOCAL play passes nothing.
    */
-  menuSlot?: ReactNode;
+  socialSlot?: ReactNode;
   /** Optional compact turn timer, also a top-bar element. Null/undefined = timer off. */
   timerSlot?: ReactNode;
 }
@@ -101,7 +102,7 @@ function MeldCard({ card, represents }: { card: FiftyOneCard; represents?: { sui
   );
 }
 
-export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false, menuSlot, timerSlot }: Props) {
+export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, online = false, socialSlot, timerSlot }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -377,7 +378,6 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         {/* (38.0.5.1) Compact timer + the single social launcher live HERE, so the
             gameplay column below stays free of any social row while collapsed. */}
         {timerSlot && <span className="fiftyone-topbar__timer">{timerSlot}</span>}
-        {menuSlot && <span className="fiftyone-topbar__menu">{menuSlot}</span>}
       </div>
 
       {/* Scoreboard: per-seat running penalty + state badges. */}
@@ -493,6 +493,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           );
         })}
       </div>
+
+      {/* Room social (Stage 38.0.14): in flow, between the public melds and the prompt —
+          it never covers the melds, the prompt, the actions or the hand. */}
+      {socialSlot}
 
       <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
         <span>{prompt}</span>

@@ -13,15 +13,20 @@ import ModeSelectionScreen from './ModeSelectionScreen';
  * — they only read `state` and call `dispatch` from GameContext.
  */
 export default function GameRouter() {
-  const { state } = useGame();
+  const { state, socialSlot } = useGame();
   if (!state) return null;
+  // (38.0.14) The room-social node is rendered IN NORMAL FLOW. On the playing screen it
+  // goes into that screen's own safe zone — between the table and the hand — so opening
+  // the chat can never cover the cards. The other statuses are short review screens with
+  // no hand to protect, so the cluster simply follows the screen in flow. Local play
+  // passes no node and renders nothing.
   switch (state.status) {
-    case 'playing':        return <GameScreen />;
-    case 'trick_complete': return <TrickCompleteScreen />;
-    case 'round_scoring':  return <RoundScoringScreen />;
-    case 'select_trump':   return <SelectTrumpScreen />;
-    case 'kitty_exchange': return <KittyExchangeScreen />;
-    case 'mode_selection': return <ModeSelectionScreen />;
-    case 'game_finished':  return <GameFinishedScreen />;
+    case 'playing':        return <GameScreen socialSlot={socialSlot} />;
+    case 'trick_complete': return <><TrickCompleteScreen />{socialSlot}</>;
+    case 'round_scoring':  return <><RoundScoringScreen />{socialSlot}</>;
+    case 'select_trump':   return <><SelectTrumpScreen />{socialSlot}</>;
+    case 'kitty_exchange': return <><KittyExchangeScreen />{socialSlot}</>;
+    case 'mode_selection': return <><ModeSelectionScreen />{socialSlot}</>;
+    case 'game_finished':  return <><GameFinishedScreen />{socialSlot}</>;
   }
 }
