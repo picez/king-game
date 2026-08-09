@@ -239,8 +239,15 @@ export type ClientMessage =
   | { t: 'HOST_STATE'; state: GameState | null }
   /** Room-social (Stage 7): send a whitelisted emoji reaction (server cooldown). */
   | { t: 'SEND_REACTION'; emoji: string }
-  /** Room-social (Stage 7): send a chat message (server filters + rate-limits). */
-  | { t: 'SEND_CHAT'; text: string }
+  /**
+   * Room-social (Stage 7): send a chat message (server filters + rate-limits).
+   * (38.0.16) `mediaId` optionally attaches ONE whitelisted sticker to the SAME message,
+   * so a player can write a line and finish it with an animated sticker without sending
+   * two. The id is resolved against the catalog server-side exactly as `SEND_CHAT_MEDIA`
+   * does — a client still never supplies a src, a URL or markup. A message with neither
+   * text nor media is rejected.
+   */
+  | { t: 'SEND_CHAT'; text: string; mediaId?: string }
   /** Room-social (Stage 11): send a whitelisted sticker by catalog id (server
    *  resolves the id → approved media; rejects unknown ids; same chat rate limit). */
   | { t: 'SEND_CHAT_MEDIA'; mediaId: string }

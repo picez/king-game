@@ -32,7 +32,7 @@ import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
 import { LangProvider } from '../../src/i18n';
 import { GameContext } from '../../src/hooks/useGame';
-import RoomSocial, { type SocialPanel } from '../../src/ui/online/RoomSocial';
+import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from '../../src/ui/online/RoomSocial';
 import PermanentLeaveControl from '../../src/ui/online/PermanentLeaveControl';
 import GameRouter from '../../src/ui/GameRouter';
 import DurakGameScreen from '../../src/ui/durak/DurakGameScreen';
@@ -60,6 +60,7 @@ import type { PokerCard, PokerState, Rank as PokerRank, Suit as PokerSuit } from
 import type { FiftyOneCard, FiftyOneMeld, FiftyOnePlayer, FiftyOneState } from '../../src/games/fiftyOne/types';
 import type { Rank, Suit } from '../../src/models/types';
 import type { ChatMessage } from '../../src/net/messages';
+import { CHAT_MEDIA } from '../../src/net/chatMediaCatalog';
 
 type GameTag = 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans' | 'fiftyone' | 'poker';
 
@@ -82,17 +83,24 @@ const noop = () => {};
 /** Everything the gate needs to observe from outside the app. */
 declare global {
   interface Window {
-    __socialCalls?: { kind: string; value: string }[];
+    __socialCalls?: { kind: string; value: string; mediaId?: string }[];
     __gameActions?: unknown[];
     __socialGame?: string;
     __socialReady?: boolean;
     __pushState?: () => void;
+    /** (38.0.16) Append a COMBINED text+sticker message, so the shots script can photograph
+     *  the resulting bubble. The harness records sends instead of echoing them. */
+    __appendCombined?: (text: string) => void;
   }
 }
 window.__socialCalls = [];
 window.__gameActions = [];
 window.__socialGame = game;
-const record = (kind: string) => (value: string) => { window.__socialCalls!.push({ kind, value }); };
+/** (38.0.16) `chat` may now carry an attachment, so BOTH arguments are recorded — the
+ *  gate must be able to prove one combined message, not two. */
+const record = (kind: string) => (value: string, mediaId?: string) => {
+  window.__socialCalls!.push(mediaId ? { kind, value, mediaId } : { kind, value });
+};
 /** The game's OWN callback: a click that never lands here is a blocked gameplay action. */
 const recordAction = (a: unknown) => { window.__gameActions!.push(a); };
 
@@ -236,7 +244,13 @@ function Harness() {
     setPoker((s) => ({ ...s }));
   };
 
-  const chat = history(chatCount);
+  const [extra, setExtra] = useState<ChatMessage[]>([]);
+  window.__appendCombined = (text: string) => setExtra((xs) => [...xs, {
+    id: `combined-${xs.length}`, clientId: 'me', name: NAMES[0], avatar: '🙂',
+    text, createdAt: 1_700_000_100_000 + xs.length, seatIndex: 0,
+    media: { id: CHAT_MEDIA[0].id, src: CHAT_MEDIA[0].src, type: CHAT_MEDIA[0].type, label: CHAT_MEDIA[0].label },
+  } as ChatMessage]);
+  const chat = [...history(chatCount), ...extra];
   const seconds = Math.max(0, 30 - tick);
   const timerSlot = (
     <div className="turn-timer turn-timer--compact"><span className="probe-timer">0:{String(seconds).padStart(2, '0')}</span></div>
@@ -314,10 +328,24 @@ function PokerHarness({ state, panel, setPanel, common }: {
   return <PokerGameScreen state={state} mySeat={0} apply={recordAction} onExit={noop} online socialSlot={social} />;
 }
 
+/**
+ * (38.0.16) The harness mounts the PRODUCTION room layout — a stable `.game-stage` and a
+ * sibling `.social-region` — because that split is exactly what the gate measures. Mounting
+ * the screen bare would prove nothing about where a panel takes its space from.
+ */
+function Room() {
+  return (
+    <div className="room-layout">
+      <div className="game-stage"><Harness /></div>
+      <div className="social-region" id={SOCIAL_REGION_ID} />
+    </div>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LangProvider>
-      <Harness />
+      <Room />
     </LangProvider>
   </StrictMode>,
 );

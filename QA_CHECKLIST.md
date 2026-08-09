@@ -44,6 +44,24 @@ npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transf
 
 All must be green.
 
+### Browser layout gates (Stage 38.0.16)
+
+```bash
+npm run layout:social     # 501 checks — the room chat in all SEVEN games
+npm run layout:fiftyone   # 156 checks — grouped melds vs the social cluster
+npm run layout:poker      # 228 checks — pods/board/pot/controls
+npm run social-shots      # closed / open / picker / combined / sent screenshots
+```
+
+`layout:social` owns the **stage-geometry invariant**, which is the one to watch: with the
+chat closed, open, and open with the picker, the game's own elements — stage, board/felt,
+seats, deck, melds, hand and action controls — must agree to within **1 CSS px** on x, y,
+width and height, at 360 / 390 / 768 / 1366 / 1920 / 2560, LTR and Arabic RTL. Opening a
+panel may make the DOCUMENT taller. It may not make the TABLE smaller.
+
+`social-shots` is strict: a missing element is a failure and the run exits non-zero. Look at
+`1-closed` and `2-open` side by side — the game must be indistinguishable between them.
+
 > **Run heavy checks SEQUENTIALLY on this Windows dev machine.** Running
 > `test` + `build` + a `tsc` at the same time has intermittently exhausted memory
 > (VirtualAlloc / worker-fork OOM). `npm run verify` chains them one-at-a-time; a

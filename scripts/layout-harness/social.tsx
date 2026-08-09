@@ -61,12 +61,16 @@ const seeded: ReactionEvent[] = reactFrom == null ? [] : [{
 /** Every send the harness observes, so the gate can assert "exactly once". */
 declare global {
   interface Window {
-    __socialCalls?: { kind: string; value: string }[];
+    __socialCalls?: { kind: string; value: string; mediaId?: string }[];
     __socialReady?: boolean;
   }
 }
 window.__socialCalls = [];
-const record = (kind: string) => (value: string) => { window.__socialCalls!.push({ kind, value }); };
+/** (38.0.16) `chat` may carry an attachment — record BOTH arguments so the gate can prove
+ *  ONE combined message rather than a text message plus a sticker message. */
+const record = (kind: string) => (value: string, mediaId?: string) => {
+  window.__socialCalls!.push(mediaId ? { kind, value, mediaId } : { kind, value });
+};
 
 function Harness() {
   const [panel, setPanel] = useState<SocialPanel>(startPanel);

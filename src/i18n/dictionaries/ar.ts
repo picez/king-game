@@ -1119,6 +1119,8 @@ export const AR: Record<string, string> = {
   'chat.mediaPicker': 'ملصقات',
   'chat.sendMedia': 'إرسال ملصق',
   'chat.noMedia': 'لا توجد ملصقات',
+  'chat.attached': 'ملصق في هذه الرسالة',
+  'chat.removeAttachment': 'إزالة الملصق',
   'account.hint': 'اختياري. اللعب المحلي واللعب كضيف عبر الإنترنت يعملان دون تسجيل الدخول — تُحفظ إعداداتك على هذا الجهاز.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'الإحصائيات',

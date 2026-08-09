@@ -618,7 +618,7 @@ export function handleClientMessage(
 
     case 'SEND_CHAT': {
       if (!sessionRef.value) return sendError(socket, 'BAD_MESSAGE', 'Join a room first');
-      handleChat(ctx.social, socialIO, socket, sessionRef.value.room, sessionRef.value.clientId, msg.text);
+      handleChat(ctx.social, socialIO, socket, sessionRef.value.room, sessionRef.value.clientId, msg.text, msg.mediaId);
       break;
     }
 

@@ -33,7 +33,7 @@ import { bankrollRebuysLeft } from '../../games/poker/stakes';
 import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
-import RoomSocial, { type SocialPanel } from './RoomSocial';
+import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from './RoomSocial';
 import PermanentLeaveControl from './PermanentLeaveControl';
 import type { RematchUi } from './RematchControls';
 
@@ -207,6 +207,31 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     </>
   );
 
+  /**
+   * (38.0.16) THE room layout. Two regions, and only one of them is allowed to change
+   * size with the chat:
+   *   `.game-stage`   — the whole game scene. Every screen is a `min-height: 100vh` flex
+   *                     column whose board grows with `flex: 1 1 auto`, so ANY sibling
+   *                     mounted inside it is subtracted from the board. Measured at
+   *                     7105e1f: opening the chat took the Durak felt from 649.67px to
+   *                     304px at 768 and from 705.67px to 315.28px at 1920, and pushed the
+   *                     hand ~330px down. The stage is now a closed box: its contents
+   *                     never depend on whether a panel is open.
+   *   `.social-region` — where the panels land. On a wide screen it is a reserved rail
+   *                     beside the stage (reserved whether or not the chat is open, so
+   *                     opening it can never add a column and re-centre the game); below
+   *                     that width it follows the whole scene in normal flow and the page
+   *                     simply gets taller.
+   * The region is always in the DOM so `RoomSocial`'s portal has a home from the first
+   * paint, and it is EMPTY when nothing is open — an empty region has no size.
+   */
+  const roomLayout = (screen: ReactNode) => (
+    <div className="room-layout">
+      <div className="game-stage">{screen}</div>
+      <div className="social-region" id={SOCIAL_REGION_ID} />
+    </div>
+  );
+
   if (net.status === 'connecting') {
     return <CenterNote title={t('net.connecting')} sub={url} />;
   }
@@ -345,36 +370,32 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // The Durak screen itself shows the read-only table + "waiting / bot thinking /
   // offline — AI may play" when it is not this client's turn.
   if (net.room?.gameType === 'durak') {
-    return (
-      <>
-        <DurakOnlineGame
-          state={net.state as unknown as DurakState}
-          myPlayerId={net.myPlayerId}
-          dispatch={net.dispatch}
-          onExit={leaveGameToMenu}
-          rematch={rematchUi}
-          disconnectedSeats={disconnectedSeats}
-          socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
-        />
-      </>
+    return roomLayout(
+      <DurakOnlineGame
+        state={net.state as unknown as DurakState}
+        myPlayerId={net.myPlayerId}
+        dispatch={net.dispatch}
+        onExit={leaveGameToMenu}
+        rematch={rematchUi}
+        disconnectedSeats={disconnectedSeats}
+        socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
+      />,
     );
   }
 
   // Online Deberc: render the Deberc screens (NOT King's GameRouter). The server
   // drives bots + the public-screen advances (NEXT_TRICK / NEXT_HAND).
   if (net.room?.gameType === 'deberc') {
-    return (
-      <>
-        <DebercOnlineGame
-          state={net.state as unknown as DebercState}
-          myPlayerId={net.myPlayerId}
-          dispatch={net.dispatch}
-          onExit={leaveGameToMenu}
-          rematch={rematchUi}
-          disconnectedSeats={disconnectedSeats}
-          socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
-        />
-      </>
+    return roomLayout(
+      <DebercOnlineGame
+        state={net.state as unknown as DebercState}
+        myPlayerId={net.myPlayerId}
+        dispatch={net.dispatch}
+        onExit={leaveGameToMenu}
+        rematch={rematchUi}
+        disconnectedSeats={disconnectedSeats}
+        socialSlot={renderSocial(true, leaveGameToMenu, timerEl)}
+      />,
     );
   }
 
@@ -382,20 +403,18 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // GameRouter). The server drives bots + the public hand_complete advance
   // (START_NEXT_HAND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'tarneeb') {
-    return (
-      <>
-        <TarneebOnlineGame
-          state={net.state as unknown as TarneebState}
-          myPlayerId={net.myPlayerId}
-          dispatch={net.dispatch}
-          onExit={leaveGameToMenu}
-          rematch={rematchUi}
-          disconnectedSeats={disconnectedSeats}
-          socialSlot={renderSocial(true, undefined, timerEl)}
-        />
-        {/* No Leave-game pill here: Tarneeb's board ✕ already leaves the game
-            (reconnectable). Social keeps only the compact control row + timer. */}
-      </>
+    // No Leave-game pill here: Tarneeb's board ✕ already leaves the game (reconnectable).
+    // Social keeps only the compact control row + timer.
+    return roomLayout(
+      <TarneebOnlineGame
+        state={net.state as unknown as TarneebState}
+        myPlayerId={net.myPlayerId}
+        dispatch={net.dispatch}
+        onExit={leaveGameToMenu}
+        rematch={rematchUi}
+        disconnectedSeats={disconnectedSeats}
+        socialSlot={renderSocial(true, undefined, timerEl)}
+      />,
     );
   }
 
@@ -403,7 +422,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // King's GameRouter). The server drives bots + the public hand_complete advance
   // (START_NEXT_HAND); the screen is read-only when it is not this client's turn.
   if (net.room?.gameType === 'preferans') {
-    return (
+    return roomLayout(
       <>
         <PreferansOnlineGame
           state={net.state as unknown as PreferansState}
@@ -445,7 +464,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         />
       </>
     );
-    return (
+    return roomLayout(
       <FiftyOneOnlineGame
         state={net.state as unknown as FiftyOneState}
         myPlayerId={net.myPlayerId}
@@ -517,7 +536,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
         />
       </>
     );
-    return (
+    return roomLayout(
       <>
         {/* Recovery banner is owned by PokerOnlineGame (37.7.7 FAIL 3 — exactly one banner per state).
             (38.0.8) `statsEligible` / `rebuysLeft` are the ONLY public anti-dumping facts, both
@@ -551,7 +570,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   // which during an active match deleted the seat and re-numbered everyone else's.
   const exitToMenu = leaveGameToMenu;
 
-  return (
+  return roomLayout(
     <>
       <GameContext.Provider value={{
         state: net.state, dispatch: net.dispatch, online: true, onExit: exitToMenu,

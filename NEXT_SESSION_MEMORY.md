@@ -1312,6 +1312,43 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16 — stable game stage + combined text/sticker message (COMPLETE, Unreleased)
+- Worked from HEAD `7105e1f`. UI + chat transport only: no migration (latest still 0014),
+  version 0.4.8, games 7, achievements 52, libc 0, no `package.json` change.
+- **Tools, honestly:** the `frontend-design` skill WAS loaded. **Playwright is NOT installed**
+  and `npm install` is forbidden, so all browser work used the repo's own CDP harnesses
+  (real headless Chrome, real mouse input, real typing) — never SSR or a source scan.
+- **Scope A RED (60 violations)** — Durak felt closed → chat open: 649.67→304 (768),
+  393.67→304 (1366), 705.67→315.28 (1920), 1065.67→675.28 (2560); `hand.y`/`actions.y` moved
+  300–375px; 51 lost 15px of width at 1920 to a new scrollbar.
+- **Root cause (NOT a max-height):** every screen is a `min-height: 100vh` flex column whose
+  board is `flex: 1 1 auto`, and `socialSlot` was a sibling INSIDE it → the panel's height
+  came straight out of the board.
+- **Fix:** `.room-layout` = `.game-stage` + `.social-region` (`OnlineGame.roomLayout()`
+  wraps every in-room branch). The control ROW stays in the game (always rendered → constant
+  cost); the chat panel + utility panel `createPortal` into `#social-region`
+  (`SOCIAL_REGION_ID`). ≥1620px = a RESERVED 22.5rem rail (900 stage + 2×360), so opening the
+  chat never adds a column; below that the region follows the whole scene in normal flow.
+  `html { scrollbar-gutter: stable }` kills the scrollbar shift.
+- **GREEN:** all three states identical to the pixel in all 7 games × 6 viewports × LTR/RTL.
+  Gate `layout:social` = **501 checks** (was 228): `STAGE_GEO` per game + `geoDiff()` in PAGE
+  coordinates (rect + scroll — below the rail breakpoint the page really does scroll between
+  states, and a viewport-relative rect would read that as a layout change).
+- **Scope B:** `SEND_CHAT` gained an optional `mediaId`; `handleChat` resolves it via
+  `getChatMedia` and mints ONE message/id/history entry/rate-limit slot. Unknown id blocks the
+  whole message; empty+no-media is `BAD_MESSAGE`; the URL rule is unchanged (censored to
+  `[link]`, NOT blocked — a test that assumed otherwise was wrong). Composer: a sticker
+  attaches to a draft (`attachment` state, preview + remove), replaces on re-pick, and Send
+  posts one combined message; with no draft it still sends media-only. `ChatRow` renders text
+  and media in ONE bubble. Tests: `src/net/richChatMessage.test.ts` (13).
+- **Scope C:** `scripts/social-shots.mjs` rebuilt on the layout harness — strict (a missing
+  element FAILS and exits non-zero, the old one silently passed), 30 shots covering
+  closed/open/picker/combined/sent for Durak/51/Poker at 390 and 1920.
+- Contract tests updated for the new shape: `{chatPanel}` now renders twice in SOURCE (portal
+  arm + in-flow fallback — one expression, never two panels); `onMouseDown={keepFocus}` count
+  3→4 (remove-attachment); `.chat-panel {` must be matched with `/^\.chat-panel \{/m` because
+  the rail override `.social-region .chat-panel {` contains that substring.
+
 ### Stage 38.0.15 — ONE emoji set, contextual destination (COMPLETE, Unreleased)
 - Two passes. Pass 1 (`12cef31`) split the emoji into two labelled rows and the owner
   REJECTED it: two rows = every emoji twice on screen. Pass 2 (this one) is the accepted

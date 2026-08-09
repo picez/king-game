@@ -16,7 +16,9 @@ describe('room-social wiring', () => {
 
   it('OnlineGame imports + renders the RoomSocial overlay', () => {
     // Stage 38.0.3 also imports the SocialPanel type for poker's controlled panel state.
-    expect(online).toMatch(/import RoomSocial(, \{ type SocialPanel \})? from '\.\/RoomSocial'/);
+    // (38.0.16) also imports SOCIAL_REGION_ID — the id of the region the panels portal into.
+    expect(online).toMatch(/import RoomSocial(, \{[^}]*\})? from '\.\/RoomSocial'/);
+    expect(online).toContain('SOCIAL_REGION_ID');
     expect(online).toMatch(/renderSocial\s*=\s*\(/); // a single overlay factory
   });
 

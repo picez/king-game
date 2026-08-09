@@ -152,7 +152,11 @@ describe('the chat is NOT a modal and never blocks the game', () => {
 describe('ONE chat panel, one cluster, in normal flow', () => {
   it('the panel is declared once and rendered once', () => {
     expect(count(src, /const chatPanel =/g)).toBe(1);
-    expect(count(src, /\{chatPanel\}/g)).toBe(1);
+    // (38.0.16) One declaration, one RENDER — but the render has two homes: the social
+    // region when the room layout provides one, and in flow when it does not (the lobby,
+    // an isolated harness). They are the two arms of a single expression, never two panels.
+    expect(count(src, /\{chatPanel\}/g)).toBe(2);
+    expect(src).toMatch(/panelHost\s*\?\s*createPortal\(<>\{utilityPanelSlot\}\{chatPanel\}<\/>, panelHost\)/);
     expect(count(src, /const chatPicker =/g)).toBe(1);
     expect(count(src, /const chatCompose =/g)).toBe(1);
     expect(count(src, /const chatList =/g)).toBe(1);
@@ -188,7 +192,9 @@ describe('ONE chat panel, one cluster, in normal flow', () => {
   });
 
   it('the panel is bounded and safe-area aware, so the hand stays one scroll away', () => {
-    const rule = css.slice(css.indexOf('.chat-panel {'));
+    // Anchor on the STANDALONE rule: `.social-region .chat-panel { … }` (the wide-screen
+    // rail override) also contains the substring `.chat-panel {`.
+    const rule = css.slice(css.search(/^\.chat-panel \{/m));
     const body = rule.slice(0, rule.indexOf('}'));
     expect(body).toMatch(/max-height: min\(46vh, 24rem\)/);
     expect(body).toContain('width: 100%');
@@ -313,14 +319,18 @@ describe('(38.0.15 corrective) ONE emoji set, contextual destination', () => {
 
   it('no picker control steals focus — the opener included', () => {
     expect(src).toContain('const keepFocus = (e: { preventDefault: () => void }) => { e.preventDefault(); };');
-    // picker opener + the emoji button + the sticker thumb.
-    expect(count(src, /onMouseDown=\{keepFocus\}/g)).toBe(3);
+    // picker opener + the emoji button + the sticker thumb + (38.0.16) remove-attachment.
+    expect(count(src, /onMouseDown=\{keepFocus\}/g)).toBe(4);
     expect(src).toMatch(/className="btn btn--ghost btn--small chat-picker-btn"[^]*onMouseDown=\{keepFocus\}/);
     expect(src).toMatch(/if \(!isTyping\(\)\) pickerBtnRef\.current\?\.focus\(\);/);
   });
 
-  it('the sticker catalog is untouched: always chat media, never sliced', () => {
-    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*\}/);
+  it('the sticker catalog is untouched, and a sticker is still a message', () => {
+    // (38.0.16) With a draft it ATTACHES to that draft; with no draft it is still the
+    // same one-tap media-only send it always was.
+    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{/);
+    expect(fnBody('sendMedia')).toMatch(/setAttachment\(item\)/);
+    expect(fnBody('sendMedia')).toMatch(/onChatMedia\(item\.id\)/);
     expect(src).toContain('CHAT_MEDIA.map((item)');
     expect(src).not.toMatch(/CHAT_MEDIA\.(slice|filter|sort)/);
   });

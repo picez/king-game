@@ -371,6 +371,7 @@ const STATE = `JSON.stringify((() => {
     chatOpen: !!listNode(),
     pickerOpen: !!q('.chat-picker'),
     calls: window.__socialCalls || [],
+    attached: !!document.querySelector('.chat-attach'),
     emojiButtons: document.querySelectorAll('.chat-picker .reaction-bar__btn').length,
     uniqueEmoji: new Set([...document.querySelectorAll('.chat-picker .reaction-bar__btn')]
       .map((b) => (b.textContent || '').trim())).size,
@@ -382,6 +383,8 @@ const VIEWPORTS = [
   { tag: '390', w: 390, h: 844, mobile: true },
   { tag: '768', w: 768, h: 1024, mobile: true },
   { tag: '1366', w: 1366, h: 900, mobile: false },
+  { tag: '1920', w: 1920, h: 1080, mobile: false },
+  { tag: '2560', w: 2560, h: 1440, mobile: false },
 ];
 
 // (38.0.14) There are no layout variants left — one in-flow cluster serves every game.
@@ -403,6 +406,58 @@ const GAMES = [
   { tag: 'poker', q: 'game=poker&seats=4', action: '.poker-actions__primary button' },
 ];
 
+/**
+ * (38.0.16) The elements whose geometry may NOT change when a panel opens. Per game,
+ * because "the table" is a different element in each — but the RULE is the same one:
+ * closed, open and picker-open must agree to within 1px on x/y/width/height.
+ */
+const STAGE_GEO = {
+  king: { stage: '.game-stage', board: '.game-body', hand: '.game-footer' },
+  durak: { stage: '.game-stage', board: '.durak-board', felt: '.durak-board__felt',
+           seat: '.durak-seat', deck: '.durak-deck', hand: '.hand-reorder-wrap', actions: '.durak-controls' },
+  deberc: { stage: '.game-stage', board: '.durak-board', hand: '.hand-reorder-wrap' },
+  tarneeb: { stage: '.game-stage', board: '.tarneeb-board', hand: '.hand-reorder-wrap' },
+  preferans: { stage: '.game-stage', board: '.preferans-board', hand: '.hand-reorder-wrap' },
+  fiftyone: { stage: '.game-stage', board: '.fiftyone-piles', melds: '.fiftyone-melds',
+              hand: '.hand-reorder-wrap', actions: '.fiftyone-actions' },
+  poker: { stage: '.game-stage', board: '.poker-table', hand: '.poker-hero__cards', actions: '.poker-actions' },
+};
+
+/**
+ * Geometry in PAGE coordinates (rect + scroll), never viewport ones: below the rail
+ * breakpoint the chat opens AFTER the scene, so the page can legitimately be scrolled
+ * between states and a viewport-relative rect would report that scroll as a layout change.
+ */
+const geoProbe = (sels) => `JSON.stringify((() => {
+  const out = {};
+  for (const [k, sel] of ${JSON.stringify(Object.entries(sels))}) {
+    const el = document.querySelector(sel);
+    if (!el) { out[k] = null; continue; }
+    const r = el.getBoundingClientRect();
+    out[k] = { x: +(r.left + scrollX).toFixed(2), y: +(r.top + scrollY).toFixed(2),
+               w: +r.width.toFixed(2), h: +r.height.toFixed(2) };
+  }
+  out.__overflowX = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
+  return out;
+})())`;
+
+/** closed vs open vs picker-open: the same element, to within 1 CSS px, on all four axes. */
+function geoDiff(closed, other, label) {
+  const bad = [];
+  for (const key of Object.keys(closed)) {
+    if (key.startsWith('__')) continue;
+    const a = closed[key], b = other[key];
+    if (!a) continue;
+    if (!b) { bad.push(`${key} disappeared when ${label}`); continue; }
+    for (const axis of ['w', 'h', 'x', 'y']) {
+      const d = +(b[axis] - a[axis]).toFixed(2);
+      if (Math.abs(d) > 1) bad.push(`${key}.${axis} moved ${d}px when ${label} (${a[axis]} → ${b[axis]})`);
+    }
+  }
+  if (other.__overflowX) bad.push(`horizontal overflow when ${label}`);
+  return bad;
+}
+
 /** Everything a player must be able to see and press while the chat is open. */
 const GAMEPLAY_ZONES = [
   '.game-body', '.game-footer', '.durak-board', '.durak-controls', '.deberc-firstdealer',
@@ -421,6 +476,7 @@ function scenarios() {
     { name: 'opened-while-typing', q: 'panel=chat', picker: true, act: 'opened-while-typing' },
     { name: 'focus-switch', q: 'panel=chat', picker: true, act: 'focus-switch' },
     { name: 'sticker', q: 'panel=chat', picker: true, act: 'sticker' },
+    { name: 'combined', q: 'panel=chat', picker: true, act: 'combined' },
     { name: 'rtl-picker', q: 'panel=chat&dir=rtl&lang=ar', picker: true },
     { name: 'utility', q: 'panel=utility&util=1' },
     { name: 'reaction-anchor', q: 'panel=none&react=1&seat=0&seats=4', anchor: 'reaction-anchor--left' },
@@ -644,16 +700,45 @@ async function runBehaviour(cdp, act, label) {
   }
 
   if (act === 'sticker') {
-    // A sticker is chat media whatever the focus is — and it never closes anything.
-    if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
-    await cdp.type('hi');
+    // (38.0.16) With NO draft a sticker is still a one-tap message of its own.
     if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
     if (!await cdp.click(STICKER)) bad.push('cannot click a sticker');
     const after = await state();
     const media = after.calls.filter((c) => c.kind === 'media');
     if (media.length !== 1) bad.push(`sticker fired ${media.length}x`);
     if (after.calls.some((c) => c.kind === 'react')) bad.push('a sticker also sent a table reaction');
-    if (after.text !== 'hi') bad.push(`a sticker changed the draft ("${after.text}")`);
+    if (after.text !== '') bad.push(`a sticker wrote into the draft ("${after.text}")`);
+    if (after.attached) bad.push('a sticker attached itself to an empty draft instead of sending');
+  }
+
+  if (act === 'combined') {
+    // (38.0.16) THE new case: a typed line PLUS an animated sticker, sent as ONE message.
+    if (!await cdp.click('.chat-input')) bad.push('cannot click the input');
+    await cdp.type('hi');
+    if (!await cdp.click('.chat-picker-btn')) bad.push('cannot click the picker button');
+    if (!await cdp.click(STICKER)) bad.push('cannot click a sticker');
+    const attached = await state();
+    if (attached.calls.length !== 0) bad.push(`attaching SENT something (${JSON.stringify(attached.calls)})`);
+    if (!attached.attached) bad.push('no attachment preview appeared');
+    if (attached.text !== 'hi') bad.push(`attaching changed the draft ("${attached.text}")`);
+    // A second sticker REPLACES the first — it never posts anything.
+    const thumbs = await cdp.json(`document.querySelectorAll('${STICKER}').length`);
+    if (thumbs > 1) {
+      if (!await cdp.click(`${STICKER}:nth-of-type(2)`)) bad.push('cannot click a second sticker');
+      const replaced = await state();
+      if (replaced.calls.length !== 0) bad.push('replacing the sticker SENT something');
+      if (!replaced.attached) bad.push('replacing the sticker dropped the attachment');
+    }
+    // One Send → exactly ONE chat call carrying BOTH halves; both are then cleared.
+    if (!await cdp.click(SEND)) bad.push('cannot press Send');
+    const sent = await state();
+    const chats = sent.calls.filter((c) => c.kind === 'chat');
+    if (chats.length !== 1) bad.push(`Send produced ${chats.length} chat messages, expected 1`);
+    if (sent.calls.some((c) => c.kind === 'media')) bad.push('Send ALSO posted a separate media message');
+    if (chats[0] && chats[0].value !== 'hi') bad.push(`the text half is "${chats[0].value}"`);
+    if (chats[0] && !chats[0].mediaId) bad.push('the message carried no attachment');
+    if (sent.text !== '') bad.push(`Send left "${sent.text}" in the field`);
+    if (sent.attached) bad.push('Send left the attachment behind');
   }
 
   if (act) {
@@ -761,6 +846,11 @@ async function main() {
           const ok = await load(cdp, `${GAMES_BASE}?${g.q}${dirQ}&chat=8`, '#root > *');
           if (ok === null) { failures.push(`${label}: NOTHING rendered`); continue; }
 
+          // (38.0.16) The stage BEFORE anything is opened — the reference every later
+          // state is compared against.
+          const geoSels = STAGE_GEO[g.tag];
+          const geoClosed = JSON.parse(await cdp.evaluate(geoProbe(geoSels)));
+
           // Open the chat through the game's OWN launcher — the production path.
           const launcher = '.room-social__bar .social-fab, .social-menu__launcher, .social-controls__row .social-fab';
           const opened = await cdp.evaluate(`(() => {
@@ -771,8 +861,16 @@ async function main() {
           })()`);
           if (opened !== true) { failures.push(`${label}: expected exactly one 💬 launcher, found ${opened}`); continue; }
           await cdp.evaluate(SETTLE);
+          const geoOpen = JSON.parse(await cdp.evaluate(geoProbe(geoSels)));
           if (!await cdp.click('.chat-picker-btn')) failures.push(`${label}: cannot open the picker`);
           await cdp.evaluate(SETTLE);
+          const geoPicker = JSON.parse(await cdp.evaluate(geoProbe(geoSels)));
+
+          // THE Stage 38.0.16 invariant: opening a panel may make the DOCUMENT taller, and
+          // nothing else. The game's own geometry is the same in all three states.
+          for (const v of geoDiff(geoClosed, geoOpen, 'the chat opened')) failures.push(`${label}: ${v}`);
+          for (const v of geoDiff(geoClosed, geoPicker, 'the picker opened')) failures.push(`${label}: ${v}`);
+          checks += 2;
 
           const res = JSON.parse(await cdp.evaluate(PROBE));
           checks++;
@@ -840,7 +938,7 @@ async function main() {
           // reports from — and the two branch-deciding cases run at 360 and in Arabic RTL,
           // where the picker wraps differently. Nothing is capped silently: the reduced set
           // is named in the log line below.
-          const FULL = ['typing-caret', 'blurred-draft', 'blurred-empty', 'opened-while-typing', 'focus-switch', 'sticker'];
+          const FULL = ['typing-caret', 'blurred-draft', 'blurred-empty', 'opened-while-typing', 'focus-switch', 'sticker', 'combined'];
           const CORE = ['typing-caret', 'blurred-draft'];
           const acts = ['360', '390'].includes(vp.tag) && g.action
             ? (vp.tag === '390' && dirTag === 'ltr' ? FULL : CORE)

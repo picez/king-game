@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n';
 import { REACTIONS, MAX_CHAT_LEN } from '../../net/chatFilter';
 import { CHAT_MEDIA, type ChatMediaItem } from '../../net/chatMediaCatalog';
@@ -11,7 +12,8 @@ interface Props {
   chat: ChatMessage[];
   myClientId: string | null;
   onReact: (emoji: string) => void;
-  onChat: (text: string) => void;
+  /** (38.0.16) `mediaId` attaches ONE whitelisted sticker to the SAME message. */
+  onChat: (text: string, mediaId?: string) => void;
   /** Send a whitelisted sticker by catalog id (server validates + rate-limits). */
   onChatMedia: (mediaId: string) => void;
   notice: SocialNotice | null;
@@ -64,6 +66,16 @@ interface Props {
  * behind the composer's picker, in every game and every layout variant.
  */
 export type SocialPanel = 'none' | 'chat' | 'utility';
+
+/**
+ * (38.0.16) The DOM id of the auxiliary social region — the ONE place a panel may take
+ * layout space. `OnlineGame` renders it as a sibling of `.game-stage`, never inside it,
+ * because every game screen is a `min-height: 100vh` flex column whose board grows with
+ * `flex: 1 1 auto`: a panel mounted in THAT column is subtracted from the board. Measured
+ * at 7105e1f, opening the chat cost the Durak felt 649.67px → 304px at 768 and
+ * 705.67px → 315.28px at 1920, and pushed the hand down by ~330px.
+ */
+export const SOCIAL_REGION_ID = 'social-region';
 
 const REACTION_TTL_MS = 2600;
 
@@ -145,8 +157,22 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     setPickerOpen(false);
     if (!isTyping()) pickerBtnRef.current?.focus();
   };
+  /**
+   * (38.0.16) Where the PANELS render. The control row stays in the game — it is always
+   * present, so it costs the same space open or closed — while the chat and the caller's
+   * utility panel move to the social region, which is not in the stage's sizing context.
+   * One component, one state: a portal moves the DOM, not the React tree. When no region
+   * exists (the lobby, an isolated harness) they render in place, exactly as before.
+   */
+  const [panelHost, setPanelHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    setPanelHost(document.getElementById(SOCIAL_REGION_ID));
+  }, [panel]);
   const [lightbox, setLightbox] = useState<ChatMedia | null>(null);
   const [text, setText] = useState('');
+  /** (38.0.16) The ONE sticker riding along with this draft, if any. */
+  const [attachment, setAttachment] = useState<ChatMediaItem | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [seen, setSeen] = useState(0);
   const [floats, setFloats] = useState<FloatSticker[]>([]);
@@ -254,10 +280,23 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     if (typing) insertEmoji(emoji); else react(emoji);
   }
   /**
-   * A sticker/GIF is ALWAYS chat media — it is a message, not a character, so there is
-   * nothing to insert. Sent once; the chat and the picker stay open.
+   * (38.0.16) A sticker is a message, not a character — it cannot be typed into a plain
+   * `<input>`. So it ATTACHES to the draft instead, whenever there is a draft to attach it
+   * to: the field is active, or something is already written. The player keeps typing and
+   * one Send posts ONE message carrying both. Picking another sticker replaces this one —
+   * it never posts anything on its own (MVP: one attachment per message).
+   *
+   * With no draft and no caret there is nothing to combine with, so the old one-tap
+   * media-only message stands: exactly one send, nothing to confirm.
    */
   function sendMedia(item: ChatMediaItem) {
+    if (intentRef.current ?? (isTyping() || text.trim().length > 0)) {
+      intentRef.current = null;
+      setAttachment(item);
+      inputRef.current?.focus();
+      return;
+    }
+    intentRef.current = null;
     onChatMedia(item.id);
   }
   /**
@@ -283,11 +322,17 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     if (typeof window !== 'undefined' && !window.confirm(t('online.leaveGameConfirm'))) return;
     onLeaveGame?.();
   }
+  /**
+   * ONE submit → ONE message. Text, a sticker, or both: `onChat` is called exactly once,
+   * so the server mints one id, one history entry and one rate-limit event. An empty draft
+   * with no attachment sends nothing at all.
+   */
   function submitChat() {
     const v = text.trim();
-    if (!v) return;
-    onChat(v);
+    if (!v && !attachment) return;
+    onChat(v, attachment?.id);
     setText('');
+    setAttachment(null);
   }
 
   const noticeText = notice
@@ -317,6 +362,21 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     </div>
   );
 
+  /**
+   * The attached sticker, shown as it will actually arrive — animated, at message size —
+   * with one control to take it off again. It sits above the field so it never competes
+   * with the caret for the row's width on a 360px phone.
+   */
+  const attachmentRow = attachment ? (
+    <div className="chat-attach" role="group" aria-label={t('chat.attached')}>
+      <img className="chat-attach__img" src={attachment.src} alt={attachment.label} decoding="async" />
+      <span className="chat-attach__label">{t('chat.attached')}</span>
+      <button type="button" className="chat-attach__remove" onMouseDown={keepFocus}
+        onClick={() => { setAttachment(null); inputRef.current?.focus(); }}
+        aria-label={t('chat.removeAttachment')} title={t('chat.removeAttachment')}>✕</button>
+    </div>
+  ) : null;
+
   const chatCompose = (
     <form className="chat-panel__compose" onSubmit={(e) => { e.preventDefault(); submitChat(); }}>
       {/* ONE picker control, next to the field, in every variant — and it does not take
@@ -327,7 +387,8 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         onClick={() => (pickerOpen ? closePicker() : setPickerOpen(true))}>😀</button>
       <input ref={inputRef} className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
         onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
-      <button type="submit" className="btn btn--primary btn--small" disabled={!text.trim()}>{t('chat.send')}</button>
+      <button type="submit" className="btn btn--primary btn--small"
+        disabled={!text.trim() && !attachment}>{t('chat.send')}</button>
     </form>
   );
 
@@ -371,6 +432,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         <button type="button" className="chat-panel__close" onClick={closeChat} aria-label={t('btn.back')}>✕</button>
       </div>
       {chatList}
+      {attachmentRow}
       {chatCompose}
       {chatPicker}
     </section>
@@ -403,12 +465,12 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
 
       {noticeText && <div className={`social-toast ${handVisible ? 'social-toast--raised' : ''}`} role="status">{noticeText}</div>}
 
-      {/* (38.0.14) EVERYTHING interactive lives here, in NORMAL FLOW, inside the safe zone
-          the game gave this component: one compact control row, the caller's utility panel
-          and — when it is open — the chat. Nothing is fixed, nothing is absolute, nothing
-          covers the table, the melds, the hand or the action bar. Opening the chat costs
-          layout space, which the game's own flex column absorbs. */}
-      <div className={`room-social ${chatOpen ? 'room-social--open' : ''}`}>
+      {/* (38.0.14, resized in 38.0.16) The control row lives IN NORMAL FLOW inside the game,
+          in the safe zone the screen gave it: timer, utility control, voice, 💬, leave, the
+          destructive action. Nothing is fixed, nothing is absolute, nothing covers the table,
+          the melds, the hand or the action bar — and, because the row is always rendered, it
+          costs the game exactly the same space whether the chat is open or shut. */}
+      <div className="room-social">
         <div className="room-social__bar">
           {/* Per-turn timer (Stage 29.7) rides with the controls, never over the table. */}
           {timerSlot}
@@ -430,10 +492,15 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
           {/* (38.0.5) The destructive permanent-leave control — same row, every game. */}
           {dangerSlot}
         </div>
-        {/* The caller's own panel (Poker's action log): a normal-flow sibling too. */}
-        {utilityPanelSlot}
-        {chatPanel}
       </div>
+
+      {/* (38.0.16) The PANELS — the only parts whose size depends on state — render in the
+          social region, a sibling of `.game-stage`. In the stage's own column they were
+          subtracted from the board. Without a region (lobby, isolated harness) they render
+          here, in flow, exactly as in 38.0.14. */}
+      {panelHost
+        ? createPortal(<>{utilityPanelSlot}{chatPanel}</>, panelHost)
+        : <div className="room-social room-social--inline">{utilityPanelSlot}{chatPanel}</div>}
 
       {/* Lightbox: larger preview of a tapped sticker (click/Escape closes). */}
       {lightbox && (
@@ -452,14 +519,16 @@ function ChatRow({ m, mine, onOpenMedia }: { m: ChatMessage; mine: boolean; onOp
       <span className="chat-msg__av" aria-hidden="true">{m.avatar}</span>
       <span className="chat-msg__body">
         <span className="chat-msg__name">{m.name}</span>
+        {/* (38.0.16) ONE bubble carries whatever the message has. Text-only and media-only
+            entries — including every one already in history — render exactly as before;
+            a combined message simply shows both, in the order they were written. */}
+        {m.text ? <span className="chat-msg__text">{m.text}</span> : null}
         {m.media ? (
           <button type="button" className="chat-msg__media" onClick={() => onOpenMedia(m.media!)}
             aria-label={m.media.label}>
             <img src={m.media.src} alt={m.media.label} loading="lazy" decoding="async" />
           </button>
-        ) : (
-          <span className="chat-msg__text">{m.text}</span>
-        )}
+        ) : null}
       </span>
     </div>
   );

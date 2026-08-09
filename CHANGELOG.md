@@ -11,6 +11,32 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **The table no longer shrinks when you open the chat (Stage 38.0.16).** Opening the chat
+  used to take its space out of the game: in Durak the felt fell from 650px to 304px on a
+  tablet and from 706px to 315px on a 1920 desktop — less than half the table — and opening
+  the sticker picker took more still. The hand and the action buttons jumped ~330px down
+  the page, and on a wide screen the board also lost 15px sideways the moment a scrollbar
+  appeared.
+  The game and the chat are now two separate regions. Whatever you open, the table, the
+  seats, the deck, the melds, your hand and the action buttons stay exactly where they
+  were, to the pixel — measured in all seven games at 360, 390, 768, 1366, 1920 and 2560,
+  in Arabic too. On a wide screen the chat sits in a rail beside the game, and the rail's
+  space is reserved whether it is open or not, so opening it never nudges the table. On
+  narrower screens the chat follows the whole game scene: the page gets taller and you
+  scroll to it, exactly as before, but nothing is taken away from the table.
+
+### Added
+
+- **Send a line and an animated sticker as one message (Stage 38.0.16).** You could send
+  text, or a sticker, but never both: tapping a sticker mid-sentence posted it on its own
+  and left your typing behind.
+  Now, while you are writing, a sticker **attaches** to what you are writing. A small
+  preview appears above the message box with an ✕ to take it off, you carry on typing, and
+  Send posts **one** message with your words and the animated sticker in the same bubble.
+  Picking another sticker swaps it rather than sending anything; one sticker per message.
+  With nothing typed, tapping a sticker still sends it straight away, as it always did, and
+  old messages in the history look exactly as they did before.
+
 - **One set of emoji in the chat picker (Stage 38.0.15).** An interim build split them into
   two labelled rows — "Into your message" and "On the table" — which simply showed every
   emoji twice: measured in the real Durak, Syrian 51 and Poker tables at 360 and 390, in

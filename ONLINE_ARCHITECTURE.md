@@ -1347,6 +1347,73 @@ correct for a chat that runs beside a live, server-timed game.
   gameplay zone, no swallowed taps, and no page-width overflow — at 360/390/768/1366, LTR
   and Arabic RTL.
 
+### Stage 38.0.16 — a stage that never moves, and one message that carries both
+
+**The RED, measured — not described.** Three owner screenshots (Durak with no chat, with the
+chat, with the picker) said the table shrank. It did. On the real branches, comparing the
+same viewport in all three states:
+
+| viewport | Durak felt closed | chat open | picker open |
+|---|---|---|---|
+| 768 | 649.67px | 304px | 304px |
+| 1366 | 393.67px | 304px | 304px |
+| 1920 | 705.67px | 315.28px | 315.28px |
+| 2560 | 1065.67px | 675.28px | 675.28px |
+
+…plus `hand.y` and `actions.y` moving 300–375px down, and the 51 board losing 15px of width
+at 1920 the moment the taller document grew a scrollbar. **60 violations** in total.
+
+**Root cause.** Not a `max-height` to tune. Every game screen is a `min-height: 100vh` flex
+column whose board grows with `flex: 1 1 auto`, and `socialSlot` was mounted as a sibling
+INSIDE that column — so the chat's height was subtracted from the board by construction, and
+the picker took more. The chat was in the very container the game's size is computed from.
+
+**The architecture now.**
+
+- **`.room-layout` = `.game-stage` + `.social-region`.** `OnlineGame` wraps every in-room
+  branch. The stage holds the whole scene; the region is a SIBLING and is where panels land.
+- **The bar stays, the panels move.** `RoomSocial` still renders its control row (timer,
+  utility control, voice, 💬, leave, danger) inside the game — it is always present, so it
+  costs the same space in every state. The chat panel and the caller's utility panel render
+  through `createPortal` into `#social-region`. One component, one state, DOM elsewhere. With
+  no region in the tree (lobby, isolated harness) they render in place, as in 38.0.14.
+- **Wide desktop (≥1620px): a reserved rail.** `grid-template-columns: minmax(0,1fr) 22.5rem`
+  — reserved whether or not the chat is open, so opening it cannot add a column, re-centre
+  the game or reflow a card. The threshold is 900px of stage + 2 × 360px of rail: the rail
+  exists only where it fits beside the game instead of squeezing it.
+- **Below that: normal flow after the scene.** The region follows the whole game scene, the
+  document gets taller, and the player scrolls — the chat is never inserted between the table
+  and the hand.
+- **`scrollbar-gutter: stable`** on `html`, so the 15px a growing document used to steal is
+  reserved in every state instead.
+- **Nothing regressed from 38.0.14**: no backdrop, no `aria-modal`, no scroll lock, no fixed
+  overlay; a legal action still reaches the game exactly once with the chat open and the
+  timer keeps advancing.
+
+**The gate.** `npm run layout:social` = **501 checks**. The invariant is per game
+(`STAGE_GEO`) and compares closed → open → picker-open in PAGE coordinates (rect + scroll,
+because below the rail breakpoint the page legitimately scrolls between states): stage,
+board/felt, seats, deck, melds, hand and actions must agree within **1px** on x/y/w/h, at
+360/390/768/1366/1920/2560, LTR and Arabic RTL, in all SEVEN games.
+
+**Rich chat message (Scope B).** `ChatMessage` always allowed `text` + `media`; no transport
+could produce both — `SEND_CHAT` carried text alone and `SEND_CHAT_MEDIA` hard-coded
+`text: ''`. `SEND_CHAT` now takes an optional `mediaId`, and `handleChat` resolves it against
+the SAME catalog whitelist (`getChatMedia`) before accepting anything:
+
+- one combined submit → ONE broadcast, ONE id, ONE history entry, ONE rate-limit slot;
+- an unknown id blocks the WHOLE message (the text is not posted without its sticker);
+- a message with neither text nor media is refused (`BAD_MESSAGE`);
+- the text half still goes through `filterChat` + `MAX_CHAT_LEN`; the URL rule is unchanged
+  (a link is censored to `[link]`, not blocked) and the sticker rides along;
+- no client-supplied src/url/HTML/blob/base64 is ever honoured; no DB migration — chat is
+  still room-social memory, and history keeps the combined shape across reconnect.
+
+In the composer, a sticker tapped while there is a draft ATTACHES to it (compact animated
+preview + a remove control); another sticker replaces it; Send posts one message and clears
+both halves. With no draft, one tap still sends a media-only message. Unicode emoji are
+untouched by all of this — they remain the 38.0.15 single set.
+
 ### Stage 38.0.15 — ONE emoji set, and the press decides where it goes
 
 Two passes. The first split the emoji into two labelled rows («into your message» / «on the

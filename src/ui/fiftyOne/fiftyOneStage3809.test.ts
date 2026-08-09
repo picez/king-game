@@ -27,9 +27,12 @@ describe('FAIL A — a reaction must not close the sheet', () => {
 
   it('no send path closes anything, in any variant (38.0.12 unified this)', () => {
     expect(src).toMatch(/function react\(emoji: string\) \{\s*onReact\(emoji\);\s*\}/);
-    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{\s*onChatMedia\(item\.id\);\s*\}/);
+    // (38.0.16) A sticker now ATTACHES to a draft when there is one, and is still a
+    // one-tap message when there is not — neither path closes anything.
+    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{/);
+    expect(src).toMatch(/onChatMedia\(item\.id\);/);
     expect(src).not.toMatch(/onReact\(emoji\);\s*set\w+\(false\)/);
-    expect(src).not.toMatch(/onChatMedia\(item\.id\);\s*set\w+\(false\)/);
+    expect(src).not.toMatch(/onChatMedia\(item\.id\);\s*set(Picker|Panel|Chat)\w*\(false\)/);
   });
 
   it('only the deliberate gestures close it', () => {

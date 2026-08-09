@@ -91,7 +91,8 @@ export interface NetworkGame {
   /** Send a whitelisted emoji reaction (server enforces the 30s cooldown). */
   sendReaction: (emoji: string) => void;
   /** Send a chat message (server filters + rate-limits). */
-  sendChat: (text: string) => void;
+  /** (38.0.16) `mediaId` attaches ONE whitelisted sticker to the SAME message. */
+  sendChat: (text: string, mediaId?: string) => void;
   /** Send a whitelisted chat sticker by catalog id (server validates + rate-limits). */
   sendChatMedia: (mediaId: string) => void;
   /** A transient rate-limit / blocked notice for a small toast, or null. */
@@ -515,7 +516,9 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
     send(unrankedConfirmed ? { t: 'START_GAME', pokerUnrankedConfirmed: true } : { t: 'START_GAME' });
   }, [send]);
   const sendReaction = useCallback((emoji: string) => send({ t: 'SEND_REACTION', emoji }), [send]);
-  const sendChat = useCallback((text: string) => send({ t: 'SEND_CHAT', text }), [send]);
+  const sendChat = useCallback(
+    (text: string, mediaId?: string) => send(mediaId ? { t: 'SEND_CHAT', text, mediaId } : { t: 'SEND_CHAT', text }),
+    [send]);
   const sendChatMedia = useCallback((mediaId: string) => send({ t: 'SEND_CHAT_MEDIA', mediaId }), [send]);
   const sendFriendInvite = useCallback((toUserId: string) => send({ t: 'FRIEND_INVITE', toUserId }), [send]);
   const sendRematchReady = useCallback(() => send({ t: 'REMATCH_READY' }), [send]);

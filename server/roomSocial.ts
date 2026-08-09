@@ -85,7 +85,8 @@ export function handleReaction(
  * chat text (privacy; no profanity in logs).
  */
 export function handleChat(
-  store: RoomSocialStore, io: SocialIO, socket: WebSocket, room: ServerRoom, clientId: string, text: unknown,
+  store: RoomSocialStore, io: SocialIO, socket: WebSocket, room: ServerRoom, clientId: string,
+  text: unknown, mediaId?: unknown,
 ): void {
   const member = room.members.get(clientId);
   if (!member) return io.sendError(socket, 'BAD_MESSAGE', 'Not in this room');
@@ -93,12 +94,25 @@ export function handleChat(
   const now = Date.now();
   const remaining = cooldownRemainingMs(social.chatAt.get(clientId), now, CHAT_RATE_MS);
   if (remaining > 0) return io.sendError(socket, 'RATE_LIMITED', `Wait ${Math.ceil(remaining / 1000)}s`);
-  const filtered = filterChat(text);
+  // (38.0.16) An optional attachment. Resolved against the WHITELIST before anything is
+  // accepted, so an unknown id blocks the whole message rather than quietly dropping the
+  // sticker and posting the text alone.
+  const attached = mediaId === undefined || mediaId === null ? null : getChatMedia(mediaId);
+  if ((mediaId !== undefined && mediaId !== null) && !attached) {
+    return io.sendError(socket, 'MESSAGE_BLOCKED', 'Unknown media');
+  }
+  // Text may be empty ONLY when a sticker carries the message; an empty message with no
+  // attachment is nothing at all.
+  const hasText = typeof text === 'string' && text.trim().length > 0;
+  if (!hasText && !attached) return io.sendError(socket, 'BAD_MESSAGE', 'Empty message');
+  const filtered = hasText ? filterChat(text) : { ok: true as const, text: '' };
   if (!filtered.ok) return io.sendError(socket, 'MESSAGE_BLOCKED', 'Message blocked');
   social.chatAt.set(clientId, now);
   const message: ChatMessage = {
     id: io.newId(), clientId, name: member.name, avatar: member.avatar,
     text: filtered.text, seatIndex: member.seatIndex, createdAt: now,
+    // Copy the whitelisted fields explicitly — never spread client input.
+    ...(attached ? { media: { id: attached.id, src: attached.src, type: attached.type, label: attached.label } } : {}),
   };
   pushHistory(social, message);
   io.broadcastToRoom(room, { t: 'CHAT', message });
