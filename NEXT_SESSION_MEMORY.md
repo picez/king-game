@@ -1312,6 +1312,35 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16.2c — the layout gate OWNS its CDP target (COMPLETE, Unreleased)
+- Worked from HEAD `7bfee1a`. **Test infrastructure only** — no product CSS/TSX changed, no
+  sidecar. version 0.4.8, migration 0014, games 7, achievements 52, libc 0, no dep drift.
+- **Why:** the gates acquired their page with `targets.find((t) => t.type === 'page')`, which
+  creates nothing and verifies nothing. A run could measure a document it never emulated and
+  could not say which one it measured.
+- **Now:** `scripts/lib/cdp-owned-target.mjs` creates ONE page target (`PUT /json/new`),
+  keeps its `targetId`, re-applies `setDeviceMetricsOverride` before every navigation, PROVES
+  the result (`checkViewport`: requested == innerWidth/innerHeight, matchMedia agrees with
+  innerWidth, `<meta name="viewport">` present) and closes the target in `finally`.
+  `social-layout-qa.mjs` uses it (injecting its own richer CDP session class, which has the
+  real mouse/typing helpers). `npm run layout:selftest` is the new gate.
+- **HONEST LIMIT — the target race is NOT proven as the cause of the 38.0.16.2 misfire.** The
+  self-test creates a decoy page at 2560 next to an owned page at 390 and prints which target
+  the legacy rule picks; in the runs so far it happened to pick the owned one. The self-test
+  says so in its own output. What IS proven: the legacy rule cannot verify identity, and the
+  viewport/media pipeline itself is sound (see the table below). The real cause of the
+  38.0.16.2 sidecar firing at 390 remains OPEN — do not repeat "target race" as fact.
+- **Viewport facts to build thresholds on** (owned target, harness, per width):
+  360/390 → client == inner; 768 → 753; 1366 → 1351; 1440 → 1425 (mm1440 true);
+  1620 → 1605 (mm1620 true); 1920 → 1905; 2560 → 2545. So `clientWidth = innerWidth - 15`
+  wherever a scrollbar gutter exists, while media queries answer on `innerWidth`: any
+  threshold must carry >= 15px of slack or it is satisfied 15px before the space exists.
+- **Still TODO for the sidecar (38.0.16.2 scope, not started here):** worst-case footprint
+  audit (King max players/long names/full hand/reactions; Poker 6 seats/board/hero/wager/log,
+  LTR+RTL), the full-span grid composition where `.game-stage` keeps the whole layout width
+  and `.social-region` occupies a proven-empty side area, the declared capability
+  (`none` / `sidecar-compact` / `sidecar-wide`), thresholds, boundary widths and visual QA.
+
 ### Stage 38.0.16.1 — the stage spans the whole layout (CORRECTIVE, COMPLETE, Unreleased)
 - Worked from HEAD `257867e`. **CORRECTS 38.0.16's reserved rail**, which is the mistake to
   remember: making closed == open == picker is NOT the same as costing the game nothing. The

@@ -9,6 +9,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Internal
+
+- **The layout gates now prove which page they measured (Stage 38.0.16.2c).** Test tooling
+  only — nothing in the game changed. The browser gates used to attach to whichever page the
+  browser listed first, so a measurement could not be tied to the window it was taken in.
+  Each run now creates its own page, keeps it for the whole run, and re-checks after every
+  navigation that the window really is the size it asked for. `npm run layout:selftest` is
+  the new guard.
+
 ### Fixed
 
 - **The table no longer shrinks when you open the chat (Stage 38.0.16).** Opening the chat

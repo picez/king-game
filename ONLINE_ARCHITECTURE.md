@@ -1347,6 +1347,43 @@ correct for a chat that runs beside a live, server-timed game.
   gameplay zone, no swallowed taps, and no page-width overflow — at 360/390/768/1366, LTR
   and Arabic RTL.
 
+### Stage 38.0.16.2c — a gate that can name the document it measured
+
+Geometry gates are only evidence if the measurement is attributable. Every layout gate used
+to take its page with `targets.find((t) => t.type === 'page')` — a rule that creates nothing,
+checks nothing, and returns whichever page target is listed first. With more than one page
+alive it can measure a document the run never emulated, and it cannot tell you which one.
+
+`scripts/lib/cdp-owned-target.mjs` replaces that: the gate CREATES its own target
+(`PUT /json/new`), keeps the `targetId` for the whole run, re-applies
+`Emulation.setDeviceMetricsOverride` before every navigation, and then PROVES the result —
+requested == `innerWidth`/`innerHeight`, `matchMedia` agrees with `innerWidth`, the page has
+a `<meta name="viewport">` — closing the target in `finally`. Failures print
+`requested | targetId | targetUrl | innerWidth | clientWidth | mmThreshold | gridColumns`.
+`npm run layout:selftest` demonstrates it against a decoy page emulated at 2560 and drives
+390 → 2560 → 390 so a stale override cannot hide behind a previous width.
+
+**Two facts every future width threshold must respect.**
+
+| requested | innerWidth | clientWidth | mm1440 | mm1620 |
+|---|---|---|---|---|
+| 360 / 390 | 360 / 390 | 360 / 390 | false | false |
+| 768 | 768 | **753** | false | false |
+| 1366 | 1366 | **1351** | false | false |
+| 1440 | 1440 | **1425** | true | false |
+| 1620 | 1620 | **1605** | true | **true** |
+| 1920 | 1920 | **1905** | true | true |
+| 2560 | 2560 | **2545** | true | true |
+
+1. A media query answers on `innerWidth`, but the layout only ever receives `clientWidth` —
+   15px less wherever `scrollbar-gutter: stable` reserves the gutter. A threshold computed
+   from the viewport is therefore satisfied 15px *before* the space actually exists.
+2. The viewport pipeline itself is sound: at every width the emulation, `innerWidth` and
+   `matchMedia` agree. **So the 38.0.16.2 sidecar firing at 390 is NOT explained by the
+   viewport, and the target race is NOT proven to be its cause** — the self-test prints which
+   target the legacy rule picked, and so far it picked the owned one. That root cause is still
+   open, and the adaptive sidecar stays unimplemented until it is found.
+
 ### Stage 38.0.16.1 — the stage spans the whole layout, always
 
 **The correction.** Stage 38.0.16 (below) claimed a permanently reserved rail was the right

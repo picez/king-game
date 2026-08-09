@@ -47,7 +47,8 @@ All must be green.
 ### Browser layout gates (Stage 38.0.16)
 
 ```bash
-npm run layout:social     # 501 checks — the room chat in all SEVEN games
+npm run layout:selftest   # CDP target identity + viewport/media consistency (run this first)
+npm run layout:social     # 669 checks — the room chat in all SEVEN games
 npm run layout:fiftyone   # 156 checks — grouped melds vs the social cluster
 npm run layout:poker      # 228 checks — pods/board/pot/controls
 npm run social-shots      # closed / open / picker / combined / sent screenshots
@@ -68,6 +69,16 @@ Both run for all seven games at 360 / 390 / 768 / 1366 / 1920 / 2560, LTR and Ar
 Opening a panel may make the DOCUMENT taller. It may not make the TABLE smaller — ever, in
 any state. The measured scene width is printed per game/viewport (`SCENE …`) so a regression
 is visible as a number, not only as a pass/fail.
+
+`layout:selftest` (Stage 38.0.16.2c) guards the gates themselves. A geometry measurement is
+only worth something if you can say which document produced it, so the gate now CREATES its
+own page target, carries that id through the whole run, re-applies the metrics before every
+navigation and proves the result: requested == `innerWidth`, `matchMedia` agrees with
+`innerWidth`, the page has a `<meta name="viewport">`. The self-test demonstrates this
+against a decoy page emulated at 2560 and drives 390 → 2560 → 390 so a stale override cannot
+hide. It also prints `clientWidth` beside `innerWidth`: `scrollbar-gutter: stable` makes them
+differ by 15px, and a media query answers on `innerWidth` while the layout only ever gets
+`clientWidth` — any width threshold must budget for that.
 
 `social-shots` is strict: a missing element is a failure and the run exits non-zero. Look at
 `1-closed` and `2-open` side by side — the game must be indistinguishable between them.

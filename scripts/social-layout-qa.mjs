@@ -40,6 +40,7 @@ import { spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { openOwnedPage, applyViewport, checkViewport, resetScroll } from './lib/cdp-owned-target.mjs';
 
 const WebSocket = createRequire(`${process.cwd()}/package.json`)('ws');
 
@@ -748,21 +749,17 @@ async function runBehaviour(cdp, act, label) {
   return bad.map((b) => `${label}: ${b}`);
 }
 
-async function newPage(vp) {
-  const targets = await fetchJson('/json');
-  const page = targets.find((t) => t.type === 'page');
-  const cdp = new CDP(page.webSocketDebuggerUrl);
-  await cdp.open();
-  await cdp.send('Page.enable');
-  await cdp.send('Runtime.enable');
-  // A headless page has no system focus. Real mouse input still focuses fields, but
-  // emulating focus makes the page behave like a phone in the player's hand throughout.
-  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile,
-  });
-  return cdp;
-}
+/**
+ * (38.0.16.2c) The gate OWNS its page. It used to attach with
+ * `targets.find((t) => t.type === 'page')`, which creates nothing and checks nothing: with
+ * more than one page target alive it can measure a document this run never emulated, and
+ * it cannot even tell you which one it measured. Now one target is created up front, its
+ * id is carried through the whole run, the metrics are re-applied before every navigation
+ * and the resulting viewport is PROVED (`checkViewport`) — requested == innerWidth,
+ * matchMedia agrees with innerWidth, the page has a meta viewport. Proven by
+ * `npm run layout:selftest`.
+ */
+const MEDIA_THRESHOLDS = [1440, 1620];
 
 /**
  * Navigate and wait for the page to exist. (38.0.16.1) The gate now performs ~250
@@ -798,6 +795,7 @@ async function main() {
 
   const failures = [];
   let checks = 0;
+  let owned = null;
   const measured = [];
   /** viewport+dir → game → shell signature (PHASE B's equality proof). */
   const shells = new Map();
@@ -805,9 +803,11 @@ async function main() {
     await waitHttp(BASE);
     await waitDevtools();
 
+    owned = await openOwnedPage(CDP_PORT, CDP);
+    const cdp = owned.cdp;
     for (const vp of VIEWPORTS) {
-      console.log(`\n[${vp.tag} ${vp.w}x${vp.h}]`);
-      const cdp = await newPage(vp);
+      console.log(`\n[${vp.tag} ${vp.w}x${vp.h}] target ${owned.targetId}`);
+      await applyViewport(owned, vp);
 
       // ---- PHASE A: the isolated variant harness --------------------------------------
       for (const variant of VARIANTS) {
@@ -991,7 +991,7 @@ async function main() {
           }
         }
       }
-      cdp.close();
+      // The owned page survives the viewport loop; only the METRICS change.
     }
 
     // ---- PHASE B verdict: one shell, one geometry, one inner DOM --------------------
@@ -1008,6 +1008,7 @@ async function main() {
       checks++;
     }
   } finally {
+    try { if (owned) await owned.close(); } catch { /* already gone */ }
     chrome.kill();
     if (vite) vite.kill();
   }
