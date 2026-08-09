@@ -1347,12 +1347,60 @@ correct for a chat that runs beside a live, server-timed game.
   gameplay zone, no swallowed taps, and no page-width overflow — at 360/390/768/1366, LTR
   and Arabic RTL.
 
+### Stage 38.0.15 — an emoji goes where the player SAID, not where the focus was
+
+**The RED, measured — not described.** The owner reported that adding an emoji to a typed
+message sent it instead of appending it. The focused path was NOT broken: driven with real
+CDP mouse input and `Input.insertText` over the REAL branches (`social-games.html`, 390×844,
+with and without a simulated `STATE_UPDATE`), King, Durak, Fifty-One and Poker all turned
+`привіт` into `привіт👍`, sent nothing and kept focus. The defect was the CONTRACT itself:
+38.0.13 read `document.activeElement` to choose the destination, so one tap did two different
+things depending on state the player cannot see. Blur the field the way players actually do —
+scroll or tap the history, let the phone dismiss the keyboard, tap the table — and the next
+emoji flew onto the table while the typed line sat unsent. The inert hint changed with it,
+but a hint is not read mid-sentence, and "the emoji I just pressed left without my sentence"
+is not a state a player can undo.
+
+**The contract now.**
+
+- **Two labelled rows, one factory.** `emojiRow(kind, label, onPick)` builds both, so the
+  destinations can never drift apart in markup, tap size or a11y:
+  `emojiRow('message', t('chat.emojiToMessage'), insertEmoji)` and
+  `emojiRow('table', t('chat.emojiToTable'), react)`, then the sticker grid. The row a thumb
+  lands on IS the choice — there is no mode to set, nothing to remember, nothing to read back.
+  `chat-picker__mode` and `data-mode` stay banned (38.0.12's RED); `inputFocused`,
+  `focusedRef`, `setFocused`, `emojiAction` and the input's `onFocus`/`onBlur` are deleted.
+- **The message row is TEXT, always.** `insertEmoji` splices at `selectionStart/End` when the
+  field is active and **appends** otherwise — a never-focused input reports
+  `selectionStart === 0`, which would silently prepend. It calls neither `onReact` nor
+  `onChat`; the caret follows the emoji and the field regains focus.
+- **The table row is a REACTION, always.** `react` calls only `onReact` — the same Stage 7
+  protocol, anchored on the sender's **seat** via `reactionAnchorForSender`. It never touches
+  the draft, the caret or the focus, so it is now reachable mid-sentence, which the focus rule
+  made impossible.
+- **Stickers are unchanged**: always `onChatMedia`, exactly once, whatever the focus.
+- **Nothing in the picker takes focus.** `keepFocus` still cancels `mousedown` on the picker
+  button, the shared emoji row and the sticker cell (the caret must survive a tap);
+  `closePicker` pulls focus back to its button only when the input does not hold it.
+- **The gate proves both rows in both focus states.** `npm run layout:social` = 203 checks.
+  PROBE §3b asserts exactly two emoji rows, equal button counts, a non-empty
+  `pointer-events: none` label per section and 44px emoji targets. The behaviours are
+  `msg-caret` (insert at the caret, send nothing, keep focus), `msg-blurred` (the owner's
+  case: append to the draft, send nothing), `table-focused` (exactly one reaction while
+  typing, draft/caret/focus intact) and `table-blurred`, plus `sticker`.
+  **Harness gotcha:** `CDP.click` must also centre the target inside its own scrollable
+  ancestor. `scrollIntoView` alone scrolled the PAGE at 1366 and left the first sticker
+  clipped below the picker (thumb top 839 vs picker bottom 828, `scrollTop` 0), so the click
+  hit the button underneath — `sticker fired 0x`. The second emoji row is what pushed the
+  grid past the 210px cap and exposed it.
+
 ### Stage 38.0.13 — ONE chat dialog, and an emoji action decided by FOCUS
 
-> **Corrected by Stage 38.0.14.** Everything below about ONE canonical chat still holds —
-> except that making it a MODAL (backdrop, `aria-modal`, scroll lock, viewport-centred
-> `position: fixed`) broke the game underneath it. The dialog is now an in-flow
-> `chat-panel`; the focus-based emoji contract is unchanged.
+> **Corrected by Stage 38.0.14 and Stage 38.0.15.** Everything below about ONE canonical
+> chat still holds — except that making it a MODAL (backdrop, `aria-modal`, scroll lock,
+> viewport-centred `position: fixed`) broke the game underneath it, and deriving the emoji
+> destination from FOCUS made one tap mean two things. The dialog is now an in-flow
+> `chat-panel`, and the destination is two labelled rows (38.0.15 above).
 
 **The RED, measured — not described.** `npm run layout:social` now mounts the REAL online
 branches (`scripts/layout-harness/social-games.tsx`: `DurakGameScreen` + floating cluster,

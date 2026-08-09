@@ -11,6 +11,21 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **An emoji now goes where you asked it to (Stage 38.0.15).** Stage 38.0.13 (below) let
+  the chat guess: an emoji joined your message while the message box was active, and flew
+  onto the table when it was not. Nobody can see which of those is true mid-sentence. Type
+  "привіт", glance at the conversation or let the phone put the keyboard away, reach for an
+  emoji — and it was sent to the table instead of finishing your sentence, with the typed
+  text still sitting unsent in the box.
+  The picker now says it outright, in two rows:
+  - **Into your message** — the emoji is typed in, at the cursor if you are mid-line and at
+    the end otherwise, exactly as you would expect when adding one to "привіт". Nothing is
+    sent, nothing you typed is lost, and you can keep typing.
+  - **On the table (reaction)** — the emoji flies over your seat for everyone, once, and
+    your draft, your cursor and your keyboard are left alone. This works while you are
+    typing too, which the old guess made impossible.
+  Stickers are unchanged: a sticker is a message, so it is still sent straight away.
+
 - **The chat no longer takes over the game (Stage 38.0.14).** Stage 38.0.13 (below) gave
   every game the same chat window — as a pop-up over the table, and that was worse than
   the problem it solved. While it was open the whole game was dimmed behind it, the page
@@ -26,8 +41,8 @@ also reported at `GET /health/diagnostics` (`version` field).
   compact row of buttons, and Poker's action history keeps its own place.
   On a phone the panel is a full-width card with a capped height, so your hand is one
   short scroll below it; on a wide screen it is the same card, capped so it does not
-  stretch across the table. Everything else is unchanged — the emoji still follow whether
-  you are typing, stickers still send straight away.
+  stretch across the table. Everything else is unchanged — stickers still send straight
+  away, and the emoji rows work as described under Stage 38.0.15 above.
 
 ### Changed
 

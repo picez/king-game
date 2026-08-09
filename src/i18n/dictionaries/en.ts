@@ -1119,8 +1119,8 @@ export const EN: Record<string, string> = {
   'chat.mediaPicker': 'Stickers',
   'chat.sendMedia': 'Send sticker',
   'chat.noMedia': 'No stickers available',
-  'chat.emojiHintMessage': 'Emoji go into your message',
-  'chat.emojiHintTable': 'Emoji go on the table',
+  'chat.emojiToMessage': 'Into your message',
+  'chat.emojiToTable': 'On the table (reaction)',
   'account.hint': 'Optional. Local and online guest play work without signing in — your settings are saved on this device.',
   // ── stats / leaderboard (Stage 5.1) ──
   'stats.title': 'Statistics',

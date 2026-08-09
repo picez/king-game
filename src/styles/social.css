@@ -307,9 +307,13 @@
 }
 .chat-picker .reaction-bar__stickers { max-height: none; overflow: visible; border-top: none; }
 .chat-picker .reaction-bar__emojis { display: flex; flex-wrap: wrap; gap: 4px; }
-/* (38.0.13) What the next emoji tap will do, in words. INERT by design — the two mode
-   buttons it replaced ("To message" / "To table") asked the player to state an intent the
-   keyboard already states. Never a control: no cursor, no pointer events, no tab stop. */
+/* (38.0.15) One DESTINATION per section: the label names it and the row under it does it.
+   The rule above styles both rows identically — the destination is the row a thumb lands
+   on, never the emoji, so the two must never look like different kinds of control. */
+.chat-picker__section { flex: 0 0 auto; display: flex; flex-direction: column; gap: 0.3rem; }
+.chat-picker__section + .chat-picker__section { padding-top: 0.35rem; border-top: 1px solid var(--border); }
+/* The section's heading. INERT by design — it reports where that row goes; it is never
+   the control that chooses. No cursor, no pointer events, no tab stop. */
 .chat-picker__hint {
   flex: 0 0 auto; margin: 0; padding: 0 0.2rem;
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em;

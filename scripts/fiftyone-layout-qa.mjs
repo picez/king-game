@@ -429,9 +429,9 @@ function scenarios() {
     // an emoji types into the message, a sticker sends. The conversation, the composer
     // and the picker are all usable at once.
     { name: '4p-picker', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], stillOpen: true, pickerOpen: true },
-    // (38.0.13) An emoji is TEXT only while the message field is ACTIVE, so the field is
-    // focused first; blurred, the same tap would (correctly) fly to the table instead.
-    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', 'focus:.chat-input', '.reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
+    // (38.0.15) The MESSAGE row is TEXT, whatever the focus is — the field is focused here
+    // only so this case also covers the caret path. The table row is a separate row.
+    { name: '4p-emoji-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', 'focus:.chat-input', '.reaction-bar__emojis--message .reaction-bar__btn'], stillOpen: true, pickerOpen: true, typed: true },
     { name: '4p-sticker-click', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn', '.chat-media-thumb'], stillOpen: true, pickerOpen: true },
     { name: '4p-chat-media', q: `players=4&${SOCIAL}&panel=chat`, click: ['.chat-picker-btn'], pickerOpen: true },
     // (38.0.9) Meld-group compactness: the owner's screenshot shapes.
