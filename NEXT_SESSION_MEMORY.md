@@ -1312,6 +1312,38 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16.3 — adaptive sidecar for King/Poker (COMPLETE, Unreleased)
+- Worked from HEAD `c5d2d87`. Product responsive layout + QA. No game rules, no server logic,
+  no economy, no stats, no rich-chat protocol. version 0.4.8, migration 0014, games 7, ach 52.
+- **RED on c5d2d87** (`node scripts/footprint-audit.mjs`, union of every painting/interactive
+  element inside `.game-stage`, worst player count + longest names, 1366→2560, LTR+RTL):
+  King **900.00px CONSTANT** (widest `.screen`), Poker **700.81px CONSTANT** (widest
+  `.poker-slider`), both perfectly centred; free side @1920 = 502.5 / 602.1, @2560 = 822.5 /
+  922.1; **scrollY 0 → 384 on chat open at every width**.
+- **Capability, not a game list:** `src/ui/online/roomLayout.ts` declares scene width only.
+  King `sidecar-wide` (900), Poker `sidecar-compact` (704), other five `none`. RoomSocial never
+  reads it; one chat component for all 7 games.
+- **Thresholds** = scene + 2×(336 chat + 16 gap + 24 margin) + 15 gutter → **Poker 1472**,
+  **King 1668**. The gutter matters: media queries see `innerWidth`, layout gets `clientWidth`,
+  measured 15px apart at 1660/1680. `roomLayout.test.ts` fails if CSS and TS drift.
+- **The stage still spans everything.** Three tracks (free/scene/free), `.game-stage`
+  `grid-column: 1 / -1`, panel in track 3. NOT a second column — that was the 38.0.16 bug.
+  In-flow grid items, no fixed/absolute/backdrop/modal/scroll-lock/resize-listener; region
+  `pointer-events: none` + children `auto`; RTL mirrors free via grid column numbering.
+- **`layout:social` 669 → 771 checks** (PHASE C): boundary ∓16/∓1/exact for both games ×
+  LTR/RTL, plus a NEGATIVE set proving no sidecar at 360/390/768/1366 or in the five
+  full-width games at 1920/2560.
+- **Eye review changed the design:** the first build passed every number and looked like a
+  small floating card (panel capped at `24rem` ≈ 384px, picker clipped to one sticker row).
+  The sidecar now states a height (`min(46rem, 100dvh − 48px)`) and the panel fills it.
+- **Pre-existing flake, NOT from this stage:** `CdpTimeoutError` at `390 fiftyone/ltr`
+  reproduces on **clean c5d2d87**; the timing-out expressions are trivial and synchronous;
+  measured with 6.6/31 GB free (Android emulator + game running) and 0 stray QA processes;
+  the same focused case passes 3/3 on a quiet machine. Budget **20s → 45s** with that proof;
+  fail-fast unchanged. A refuted hypothesis is recorded: bounding the rAF waits was tried and
+  REVERTED — the timing-out expressions contained no frame wait.
+- Target race STILL not proven as the cause of the old mobile regression.
+
 ### Stage 38.0.16.2d — every browser gate owns its processes (COMPLETE, Unreleased)
 - Worked from HEAD `7cd54a0`. Test infrastructure only; no product CSS/TSX, no game logic, no
   protocol, no rich chat, no sidecar. version 0.4.8, migration 0014, games 7, achievements 52.

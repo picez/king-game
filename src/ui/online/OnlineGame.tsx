@@ -34,6 +34,7 @@ import type { PokerState } from '../../games/poker/types';
 import Lobby from './Lobby';
 import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from './RoomSocial';
+import { roomLayoutClass } from './roomLayout';
 import PermanentLeaveControl from './PermanentLeaveControl';
 import type { RematchUi } from './RematchControls';
 
@@ -208,8 +209,8 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   );
 
   /**
-   * (38.0.16) THE room layout. Two regions, and only one of them is allowed to change
-   * size with the chat:
+   * (38.0.16, rewritten for 38.0.16.3) THE room layout. Two regions, and the stage is never
+   * one of the things that changes:
    *   `.game-stage`   — the whole game scene. Every screen is a `min-height: 100vh` flex
    *                     column whose board grows with `flex: 1 1 auto`, so ANY sibling
    *                     mounted inside it is subtracted from the board. Measured at
@@ -217,16 +218,28 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
    *                     304px at 768 and from 705.67px to 315.28px at 1920, and pushed the
    *                     hand ~330px down. The stage is now a closed box: its contents
    *                     never depend on whether a panel is open.
-   *   `.social-region` — where the panels land. On a wide screen it is a reserved rail
-   *                     beside the stage (reserved whether or not the chat is open, so
-   *                     opening it can never add a column and re-centre the game); below
-   *                     that width it follows the whole scene in normal flow and the page
-   *                     simply gets taller.
+   *
+   *                     THE STAGE IS ALWAYS FULL-SPAN. Its width equals `.room-layout`'s in
+   *                     every chat state, at every width, sidecar or not — `layout:social`
+   *                     asserts it to 1px. There is no state in which a panel takes width
+   *                     from the game.
+   *   `.social-region` — where the panels land, and the ONLY thing whose position varies.
+   *                     By default it follows the unchanged scene in normal flow: the
+   *                     document gets taller, the game does not get smaller.
+   *
+   *                     A game may instead DECLARE how wide its scene really is
+   *                     (`roomLayoutClass` → `roomLayout.ts`). When it does, and only above
+   *                     the width where that declaration leaves symmetrical room for the
+   *                     panel on BOTH sides, the shared contract in `social.css` promotes
+   *                     the region into the side band the scene declined — measured empty,
+   *                     not assumed empty. The stage still spans every track. Below that
+   *                     width, and for the five games that use the width they are given, the
+   *                     fallback is unchanged.
    * The region is always in the DOM so `RoomSocial`'s portal has a home from the first
    * paint, and it is EMPTY when nothing is open — an empty region has no size.
    */
   const roomLayout = (screen: ReactNode) => (
-    <div className="room-layout">
+    <div className={roomLayoutClass(net.room?.gameType)}>
       <div className="game-stage">{screen}</div>
       <div className="social-region" id={SOCIAL_REGION_ID} />
     </div>

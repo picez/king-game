@@ -51,7 +51,7 @@ import {
 } from './lib/cdp-owned-target.mjs';
 import { startQaRuntime, cleanupLine, cleanupFailures } from './lib/qa-processes.mjs';
 import {
-  parseFilters, selectMatrix, summarise, emptySelectionError,
+  parseFilters, selectMatrix, summarise, emptySelectionError, phasesFor,
 } from './lib/social-gate-filters.mjs';
 
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -403,6 +403,95 @@ const GAMES = [
   { tag: 'fiftyone', q: 'game=fiftyone&seats=4', action: '.fiftyone-actions .btn' },
   { tag: 'poker', q: 'game=poker&seats=4', action: '.poker-actions__primary button' },
 ];
+
+/**
+ * (38.0.16.3) The adaptive sidecar. Thresholds and footprints are DERIVED in
+ * `src/ui/online/roomLayout.ts` and asserted against `social.css` by `roomLayout.test.ts`;
+ * they are repeated here because a .mjs gate cannot import the .ts module, and a drift
+ * between the three would fail that unit test before it could reach this gate.
+ */
+const SIDECAR_CASES = [
+  { game: 'poker', capability: 'sidecar-compact', threshold: 1472 },
+  { game: 'king', capability: 'sidecar-wide', threshold: 1668 },
+];
+/** threshold ∓16, ∓1, the threshold itself, and the two real desktop widths. */
+const sidecarWidths = (t) => [t - 16, t - 1, t, t + 1, t + 16, 1920, 2560];
+/** Where a sidecar may never appear: every phone/tablet width, and the five full-width games. */
+const NO_SIDECAR_CASES = [
+  [360, 'king'], [390, 'king'], [768, 'king'], [1366, 'king'],
+  [360, 'poker'], [390, 'poker'], [768, 'poker'], [1366, 'poker'],
+  [1920, 'durak'], [2560, 'durak'], [1920, 'deberc'], [2560, 'deberc'],
+  [1920, 'tarneeb'], [2560, 'tarneeb'], [1920, 'preferans'], [2560, 'preferans'],
+  [1920, 'fiftyone'], [2560, 'fiftyone'],
+];
+
+/** Open the chat through the game's OWN launcher — the production path. */
+const OPEN_LAUNCHER = `(() => {
+  const btns = [...document.querySelectorAll('.room-social__bar .social-fab, .social-menu__launcher, .social-controls__row .social-fab')]
+    .filter((b) => (b.textContent || '').includes('💬'));
+  if (btns.length !== 1) return btns.length;
+  btns[0].click();
+  return true;
+})()`;
+
+/**
+ * The scene's UNION box — every element inside `.game-stage` that actually paints or can be
+ * touched. Measuring `.game-stage` itself proves nothing: it is full-width by contract, so
+ * the only honest question is how much room the GAME occupies inside it, and how much of the
+ * band beside it the panel is using.
+ */
+const SIDECAR_PROBE = `JSON.stringify((() => {
+  const layoutEl = document.querySelector('.room-layout');
+  const stageEl = document.querySelector('.game-stage');
+  if (!layoutEl || !stageEl) return null;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const paints = (el, st) => {
+    if (/^(IMG|CANVAS|SVG|VIDEO|INPUT|BUTTON|SELECT|TEXTAREA)$/.test(el.tagName)) return true;
+    if (el.matches('a,[role="button"],[tabindex]:not([tabindex="-1"])')) return true;
+    const bg = st.backgroundColor;
+    if (bg && bg !== 'transparent' && !/rgba\\(\\s*0,\\s*0,\\s*0,\\s*0\\s*\\)/.test(bg)) return true;
+    if (st.backgroundImage && st.backgroundImage !== 'none') return true;
+    for (const s of ['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth']) {
+      if (parseFloat(st[s]) > 0.4) return true;
+    }
+    return [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length);
+  };
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  for (const el of stageEl.querySelectorAll('*')) {
+    const st = getComputedStyle(el);
+    if (st.visibility === 'hidden' || st.display === 'none' || Number(st.opacity) === 0) continue;
+    const rc = el.getBoundingClientRect();
+    if (rc.width < 0.5 || rc.height < 0.5) continue;
+    if (rc.bottom < 0 || rc.top > vh || rc.right < 0 || rc.left > vw) continue;
+    if (!paints(el, st)) continue;
+    l = Math.min(l, rc.left); t = Math.min(t, rc.top);
+    r = Math.max(r, rc.right); b = Math.max(b, rc.bottom);
+  }
+  if (!isFinite(l)) return null;
+  const lay = layoutEl.getBoundingClientRect(), stg = stageEl.getBoundingClientRect();
+  const panel = document.querySelector('.chat-panel');
+  const pr = panel ? panel.getBoundingClientRect() : null;
+  const de = document.documentElement;
+  // A sidecar is only ACTIVE when the capability class really produced three tracks — the
+  // class alone is a declaration, not a layout.
+  const tracks = getComputedStyle(layoutEl).gridTemplateColumns;
+  const active = /room-layout--sidecar/.test(layoutEl.className) && tracks.trim().split(/\\s+/).length === 3;
+  return {
+    active, tracks, vh, client: de.clientWidth, inner: vw,
+    layout: { x: +lay.left.toFixed(2), w: +lay.width.toFixed(2) },
+    stage: { x: +stg.left.toFixed(2), w: +stg.width.toFixed(2) },
+    union: { x: +l.toFixed(2), y: +t.toFixed(2), w: +(r - l).toFixed(2), h: +(b - t).toFixed(2) },
+    centre: +((l + r) / 2).toFixed(2),
+    scrollY: Math.round(window.scrollY),
+    overflowX: de.scrollWidth > de.clientWidth + 1,
+    chat: pr ? {
+      x: +pr.left.toFixed(2), w: +pr.width.toFixed(2),
+      top: +pr.top.toFixed(2), bottom: +pr.bottom.toFixed(2),
+      inView: pr.top >= -0.5 && pr.bottom <= vh + 0.5,
+      overlapsScene: Math.max(0, Math.round(Math.min(pr.right, r) - Math.max(pr.left, l))),
+    } : null,
+  };
+})())`;
 
 /**
  * (38.0.16) The elements whose geometry may NOT change when a panel opens. Per game,
@@ -1091,6 +1180,105 @@ async function main() {
         }
       }
       // The owned page survives the whole run; only the METRICS change.
+    }
+
+    // ---- PHASE C: the adaptive sidecar (Stage 38.0.16.3) ----------------------------
+    // Only King and Poker DECLARE a scene narrower than the layout, and only above the width
+    // where that declaration leaves symmetrical room on BOTH sides. Everything here is the
+    // same rule stated twice: the side band must be space the game did not want, and turning
+    // the chat on must cost the game nothing — not a pixel of width, not a pixel of centre,
+    // and not a single scrolled pixel.
+    // The sidecar phase belongs to PHASE B's half of the matrix, so it obeys the same
+    // filters: `--scenario` (a PHASE A row) excludes it, and `--game` narrows it.
+    const runSidecar = phasesFor(filters).runB && !filters.act;
+    for (const sc of (runSidecar ? SIDECAR_CASES : []).filter((x) => !filters.game || filters.game.includes(x.game))) {
+      for (const w of sidecarWidths(sc.threshold).filter((x) => !filters.viewport || filters.viewport.includes(String(x)))) {
+        for (const dirTag of ['ltr', 'rtl']) {
+          const vp = { w, h: 1080, mobile: false };
+          const label = `sidecar ${w} ${sc.game}/${dirTag}`;
+          const g = GAMES.find((x) => x.tag === sc.game);
+          const dirQ = dirTag === 'rtl' ? '&dir=rtl&lang=ar' : '';
+          const url = `${GAMES_BASE}?${g.q}${dirQ}&chat=8`;
+          const c = ctx({ viewport: String(w), game: sc.game, dir: dirTag, act: 'sidecar' });
+          const nav = await load(owned, { url, marker: '#root > *', vp, label, failures, c });
+          if (!nav.rendered) { failures.push(`${label}: NOTHING rendered`); continue; }
+          if (!nav.proved) continue;
+
+          const closed = JSON.parse(await cdp.evaluate(SIDECAR_PROBE));
+          const expected = w >= sc.threshold;
+          checks++;
+          if (closed.active !== expected) {
+            failures.push(`${label}: sidecar ${closed.active ? 'ACTIVE' : 'inactive'} at innerWidth ${w},`
+              + ` threshold ${sc.threshold} (client ${closed.client}, tracks "${closed.tracks}")`);
+            continue;
+          }
+          // Whatever the layout, the stage owns the whole room — the 38.0.16.1 invariant.
+          if (Math.abs(closed.stage.w - closed.layout.w) > 1) {
+            failures.push(`${label}: stage ${closed.stage.w} inside layout ${closed.layout.w}`);
+          }
+          const opened = await cdp.evaluate(OPEN_LAUNCHER);
+          if (opened !== true) { failures.push(`${label}: expected one 💬 launcher, found ${opened}`); continue; }
+          await cdp.evaluate(SETTLE);
+          const open = JSON.parse(await cdp.evaluate(SIDECAR_PROBE));
+          // A DIRECT click, deliberately: `cdp.click()` centres its target with
+          // `scrollIntoView` first, which scrolls any page that is scrollable at all and
+          // would then be reported as the product scrolling. In the sidecar the button is
+          // already on screen, so a plain tap is the honest model. (King's document really
+          // is taller than the viewport at ~1668-1684, which is what exposed this.)
+          const pickerOpened = await cdp.evaluate(
+            `(() => { const b = document.querySelector('.chat-picker-btn'); if (!b) return false; b.click(); return true; })()`);
+          if (pickerOpened !== true) failures.push(`${label}: cannot open the picker`);
+          await cdp.evaluate(SETTLE);
+          const picker = JSON.parse(await cdp.evaluate(SIDECAR_PROBE));
+          checks += 2;
+
+          for (const [state, m] of [['open', open], ['picker', picker]]) {
+            for (const axis of ['x', 'w']) {
+              const d = +(m.union[axis] - closed.union[axis]).toFixed(2);
+              if (Math.abs(d) > 1) failures.push(`${label}: the scene's ${axis} moved ${d}px when the ${state} panel appeared`);
+            }
+            const dc = +(m.centre - closed.centre).toFixed(2);
+            if (Math.abs(dc) > 1) failures.push(`${label}: the scene's centre moved ${dc}px (${state})`);
+            if (Math.abs(m.stage.w - m.layout.w) > 1) failures.push(`${label}: stage ${m.stage.w} inside layout ${m.layout.w} (${state})`);
+            if (m.overflowX) failures.push(`${label}: horizontal overflow (${state})`);
+            if (m.active !== expected) failures.push(`${label}: sidecar flipped to ${m.active} when ${state}`);
+          }
+          if (expected) {
+            // The whole point of the side band: the chat arrives WITHOUT moving the page.
+            if (open.scrollY !== closed.scrollY || picker.scrollY !== closed.scrollY) {
+              failures.push(`${label}: the page scrolled ${closed.scrollY}→${open.scrollY}→${picker.scrollY} for a panel that already fits`);
+            }
+            for (const [state, m] of [['open', open], ['picker', picker]]) {
+              if (!m.chat) { failures.push(`${label}: no chat panel (${state})`); continue; }
+              if (!m.chat.inView) failures.push(`${label}: the panel runs outside the viewport (${state}: ${m.chat.top}..${m.chat.bottom} of ${m.vh})`);
+              if (m.chat.overlapsScene) failures.push(`${label}: the panel overlaps the scene by ${m.chat.overlapsScene}px (${state})`);
+              // Logical side: inline-end in LTR is the right, and RTL must mirror it.
+              const onEnd = dirTag === 'ltr' ? m.chat.x > m.centre : m.chat.x < m.centre;
+              if (!onEnd) failures.push(`${label}: the panel is on the wrong logical side (${state}, x ${m.chat.x}, centre ${m.centre})`);
+            }
+          }
+          console.log(`  ${label.padEnd(34)} client ${String(closed.client).padEnd(5)} sidecar ${String(closed.active).padEnd(5)}`
+            + ` scene ${closed.union.w}@${closed.union.x} scroll ${closed.scrollY}/${open.scrollY}/${picker.scrollY}`
+            + ` chat ${open.chat ? `${open.chat.w}w` : '-'}`);
+        }
+      }
+    }
+    // The negative half, and the one that matters most: a sidecar must be IMPOSSIBLE on a
+    // phone, and impossible for the five games that use every pixel they are given.
+    for (const [w, game] of (runSidecar ? NO_SIDECAR_CASES : [])
+      .filter(([x, gm]) => (!filters.viewport || filters.viewport.includes(String(x)))
+        && (!filters.game || filters.game.includes(gm)))) {
+      const vp = { w, h: w < 700 ? 844 : 1080, mobile: w < 700 };
+      const g = GAMES.find((x) => x.tag === game);
+      const label = `no-sidecar ${w} ${game}`;
+      const c = ctx({ viewport: String(w), game, dir: 'ltr', act: 'no-sidecar' });
+      const nav = await load(owned, { url: `${GAMES_BASE}?${g.q}&chat=8`, marker: '#root > *', vp, label, failures, c });
+      if (!nav.rendered) { failures.push(`${label}: NOTHING rendered`); continue; }
+      if (!nav.proved) continue;
+      const m = JSON.parse(await cdp.evaluate(SIDECAR_PROBE));
+      checks++;
+      if (m.active) failures.push(`${label}: a sidecar appeared where none may exist (tracks "${m.tracks}")`);
+      if (Math.abs(m.stage.w - m.layout.w) > 1) failures.push(`${label}: stage ${m.stage.w} inside layout ${m.layout.w}`);
     }
 
     // ---- PHASE B verdict: one shell, one geometry, one inner DOM --------------------

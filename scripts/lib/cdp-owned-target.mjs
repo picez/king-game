@@ -23,8 +23,31 @@ const WebSocket = createRequire(`${process.cwd()}/package.json`)('ws');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** The default per-command budget. Unchanged from the value the social gate already used. */
-export const CDP_TIMEOUT_MS = 20000;
+/**
+ * The per-command budget.
+ *
+ * 20000 until 38.0.16.3, and raised DELIBERATELY, with the proof 38.0.16.2c.2 demanded
+ * before any increase:
+ *   * `layout:social` failed with `CdpTimeoutError` on `Runtime.evaluate` at
+ *     `390 fiftyone/ltr` — and the same failure reproduces on a CLEAN, unmodified c5d2d87,
+ *     so it is not the sidecar and not this stage;
+ *   * the expressions that timed out are TRIVIAL and synchronous
+ *     (`!!document.querySelector('#root > *')`, `(window.__gameActions || []).length`), so
+ *     nothing is hanging in the protocol or in a promise — the renderer's main thread is
+ *     simply not getting scheduled;
+ *   * measured while it happened: 6.6 GB free of 31 GB, with an Android emulator and a game
+ *     running in the background, and ZERO stray QA processes;
+ *   * the identical focused case (`--viewport 390 --game fiftyone --dir ltr`) passes 3/3 on
+ *     the same machine when nothing else is competing for it.
+ * So this is a false positive on a loaded machine, not a hang. The FAIL-FAST is unchanged —
+ * a timeout still throws, still names method/expression/context/target, and still ends the
+ * run — and that is what makes a larger budget safe: the 200 × budget polling disaster of
+ * 38.0.16.2c.2 is impossible once the error is thrown rather than ignored.
+ */
+export const CDP_TIMEOUT_MS = 45000;
+
+/** Two composited frames — the settle every geometry read waits for. */
+export const FRAMES = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 
 /**
  * (38.0.16.2c.2) A CDP command that did not answer is a HARNESS failure, and it now says so.
@@ -131,7 +154,7 @@ export class CdpSession {
   }
   close() { try { this.ws.close(); } catch { /* already gone */ } this.#failAllPending('closed'); }
 
-  send(method, params = {}, timeoutMs = CDP_TIMEOUT_MS) {
+  send(method, params = {}, timeoutMs = CDP_TIMEOUT_MS, detail = null) {
     if (this.dead) {
       return Promise.reject(new CdpClosedError({
         method, targetId: this.targetId, context: this.context, reason: this.dead,
@@ -142,7 +165,8 @@ export class CdpSession {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new CdpTimeoutError({
-          method, timeoutMs, targetId: this.targetId, context: this.context,
+          method: detail ? `${method} [${detail}]` : method,
+          timeoutMs, targetId: this.targetId, context: this.context,
           pendingCount: this.pending.size,
         }));
       }, timeoutMs);
@@ -155,7 +179,11 @@ export class CdpSession {
     });
   }
   async evaluate(expression) {
-    const r = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+    // The first 60 characters travel with a timeout so a future hang names the EXPRESSION,
+    // not just "Runtime.evaluate". No message text or card data can appear here: these are
+    // probe sources, never player content.
+    const r = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true },
+      CDP_TIMEOUT_MS, expression.replace(/\s+/g, ' ').slice(0, 60));
     return r.result?.result?.value;
   }
   async json(expression) {
@@ -248,7 +276,7 @@ export async function provePage(owned, vp, requestedUrl, label, thresholds = [])
  */
 export const PROOF_PROBE = (thresholds) => `(async () => {
   window.scrollTo(0, 0);
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await ${FRAMES};
   return ${VIEWPORT_PROBE(thresholds)};
 })()`;
 
@@ -304,7 +332,7 @@ export async function checkViewport(owned, vp, thresholds, label, failures) {
 /** Scroll back to the top so one scenario cannot inherit the previous one's position. */
 export async function resetScroll(owned) {
   await owned.cdp.evaluate('window.scrollTo(0, 0)');
-  await owned.cdp.evaluate('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+  await owned.cdp.evaluate(FRAMES);
 }
 
 // (38.0.16.2c.2) Process ownership — spawning, port checks and tree cleanup — now lives in

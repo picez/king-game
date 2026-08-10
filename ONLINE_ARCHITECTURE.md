@@ -1451,6 +1451,83 @@ the old mobile regression, and the adaptive sidecar remains unimplemented. The o
 (`layout:poker`, `layout:fiftyone`, `layout:tracker`) still spawn through a shell wrapper and
 still leak; they were out of scope here.
 
+### Stage 38.0.16.3 — the adaptive sidecar for King and Poker
+
+**RED, on the unmodified c5d2d87.** `node scripts/footprint-audit.mjs` measures the UNION of
+every painting or interactive element inside `.game-stage` — not the stage, which is
+full-width by contract. Chat closed, worst supported player count, longest test names:
+
+| game | union | widest contributor | free each side @1920 | @2560 | scrollY closed → open |
+|---|---|---|---|---|---|
+| King (4p) | **900.00px at every width 1366→2560** | `.screen` | 502.5 | 822.5 | **0 → 384** |
+| Poker (6p) | **700.81px at every width** | `.poker-slider` | 602.1 | 922.1 | **0 → 384** |
+
+Both scenes are perfectly centred (`freeStart == freeEnd` everywhere), so the empty band is
+real and symmetrical — and opening the chat still scrolled the page by 384px to reach a panel
+below the fold, while the authoritative timer ran.
+
+**The contract.** A capability declares the ONE thing the layout needs to know — how wide the
+scene actually is (`src/ui/online/roomLayout.ts`). It names no panel, carries no styling, and
+`RoomSocial` never reads it; there is still exactly one chat component for all seven games.
+
+```
+minimum client width = scene + 2 × (336 chat + 16 gap + 24 outer margin)
+threshold            = minimum client width + 15 scrollbar gutter
+  sidecar-compact  Poker  704 + 752 = 1456 + 15 = 1471 → 1472
+  sidecar-wide     King   900 + 752 = 1652 + 15 = 1667 → 1668
+```
+
+The band must be symmetrical or the game would move off centre — the shift the whole contract
+exists to prevent. The gutter is not decoration: a media query answers on `innerWidth` while
+the layout only ever gets `clientWidth`, and those were measured 15px apart at 1660/1680.
+`roomLayout.test.ts` fails if the CSS and the arithmetic ever disagree.
+
+**The composition — and why it is not a second column.** A second column would take its width
+from the stage, which is exactly the 38.0.16 mistake. Instead the row gets three tracks (free
+/ declared scene / free), **the stage spans all three** (`grid-column: 1 / -1`, so its width
+is still the whole layout to the pixel), and the panel is placed in the third track: space the
+scene declared it does not want. Both are ordinary in-flow grid items — no `fixed`, no
+`absolute`, no backdrop, no `aria-modal`, no focus trap, no scroll lock, no resize listener.
+`justify-self: start` keeps the panel beside the game instead of flush against the glass; the
+region is `pointer-events: none` with `auto` on its children, because its box shares the row
+with the stage and empty space must pass a tap through. In RTL the grid's own column 3 is
+already on the left, so the whole thing mirrors for free.
+
+**Boundary behaviour, measured LTR and RTL** (`layout:social` PHASE C, 102 new checks):
+
+| game | 1456 | 1471 | **1472** | 1473 | 1488 | 1652 | 1667 | **1668** | 1669 | 1684 | 1920 | 2560 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Poker | off | off | **on** | on | on | on | on | on | on | on | on | on |
+| King | off | off | off | off | off | off | off | **on** | on | on | on | on |
+
+In every sidecar state: stage width == layout width, scene x/width delta 0, scene centre delta
+0, `scrollY` closed == open == picker == 0, no horizontal overflow, panel fully in the
+viewport, no overlap with the scene, and the panel on the correct logical side. A sidecar is
+proved IMPOSSIBLE at 360/390/768/1366 and for all five full-width games at 1920/2560.
+
+**Reviewed by eye, and changed because of it.** The first build passed every number and still
+looked wrong: with the fallback's `max-height: min(46vh, 24rem)` the panel came out ~384px
+tall in a 1080px band — a small card floating beside the table — and with the picker open the
+sticker grid was reduced to one clipped row. The sidecar therefore states a height
+(`min(46rem, 100dvh - 48px)`) and the panel fills it, so the history has room and the picker
+shows whole rows. Screenshots: `king` at 390/1667/1668/1920/2560 and `poker` at
+390/1471/1472/1920/2560, LTR and Arabic RTL, in `npm run social-shots`.
+
+**A pre-existing gate flake, corrected in passing and NOT caused by this stage.**
+`layout:social` failed twice with `CdpTimeoutError` on `Runtime.evaluate` at
+`390 fiftyone/ltr`. The same failure reproduces on a **clean, unmodified c5d2d87**, the
+expressions that timed out are trivial and synchronous, and it was measured on a machine with
+6.6 GB of 31 GB free (an Android emulator and a game running) and zero stray QA processes —
+while the identical focused case passes 3/3 when nothing competes for the machine. So the
+renderer was not being scheduled, nothing was hanging. The per-command budget went 20s → 45s
+with that proof recorded; the fail-fast is unchanged, so the 200 × budget polling disaster of
+38.0.16.2c.2 remains impossible. A refuted hypothesis is on record too: bounding the
+`requestAnimationFrame` waits was tried and reverted, because the timing-out expressions
+contained no frame wait at all.
+
+**Still not claimed.** The target race is *not* established as the cause of the old mobile
+regression.
+
 ### Stage 38.0.16.2d — every browser gate owns its processes
 
 38.0.16.2c.2 gave the SOCIAL gate an owned lifecycle and, in its own closing audit, caught

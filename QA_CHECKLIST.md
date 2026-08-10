@@ -79,6 +79,21 @@ one behaviour case can be reproduced with the least possible work in front of it
 step and every behaviour operation, start and end. `--act` only ever NARROWS the default set:
 the full seven run at 390 ltr, while 360 and 390 rtl run the core pair.
 
+**The adaptive sidecar (Stage 38.0.16.3).** King and Poker DECLARE how wide their scene is
+(`src/ui/online/roomLayout.ts`), and only above the width where that leaves symmetrical room
+on both sides does the chat open beside the table instead of after it — King from 1668px,
+Poker from 1472px. Everywhere else nothing changed. `layout:social` PHASE C proves the switch
+at threshold ∓16, ∓1 and exactly on it, in both directions: stage width == layout width, scene
+position/size/centre delta 0, `scrollY` identical closed/open/picker, no overlap, no overflow,
+and a sidecar proved IMPOSSIBLE on phones and in the five full-width games. To re-measure the
+footprints from scratch: `node scripts/footprint-audit.mjs` (it prints the union box, the free
+band on each side and the widest contributor per game/viewport/direction).
+
+**When reviewing sidecar screenshots**, numbers are not enough — the first build passed every
+assertion while looking like a small card floating next to the table. Check that the panel
+reads as a column belonging to the game: beside the table rather than against the window edge,
+tall enough that the history has room, and the sticker grid showing whole rows.
+
 **All six browser gates own their processes (Stage 38.0.16.2d).** `layout:social`,
 `layout:selftest`, `layout:poker`, `layout:fiftyone`, `layout:tracker` and `social-shots` each
 start their own dev server and browser, refuse to start on a busy port, and print a

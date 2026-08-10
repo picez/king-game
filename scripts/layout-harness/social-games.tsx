@@ -33,6 +33,7 @@ import '../../src/App.css';
 import { LangProvider } from '../../src/i18n';
 import { GameContext } from '../../src/hooks/useGame';
 import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from '../../src/ui/online/RoomSocial';
+import { roomLayoutClass } from '../../src/ui/online/roomLayout';
 import PermanentLeaveControl from '../../src/ui/online/PermanentLeaveControl';
 import GameRouter from '../../src/ui/GameRouter';
 import DurakGameScreen from '../../src/ui/durak/DurakGameScreen';
@@ -339,8 +340,12 @@ function Room() {
   // closed === open === picker, which 38.0.16's permanently reserved rail satisfied while
   // quietly shrinking all three.
   const noRegion = qs.get('region') === 'off';
+  // (38.0.16.3) The harness takes the SAME capability class the product does, from the same
+  // registry — otherwise the gate would measure a layout no player can get. The harness
+  // spells Fifty-One without the hyphen, so map it back to the catalogue id.
+  const layoutClass = roomLayoutClass(game === 'fiftyone' ? 'fifty-one' : (game as never));
   return (
-    <div className="room-layout">
+    <div className={layoutClass}>
       <div className="game-stage"><Harness /></div>
       {noRegion ? null : <div className="social-region" id={SOCIAL_REGION_ID} />}
     </div>

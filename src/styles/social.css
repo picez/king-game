@@ -85,7 +85,7 @@
    every state costs the same 15px whether the chat is open or shut — which is the point. */
 html { scrollbar-gutter: stable; }
 
-/* (38.0.16.1 — owner FAIL, correcting 38.0.16) THERE IS NO SIDE RAIL, and the reasoning is
+/* (38.0.16.1 — owner FAIL, correcting 38.0.16) A RAIL MUST BE EARNED, and the reasoning is
    worth keeping because it is the trap this file fell into twice.
 
    38.0.16 reserved a 22.5rem rail at ≥1620px "whether or not the chat is open, so opening
@@ -94,15 +94,114 @@ html { scrollbar-gutter: stable; }
    Fifty-One board ran 1528px inside a 1920px page instead of ~1904, and 2184 inside 2560.
    The gate was blind to it because it only compared the three chat states to each other.
 
-   A rail is only honest if it occupies space the scene does not want. Every screen here is
-   a `min-height: 100vh` column that fills the viewport and centres its content in it, so
-   there is no such space: any in-flow column takes width from the stage, and re-centring
-   the game to compensate is exactly the layout shift this is meant to prevent. So the
-   contract is absolute and machine-checked (`layout:social`): THE STAGE SPANS THE WHOLE
-   ROOM LAYOUT IN EVERY STATE, and the chat follows the unchanged scene in normal flow —
-   the document gets taller, the game does not get smaller. A future screen that genuinely
-   wants less than the full width must SAY so (a declared desired width), and the rail may
-   then live in the space it declined; it may never be assumed from viewport width. */
+   So the contract is absolute and machine-checked (`layout:social`): THE STAGE SPANS THE
+   WHOLE ROOM LAYOUT IN EVERY STATE. A screen that genuinely wants less than the full width
+   must SAY so; the panel may then live in the space it declined, and never in space taken
+   from anybody. That declaration is `src/ui/online/roomLayout.ts` — see the sidecar block
+   below, which is the "may then live" half of this rule, not an exception to it. */
+
+/* ===== (38.0.16.3) THE ADAPTIVE SIDECAR ==========================================
+   The FAIL this fixes: after 38.0.16.1 the chat always followed the scene, which protects
+   geometry perfectly but wastes a screen. Measured on the real branches at c5d2d87, chat
+   CLOSED: King's scene is 900px wide at every width from 1366 to 2560 and Poker's is
+   700.81px — both perfectly centred — so at 1920 there were 502.5px (King) and 602.1px
+   (Poker) of empty page on EACH side, and opening the chat still scrolled the document by
+   384px to reach a panel below the fold.
+
+   The sidecar is NOT a second column. A second column would take its width from the stage,
+   which is the 38.0.16 mistake. Instead the row gets three tracks — free / declared scene /
+   free — the STAGE SPANS ALL THREE (`grid-column: 1 / -1`, so its width is still the whole
+   layout, to the pixel), and the panel is placed in the third track: space the scene has
+   declared it does not want. Both are ordinary in-flow grid items. No fixed, no absolute,
+   no backdrop, no modal, no focus trap, no scroll lock, no resize listener.
+
+   Three details that are load-bearing:
+     * `justify-self: start` keeps the panel BESIDE the game rather than flush against the
+       window. At 2560 the free band is 822px wide and a panel pinned to the glass would
+       read as an unrelated floating card 500px from the table it belongs to.
+     * `pointer-events` is none on the region and auto on its children, because the region's
+       box shares the row with the stage. Empty space must pass a tap through to the game.
+     * The item placement lives INSIDE each media query on purpose. Hoisted out, a layout
+       below the threshold would still place the region in column 3, and with only one
+       explicit track that creates implicit ones — which is exactly the stage-shrinking bug.
+
+   Thresholds are derived in `roomLayout.ts` and asserted by `roomLayout.test.ts`:
+     scene + 2 × (336 chat + 16 gap + 24 margin) + 15 scrollbar gutter
+     compact 704 + 752 + 15 = 1471 → 1472      wide 900 + 752 + 15 = 1667 → 1668
+   The gutter matters: a media query answers on `innerWidth`, the layout only ever gets
+   `clientWidth`, and those were measured 15px apart at 1660/1680. */
+.room-layout--sidecar-compact { --sidecar-footprint: 704px; }
+.room-layout--sidecar-wide { --sidecar-footprint: 900px; }
+.room-layout--sidecar-compact,
+.room-layout--sidecar-wide {
+  --sidecar-chat: 21rem;      /* 336px */
+  --sidecar-gap: 1rem;        /* 16px  */
+  --sidecar-margin: 1.5rem;   /* 24px  */
+}
+
+@media (min-width: 1472px) {
+  .room-layout--sidecar-compact { grid-template-columns: minmax(0, 1fr) var(--sidecar-footprint) minmax(0, 1fr); }
+  .room-layout--sidecar-compact > .game-stage { grid-column: 1 / -1; grid-row: 1; }
+  .room-layout--sidecar-compact > .social-region { grid-column: 3; grid-row: 1; }
+}
+@media (min-width: 1668px) {
+  .room-layout--sidecar-wide { grid-template-columns: minmax(0, 1fr) var(--sidecar-footprint) minmax(0, 1fr); }
+  .room-layout--sidecar-wide > .game-stage { grid-column: 1 / -1; grid-row: 1; }
+  .room-layout--sidecar-wide > .social-region { grid-column: 3; grid-row: 1; }
+}
+
+/* The panel itself. Every one of these lives INSIDE the media query with its own placement:
+   below the threshold the region is an ordinary full-width block after the scene, and a
+   stray `justify-self: start` alone would already shrink it to fit. Logical properties
+   throughout: in RTL the grid's own column 3 is on the left, so this mirrors for free. */
+@media (min-width: 1472px) {
+  .room-layout--sidecar-compact > .social-region {
+    align-self: center; justify-self: start;
+  }
+  .room-layout--sidecar-compact > .social-region:not(:empty) {
+    inline-size: var(--sidecar-chat);
+    margin-inline: var(--sidecar-gap) var(--sidecar-margin);
+    padding: 0;
+    /* A real column, not a card. Reviewed by eye first: with the fallback's own
+       `max-height: min(46vh, 24rem)` the panel came out ~384px tall in a 1080px band and
+       read as a small note pinned next to the table, and with the picker open the sticker
+       grid was reduced to a half-visible row. The sidecar therefore states a height, and the
+       panel fills it — the history grows, the picker gets room, nothing is cut off. */
+    block-size: min(46rem, calc(100dvh - 2 * var(--sidecar-margin)));
+    pointer-events: none;
+  }
+  .room-layout--sidecar-compact > .social-region > * { pointer-events: auto; min-block-size: 0; }
+  .room-layout--sidecar-compact > .social-region > .chat-panel {
+    block-size: 100%; max-block-size: 100%;
+  }
+  /* With a full column to work in the picker can show whole rows of stickers instead of a
+     clipped one, while the conversation above it keeps most of the panel. */
+  .room-layout--sidecar-compact > .social-region .chat-picker { max-block-size: min(42%, 20rem); }
+}
+@media (min-width: 1668px) {
+  .room-layout--sidecar-wide > .social-region {
+    align-self: center; justify-self: start;
+  }
+  .room-layout--sidecar-wide > .social-region:not(:empty) {
+    inline-size: var(--sidecar-chat);
+    margin-inline: var(--sidecar-gap) var(--sidecar-margin);
+    padding: 0;
+    /* A real column, not a card. Reviewed by eye first: with the fallback's own
+       `max-height: min(46vh, 24rem)` the panel came out ~384px tall in a 1080px band and
+       read as a small note pinned next to the table, and with the picker open the sticker
+       grid was reduced to a half-visible row. The sidecar therefore states a height, and the
+       panel fills it — the history grows, the picker gets room, nothing is cut off. */
+    block-size: min(46rem, calc(100dvh - 2 * var(--sidecar-margin)));
+    pointer-events: none;
+  }
+  .room-layout--sidecar-wide > .social-region > * { pointer-events: auto; min-block-size: 0; }
+  .room-layout--sidecar-wide > .social-region > .chat-panel {
+    block-size: 100%; max-block-size: 100%;
+  }
+  /* With a full column to work in the picker can show whole rows of stickers instead of a
+     clipped one, while the conversation above it keeps most of the panel. */
+  .room-layout--sidecar-wide > .social-region .chat-picker { max-block-size: min(42%, 20rem); }
+}
 
 .room-social {
   display: flex; flex-direction: column; gap: 0.4rem;

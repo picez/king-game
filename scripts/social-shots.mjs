@@ -79,12 +79,21 @@ const Q = {
   durak: 'game=durak&seats=4',
   fiftyone: 'game=fiftyone&seats=4',
   preferans: 'game=preferans&seats=3',
-  poker: 'game=poker&seats=4',
+  // (38.0.16.3) Worst case for the two games that DECLARE a scene: King at its maximum four
+  // players, Poker at six seats — the counts the footprint audit measured.
+  poker: 'game=poker&seats=6',
+  king: 'game=king&seats=4',
 };
 const VP = {
   360: { w: 360, h: 800, mobile: true },
   390: { w: 390, h: 844, mobile: true },
   1366: { w: 1366, h: 768, mobile: false },
+  // (38.0.16.3) The two sidecar thresholds and the width just below each, so the switch
+  // itself is reviewable by eye and not only by the gate's numbers.
+  1471: { w: 1471, h: 1080, mobile: false },
+  1472: { w: 1472, h: 1080, mobile: false },
+  1667: { w: 1667, h: 1080, mobile: false },
+  1668: { w: 1668, h: 1080, mobile: false },
   1920: { w: 1920, h: 1080, mobile: false },
   2560: { w: 2560, h: 1440, mobile: false },
 };
@@ -95,6 +104,14 @@ const COMBOS = [
   ['preferans', 390, 'ltr'], ['preferans', 1920, 'ltr'], ['preferans', 2560, 'ltr'],
   ['poker', 390, 'ltr'], ['poker', 1366, 'ltr'], ['poker', 1920, 'ltr'],
   ['durak', 390, 'rtl'], ['durak', 1920, 'rtl'],
+  // (38.0.16.3) The adaptive sidecar: fallback on a phone, fallback one pixel below the
+  // threshold, the sidecar at the threshold, and both real desktop widths — in both
+  // directions, because the side band mirrors.
+  ['king', 390, 'ltr'], ['king', 1667, 'ltr'], ['king', 1668, 'ltr'],
+  ['king', 1920, 'ltr'], ['king', 2560, 'ltr'],
+  ['king', 390, 'rtl'], ['king', 1920, 'rtl'],
+  ['poker', 1471, 'ltr'], ['poker', 1472, 'ltr'], ['poker', 2560, 'ltr'],
+  ['poker', 390, 'rtl'], ['poker', 1920, 'rtl'],
 ];
 const LAUNCHER = '.room-social__bar .social-fab';
 const CHAT = '.chat-panel';

@@ -126,8 +126,11 @@ describe('CdpSession.send — a command that never answers', () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it('the default budget was not quietly raised', () => {
-    expect(CDP_TIMEOUT_MS).toBe(20000);
+  it('pins the budget, so raising it is always a deliberate, documented act', () => {
+    // Raised 20s → 45s in 38.0.16.3 with the measurement the previous stage demanded: the
+    // same timeout reproduces on clean c5d2d87, on TRIVIAL synchronous expressions, on a
+    // machine with 6.6 GB of 31 GB free. The fail-fast itself is unchanged.
+    expect(CDP_TIMEOUT_MS).toBe(45000);
   });
 });
 

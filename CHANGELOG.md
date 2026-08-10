@@ -22,6 +22,14 @@ also reported at `GET /health/diagnostics` (`version` field).
   page scroll is put back to the top, and only then is anything measured. `npm run
   layout:selftest` is the guard, and it now demonstrates the old behaviour failing and the
   new one recovering in the same run.
+- **On a wide screen, King and Poker now show the chat beside the table (Stage 38.0.16.3).**
+  Both games use a fixed-width table in the middle of the screen — King 900px, Poker 701px —
+  so on a desktop there was a wide band of empty page on each side, and opening the chat
+  still pushed the page down by 384px to reach a panel below the table. From 1668px (King)
+  and 1472px (Poker) the chat now opens in that empty band instead: the table does not move,
+  does not shrink and does not scroll, and the panel sits beside it rather than under it.
+  Narrower screens, phones, and the five games that use the full width (Durak, Deberc,
+  Tarneeb, Preferans, Fifty-One) are unchanged — the chat still follows the table.
 - **Every browser QA gate now shuts down what it started (Stage 38.0.16.2d).** Test tooling
   only — nothing in the game changed. 38.0.16.2c.2 fixed the social gate; the final audit of
   that stage caught the same leak still live in the others. Measured on the previous commit:
