@@ -1312,6 +1312,58 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.19 — release gate: the guard must await its own signal handler (COMPLETE, Unreleased)
+- Release gate for v0.5.0, run from HEAD `82b7904`. Repo baseline confirmed (v0.4.8, games 7,
+  achievements 52, migration 0014, libc 0, clean worktree). **One real FAIL found and fixed;
+  everything else was read-only.** No migration, no version bump, no dependency.
+- **REMOTE CI WAS RED at `82b7904`** — run #243, conclusion `failure`,
+  `https://github.com/picez/king-game/actions/runs/31394542808`. CI history proves it was MY
+  commit: #242 (`336df6a`) and the seven runs before it were all `success`. Job logs need admin
+  rights (403 unauthenticated), but the **check-run annotations are public** and carried the
+  whole diagnosis — use `GET /repos/{o}/{r}/check-runs/{job_id}/annotations`, not the logs API:
+  `process-guard.test.mjs:150 — AssertionError: expected [] to include 130`.
+- **ROOT CAUSE (one defect, two faces).** `withProcessGuard`'s signal handler was `async` and
+  fire-and-forget (`void onSignal(sig)`); NOTHING awaited it. So (a) the guard could return
+  while the handler was still inside `await cleanup()`, leaving `exit()` uncalled — the Linux/CI
+  failure; and (b) `finally` started a SECOND cleanup over the same `MANAGED` set — two
+  concurrent teardowns. Which face you saw was pure timing: on Windows `processAlive` shells out
+  to `tasklist` (blocking ~100ms a poll) so the handler won; on Linux it is a cheap
+  `process.kill(pid,0)` so the body won.
+- **Reproducing it needed care — the first probe was GREEN and nearly sent me down a blind
+  alley.** A plain-node probe with a body returning immediately still produced `exits: [130]` on
+  Windows. What it DID show was the tell: **two** `processes: 1 owned` lines for one run. So the
+  platform-independent formulation of the bug is *count the teardowns*, not *inspect the exit
+  code* — the second probe asserted `reports.length === 1` and went RED on Windows immediately.
+  Docker's daemon was down and the only WSL distro (`docker-desktop`) has no node, so a genuine
+  Linux repro was not available; the count-based formulation made one unnecessary.
+- **FIX:** `withProcessGuard` keeps the handler's promise (`signalWork`) and `finally` **awaits
+  it instead of running a rival cleanup**. `onSignal` is no longer `async` — it returns the
+  promise, and a repeat signal returns the same one. No timing dependence remains.
+- **Regression:** `process-guard.test.mjs` "a signalled run tears down exactly ONCE, and has
+  finished doing so before it returns" — counts teardown reports AND reads `exits` at the
+  instant the guard resolves (no polling, no grace period). **Red-green verified**: with the fix
+  stashed it fails `expected 2 to be 1`; restored, 16/16 pass.
+  **Gotcha:** count the reports by spying on **`console`**, NOT `process.stdout.write` — vitest
+  replaces the console inside a worker, so the stream-level patch that worked in the standalone
+  probe silently recorded **zero** and the assertion failed for the wrong reason.
+- **CORRECTS Stage 38.0.18's note** that asserting `managedCount() === 0` right after the SIGINT
+  handler was "a FALSE requirement / a timing detail of the killer". The bookkeeping lag was
+  real, but treating the whole area as untestable timing hid an actual defect — the missing
+  await — which a teardown COUNT pins down exactly.
+- **Gates:** focused tests 95 · `layout:selftest` 37 · `layout:social` OK · `npm run verify`
+  **PASS 299 files / 3720 tests (+1), 0 worker crashes, E2E PASS** · `git diff --check` clean ·
+  libc 0 · no package/lock drift · migration 0014 · games 7 · achievements 52 · v0.4.8.
+- **Production public smoke (read-only) all PASS** at `82b7904`: diagnostics 200 with
+  `version 0.4.8`, `commit 82b7904f0494`, `db enabled`, `games.count 7` and all seven ids;
+  manifest valid with all 7 games named and **4/4 icons 200**; Poker emblem 200 `image/png`
+  `max-age=604800` + ETag → `If-None-Match` **304**; `/api/me` `{authenticated:false,user:null}`
+  and wallet/tracker/friends all **401** with no balance/userId/token/economy keys; `wss://…/ws`
+  upgraded and returned `ROOMS_LIST` (`rooms: []`). **No room was created.**
+  NOTE: Render autoDeploys from `main` **independently of CI**, so production was already
+  serving the commit whose CI had failed.
+- **D1–D7 owner-only checks remain NOT RUN** — they need a ≥1700px desktop, a phone, Arabic, and
+  two authenticated non-guest accounts with chips. v0.5.0 stays BLOCKED on owner evidence.
+
 ### Stage 38.0.18 — release-unblock: current docs + CI hardening (COMPLETE, Unreleased)
 - Worked from HEAD `336df6a`. Two focused commits: (1) docs + owner smoke + a consistency
   guard, (2) CI hardening. No migration, no version bump, no dependency, no game/economy/UI

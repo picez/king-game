@@ -11,6 +11,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **The Ctrl-C safety net now finishes its job before the run ends (Stage 38.0.19).** Test
+  tooling only — nothing in the game changed. Stage 38.0.18 added a handler so that
+  interrupting a test run shuts down the server it started, but nothing waited for that
+  handler to finish. Two things followed from the same omission, and which one appeared was
+  pure timing: the run could end while the shutdown was still in progress, and the ordinary
+  end-of-run cleanup could start a second shutdown of the same processes at the same time.
+  This is what turned the CI run for the previous commit red. The shutdown is now held and
+  waited on, so a run tears down exactly once and has finished doing so before it returns.
+
 - **CI now checks the server, and runs the online end-to-end test (Stage 38.0.18).** Build
   tooling only — nothing in the game changed. CI listed three steps that looked complete but
   covered less than they appeared to: both TypeScript runs used the client project, whose

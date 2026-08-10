@@ -414,13 +414,27 @@ export async function withProcessGuard(
     return { name, killed: children.length, survivors, portsFree: p.free, heldBy: p.heldBy };
   };
 
-  const onSignal = async (sig) => {
-    if (finished) return;
+  // (Stage 38.0.19) The teardown a signal started is a PROMISE THIS FUNCTION HOLDS.
+  //
+  // It used to be fire-and-forget (`void onSignal(sig)`), and nothing ever awaited it. Two
+  // different failures came out of that one omission, and which one you saw was pure timing:
+  //   * `finally` began a SECOND cleanup while the handler's was still running — two
+  //     concurrent teardowns walking the same MANAGED set (reproduced on Windows: one run,
+  //     two cleanup reports);
+  //   * the guard returned before the handler reached `exit()`, so the exit code had not been
+  //     recorded yet (this is what turned CI red on Linux: `expected [] to include 130`).
+  // Holding the promise fixes both by construction — there is no race left to lose.
+  let signalWork = null;
+  const onSignal = (sig) => {
+    if (finished) return signalWork ?? Promise.resolve();
     finished = true;
-    console.error(`\n[${name}] ${sig} — shutting down what this run started`);
-    const report = await cleanup();
-    console.error(processGuardLine(report));
-    exit(sig === 'EPIPE' ? 1 : 130);
+    signalWork = (async () => {
+      console.error(`\n[${name}] ${sig} — shutting down what this run started`);
+      const report = await cleanup();
+      console.error(processGuardLine(report));
+      exit(sig === 'EPIPE' ? 1 : 130);
+    })();
+    return signalWork;
   };
   const handlers = [
     ['SIGINT', () => { void onSignal('SIGINT'); }],
@@ -445,13 +459,22 @@ export async function withProcessGuard(
   try {
     return timed ? await Promise.race([fn(), timed]) : await fn();
   } finally {
-    finished = true;
     if (watchdog) clearTimeout(watchdog);
     for (const [sig, h] of handlers) process.off(sig, h);
-    const report = await cleanup();
-    console.log(processGuardLine(report));
-    if (report.survivors.length || !report.portsFree) {
-      console.error(`[${name}] CLEANUP FAILED — see the line above`);
+    if (signalWork) {
+      // A signal already owns the teardown. AWAIT it rather than starting a second one:
+      // running both means two loops killing the same pids and two cleanup reports, and it
+      // lets the guard return while the handler is still mid-flight.
+      await signalWork;
+    } else {
+      // Set BEFORE the await so a signal arriving mid-teardown cannot start a rival one.
+      // (The handlers are already detached above; this is belt and braces.)
+      finished = true;
+      const report = await cleanup();
+      console.log(processGuardLine(report));
+      if (report.survivors.length || !report.portsFree) {
+        console.error(`[${name}] CLEANUP FAILED — see the line above`);
+      }
     }
   }
 }

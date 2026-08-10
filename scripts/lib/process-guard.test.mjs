@@ -12,7 +12,7 @@
 // takes an injectable `exit`. Everything else on that path — the listener registration, the
 // cleanup, the report — is the real code; only the final syscall is captured.
 // ---------------------------------------------------------------------------
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createServer } from 'node:net';
 import {
   withProcessGuard, spawnManaged, stopManaged, managedCount, processAlive,
@@ -149,6 +149,48 @@ describe('withProcessGuard — exit 4 of 4: Ctrl-C', () => {
     });
     expect(exits).toContain(130);
     expect(deadBeforeBodyReturned, 'the SIGINT handler must kill the child, not the finally block').toBe(true);
+    expect(managedCount()).toBe(0);
+  });
+
+  // (Stage 38.0.19) The regression for the defect that turned CI red at 82b7904.
+  //
+  // The handler was `async` and fire-and-forget: nothing awaited it. Two symptoms came out
+  // of that single omission, and which one appeared was pure timing —
+  //   Linux/CI : the guard returned before the handler reached `exit()`, so the assertion
+  //              above read an EMPTY array ("expected [] to include 130");
+  //   Windows  : `finally` started a SECOND cleanup while the handler's was still running,
+  //              so one run walked the same MANAGED set twice and printed two reports.
+  // The test above can only ever catch the first. This one catches the CAUSE, on every
+  // platform, by counting the teardowns: exactly one run, exactly one cleanup.
+  it('a signalled run tears down exactly ONCE, and has finished doing so before it returns', async () => {
+    // Spied on `console`, NOT on `process.stdout.write`: vitest replaces the console inside
+    // a worker, so a stream-level patch sees nothing and the count would be a silent zero.
+    const reports = [];
+    const record = (...args) => {
+      const s = args.map(String).join(' ');
+      if (s.includes('processes: ')) reports.push(s.trim());
+    };
+    const spies = [
+      vi.spyOn(console, 'log').mockImplementation(record),
+      vi.spyOn(console, 'error').mockImplementation(record),
+    ];
+
+    const exits = [];
+    try {
+      await withProcessGuard({ name: 'guard-once', exit: (c) => exits.push(c) }, async () => {
+        sleeper();
+        // Body returns immediately after the signal — the exact ordering CI hit, and the
+        // one that leaves the handler in flight if nothing holds its promise.
+        process.emit('SIGINT');
+      });
+    } finally {
+      for (const s of spies) s.mockRestore();
+    }
+
+    expect(reports.length, `one run must produce one teardown, got:\n${reports.join('\n')}`).toBe(1);
+    // Read at the instant the guard resolved — no polling, no grace period. If the handler
+    // were still in flight this is empty, which is precisely the CI failure.
+    expect(exits, 'the guard returned before its own signal handler finished').toEqual([130]);
     expect(managedCount()).toBe(0);
   });
 });
