@@ -11,6 +11,23 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **The documentation now matches the code, and a test keeps it that way (Stage 38.0.18).**
+  Docs only — nothing in the game changed. Several pages still described a product that no
+  longer exists: six games instead of seven, 29/34/48 achievements instead of 52, "0009 is
+  still the latest migration" when the latest is `0014_online_matches.sql`, and a chat with a
+  dimmed backdrop and Chat/Reactions tabs that Stage 38.0.14 deleted. `PRODUCTION_SMOKE.md`
+  even contradicted itself — one section checked for six games, another for seven. The
+  owner-facing smoke pass (`OWNER_SMOKE_GUIDE.md`, and a new canonical §0 in
+  `PRODUCTION_SMOKE.md`) is rewritten as ten checks that can actually be performed, each
+  stating what a pass proves **and what it does not** — including an honest migration matrix:
+  there is no ledger and no endpoint that reports which migrations ran, so every check is
+  indirect evidence and two of them (settlements, rebuy) need real chips and a second account.
+  Every check records **PASS / FAIL / NOT RUN**, and NOT RUN may never be upgraded by
+  inference. A new `src/docsConsistency.test.ts` reads the counts from the code itself
+  (`GAME_TYPES`, `ACHIEVEMENTS`, the migrations directory, `package.json`) and fails if a
+  current-state page drifts from them — while deliberately leaving shipped release notes and
+  the per-stage history alone.
+
 - **The layout gates now prove which page they measured (Stages 38.0.16.2c and .2c.1).**
   Test tooling only — nothing in the game changed. The browser gates used to attach to
   whichever page the browser listed first, so a measurement could not be tied to the window

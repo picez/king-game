@@ -1,8 +1,12 @@
 # Card Majlis — Production smoke checklist
 
-A **10–15 minute** post-deploy pass. Run it after every production deploy (Render or
-VPS). It confirms the six-game platform, rooms/stats/social, and the optional avatar
-upload are live — **without** reading the full deployment docs.
+A post-deploy pass. Run it after every production deploy (Render or VPS). It confirms the
+**seven-game** platform, rooms/stats/social, and the optional avatar upload are live —
+**without** reading the full deployment docs.
+
+> **Read §0 first.** §0 is the canonical, currently-true release-readiness pass. Everything from
+> §0a onward is either a release-time snapshot kept for reference or a per-area deep pass; where
+> an older section disagrees with §0 about a count, a migration number or the chat UI, **§0 wins**.
 
 - **New to testing this? Start with** [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md) — a friendly 20–30 min
   walkthrough (what to open, in what order) + how to report a bug. This page is the exhaustive technical pass.
@@ -13,6 +17,9 @@ upload are live — **without** reading the full deployment docs.
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
   release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.8`** (tag `v0.4.8`).
+- **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, Fifty-One,
+  Poker) · **52 achievements** · latest migration **`0014_online_matches.sql`** · version
+  **`0.4.8`**. Everything after v0.4.8 is **Unreleased** and ships only when a release stage says so.
 
 Set your host once and reuse it below:
 
@@ -25,26 +32,119 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > that is a PASS for the native path, not a bug. Everything else works either way.
 
 > **Run migrations after every deploy (Postgres only).** If `DATABASE_URL` is set, run
-> **`npm run db:migrate`** (Render Shell / Job) so the schema is current — **profiles/settings
-> (0005–0008)** and **Friends (`0009_friends.sql`)**. A missing column surfaces as
-> `/api/me → 503 migration_required`; Friends calls degrade to `503`/empty until 0009 is applied.
-> **v0.4.8 adds no migrations** — 0009 is still the latest. v0.4.8 is **achievement grouping and badge
-> expansion** (Stages 37.0–37.1): the Profile **Achievements** grid has a styled filter chip strip
-> (**Global** + each game, earned/total, **no "All" tab**, opens on Global) — and the released
-> catalog grows **29 → 34** with 5 new stats-derived badges (King *Nothing Went Right*, Deberc *Paltina
-> Hunter* / *Double Declaration*, Tarneeb *In the Red* / *Overbidder*). **No gameplay-rule change, no
-> dependency, no schema change, no new stats field** (the released six-game state, v0.4.7 reconnect/resume,
-> and v0.4.0 Tutorials are all intact). The v0.3.7 Syrian 51 release records its stats under the free-text
-> `game_type='fifty-one'`.
+> **`npm run db:migrate`** (Render Shell / Job) so the schema is current. The runner applies every
+> `.sql` file in `server/db/migrations/` in filename order, every time — it keeps **no ledger**, so
+> re-running it is safe and is also the **only** authoritative record of what was applied. The
+> latest file on `main` is **`0014_online_matches.sql`** (15 files, `0000`–`0014`). A missing
+> user-settings column surfaces as `/api/me → 503 migration_required`; Friends calls degrade to
+> `503`/empty until `0009` is applied.
 
 ---
 
-## 0. v0.4.8 release smoke (fast targeted pass — achievement grouping and badge expansion)
+## 0. Release-readiness pass — current `main` (run this first)
+
+The canonical pass. Ten checks; record each as **PASS**, **FAIL** or **NOT RUN**. The friendly
+narrated version of exactly these ten is [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); the
+per-area deep passes are §1–§11 below.
+
+> **PASS means you saw it yourself.** Never infer a PASS from an adjacent check succeeding, and
+> never convert a **NOT RUN** into a PASS because the feature "should" work. A pass with NOT RUN
+> rows is an honest, incomplete pass — report it as exactly that.
+
+- [ ] **0.1 Diagnostics.** `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit`
+      matches the deploy, `db` = **`enabled`**, **`games.count: 7`** with `ids` =
+      `king, durak, deberc, tarneeb, preferans, fifty-one, poker`, `voice.ice` =
+      `stun_only`|`turn_configured`, `avatarUploads` present.
+      **Does NOT prove the schema:** `db: enabled` only means Postgres answered and the four
+      user-settings columns from **0005–0008** are present (`probeDbState` checks exactly those).
+      It knows nothing about 0009–0014 — that is 0.2.
+
+- [ ] **0.2 Migration evidence 0009–0014.** There is **no migration ledger and no endpoint** that
+      reports which migrations ran. The only authoritative proof is the `npm run db:migrate`
+      transcript (`applied <file>.sql` per file, then `done (15 file(s))`). Everything below is
+      *indirect* — a feature that would fail on the missing object succeeded.
+
+      **Owner-provided migration evidence:** a `npm run db:migrate` run against the Render External
+      Database URL completed with `applied 0014_online_matches.sql` and `done (15 file(s))`. That
+      file count matches `server/db/migrations/` exactly (15 files, `0000`–`0014`) and `0014` sorts
+      last, so the transcript is consistent with a full in-order run — the strongest evidence
+      available for the whole range.
+
+      | Migration | Observable check | Success proves | Does NOT prove |
+      | --- | --- | --- | --- |
+      | **0009** friends | Friends page loads + your friend code shows (`GET /api/friends`) | `users.friend_code` + `friendships` exist | Indexes; the `status` / self-friend CHECKs |
+      | **0010** wallet + ledger | **Claim daily chips** (`POST /api/me/poker-wallet/daily-claim`) | **Both** `poker_wallets` **and** `poker_ledger` exist and are writable | Nothing about 0011–0014. Merely *reading* `GET /api/me/poker-wallet` proves only `poker_wallets` — **not** the ledger |
+      | **0011** settlements | Finish a real-stakes online Poker match; chips pay out (or refund) | Only *circumstantially* — the settlement transaction committed | Nothing directly: this table has **no read path**, and a rollback anywhere in that transaction looks identical from outside |
+      | **0012** matches | **Buy in** to a real-stakes table (chips debited, table opens) | `poker_matches` exists — and 0010's tables too, since the durable match row is written in the **same** transaction as the debits | The room index; nothing about 0011 or 0014 |
+      | **0013** rebuy | Use the in-game **rebuy** after busting | The widened `poker_ledger.reason` CHECK accepts `table_rebuy` — nothing else makes that write legal | Anything else. A rebuy *failing* is ambiguous; a rebuy *succeeding* is not |
+      | **0014** online matches | Finish an online match in one of the **6 non-Poker** games → Profile → Statistics → the counter moves off zero (`GET /api/me/online-tracker`) | `online_matches` + `online_match_participants` exist and their CHECKs accept the real values | Anything via Poker — **0014 deliberately never records Poker** |
+
+      0011 and 0013 need **real chips and a second account**. **NOT RUN** is the honest answer if
+      you did not stake anything.
+
+- [ ] **0.3 King, wide desktop — closed / open / picker.** In a window **≥ 1700px**, open a King
+      online room. With the chat **closed**, then **open**, then with the **picker** open: the
+      table does not move, shrink or scroll. **And gameplay still works:** click a legal card with
+      the chat open → the move registers **exactly once** while the turn timer keeps running. (The
+      chat is **non-modal and in normal flow** — no backdrop, no dimming, no scroll lock, nothing
+      to tap through.)
+
+- [ ] **0.4 Adaptive sidecar — boundary widths.** The side panel is **earned by the game declaring
+      its scene width**, never by the screen merely being wide. Only two games declare one:
+      **King** (scene 900px → sidecar from **1668px**) and **Poker** (scene 704px → from
+      **1472px**). **Durak, Deberc, Tarneeb, Preferans and Fifty-One declare none** and never show
+      a side panel at any width. Resize across each boundary with the chat open: King flips at
+      1668, Poker at 1472, the other five never flip, and in every state `.game-stage` still spans
+      the **whole** layout width — the chat never takes width from the game.
+
+- [ ] **0.5 Mobile 360/390 — King, Poker, 51.** No sideways scrolling. The chat uses the **mobile
+      fallback**: it opens **in normal flow below the table**, never covering it, never dimming the
+      page, never swallowing a tap; gameplay works with the chat open. The hand may fall below the
+      fold with the chat open — expected, scroll to it.
+
+- [ ] **0.6 Arabic RTL.** Menu, one game table and the profile mirror correctly with no horizontal
+      overflow; the chat, the picker and the seat-anchored reactions land on the mirrored side.
+
+- [ ] **0.7 Rich chat — text + one animated sticker.** Type a message, attach **one animated
+      sticker**, Send → they arrive as **ONE message in ONE bubble**. Re-picking a sticker
+      **replaces** the attachment (never a second one); remove clears it; sending with no text
+      still posts the sticker alone; only **GIF** stickers are offered.
+      **Emoji destination** — the intent is captured on **pointer-down**, not on click: with the
+      message field **focused / being typed in**, an emoji tap **inserts at the caret** and sends
+      nothing; with the field **not** focused, the same tap posts **one seat-anchored table
+      reaction** and leaves the draft untouched. Check both branches.
+
+- [ ] **0.8 Poker with two authenticated accounts.** Online Poker is bankroll-only and refuses
+      guests and bots by design. Each line is its own PASS/FAIL:
+      **claim** the daily chips · **buy in** debits **exactly once** per account · **reload
+      mid-match** returns you to your seat with **no second debit** · **hole-card privacy** (each
+      player sees only their own hole cards) · **rebuy** after busting restores chips ·
+      **payout** lands and the total is conserved · **refund** path returns the buy-ins, and money
+      is **either** paid out **or** refunded, never both · **rematch** starts a **new paid match**
+      with a **new match id**, only after the previous one settled.
+      With one account this is **NOT RUN** — do not infer it.
+
+- [ ] **0.9 Online statistics — separate buckets.** Profile → Statistics: **online human-only** and
+      **online with-bots** are reported **separately** and are never summed. A **local
+      pass-and-play** game changes **neither** — local play writes no online match row at all, by
+      construction rather than by a filter. Poker never appears in this tracker (deliberate).
+
+- [ ] **0.10 Record the result.** Every check above logged as **PASS / FAIL / NOT RUN** in
+      [`PRODUCTION_SMOKE_LOG_TEMPLATE.md`](PRODUCTION_SMOKE_LOG_TEMPLATE.md). The release is PASS
+      only when all ten are genuinely PASS.
+
+---
+
+## 0a. v0.4.8 release-time smoke (historical snapshot — kept for reference)
+
+> **This section is the v0.4.8 release-time pass, not current state.** It is preserved because its
+> per-feature detail is still useful, but where it disagrees with §0 about counts, migrations or the
+> chat UI, **§0 is correct**. Current state: 7 games · 52 achievements · latest migration `0014`.
 
 v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (per-game filter chip strip, no "All")
 and grows the released catalog **29 → 34**. **Unreleased Stage 37.3** adds the full owner-requested pack of
 **14** more badges (**34 → 48**) with real per-round/per-hand/per-game telemetry (JSONB, **no DB migration**).
-The released six-game state, v0.4.7 reconnect/resume, v0.4.2 iOS hint, and Tutorials are intact — so this
+The released state at the time, v0.4.7 reconnect/resume, v0.4.2 iOS hint, and Tutorials are intact — so this
 §0 pass doubles as the owner's **full pre-live production smoke**. Headline manual checks (need a signed-in
 account; the carried-over cross-device one needs two devices/browsers):
 
@@ -56,10 +156,10 @@ account; the carried-over cross-device one needs two devices/browsers):
 - [ ] **5-min reconnect window (36.0):** reload/close a tab mid-game (incl. vs bots) → within **5 minutes**
       the room still exists and **Resume** returns you to your seat (was 90 s).
 - [ ] **Achievements filter chips (37.0/37.3):** Profile → Achievements opens on **Global** (there is
-      **no "All" tab**) and shows the **filter chip strip** (Global + the six games), each chip an icon +
+      **no "All" tab**) and shows the **filter chip strip** (Global + every game), each chip an icon +
       short name + its own **earned/total**; tapping a chip swaps the grid to that group. The strip scrolls
       **inside itself** (styled scrollbar, not the native OS bar), so **360/390** and **Arabic RTL** never
-      overflow the page. Header count now reads out of **48**.
+      overflow the page. Header count read out of **34** at v0.4.8; the catalog is **52** today (§0).
 - [ ] **Stage 37.3 pack (Unreleased, needs real play + a DB):** the new badges unlock only from real
       telemetry — e.g. win a 51 round on the first move (*First-Move Finish*), be dealt two jokers
       (*Double Joker*), win a Deberc match with no «Бейт» (*Beyt-Free*), bid 13 and make it in Tarneeb
@@ -92,7 +192,7 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
 - [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 7`** with `ids` including **`fifty-one`** and **`poker`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** if any new migration (none in 0.4.8 — latest stays `0009`).
+      Then **`npm run db:migrate`** after every deploy — the latest file on `main` is now `0014_online_matches.sql` (§0.2).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404
@@ -121,15 +221,15 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       (Arabic RTL mirrors), browsed via the **filter chip strip** (Global + each game, **no "All"**,
       opens on Global, styled internal scroll). A first win in **Deberc / Tarneeb Pairs / Preferans / 51**
       flips that game's **winner** badge; **Six-Game Regular** unlocks after playing every game;
-      **All-Rounder** still needs a win in all six; **Tarneeb Soloist** stays separate from Pairs. New
+      **All-Rounder** needs a win in **all 7** games (Poker included); **Tarneeb Soloist** stays separate from Pairs. New
       **37.0** badges: King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
       *In the Red* / *Overbidder*. (Full detail §7.)
-- [ ] **Tutorials (all 6):** the main menu shows a **🎓 Tutorials** tile → a hub listing **all 6 games**,
+- [ ] **Tutorials (all 7):** the main menu shows a **🎓 Tutorials** tile → a hub listing **all 7 games**,
       **every** row **Start**-able (no "Coming next"). Open **each** tutorial and step to **Done** — King,
       Durak, Deberc, Tarneeb, Preferans, 51 — highlighted cards + short captions; Back/Next/Skip/←→/Esc
       work; Done/Skip return to the hub (never a live game). **No network call** fires (DevTools quiet).
       **360/390 no horizontal overflow**; **Arabic RTL** mirrors and card runs still read low→high. (§5c.)
-- [ ] **Hand drag (all 6 games):** in each game **drag a card** within your hand (touch/mouse/pen) to
+- [ ] **Hand drag (all 7 games):** in each game **drag a card** within your hand (touch/mouse/pen) to
       reorder; a quick **tap still plays/selects**. After a manual reorder a **newly drawn card lands on
       the LEFT**; **↺ Auto-sort** resets. It is **display-only** — nothing is sent to the server and
       opponents' views never change. No horizontal overflow at 360/390; on a **touch device** the drag
@@ -149,7 +249,7 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
       a **5-card Палтіна beats a 4-card Палтіна** regardless of top card; **Бела** is declared **at play
       time** (🔔 toggle + a trump **K/Q**) and scores **20 only if that trick is won**; the played
       **table cards are ~10% smaller** (trump/stock unchanged). (More detail in the Deberc rule-fix
-      item further down §0, and the six-game smoke §5.)
+      item further down §0a, and the seven-game smoke §5.)
 - [ ] **51 (Syrian 51) is a released 6th game (v0.3.7):** `GET /api/games` lists `fifty-one` as
       `status:'available'`, `supportsLocal/Online:true`; the **Local and Host pickers** show 51 as a
       normal, selectable option with **no** "Experimental" / "Coming soon" tag and its own PNG emblem;
@@ -284,9 +384,9 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
 ## 3. Static app + game catalog
 
 - [ ] `$HOST/` loads the **Card Majlis** menu (subtitle lists King, Durak, Deberc,
-      Tarneeb, Preferans & 51); no console errors (DevTools → Console).
-- [ ] `curl -s $HOST/api/games` → `{ "games": [ … ] }` with **6** ids
-      `king, durak, deberc, tarneeb, preferans, fifty-one`, every one `"status":"available"` and
+      Tarneeb, Preferans, 51 & Poker); no console errors (DevTools → Console).
+- [ ] `curl -s $HOST/api/games` → `{ "games": [ … ] }` with **7** ids
+      `king, durak, deberc, tarneeb, preferans, fifty-one, poker`, every one `"status":"available"` and
       `supportsLocal/supportsOnline/supportsBots: true`. No private fields (`rulesDoc` absent).
 
 ### 3a. Static bandwidth / caching (Stage 28.1 / 28.1b)
@@ -349,17 +449,19 @@ $et = (iwr "$H/cards/faces/spades-a.png" -Method Head -UseBasicParsing).Headers.
       persist. **If not configured:** `curl -s $HOST/auth/google/start` → `503 oauth_disabled`
       (expected) and the app still works as guest.
 
-## 5. Six-game smoke (Local + Host)
+## 5. Seven-game smoke (Local + Host)
 
-For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
+For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51, **Poker**:
 
 - [ ] **Local** sheet lists the game (icon + `👥 <players> · <meta>`), selectable — no
       "Coming soon"/"Experimental" tag.
 - [ ] **Host** sheet lists the game; **Create room** succeeds and the Lobby opens.
 - [ ] **Add bots → Start** deals a hand and the game screen renders (bidding/play as
-      appropriate). Seat counts: King 3–4, Durak 2–5, Deberc 3–4, Tarneeb 4, Preferans 3, 51 2–4.
+      appropriate). Seat counts: King 3–4, Durak 2–5, Deberc 3–4, Tarneeb 4, Preferans 3, 51 2–4,
+      Poker 2–6. **Local Poker is free play (no wallet); online Poker is bankroll-only and refuses
+      guests and bots** — host it from a signed-in account with chips (§ Poker bankroll economy).
 - [ ] Each game shows its **own PNG emblem** (King crown / Durak / Deberc gem / Tarneeb
-      star / Preferans top hat / 51 two fanned cards) — not a bare emoji.
+      star / Preferans top hat / 51 two fanned cards / Poker chips) — not a bare emoji.
 - [ ] **Cards render, never blank (Stage 25.8):** every dealt/table card shows artwork or its
       **rank+suit text** fallback — no blank rectangles (even right after a deploy, before the
       card art is cached).
@@ -387,14 +489,14 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Stats:** with Postgres, after a signed-in Solo game, Profile → Stats → Tarneeb → **Solo**
       toggle shows the solo aggregates; the **Pairs** toggle is unaffected. Leaderboard → Tarneeb →
       **Solo** ranks solo players. **No new DB migration** — solo reuses the existing schema under
-      `game_type='tarneeb-solo'` (latest migration stays **0009**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
+      `game_type='tarneeb-solo'` (no migration was added for it; the latest on `main` is **0014**; `curl -sI $HOST/api/games/tarneeb/stats?variant=solo`
       responds 200 for a signed-in user).
 
 ### 5b. 51 (Syrian 51) — release extras (Stage 30.7)
 
-> 51 is now `available` — the create/join/play/emblem basics are covered by the six-game smoke §5
+> 51 is now `available` — the create/join/play/emblem basics are covered by the seven-game smoke §5
 > above. This section is the 51-specific release extras: online flow, favorite, achievement,
-> All-Rounder, and score-only stats under `game_type='fifty-one'` (**no DB migration** — latest 0009).
+> All-Rounder, and score-only stats under `game_type='fifty-one'` (**no DB migration was added for 51**; the latest on `main` is 0014).
 
 - [ ] **Picker (no Experimental tag):** both the **Local** and **Host** pickers list **51** as a normal,
       selectable option — **no** "Experimental" / "Coming soon" tag, not dimmed, with its own PNG emblem.
@@ -447,7 +549,7 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 - [ ] **Stats (needs Postgres):** after a **signed-in** online 51 game with **2+ humans and no bots**,
       Profile → **Stats → 51** shows games / win-rate / avg-penalty / eliminations, and **Leaderboard →
       51** lists the player (own row highlighted). A game **with a bot** or a **guest** records nothing.
-      `curl -sI $HOST/api/games/fifty-one/stats` → 200 (signed-in). **Latest DB migration stays 0009**
+      `curl -sI $HOST/api/games/fifty-one/stats` → 200 (signed-in). **51 added no migration; the latest on `main` is 0014**
       (51 stats reuse the free-text `game_type` — no migration).
 - [ ] **Mobile/RTL:** 360/390 portrait — hand scrolls, meld/draw/discard controls reachable, **no
       horizontal overflow**; Arabic RTL reads correctly.
@@ -457,8 +559,8 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
 > No backend — tutorials are 100% client-side scripted demos (no server/stats/account). This smoke just
 > confirms the deployed bundle serves the menu section and every tutorial renders.
 
-- [ ] **Menu → 🎓 Tutorials** opens the hub listing **all 6 games**, and **every** row (King, Durak,
-      Deberc, Tarneeb, Preferans, 51) shows **Start** (with a **⏱ ≈ Ns** chip) — no "Coming next" left.
+- [ ] **Menu → 🎓 Tutorials** opens the hub listing **all 7 games**, and **every** row (King, Durak,
+      Deberc, Tarneeb, Preferans, 51, Poker) shows **Start** (with a **⏱ ≈ Ns** chip) — no "Coming next" left.
       No network call fires opening a tutorial (DevTools → Network stays quiet).
 - [ ] **Each tutorial runs end-to-end** (Step 1 → last) with highlighted cards + short captions:
       51 (7, A-2-3/Q-K-A/K-A-2✗/joker), Durak (6, attack-defense/Trump♥), King (6, lead badge + winner),
@@ -492,7 +594,7 @@ For **each** of King, Durak, Deberc, Tarneeb, Preferans, 51:
       via the **filter chip strip** (Global + each game, **no "All"**, opens on Global, styled internal
       scroll) at **360/390** with no horizontal overflow (RTL Arabic mirrors). After a first win in **Deberc /
       Tarneeb Pairs / Preferans / 51** the game's new **winner** badge turns gold; **All-Rounder** still
-      needs a win in all six games. **Uncommon** badges render with a green accent.
+      needs a win in all **7** games. **Uncommon** badges render with a green accent.
 
 ## 8. Avatars
 
@@ -609,8 +711,8 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 > The Android app is a planned **TWA** ([`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md)); nothing is submitted.
 > This checks the deployed PWA meets the wrapper's web prerequisites.
 
-- [ ] `curl -s $HOST/manifest.webmanifest` → the **`description` names all six games** (King, Durak,
-      Deberc, Tarneeb, Preferans & 51); `name`/`short_name` = **Card Majlis**; `start_url`/`scope` = `/`;
+- [ ] `curl -s $HOST/manifest.webmanifest` → the **`description` names all seven games** (King, Durak,
+      Deberc, Tarneeb, Preferans, 51 & Poker); `name`/`short_name` = **Card Majlis**; `start_url`/`scope` = `/`;
       `display` = `standalone`; 192 + 512 + **maskable** icons.
 - [ ] **No real Asset Links shipped yet:** `curl -sI $HOST/.well-known/assetlinks.json` → **404**
       (expected — the real file is added only at store setup with the Play App-Signing SHA-256). The
@@ -674,7 +776,7 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
 - [ ] `curl -sI $HOST/api/avatar/not-a-real-id.webp` → **`404`** (client falls back to
       emoji; never a stack trace).
 - [ ] No opponent hand leaks: in a 2-human room, each client only ever sees its **own**
-      cards (others show face-down counts) — true for **all six** games incl. **51** (opponent
+      cards (others show face-down counts) — true for **all 7** games incl. **51** and **Poker** (opponent
       hands + draw pile stay hidden, in live state and reconnect snapshots).
 - [ ] **WS payloads carry no auth secrets:** game/lobby messages contain only display names +
       avatar **URLs** — **no** session cookie/token, email, or Google `sub`. (Auth is an HttpOnly

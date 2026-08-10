@@ -171,7 +171,7 @@ Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not sup
 
 ## 6. Technical readiness checklist (Scope F — 33.1 fixed the ✅[x] items)
 
-- [x] **Manifest + `index.html` `description`** now name **all six** games (King, Durak, Deberc, Tarneeb,
+- [x] **Manifest + `index.html` `description`** now name **every** game — **seven** today (King, Durak, Deberc, Tarneeb,
       Preferans & 51) — fixed in 33.1, guard-tested (`src/pwa.test.ts`).
 - [x] `name` / `short_name` present (**Card Majlis**).
 - [x] Icons **192 / 512** + a **maskable-512** + svg present (`public/icons/…`); confirm the maskable
@@ -493,7 +493,7 @@ In **Google Cloud Console -> APIs & Services -> Credentials -> your OAuth 2.0 Cl
 
 On the new origin, confirm:
 - `https://<domain>/manifest.webmanifest` -> 200, `name` = **Card Majlis**, `start_url`/`scope` = `/`,
-  `display` = `standalone`, 192 + 512 + maskable icons (names all six games in `description`).
+  `display` = `standalone`, 192 + 512 + maskable icons (the `description` names every game — seven today).
 - The **service worker** registers and the app installs/launches standalone (DevTools -> Application).
 - `/api` + `/auth` are reachable (network-only; not cached) and Google login completes end-to-end.
 - Static/media headers look right (ETag/cache tiers) — see [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md).

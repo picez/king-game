@@ -1,7 +1,13 @@
 # Card Majlis — MVP Status
 
-> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for six games:
-> **King, Durak, Deberc, Tarneeb, Preferans, 51**. "King" now refers ONLY to the King game, not the
+> **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, 51, **Poker**) ·
+> **52 achievements** · latest migration **`0014_online_matches.sql`** · version **`0.4.8`**.
+> The stage-by-stage narrative below is a running log: entries describe what was true **at that
+> stage**, so their counts are historical. Where a stage entry disagrees with this block, this
+> block is current.
+
+> **Product = Card Majlis** (Stage 14.0 rebrand) — a card lounge for seven games:
+> **King, Durak, Deberc, Tarneeb, Preferans, 51, Poker**. "King" now refers ONLY to the King game, not the
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
@@ -74,7 +80,7 @@ illegal moves no-op'd), the server drives bots and the public `round_complete` a
 flows. It records **score-only stats + leaderboard** under `game_type='fifty-one'` (no DB migration;
 per-seat final penalty / eliminated / winner, aggregated to win rate + avg/best penalty + eliminations
 + rounds) with a Profile sub-tab, is a **favorite-game** option, and has a **`fifty-one-winner`**
-achievement that also counts toward **All-Rounder** (now a win in all six games). It ships its own PNG
+achievement that also counts toward **All-Rounder** (a win in all games — **7** since Poker shipped). It ships its own PNG
 emblem (`game-fifty-one.png`, two fanned cards). It is a rummy-style get-rid-of-your-hand game (form
 runs/sets, open with 51+ points, jokers wild, penalty scoring, host-configurable elimination score
 210/310/410/510 default 510). Rules are in
@@ -100,7 +106,7 @@ documented as post-MVP, not built. Spec + plan:
   and the server restarts only when **every connected human is ready** (no auto-start). Leaving /
   disconnecting updates or cancels the pending rematch. Server-authoritative (`restartGame` reuses
   `startGame`); WS `REMATCH_READY` / `REMATCH_DECLINE` / `REMATCH_STATE`; in-memory only, no DB,
-  no token/session/email; a fresh game records its own stats (no duplication). All 6 games.
+  no token/session/email; a fresh game records its own stats (no duplication). All 7 games.
 - **Friends & room invites (Stage 25.1–25.9, needs Postgres + migration `0009`)**: add friends
   **by code** (never by email); an app-level presence connection keeps a signed-in user **online**
   at the menu and drives an **incoming-request badge**; the Lobby shows an **always-visible "Invite
@@ -120,10 +126,10 @@ documented as post-MVP, not built. Spec + plan:
   (`src/games/gameHelp.ts`) + i18n content (`help.<game>.<section>`) — short
   Goal / Players / Deck / Turns / Scoring / Notes lines, opened from a ❓ button in
   the Local/Host game picker for the selected game. i18n ×4; no gameplay/server change.
-- **Tutorials (Stages 31.1–31.2)**: a **🎓 Tutorials** menu section — a hub of all 6 games with a
+- **Tutorials (Stages 31.1–31.2; Poker added in 37.4)**: a **🎓 Tutorials** menu section — a hub of all 7 games with a
   shared, data-driven `TutorialPlayer` (scripted deterministic scenes via the shared `CardView`; Back /
-  Next / Skip / ←→ / Esc). **All six games** are now fully scripted (≤2 min each): King (6), Durak (6),
-  Deberc (7), Tarneeb (6), Preferans (6, light), 51 (7) — no "Coming next" left. Pure `src/tutorials/`
+  Next / Skip / ←→ / Esc). **All seven games** are now fully scripted (≤2 min each): King (6), Durak (6),
+  Deberc (7), Tarneeb (6), Preferans (6, light), 51 (7), Poker — no "Coming next" left. Pure `src/tutorials/`
   catalog + `src/ui/tutorials/` UI — **client-only: no reducers, network, account, stats or
   achievements**. i18n ×4; guard-tested + a 360/390 overflow smoke (`scripts/tutorial-shots.mjs`).
   Plan: [`TUTORIALS_PLAN.md`](TUTORIALS_PLAN.md).
@@ -191,7 +197,7 @@ documented as post-MVP, not built. Spec + plan:
   [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md) audits 4 paths (PWA-only / **Android TWA** / Capacitor /
   Expo-RN) and recommends **Android-first via TWA** (wraps the production PWA in a Chrome-backed Trusted
   Web Activity — OAuth/cookies/WebRTC behave exactly like the PWA), **iOS PWA-only** for now. **33.1** web
-  readiness (manifest/`<meta>` → six games, `assetlinks.example.json` + guards); **33.2** config-only TWA
+  readiness (manifest/`<meta>` → the full game list, **seven** today, `assetlinks.example.json` + guards); **33.2** config-only TWA
   scaffold at `android-twa/` (Bubblewrap `twa-manifest.json`); **33.3** owner build runbook + read-only
   `check-env.ps1`; **33.4** corrected `bubblewrap init` to take the **web-manifest URL** (+ `webManifestUrl`
   guard); **33.5 iOS decision (§8)** — **stay iOS PWA-only**, defer any App Store/Capacitor wrapper until

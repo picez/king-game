@@ -6,14 +6,14 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
 - Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
 - Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
-- Latest DB migration: `0012_poker_matches` (Stage 37.7.2 — durable match record for crash recovery); `0011_poker_settlement` = payout/refund gate; `0010_poker_wallet` = wallet + ledger. Do not add migrations casually.
+- Latest DB migration: **`0014_online_matches`** (Stage 38.0.6 — online participation tracker); `0013_poker_rebuy` widens the ledger `reason` CHECK; `0012_poker_matches` = durable match record; `0011_poker_settlement` = payout/refund gate; `0010_poker_wallet` = wallet + ledger. **15 files, `0000`–`0014`.** The runner keeps NO ledger — its own transcript is the only authoritative record of what was applied. Do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
-- Achievements: **48 total** (34 released + 14 Unreleased Stage 37.3), grouped by Global + each game; **no `All` tab**; default group is Global; styled horizontal chip scroll. The Stage 37.3 pack is backed by real per-round/per-hand/per-game telemetry added to the JSONB stats (no DB migration); 51 telemetry lives on `FiftyOneState.telemetry`.
+- Achievements: **52 total** (34 released + 14 Unreleased Stage 37.3 + 4 Poker badges Stage 37.4), grouped by Global + each game; **no `All` tab**; default group is Global; styled horizontal chip scroll. The Stage 37.3 pack is backed by real per-round/per-hand/per-game telemetry added to the JSONB stats (no DB migration); 51 telemetry lives on `FiftyOneState.telemetry`.
 - Recent reconnect work: 5-minute orphan room TTL, same-user cross-device room discovery/reclaim via `FIND_MY_ROOMS -> MY_ROOMS -> RECLAIM_ROOM`.
 - Syrian 51: released local+online+stats+achievement; configurable elimination score 210/310/410/510; Count cards calculator; discard-to-open; joker replacement; meld cards use uniform slots.
-- Tutorials: scripted tutorials for all 6 games, not live practice.
+- Tutorials: scripted tutorials for **all 7 games** (Poker added in Stage 37.4), not live practice.
 - Android: TWA config/build path exists; debug APK was built and launched in emulator as Custom Tab. Fullscreen TWA still needs custom domain + Play App-Signing SHA-256 + real `assetlinks.json`.
 - iOS: PWA-only for now; no native wrapper yet.
 
@@ -1311,6 +1311,62 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Tests: `roomSocialSheetSections.test.ts` rewritten (11), `roomSocialSheet.test.ts` back to one
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
+
+### Stage 38.0.18 — release-unblock: current docs + CI hardening (COMPLETE, Unreleased)
+- Worked from HEAD `336df6a`. Two focused commits: (1) docs + owner smoke + a consistency
+  guard, (2) CI hardening. No migration, no version bump, no dependency, no game/economy/UI
+  change. Counters unchanged: games 7, achievements 52, latest migration 0014, v0.4.8, libc 0.
+- **Why the docs were a release blocker, concretely.** Three parallel read-only audits found
+  that `PRODUCTION_SMOKE.md` **contradicted itself** — §0 checked `games.count: 7` while §3
+  expected 6 ids and §0/§5b/§7 all said "latest migration stays 0009" (it is `0014`). The
+  achievement count appeared as 29, 34 and 48 across the current-state docs (it is 52).
+  `QA_CHECKLIST.md` still told a tester to close the chat with **the backdrop** and to check a
+  **Chat/Reactions tabbed sheet** and the per-game `variant` shells — all deleted by 38.0.14.
+  `ONLINE_ARCHITECTURE.md` §2's `CREATE_ROOM` `gameType` union omitted `'poker'` entirely: a
+  real wire-protocol spec bug, not prose.
+- **The owner pass is rewritten, not patched.** `OWNER_SMOKE_GUIDE.md` and a new canonical §0
+  in `PRODUCTION_SMOKE.md` are the SAME ten checks: diagnostics · migration evidence 0009–0014
+  · King wide-desktop closed/open/picker with gameplay live · sidecar boundaries · mobile
+  360/390 · Arabic RTL · rich chat · Poker with two authenticated accounts · online-stats
+  separation · record the result. Each states what a pass proves **and what it does not**, and
+  the three states are **PASS / FAIL / NOT RUN** with an explicit rule that NOT RUN is never
+  upgraded by inference. The old §0 is relabelled **§0a** and marked a v0.4.8 release-time
+  snapshot — kept, not rewritten, with a "§0 wins" note.
+- **The migration matrix is the honest part, and it cost the most thought.** There is **no
+  migration ledger table and no HTTP surface** that reports what ran (`server/db/migrate.ts`
+  just replays every `.sql` in filename order, every time — idempotency lives in the SQL).
+  `/health/diagnostics`'s `db: enabled` proves only the four user-settings columns from
+  **0005–0008** (`probeDbState`'s `REQUIRED_USER_SETTINGS_COLUMNS`) — it knows nothing about
+  0009–0014. So every check is INDIRECT: 0009 ← `GET /api/friends`; 0010 ← the daily claim
+  (the wallet READ alone proves only `poker_wallets`, **not** the ledger — this is the
+  overclaim to avoid); 0011 ← no read path at all, only circumstantial chip movement;
+  0012 ← a buy-in (its durable row is written in the same tx as the debits, so it also proves
+  0010); 0013 ← a successful rebuy (nothing else makes a `table_rebuy` ledger write legal);
+  0014 ← `GET /api/me/online-tracker` after a NON-Poker online match (0014 deliberately never
+  records Poker). 0011 and 0013 need real chips + a second account ⇒ NOT RUN is the honest
+  default. **Owner-provided migration evidence** (`applied 0014_online_matches.sql`,
+  `done (15 file(s))`) is recorded as such — 15 matches the directory exactly (0000–0014) —
+  and is the STRONGEST evidence available; no date/URL/DB fact was invented around it.
+  **No new endpoint was added**, deliberately: anything exposing table names/SQL/ledger state
+  would breach the `server/diagnostics.ts` privacy boundary.
+- **Guard: `src/docsConsistency.test.ts` (41 tests).** Derives truth from the CODE
+  (`GAME_TYPES`, `ACHIEVEMENTS`, `readdirSync(migrations)`, `package.json`) — nothing is
+  hard-coded to 7/52/0014, so an 8th game makes it demand "eight". It checks the ten smoke
+  sections still exist, parses the documented `gameType` union and compares it set-wise to
+  `GAME_TYPES`, and holds an explicit FORBIDDEN list of once-true-now-false strings.
+  **History is exempt on purpose:** CHANGELOG is checked ONLY inside the `[Unreleased]` slice
+  (bounded, and the bound is asserted), and one test exists purely to state out loud that
+  released blocks are NOT required to match current counters.
+  **Gotcha:** "the other six games" is CORRECT prose in a Poker- or 51-scoped entry (7 minus
+  the one being described) — the first version of the CHANGELOG assertion banned the bare
+  substring and failed on two legitimate lines. It now bans only a claim about the TOTAL
+  (`/\b(?:all|the|our) six games\b/`, `six-game (platform|state|lounge)`).
+  Negative control run: flipping `**52** badges` → `**48**` in `PROJECT_OVERVIEW.md` fails the
+  suite, so the guard is not vacuous.
+- **`PRODUCTION_SMOKE_LOG_TEMPLATE.md` was NOT given a fake PASS.** Its pre-filled
+  `games.count` cell recorded a real **v0.4.4** observation of `6`; the expectation is now `7`
+  and the recorded value reads **NOT RUN — re-run against the current deploy**, because
+  inventing a 7 there is exactly the dishonest PASS the guide forbids.
 
 ### Stage 38.0.16.3 — adaptive sidecar for King/Poker (COMPLETE, Unreleased)
 - Worked from HEAD `c5d2d87`. Product responsive layout + QA. No game rules, no server logic,

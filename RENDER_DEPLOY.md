@@ -5,7 +5,7 @@ service serves both the **frontend** and the **WebSocket** on the same domain,
 and Render provides **HTTPS/WSS** automatically.
 
 > **After each deploy**, run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
-> checklist to confirm health / 6 games / rooms / stats / avatars / social / security.
+> checklist to confirm health / 7 games / rooms / stats / avatars / social / security.
 
 > Why one service works: the Node server (`server/index.ts`) serves the built
 > client from `dist/` AND handles the WebSocket on `/ws`, all on the port Render

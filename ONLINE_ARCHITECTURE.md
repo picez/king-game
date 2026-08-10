@@ -43,19 +43,22 @@ with a `t` discriminator.
   `gameType` is emitted from the room so the same server browser lists every card
   game. `hostAvatar` is re-sanitized to the emoji whitelist at the source (never
   free text); `hostConnected` is the host's live-socket flag (MVP connection-quality cue).
-  > **Multi-game online (six games).** `CREATE_ROOM` takes an optional
-  > `gameType: 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans' | 'fifty-one'`
+  > **Multi-game online (seven games).** `CREATE_ROOM` takes an optional
+  > `gameType: 'king' | 'durak' | 'deberc' | 'tarneeb' | 'preferans' | 'fifty-one' | 'poker'`
   > (default King; unknown → `BAD_MESSAGE`) plus per-game options: Durak
-  > `variant: 'simple' | 'transfer'`, Deberc `matchSize: 'small' | 'big'`, and a
-  > `playerCount` that ranges 2–5 by game (Durak may be **2**, Tarneeb is fixed **4**,
-  > Preferans is fixed **3**, 51 is **2–4** with no extra options).
+  > `variant: 'simple' | 'transfer'`, Deberc `matchSize: 'small' | 'big'`, Poker a stakes
+  > preset, and a `playerCount` that ranges 2–6 by game (Durak may be **2**, Tarneeb is fixed
+  > **4**, Preferans is fixed **3**, 51 is **2–4**, Poker is **2–6** — the shared room cap
+  > `MAX_PLAYERS` is **6**). The client never assembles this intent per game by hand: the shared
+  > pure `buildCreateIntent()` (`src/net/online.ts`) ALWAYS carries the selected `gameType`.
   > `RoomSnapshot`/`RoomSummary`
   > carry `gameType` (+ variant/matchSize). `STATE_UPDATE.state` /
   > `ACTION_REQUEST.action` are game-state / game-action **unions** routed by
   > `gameType`; the server runs each game through its `GameDefinition` (reducer /
   > acting-player / **per-game redaction** / bots / start action). King's message
-  > shapes are unchanged. All six games are `available` and record their own
-  > **per-`game_type` stats**. Designs: [`DURAK_PLAN.md`](DURAK_PLAN.md),
+  > shapes are unchanged. All seven games are `available` and record their own
+  > **per-`game_type` stats**. Online **Poker is bankroll-only** (authenticated humans, no bots,
+  > buy-in escrow — see [`POKER_RULES.md`](POKER_RULES.md)); local Poker is free play. Designs: [`DURAK_PLAN.md`](DURAK_PLAN.md),
   > [`TARNEEB_PLAN.md`](TARNEEB_PLAN.md), [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 - `UPDATE_SETTINGS` / `START_GAME` (host only)
 - `ACTION_REQUEST { action }` — a request to mutate game state

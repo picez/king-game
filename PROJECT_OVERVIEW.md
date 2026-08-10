@@ -52,7 +52,7 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 
 ## What it is
 
-A mobile-first web **card lounge** for six games, playable **local pass-and-play** or
+A mobile-first web **card lounge** for seven games, playable **local pass-and-play** or
 **server-authoritative online**. React + TypeScript (Vite) client; a single Node
 (`ws`) server hosts the client, the `/ws` socket, and the `/api/*` HTTP surface on one
 origin. Postgres is **optional** — with no `DATABASE_URL` the app runs fully on
@@ -72,7 +72,7 @@ Store/Capacitor wrapper until the Android TWA is proven + a custom domain + stor
 PWA meta already ships (`index.html` apple-touch-icon/status-bar/standalone). The web/PWA stays the single
 source of truth; **no built native app exists yet**.
 
-## Supported games (6 released, local + online)
+## Supported games (7 released, local + online)
 
 | Game | Players | Notes |
 |------|---------|-------|
@@ -87,10 +87,10 @@ source of truth; **no built native app exists yet**.
 Each records its own per-`game_type` **stats + leaderboard** (DB-backed, score-only —
 never cards). Deberc adds an aggregate combination breakdown.
 
-**Tutorials (Stages 31.1–31.2)** — a **🎓 Tutorials** menu section eases new players in: a hub of all 6
+**Tutorials (Stages 31.1–31.2, extended in 37.4)** — a **🎓 Tutorials** menu section eases new players in: a hub of all 7
 games with a shared, data-driven player of **scripted, deterministic** scenes (short captions +
-highlighted cards, ≤ 2 min). **All six games** are fully scripted (King/Durak/Deberc/Tarneeb/Preferans/
-51). Client-only — no reducers, network, account, stats or achievements. Pure `src/tutorials/` catalog +
+highlighted cards, ≤ 2 min). **All seven games** are fully scripted (King/Durak/Deberc/Tarneeb/Preferans/
+51/Poker). Client-only — no reducers, network, account, stats or achievements. Pure `src/tutorials/` catalog +
 `src/ui/tutorials/` UI; i18n ×4. Design + rollout: [`TUTORIALS_PLAN.md`](TUTORIALS_PLAN.md).
 
 **51 / Syrian 51** was released as the **6th game** at Stage 30.7 (`status: available`): local +
@@ -159,12 +159,12 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** **48** badges (34 released + **14 Unreleased, Stage 37.3**) derived from stats + a
+- **Achievements:** **52** badges (34 released + **18 Unreleased**: 14 from Stage 37.3, 4 Poker badges from Stage 37.4) derived from stats + a
   post-game "unlocked" toast, browsed **per game** — a styled chip strip (**Global** + each game, **no
   "All" tab**, opens on Global). The **Stage 32.1** expansion added 15 (14→29), **Stage 37.0** added 5
-  (29→34), and **Stage 37.3** the full owner-requested pack of **14** (34→48) — each backed by **real
-  per-round / per-hand / per-game telemetry** added to the JSONB stats (**no DB migration**, backward-safe).
-  All-Rounder + totals unchanged. ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4, §7, §8.)
+  (29→34), **Stage 37.3** the full owner-requested pack of **14** (34→48) — each backed by **real
+  per-round / per-hand / per-game telemetry** added to the JSONB stats (**no DB migration**, backward-safe) —
+  and **Stage 37.4** the 4 Poker badges (48→52). **All-Rounder now needs a win in all 7 games**, Poker included. ([`ACHIEVEMENTS_PLAN.md`](ACHIEVEMENTS_PLAN.md) §4, §7, §8.)
 - **Preferences** sync to the profile when signed in, else stay device-local.
 
 ## Deployment
@@ -178,10 +178,11 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
 - **CI toolchain:** **Node 22 / npm 10**, install with `npm ci`; the committed
   `package-lock` is maintained with npm 10 (never commit npm-11 lockfile churn).
 - **After a deploy:** run the 10–15 min [`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md)
-  checklist (health / 6 games / rooms / stats / avatars / social / security).
+  checklist (health / 7 games / rooms / stats / avatars / social / security).
 - **Migrations:** when Postgres is enabled, run **`npm run db:migrate`** after every deploy —
-  Friends need `0009_friends.sql`, and a missing column surfaces as `/api/me → 503
-  migration_required`.
+  Friends need `0009_friends.sql` and the latest file on `main` is **`0014_online_matches.sql`**; a missing
+  column surfaces as `/api/me → 503 migration_required`. The runner keeps **no ledger** — its own transcript
+  is the only authoritative record of what was applied ([`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §0.2).
 - **Voice TURN (optional):** unset → STUN-only (strict-NAT users fall back to text). Set
   `VOICE_ICE_SERVERS` (server, runtime, served at `/api/voice/ice-config`) or the build-time
   `VITE_VOICE_ICE_SERVERS` to add a TURN relay — credentials are env-only, never committed.

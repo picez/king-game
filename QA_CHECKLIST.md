@@ -36,7 +36,7 @@ npm run verify   # runs the four checks below, SEQUENTIALLY (recommended)
 
 ```bash
 npm run typecheck:server  # server/index.ts import graph (tsc -p tsconfig.server.json)
-npm test                  # unit + pure-logic tests (all 6 games + net/UI)
+npm test                  # unit + pure-logic tests (all 7 games + net/UI)
 npm run build             # client type-check + production build
 npm run e2e               # spawns a server, plays full online rounds, restart restore
 npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transfer × 30 seeds
@@ -160,9 +160,9 @@ CI and the canonical verification environment run **Node 22** (see `.nvmrc` /
 
 ## Manual — Tutorials (Stages 31.1–31.2)
 
-- [ ] **Menu entry:** the main menu shows a **🎓 Tutorials** tile → opens a hub listing **all 6 games**
+- [ ] **Menu entry:** the main menu shows a **🎓 Tutorials** tile → opens a hub listing **all 7 games**
       with icon, name, a one-line "what you'll learn", and a **⏱ ≈ Ns** duration.
-- [ ] **All six enabled (31.2):** every row — King, Durak, Deberc, Tarneeb, Preferans, 51 — shows a
+- [ ] **All seven enabled (31.2; Poker added in 37.4):** every row — King, Durak, Deberc, Tarneeb, Preferans, 51, Poker — shows a
       **Start** button (no "Coming next" left). **Back to menu** returns.
 - [ ] **51 tutorial (7 steps):** demo table (melds / discard / hand), highlighted cards, short captions.
       Visual moments: **A-2-3 / Q-K-A** runs + a red **K-A-2 ✗** note; **Take & open 51**; a **joker**
@@ -511,7 +511,9 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] Tapping a **sticker** sends it once — whether or not you were typing — and the chat
       and the picker stay open; the draft is untouched.
 - [ ] **Escape** closes the picker first, a second **Escape** closes the chat; the 😀 button
-      toggles only the picker; **✕** and the **backdrop** close the whole chat.
+      toggles only the picker; **✕** closes the whole chat. **There is no backdrop** — Stage 38.0.14
+      deleted it, along with the dimming and the scroll lock; a tap outside the panel goes to
+      whatever is under it, which is the point.
 - [ ] Sending a **second reaction immediately** shows a "Too many messages /
       Wait…" toast (the **30s cooldown is server-side** — try from two devices to
       confirm it's per-player, not global).
@@ -773,8 +775,8 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] **Achievement:** after declaring at least one Preferans contract (online, human-vs-
       human, DB on), the **Preferans Declarer** badge (🎩) appears earned in Profile →
       Achievements; the unlock toast may announce it. Locked before any declaration.
-- [ ] **All-rounder:** the cross-game "won every game" badge now also requires a Preferans
-      win (6 games — since Stage 30.7 it also requires a 51 win).
+- [ ] **All-rounder:** the cross-game "won every game" badge requires a win in **every** game —
+      **7** today (Preferans since this stage, 51 since 30.7, **Poker** since 37.4).
 - [ ] **Regression:** local play, online create/join/start, redaction (no opponent-hand
       leak), reconnect, and stats recording all still work (covered by `npm run verify` +
       the `[2p]` e2e section).
@@ -897,7 +899,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 - [ ] **Achievement:** after winning at least one 51 game (online, human-vs-human, DB on), the **51 Winner**
       badge (🀄) appears earned in Profile → Achievements; the unlock toast may announce it. Locked before
       any 51 win. A 51 win now also counts toward **totalWins/totalGames**.
-- [ ] **All-Rounder:** the cross-game "won every game" badge now also requires a **51** win (**6 games**).
+- [ ] **All-Rounder:** the cross-game "won every game" badge now also requires a **51** win (**6 games** at this stage; **7** today, with Poker).
 - [ ] **PNG emblem:** the game shows its own **`game-fifty-one.png`** emblem (two fanned brass/gold cards)
       in the pickers / room browser / lobby — **not** the 🀄 emoji fallback.
 - [ ] **Stats (needs Postgres):** a signed-in human-vs-human 51 game records under `game_type='fifty-one'`;
@@ -1073,9 +1075,9 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 
 > **Android TWA readiness (Stage 33.1 done — [`MOBILE_APP_PLAN.md`](MOBILE_APP_PLAN.md); no app built).**
 > Web-side prerequisites, checkable now on the deploy:
-> - [ ] `manifest.webmanifest` `description` names **all six** games; `name`/`short_name` = **Card
+> - [ ] `manifest.webmanifest` `description` names **all seven** games; `name`/`short_name` = **Card
 >       Majlis**; `start_url`/`scope` = `/`; `display` = `standalone`; 192 + 512 + **maskable** icons.
-> - [ ] `index.html` `<meta description>` matches (six games); `theme-color` = `#0d4f28`.
+> - [ ] `index.html` `<meta description>` matches (seven games); `theme-color` = `#0d4f28`.
 > - [ ] `public/.well-known/assetlinks.example.json` exists (package `com.cardmajlis.app`, **placeholder**
 >       fingerprint); **no real `assetlinks.json`** in the repo (`/.well-known/assetlinks.json` → 404 on
 >       the deploy until store setup).
@@ -1691,20 +1693,31 @@ social-over-content, screen-overflow-x); now **0**.
 
 **The room menu**
 
-- [ ] **Collapsed there is exactly ONE social button**, in the top bar, with the
-      unread-message badge on it — and **no toolbar row** between the melds and the prompt.
-      The turn timer is a separate small item in the same top bar.
-- [ ] Tapping it opens a **sheet** covering the lower part of the screen with a dimmed
-      backdrop. Chat and Reactions are two tabs — only one is visible at a time. Voice and
-      **Quit for good** sit in the sheet's footer.
-- [ ] The sheet **scrolls inside itself**; the page behind it never gains a scrollbar.
-- [ ] **✕, the backdrop and Escape** all close it, and focus returns to the launcher.
-- [ ] **Quit for good still asks for confirmation** — the dialog is fully opaque and readable
-      over the sheet, and Cancel returns you to the game.
-- [ ] Every control in the sheet is comfortable to tap (≥44×44).
+> **Rewritten for Stage 38.0.14 — the sheet described here no longer exists.** This stage
+> shipped a modal bottom sheet with a dimmed backdrop and Chat/Reactions tabs, and a `variant`
+> prop that gave each game a different shell (floating cluster / docked toolbar / sheet).
+> **38.0.14 deleted all of it**, because the backdrop swallowed gameplay taps: a legal card
+> click with the chat open reached the game **0 times**. `variant`, the backdrop, the dimming,
+> the scroll lock and the tabs are gone. Check what is there **now**:
+
+- [ ] **Exactly ONE social button** (💬) in the one `room-social__bar` row, with the
+      unread-message badge on it. The turn timer, voice, 🚪 Leave and **Quit for good** are
+      ordinary members of that same row — there is no second launcher and no ☰ menu.
+- [ ] Tapping 💬 opens the **same chat panel in all 7 games**, **in the page's normal flow**
+      between the table and your hand: it takes up space and pushes the hand down. There is
+      **no backdrop, no dimming, no `aria-modal`, no scroll lock** and no fixed positioning.
+- [ ] **The game stays live with the chat open** — click a legal card or action and the move
+      registers **exactly once** while the turn timer keeps running.
+- [ ] **✕** or **Escape** closes it (Escape peels the picker first). A tap outside the panel
+      is **not** a close gesture — it reaches whatever is under it.
+- [ ] **Quit for good still asks for confirmation** — the dialog is fully opaque and readable,
+      and Cancel returns you to the game.
+- [ ] Every control is comfortable to tap (≥44×44).
 - [ ] **Local Fifty-One shows no social controls at all** — no launcher, no timer slot.
-- [ ] **The other six games are unchanged**: Poker still has its docked toolbar; King, Durak,
-      Deberc, Tarneeb and Preferans still have the floating corner cluster.
+- [ ] **All 7 games behave identically here** — there is one chat component and one shell.
+      The only permitted difference is *where the panel lands on a wide desktop*: King (from
+      1668px) and Poker (from 1472px) open it **beside** the table; the other five always keep
+      it below. The table never moves, shrinks or scrolls in either case.
 - [ ] **Your hand and the action buttons** stay reachable at 360/390; no sideways page
       scroll; nothing hidden behind the Android navigation bar.
 - [ ] **Browser text scaling / zoom:** with the system font size turned up, the top bar wraps
@@ -1960,16 +1973,23 @@ reproduces the old geometry). This is the manual pass.
 
 **The room panel**
 
-- [ ] Open the room menu → **Reactions**, tap an emoji: the reaction is sent and **the panel
-      stays open**, still on Reactions, still scrolled where you were.
-- [ ] Tap several in a row without re-opening anything.
+> **Rewritten for Stages 38.0.14–38.0.15.** There is no Reactions **tab** any more — there is
+> ONE emoji set whose destination depends on what you were doing, and no backdrop.
+
+- [ ] Open the chat and tap an emoji **while the message field is focused / you are typing**:
+      it is **inserted at the caret**, nothing is sent, and focus stays in the field.
+- [ ] Tap the same emoji **with the field not focused**: it posts **one seat-anchored table
+      reaction** and your draft is untouched. (The intent is captured on **pointer-down**, so a
+      phone dismissing the keyboard mid-tap cannot flip the destination you chose.)
+- [ ] Tap several in a row without re-opening anything; the panel stays open and stays
+      scrolled where you were.
 - [ ] Send a **sticker**: same — the panel stays open.
-- [ ] If you hit the "too many" limit, the notice is readable **over the open panel**.
-- [ ] The panel closes only on **✕**, the **backdrop**, **Escape**, or tapping the room
-      button again.
+- [ ] If you hit the "too many" limit, the notice is readable with the panel open.
+- [ ] The panel closes on **✕**, **Escape**, or tapping 💬 again. **Not** on an outside tap —
+      there is no backdrop to catch it.
 - [ ] **Every sticker is a full square picture**, not a thin strip, at 360 and 390 and on a
       desktop. Scrolling the grid loads more without the ones above jumping.
-- [ ] The other six games' panels behave exactly as before (Poker especially).
+- [ ] **All 7 games behave identically here.**
 
 **Melds on the table**
 

@@ -35,13 +35,13 @@
 | `GET /health/diagnostics` `version` | `0.4.4` | **0.4.4** ✅ | |
 | … `commit` | matches deploy | **f6dceab6cdc1** ✅ | |
 | … `db` | `enabled` | **enabled** ✅ | |
-| … `games.count` / `ids` | `6` incl `fifty-one` | **6** — king,durak,deberc,tarneeb,preferans,fifty-one ✅ | |
+| … `games.count` / `ids` | `7` incl `fifty-one` **and** `poker` | **NOT RUN** — the pre-filled `6` was a v0.4.4 observation, before Poker shipped; re-run against the current deploy | |
 | … `voice.ice` | `stun_only` \| `turn_configured` | **stun_only** ⚠️ (no TURN → cross-network voice may fail) | |
 | … `avatarUploads` | enabled + ffmpeg + db | **enabled, ffmpeg:true, database:true** ✅ | |
 | `HEAD /cards/faces/spades-a.png` | `200 image/png` + `max-age=604800` + ETag | **200, image/png, max-age=604800, ETag** ✅ | |
 | `HEAD /cards/faces/AS.png` (wrong) | `404` (not the SPA html) | **404 text/plain** ✅ | |
 | `If-None-Match` on real card | `304` | **304** ✅ | |
-| `GET /manifest.webmanifest` | name Card Majlis, 6-game desc, 192/512/maskable icons | **all present** ✅ | |
+| `GET /manifest.webmanifest` | name Card Majlis, **7**-game desc, 192/512/maskable icons | **all present** ✅ (icons/name); re-check the game list — it named 6 when this was recorded | |
 | `GET /.well-known/assetlinks.json` | `404` (no real file until Play SHA) | **404** ✅ (expected) | |
 
 > Note: `/.well-known/assetlinks.example.json` returns **200** (it's a committed placeholder served
