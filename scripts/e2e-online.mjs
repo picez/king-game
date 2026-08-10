@@ -11,9 +11,11 @@
 // server on a throwaway port + temp storage file, and tears everything down.
 // ---------------------------------------------------------------------------
 
-import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { get } from 'node:http';
+import {
+  resolveTsxCli, spawnManaged, stopManaged, withProcessGuard,
+} from './lib/qa-processes.mjs';
 import WebSocket from 'ws';
 import { getValidCards } from '../src/core/rules';
 import { getActingPlayerId } from '../src/core/gameEngine';
@@ -34,28 +36,27 @@ function check(cond, msg) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ── Server process management ───────────────────────────────────────────────
+// ── Server process management (Stage 38.0.18 — the shared owner) ────────────
+//
+// This used to be `spawn('npx tsx server/index.ts', { shell: true })` plus a hand-rolled
+// kill. Three things were wrong with it and all three are fixed by using the same module the
+// browser gates use: the pid we held was a SHELL (`cmd.exe` on Windows, `/bin/sh` on POSIX),
+// so on POSIX the `SIGTERM` went to the wrapper and never reached the real node process;
+// the kill resolved immediately without confirming anything had died; and there was no
+// signal handler at all, so Ctrl-C orphaned the server and its port outright.
+//
+// `process.execPath <tsx cli> server/index.ts` with `shell: false` means `child.pid` IS the
+// server, and `stopManaged` waits until the process table agrees it is gone.
 function startServer() {
-  const child = spawn('npx tsx server/index.ts', {
-    shell: true,
+  return spawnManaged(process.execPath, [resolveTsxCli(), 'server/index.ts'], {
     // Fast bot delay + a SHORT disconnected-substitute delay so the substitute
     // scenario resolves quickly (still longer than the reconnect windows above,
     // so other tests' brief disconnects never trigger a substitute).
     env: { ...process.env, PORT: String(PORT), ROOM_STORAGE_FILE: STORE, BOT_DELAY_MS: '40', DISCONNECTED_SUBSTITUTE_DELAY_MS: '800' },
     stdio: 'ignore',
   });
-  return child;
 }
-function killServer(child) {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F']).on('exit', () => resolve());
-    } else {
-      child.kill('SIGTERM');
-      resolve();
-    }
-  });
-}
+const killServer = (child) => stopManaged(child);
 function waitForHealth(timeoutMs = 8000) {
   const start = Date.now();
   return new Promise((resolve, reject) => {
@@ -95,7 +96,9 @@ function connect() {
 }
 const sendMsg = (c, msg) => c.ws.send(JSON.stringify(msg));
 
-let server = null; // module-scoped so the crash handler can tear it down
+// Module-scoped because §7 restarts it mid-run. Tearing it down is NOT this variable's job
+// any more — `withProcessGuard` owns every process `spawnManaged` created, restarts included.
+let server = null;
 
 async function main() {
   rmSync(DATA, { recursive: true, force: true });
@@ -1113,15 +1116,20 @@ async function main() {
 
   back.ws.close();
   await killServer(server);
+  server = null;
   rmSync(DATA, { recursive: true, force: true });
-
-  console.log(`\n${failures === 0 ? 'E2E PASS ✅' : `E2E FAIL ❌ (${failures})`}`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch(async (err) => {
-  console.error('E2E crashed:', err);
-  if (server) await killServer(server).catch(() => {});
-  rmSync(DATA, { recursive: true, force: true });
-  process.exit(1);
-});
+// The guard owns the four exits that must all clean up — returned, threw, timed out and
+// Ctrl-C. Nothing below decides whether the server dies; it only decides the exit code.
+withProcessGuard({ name: 'e2e-online', ports: [{ port: PORT, what: 'e2e server' }], timeoutMs: 10 * 60_000 }, main)
+  .then(() => {
+    rmSync(DATA, { recursive: true, force: true });
+    console.log(`\n${failures === 0 ? 'E2E PASS ✅' : `E2E FAIL ❌ (${failures})`}`);
+    process.exit(failures === 0 ? 0 : 1);
+  })
+  .catch((err) => {
+    console.error('E2E crashed:', err);
+    rmSync(DATA, { recursive: true, force: true });
+    process.exit(1);
+  });

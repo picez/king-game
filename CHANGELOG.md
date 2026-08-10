@@ -11,6 +11,25 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **CI now checks the server, and runs the online end-to-end test (Stage 38.0.18).** Build
+  tooling only — nothing in the game changed. CI listed three steps that looked complete but
+  covered less than they appeared to: both TypeScript runs used the client project, whose
+  `include` is `["src"]`, so **the server was never typechecked at all** — a server type error
+  could reach `main` with a green tick. The online end-to-end test, which drives a real server
+  over WebSocket through create/join/start/redaction/reconnect and a server restart, **never
+  ran in CI** either. Instead of adding two more hand-listed steps to a list that had already
+  drifted, CI now runs the single command developers already run, `npm run verify`, so the two
+  cannot diverge again. The lockfile `libc` rule was previously a convention a human was
+  expected to check with a Unix-only `grep`; it is now an ordinary test that runs on every
+  platform. The browser layout gates stay out of CI deliberately — the runner has no Chrome.
+- **The end-to-end test now always shuts down the server it started (Stage 38.0.18).** It
+  launched the server through a shell, so the process it could actually signal was the shell,
+  not the server; on Linux and macOS the stop signal never reached the real process. It also
+  had no handler for Ctrl-C and no time limit, so interrupting a run — or a run that hung
+  waiting for a message that never arrived — left a server holding its port until the terminal
+  was closed. It now starts the server directly, waits for the process to really be gone, and
+  cleans up on all four exits: finished, failed, timed out and interrupted.
+
 - **The documentation now matches the code, and a test keeps it that way (Stage 38.0.18).**
   Docs only — nothing in the game changed. Several pages still described a product that no
   longer exists: six games instead of seven, 29/34/48 achievements instead of 52, "0009 is

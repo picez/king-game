@@ -42,16 +42,30 @@ import { createRequire } from 'node:module';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** The vite CLI already installed in this workspace. Never `npx`, never a shell. */
-export function resolveViteCli(cwd = process.cwd()) {
-  let root = join(cwd, 'node_modules', 'vite');
+/**
+ * A CLI entry point of a package already installed in this workspace. Never `npx`, never a
+ * shell — the whole point is that the pid we spawn IS the tool, not a `cmd.exe`/`sh` wrapper
+ * with the real process three generations below it.
+ */
+export function resolveLocalCli(pkg, segments, cwd = process.cwd()) {
+  let root = join(cwd, 'node_modules', pkg);
   try {
     const require_ = createRequire(join(cwd, 'package.json'));
-    root = join(require_.resolve('vite/package.json'), '..');
+    root = join(require_.resolve(`${pkg}/package.json`), '..');
   } catch { /* package exports may hide package.json — the path above is the fallback */ }
-  const cli = join(root, 'bin', 'vite.js');
-  if (!existsSync(cli)) throw new Error(`vite CLI not found at ${cli} — run npm ci first`);
+  const cli = join(root, ...segments);
+  if (!existsSync(cli)) throw new Error(`${pkg} CLI not found at ${cli} — run npm ci first`);
   return cli;
+}
+
+/** The vite CLI already installed in this workspace. Never `npx`, never a shell. */
+export function resolveViteCli(cwd = process.cwd()) {
+  return resolveLocalCli('vite', ['bin', 'vite.js'], cwd);
+}
+
+/** The tsx CLI already installed in this workspace — same rule, same reason. */
+export function resolveTsxCli(cwd = process.cwd()) {
+  return resolveLocalCli('tsx', ['dist', 'cli.mjs'], cwd);
 }
 
 /**
@@ -339,3 +353,116 @@ export function cleanupFailures(report) {
   if (!report.portsFree) bad.push(`ports still held: ${report.heldBy.join('; ')}`);
   return bad;
 }
+
+// ---------------------------------------------------------------------------
+// (Stage 38.0.18) The same ownership rule, for a gate that runs a SERVER instead of a
+// browser.
+//
+// `runWithQaRuntime` above is vite + Chrome specific. `scripts/e2e-online.mjs` needed the
+// identical guarantees and had none of them: it spawned `npx tsx server/index.ts` with
+// `shell: true` (so on Windows `child.pid` was `cmd.exe` and on POSIX `/bin/sh`), killed it
+// with a bare `SIGTERM` to that wrapper on POSIX — which never reaches the real node process
+// — resolved immediately without confirming anything died, had NO `SIGINT`/`SIGTERM` handler
+// at all, and had no watchdog, so a WS message that never arrived hung the run forever with
+// nothing cleaned up.
+//
+// The four exits that must all clean up are: returned, threw, timed out, and Ctrl-C.
+// ---------------------------------------------------------------------------
+
+/** Everything spawned through `spawnManaged` and not yet reaped, in spawn order. */
+const MANAGED = new Set();
+
+/**
+ * Spawn a long-lived helper the guard will own. `shell: false` is not an option here — it is
+ * the reason the pid is meaningful.
+ */
+export function spawnManaged(command, args, opts = {}) {
+  const child = spawn(command, args, { ...opts, shell: false, windowsHide: true });
+  MANAGED.add(child);
+  return child;
+}
+
+/** Kill one managed child, wait for it to really be gone, and stop tracking it. */
+export async function stopManaged(child, timeoutMs = 10000) {
+  if (!child) return true;
+  const gone = await killTreeAndWait(child, timeoutMs);
+  MANAGED.delete(child);
+  return gone;
+}
+
+/**
+ * Run `fn` with every managed child guaranteed to be torn down afterwards.
+ *
+ * `exit` is injectable ONLY so the signal path can be tested for real: a test emits SIGINT,
+ * the production handler runs, and cleanup is observed — without the test runner exiting.
+ */
+export async function withProcessGuard(
+  { name, ports = [], timeoutMs = 0, exit = (code) => process.exit(code) } = {},
+  fn,
+) {
+  if (ports.length) await assertPortsFree(ports);
+
+  let finished = false;
+  const cleanup = async () => {
+    const children = [...MANAGED];
+    const survivors = [];
+    for (const child of children) {
+      const pid = child.pid;
+      if (!(await stopManaged(child))) survivors.push(pid);
+    }
+    const p = ports.length ? await waitPortsFree(ports) : { free: true, heldBy: [] };
+    return { name, killed: children.length, survivors, portsFree: p.free, heldBy: p.heldBy };
+  };
+
+  const onSignal = async (sig) => {
+    if (finished) return;
+    finished = true;
+    console.error(`\n[${name}] ${sig} — shutting down what this run started`);
+    const report = await cleanup();
+    console.error(processGuardLine(report));
+    exit(sig === 'EPIPE' ? 1 : 130);
+  };
+  const handlers = [
+    ['SIGINT', () => { void onSignal('SIGINT'); }],
+    ['SIGTERM', () => { void onSignal('SIGTERM'); }],
+    ['SIGHUP', () => { void onSignal('SIGHUP'); }],
+  ];
+  for (const [sig, h] of handlers) process.on(sig, h);
+
+  // A hang is an exit too. Without this the old script waited forever on a message that
+  // never came, holding its server and its port for as long as the terminal stayed open.
+  let watchdog = null;
+  const timed = timeoutMs > 0
+    ? new Promise((_, reject) => {
+      watchdog = setTimeout(
+        () => reject(new Error(`[${name}] timed out after ${timeoutMs}ms — nothing was left running`)),
+        timeoutMs,
+      );
+      watchdog.unref?.();
+    })
+    : null;
+
+  try {
+    return timed ? await Promise.race([fn(), timed]) : await fn();
+  } finally {
+    finished = true;
+    if (watchdog) clearTimeout(watchdog);
+    for (const [sig, h] of handlers) process.off(sig, h);
+    const report = await cleanup();
+    console.log(processGuardLine(report));
+    if (report.survivors.length || !report.portsFree) {
+      console.error(`[${name}] CLEANUP FAILED — see the line above`);
+    }
+  }
+}
+
+/** One line so "we cleaned up" is a measurement, not a hope. */
+export function processGuardLine(report) {
+  if (!report) return 'processes: NOT RUN';
+  return `processes: ${report.killed} owned, `
+    + `${report.survivors.length ? `SURVIVORS ${report.survivors.join(', ')}` : 'all gone'}`
+    + ` | ports ${report.portsFree ? 'free' : `HELD (${report.heldBy.join('; ')})`}`;
+}
+
+/** Test-only: how many managed children are still tracked. */
+export function managedCount() { return MANAGED.size; }

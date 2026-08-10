@@ -1,16 +1,43 @@
-# CI: typecheck + full vitest suite (unit + DB integration) + production build.
+# CI: the SAME gate a developer runs locally — `npm run verify`.
 #
-# The 12 DB integration tests (src/net/*.integration.test.ts) are skipped unless
-# TEST_DATABASE_URL points at a MIGRATED Postgres — so CI spins up a Postgres 16
-# service, applies server/db/migrations via `npm run db:migrate`, and runs the
-# whole suite against it. Locally the same tests stay skipped (see DB_SETUP.md).
+# (Stage 38.0.18) This used to be three hand-listed steps (`npx tsc --noEmit`, `npm test`,
+# `npm run build`) that only LOOKED complete. Two things were genuinely missing and both
+# could reach `main` unnoticed:
 #
-# Toolchain policy (Stage 14.3): pin Node 22 (matches .nvmrc / .node-version) and
-# install with `npm ci` (never `npm install` in CI, so the lockfile is untouched).
-# The committed package-lock is maintained with npm 10 — do NOT commit npm-11
-# lockfile churn (it re-adds `libc` optional-dep fields npm 10 can't reconcile,
-# which is what broke `npm ci` before). checkout/setup-node are v5 so the Actions
-# runtime is Node 24, clearing the Node-20 deprecation warning (project Node stays 22).
+#   * the SERVER was never typechecked. Both `tsc` invocations CI ran used the default
+#     `tsconfig.json`, whose `include` is `["src"]` — `server/**` is invisible to it. vitest
+#     transpiles server files with esbuild and type-checks nothing. So a server type error
+#     was caught only if a human happened to run `npm run typecheck:server` locally.
+#   * the online E2E never ran. `scripts/e2e-online.mjs` drives a real server over WebSocket
+#     through create/join/start/redaction/reconnect/restart-restore — the most behaviourally
+#     rich test in the repo — and CI never invoked it.
+#
+# Rather than bolt two more steps onto a list that had already drifted, CI now runs the one
+# script that already means "this is good": `npm run verify` =
+#   typecheck:server  → tsc -p tsconfig.server.json  (the server import graph)
+#   test              → vitest run                   (unit + scripts + DB integration)
+#   build             → tsc && vite build && …       (the CLIENT typecheck lives here)
+#   e2e               → tsx scripts/e2e-online.mjs   (real server over WebSocket)
+# Nothing is duplicated, and CI can no longer drift from the local gate: to weaken CI you
+# would have to weaken the command developers already depend on.
+#
+# The libc lockfile policy is NOT a shell step. `src/ciContract.test.ts` asserts it in Node,
+# so it is cross-platform and runs in CI and locally through the same `npm test` — a
+# `grep -c` step would only have worked on the runner.
+#
+# The DB integration tests (src/net/*.integration.test.ts) skip themselves unless
+# TEST_DATABASE_URL points at a MIGRATED Postgres — so CI spins up a Postgres 16 service and
+# applies server/db/migrations via `npm run db:migrate` first. Locally they stay skipped
+# (see DB_SETUP.md), which is the one respect in which a local `verify` is weaker than CI's.
+#
+# The browser/layout gates (`npm run layout:*`) are deliberately NOT here: they need a real
+# Chrome, and `ubuntu-latest` in this workflow installs none. They remain local gates.
+#
+# Toolchain policy (Stage 14.3): pin Node 22 (matches .nvmrc / .node-version) and install
+# with `npm ci` (never `npm install` in CI, so the lockfile is untouched). The committed
+# package-lock is maintained with npm 10 — do NOT commit npm-11 lockfile churn (it re-adds
+# `libc` optional-dep fields npm 10 can't reconcile, which is what broke `npm ci` before).
+# checkout/setup-node are v5 so the Actions runtime is Node 24 (project Node stays 22).
 name: CI
 
 on:
@@ -52,18 +79,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npx tsc --noEmit
-
       - name: Apply DB migrations
         run: npm run db:migrate
         env:
           DATABASE_URL: ${{ env.PG_URL }}
 
-      - name: Run tests (unit + DB integration)
-        run: npm test
+      # server typecheck + tests (unit, scripts, DB integration) + client typecheck and
+      # production build + the online E2E. See the header for why this is one step.
+      - name: Verify (server typecheck, tests, build, online E2E)
+        run: npm run verify
         env:
           TEST_DATABASE_URL: ${{ env.PG_URL }}
-
-      - name: Production build
-        run: npm run build

@@ -44,6 +44,15 @@ npm run soak              # Durak deterministic bot soak: 2/3/4 × simple/transf
 
 All must be green.
 
+> **CI runs exactly this (Stage 38.0.18).** `.github/workflows/ci.yml` provisions Postgres 16,
+> applies `npm run db:migrate`, then runs **`npm run verify`** — the same command, so CI cannot
+> drift from the local gate. It previously ran a hand-listed `tsc --noEmit` + `npm test` +
+> `npm run build`, which silently covered **neither** the server typecheck (both `tsc` runs used
+> `tsconfig.json`, whose `include` is `["src"]`) **nor** the online E2E. The `libc` lockfile
+> policy is asserted in Node by `src/ciContract.test.ts`, not by a Unix-only `grep` step, so it
+> holds on Windows too. The **browser layout gates below are NOT in CI** — they need a real
+> Chrome, which `ubuntu-latest` does not install — and remain local gates.
+
 ### Browser layout gates (Stage 38.0.16)
 
 ```bash

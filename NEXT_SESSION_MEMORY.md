@@ -1367,6 +1367,45 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `games.count` cell recorded a real **v0.4.4** observation of `6`; the expectation is now `7`
   and the recorded value reads **NOT RUN — re-run against the current deploy**, because
   inventing a 7 there is exactly the dishonest PASS the guide forbids.
+- **CI commit — the three REAL gaps, and the two that were NOT gaps.** REAL: (1) the **server
+  was never typechecked in CI** — both `tsc` runs used the default `tsconfig.json`
+  (`include: ["src"]`), and vitest transpiles server files with esbuild without type-checking,
+  so `typecheck:server` ran only if a human ran it; (2) **`npm run e2e` never ran in CI**;
+  (3) **no automated `libc` guard existed anywhere** — only a comment plus an allow-listed
+  manual `grep -c` one-liner. NOT gaps, do not re-flag: client typecheck (covered twice, by
+  the explicit step and by `build`'s `tsc`), tests incl. DB integration (CI provisions
+  Postgres 16 + `db:migrate`, so they do not self-skip), and the production build.
+  **Also stale in MEMORY.md and now corrected:** 38.0.16.2c.2's note that poker/fiftyone/
+  tracker gates still leak — 38.0.16.2d fixed them; all five layout gates already use
+  `runWithQaRuntime`. The ONLY script still hand-rolling a lifecycle was `e2e-online.mjs`.
+- **CI shape: ONE step, `npm run verify`, not four hand-listed ones.** `verify` =
+  `typecheck:server && test && build && e2e`, and the CLIENT typecheck lives inside `build`'s
+  leading `tsc` — so the single step honestly covers all four requirements with **no
+  duplication**, and CI can no longer drift from the local gate. Postgres 16 + `db:migrate`
+  stay as their own step BEFORE it (migrating after the tests would leave them skipped and
+  green). Layout gates stay OUT of CI on purpose: `ubuntu-latest` installs no Chrome.
+- **libc guard is a vitest test, not a shell step** (`src/ciContract.test.ts`): Node reads the
+  lockfile, so it is cross-platform and runs through the same `npm test` locally and in CI.
+  It counts `/"libc"\s*:/` and separately asserts that the legitimate **`detect-libc`**
+  dependency is not what a looser `grep libc` would have tripped over forever.
+- **`scripts/e2e-online.mjs` migrated to `scripts/lib/qa-processes.mjs`.** The old path was
+  genuinely unsafe: `spawn('npx tsx server/index.ts', { shell: true })` meant the pid was
+  `cmd.exe`/`/bin/sh`, so the POSIX `child.kill('SIGTERM')` never reached the real node; the
+  kill resolved without confirming death; there was **no `SIGINT`/`SIGTERM` handler at all**;
+  and there was **no watchdog**, so a WS message that never arrived hung the run forever.
+  New shared helpers: `resolveLocalCli`/`resolveTsxCli` (`resolveViteCli` now delegates),
+  `spawnManaged`/`stopManaged`, and **`withProcessGuard({name, ports, timeoutMs, exit}, fn)`**
+  — port preflight, signal handlers, watchdog, and a `finally` that kills every managed child
+  and proves the ports came back. It supports the mid-run **restart** §7 does.
+- **Cleanup is tested on all four exits** (`scripts/lib/process-guard.test.mjs`, 15 tests,
+  real child processes): returned · threw · timed out · **SIGINT**. `exit` is injectable ONLY
+  so the real handler can run without taking the test runner with it.
+  **Gotcha discovered while writing it:** asserting `managedCount() === 0` immediately after
+  the SIGINT handler is a FALSE requirement — the child is dead long before
+  `killTreeAndWait` returns (it polls, and only consults the process table after ~1s), so the
+  bookkeeping entry can still be present. The discriminating assertions are `exits` containing
+  **130** and the child being gone **before the body returns** (a `finally`-only cleanup would
+  satisfy a naive version of this test with no signal handler at all).
 
 ### Stage 38.0.16.3 — adaptive sidecar for King/Poker (COMPLETE, Unreleased)
 - Worked from HEAD `c5d2d87`. Product responsive layout + QA. No game rules, no server logic,
