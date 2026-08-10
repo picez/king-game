@@ -11,12 +11,28 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
-- **The layout gates now prove which page they measured (Stage 38.0.16.2c).** Test tooling
-  only — nothing in the game changed. The browser gates used to attach to whichever page the
-  browser listed first, so a measurement could not be tied to the window it was taken in.
-  Each run now creates its own page, keeps it for the whole run, and re-checks after every
-  navigation that the window really is the size it asked for. `npm run layout:selftest` is
-  the new guard.
+- **The layout gates now prove which page they measured (Stages 38.0.16.2c and .2c.1).**
+  Test tooling only — nothing in the game changed. The browser gates used to attach to
+  whichever page the browser listed first, so a measurement could not be tied to the window
+  it was taken in. Each run now creates its own page and keeps it for the whole run.
+  38.0.16.2c said the size was re-checked after every navigation; **it was not** — the check
+  existed but nothing called it, and one window size was set per group of navigations.
+  38.0.16.2c.1 wires it into the one path every measurement goes through: the size is set
+  again before every navigation (retries included), verified once the page has loaded, the
+  page scroll is put back to the top, and only then is anything measured. `npm run
+  layout:selftest` is the guard, and it now demonstrates the old behaviour failing and the
+  new one recovering in the same run.
+- **The layout gate no longer leaves browsers running, and can be pointed at one case
+  (Stage 38.0.16.2c.2).** Test tooling only — nothing in the game changed. Runs of the social
+  gate had been ending in a stall that looked like a frozen chat test. It was not: every chat
+  action completes in milliseconds, and the whole gate finishes in under three minutes. What
+  actually happened is that finished runs left their browser and dev server alive — 56 such
+  orphans were counted on the machine before this stage — so a new run silently took over an
+  old run's browser instead of its own, and a command that then went unanswered was ignored
+  and repeated 200 times with a 20-second wait each. Runs now refuse to start when their
+  ports are taken (naming the process that holds them), really do shut down everything they
+  started, stop on the first unanswered command instead of waiting, and can be narrowed to a
+  single width, game, direction or action while reporting exactly what they selected.
 
 ### Fixed
 

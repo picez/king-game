@@ -1363,6 +1363,94 @@ a `<meta name="viewport">` — closing the target in `finally`. Failures print
 `npm run layout:selftest` demonstrates it against a decoy page emulated at 2560 and drives
 390 → 2560 → 390 so a stale override cannot hide behind a previous width.
 
+**Correction (38.0.16.2c.1).** 38.0.16.2c's claim that the gate re-applied and re-proved the
+viewport before every navigation was PREMATURE: `checkViewport`/`resetScroll` were imported
+and never called, and `applyViewport` ran once per viewport loop while `load()` navigated
+many times — retries included — with no re-proof. The self-test therefore guarded the helper
+in isolation while the gate that actually measures geometry proved nothing per navigation.
+`load()` is now the single navigation path and the only place a measurement is unlocked:
+
+1. `applyViewport` — on EVERY attempt, retry included (a retry is a navigation);
+2. `Page.navigate`, wait for the scenario's marker, settle;
+3. `checkViewport` — after the document exists, so there is a meta viewport to read;
+4. the reported URL must be the scenario's URL (path + query);
+5. `resetScroll` on the NEW document, then prove `scrollY === 0`;
+6. only then may the caller measure. A scenario whose proof failed returns `proved: false`
+   and adds NO geometry violations — they would belong to a page nobody asked for.
+
+Proved behaviourally in `layout:selftest` phases 4–5: the override is corrupted between
+navigations in both directions (390→2560 and 2560→390); the legacy path (navigate without
+re-applying) is shown measuring the drifted width in the same run — the RED — and the new
+path restores the requested width, including through the retry, with `scrollY` back at 0 and
+the same `targetId` throughout.
+
+### Stage 38.0.16.2c.2 — the stall was the environment, not a chat action
+
+The social gate had been failing to finish on the behaviour phase at 390. **No behaviour
+action stalls.** Measured with the new focused filters, every one of them completes in
+milliseconds and the full matrix finishes well inside three minutes:
+
+| run | result |
+|---|---|
+| `--viewport 390 --game durak --dir ltr --act typing-caret` ×5 | 5/5 pass, ~3.5s of behaviour each |
+| all 7 acts, durak / fiftyone / poker at 390 ltr | 21/21 pass, 12.4s total |
+| full matrix, no filters | **669 checks, 2m46s, exit 0** |
+
+**Root cause — a leaked browser, then an ignored return value.** Four facts, each measured:
+
+1. **The gates leaked their helpers.** 56 orphaned QA processes were counted before this
+   stage started: four whole headless Chrome trees and six vite servers, none with a live
+   parent. `spawn('npx vite …', { shell: true })` makes `child.pid` the *shell*, so the real
+   server is a great-grandchild that `child.kill()` never reaches.
+2. **`killTree` then skipped the kill entirely.** It began `if (child.exitCode !== null)
+   return`. Launched directly, `chrome.exe` pid 15680 re-executed itself as pid 48480 — the
+   real browser, with six children — and exited. The direct child therefore *had* an exit
+   code, the guard returned early, `taskkill` never ran, and the browser kept the debugging
+   port and a lock on its profile. "The process we spawned has exited" is not "the process we
+   started is gone".
+3. **A held port is a silent hijack.** With a decoy browser parked on 9254, the 81d8fed gate
+   was run unchanged: its own Chrome could not take the port, it attached to the decoy, drove
+   a page inside it (the decoy's target count went 2 → 1), and printed
+   `SOCIAL LAYOUT OK`. It cannot tell, and it does not ask.
+4. **An unanswered command was then multiplied.** `send()` RESOLVED `{ __timeout: true }`;
+   `evaluate()` turned that into `undefined`; callers carried on. `load()` polls its marker
+   `for (let i = 0; i < 200; i++)`, so one dead command becomes 200 × 20s per attempt, twice
+   over for the retry — up to ~2 hours of a run that looks frozen but is only waiting.
+
+**What changed.** `scripts/lib/qa-processes.mjs` is now the one owner of processes for both
+social gates (no per-gate copy of the Windows cleanup):
+
+- vite runs as `process.execPath node_modules/vite/bin/vite.js`, `shell: false`, so the pid
+  is vite; Chrome gets a `mkdtemp` profile belonging to this run alone.
+- ports are proved free on **both loopback stacks** before anything starts — a leaked vite
+  holding `[::1]:5201` while `127.0.0.1:5201` still accepted a bind was measured here — and a
+  busy port fails the run with the PID that holds it rather than attaching to it.
+- cleanup kills the pid's tree, then everything still carrying this run's `--user-data-dir`
+  (ownership, not a name match), removes only the directory it made, and proves the ports came
+  back. Interrupts (`SIGINT`/`SIGTERM`/`SIGHUP`/broken pipe) clean up too — piping a gate into
+  `head` was measured leaving Chrome on 9254.
+- every run ends with a `cleanup: …` line, and anything left behind is a gate failure.
+
+**A CDP timeout now ends the run.** `CdpSession.send` rejects with `CdpTimeoutError` carrying
+method, scenario context, targetId, budget and pending-command count; a socket that closes or
+errors rejects every command in flight as `CdpClosedError`; nothing is left in the pending
+map; and a harness failure is reported as a harness failure, never as a layout violation.
+`layout:selftest` phase 8 runs the real gate with `--fault cdp-timeout` and requires a
+non-zero exit in bounded time with the ports released — **measured: exit 1 in 9s**.
+
+**Focused runs are honest now.** `--viewport / --game / --dir / --act / --scenario` each work
+alone and compose; the selected matrix is printed before the run; and a filter combination
+that selects nothing **exits 1**. The old `--only 390` matched scenario and game names only,
+so it ran 0 checks and exited green — a focused reproduction built on it proved nothing.
+
+**Also fixed here:** the behaviour navigation dropped `dirQ`, so the RTL behaviour cases were
+actually loading LTR pages.
+
+**Still not proven, still not claimed.** The target race is *not* established as the cause of
+the old mobile regression, and the adaptive sidecar remains unimplemented. The other gates
+(`layout:poker`, `layout:fiftyone`, `layout:tracker`) still spawn through a shell wrapper and
+still leak; they were out of scope here.
+
 **Two facts every future width threshold must respect.**
 
 | requested | innerWidth | clientWidth | mm1440 | mm1620 |

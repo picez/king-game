@@ -70,7 +70,25 @@ Opening a panel may make the DOCUMENT taller. It may not make the TABLE smaller 
 any state. The measured scene width is printed per game/viewport (`SCENE …`) so a regression
 is visible as a number, not only as a pass/fail.
 
-`layout:selftest` (Stage 38.0.16.2c) guards the gates themselves. A geometry measurement is
+**Focused runs (Stage 38.0.16.2c.2).** `npm run layout:social` takes `--viewport 390`,
+`--game durak`, `--dir ltr`, `--act typing-caret` and `--scenario collapsed`. Each works
+alone, they compose, the selected matrix is printed before the run, and a combination that
+selects nothing EXITS 1 — never a green "0 checks". `--act` also skips the geometry block, so
+one behaviour case can be reproduced with the least possible work in front of it, and
+`--progress` prints `elapsed | viewport | game | dir | act | operation` for every navigation
+step and every behaviour operation, start and end. `--act` only ever NARROWS the default set:
+the full seven run at 390 ltr, while 360 and 390 rtl run the core pair.
+
+**If a gate refuses to start** with `refusing to start: a previous run is still alive`, that
+is working as intended: an earlier run (or an interrupted one) still holds the port, and
+attaching to it would drive somebody else's browser and produce measurements from a document
+nobody asked for. Kill the PIDs it names and run again. Every run ends with a `cleanup: …`
+line; anything left behind counts as a gate failure.
+
+`layout:selftest` (Stages 38.0.16.2c / .2c.1 / .2c.2) guards the gates themselves. Run it BEFORE
+trusting any geometry result: phases 4–5 corrupt the window size between navigations on
+purpose, show the old navigation path carrying the wrong size into a measurement, and prove
+the current path restores it — retry included — with the scroll back at the top. A geometry measurement is
 only worth something if you can say which document produced it, so the gate now CREATES its
 own page target, carries that id through the whole run, re-applies the metrics before every
 navigation and proves the result: requested == `innerWidth`, `matchMedia` agrees with

@@ -1312,6 +1312,56 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16.2c.2 — the behaviour "hang" was the environment (COMPLETE, Unreleased)
+- Worked from HEAD `81d8fed` on the .2c.1 working tree. Test infrastructure only; no product
+  CSS/TSX, no rich chat, no sidecar. version 0.4.8, migration 0014, games 7, achievements 52.
+- **NO behaviour action hangs.** Measured with the new filters: `typing-caret` durak 390 ltr
+  ×5 = 5/5; all 7 acts × durak/fiftyone/poker at 390 ltr = 21/21 in 12.4s; **full matrix 669
+  checks in 2m46s, exit 0**. Do not go looking for a frozen act — there isn't one.
+- **Root cause, four measured links.** (1) 56 orphaned QA processes existed before the stage
+  began — 4 Chrome trees + 6 vites, no live parents; `spawn('npx vite', {shell:true})` makes
+  the pid the SHELL. (2) `killTree` began `if (child.exitCode !== null) return`, and Chrome's
+  launcher pid 15680 re-execs itself as pid 48480 (the real browser, 6 children) and EXITS —
+  so taskkill never ran at all. (3) A held port is a SILENT HIJACK: with a decoy on 9254 the
+  81d8fed gate attached to it, drove a page inside it (decoy targets 2→1) and printed
+  `SOCIAL LAYOUT OK`. (4) `send()` RESOLVED `{__timeout:true}`, callers ignored it, and
+  `load()`'s `for (i<200)` marker poll turns ONE dead command into 200×20s per attempt.
+- **`scripts/lib/qa-processes.mjs`** is the one process owner for both social gates: vite via
+  `process.execPath vite/bin/vite.js` `shell:false`; per-run `mkdtemp` Chrome profile; ports
+  proved free on BOTH loopback stacks (a leaked vite on `[::1]:5201` passed a 127.0.0.1-only
+  check); cleanup kills the tree AND everything carrying this run's `--user-data-dir`, removes
+  only its own profile, proves the ports came back; SIGINT/SIGTERM/SIGHUP/EPIPE clean up too.
+  Every run prints `cleanup: …` and leftovers are a gate FAILURE.
+- **CDP timeouts are typed and fatal.** `CdpTimeoutError` (method, context, targetId, budget,
+  pending count) / `CdpClosedError` on socket close or error; pending map always emptied;
+  never converted into a layout violation; budget unchanged at 20s. `--fault cdp-timeout`
+  proves it end to end — `layout:selftest` phase 8: **exit 1 in 9s, ports released**.
+- **Honest filters:** `--viewport / --game / --dir / --act / --scenario`, composable, matrix
+  printed up front, empty selection EXITS 1. `--act` narrows only (390 ltr = 7, else core 2)
+  and skips geometry. `--only 390` used to select 0 and exit GREEN — that is why the earlier
+  focused evidence was worthless.
+- Side fix: behaviour navigation dropped `dirQ`, so RTL behaviour cases loaded LTR pages.
+- 41 new vitest cases (`scripts/lib/*.test.mjs`, browser-free, run on CI; vitest `include`
+  extended). Browser halves stay in `layout:selftest` phases 6–8.
+- STILL NOT PROVEN: the target race as the cause of the old mobile FAIL. STILL MISSING: the
+  adaptive sidecar. `layout:poker` / `layout:fiftyone` / `layout:tracker` still use the shell
+  wrapper and still leak — out of scope here, next candidate.
+
+### Stage 38.0.16.2c.1 — the proof is wired into the MAIN navigation path (COMPLETE, Unreleased)
+- Worked from HEAD `81d8fed`. Test infrastructure only; no product CSS/TSX, no sidecar.
+- **Corrects an overclaim in 38.0.16.2c.** That commit said the gate re-applied metrics and
+  verified the viewport before every navigation. It did not: `checkViewport`/`resetScroll`
+  were imported but NEVER CALLED, and `applyViewport` ran once per viewport loop while
+  `load()` navigated many times (retries included) with no re-proof.
+- **Now** `load(owned, { url, marker, vp, label, failures })` is the ONE navigation path:
+  apply metrics on every attempt → navigate → marker + settle → `checkViewport` → URL must
+  match the scenario → `resetScroll` on the new document → prove `scrollY === 0` → only then
+  return `proved: true`. A scenario with `proved: false` adds NO geometry violations.
+- **RED and GREEN in one run** (`layout:selftest` phases 4–5): the override is drifted
+  390→2560 and 2560→390; the legacy navigate-without-re-apply is shown measuring the drifted
+  width; the new path restores the requested width, retry included, scrollY 0, same targetId.
+- Target race STILL not proven as the cause of the old mobile FAIL — do not repeat it as fact.
+
 ### Stage 38.0.16.2c — the layout gate OWNS its CDP target (COMPLETE, Unreleased)
 - Worked from HEAD `7bfee1a`. **Test infrastructure only** — no product CSS/TSX changed, no
   sidecar. version 0.4.8, migration 0014, games 7, achievements 52, libc 0, no dep drift.
