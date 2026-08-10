@@ -296,6 +296,28 @@ export async function startQaRuntime({ name, vitePort, cdpPort, chromePath, host
   return runtime;
 }
 
+/**
+ * (38.0.16.2d) THE lifecycle every browser gate runs. Start the pair, hand them to the gate,
+ * and shut them down on the way out — whether the body returned, threw, timed out on a CDP
+ * command or was interrupted by a signal. Gates call this instead of writing their own
+ * spawn/kill sequence, so there is exactly ONE implementation of it to get right.
+ *
+ * `opts.failures` is the gate's own violation list: anything left behind is appended to it,
+ * so a run that leaks a browser cannot report success.
+ */
+export async function runWithQaRuntime(opts, fn) {
+  const runtime = await startQaRuntime(opts);
+  console.log(`vite pid ${runtime.vite.pid} :${opts.vitePort}`
+    + ` | chrome pid ${runtime.chrome.pid} :${opts.cdpPort} | profile ${runtime.userDataDir}`);
+  try {
+    return await fn(runtime);
+  } finally {
+    const report = await runtime.stop();
+    console.log(cleanupLine(report));
+    for (const bad of cleanupFailures(report)) opts.failures.push(`cleanup: ${bad}`);
+  }
+}
+
 /** One line a gate prints at the end so "we cleaned up" is a measurement, not a hope. */
 export function cleanupLine(report) {
   if (!report) return 'cleanup: NOT RUN';

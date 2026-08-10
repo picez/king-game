@@ -18,12 +18,10 @@
 // (history / chat), which is where the owner's overlap actually shows up.
 // ---------------------------------------------------------------------------
 
-import { spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const WebSocket = createRequire(`${process.cwd()}/package.json`)('ws');
+import { openOwnedPage, applyViewport, provePage, CdpSession } from './lib/cdp-owned-target.mjs';
+import { runWithQaRuntime } from './lib/qa-processes.mjs';
 
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const CDP_PORT = 9251;
@@ -47,10 +45,6 @@ const SHOT_SET = new Set([
   '390/4p-river/history-open', '390/4p-river/chat-open', '390/4p-local/closed',
   'desktop/6p-river/closed', '360/4p-flop/history-open',
 ]);
-const fetchJson = (p) => new Promise((res, rej) => get(`http://127.0.0.1:${CDP_PORT}${p}`, (r) => {
-  let d = ''; r.on('data', (c) => (d += c)); r.on('end', () => res(JSON.parse(d)));
-}).on('error', rej));
-
 async function waitHttp(url, timeout = 60000) {
   const start = Date.now();
   for (;;) {
@@ -60,39 +54,15 @@ async function waitHttp(url, timeout = 60000) {
     } catch { if (Date.now() - start > timeout) throw new Error(`not up: ${url}`); await sleep(200); }
   }
 }
-async function waitDevtools(timeout = 15000) {
-  const start = Date.now();
-  for (;;) {
-    try { return await fetchJson('/json/version'); }
-    catch { if (Date.now() - start > timeout) throw new Error('chrome devtools not up'); await sleep(150); }
-  }
-}
-
-class CDP {
-  constructor(url) { this.ws = new WebSocket(url); this.id = 0; this.pending = new Map(); }
-  open() {
-    return new Promise((res) => {
-      this.ws.on('open', res);
-      this.ws.on('message', (m) => {
-        const o = JSON.parse(m.toString());
-        if (o.id && this.pending.has(o.id)) { this.pending.get(o.id)(o); this.pending.delete(o.id); }
-      });
-    });
-  }
-  /** Every call is time-boxed: a CDP reply that never arrives (it happens around a
-   *  navigation) must not wedge the whole gate. */
-  send(method, params = {}, timeoutMs = 12000) {
-    const id = ++this.id;
-    return new Promise((res) => {
-      const done = (v) => { clearTimeout(timer); this.pending.delete(id); res(v); };
-      const timer = setTimeout(() => done({ __timeout: true }), timeoutMs);
-      this.pending.set(id, done);
-      this.ws.send(JSON.stringify({ id, method, params }));
-    });
-  }
+/**
+ * (38.0.16.2d) The shared session, plus the one thing this gate needs on top: an evaluate
+ * that THROWS on a page exception, so a broken harness cannot be read as a clean layout.
+ * Command lifetime — the budget, the typed timeout, rejecting every pending command when the
+ * socket dies — comes from `CdpSession`, so it is implemented once for every gate.
+ */
+class CDP extends CdpSession {
   async evaluate(expression) {
     const r = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-    if (r?.__timeout) return undefined;
     if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 300));
     return r.result?.result?.value;
   }
@@ -261,38 +231,39 @@ const PANEL_STEPS = [
 ];
 
 async function run() {
-  // Reuse an already-running dev server when there is one (handy while iterating);
-  // otherwise start our own and shut it down at the end.
-  let alreadyUp = false;
-  try { await waitHttp(`${BASE}?seats=4`, 1500); alreadyUp = true; } catch { /* start one */ }
-  const vite = alreadyUp ? null : spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['vite', '--port', String(VITE_PORT), '--strictPort'],
-    { stdio: 'ignore', shell: process.platform === 'win32' });
-  const chrome = spawn(CHROME, [
-    `--remote-debugging-port=${CDP_PORT}`, '--headless=new', '--no-first-run',
-    '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars',
-    `--user-data-dir=${process.env.TEMP || '/tmp'}/kg-layout-qa`, 'about:blank',
-  ], { stdio: 'ignore' });
-
   const failures = [];
   let checks = 0;
-  try {
+  // (38.0.16.2d) The gate OWNS its dev server, its browser and its page.
+  //
+  // What this replaced, and why it had to go: the run used to REUSE an already-running vite
+  // ("handy while iterating"), start Chrome on a fixed shared profile, attach to whichever
+  // page target the browser happened to list first, and clean up with `chrome.kill()`. All
+  // four are the same mistake — trusting state this run did not create. Measured on
+  // 7cd54a0: after `layout:poker` printed LAYOUT OK, port 9251 was still held by Chrome pid
+  // 26168 (whose bootstrap parent 32688 had already exited), port 5199 was still held on
+  // `[::1]` by a leaked vite, seven marked processes were alive and the shared profile was
+  // still on disk. The next run would then have silently reused all of it.
+  await runWithQaRuntime({
+    name: 'kg-poker-qa', vitePort: VITE_PORT, cdpPort: CDP_PORT, chromePath: CHROME,
+    chromeArgs: ['--disable-gpu', '--hide-scrollbars'], failures,
+  }, async () => {
     await waitHttp(`${BASE}?seats=4`, 90000);
-    await waitDevtools();
 
+    const owned = await openOwnedPage(CDP_PORT, CDP);
+    const cdp = owned.cdp;
+    try {
     for (const vp of VIEWPORTS) {
-      const targets = await fetchJson('/json');
-      const page = targets.find((t) => t.type === 'page');
-      const cdp = new CDP(page.webSocketDebuggerUrl);
-      await cdp.open();
-      await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-      await cdp.send('Emulation.setDeviceMetricsOverride',
-        { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile, screenWidth: vp.w, screenHeight: vp.h });
-      console.log(`\n[${vp.tag} ${vp.w}x${vp.h}]`);
+      await applyViewport(owned, vp, { screenWidth: vp.w, screenHeight: vp.h });
+      console.log(`\n[${vp.tag} ${vp.w}x${vp.h}] target ${owned.targetId}`);
 
       for (const sc of scenarios().filter((x) => !ONLY || x.name.includes(ONLY))) {
         const isLocal = sc.q.includes('local=1');
-        await cdp.send('Page.navigate', { url: `${BASE}?${sc.q}` });
+        const url = `${BASE}?${sc.q}`;
+        cdp.setContext(`${vp.tag} ${sc.name}`);
+        // Re-applied per navigation: a retry or a drifted override must never ride into a
+        // measurement (Stage 38.0.16.2c.1's correction, applied here too).
+        await applyViewport(owned, vp, { screenWidth: vp.w, screenHeight: vp.h });
+        await cdp.send('Page.navigate', { url });
         // A native confirm() would block the renderer and wedge every later CDP call.
         await cdp.evaluate('window.confirm = () => false; window.alert = () => {};');
         // Wait for the REAL action controls to mount before measuring anything —
@@ -306,6 +277,11 @@ async function run() {
         }
         await sleep(120);
         if (!mounted) { failures.push(`${vp.tag} ${sc.name}: NO action controls rendered (harness broken)`); continue; }
+        // Identity + viewport, on the document that just loaded: our target, the URL this
+        // scenario asked for, the width we requested, and a page that declares a viewport.
+        // A failed proof means the measurements below would belong to some other page.
+        const proof = await provePage(owned, vp, url, `${vp.tag} ${sc.name}`);
+        if (proof.length) { failures.push(...proof); continue; }
 
         const steps = isLocal ? PANEL_STEPS.slice(0, 2) : PANEL_STEPS;
         for (const ps of steps) {
@@ -328,10 +304,10 @@ async function run() {
         }
       }
     }
-  } finally {
-    chrome.kill();
-    if (vite) vite.kill();
-  }
+    } finally {
+      await owned.close();
+    }
+  });
 
   console.log(`\n${checks} layout checks run.`);
   if (failures.length) {

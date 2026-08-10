@@ -1451,6 +1451,79 @@ the old mobile regression, and the adaptive sidecar remains unimplemented. The o
 (`layout:poker`, `layout:fiftyone`, `layout:tracker`) still spawn through a shell wrapper and
 still leak; they were out of scope here.
 
+### Stage 38.0.16.2d — every browser gate owns its processes
+
+38.0.16.2c.2 gave the SOCIAL gate an owned lifecycle and, in its own closing audit, caught
+`layout:poker` leaving Chrome on 9251 and vite on 5199. This stage audited all 17 browser
+scripts and migrated the four that are wired into `package.json`.
+
+**RED, measured one gate at a time on `7cd54a0`, each from free ports.** Every run reported
+success; every run left its browser alive, its dev server holding a port on `[::1]`, and its
+shared profile on disk. In all four the real Chrome's parent — the bootstrap pid the gate
+spawned — had already exited, which is exactly why `chrome.kill()` reached nothing:
+
+| gate | exit | CDP port still held | vite port still held | marked processes | profile |
+|---|---|---|---|---|---|
+| `layout:poker` | 0 (npm never returned inside 10 min) | 9251 by pid 26168 (parent 32688 gone) | 5199 `[::1]` by 21816 | 7 | present |
+| `layout:fiftyone` | 0 | 9252 by pid 4408 (parent 32480 gone) | 5199 `[::1]` by 45516 | 7 | present |
+| `layout:tracker` | 0 | 9253 by pid 49504 (parent 63540 gone) | 5198 `[::1]` by 53640 | 9 | present |
+| `social-shots` | **124 — never exited** | 9262 by pid 34136 (parent 52688 gone) | 5212 `[::1]` by 46244 | 7 | present |
+
+**Audit of all 17 browser scripts.**
+
+| script | vite | chrome | shell wrapper | owned target | unique profile | port guard | signal cleanup | leak | action |
+|---|---|---|---|---|---|---|---|---|---|
+| `social-layout-qa.mjs` | yes | yes | no | yes | yes | yes | yes | none | already correct (2c.2) |
+| `social-target-selftest.mjs` | yes | yes | no | yes | yes | yes | yes | none | already correct; phase 9 added |
+| `poker-layout-qa.mjs` | `npx.cmd` | yes | yes | no | fixed `kg-layout-qa` | no | no | **measured** | migrated |
+| `fiftyone-layout-qa.mjs` | `npx.cmd` | yes | yes | no | fixed `kg-f51-qa` | no | no | **measured** | migrated |
+| `profile-tracker-qa.mjs` | `npx.cmd` | yes | yes | no | fixed `kg-tracker-qa` | no | no | **measured** | migrated |
+| `social-shots.mjs` | `shell:true npx` | yes | yes | no | fixed `kg-social-shots` | no | no | **measured** | migrated |
+| 11 ad-hoc `*-shots.mjs` + `visual-qa.mjs` | no | yes | some | no | **none at all** (Chrome's default profile; `tutorial-shots` uses a fixed temp one) | no | no | same pattern, not exercised | audited, NOT migrated |
+
+The eleven ad-hoc scripts are screenshot generators run by hand against a dev server the
+operator already has running. None is in `package.json`, none is part of any gate, and none
+was run in this stage — so their leak is asserted from their code, not measured, and they were
+left alone rather than changed blind. They are the obvious next candidates.
+
+**The shared runtime contract** (`scripts/lib/qa-processes.mjs` +
+`scripts/lib/cdp-owned-target.mjs`; gates call `runWithQaRuntime` and never write their own
+spawn/kill sequence):
+
+1. **Preflight both loopback stacks.** `127.0.0.1` *and* `::1`; a busy port fails the run with
+   the PID holding it instead of attaching to it.
+2. **vite** runs as `process.execPath node_modules/vite/bin/vite.js`, `shell: false` — no
+   `npx`, no `.cmd`, no shell, so the pid we hold is the server.
+3. **Chrome** is launched directly with a `mkdtemp` profile created for this run alone, which
+   doubles as the ownership marker.
+4. **The page** is created by `openOwnedPage` and closed in `finally`; no gate takes whichever
+   target the browser listed first.
+5. **Cleanup runs on success, on a thrown error, on a CDP timeout, and on
+   SIGINT/SIGTERM/SIGHUP/EPIPE.** It kills the pid's tree, then everything still carrying this
+   run's `--user-data-dir` — ownership, never a process name — waits for the pids to really be
+   gone, removes only its own profile, and proves both ports came back. It is idempotent.
+6. **Anything left behind is a gate failure**, appended to the gate's own violations, so a run
+   that leaks cannot report success.
+
+Two traps this had to avoid, both hit while building it: `if (child.exitCode !== null) return`
+is not a valid shortcut, because the bootstrap Chrome exits and the real browser has a
+different pid; and the ownership query must not carry the marker on its own command line, or
+it matches itself and every clean run reports one phantom survivor.
+
+**Identity per gate.** Each migrated gate now proves, per navigation, that the document it is
+about to measure is ITS target, on the URL that scenario asked for, at the requested width,
+with a `<meta name="viewport">` — via the shared `provePage`. A failed proof skips the
+measurements rather than reporting them.
+
+**Port-hijack RED/GREEN**, automated in `layout:selftest` phase 9: a decoy listener owned by
+the test is parked on each gate's CDP port in turn, and every gate must exit non-zero naming
+the port and the PID, without touching the decoy. Measured: all five refuse in 0s, decoy
+intact. The RED is on record from 38.0.16.2c.2 — with a decoy on 9254 the old social gate
+attached to it, drove a page inside it and printed `SOCIAL LAYOUT OK`.
+
+**Still not proven, still not claimed.** The target race is *not* established as the cause of
+the old mobile sidecar regression, and the adaptive sidecar remains unimplemented.
+
 **Two facts every future width threshold must respect.**
 
 | requested | innerWidth | clientWidth | mm1440 | mm1620 |

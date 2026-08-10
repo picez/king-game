@@ -16,12 +16,10 @@
 // the pre-fix CSS so the RED can be reproduced on demand instead of being described.
 // ---------------------------------------------------------------------------
 
-import { spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const WebSocket = createRequire(`${process.cwd()}/package.json`)('ws');
+import { openOwnedPage, applyViewport, provePage, CdpSession } from './lib/cdp-owned-target.mjs';
+import { runWithQaRuntime } from './lib/qa-processes.mjs';
 
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const CDP_PORT = 9252;
@@ -35,10 +33,6 @@ const LEGACY = args.includes('--legacy');
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const fetchJson = (p) => new Promise((res, rej) => get(`http://127.0.0.1:${CDP_PORT}${p}`, (r) => {
-  let d = ''; r.on('data', (c) => (d += c)); r.on('end', () => res(JSON.parse(d)));
-}).on('error', rej));
-
 async function waitHttp(url, timeout = 90000) {
   const start = Date.now();
   for (;;) {
@@ -46,41 +40,9 @@ async function waitHttp(url, timeout = 90000) {
     catch { if (Date.now() - start > timeout) throw new Error(`not up: ${url}`); await sleep(200); }
   }
 }
-async function waitDevtools(timeout = 15000) {
-  const start = Date.now();
-  for (;;) {
-    try { return await fetchJson('/json/version'); }
-    catch { if (Date.now() - start > timeout) throw new Error('chrome devtools not up'); await sleep(150); }
-  }
-}
-
-class CDP {
-  constructor(url) { this.ws = new WebSocket(url); this.id = 0; this.pending = new Map(); }
-  close() { try { this.ws.close(); } catch { /* already gone */ } }
-  open() {
-    return new Promise((res) => {
-      this.ws.on('open', res);
-      this.ws.on('message', (m) => {
-        const o = JSON.parse(m.toString());
-        if (o.id && this.pending.has(o.id)) { this.pending.get(o.id)(o); this.pending.delete(o.id); }
-      });
-    });
-  }
-  send(method, params = {}, timeoutMs = 20000) {
-    const id = ++this.id;
-    return new Promise((res) => {
-      const done = (v) => { clearTimeout(timer); this.pending.delete(id); res(v); };
-      const timer = setTimeout(() => done({ __timeout: true }), timeoutMs);
-      this.pending.set(id, done);
-      this.ws.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  async evaluate(expression) {
-    const r = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-    if (r?.__timeout) return undefined;
-    return r.result?.result?.value;
-  }
-}
+// (38.0.16.2d) Command lifetime — budget, typed timeout, rejecting every pending command
+// when the socket dies — comes from the shared `CdpSession`: one implementation for all gates.
+class CDP extends CdpSession {}
 
 // --- settle: fonts, decoded artwork, the harness's own update sequence, 2 frames ------
 const SETTLE = `(async () => {
@@ -459,38 +421,37 @@ function scenarios() {
 }
 
 async function run() {
-  let alreadyUp = false;
-  try { await waitHttp(`${BASE}?players=4`, 1500); alreadyUp = true; } catch { /* start one */ }
-  const vite = alreadyUp ? null : spawn(process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['vite', '--port', String(VITE_PORT), '--strictPort'],
-    { stdio: 'ignore', shell: process.platform === 'win32' });
-  const chrome = spawn(CHROME, [
-    `--remote-debugging-port=${CDP_PORT}`, '--headless=new', '--no-first-run',
-    '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars',
-    `--user-data-dir=${process.env.TEMP || '/tmp'}/kg-f51-qa`, 'about:blank',
-  ], { stdio: 'ignore' });
-
   const failures = [];
   let checks = 0;
-  try {
+  // (38.0.16.2d) The gate OWNS its dev server, its browser and its page. It used to reuse an
+  // already-running vite, share a fixed Chrome profile, attach to whichever page target was
+  // listed first, and clean up with `chrome.kill()`. Measured on 7cd54a0 after this gate
+  // printed FIFTY-ONE LAYOUT OK: port 9252 still held by Chrome pid 4408 (whose bootstrap
+  // parent 32480 had already exited), port 5199 still held on `[::1]` by a leaked vite, seven
+  // marked processes alive and the shared profile still on disk.
+  //
+  // `Emulation.setFocusEmulationEnabled` now comes from `openOwnedPage`: a headless page has
+  // no system focus, so `el.focus()` sets `activeElement` but fires NO focus event — and the
+  // focus EVENT is what tells the chat where an emoji should go.
+  await runWithQaRuntime({
+    name: 'kg-f51-qa', vitePort: VITE_PORT, cdpPort: CDP_PORT, chromePath: CHROME,
+    chromeArgs: ['--disable-gpu', '--hide-scrollbars'], failures,
+  }, async () => {
     await waitHttp(`${BASE}?players=4`, 90000);
-    await waitDevtools();
+    const owned = await openOwnedPage(CDP_PORT, CDP);
+    const cdp = owned.cdp;
+    try {
     for (const vp of VIEWPORTS) {
-      const targets = await fetchJson('/json');
-      const page = targets.find((t) => t.type === 'page');
-      const cdp = new CDP(page.webSocketDebuggerUrl);
-      await cdp.open();
-      await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-      // A headless page has no system focus, so `el.focus()` sets `activeElement` but
-      // fires NO focus event — and since 38.0.13 the focus EVENT is what tells the chat
-      // where an emoji should go. Emulating focus makes the gate see what a phone sees.
-      await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
-      await cdp.send('Emulation.setDeviceMetricsOverride',
-        { width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile, screenWidth: vp.w, screenHeight: vp.h });
-      console.log(`\n[${vp.tag} ${vp.w}x${vp.h}]${LEGACY ? ' (LEGACY / RED)' : ''}`);
+      await applyViewport(owned, vp, { screenWidth: vp.w, screenHeight: vp.h });
+      console.log(`
+[${vp.tag} ${vp.w}x${vp.h}]${LEGACY ? ' (LEGACY / RED)' : ''} target ${owned.targetId}`);
 
       for (const sc of scenarios().filter((x) => !ONLY || x.name.includes(ONLY))) {
-        await cdp.send('Page.navigate', { url: `${BASE}?${sc.q}` });
+        const url = `${BASE}?${sc.q}`;
+        cdp.setContext(`${vp.tag} ${sc.name}`);
+        // Re-applied per navigation: a drifted override must never ride into a measurement.
+        await applyViewport(owned, vp, { screenWidth: vp.w, screenHeight: vp.h });
+        await cdp.send('Page.navigate', { url });
         // The empty-table scenario has no melds by design — wait for the screen instead.
         const anchor = sc.q.includes('melds=redacted') ? '.fiftyone-screen' : '.fiftyone-meld';
         let mounted = false;
@@ -499,6 +460,10 @@ async function run() {
           await sleep(100);
         }
         if (!mounted) { failures.push(`${vp.tag} ${sc.name}: NOTHING rendered (harness broken)`); continue; }
+        // Identity + viewport on the document that just loaded; a failed proof means every
+        // measurement below would belong to a page nobody asked for.
+        const proof = await provePage(owned, vp, url, `${vp.tag} ${sc.name}`);
+        if (proof.length) { failures.push(...proof); continue; }
 
         const settled = await cdp.evaluate(SETTLE);
         if (!settled || settled.ready !== true) failures.push(`${vp.tag} ${sc.name}: harness never signalled ready`);
@@ -561,12 +526,11 @@ async function run() {
         const meta = `g${res.groups}/m${res.melds}/c${res.cards}` + (res.pick ? `/h${res.hist}/p${res.pick}` : ``);
         console.log(`  ${sc.name.padEnd(18)} ${meta.padEnd(12)} ${res.violations.length ? `FAIL(${res.violations.length}) ${res.violations.slice(0, 2).join(' | ')}` : 'ok'}`);
       }
-      cdp.close();          // an open CDP socket keeps node's event loop alive forever
     }
-  } finally {
-    chrome.kill();
-    if (vite) vite.kill();
-  }
+    } finally {
+      await owned.close();   // an open CDP socket keeps node's event loop alive forever
+    }
+  });
 
   console.log(`\n${checks} Fifty-One layout checks run.`);
   if (failures.length) {

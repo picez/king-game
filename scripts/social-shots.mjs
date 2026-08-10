@@ -20,12 +20,10 @@
 //     5-sent      the same message posted — ONE bubble carrying text and the sticker
 // ---------------------------------------------------------------------------
 
-import { spawn } from 'node:child_process';
 import { get } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const WebSocket = createRequire(`${process.cwd()}/package.json`)('ws');
+import { openOwnedPage, applyViewport, provePage, CdpSession } from './lib/cdp-owned-target.mjs';
+import { runWithQaRuntime } from './lib/qa-processes.mjs';
 
 const OUT = process.argv[2] || '.shots/social';
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -35,9 +33,6 @@ const BASE = `http://localhost:${VITE_PORT}/scripts/layout-harness/social-games.
 
 mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const fetchJson = (p) => new Promise((res, rej) => get(`http://127.0.0.1:${CDP_PORT}${p}`, (r) => {
-  let d = ''; r.on('data', (c) => (d += c)); r.on('end', () => res(JSON.parse(d)));
-}).on('error', rej));
 async function waitHttp(url, timeout = 120000) {
   const start = Date.now();
   for (;;) {
@@ -45,42 +40,13 @@ async function waitHttp(url, timeout = 120000) {
     catch { if (Date.now() - start > timeout) throw new Error(`not up: ${url}`); await sleep(200); }
   }
 }
-async function waitDevtools(timeout = 20000) {
-  const start = Date.now();
-  for (;;) {
-    try { return await fetchJson('/json/version'); }
-    catch { if (Date.now() - start > timeout) throw new Error('chrome devtools not up'); await sleep(150); }
-  }
-}
 
-class CDP {
-  constructor(url) { this.ws = new WebSocket(url); this.id = 0; this.pending = new Map(); }
-  open() {
-    return new Promise((res) => {
-      this.ws.on('open', res);
-      this.ws.on('message', (m) => {
-        const o = JSON.parse(m.toString());
-        if (o.id && this.pending.has(o.id)) { this.pending.get(o.id)(o); this.pending.delete(o.id); }
-      });
-    });
-  }
-  send(method, params = {}, timeoutMs = 30000) {
-    const id = ++this.id;
-    return new Promise((res) => {
-      const done = (v) => { clearTimeout(t); this.pending.delete(id); res(v); };
-      const t = setTimeout(() => done({ __timeout: true }), timeoutMs);
-      this.pending.set(id, done);
-      this.ws.send(JSON.stringify({ id, method, params }));
-    });
-  }
-  async evaluate(e) {
-    const r = await this.send('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true });
-    return r?.__timeout ? undefined : r.result?.result?.value;
-  }
-  async json(e) {
-    const raw = await this.evaluate(`JSON.stringify(${e})`);
-    try { return JSON.parse(raw); } catch { return null; }
-  }
+/**
+ * (38.0.16.2d) The shared session, plus the real mouse and keyboard this script needs.
+ * Command lifetime — the budget, the typed timeout, rejecting every pending command when the
+ * socket dies — comes from `CdpSession`: one implementation for every gate.
+ */
+class CDP extends CdpSession {
   async click(sel) {
     await this.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel)});
       if (!el) return false; el.scrollIntoView({ block: 'center' });
@@ -138,26 +104,28 @@ const ATTACH = '.chat-attach';
 const SEND = '.chat-panel__compose [type="submit"]';
 
 async function main() {
-  const vite = spawn(`npx vite --port ${VITE_PORT} --strictPort`, { shell: true, stdio: 'ignore' });
-  const chrome = spawn(CHROME, [`--remote-debugging-port=${CDP_PORT}`, '--headless=new', '--no-first-run',
-    `--user-data-dir=${process.env.TEMP || '/tmp'}/kg-social-shots`, 'about:blank'], { stdio: 'ignore' });
   const failures = [];
   let shots = 0;
-  try {
+  // (38.0.16.2d) The screenshot gate OWNS its dev server, its browser and its page. It used
+  // to start vite through `spawn('npx vite …', { shell: true })` — on Windows that is
+  // cmd.exe, so the pid was the SHELL — share a fixed Chrome profile, attach to whichever
+  // page target was listed first, and clean up with `chrome.kill()`. Measured on 7cd54a0:
+  // after it printed SOCIAL SHOTS OK the PROCESS NEVER EXITED (killed at 300s), port 9262 was
+  // still held by Chrome pid 34136 (bootstrap parent 52688 already gone), port 5212 was still
+  // held on `[::1]`, seven marked processes were alive and the profile was still on disk.
+  await runWithQaRuntime({
+    name: 'kg-social-shots', vitePort: VITE_PORT, cdpPort: CDP_PORT, chromePath: CHROME, failures,
+  }, async () => {
     await waitHttp(BASE);
-    await waitDevtools();
-    const targets = await fetchJson('/json');
-    const cdp = new CDP(targets.find((t) => t.type === 'page').webSocketDebuggerUrl);
-    await cdp.open();
-    await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-    await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
-
+    const owned = await openOwnedPage(CDP_PORT, CDP);
+    const cdp = owned.cdp;
+    try {
     for (const [game, vpTag, dir] of COMBOS) {
       const vp = VP[vpTag];
       const g = { tag: game, q: Q[game] + (dir === 'rtl' ? '&dir=rtl&lang=ar' : '') };
       {
-        await cdp.send('Emulation.setDeviceMetricsOverride', {
-          width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: vp.mobile });
+        cdp.setContext(`${vpTag}-${dir}-${game}`);
+        await applyViewport(owned, vp);
         const tag = `${vpTag}-${dir}-${game}`;
         const fail = (m) => failures.push(`${tag}: ${m}`);
         /** A shot is only taken once the state it is supposed to show actually exists. */
@@ -213,10 +181,10 @@ async function main() {
         await shot('5-sent', ['.chat-msg__text', '.chat-msg__media']);
       }
     }
-  } finally {
-    try { chrome.kill(); } catch { /* gone */ }
-    try { vite.kill(); } catch { /* gone */ }
-  }
+    } finally {
+      await owned.close();
+    }
+  });
   console.log(`${shots} screenshots → ${OUT}`);
   if (failures.length) {
     console.log(`\n${failures.length} FAILURE(S):`);

@@ -221,11 +221,23 @@ export const VIEWPORT_PROBE = (thresholds) => `(() => ({
  * mmThreshold | gridColumns — the seven facts needed to tell a real layout bug from a
  * harness that measured the wrong document.
  */
-export async function applyViewport(owned, vp, thresholds = []) {
+export async function applyViewport(owned, vp, extra = {}) {
   await owned.cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: !!vp.mobile,
+    width: vp.w, height: vp.h, deviceScaleFactor: 1, mobile: !!vp.mobile, ...extra,
   });
   return owned;
+}
+
+/**
+ * (38.0.16.2d) The identity + viewport proof, in one call, for gates that do not need the
+ * social gate's full navigation lifecycle. Answers the four questions a measurement is
+ * worthless without: is this OUR target, is it on the page we asked for, is the window the
+ * size we requested, and does the page declare a viewport at all. Returns failure lines, so
+ * a gate can refuse to measure exactly as `load()` does.
+ */
+export async function provePage(owned, vp, requestedUrl, label, thresholds = []) {
+  const probe = await owned.cdp.evaluate(PROOF_PROBE(thresholds));
+  return validateProof(probe, vp, thresholds, label, owned, requestedUrl);
 }
 
 /**

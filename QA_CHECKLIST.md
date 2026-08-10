@@ -79,6 +79,16 @@ one behaviour case can be reproduced with the least possible work in front of it
 step and every behaviour operation, start and end. `--act` only ever NARROWS the default set:
 the full seven run at 390 ltr, while 360 and 390 rtl run the core pair.
 
+**All six browser gates own their processes (Stage 38.0.16.2d).** `layout:social`,
+`layout:selftest`, `layout:poker`, `layout:fiftyone`, `layout:tracker` and `social-shots` each
+start their own dev server and browser, refuse to start on a busy port, and print a
+`cleanup: …` line proving that nothing they created outlived them. Run them ONE AT A TIME —
+`layout:poker` and `layout:fiftyone` share vite port 5199, so a parallel run fails fast by
+design. The ad-hoc `*-shots.mjs` generators (`deberc`, `lobby`, `mobile`, `preferans*`,
+`pwa`, `tarneeb*`, `tutorial`, `visual-qa`) were NOT migrated: they expect a dev server you
+started yourself, and they still leave their Chrome running — check for stray browsers after
+using them.
+
 **If a gate refuses to start** with `refusing to start: a previous run is still alive`, that
 is working as intended: an earlier run (or an interrupted one) still holds the port, and
 attaching to it would drive somebody else's browser and produce measurements from a document

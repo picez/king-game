@@ -36,12 +36,16 @@
 //     command in flight rejects it as `CdpClosedError` instead of leaking the promise.
 //   PHASE 8 — the REAL layout gate, run as a child with `--fault cdp-timeout`, exits
 //     non-zero in bounded time, names the method, and gives its ports back.
+//   PHASE 9 — (38.0.16.2d) EVERY browser gate refuses to start when its CDP port is already
+//     held: a decoy owned by this test is parked on each port in turn, and the gate must exit
+//     non-zero naming the port and the PID, without touching the decoy.
 //
 // Every failure prints: requested | targetId | targetUrl | innerWidth | clientWidth |
 // mmThreshold | gridColumns.
 // ---------------------------------------------------------------------------
 import { spawn } from 'node:child_process';
 import { get } from 'node:http';
+import { createServer } from 'node:net';
 import {
   openOwnedPage, devtools, applyViewport, checkViewport, resetScroll, VIEWPORT_PROBE,
   PROOF_PROBE, validateProof, CdpTimeoutError, CdpClosedError,
@@ -130,6 +134,50 @@ function runGateWithFault() {
       }
       const firstFailureLine = (output.split(/\r?\n/).find((l) => l.includes('CdpTimeoutError')) || '').trim();
       resolve({ code, seconds, output, portsHeld, firstFailureLine });
+    });
+  });
+}
+
+/**
+ * (38.0.16.2d) Every browser gate, and the ports it owns. PHASE 9 parks a decoy on each CDP
+ * port and requires the gate to REFUSE rather than attach to it — the failure that let a
+ * finished run's browser be driven by the next one.
+ */
+const GATES = [
+  // `--only __none__` keeps the three older gates from doing any work if the refusal ever
+  // regressed; the social gate validates its filters BEFORE it starts anything, so it is
+  // given a real (single-case) selection instead — otherwise it would exit on the empty
+  // selection and the port refusal would never be exercised.
+  { script: 'scripts/poker-layout-qa.mjs', cdp: 9251, vite: 5199, args: ['--only', '__none__'] },
+  { script: 'scripts/fiftyone-layout-qa.mjs', cdp: 9252, vite: 5199, args: ['--only', '__none__'] },
+  { script: 'scripts/profile-tracker-qa.mjs', cdp: 9253, vite: 5198, args: ['--only', '__none__'] },
+  { script: 'scripts/social-layout-qa.mjs', cdp: 9254, vite: 5201,
+    args: ['--viewport', '390', '--game', 'durak', '--dir', 'ltr', '--act', 'typing-caret'] },
+  { script: 'scripts/social-shots.mjs', cdp: 9262, vite: 5212, args: [] },
+];
+
+/** A decoy listener owned by this test: it stands in for a leaked browser or dev server. */
+function decoyListener(port, host = '127.0.0.1') {
+  return new Promise((res, rej) => {
+    const s = createServer();
+    s.once('error', rej);
+    s.listen(port, host, () => res(s));
+  });
+}
+
+/** Run a gate to completion and hand back what it printed. */
+function runGate(script, args = []) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const child = spawn(process.execPath, [script, ...args],
+      { shell: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let output = '';
+    child.stdout.on('data', (d) => { output += d; });
+    child.stderr.on('data', (d) => { output += d; });
+    const guard = setTimeout(() => { try { child.kill(); } catch { /* gone */ } }, 120000);
+    child.on('close', (code) => {
+      clearTimeout(guard);
+      resolve({ code, output, seconds: Math.round((Date.now() - started) / 1000) });
     });
   });
 }
@@ -370,6 +418,35 @@ async function main() {
     for (const p of gate.portsHeld) failures.push(`phase8: the gate left port ${p.port} held by ${p.pids.join(',')}`);
     console.log(`  phase8 gate exit ${gate.code} in ${gate.seconds}s, ports released: ${gate.portsHeld.length === 0}`);
     console.log(`         ${gate.firstFailureLine}`);
+
+    // ---- PHASE 9: no gate may start on top of somebody else's port ---------------------
+    // (38.0.16.2d) THE regression that made every other leak dangerous. On 7cd54a0 a gate
+    // whose CDP port was already taken simply attached to whatever was there: run unchanged
+    // against a decoy browser, the old social gate drove a page inside it and printed
+    // SOCIAL LAYOUT OK. Each gate must now refuse, name the port and the PID, and exit
+    // non-zero — before it spawns anything. The decoy belongs to this test and survives.
+    for (const g of GATES) {
+      let decoy = null;
+      try {
+        decoy = await decoyListener(g.cdp);
+      } catch (e) {
+        failures.push(`phase9 ${g.script}: could not park a decoy on ${g.cdp} (${e.code}) — is a real run in progress?`);
+        continue;
+      }
+      const r = await runGate(g.script, g.args);
+      checks++;
+      const named = r.output.includes(`${g.cdp}`) && r.output.includes(String(process.pid));
+      if (r.code === 0) failures.push(`phase9 ${g.script}: exited 0 with its CDP port ${g.cdp} hijacked`);
+      if (!/refusing to start/.test(r.output)) failures.push(`phase9 ${g.script}: never said it was refusing`);
+      if (!named) failures.push(`phase9 ${g.script}: the refusal did not name port ${g.cdp} and PID ${process.pid}`);
+      if (r.seconds > 60) failures.push(`phase9 ${g.script}: took ${r.seconds}s to refuse`);
+      // The decoy must be untouched — a gate may never kill a process it did not start.
+      const alive = decoy.listening;
+      if (!alive) failures.push(`phase9 ${g.script}: the gate killed the decoy it found on ${g.cdp}`);
+      console.log(`  phase9 ${g.script.replace('scripts/', '').padEnd(28)} cdp ${g.cdp} hijacked`
+        + ` → exit ${r.code} in ${r.seconds}s, decoy ${alive ? 'intact' : 'DESTROYED'}`);
+      await new Promise((res) => decoy.close(res));
+    }
   } finally {
     try { if (owned) await owned.close(); } catch { /* gone */ }
     try { if (decoy) await decoy.close(); } catch { /* gone */ }

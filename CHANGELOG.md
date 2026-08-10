@@ -22,6 +22,16 @@ also reported at `GET /health/diagnostics` (`version` field).
   page scroll is put back to the top, and only then is anything measured. `npm run
   layout:selftest` is the guard, and it now demonstrates the old behaviour failing and the
   new one recovering in the same run.
+- **Every browser QA gate now shuts down what it started (Stage 38.0.16.2d).** Test tooling
+  only — nothing in the game changed. 38.0.16.2c.2 fixed the social gate; the final audit of
+  that stage caught the same leak still live in the others. Measured on the previous commit:
+  after `layout:poker`, `layout:fiftyone`, `layout:tracker` and `social-shots` each reported
+  success, every one of them had left its browser running (seven to nine processes), its dev
+  server holding a port, and its shared profile folder on disk — and `social-shots` never
+  finished at all, because the processes it abandoned kept it open. All four now start their
+  dev server directly instead of through a shell, get a browser profile of their own, refuse
+  to start if their ports are already taken (naming the process that holds them), and prove
+  on the way out that nothing they created survived.
 - **The layout gate no longer leaves browsers running, and can be pointed at one case
   (Stage 38.0.16.2c.2).** Test tooling only — nothing in the game changed. Runs of the social
   gate had been ending in a stall that looked like a frozen chat test. It was not: every chat

@@ -1312,6 +1312,39 @@ Use this file as the first read after archiving this chat. It is intentionally s
   launcher + no reaction surface, `fiftyOneStage3809.test.ts` FAIL A updated (`closeSheet()`
   count 4 → 3).
 
+### Stage 38.0.16.2d — every browser gate owns its processes (COMPLETE, Unreleased)
+- Worked from HEAD `7cd54a0`. Test infrastructure only; no product CSS/TSX, no game logic, no
+  protocol, no rich chat, no sidecar. version 0.4.8, migration 0014, games 7, achievements 52.
+- **RED, measured per gate from free ports on 7cd54a0.** All reported success and all leaked;
+  in every case the real Chrome's parent (the bootstrap pid the gate spawned) had ALREADY
+  EXITED, which is why `chrome.kill()` reached nothing:
+  `layout:poker` → 9251 held by 26168 (parent 32688 gone), 5199 `[::1]` by 21816, 7 procs,
+  profile present, and npm never returned inside 10 min;
+  `layout:fiftyone` → 9252 by 4408 (parent 32480 gone), 5199 `[::1]` by 45516, 7 procs;
+  `layout:tracker` → 9253 by 49504 (parent 63540 gone), 5198 `[::1]` by 53640, 9 procs;
+  `social-shots` → **exit 124, never exited**, 9262 by 34136 (parent 52688 gone), 5212 `[::1]`
+  by 46244, 7 procs.
+- **Migrated to `runWithQaRuntime` + `openOwnedPage` + `provePage`:** poker, fiftyone, tracker,
+  social-shots. Each now: direct `process.execPath vite/bin/vite.js` (`shell:false`), per-run
+  `mkdtemp` profile, both-loopback port preflight, owned CDP target closed in `finally`,
+  per-navigation viewport/identity proof, cleanup on success/throw/timeout/signal, leftovers
+  counted as gate failures. The `alreadyUp` "reuse a running vite" shortcut is DELETED — it
+  was the hijack, not a convenience.
+- **17 browser scripts audited.** Already correct: `social-layout-qa`, `social-target-selftest`.
+  Migrated: the four above. **NOT migrated (11):** the ad-hoc `*-shots.mjs` + `visual-qa.mjs`
+  generators — not in package.json, not part of any gate, expect a dev server you started, and
+  most pass NO `--user-data-dir` at all (Chrome's DEFAULT profile). Their leak is asserted from
+  code, NOT measured. Next candidates.
+- **New: `layout:selftest` phase 9** — a decoy owned by the test is parked on each gate's CDP
+  port and every gate must exit non-zero naming port+PID without touching the decoy. All five
+  refuse in 0s. 23 new browser-free vitest cases in `scripts/lib/qa-processes.test.mjs`.
+- Two traps hit while building: `if (child.exitCode !== null) return` is NOT a valid shortcut
+  (bootstrap Chrome exits, real browser has another pid); and the ownership query must take the
+  marker from the ENVIRONMENT, or the PowerShell query matches its own command line and every
+  clean run reports a phantom survivor.
+- STILL NOT PROVEN: target race as the cause of the old mobile sidecar regression. STILL
+  MISSING: the adaptive sidecar — next stage is the worst-case footprint audit.
+
 ### Stage 38.0.16.2c.2 — the behaviour "hang" was the environment (COMPLETE, Unreleased)
 - Worked from HEAD `81d8fed` on the .2c.1 working tree. Test infrastructure only; no product
   CSS/TSX, no rich chat, no sidecar. version 0.4.8, migration 0014, games 7, achievements 52.
