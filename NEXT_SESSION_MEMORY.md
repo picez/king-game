@@ -1985,3 +1985,29 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Proof:** `layout:fiftyone` now checks every `.card` (`text-over-art`): against the old
   component **111** hits, against the fix **0**.
 - Lesson: a "reset on prop change" effect races with any event that can fire before effects run.
+
+### Stage 39.5 — table redesign debts: the tall moments (COMPLETE, Unreleased)
+- The 39.2/39.3 audit measured ONE scene per game (its opening state). Added named scenes to
+  `scripts/layout-harness/social-games.tsx` (`?scene=`): king `myturn` / `wait`, tarneeb `mybid`,
+  deberc `declare`; `fold-audit.mjs` has a row per scene (`gameOf(tag)` maps it to its game).
+  King's default scene was NON-DETERMINISTIC (random opening leader) — always use a scene.
+- Found (hand px below the fold) → all now 0: tarneeb-mybid 39 @360×640, 38 @667×375, 23
+  @844×390; deberc-declare 73 @360×640; king myturn 16 @667×375; preferans 91 @667×375, 59
+  @844×390. `layout:fold` = 70 checks, `ON_SHELL` debt list EMPTY (the gate fails if a listed
+  debt starts to fit, so the list can only shrink).
+- **Landscape pattern for a tall action bar:** put it in the HAND's grid row (`grid-column: 2;
+  grid-row: 10`) and turn `.room-social` into an ordinary side-column row. The row grows to the
+  bar's height and the table gives the difference back. Used for `.preferans-bidbar` /
+  `.preferans-declarebar` and `.tarneeb-bidbar` / `.tarneeb-trumpbar`.
+- Deberc: score strip `nowrap`; the team name is wrapped in `.deberc-scores__name` (ellipsis)
+  so the score never truncates; chips have a 6.5rem floor (with `min-width: 0` on the chip the
+  score slid OUT of it); strip needs `width: 100%` (as a centred flex item it was max-content
+  wide and nothing could shrink). Declare + Skip share a row.
+- Tarneeb: `--shell-table-min: 8.5rem`, bid buttons `clamp(2.2rem, 5.2dvh, 2.6rem)`, the board
+  is a size container and seats tighten under 170px of felt, portrait gap 0.3rem under 700px.
+- **Checked and NOT a redesign regression:** Deberc's left seat overlapping the deck/trump at
+  360px with a long name + DEALER/MAKER badges — identical in the committed pre-39.5 build
+  (the centre reserves `clamp(2.3rem, 13vw, 3.6rem)` per side seat; the seat's count row and
+  badges are wider). Left as is; needs a seat redesign, not a height fix.
+- **Not done:** the 48px room-control row in Fifty-One portrait (no place for three 44px
+  buttons that does not squeeze the prompt at 360px). Still nothing verified on a real phone.

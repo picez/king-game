@@ -387,3 +387,30 @@
   margin: 0 0 0.9rem;
 }
 .deberc-firstdealer__trumplabel { font-size: 0.92rem; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------------------
+   Table shell debts (Stage 39.5). Measured on the viewer's own DECLARING turn at 360×640:
+   the hand ended 73px below the screen. Two bands were spending height they did not need:
+
+     * the match-score strip wrapped to THREE rows because a long pair name could not
+       shrink — now it is one row, and the NAME ellipsizes while the score never does;
+     * the declare bar stacked hint / chips / Declare / Skip in four rows — Declare and
+       Skip now share one.
+   --------------------------------------------------------------------------- */
+.table-shell .deberc-scores { flex-wrap: nowrap; }
+.table-shell .deberc-scores .tag {
+  display: inline-flex; align-items: baseline; gap: 0.25rem;
+  /* A chip may shrink, but only down to a floor that still holds a short name and its
+     score — below that the score slid out of the chip onto its neighbour. */
+  flex: 0 1 auto; min-width: 6.5rem; white-space: nowrap;
+}
+/* The target chip has no name to give up; it keeps its own width. */
+.table-shell .deberc-scores .tag:last-child { flex: 0 0 auto; min-width: 0; }
+.table-shell .deberc-scores__name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.table-shell .deberc-scores .tag strong { flex: 0 0 auto; }
+.table-shell .durak-controls.deberc-declare { flex-direction: row; flex-wrap: wrap; gap: 0.3rem 0.5rem; }
+.table-shell .deberc-declare__warn,
+.table-shell .deberc-declare__buttons { flex: 1 1 100%; }
+/* The strip must be as wide as the screen for its chips to have something to shrink INTO:
+   as a centred flex item it was max-content wide, so the second chip ran off the edge. */
+.table-shell .deberc-scores { width: 100%; max-width: 100%; }

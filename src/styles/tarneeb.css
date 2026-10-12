@@ -382,3 +382,36 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 .tarneeb-tricks__n { min-width: 2rem; color: var(--text-dim); font-weight: 700; font-size: 0.8rem; flex: 0 0 auto; }
 .tarneeb-tricks__won { min-width: 3.5rem; max-width: 5rem; font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 0 auto; }
 .tarneeb-tricks__cards { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+/* ---------------------------------------------------------------------------
+   Table shell debts (Stage 39.5). On the viewer's own AUCTION turn the bid bar (3..13 +
+   Pass) put the hand 39px below a 360×640 screen and 38px below a phone held sideways.
+     * the bid buttons follow the viewport height (down to 2.2rem) and may be narrower,
+       so a narrow side column fits six per row instead of five — two rows, not three;
+     * during the auction there is no trick on the felt, so the table may go lower.
+   --------------------------------------------------------------------------- */
+.table-shell.tarneeb-screen { --shell-table-min: 8rem; }
+.table-shell .tarneeb-bidbtn { min-width: 2.2rem; min-height: clamp(2.2rem, 5.2dvh, 2.6rem); }
+.table-shell .tarneeb-passbtn { min-height: clamp(2.2rem, 5.2dvh, 2.6rem); }
+/* Phone landscape: like the Preferans ladder, the bid bar shares the HAND's row rather than
+   stacking above it in the side column (it was still 20px too tall there). */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.table-shell.tarneeb-screen > .room-social { grid-row: auto; align-self: auto; margin-block: 0 0.25rem; }
+  .screen.table-shell.tarneeb-screen > .tarneeb-bidbar,
+  .screen.table-shell.tarneeb-screen > .tarneeb-trumpbar { grid-column: 2; grid-row: 10; align-self: end; margin: 0; }
+  .screen.table-shell.tarneeb-screen > .hand-reorder-wrap { align-self: end; }
+}
+/* A short felt (the viewer's own auction turn on a 640px phone): the top seat and the
+   viewer's own seat met in the middle at 8rem. The felt keeps 8.5rem, the seats tighten
+   to the felt's OWN height (a size container), and a short screen closes the gaps between
+   bands — which is where the height for that comes from. */
+.table-shell.tarneeb-screen { --shell-table-min: 8.5rem; }
+.table-shell .tarneeb-board { container-type: size; }
+@container (max-height: 170px) {
+  .tarneeb-seat { padding-block: 0.12rem; gap: 0; }
+  .tarneeb-seat--top { top: 0.15rem; }
+  .tarneeb-seat--bottom { bottom: 0.15rem; }
+}
+@media (max-height: 700px) and (orientation: portrait) {
+  .screen.table-shell.tarneeb-screen { gap: 0.3rem; }
+}

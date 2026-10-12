@@ -72,6 +72,15 @@ const lang = qs.get('lang') ?? (dir === 'rtl' ? 'ar' : 'en');
 const startPanel = (qs.get('panel') ?? 'none') as SocialPanel;
 const chatCount = Number(qs.get('chat') ?? 8);
 const seats = Math.max(2, Math.min(6, Number(qs.get('seats') ?? 4)));
+/**
+ * (Stage 39.5) Which MOMENT of the game to mount. The default scene of each game is its
+ * opening state, which is not its tallest: the fold audit measured one screen while the
+ * viewer's own auction turn, or the Deberc declare bar, could still push the hand down.
+ *   king:    `myturn` (the viewer leads) | `wait` (an opponent leads)
+ *   tarneeb: `mybid`  (the viewer's auction turn — the full 3..13 bid bar)
+ *   deberc:  `declare` (the viewer's declaring turn)
+ */
+const scene = qs.get('scene') ?? 'default';
 
 document.documentElement.dir = dir;
 document.documentElement.lang = lang;
@@ -125,9 +134,14 @@ const types = (n: number) => Array.from({ length: n }, (_, i) => (i === 0 ? 'hum
 
 // --- King -----------------------------------------------------------------------------
 function kingFixture(): GameState {
-  return gameReducer(null, {
+  const s = gameReducer(null, {
     type: 'START_GAME', playerNames: names(4), playerTypes: types(4), modeSelectionType: 'fixed',
   })!;
+  // The opening leader is random, so the default scene differs from load to load. A named
+  // scene pins who acts: the current player is `currentLeaderIdx` + the plays so far.
+  if (scene === 'myturn') return { ...s, currentLeaderIdx: 0, currentTrick: null };
+  if (scene === 'wait') return { ...s, currentLeaderIdx: 1, currentTrick: null };
+  return s;
 }
 
 // --- Durak: seat 0 ATTACKS an empty table, so every card in hand is legal --------------
@@ -152,12 +166,19 @@ function debercFixture(): DebercState {
   })!;
   // Deberc opens with its OWN first-dealer reveal overlay. Drop it: the gate is measuring
   // the social cluster against the table, not against another game's intro modal.
-  return { ...s, firstDealerDraw: undefined };
+  const base = { ...s, firstDealerDraw: undefined };
+  // The viewer's DECLARING turn: the hint, the meld chips and the confirm button are the
+  // tallest action bar Deberc has.
+  if (scene === 'declare') {
+    return { ...base, phase: 'declaring', meldTurnSeat: 0, trumpSuit: s.tableTrumpCard.suit } as DebercState;
+  }
+  return base;
 }
 function tarneebFixture(): TarneebState {
-  return tarneebReducer(null, {
+  const s = tarneebReducer(null, {
     type: 'START_GAME', playerNames: names(4), playerTypes: types(4), dealerSeat: 3,
   })!;
+  return scene === 'mybid' ? { ...s, currentSeat: 0 } : s;
 }
 function preferansFixture(): PreferansState {
   return preferansReducer(null, {

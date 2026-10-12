@@ -495,3 +495,15 @@
   .table-shell .game-footer > .ai-hand-placeholder { grid-column: 1; grid-row: 10; margin: 0; }
   .table-shell .game-banner__dealer { display: none; }
 }
+
+/* (Stage 39.5) King, phone landscape, the viewer's own turn: the side column was 16px too
+   tall. The same bands, with the padding a 375px-tall screen cannot afford taken out. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .table-shell .game-header { padding: 0.25rem 0.6rem; gap: 0.25rem; }
+  .table-shell .game-banner { margin: 0 0 0.25rem; padding: 0.3rem 0.6rem; }
+  .table-shell .game-footer > .turn-banner { padding: 0.3rem 0.6rem; gap: 0.5rem; }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .table-shell .game-footer > * { margin-block: 0 0.1rem; }
+  .table-shell.game-screen > .game-header { margin-bottom: 0.1rem; }
+}

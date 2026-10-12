@@ -249,7 +249,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       <div className="deberc-scores" role="status">
         {state.matchScore.map((sc, team) => (
           <span key={team} className={`tag ${team === myTeam ? 'tag--ok' : ''}`}>
-            {teamName(team)} · <strong>{sc}</strong>
+            <span className="deberc-scores__name">{teamName(team)}</span> · <strong>{sc}</strong>
             {state.hvMarks[team] > 0 && <span className="deberc-mark"> · {t('deberc.hv')}×{state.hvMarks[team]}</span>}
             {state.beitMarks[team] > 0 && <span className="deberc-mark"> · {t('deberc.beit')}×{state.beitMarks[team]}</span>}
           </span>

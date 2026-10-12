@@ -351,3 +351,22 @@
   /* The side column is too narrow for ladder + Pass side by side. */
   .table-shell .preferans-bidbar { flex-direction: column; align-items: center; gap: 0.25rem; }
 }
+
+/* (Stage 39.5) Phone landscape, the viewer's own auction turn — the last screen that still
+   scrolled (up to 91px). The five-row ladder cannot fit ABOVE the hand row in the side
+   column, so it sits IN that row instead: the row grows to the ladder's height, the hand
+   stays on its floor, and the table gives the difference back (during an auction it only
+   has three seats to show). The room controls become an ordinary side-column row. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.table-shell.preferans-screen { grid-template-columns: minmax(0, 1fr) minmax(17.5rem, 44%); }
+  .screen.table-shell.preferans-screen > .room-social { grid-row: auto; align-self: auto; margin-block: 0 0.25rem; }
+  .screen.table-shell.preferans-screen > .preferans-bidbar,
+  .screen.table-shell.preferans-screen > .preferans-declarebar {
+    grid-column: 2; grid-row: 10; align-self: end; margin: 0;
+    flex-direction: row; align-items: stretch; gap: 0.4rem;
+  }
+  .screen.table-shell.preferans-screen > .hand-reorder-wrap { align-self: end; }
+  .table-shell .preferans-ladder { gap: 0.2rem; }
+  .table-shell .preferans-ladder__cell { min-height: 1.8rem; }
+  .table-shell .preferans-scoreboard { flex-wrap: nowrap; }
+}

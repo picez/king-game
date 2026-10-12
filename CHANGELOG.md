@@ -81,8 +81,25 @@ also reported at `GET /health/diagnostics` (`version` field).
   the bid ladder is taller than the screen leaves room for; the page scrolls by up to ~90px
   rather than hiding a button.
 
+- **The tall moments fit too (Stage 39.5).** The first pass measured each game's opening
+  screen; the moments with the most buttons were still pushing the hand off the screen. Now
+  measured and fixed: your own **auction turn in Tarneeb** (the hand was 39px below a 360×640
+  screen and 38px below a phone held sideways), your **declaring turn in Deberc** (73px), your
+  **own turn in King** on a phone held sideways (16px), and the **Preferans auction** on a phone
+  held sideways (up to 91px — the one case the previous stage listed as still scrolling).
+  - On a phone held sideways the Tarneeb bid bar and the Preferans bid ladder now sit beside
+    the hand instead of above it.
+  - Deberc's score strip is one row instead of three: a long pair name shortens with "…", the
+    score never does. "Declare" and "Skip" share a row.
+  - Tarneeb's bid buttons follow the screen height, and the seats tighten on a short felt so
+    the top seat and your own no longer meet in the middle.
+
 ### Internal
 
+- `layout:fold` now measures named SCENES as well as each game's opening state
+  (`tarneeb-mybid`, `deberc-declare`, `king` on the viewer's own turn, `king-wait`) — 47 → 70
+  checks — and its known-debt list is empty. King's scene is pinned (its opening leader is
+  random, so the old measurement changed from load to load).
 - New gate **`npm run layout:fold`** (`scripts/fold-audit.mjs --assert`): mounts every game's
   real online screen at seven viewports and fails if a game on the shell is more than one
   screen tall or any part of its hand / action row is below the fold (47 checks, all seven games). Without

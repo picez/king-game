@@ -29,24 +29,26 @@ const ASSERT = args.includes('--assert');
 
 /**
  * Games on the table shell, and the viewports where each is KNOWN not to fit yet. An entry
- * here is a debt with a reason, not a pass: deleting one must be earned by a green run.
- *   preferans, phone landscape — the harness scene is the viewer's own auction turn, and the
- *   five-row bid ladder is taller than a 375px screen leaves beside the hand; the stage
- *   scrolls (the shell's safety valve) instead of clipping. Portrait fits.
+ * here is a debt with a reason, not a pass: the gate FAILS if a listed case starts to fit, so
+ * the list can only shrink. It is empty: Stage 39.5 closed the last one (the Preferans
+ * auction ladder on a phone held sideways, which now shares the hand's row).
+ * Scene rows (tarneeb-mybid, deberc-declare, king-wait) are asserted with their game.
  */
 const ON_SHELL = {
-  fiftyone: [], tarneeb: [], deberc: [], durak: [], poker: [], king: [],
-  preferans: ['667x375', '844x390'],
+  fiftyone: [], tarneeb: [], deberc: [], durak: [], poker: [], king: [], preferans: [],
 };
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** `hand` / `actions` = what a player must reach to move; `board` = the table itself. */
 const GAMES = [
-  { tag: 'king', q: 'game=king&seats=4', hand: '.hand-reorder-wrap, .ai-hand-placeholder', actions: null, board: '.game-body' },
+  { tag: 'king', q: 'game=king&seats=4&scene=myturn', hand: '.hand-reorder-wrap', actions: null, board: '.game-body' },
+  { tag: 'king-wait', q: 'game=king&seats=4&scene=wait', hand: '.ai-hand-placeholder', actions: null, board: '.game-body' },
   { tag: 'durak', q: 'game=durak&seats=4', hand: '.hand-reorder-wrap', actions: '.durak-controls', board: '.durak-board' },
   { tag: 'deberc', q: 'game=deberc&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.durak-board' },
+  { tag: 'deberc-declare', q: 'game=deberc&seats=4&scene=declare', hand: '.hand-reorder-wrap', actions: null, board: '.durak-board' },
   { tag: 'tarneeb', q: 'game=tarneeb&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.tarneeb-board' },
+  { tag: 'tarneeb-mybid', q: 'game=tarneeb&seats=4&scene=mybid', hand: '.hand-reorder-wrap', actions: null, board: '.tarneeb-board' },
   { tag: 'preferans', q: 'game=preferans&seats=3', hand: '.hand-reorder-wrap', actions: null, board: '.preferans-board' },
   { tag: 'fiftyone', q: 'game=fiftyone&seats=4', hand: '.hand-reorder-wrap', actions: '.fiftyone-actions', board: '.fiftyone-table' },
   { tag: 'poker', q: 'game=poker&seats=6', hand: '.poker-hero__cards', actions: '.poker-actions', board: '.poker-table' },
@@ -81,6 +83,9 @@ const probe = (g) => `JSON.stringify((() => {
   };
 })())`;
 
+/** A scene row (`tarneeb-mybid`) belongs to the game it is a scene OF. */
+const gameOf = (tag) => tag.split('-')[0];
+
 const rows = [];
 const failures = [];
 await runWithQaRuntime({
@@ -93,7 +98,7 @@ await runWithQaRuntime({
   }
   const owned = await openOwnedPage(CDP_PORT, CdpSession);
   const cdp = owned.cdp;
-  for (const g of GAMES.filter((x) => !ONLY || x.tag === ONLY)) {
+  for (const g of GAMES.filter((x) => !ONLY || gameOf(x.tag) === ONLY)) {
     for (const vp of VIEWPORTS) {
       await applyViewport(owned, vp, { screenWidth: vp.w, screenHeight: vp.h });
       await cdp.send('Page.navigate', { url: `${BASE}?${g.q}&panel=none` });
@@ -113,7 +118,7 @@ await runWithQaRuntime({
         boardH: r.board?.h ?? null, cards: r.cards, rows: r.rows, cardW: r.cardW, overflowX: r.overflowX,
       };
       rows.push(row);
-      console.log(`${g.tag.padEnd(10)} ${vp.tag.padEnd(9)} screens=${String(row.screens).padEnd(5)} hand@${String(row.handTop).padEnd(5)} reach.bottom=${String(row.reachBottom).padEnd(5)} belowFold=${String(row.belowFold).padEnd(5)} board.h=${String(row.boardH).padEnd(5)} cards=${row.cards} rows=${row.rows} cardW=${row.cardW}${row.overflowX ? ' OVERFLOW-X' : ''}`);
+      console.log(`${g.tag.padEnd(15)} ${vp.tag.padEnd(9)} screens=${String(row.screens).padEnd(5)} hand@${String(row.handTop).padEnd(5)} reach.bottom=${String(row.reachBottom).padEnd(5)} belowFold=${String(row.belowFold).padEnd(5)} board.h=${String(row.boardH).padEnd(5)} cards=${row.cards} rows=${row.rows} cardW=${row.cardW}${row.overflowX ? ' OVERFLOW-X' : ''}`);
       if (SHOTS) {
         const shot = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 70, captureBeyondViewport: true });
         const data = shot?.result?.data ?? shot?.data;
@@ -127,7 +132,7 @@ if (failures.length) console.log('runtime notes:', failures.join(' | '));
 if (ASSERT) {
   const bad = [];
   for (const r of rows) {
-    const known = ON_SHELL[r.game];
+    const known = ON_SHELL[gameOf(r.game)];
     if (!known) continue;                                   // not on the shell yet
     const fits = r.screens != null && r.screens <= 1.005 && r.belowFold === 0 && !r.overflowX;
     if (known.includes(r.vp)) {
@@ -137,7 +142,7 @@ if (ASSERT) {
     if (r.screens == null) bad.push(`${r.game} ${r.vp}: no .game-stage rendered`);
     else if (!fits) bad.push(`${r.game} ${r.vp}: ${r.screens} screens, ${r.belowFold}px of the hand/actions below the fold${r.overflowX ? ', horizontal overflow' : ''}`);
   }
-  const asserted = rows.filter((r) => ON_SHELL[r.game] && !ON_SHELL[r.game].includes(r.vp)).length;
+  const asserted = rows.filter((r) => ON_SHELL[gameOf(r.game)] && !ON_SHELL[gameOf(r.game)].includes(r.vp)).length;
   if (bad.length) {
     console.log(['', `FOLD BUDGET FAILED (${bad.length}):`, ...bad.map((b) => `  - ${b}`)].join('\n'));
     process.exit(1);
