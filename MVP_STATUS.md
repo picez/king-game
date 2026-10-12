@@ -1,7 +1,7 @@
 # Card Majlis — MVP Status
 
 > **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, 51, **Poker**) ·
-> **52 achievements** · latest migration **`0014_online_matches.sql`** · version **`0.5.0`**.
+> **52 achievements** · latest migration **`0014_online_matches.sql`** · version **`0.6.0`**.
 > The stage-by-stage narrative below is a running log: entries describe what was true **at that
 > stage**, so their counts are historical. Where a stage entry disagrees with this block, this
 > block is current.
@@ -11,7 +11,7 @@
 > app. Internal ids stay legacy: package `king-card-game`, `king.*` localStorage
 > keys, `game_type='king'`, `king-game` repo — no rename/migration.
 
-**Status: stable MVP — release `v0.5.0`** (Stages 37.3–38.0.19: **Poker** as the 7th game with a chip **bankroll economy**, the **authoritative turn timer**, **permanent leave**, the **online participation tracker**, **one non-modal room chat** for all seven games, and the achievement catalog **34→52**; latest migration `0014`); on the `v0.4.8` release (achievement grouping and badge expansion — Stages 37.0–37.1:
+**Status: stable MVP — release `v0.6.0`** (the table redesign, Stages 39.0–39.6: **every game table fits one screen** — the hand and the action buttons are pinned and the table takes the rest, on phones in both orientations; one shared layout for all seven games; hands are overlapped fans; Fifty-One folds away closed melds; a card-rendering bug that drew a card's text fallback over its artwork is fixed); on the `v0.5.0` release (Stages 37.3–38.0.19: **Poker** as the 7th game with a chip **bankroll economy**, the **authoritative turn timer**, **permanent leave**, the **online participation tracker**, **one non-modal room chat** for all seven games, and the achievement catalog **34→52**; latest migration `0014`); on the `v0.4.8` release (achievement grouping and badge expansion — Stages 37.0–37.1:
 the Profile **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each
 game, with earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
 stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb

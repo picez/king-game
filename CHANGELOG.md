@@ -9,6 +9,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-12 — Every game table fits one screen
+
+> **Release note.** The table redesign (Stages 39.0–39.6): all seven game tables are one screen
+> tall with the hand and the action buttons pinned, on phones in both orientations. Automated
+> gates are green — `npm run verify`, and four headless-browser layout gates including the new
+> `layout:fold` (70 checks). **Nothing in this release was verified on a physical phone**; the
+> pass for that is `QA_CHECKLIST.md` → "Game tables fit one screen". The owner-only manual
+> checks of `PRODUCTION_SMOKE.md` §0 that v0.5.0 shipped without are **still NOT RUN**.
+> Known and not fixed: Deberc's left seat overlaps the deck on a 360px phone with a long name
+> (unchanged from before), and Fifty-One's room-control row costs 48px of table in portrait.
+
 ### Fixed
 
 - **A card no longer shows two faces at once (Stage 39.4).** Reported as "cards overlap": a
