@@ -366,7 +366,7 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   }
 
   return (
-    <div className="screen fiftyone-screen">
+    <div className="screen table-shell fiftyone-screen">
       {showHelp && <GameHelpModal game="fifty-one" onClose={() => setShowHelp(false)} />}
       {pendingLayoff && (
         <FiftyOneLayoffDialog
@@ -431,7 +431,7 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           lays the selection off onto it when that is legal, and otherwise spreads it out
           to full, gapped cards. Meld order and card order are untouched — the sequence
           is the rule (51_RULES §5/§8), never a display choice. */}
-      <div className="fiftyone-table">
+      <div className="fiftyone-table table-shell__table">
         <div className="fiftyone-melds" aria-label={t('fiftyOne.meldTable')}>
           {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
           {closedCount > 0 && (

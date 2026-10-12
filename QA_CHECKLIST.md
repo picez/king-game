@@ -2032,3 +2032,45 @@ reproduces the old geometry). This is the manual pass.
       the same number of cards). It still works — **no reload needed**.
 - [ ] Do it again right after a draw, and online right after a reconnect.
 - [ ] If the server refuses a move, you can simply pick again — nothing is silently stuck.
+
+## Game tables fit one screen (Stages 39.0–39.6, v0.6.0)
+
+Every game table is one screen tall: the hand and the action buttons are pinned at the bottom
+and the table takes the rest. The automated gate is `npm run layout:fold` (70 checks in a
+headless browser). **None of this was verified on a physical phone before release** — this
+section is that check. Use a real phone, in the browser AND as the installed app.
+
+For each of the seven games, portrait first:
+- [ ] The page does **not scroll**. Your hand and the action buttons are visible without
+      scrolling, on your turn and on other players' turns.
+- [ ] The hand is an overlapped **fan** (one row, or two when you hold many cards). Every
+      card's corner index is readable. **Tap** plays/selects; **drag** reorders; **↺** resets.
+- [ ] No card shows two faces at once (a big suit symbol drawn over its artwork).
+- [ ] Turn the phone **sideways**: the table is on the left with the hand under it, and the
+      scores, prompt and buttons are in a column on the right. Still no scrolling.
+- [ ] Open the chat: it opens **below** the game; the table, hand and buttons do not move, and
+      you can still play a card with the chat open.
+
+The tall moments (these were the ones that still scrolled):
+- [ ] **Tarneeb, your auction turn** — all bid buttons 3–13 and Pass, and your whole hand.
+- [ ] **Preferans, your auction turn** — the bid ladder with Pass beside it, and your hand.
+      Sideways, the ladder sits to the right of the hand.
+- [ ] **Deberc, your declaring turn** — the meld chips, Declare and Skip on one row, your hand.
+      The score strip is one row; a long pair name shortens with "…", the score never does.
+- [ ] **King, your turn** — the fan, "My tricks" and "Surrender" on one row. Tap ⓘ on the mode
+      banner for the rule text (it is hidden on a short screen).
+- [ ] **Poker, your turn** — Fold / Check or Call on one row; presets; then amount · slider ·
+      Raise on one row. **Your own two cards are full size** even when the felt is short.
+
+Fifty-One specifically:
+- [ ] The public melds are fans; **tap a meld to spread it** out, tap again to fold it.
+- [ ] Select cards that fit a meld: that meld gets a gold ring and a ＋; **tap it to lay off**.
+- [ ] Melds nothing can be added to (four of a kind without a joker, a full run) are hidden;
+      **"Show N closed melds"** at the top of the table brings them back.
+- [ ] The draw pile and the discard are right above your hand; tapping the draw pile draws.
+- [ ] All seats are visible in the scoreboard with their score and card count.
+
+Known and not fixed:
+- Deberc on a 360px-wide phone: the left seat overlaps the deck when the name is long and the
+  seat carries the DEALER / MAKER badges. It was the same before the redesign.
+- Fifty-One, portrait: the room-control row (mic / chat / quit) takes 48px of table height.

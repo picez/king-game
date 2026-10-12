@@ -18,8 +18,12 @@ describe('motion.css — shared table-motion layer', () => {
     }
   });
 
-  it('deals hand cards in across all three hand containers (transform/opacity only)', () => {
-    expect(css).toContain('.player-hand, .durak-hand, .tarneeb-hand');
+  it('deals hand cards in (transform/opacity only)', () => {
+    // (Stage 39.6) `.durak-hand` / `.tarneeb-hand` were the pre-tray hand rows; every game's
+    // hand is the shared tray now, so only the container that is still rendered remains.
+    expect(css).toContain(':where(.player-hand) > .card');
+    expect(css).not.toContain('.durak-hand');
+    expect(css).not.toContain('.tarneeb-hand');
     expect(css).toContain('animation: card-deal-in');
     // No layout-animating props in the keyframe.
     const dealKf = css.slice(css.indexOf('@keyframes card-deal-in'), css.indexOf('@keyframes card-table-settle'));

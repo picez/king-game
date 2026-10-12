@@ -2011,3 +2011,24 @@ Use this file as the first read after archiving this chat. It is intentionally s
   badges are wider). Left as is; needs a seat redesign, not a height fix.
 - **Not done:** the 48px room-control row in Fifty-One portrait (no place for three 44px
   buttons that does not squeeze the prompt at 360px). Still nothing verified on a real phone.
+
+### Stage 39.6 — table redesign 4/4: cleanup (COMPLETE)
+- Fifty-One moved from its private shell rules onto the shared `.table-shell` +
+  `.table-shell__table`. `fiftyone.css` keeps only what is its own: `--shell-table-min: 6rem`
+  (its table scrolls, so a low floor is fine), the table's `overflow-y: auto` + look, the dock,
+  and its OWN landscape grid. That grid must out-rank the shell's generic two-column grid, so
+  every band is addressed as `.screen.table-shell.fiftyone-screen > .band` (4 classes) with a
+  named `grid-area`, plus `> * { margin: 0 }`.
+- Behaviour change worth knowing: 51 used `overflow: hidden` on the stage; it now has the
+  shell's `overflow-y: auto` (never clips a control; scrolls as a last resort).
+- Pruned 45 dead rules with a brace-aware script (dead = no component references the class as
+  a whole token and it is not built dynamically): `.durak-hand`, `.durak-status*`,
+  `.tarneeb-hand`, `.preferans-hand`, `.poker-seats` / `.poker-seat*` / `.poker-result*`,
+  `.fiftyone-topbar__menu`, `.player-hand--scroll` + `.game-footer .player-hand`; motion.css
+  `:where(.player-hand, .durak-hand, .tarneeb-hand)` → `:where(.player-hand)` (Kitty screen).
+- NOT removed, deliberately: per-game root `min-height: 100vh` (the `*Finished` screens share
+  the root class and are not on the shell); `:root` card tokens + the ≤600/≤390 overrides in
+  screens.css (King's kitty / mode / trick-complete screens and tutorials read them); other
+  dead classes outside the table sheets (lobby/stats/scoreboard) — a separate cleanup.
+- Stale shot scripts still name removed classes (`deberc-shots`, `tarneeb*-shots`,
+  `preferans*-shots`, `visual-qa`) — they are manual screenshot tools, not gates; not updated.

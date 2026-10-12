@@ -96,6 +96,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Internal
 
+- **Table redesign 4 of 4 — one contract, less CSS (Stage 39.6).** Fifty-One now uses the
+  shared `.table-shell` like the other six games instead of a private copy of the same rules
+  (it keeps its own landscape arrangement and its scrolling table). With that it also inherits
+  the shell's safety valve: its private `overflow: hidden` could have cut the action bar off
+  behind a tall meld builder; the stage now scrolls instead. Removed 45 dead layout rules
+  nothing renders any more — the pre-tray hand rows (`.durak-hand`, `.tarneeb-hand`,
+  `.preferans-hand`, the `.game-footer .player-hand` phone scroller), the pre-oval Poker seat
+  list (`.poker-seat*`, `.poker-result*`) and `.durak-status`. Left alone on purpose: each
+  game's `min-height: 100vh` root rule (its Finished screen still uses it) and the `:root`
+  card-size tokens (the non-table screens still read them).
 - `layout:fold` now measures named SCENES as well as each game's opening state
   (`tarneeb-mybid`, `deberc-declare`, `king` on the viewer's own turn, `king-wait`) — 47 → 70
   checks — and its known-debt list is empty. King's scene is pinned (its opening leader is

@@ -28,22 +28,22 @@
 /* --- Card deal-in: hand cards fade/slide/scale into place on mount, lightly
    staggered. Hands use card-stable keys (suit+rank) so this fires only when a
    card is genuinely dealt/added — NOT on every play — and never reorders. --- */
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card {
+:where(.player-hand) > .card {
   animation: card-deal-in 185ms ease-out backwards;
 }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(1)  { animation-delay: 0ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(2)  { animation-delay: 26ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(3)  { animation-delay: 52ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(4)  { animation-delay: 78ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(5)  { animation-delay: 104ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(6)  { animation-delay: 130ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(7)  { animation-delay: 156ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(8)  { animation-delay: 182ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(9)  { animation-delay: 208ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(10) { animation-delay: 234ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(11) { animation-delay: 260ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(12) { animation-delay: 286ms; }
-:where(.player-hand, .durak-hand, .tarneeb-hand) > .card:nth-child(n+13) { animation-delay: 312ms; }
+:where(.player-hand) > .card:nth-child(1) { animation-delay: 0ms; }
+:where(.player-hand) > .card:nth-child(2) { animation-delay: 26ms; }
+:where(.player-hand) > .card:nth-child(3) { animation-delay: 52ms; }
+:where(.player-hand) > .card:nth-child(4) { animation-delay: 78ms; }
+:where(.player-hand) > .card:nth-child(5) { animation-delay: 104ms; }
+:where(.player-hand) > .card:nth-child(6) { animation-delay: 130ms; }
+:where(.player-hand) > .card:nth-child(7) { animation-delay: 156ms; }
+:where(.player-hand) > .card:nth-child(8) { animation-delay: 182ms; }
+:where(.player-hand) > .card:nth-child(9) { animation-delay: 208ms; }
+:where(.player-hand) > .card:nth-child(10) { animation-delay: 234ms; }
+:where(.player-hand) > .card:nth-child(11) { animation-delay: 260ms; }
+:where(.player-hand) > .card:nth-child(12) { animation-delay: 286ms; }
+:where(.player-hand) > .card:nth-child(n+13) { animation-delay: 312ms; }
 
 /* --- Play-to-table settle: the just-played card lifts/scales into its trick
    slot. Applied to the inner .card (not the slot) so seat-anchoring transforms
@@ -81,22 +81,22 @@
    pulse). State classes still apply their static styles, so nothing disappears
    and the acting seat keeps a plain (un-pulsing) glow. --- */
 @media (prefers-reduced-motion: reduce) {
-  :where(.player-hand, .durak-hand, .tarneeb-hand) > .card,
-  .trick-slot > .card,
-  .tarneeb-play > .card,
-  .durak-pair > .card,
-  .durak-pair__def > .card,
-  .durak-seat--acting,
-  .tarneeb-seat--acting,
-  .tarneeb-seat__bid,
-  .tarneeb-trumpbar,
-  .tarneeb-bid,
-  .deberc-bid--pass,
-  .deberc-bid--took,
-  .deberc-meld-chip,
-  .durak-notice,
-  .durak-trump,
-  .tarneeb-trump {
+  :where(.player-hand) > .card,
+.trick-slot > .card,
+.tarneeb-play > .card,
+.durak-pair > .card,
+.durak-pair__def > .card,
+.durak-seat--acting,
+.tarneeb-seat--acting,
+.tarneeb-seat__bid,
+.tarneeb-trumpbar,
+.tarneeb-bid,
+.deberc-bid--pass,
+.deberc-bid--took,
+.deberc-meld-chip,
+.durak-notice,
+.durak-trump,
+.tarneeb-trump {
     animation: none !important;
   }
 }
@@ -145,7 +145,7 @@
 /* OFF also stills the entrance fades (deal-in / play-settle / panel reveal) and
    neutralises the micro-transitions. Keyframes end at opacity:1/transform:none,
    so with `animation: none` every element resolves to its static, visible state. */
-:root[data-motion-effective="off"] :where(.player-hand, .durak-hand, .tarneeb-hand) > .card,
+:root[data-motion-effective="off"] :where(.player-hand) > .card,
 :root[data-motion-effective="off"] .trick-slot > .card,
 :root[data-motion-effective="off"] .tarneeb-play > .card,
 :root[data-motion-effective="off"] .durak-pair > .card,

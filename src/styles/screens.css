@@ -156,23 +156,6 @@
   .pass-card-back { font-size: 3.5rem; }
   .pass-name { font-size: 2rem; }
 
-  /* Hand: readable cards in one horizontal row (no wrapping, no page overflow).
-     Only the player's own interactive hand scrolls — not the kitty/discard
-     selection, which still wraps. */
-  .game-footer .player-hand,
-  .player-hand--scroll {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    justify-content: flex-start;
-    gap: 5px;
-    padding: 0.4rem 0.2rem;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
-  .game-footer .player-hand > .card,
-  .player-hand--scroll > .card { scroll-snap-align: center; }
 }
 
 /* Smaller phones (≤390): keep cards legible; the scroll hand absorbs the width. */
@@ -500,7 +483,6 @@
   background: rgba(100, 200, 255, 0.06);
   border-radius: var(--radius-sm);
 }
-
 
 /* ===== Quick-rules help modal (Stage 22.0) — generic per-game "How to play" ===== */
 .game-help-overlay {

@@ -151,15 +151,6 @@
 .durak-pair { position: relative; }
 /* The defending card sits slightly offset over the attack card. */
 .durak-pair__def { position: absolute; left: 14px; top: 16px; }
-
-.durak-status {
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--text);
-  min-height: 1.4rem;
-}
-.durak-status__hint { color: var(--accent-light); font-weight: 600; }
-
 /* Transient "Bot took the cards" / "Beaten" banner over the table. */
 .durak-notice {
   position: absolute;
@@ -222,21 +213,6 @@
   min-height: 2.6rem;
 }
 .durak-controls .btn { min-height: 2.5rem; padding: 0.4rem 1.1rem; }
-
-.durak-hand {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.35rem;
-  /* Centred when the hand fits; falls back to the start (scrollable) when it
-     overflows — `safe` keeps the leftmost cards reachable. (Stage 9.10) */
-  justify-content: safe center;
-  overflow-x: auto;
-  padding: 0.4rem 0.2rem 0.6rem;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-}
-.durak-hand .card { scroll-snap-align: center; flex: 0 0 auto; }
-
 /* Setup + finished reuse the menu card styling. */
 .durak-setup__hint { color: var(--text-dim); font-size: 0.82rem; margin: 0.2rem 0 0.6rem; }
 .durak-setup__start { width: 100%; margin-bottom: 0.5rem; }

@@ -24,25 +24,39 @@ const rule = (selector: string): string => {
   return css.slice(at, css.indexOf('}', at));
 };
 
-describe('the screen is a closed box one viewport tall', () => {
-  it('has a HEIGHT, not a minimum height, and clips instead of scrolling', () => {
-    const screen = rule('.fiftyone-screen');
-    expect(screen).toMatch(/height:\s*100dvh/);
-    expect(screen).toMatch(/min-height:\s*0/);
-    expect(screen).toMatch(/overflow:\s*hidden/);
-    expect(screen).not.toMatch(/min-height:\s*100d?vh/);
+describe('the screen is the SHARED one-viewport shell (Stage 39.6)', () => {
+  it('opts into the shared contract instead of restating it', () => {
+    expect(src).toContain('<div className="screen table-shell fiftyone-screen">');
+    expect(src).toContain('<div className="fiftyone-table table-shell__table">');
+    // The height, the "children keep their height" rule and the flexible table live in
+    // table-shell.css; a private copy here would drift from the other six games.
+    const screen = rule('.table-shell.fiftyone-screen');
+    expect(screen).not.toMatch(/(^|[\s;])height:/);
+    expect(screen).not.toMatch(/overflow/);
+    expect(css).not.toContain('.fiftyone-screen > * { flex: 0 0 auto');
+    expect(css).not.toMatch(/^\.fiftyone-screen \{/m);
   });
 
-  it('the table is the ONLY flexible band and the ONLY scroller', () => {
-    expect(css).toContain('.fiftyone-screen > * { flex: 0 0 auto; min-width: 0; }');
-    const table = rule('.fiftyone-screen > .fiftyone-table');
-    expect(table).toMatch(/flex:\s*1 1 0/);
-    expect(table).toMatch(/min-height:\s*0/);
+  it('never clips: the private `overflow: hidden` that could cut the action bar off is gone', () => {
+    expect(css).not.toMatch(/\.fiftyone-screen[^{]*\{[^}]*overflow:\s*hidden/);
+  });
+
+  it('the table band is the ONLY scroller, with a floor low enough to stay usable', () => {
+    expect(rule('.table-shell.fiftyone-screen')).toMatch(/--shell-table-min:\s*6rem/);
+    const table = rule('.table-shell.fiftyone-screen > .fiftyone-table');
     expect(table).toMatch(/overflow-y:\s*auto/);
+    expect(table).not.toMatch(/flex:/);          // the shell's `flex: 1 1 0` applies
     // No other band of the stage may scroll vertically (the layoff dialog is a modal).
     const others = css.split('}').filter((r) => /overflow-y:\s*(auto|scroll)/.test(r));
     expect(others.map((r) => r.slice(r.lastIndexOf('\n.') + 1, r.indexOf('{')).trim()))
-      .toEqual(['.fiftyone-screen > .fiftyone-table', '.fiftyone-layoff-dialog']);
+      .toEqual(['.table-shell.fiftyone-screen > .fiftyone-table', '.fiftyone-layoff-dialog']);
+  });
+
+  it('keeps its OWN landscape arrangement, out-ranking the shell on every band', () => {
+    const land = css.slice(css.indexOf('@media (orientation: landscape) and (max-height: 520px)'));
+    for (const band of ['.fiftyone-topbar', '.fiftyone-scoreboard', '.room-social', '.fiftyone-table', '.fiftyone-dock', '.fiftyone-actions']) {
+      expect(land, band).toContain(`.screen.table-shell.fiftyone-screen > ${band} {`);
+    }
   });
 });
 
@@ -52,7 +66,7 @@ describe('the hand and the action bar are pinned OUTSIDE the scroller', () => {
     expect(at, `${needle} must be rendered`).toBeGreaterThan(-1);
     return at;
   };
-  const tableOpen = order('<div className="fiftyone-table">');
+  const tableOpen = order('<div className="fiftyone-table table-shell__table">');
   const social = order('{socialSlot}\n');
   const dock = order('<div className="fiftyone-dock">');
   const hand = order('<HandReorderTray');

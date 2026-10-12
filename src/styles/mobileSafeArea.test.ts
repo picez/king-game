@@ -102,10 +102,10 @@ describe('game tables clear the bottom safe area under the hand/actions', () => 
 describe('51 table never overflows horizontally (360/390 portrait)', () => {
   const css = read('src/styles/fiftyone.css');
   it('the screen clips horizontal overflow and wide rows wrap/scroll within bounds', () => {
-    // (table redesign) The screen is a closed one-viewport box: it clips on BOTH axes,
-    // and the table band is the only scroller — vertically, never sideways.
-    expect(css).toMatch(/\.fiftyone-screen\s*\{[^}]*overflow:\s*hidden/);
-    expect(css).toMatch(/\.fiftyone-screen > \.fiftyone-table\s*\{[^}]*overflow-x:\s*hidden/);
+    // (table redesign) The screen is the shared one-viewport shell, which never scrolls
+    // sideways; the table band scrolls vertically and never sideways either.
+    expect(read('src/styles/table-shell.css')).toMatch(/\.screen\.table-shell\s*\{[^}]*overflow-x:\s*hidden/);
+    expect(css).toMatch(/\.table-shell\.fiftyone-screen > \.fiftyone-table\s*\{[^}]*overflow-x:\s*hidden/);
     // The action buttons SHARE the row (shrinking, wrapping their own text) instead of
     // wrapping to a second pinned row; the hand is the shared fan tray.
     expect(css).toMatch(/\.fiftyone-actions \.btn\s*\{[^}]*flex:\s*1 1 0;[^}]*min-width:\s*0/);
@@ -119,6 +119,8 @@ describe('poker table never overflows horizontally (360/390 portrait)', () => {
     expect(css).toMatch(/\.poker-screen\s*\{[\s\S]*?overflow-x:\s*hidden/);
     expect(css).toMatch(/\.poker-board\s*\{[\s\S]*?flex-wrap:\s*wrap/);
     expect(css).toMatch(/\.poker-actions\s*\{[\s\S]*?flex-wrap:\s*wrap/);
-    expect(css).toMatch(/\.poker-seats\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    // (Stage 39.6) `.poker-seats` was the pre-oval seat list; nothing renders it any more
+    // and its rules are gone. The oval's seats are positioned pods, checked by layout:poker.
+    expect(css).not.toContain('.poker-seats');
   });
 });
