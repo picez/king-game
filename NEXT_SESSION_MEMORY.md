@@ -4,8 +4,8 @@ Use this file as the first read after archiving this chat. It is intentionally s
 
 ## Product state
 - Repo: `C:\ClaudeCode\builder-agent\projects\king-game`, branch `main`, direct push workflow.
-- Current release: `v0.4.8` (Stage 37.1), commit `3b67876`.
-- Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, Unreleased)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
+- Current release: `v0.5.0` (2026-10-12; packages Stages 37.3–38.0.19). Owner-only manual smoke checks (≥1700px desktop, phone, Arabic, two chip accounts) were NOT RUN before the tag — owner decision; still owed. Previous: `v0.4.8` (Stage 37.1), commit `3b67876`.
+- Product: Card Majlis, **7 released games**: King, Durak, Deberc, Tarneeb, Preferans, Syrian 51, **Poker (No-Limit Texas Hold'em, Stage 37.4, released in v0.5.0)**. Poker is 2–6 players (the shared room cap `MAX_PLAYERS` rose 5→6); local+online+bots+redaction+stats+leaderboard+favorite+4 achievements+tutorial+PNG emblem; achievements catalog 48→52; All-Rounder now needs all 7 games; no DB migration; `POKER_RULES.md`/`POKER_PLAN.md`.
 - Latest DB migration: **`0014_online_matches`** (Stage 38.0.6 — online participation tracker); `0013_poker_rebuy` widens the ledger `reason` CHECK; `0012_poker_matches` = durable match record; `0011_poker_settlement` = payout/refund gate; `0010_poker_wallet` = wallet + ledger. **15 files, `0000`–`0014`.** The runner keeps NO ledger — its own transcript is the only authoritative record of what was applied. Do not add migrations casually.
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
@@ -91,6 +91,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
   `TEST_DATABASE_URL=... npx vitest run src/net/pokerWallet.integration.test.ts src/net/pokerEscrow.integration.test.ts`.
 
 ## Open / likely next work
+- **NEXT (owner decision 2026-10-12): full game-table redesign.** Players complain about small screens, 51 most of all. Measured on the layout harness: the 51 table is 1.94 screens tall at 360×640, 3.44 at 667×375 (hand starts at 944px, action bar at 1185px). Root cause: every game screen is a `min-height:100vh` flow column with nothing pinned, breakpoints by width only. Plan: one shared no-scroll table shell (`100dvh`; pinned hand + action bar; the table is the only flexible zone), pilot on 51 with a new "hand + actions inside the viewport" gate at 360×640 / 667×375 / 390×844, then roll out to the other six games.
 - Owner may bring real bug reports from daily play; fix those before speculative polish.
 - Manual smoke still most valuable: same-user phone reconnect, 5-minute bot reconnect, achievements mobile/RTL, 51 calculator/meld layout.
 - The owner-requested achievement pack is now **fully implemented (Stage 37.3, catalog 34→48)** with real

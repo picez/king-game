@@ -959,7 +959,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
       chip filters the grid. The strip **scrolls inside itself** with a Card-Majlis-styled scrollbar
       on 360/390 (**no page overflow**) and mirrors under **Arabic RTL**. The overall `n/48` count and which
       badges are earned are **unchanged** by filtering.
-- [ ] **Stage 37.3 pack (Unreleased, needs real play):** the 14 new telemetry badges appear in their
+- [ ] **Stage 37.3 pack (v0.5.0, needs real play):** the 14 new telemetry badges appear in their
       game's group, locked until earned — e.g. 51 *First-Move Finish* / *Double Joker* / *Sealed Shut* /
       *Hundred-Free*, Deberc *Beyt-Free* / *Below Zero* / *Melodyless*, Tarneeb *Flawless Contract* / *Grand
       Slam Bid*, King *Spotless Slate* / *Clean Sweep* / *Trump Wallflower*, Durak *Six-Gun Salute* / *Sixed

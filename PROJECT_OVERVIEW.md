@@ -5,7 +5,8 @@ running feature list see [`MVP_STATUS.md`](MVP_STATUS.md); for a quick live smok
 [`OWNER_SMOKE_GUIDE.md`](OWNER_SMOKE_GUIDE.md); for manual test steps see
 [`QA_CHECKLIST.md`](QA_CHECKLIST.md); deep dives are linked inline.
 
-> **Release:** **v0.4.8** — achievement grouping and badge expansion (Stages 37.0–37.1): the Profile
+> **Release:** **v0.5.0** — Poker, bankroll economy, authoritative timer and one room chat (Stages 37.3–38.0.19): **Poker** ships as the 7th game with a chip wallet + escrowed online stakes, every game gets the **authoritative room turn timer** and the irreversible **"Quit for good"**, the Profile gains the **online participation tracker**, the room chat is **one non-modal in-flow panel** for all seven games, and the achievement catalog grows **34→52**; latest migration `0014`. On the
+> **v0.4.8** achievement grouping and badge expansion (Stages 37.0–37.1): the Profile
 > **Achievements** grid is browsed **per game** — a styled filter chip strip (**Global** + each game, with
 > earned/total), **no "All" tab**, opens on Global — and the catalog grows **29→34** with five new
 > stats-derived badges (King *Nothing Went Right*, Deberc *Paltina Hunter* / *Double Declaration*, Tarneeb
@@ -159,7 +160,7 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   (reduced-motion aware). Visual direction: [`VISUAL_DIRECTION.md`](VISUAL_DIRECTION.md).
 - **Sound:** **alert-only, default OFF** — the only wired cue is a low-time turn warning
   (opt-in off/subtle/full). Plan: [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
-- **Achievements:** **52** badges (34 released + **18 Unreleased**: 14 from Stage 37.3, 4 Poker badges from Stage 37.4) derived from stats + a
+- **Achievements:** **52** badges (34 as of v0.4.8 + **18 added in v0.5.0**: 14 from Stage 37.3, 4 Poker badges from Stage 37.4) derived from stats + a
   post-game "unlocked" toast, browsed **per game** — a styled chip strip (**Global** + each game, **no
   "All" tab**, opens on Global). The **Stage 32.1** expansion added 15 (14→29), **Stage 37.0** added 5
   (29→34), **Stage 37.3** the full owner-requested pack of **14** (34→48) — each backed by **real

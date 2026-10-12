@@ -16,10 +16,10 @@ A post-deploy pass. Run it after every production deploy (Render or VPS). It con
   a PASS/FAIL/BLOCKED log (public checks pre-run) with rules to tell a **product bug** from a
   **deploy/env**, **manual-only**, or **browser/cache** issue.
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
-  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.4.8`** (tag `v0.4.8`).
+  release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.5.0`** (tag `v0.5.0`).
 - **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, Fifty-One,
   Poker) · **52 achievements** · latest migration **`0014_online_matches.sql`** · version
-  **`0.4.8`**. Everything after v0.4.8 is **Unreleased** and ships only when a release stage says so.
+  **`0.5.0`**. Everything after v0.5.0 is **Unreleased** and ships only when a release stage says so.
 
 Set your host once and reuse it below:
 
@@ -51,7 +51,7 @@ per-area deep passes are §1–§11 below.
 > never convert a **NOT RUN** into a PASS because the feature "should" work. A pass with NOT RUN
 > rows is an honest, incomplete pass — report it as exactly that.
 
-- [ ] **0.1 Diagnostics.** `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit`
+- [ ] **0.1 Diagnostics.** `curl -s $HOST/health/diagnostics` → `version` = **`0.5.0`**, `commit`
       matches the deploy, `db` = **`enabled`**, **`games.count: 7`** with `ids` =
       `king, durak, deberc, tarneeb, preferans, fifty-one, poker`, `voice.ice` =
       `stun_only`|`turn_configured`, `avatarUploads` present.
@@ -863,7 +863,7 @@ never blocked: everything else in the six online games is unaffected.
    players' rating stats must NOT change (a table that started with bots never counts).
 7. **Poker check:** open an online Poker table — there must be **no** "Quit for good"
    control. Wallet, buy-in, rebuy and payout behave exactly as before.
-8. `/health/diagnostics` still reports `db:"enabled"`, `version` `0.4.8`, games 7.
+8. `/health/diagnostics` still reports `db:"enabled"`, `version` `0.5.0`, games 7.
 
 ## Online participation tracker (Stage 38.0.6)
 

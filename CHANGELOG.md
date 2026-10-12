@@ -9,6 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-12 — Poker, bankroll economy, authoritative timer, one room chat
+
+> **Release note.** This release packages every stage from 37.3 to 38.0.19 (68 commits since
+> v0.4.8). Automated gates are green (`npm run verify`, the browser layout gates, CI). The
+> owner-only manual checks of `PRODUCTION_SMOKE.md` §0 that need a ≥1700px desktop, a phone,
+> Arabic and two authenticated accounts with chips were **NOT RUN** before tagging — the owner
+> chose to release on 2026-10-12 and run them afterwards. They are still owed; a NOT RUN is not
+> a PASS. Known and deliberately not fixed here: the game tables scroll on small screens
+> (Fifty-One spans ~1.9 screens at 360×640) — the table redesign is the next stage.
+
 ### Internal
 
 - **The Ctrl-C safety net now finishes its job before the run ends (Stage 38.0.19).** Test
