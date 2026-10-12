@@ -16,12 +16,30 @@ describe('CardView — no blank face on a slow/broken image', () => {
   });
 
   it('the <img> reports load AND error, so a real failure reverts to text', () => {
-    expect(card).toContain('onLoad={() => setArtLoaded(true)}');
-    expect(card).toContain('onError={() => setArtFailed(true)}');
+    expect(card).toContain('onLoad={() => setLoadedUrl(artUrl)}');
+    expect(card).toContain('onError={() => setFailedUrl(artUrl)}');
   });
 
-  it('resets load state when the card art changes (list reuse never inherits a stale blank)', () => {
-    expect(card).toMatch(/setArtFailed\(false\);\s*setArtLoaded\(false\);\s*\},\s*\[artUrl\]/);
+  it('load state is keyed by URL, so list reuse never inherits a stale blank', () => {
+    expect(card).toContain('const artLoaded = artUrl !== null && loadedUrl === artUrl;');
+    expect(card).toContain('const artFailed = artUrl !== null && failedUrl === artUrl;');
+  });
+
+  it('(Stage 39.4) NOTHING resets "loaded" after the fact — the text layer cannot reappear over painted art', () => {
+    // The owner's "cards overlap" bug: a `useEffect([artUrl])` reset ran AFTER a cached
+    // image had already fired `load`, taking `.card--art` off a card whose artwork was on
+    // screen — so the fallback glyphs drew on top of it.
+    expect(card).not.toContain('setLoadedUrl(null)');
+    expect(card).not.toContain('setArtLoaded');
+    // Every write to the loaded URL is a positive "this URL has painted".
+    const writes = card.match(/setLoadedUrl\([^)]*\)/g) ?? [];
+    expect(writes.length).toBeGreaterThan(0);
+    for (const w of writes) expect(w).toBe('setLoadedUrl(artUrl)');
+  });
+
+  it('(Stage 39.4) an image that was complete before onLoad attached is still noticed', () => {
+    expect(card).toContain('img.complete && img.naturalWidth > 0) setLoadedUrl(artUrl)');
+    expect(card).toContain('ref={artRef}');
   });
 
   it('always renders the rank/suit text layer (the a11y + fallback layer)', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Card, Suit } from '../../models/types';
 import { cardFaceUrl, cardBackUrl, cardBackWebpUrl } from './cardArt';
 import { useCardBackStyle } from './cardBackStore';
@@ -76,12 +76,28 @@ export default function CardView({
 
   // Real card artwork (already includes its own corner indices + centre motif).
   const artUrl = cardFaceUrl(card.suit, card.rank);
-  const [artFailed, setArtFailed] = useState(false);
-  const [artLoaded, setArtLoaded] = useState(false);
+  // Load state is KEYED BY THE URL it belongs to, so there is nothing to reset when the
+  // card changes (list reuse): a new URL simply has no entry yet.
+  //
+  // (Stage 39.4 — owner bug: "cards overlap".) This used to be two booleans reset by a
+  // `useEffect([artUrl])`. Effects run AFTER the commit, and an image served from cache can
+  // fire `load` first — the mount effect then set "loaded" back to false for an image that
+  // was already painted. The <img> stayed visible while `.card--art` came off, so the text
+  // fallback (big centre suit + corner indices) drew ON TOP of the artwork: one card that
+  // looked like two. Any remount triggered it — a hand card moving between fan rows, a new
+  // discard top, a meld re-rendered.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const artLoaded = artUrl !== null && loadedUrl === artUrl;
+  const artFailed = artUrl !== null && failedUrl === artUrl;
   const [backFailed, setBackFailed] = useState(false);
-  // Reset load state when the card art changes (list reuse) so a new card never inherits
-  // a stale "loaded" and blank the face (Stage 25.8 card-reliability fix).
-  useEffect(() => { setArtFailed(false); setArtLoaded(false); }, [artUrl]);
+  // A cached image may be complete before React attaches `onLoad`, in which case the event
+  // is never delivered. Ask the element itself once per URL.
+  const artRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const img = artRef.current;
+    if (artUrl !== null && img && img.complete && img.naturalWidth > 0) setLoadedUrl(artUrl);
+  }, [artUrl]);
   const attemptArt = !isHidden && artUrl !== null && !artFailed; // render the <img> to load it
   // Only HIDE the text fallback once the image has actually painted (onLoad). A stalled or
   // broken-but-not-errored request (e.g. a bad service-worker cache entry) then shows the
@@ -122,13 +138,14 @@ export default function CardView({
       )}
       {attemptArt && (
         <img
+          ref={artRef}
           className="card__art"
           src={artUrl}
           alt=""
           draggable={false}
           decoding="async"
-          onLoad={() => setArtLoaded(true)}
-          onError={() => setArtFailed(true)}
+          onLoad={() => setLoadedUrl(artUrl)}
+          onError={() => setFailedUrl(artUrl)}
         />
       )}
       {/* Text fallback (also the a11y/print layer); hidden by CSS when art shows. */}

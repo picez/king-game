@@ -1968,3 +1968,20 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - **Next (stage 4 / cleanup):** move Fifty-One from its private shell CSS onto `.table-shell`,
   delete the now-dead per-game `min-height: 100vh` + width-breakpoint layout rules, unify card
   size tokens; owner real-phone pass for all seven games.
+
+### Stage 39.4 — a card showed its artwork AND its text fallback (COMPLETE, Unreleased)
+- Owner bug with two phone screenshots: "cards overlap" — a 51 meld card, the discard top and a
+  hand card each had a large suit glyph + extra indices over the artwork. NOT two cards: one
+  `CardView` with both layers visible.
+- **Root cause (shared `CardView`, all games; pre-existing since Stage 25.8):** load state was
+  two booleans reset by `useEffect(() => { setArtFailed(false); setArtLoaded(false); },
+  [artUrl])`. Effects run after commit; a CACHED image can fire `load` first, so the mount
+  effect reset "loaded" on an already-painted image. The `<img>` stayed (it renders on
+  `attemptArt`), `.card--art` came off, and the fallback spans drew over the art. Any remount
+  triggers it; the fan tray (cards moving between rows) made it far more frequent.
+- **Fix:** state keyed by URL (`loadedUrl` / `failedUrl`; `artLoaded = loadedUrl === artUrl`) —
+  nothing to reset, so nothing can reset late. Plus an effect that asks the element
+  (`img.complete && naturalWidth > 0`) for an image complete before `onLoad` attached.
+- **Proof:** `layout:fiftyone` now checks every `.card` (`text-over-art`): against the old
+  component **111** hits, against the fix **0**.
+- Lesson: a "reset on prop change" effect races with any event that can fire before effects run.

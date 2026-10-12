@@ -9,6 +9,17 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A card no longer shows two faces at once (Stage 39.4).** Reported as "cards overlap": a
+  card in the hand, in a meld or on the discard pile sometimes had a big suit symbol and
+  extra corner indices drawn over its artwork. It was one card showing both of its layers —
+  the artwork and the plain-text fallback that is meant to be hidden once the artwork loads.
+  The "loaded" flag was being reset just after an image from the browser cache had already
+  loaded, so the fallback came back on top of a painted card. It affected every game and
+  showed most in Fifty-One, where cards are re-drawn often. The load state is now tied to the
+  image it belongs to and can never be reset after the fact.
+
 ### Changed
 
 - **Fifty-One fits one screen — the hand and the action buttons no longer scroll away

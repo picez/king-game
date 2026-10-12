@@ -188,6 +188,17 @@ const PROBE = `JSON.stringify((() => {
     }
   });
 
+  // 5a. (Stage 39.4 — owner bug "cards overlap") ONE card must never show TWO faces. A card
+  //     whose artwork has painted must carry .card--art (which hides the text fallback);
+  //     otherwise the centre suit glyph and the corner indices draw on top of the artwork.
+  for (const card of all('.card')) {
+    const img = card.querySelector('img.card__art');
+    if (!img || !img.complete || !(img.naturalWidth > 0)) continue;
+    if (!card.classList.contains('card--art')) {
+      add('text-over-art', (card.getAttribute('aria-label') || card.className).slice(0, 40));
+    }
+  }
+
   // 5b. (table redesign) THE FOLD BUDGET — the reason this stage exists. The screen is one
   //     viewport tall and never scrolls; the hand, the action bar, the piles and the
   //     prompt are inside the viewport in EVERY state; the table keeps a usable band.
