@@ -33,10 +33,9 @@ const ASSERT = args.includes('--assert');
  *   preferans, phone landscape — the harness scene is the viewer's own auction turn, and the
  *   five-row bid ladder is taller than a 375px screen leaves beside the hand; the stage
  *   scrolls (the shell's safety valve) instead of clipping. Portrait fits.
- * King and Poker are not on the shell yet and are measured but never asserted.
  */
 const ON_SHELL = {
-  fiftyone: [], tarneeb: [], deberc: [], durak: [],
+  fiftyone: [], tarneeb: [], deberc: [], durak: [], poker: [], king: [],
   preferans: ['667x375', '844x390'],
 };
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
@@ -44,7 +43,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** `hand` / `actions` = what a player must reach to move; `board` = the table itself. */
 const GAMES = [
-  { tag: 'king', q: 'game=king&seats=4', hand: '.game-footer', actions: null, board: '.game-body' },
+  { tag: 'king', q: 'game=king&seats=4', hand: '.hand-reorder-wrap, .ai-hand-placeholder', actions: null, board: '.game-body' },
   { tag: 'durak', q: 'game=durak&seats=4', hand: '.hand-reorder-wrap', actions: '.durak-controls', board: '.durak-board' },
   { tag: 'deberc', q: 'game=deberc&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.durak-board' },
   { tag: 'tarneeb', q: 'game=tarneeb&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.tarneeb-board' },

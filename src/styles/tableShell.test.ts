@@ -66,6 +66,9 @@ describe('the games on the shell opt in the same way', () => {
     ['deberc', 'src/ui/deberc/DebercGameScreen.tsx'],
     ['durak', 'src/ui/durak/DurakGameScreen.tsx'],
   ];
+  // King is two screens (the acting player's, and everyone else's waiting view) that must
+  // share one layout, or the table would jump every time the turn passes.
+  const KING = ['src/ui/GameScreen.tsx', 'src/ui/online/OnlineWaitingScreen.tsx'];
 
   for (const [game, file] of SCREENS) {
     it(`${game}: shell root, exactly one table band, and the hand as a fan`, () => {
@@ -76,10 +79,26 @@ describe('the games on the shell opt in the same way', () => {
     });
   }
 
+  for (const file of KING) {
+    it(`king (${file.split('/').pop()}): shell root, one table band, fan hand`, () => {
+      const src = read(file);
+      expect(src).toContain('className="screen table-shell game-screen"');
+      expect((src.match(/table-shell__table/g) ?? []).length).toBe(1);
+      expect(src).toMatch(/<PlayerHand\s+layout="fan"/);
+    });
+  }
+
+  it('poker: shell root and the felt as the table band (it has no hand tray)', () => {
+    const src = read('src/ui/poker/PokerGameScreen.tsx');
+    expect(src).toContain('className="screen table-shell poker-screen"');
+    expect(src).toContain('className="poker-table-wrap table-shell__table"');
+    // The viewer's own hole cards never shrink with the felt.
+    expect(read('src/styles/poker.css')).toContain('.table-shell .poker-pod--me .poker-card--sm { --w: 2rem; }');
+  });
+
   it('the fold gate asserts exactly the games that are on the shell', () => {
     const gate = read('scripts/fold-audit.mjs');
     const list = gate.slice(gate.indexOf('const ON_SHELL = {'), gate.indexOf('};', gate.indexOf('const ON_SHELL = {')));
-    for (const game of ['fiftyone', 'tarneeb', 'deberc', 'durak', 'preferans']) expect(list, game).toContain(`${game}:`);
-    for (const game of ['king', 'poker']) expect(list, game).not.toContain(`${game}:`);
+    for (const game of ['fiftyone', 'tarneeb', 'deberc', 'durak', 'preferans', 'poker', 'king']) expect(list, game).toContain(`${game}:`);
   });
 });

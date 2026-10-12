@@ -10,6 +10,8 @@ interface PlayerHandProps {
   validCards: Card[];
   onPlay: (card: Card) => void;
   disabled?: boolean;
+  /** `fan` = the overlapped, fixed-height tray the table shell uses; default wraps. */
+  layout?: 'wrap' | 'fan';
 }
 
 export default function PlayerHand({
@@ -17,6 +19,7 @@ export default function PlayerHand({
   validCards,
   onPlay,
   disabled = false,
+  layout = 'wrap',
 }: PlayerHandProps) {
   // Default = the usual sort; a drag switches to a manual display order (client-only
   // — the reducer hand is never reordered, Stage 30.12).
@@ -25,6 +28,7 @@ export default function PlayerHand({
 
   return (
     <HandReorderTray
+      layout={layout}
       items={order.ordered}
       cardId={singleDeckCardId}
       order={order}

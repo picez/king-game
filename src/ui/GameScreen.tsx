@@ -63,7 +63,7 @@ export default function GameScreen({ socialSlot }: Props = {}) {
   const canSurrender = !isAI && currentRound.mode.id !== 'trump';
 
   return (
-    <div className="screen game-screen">
+    <div className="screen table-shell game-screen">
 
       {/* ── Header ── */}
       <div className="game-header">
@@ -130,7 +130,7 @@ export default function GameScreen({ socialSlot }: Props = {}) {
       {showScores && <ScoreBoard players={players} scores={scores} />}
 
       {/* ── Table: seats around a central trick zone ── */}
-      <div className="game-body">
+      <div className="game-body table-shell__table">
         <TablePlayers viewerId={currentPlayer.id} />
       </div>
 
@@ -181,6 +181,7 @@ export default function GameScreen({ socialSlot }: Props = {}) {
           </div>
         ) : (
           <PlayerHand
+            layout="fan"
             hand={currentPlayer.hand}
             validCards={validCards}
             onPlay={handlePlay}

@@ -1944,3 +1944,27 @@ Use this file as the first read after archiving this chat. It is intentionally s
   hand; 1.41 screens at 360×800, 3.07 at 667×375) and Poker (table + a ~290px betting panel;
   1.27 at 360×640, 2.19 at 667×375), then stage 3 cleanup (move 51 onto the shared class,
   delete per-game layout CSS).
+
+### Stage 39.3 — table redesign 3/4: Poker and King on the shell (COMPLETE, Unreleased)
+- All seven games are now on `.table-shell`; `layout:fold` asserts 47 game×viewport checks
+  (only known debt: Preferans phone landscape on the viewer's own auction turn).
+- **Poker** (1.27→1.00 at 360×640, 2.19→1.00 at 667×375): `.poker-table-wrap` is the table
+  band; `.poker-table { height: auto }` (the old `clamp(360px, 58vh, 520px)` could give nothing
+  back). Wager controls on a grid (`presets` / `amount slider go`; landscape `amount go` /
+  `slider`). `--shell-table-min: 23rem` — found EMPIRICALLY with `layout:poker`: lower and the
+  side seats sit on the board when the in-stage history/rebuy panel is open.
+  The felt is a size container (`container-type: size`) and seat/board cards use `cqh`, capped
+  at their old sizes; `.poker-pod--me` cards are exempt (the viewer's hole cards must be read).
+  **Gotcha:** a wrapping row inside a column-WRAP flex parent is sized as if it wrapped at
+  min-content — `.poker-actions__primary` measured 96px for one 44px row until both got
+  `flex-wrap: nowrap`. Also the hero `.btn--primary` was 94px tall in that row.
+- **King** (1.41→1.00 at 360×800, 3.07→1.00 at 667×375): BOTH `GameScreen` and
+  `OnlineWaitingScreen` opt in (same layout, or the table jumps when the turn passes).
+  `PlayerHand` got a `layout` prop. `.game-body` is the table band; `.table` drops its 7:5
+  aspect + 280px floor inside the shell. Footer is a wrapping row (buttons share a row); in
+  landscape `.game-footer { display: contents }` so its children join the shell grid.
+- **Harness caveat (King):** the social-games King scene advances on its own, so the audit may
+  catch the acting view or the AI-thinking placeholder; the probe accepts either.
+- **Next (stage 4 / cleanup):** move Fifty-One from its private shell CSS onto `.table-shell`,
+  delete the now-dead per-game `min-height: 100vh` + width-breakpoint layout rules, unify card
+  size tokens; owner real-phone pass for all seven games.

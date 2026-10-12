@@ -52,7 +52,20 @@ also reported at `GET /health/diagnostics` (`version` field).
   plays, drag reorders), cards size themselves to the screen on both axes, and a phone held
   sideways puts the table on the left with the hand under it and the scores, prompt and
   buttons in a side column. The Preferans auction is more compact: Pass sits beside the bid
-  ladder. King and Poker are next and are unchanged.
+  ladder.
+- **Poker and King fit one screen — all seven games now do (Stage 39.3, table redesign 3 of
+  4).** Poker was 1.27 screens at 360×640 and 2.19 on a phone held sideways, with the Raise
+  button 158px below the first screen; King was 1.41 at 360×800 and 3.07 sideways, its 13-card
+  hand wrapped to four rows. Both are 1.00 at every measured size.
+  - **Poker:** the felt flexes instead of holding a fixed height, and the betting panel takes
+    two rows instead of four — presets, then amount · slider · Raise on one line (the same
+    controls, the same 44px targets). On a short felt the seat cards and the board shrink with
+    the felt's own height so seats stay clear of the board; **your own hole cards never
+    shrink**. Sideways, the felt is on the left and the controls in a column on the right.
+  - **King:** the hand is the same overlapped fan as the other games, in both the acting
+    player's screen and the waiting screen. "My tricks" and "Surrender" share one row, the tip
+    that repeated the mode banner is gone, and on a short screen the banner's rule line hides
+    (it is one tap away behind ⓘ).
   \* One case still scrolls: Preferans on a phone held sideways, on your own auction turn —
   the bid ladder is taller than the screen leaves room for; the page scrolls by up to ~90px
   rather than hiding a button.
@@ -61,7 +74,7 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 - New gate **`npm run layout:fold`** (`scripts/fold-audit.mjs --assert`): mounts every game's
   real online screen at seven viewports and fails if a game on the shell is more than one
-  screen tall or any part of its hand / action row is below the fold (33 checks). Without
+  screen tall or any part of its hand / action row is below the fold (47 checks, all seven games). Without
   `--assert` it is a read-only measurement of all seven games.
 - `src/styles/table-shell.css` is the shared contract (`.table-shell` + one
   `.table-shell__table`); the stage scrolls as a last resort instead of clipping.

@@ -66,7 +66,7 @@ export default function PokerGameScreen({
   const inReview = state.phase === 'hand_complete' || state.phase === 'rebuy_window';
 
   return (
-    <div className="screen poker-screen">
+    <div className="screen table-shell poker-screen">
       {showHelp && <PokerHandRankings onClose={() => setShowHelp(false)} />}
 
       <header className="poker-topbar">
@@ -95,7 +95,7 @@ export default function PokerGameScreen({
       )}
 
       {/* Oval felt table with the seats positioned around it. */}
-      <div className="poker-table-wrap">
+      <div className="poker-table-wrap table-shell__table">
         <div className="poker-table">
           <div className="poker-center">
             <div className="poker-board" role="group" aria-label={t('poker.board')}>

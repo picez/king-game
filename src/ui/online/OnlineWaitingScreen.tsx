@@ -44,7 +44,7 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
   const modeLabel = modeChosen ? t(`mode.${state.currentRound.mode.id}`) : `${t('mode.choose')}…`;
 
   return (
-    <div className="screen game-screen">
+    <div className="screen table-shell game-screen">
       <div className="game-header">
         <div className="game-header__info">
           <span className={`mode-badge ${modeChosen ? `mode-badge--${state.currentRound.mode.type}` : ''}`}>
@@ -84,7 +84,7 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
         <TurnTimer />
       </div>
 
-      <div className="game-body">
+      <div className="game-body table-shell__table">
         <TablePlayers viewerId={myPlayerId} />
       </div>
 
@@ -94,7 +94,7 @@ export default function OnlineWaitingScreen({ myPlayerId }: Props) {
           <span className="turn-banner__name">{t('wait.yourHand')} ({me?.hand.length ?? 0})</span>
         </div>
         {me && (
-          <PlayerHand hand={me.hand} validCards={[]} onPlay={() => {}} disabled />
+          <PlayerHand layout="fan" hand={me.hand} validCards={[]} onPlay={() => {}} disabled />
         )}
         <CollectedPanel playerId={myPlayerId} />
       </div>

@@ -453,3 +453,45 @@
   .hand-reorder__slot--dragging .hand-reorder__card { transition: none; transform: translateY(-6px); }
 }
 
+
+/* ---------------------------------------------------------------------------
+   King on the table shell (redesign stage 2). Measured before, on the real online
+   branch: 1.41 screens at 360×800 and 3.07 at 667×375 — a 13-card hand wrapped to four
+   rows under a header, a mode banner, the table, a turn banner, a tip and two button
+   rows. The shell pins those bands; these rules stop them spending height twice:
+
+     * the tip under the turn banner repeats the banner's own rule line → gone here;
+       on a short screen the banner's rule line goes too (it is one tap away, behind ⓘ);
+     * "My tricks" and "Surrender" share ONE row instead of two;
+     * the felt drops its 7:5 aspect and its 280px floor and simply fills the table band.
+   --------------------------------------------------------------------------- */
+.table-shell.game-screen { --shell-table-min: 10.5rem; }
+.table-shell .game-body { padding: 0.2rem 0; }
+.table-shell .game-body .table {
+  aspect-ratio: auto; min-height: 0; height: 100%; max-height: min(100%, 27rem);
+}
+.table-shell .game-banner { margin: 0.3rem 0; padding: 0.4rem 0.75rem; }
+.table-shell .mode-tip { display: none; }
+@media (max-height: 780px) {
+  .table-shell .game-banner__rule { display: none; }
+  .table-shell .game-header { padding: 0.35rem 0.7rem; }
+}
+.table-shell .game-footer {
+  flex-flow: row wrap; align-items: center; justify-content: center; gap: 0.35rem 0.5rem;
+}
+.table-shell .game-footer > .turn-banner,
+.table-shell .game-footer > .hand-reorder-wrap,
+.table-shell .game-footer > .ai-hand-placeholder { flex: 1 1 100%; }
+.table-shell .game-footer > .turn-banner { padding: 0.4rem 0.8rem; }
+.table-shell .game-footer > .collected-panel { flex: 0 1 auto; }
+/* Opened, the trick list needs the whole row. */
+.table-shell .game-footer > .collected-panel:has(.collected-panel__body) { flex: 1 1 100%; }
+@media (orientation: landscape) and (max-height: 520px) {
+  /* The footer dissolves so its pieces join the shell grid: the hand goes under the
+     table, the turn banner and the buttons into the side column. */
+  .table-shell .game-footer { display: contents; }
+  .table-shell .game-footer > * { grid-column: 2; margin-block: 0 0.25rem; }
+  .table-shell .game-footer > .hand-reorder-wrap,
+  .table-shell .game-footer > .ai-hand-placeholder { grid-column: 1; grid-row: 10; margin: 0; }
+  .table-shell .game-banner__dealer { display: none; }
+}
