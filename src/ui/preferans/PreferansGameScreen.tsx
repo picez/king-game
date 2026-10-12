@@ -164,7 +164,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
   const declareMinLabel = state.highBid ? contractLabel(state.highBid) : null;
 
   return (
-    <div className={`screen preferans-screen ${online ? 'preferans-screen--online' : ''}`}>
+    <div className={`screen table-shell preferans-screen ${online ? 'preferans-screen--online' : ''}`}>
       {showHelp && <PreferansHelp onClose={() => setShowHelp(false)} />}
 
       <div className="preferans-topbar">
@@ -213,7 +213,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
       </div>
 
       {/* Round table: three seats around the felt in play order, trick in the centre. */}
-      <div className="preferans-board">
+      <div className="preferans-board table-shell__table">
         <div className="preferans-board__felt" aria-hidden="true" />
         {state.players.map((p) => {
           const pos = seatPosition(p.seatIndex, humanSeat);
@@ -326,6 +326,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
       {/* The human's hand. During the discard step cards toggle a selection; while
           playing they play; otherwise they are inert. */}
       <HandReorderTray
+        layout="fan"
         items={handOrder.ordered}
         cardId={singleDeckCardId}
         order={handOrder}

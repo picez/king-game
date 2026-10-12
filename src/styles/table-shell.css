@@ -1,0 +1,75 @@
+/* ---------------------------------------------------------------------------
+   THE TABLE SHELL (table redesign, stage 2) — one layout contract for game screens.
+
+   WHY. Every game screen was a `min-height: 100vh` flex column in normal flow with
+   nothing pinned, and its card sizes came from three WIDTH breakpoints. Measured with
+   `node scripts/fold-audit.mjs` on the real online branches, before this file:
+
+                 360×640   360×800   667×375 (phone landscape)
+     Tarneeb      1.51      1.21      2.17   screens — hand ends 316px below the fold
+     Preferans    1.65      1.32      2.66
+     Deberc       1.24      1.05      1.54
+     Durak        1.11      1.00      1.51
+
+   Fifty-One (1.94 → 1.00, Stage 39.0) proved the fix; this is that fix made shareable.
+
+   THE CONTRACT. A screen opts in with `.table-shell` and marks ONE child
+   `.table-shell__table`:
+     * the screen is a box exactly one viewport tall;
+     * every child keeps its own height, EXCEPT the table, which takes what is left;
+     * card sizes follow the space on BOTH axes (`min(vw, dvh)`);
+     * a short, wide viewport (a phone held sideways) puts the table on the left with the
+       hand under it, and everything else in a side column.
+   The hand is the shared tray in `layout="fan"` (game.css), so its height is fixed too.
+
+   THE SAFETY VALVE. If the pinned bands genuinely cannot fit (a tall bid bar on a very
+   short phone), the STAGE scrolls — it never clips a control out of reach. That is why
+   this is `overflow-y: auto` and not `hidden`, and why the table has a floor.
+   --------------------------------------------------------------------------- */
+
+.screen.table-shell {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The hand card: 15% of the width, never more than a tenth of the height. */
+  --card-w: clamp(44px, min(15vw, 10dvh), 78px);
+  --card-h: calc(var(--card-w) * 1.59);
+  /* A card laid on the table: a touch smaller, on the same two axes. */
+  --card-w-table: clamp(40px, min(14vw, 9.5dvh), 74px);
+  --card-h-table: calc(var(--card-w-table) * 1.595);
+}
+.screen.table-shell > * { flex: 0 0 auto; min-width: 0; }
+.screen.table-shell > .table-shell__table {
+  flex: 1 1 0;
+  /* The floor below which a table stops being readable; a game may raise or lower it. */
+  min-height: var(--shell-table-min, 10rem);
+}
+
+/* ── Phone landscape ──────────────────────────────────────────────────────────
+   Height is the scarce axis. The table keeps the left of the screen with the hand right
+   under it; status, prompt and actions stack in a side column; the room control row
+   takes the side column's last cell, beside the hand, so no height is spent on it.
+
+   Rows 1–8 are the side column's own rows, row 9 absorbs the slack, row 10 is the hand.
+   The table spans rows 1–9. `row-gap` stays 0 (eight empty tracks would each add a gap);
+   the spacing is a margin on the side items instead. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .screen.table-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 38%);
+    grid-template-rows: repeat(8, auto) minmax(0, 1fr) auto;
+    column-gap: 0.5rem;
+    row-gap: 0;
+    align-content: stretch;
+  }
+  .screen.table-shell > * { grid-column: 2; margin-block: 0 0.25rem; }
+  .screen.table-shell > .table-shell__table {
+    grid-column: 1; grid-row: 1 / 10;
+    min-height: 0; margin: 0; align-self: stretch;
+  }
+  .screen.table-shell > .hand-reorder-wrap { grid-column: 1; grid-row: 10; margin: 0; }
+  .screen.table-shell > .room-social { grid-column: 2; grid-row: 10; align-self: end; margin: 0; }
+}

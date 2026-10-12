@@ -24,6 +24,7 @@
     "layout:tracker": "node scripts/profile-tracker-qa.mjs",
     "layout:selftest": "node scripts/social-target-selftest.mjs",
     "layout:social": "node scripts/social-layout-qa.mjs",
+    "layout:fold": "node scripts/fold-audit.mjs --assert",
     "soak": "tsx scripts/durak-soak.mjs",
     "soak:deberc": "tsx scripts/deberc-soak.mjs",
     "start": "NODE_ENV=production tsx server/index.ts",

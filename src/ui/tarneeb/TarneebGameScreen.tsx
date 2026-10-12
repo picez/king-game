@@ -134,7 +134,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
     state.handsBySeat[humanSeat].some((c) => c.suit === ledSuit);
 
   return (
-    <div className={`screen tarneeb-screen ${online ? 'tarneeb-screen--online' : ''}`}>
+    <div className={`screen table-shell tarneeb-screen ${online ? 'tarneeb-screen--online' : ''}`}>
       {showHelp && <TarneebHelp onClose={() => setShowHelp(false)} />}
       {showTricks && <TarneebTricksReview state={state} mySeat={humanSeat} onClose={() => setShowTricks(false)} />}
 
@@ -217,7 +217,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
       </div>
 
       {/* Round table: seats around the felt in play order, trick in the centre. */}
-      <div className="tarneeb-board">
+      <div className="tarneeb-board table-shell__table">
         <div className="tarneeb-board__felt" aria-hidden="true" />
         {state.players.map((p) => {
           const pos = seatPosition(p.seatIndex, humanSeat);
@@ -315,6 +315,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
       {socialSlot}
       {/* The human's hand. */}
       <HandReorderTray
+        layout="fan"
         items={handOrder.ordered}
         cardId={singleDeckCardId}
         order={handOrder}

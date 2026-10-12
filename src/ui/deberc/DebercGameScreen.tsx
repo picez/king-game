@@ -191,7 +191,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
   const trickPlays = state.currentTrick?.plays ?? [];
 
   return (
-    <div className="screen durak-screen deberc-screen">
+    <div className="screen table-shell durak-screen deberc-screen">
       {showHelp && <DebercHelp onClose={() => setShowHelp(false)} />}
       {showScore && <DebercScoreTable state={state} onClose={() => setShowScore(false)} />}
       {showTricks && <DebercTricksReview state={state} mySeat={meSeat} onClose={() => setShowTricks(false)} />}
@@ -281,7 +281,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
         </div>
       )}
 
-      <div className={`durak-board durak-board--${n}`}>
+      <div className={`table-shell__table durak-board durak-board--${n}`}>
         <div className="durak-board__felt" aria-hidden="true" />
         {opponents.map((p, k) => {
           const isOffline = offline(p.seatIndex);
@@ -441,6 +441,7 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       {/* Room social (Stage 38.0.14): in flow, clear of the hand and the actions. */}
       {socialSlot}
       <HandReorderTray
+        layout="fan"
         items={handOrder.ordered}
         cardId={singleDeckCardId}
         order={handOrder}

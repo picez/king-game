@@ -244,7 +244,9 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 /* Online only: keep the rightmost buttons clear of the fixed emoji/chat social
    corner (right: 12px, ~46px wide) so action bars never sit under it. Local play
    has no social overlay, so its bars stay perfectly centred. */
-.tarneeb-screen--online .tarneeb-actions { padding-right: 7rem; }
+/* (table shell) The social cluster stopped floating in 38.0.14 — it is an in-flow row now —
+   so the 7rem this used to reserve only squeezed the action bar into extra rows. */
+.tarneeb-screen--online .tarneeb-actions { padding-right: 0; }
 .tarneeb-bidbtn {
   min-width: 2.6rem;
   min-height: 2.6rem;

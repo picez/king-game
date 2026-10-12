@@ -1918,3 +1918,29 @@ Use this file as the first read after archiving this chat. It is intentionally s
   dispatched, no server/protocol change.
 - Fixture note: the shared layout-test fixture's four sixes became three (four is now folded);
   `layout:fiftyone` has an unfold scenario → 240 checks.
+
+### Stage 39.2 — table redesign 2/4: the shared shell + four games (COMPLETE, Unreleased)
+- `src/styles/table-shell.css` (imported LAST in App.css): `.screen.table-shell` = `height:
+  100dvh; min-height: 0; overflow-y: auto` (the stage SCROLLS as a last resort, it never clips);
+  children `flex: 0 0 auto`; the one `.table-shell__table` child is `flex: 1 1 0` with floor
+  `--shell-table-min` (default 10rem; Preferans 7.5rem). Scoped `--card-w` /
+  `--card-w-table` follow `min(vw, dvh)`. Landscape (`orientation: landscape` + `max-height:
+  520px`): grid, table col 1 rows 1–9, hand col 1 row 10, everything else col 2, `.room-social`
+  col 2 row 10. `row-gap` must stay 0 (eight empty auto tracks would each add a gap).
+- Opt-in per game = THREE edits: `table-shell` on the root, `table-shell__table` on the board,
+  `layout="fan"` on `HandReorderTray`. Done for Tarneeb, Preferans, Deberc, Durak.
+  Durak/Deberc keep the literal `durak-board durak-board--${…}` substring (a wiring test pins it).
+- Measured (`node scripts/fold-audit.mjs`), screens before → after at 360×640 / 667×375:
+  Tarneeb 1.51→1.00 / 2.17→1.00; Preferans 1.65→1.00 / 2.66→1.00*; Deberc 1.24→1.00 /
+  1.54→1.00; Durak 1.11→1.00 / 1.51→1.00. *Known debt: Preferans phone landscape on the
+  viewer's own auction turn still scrolls up to ~91px (five-row ladder); listed in `ON_SHELL`.
+- Removed the stale `padding-right: 7rem` on Tarneeb/Preferans online action bars (it reserved
+  room for the social cluster that stopped floating in 38.0.14).
+- New gate `npm run layout:fold` (33 checks). `layout:social` (771) passes unchanged.
+- **Harness caveat:** the fold audit measures ONE scene per game (the social-games harness
+  default). Tall transient bars (Tarneeb bid bar on the viewer's turn, Deberc declare) are NOT
+  measured — the safety-valve scroll covers them, but they are unproven.
+- **Next:** King (GameRouter: header + mode banner + oval + turn banner + buttons + wrapped
+  hand; 1.41 screens at 360×800, 3.07 at 667×375) and Poker (table + a ~290px betting panel;
+  1.27 at 360×640, 2.19 at 667×375), then stage 3 cleanup (move 51 onto the shared class,
+  delete per-game layout CSS).

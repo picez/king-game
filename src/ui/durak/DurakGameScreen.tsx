@@ -178,7 +178,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
     : notice?.kind === 'beaten' ? t('durak.beaten') : null;
 
   return (
-    <div className={`screen durak-screen ${transferMode ? 'durak-screen--transfer' : ''}`}>
+    <div className={`screen table-shell durak-screen ${transferMode ? 'durak-screen--transfer' : ''}`}>
       {showHelp && <DurakHelp variant={state.variant} onClose={() => setShowHelp(false)} />}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
@@ -190,7 +190,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
 
       {/* Circular table: opponents seated around the felt in PLAY ORDER (clockwise
           from me at the bottom); the deck + trick pairs sit in the centre. */}
-      <div className={`durak-board durak-board--${state.players.length}`}>
+      <div className={`table-shell__table durak-board durak-board--${state.players.length}`}>
         <div className="durak-board__felt" aria-hidden="true" />
         {opponents.map((p, k) => {
           const role = p.seatIndex === state.attackerIndex ? 'atk' : p.seatIndex === state.defenderIndex ? 'def' : '';
@@ -257,6 +257,7 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
       </div>
 
       <HandReorderTray
+        layout="fan"
         items={handOrder.ordered}
         cardId={singleDeckCardId}
         order={handOrder}
