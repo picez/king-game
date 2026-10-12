@@ -102,10 +102,14 @@ describe('game tables clear the bottom safe area under the hand/actions', () => 
 describe('51 table never overflows horizontally (360/390 portrait)', () => {
   const css = read('src/styles/fiftyone.css');
   it('the screen clips horizontal overflow and wide rows wrap/scroll within bounds', () => {
-    expect(css).toMatch(/\.fiftyone-screen\s*\{[\s\S]*?overflow-x:\s*hidden/);
-    // The hand + melds + actions wrap rather than push the page wide.
-    expect(css).toMatch(/\.fiftyone-hand\s*\{[\s\S]*?flex-wrap:\s*wrap/);
-    expect(css).toMatch(/\.fiftyone-actions\s*\{[\s\S]*?flex-wrap:\s*wrap/);
+    // (table redesign) The screen is a closed one-viewport box: it clips on BOTH axes,
+    // and the table band is the only scroller — vertically, never sideways.
+    expect(css).toMatch(/\.fiftyone-screen\s*\{[^}]*overflow:\s*hidden/);
+    expect(css).toMatch(/\.fiftyone-screen > \.fiftyone-table\s*\{[^}]*overflow-x:\s*hidden/);
+    // The action buttons SHARE the row (shrinking, wrapping their own text) instead of
+    // wrapping to a second pinned row; the hand is the shared fan tray.
+    expect(css).toMatch(/\.fiftyone-actions \.btn\s*\{[^}]*flex:\s*1 1 0;[^}]*min-width:\s*0/);
+    expect(css).not.toContain('.fiftyone-hand {');
   });
 });
 

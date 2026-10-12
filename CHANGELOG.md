@@ -9,6 +9,44 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Fifty-One fits one screen — the hand and the action buttons no longer scroll away
+  (Stage 39.0, table redesign 1 of 4).** Players reported that the tables are awkward on phones
+  and small screens, 51 most of all. Measured on the real table (4 players, 4 melds, 8 cards in
+  hand): the page was **1.94 screens** tall at 360×640, 1.55 at 360×800 and **3.44** on a phone
+  held sideways (667×375); the hand started 944px down and the buttons 1185px down, so every turn
+  meant scrolling between the melds and your own cards. The screen is now a closed box exactly
+  one viewport tall: the top bar, the scoreboard, the piles + prompt, your hand and the action
+  buttons are **pinned**, and the table of public melds is the **one** flexible band and the one
+  thing that scrolls. Now **1.00 screens** at every measured size, including the full 14-card
+  opening hand with eight melds on the table.
+  - **Your hand is a fan** — one overlapped row, or two when a card's visible strip would get
+    narrower than a thumb (14 cards at 360px → 7 + 7). Tap still selects, drag still reorders.
+  - **Melds are fans too.** Each card keeps its index corner visible, so the longest legal run
+    (13 cards) fits one row at 360px. **Tap a meld to spread it** to full, separated cards.
+    When your selection can be laid off onto a meld, the meld itself lights up and **tapping it
+    lays the cards off** (replacing the separate ＋ button).
+  - **The piles sit right above your hand**, and tapping the draw pile draws.
+  - **Every seat is always visible** in the scoreboard (two short lines per seat); a fourth
+    player's score and card count used to be off-screen at 360px.
+  - **Phone landscape has its own arrangement** — status in one row, buttons beside the hand —
+    and card sizes follow the available space on both axes instead of three width breakpoints.
+  - The chat is unchanged: it still opens below the game and never covers it. On a very short
+    screen its panel now keeps room for the message box (it was 48px outside the panel at
+    667×375).
+  - The other six games are not changed yet.
+
+### Internal
+
+- `npm run layout:fiftyone` gained the check the old gate never had — **the fold budget**: the
+  stage is one viewport tall, the hand / actions / piles / prompt / scoreboard are inside it, the
+  table keeps a usable band, and nothing but the social region adds document height. It now also
+  runs at **360×640** and **667×375** and with a 14-card hand and an eight-meld table
+  (144 → 232 checks). The "no two cards may overlap" rule became a fan contract (next card only,
+  ≥45% of each card visible, never three deep; different melds never touch). The harness mounts
+  the screen inside the real `room-layout` / `social-region` pair.
+
 ## [0.5.0] — 2026-10-12 — Poker, bankroll economy, authoritative timer, one room chat
 
 > **Release note.** This release packages every stage from 37.3 to 38.0.19 (68 commits since

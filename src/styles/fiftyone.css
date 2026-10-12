@@ -1,24 +1,42 @@
 /* ---------------------------------------------------------------------------
-   51 (Syrian 51) — local prototype table (Stage 30.3). Mobile-first; never
-   overflows horizontally at 360/390. Reuses the shared .card/.btn primitives.
+   51 (Syrian 51) — the TABLE SHELL (redesign stage 1).
+
+   WHY. The screen used to be a `min-height: 100dvh` flex column in normal flow: top bar,
+   scoreboard, piles, every public meld, prompt, hand, actions — one under another, with
+   nothing pinned. Measured on the production branch (scripts/layout-harness/fiftyone, a
+   mild scene: 4 players, 4 melds, 8 cards in hand) the document was 1.94 screens tall at
+   360×640, 1.55 at 360×800 and 3.44 at 667×375; the hand started at 944px and the action
+   bar at 1185px. A player scrolled between the melds and their own hand on every turn.
+
+   NOW. The screen is a CLOSED box exactly one viewport tall and it never scrolls:
+       status   (top bar, scoreboard)            pinned
+       table    (public melds)                   the ONE flexible band, the ONE scroller
+       social   (the room control row)           pinned
+       dock     (piles + prompt, builders, hand) pinned
+       actions                                   pinned, in the thumb zone
+   Card sizes follow the SPACE (`min(vw, dvh)`), not three width breakpoints, so a short
+   wide phone no longer gets the largest cards; landscape has its own arrangement below.
    --------------------------------------------------------------------------- */
 
 .fiftyone-screen {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.35rem;
   padding: 0.5rem max(0.5rem, env(safe-area-inset-left)) calc(0.5rem + env(safe-area-inset-bottom));
-  min-height: 100dvh;
-  overflow-x: hidden;
+  /* A fixed height, not a minimum: this is what makes the bands below a budget. */
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--felt-mid, #14532d);
   color: #f4f7f4;
 }
+/* Every band but the table keeps its own height; the room control row included. */
+.fiftyone-screen > * { flex: 0 0 auto; min-width: 0; }
 
-/* The top bar also carries the compact timer and the ONE social launcher
-   (Stage 38.0.5.1). It must WRAP: with browser text scaling turned up, a fixed single
-   row pushed the timer and the launcher past the viewport, where `.fiftyone-screen`'s
-   `overflow-x: hidden` silently swallowed them (measured at 360 with a 21px root:
-   the launcher spanned 404..448). */
+/* The top bar also carries the compact timer (Stage 38.0.5.1). It must WRAP: with
+   browser text scaling turned up, a fixed single row pushed the timer past the viewport,
+   where the screen's clipping silently swallowed it (measured at 360 with a 21px root). */
 .fiftyone-topbar {
   display: flex;
   align-items: center;
@@ -41,106 +59,111 @@
   flex: 1 1 0; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.fiftyone-topbar__timer { display: inline-flex; align-items: center; }
+.fiftyone-topbar__menu { display: inline-flex; align-items: center; }
 
-/* Scoreboard — per-seat penalty chips, wraps on narrow screens. */
+/* Scoreboard — one pinned row, EVERY seat always visible. Four chips share the width
+   equally and each is two short lines (name over numbers): a single-line chip needs
+   ~120px, and four of those do not fit 360px, so the fourth seat's score and card count
+   used to be off-screen exactly when they mattered. */
 .fiftyone-scoreboard {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
   justify-content: center;
 }
 .fiftyone-score {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "name name" "value badges";
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  gap: 0 0.3rem;
+  padding: 0.12rem 0.45rem 0.16rem;
+  border-radius: 10px;
   background: rgba(0, 0, 0, 0.28);
   font-size: 0.82rem;
+  line-height: 1.2;
+  flex: 1 1 0;
   min-width: 0;
+  max-width: 10rem;
 }
-.fiftyone-score--me { outline: 1px solid rgba(255, 255, 255, 0.5); }
-.fiftyone-score--acting { background: rgba(250, 204, 21, 0.22); box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.6); }
+.fiftyone-score__name { grid-area: name; }
+.fiftyone-score__value { grid-area: value; }
+.fiftyone-score__badges { grid-area: badges; }
+.fiftyone-score--me { outline: 1px solid rgba(255, 255, 255, 0.5); outline-offset: -1px; }
+.fiftyone-score--acting { background: rgba(250, 204, 21, 0.22); box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.6); }
 .fiftyone-score--out { opacity: 0.5; text-decoration: line-through; }
-.fiftyone-score__name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 7rem; }
+.fiftyone-score__name { font-size: 0.75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fiftyone-score__value { font-variant-numeric: tabular-nums; font-weight: 700; }
 .fiftyone-score__badges { display: inline-flex; gap: 0.2rem; align-items: center; }
 .fiftyone-badge--open { color: #86efac; }
 .fiftyone-score__count { opacity: 0.8; font-size: 0.75rem; }
 
-/* Piles */
-.fiftyone-piles { display: flex; gap: 1rem; justify-content: center; align-items: flex-end; }
-.fiftyone-pile { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
-.fiftyone-pile__label { font-size: 0.72rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
-.fiftyone-drawpile--live { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7); border-radius: 6px; }
-.fiftyone-discard-empty { opacity: 0.25; border: 1px dashed rgba(255, 255, 255, 0.4); background: transparent; }
-/* Discard-to-open (30.13): the top is tappable ONLY when it can open — a gold ring
-   cue; once staged into the opening it dims so it reads as "in use". */
-.fiftyone-discard-top { display: inline-flex; border-radius: 9px; }
-.fiftyone-discard-top--usable { box-shadow: 0 0 0 2px var(--accent); border-radius: 11px; }
-.fiftyone-discard-top--staged { opacity: 0.4; }
-.fiftyone-pile__hint { font-size: 0.68rem; opacity: 0.85; text-align: center; max-width: 6rem; }
+/* THE TABLE — the one flexible band. `flex: 1 1 0` + `min-height: 0` is what lets it
+   give height back to the pinned bands and scroll its own content instead. */
+.fiftyone-screen > .fiftyone-table {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0.35rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
 
 /* Public melds. The card size is a variable so the whole block (slot, card, joker
-   badge) is sized from ONE number — they can never disagree and overlap (30.14).
-   Stage 36.0: EVERY meld card is a `.fiftyone-meldcard` slot span, so one rule governs
-   the slot for normal cards, bare jokers and represented jokers alike.
+   badge) is sized from ONE number — they can never disagree (30.14). EVERY meld card is
+   a `.fiftyone-meldcard` slot span (Stage 36.0).
 
-   Stage 38.0.4 (owner FAIL on a real phone): the block was capped at 18rem while four
-   72px cards plus their gaps need ~320px, and the row was `nowrap` + `overflow-x: auto`
-   — so a 4-card meld was CLIPPED and its last card was only reachable through a hidden
-   inner scroll (measured: the 4th card spanned 278..350 inside a row that ended at 318).
-   The card width is now VIEWPORT-RESPONSIVE and long runs WRAP in normal flow, so every
-   card of every meld is fully visible without any inner scrolling. The height is derived
-   from the width so the 74×118 face aspect is preserved exactly. */
+   A meld is a FAN: each card covers the right half of the one before it, so every card
+   keeps its top-left index corner in view and a 13-card run fits one row at 360px
+   (45 + 12 × 22.5 = 315 < 334 usable). That overlap is deliberate and exact — it is the
+   `--f51-meld-overlap` fraction, applied to one property — unlike the accidental overlap
+   30.14 removed, which came from a slot and its card disagreeing about their size.
+   Tapping a fan spreads it to full, gapped cards (`.fiftyone-meld--open`). */
 .fiftyone-melds {
-  /* 5 cards + 4 gaps must fit ONE row inside a full-width owner group at 360px:
-     5 × 54 + 4 × 6.4 ≈ 296 < ~317 available. 15vw keeps that true at 390 too. */
-  --f51-meld-card-w: clamp(46px, 15vw, 66px);
+  --f51-meld-card-w: clamp(40px, min(12.5vw, 11dvh), 58px);
   --f51-meld-card-h: calc(var(--f51-meld-card-w) * 1.5946);
+  --f51-meld-overlap: 0.5;
   --f51-meld-gap: 0.4rem;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
   justify-content: center;
-  /* (38.0.9 owner FAIL) Groups must NOT be stretched to the tallest one in their row —
-     a one-meld group was measured 308px tall beside content of only 169px. `flex-start`
-     tops them out and lets each keep its own height. */
+  /* (38.0.9 owner FAIL) Groups must NOT be stretched to the tallest one in their row. */
   align-items: flex-start;
   align-content: flex-start;
   max-width: 100%;
 }
-.fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.2rem 0; }
+.fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.6rem 0; }
 
-/* One OWNER GROUP (Stage 38.0.5.1). The owner is named ONCE, in the group header, with
-   that owner's total meld value; the group is separated by a light background + divider
-   rather than by a heavy nested panel per meld. Full width on a phone; two per row on a
-   wide screen ONLY when they genuinely fit (the media query below). */
-/* (38.0.9 owner FAIL) A group HUGS ITS CONTENT. It used to be `flex: 1 1 100%`, so on a
-   wide screen a single 3-card meld was blown up to half the viewport with a large empty
-   area after the last card. It now sizes to its widest meld (`flex: 0 1 auto`) and stops
-   right after its last one; only a NARROW viewport lets it take the whole row, because
-   the cards would not otherwise fit. */
+/* One OWNER GROUP (Stage 38.0.5.1): the owner is named ONCE, with that owner's total.
+   (38.0.9 owner FAIL) A group HUGS ITS CONTENT — it sizes to its melds and stops right
+   after the last one; only a NARROW viewport lets it take the whole row. */
 .fiftyone-meldgroup {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
   min-width: 0;
   flex: 0 1 auto;
   align-self: flex-start;      /* never stretched to a neighbour's height */
   max-width: 100%;
-  padding: 0.35rem 0.4rem;
+  padding: 0.3rem 0.35rem;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.18);
 }
-/* On a phone the cards need the whole row, so the group may take it. */
+/* On a phone the fans need the whole row, so the group may take it. */
 @media (max-width: 559px) {
   .fiftyone-meldgroup { flex: 1 1 100%; }
 }
 .fiftyone-meldgroup--out { opacity: 0.55; }
 .fiftyone-meldgroup__head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
-  padding-bottom: 0.15rem;
+  padding-bottom: 0.1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 .fiftyone-meldgroup__owner {
@@ -148,49 +171,50 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fiftyone-meldgroup__total { font-size: 0.78rem; font-variant-numeric: tabular-nums; opacity: 0.85; }
+/* An owner's melds sit SIDE BY SIDE and wrap — two short fans share a row. */
+.fiftyone-meldgroup__melds {
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  gap: 0.3rem 0.7rem; min-width: 0;
+}
 
-/* One combination inside a group: a compact label row, then its cards. No nested panel,
-   no repeated owner name, no artificial width cap that could clip a card (38.0.4). */
+/* One combination: a compact label, then its fan. No nested panel, no repeated owner. */
 .fiftyone-meld {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.1rem;
   min-width: 0;
   max-width: 100%;
-  padding: 0.15rem 0 0.2rem;
 }
-.fiftyone-meld + .fiftyone-meld { border-top: 1px solid rgba(255, 255, 255, 0.08); }
-.fiftyone-meld__bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;
-  min-height: 1.1rem;
-}
-.fiftyone-meld__label { font-size: 0.72rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
-/* Card row: clear positive gaps (never negative → no overlap/clipping) and WRAPPING
-   (Stage 38.0.4) — a long run continues on the next line INSIDE its own block, in normal
-   flow, instead of hiding behind an inner scrollbar. `direction: ltr` keeps cards
-   low→high even under RTL (the card artwork itself is never mirrored). */
+.fiftyone-meld--open { flex: 1 1 100%; }
+.fiftyone-meld__bar { display: flex; align-items: center; min-height: 1rem; }
+.fiftyone-meld__label { font-size: 0.75rem; opacity: 0.8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Wraps: beside a 13-card fan there is no room for the joker control, so it drops below. */
+.fiftyone-meld__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.4rem; min-width: 0; max-width: 100%; }
+.fiftyone-meld__fan { position: relative; display: inline-flex; min-width: 0; max-width: 100%; border-radius: 9px; }
+/* Card row. `direction: ltr` keeps cards low→high even under RTL (the card artwork
+   itself is never mirrored), and puts the visible half on the index side. */
 .fiftyone-meld__cards {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--f51-meld-gap);
+  flex-wrap: nowrap;
   align-items: flex-start;
   max-width: 100%;
-  padding-bottom: 0.15rem;
   direction: ltr;
 }
-/* Every direct child of the row is a fixed, non-shrinking, in-flow box: no
-   negative margins, no absolute stacking, no transform — so adjacent cards can
-   never touch, let alone overlap, whatever a shared .card rule tries to do. */
+/* Every direct child of the row is a fixed, non-shrinking, in-flow box of ONE size.
+   The fan is this single negative margin; nothing is absolutely stacked or transformed. */
 .fiftyone-meld__cards > * {
   flex: 0 0 var(--f51-meld-card-w);
   width: var(--f51-meld-card-w);
   height: var(--f51-meld-card-h);
-  margin: 0;
+  margin: 0 0 0 calc(var(--f51-meld-card-w) * var(--f51-meld-overlap) * -1);
   position: relative;
   transform: none;
 }
-/* Bigger, readable meld cards (30.14) — the whole face shows (contain), and the
-   card fills its slot exactly, so the slot size IS the card size. */
+.fiftyone-meld__cards > *:first-child { margin-left: 0; }
+/* Spread out: full cards with a clear positive gap, wrapping inside their own block. */
+.fiftyone-meld--open .fiftyone-meld__cards { flex-wrap: wrap; gap: var(--f51-meld-gap); }
+.fiftyone-meld--open .fiftyone-meld__cards > * { margin-left: 0; }
+/* The whole face shows (contain), and the card fills its slot exactly. */
 .fiftyone-meld__cards .card {
   flex: 0 0 auto;
   width: var(--f51-meld-card-w);
@@ -201,36 +225,79 @@
 .fiftyone-meld__cards .card .card__rank { font-size: 0.9rem; }
 .fiftyone-meld__cards .card .card__suit { font-size: 0.88rem; }
 .fiftyone-meld__cards .card .card__center { font-size: 1.6rem; }
-/* Add / Replace joker are COMPACT icon actions in the label row, never a full-width
-   button repeated under every meld (Stage 38.0.5.1). They live in their own flex column,
-   so they can never sit on the cards, and they keep a real 44×44 phone tap target. They
-   are rendered only while the action is actually possible — a disabled control would
-   just take space. */
+/* The fan IS the control: one transparent target over the whole fan. A fan is never
+   smaller than 44×44 (three cards at the smallest size are 80×64). */
+.fiftyone-meld__hit {
+  position: absolute; inset: 0; z-index: 2;
+  appearance: none; margin: 0; padding: 0; border: 0; border-radius: inherit;
+  background: transparent; color: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.fiftyone-meld__hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Lay-off is possible onto this meld right now: a gold ring and a ＋ on the fan. */
+.fiftyone-meld__add { box-shadow: 0 0 0 2px var(--accent); background: rgba(245, 197, 24, 0.14); }
+.fiftyone-meld__plus {
+  position: absolute; top: 2px; right: 2px;
+  width: 1.3rem; height: 1.3rem; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: #1c1400; font-weight: 800; font-size: 0.9rem; line-height: 1;
+  pointer-events: none;
+}
+/* Joker buy-back: its own column beside the fan — it can never sit on the cards — with
+   a real 44×44 tap target, rendered only while the swap is actually possible. */
 .fiftyone-meld__ctrls { display: flex; flex-wrap: nowrap; gap: 0.25rem; flex: 0 0 auto; }
 .fiftyone-meld__ctrls button {
   min-height: 44px; min-width: 44px; padding: 0 0.4rem; line-height: 1; font-size: 1rem;
 }
-
-/* Wide screens simply fit as many content-sized groups per row as the width allows —
-   the old artificial 2-up rule (`flex: 1 1 22rem; max-width: 50%`) is gone (38.0.9). */
-
-/* The top-bar social launcher + compact timer (Stage 38.0.5.1). In-flow top-bar items:
-   collapsed, nothing about the social UI touches the table, the melds or the actions. */
-.fiftyone-topbar__timer { display: inline-flex; align-items: center; }
-.fiftyone-topbar__menu { display: inline-flex; align-items: center; }
-/* The uniform slot wrapper for EVERY meld card (Stage 36.0). Centres the inner .card
-   (which is pinned to the same width via the var), so the wrapper IS the slot. */
+/* The uniform slot wrapper for EVERY meld card (Stage 36.0). */
 .fiftyone-meldcard { display: inline-flex; align-items: center; justify-content: center; }
-/* Kept INSIDE the card box (never negative offsets) so it can't reach a neighbour. */
+/* Kept INSIDE the card box, on the visible (left) half, so a fan never hides it. */
 .fiftyone-meldcard__jbadge {
-  position: absolute; top: 1px; right: 1px; font-size: 0.72rem; line-height: 1;
+  position: absolute; bottom: 1px; left: 1px; font-size: 0.72rem; line-height: 1;
   filter: drop-shadow(0 0 1px #000);
 }
 
+/* THE DOCK — pinned above the action bar: piles + prompt, the builders, the hand.
+   The hand card follows the SPACE: 15% of the width, but never more than a tenth of the
+   height, so a 375px-tall landscape phone gets a 46px card rather than the 78px desktop
+   one. The shared `.card--hand` reads these, so nothing else needs to know. */
+.fiftyone-dock {
+  --card-w: clamp(46px, min(15vw, 10dvh), 78px);
+  --card-h: calc(var(--card-w) * 1.59);
+  --f51-pile-w: clamp(38px, min(11.5vw, 7.5dvh), 62px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.fiftyone-desk { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+
+/* Piles — beside the prompt, right above the hand. The count is a badge ON the pile. */
+.fiftyone-piles { display: flex; gap: 0.45rem; align-items: center; flex: 0 0 auto; }
+.fiftyone-pile { position: relative; display: flex; line-height: 0; }
+.fiftyone-piles .card--table { width: var(--f51-pile-w); height: calc(var(--f51-pile-w) * 1.59); }
+.fiftyone-pile__label {
+  position: absolute; left: 50%; bottom: -0.3rem; transform: translateX(-50%);
+  min-width: 1.5rem; padding: 0.05rem 0.3rem; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72); color: #fff;
+  font-size: 0.75rem; line-height: 1.2; text-align: center; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.fiftyone-drawpile { padding: 0; cursor: default; }
+.fiftyone-drawpile:disabled { opacity: 1; }
+.fiftyone-drawpile--live { box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.85), 0 0 12px rgba(250, 204, 21, 0.45); border-radius: 6px; cursor: pointer; }
+.fiftyone-discard-empty { opacity: 0.25; border: 1px dashed rgba(255, 255, 255, 0.4); background: transparent; }
+/* Discard-to-open (30.13): the top is tappable ONLY when it can open — a gold ring
+   cue; once staged into the opening it dims so it reads as "in use". */
+.fiftyone-discard-top { display: inline-flex; border-radius: 9px; }
+.fiftyone-discard-top--usable { box-shadow: 0 0 0 2px var(--accent); border-radius: 11px; }
+.fiftyone-discard-top--staged { opacity: 0.4; }
+/* A selected discard top lifts like any card; keep the lift inside the dock. */
+.fiftyone-piles .card--selected { transform: translateY(-6px); }
+
 /* Meld builder — the selected cards in chosen order + reorder controls (30.12). */
 .fiftyone-selbuilder {
-  display: flex; flex-direction: column; gap: 0.3rem; align-items: center;
-  padding: 0.35rem 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.10);
+  display: flex; flex-direction: column; gap: 0.2rem; align-items: center;
+  padding: 0.25rem 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.10);
 }
 .fiftyone-selbuilder__strip {
   display: flex; flex-wrap: nowrap; gap: 0.3rem; overflow-x: auto; max-width: 100%;
@@ -243,34 +310,29 @@
 
 /* Prompt + validation */
 .fiftyone-prompt {
-  display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline;
-  justify-content: center; text-align: center; font-size: 0.9rem; min-height: 1.4rem;
+  display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start;
+  flex: 1 1 0; min-width: 0; text-align: start; font-size: 0.88rem; line-height: 1.25;
 }
 .fiftyone-prompt--me { font-weight: 700; }
-.fiftyone-prompt__val { font-size: 0.8rem; opacity: 0.9; padding: 0.1rem 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); }
+.fiftyone-prompt__val { font-size: 0.78rem; opacity: 0.92; padding: 0.1rem 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); }
 
 /* Staged melds (pre-open) */
 .fiftyone-staged {
-  display: flex; flex-direction: column; gap: 0.3rem; align-items: center;
-  padding: 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.12);
+  display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.3rem 0.6rem; align-items: center; justify-content: center;
+  padding: 0.25rem 0.4rem; border-radius: 8px; background: rgba(250, 204, 21, 0.12);
 }
 .fiftyone-staged__label { font-weight: 700; font-size: 0.85rem; }
 .fiftyone-staged__rows { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
 .fiftyone-staged__meld { display: flex; align-items: center; gap: 0.15rem; }
 .fiftyone-staged__pts { font-weight: 700; font-size: 0.8rem; margin-inline-start: 0.2rem; }
 
-/* Hand */
-.fiftyone-hand {
-  display: flex; flex-wrap: wrap; gap: 0.25rem; justify-content: center;
-  align-content: flex-start; max-width: 100%; margin-top: auto;
-}
-
 /* Actions */
 .fiftyone-actions {
-  display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center;
-  padding-top: 0.3rem;
+  display: flex; flex-wrap: nowrap; gap: 0.4rem; justify-content: center;
+  /* Reserved even when it is not your turn, so the dock never jumps as turns pass. */
+  min-height: 46px;
 }
-.fiftyone-actions .btn { flex: 0 1 auto; }
+.fiftyone-actions .btn { flex: 1 1 0; min-width: 0; max-width: 16rem; min-height: 44px; padding-inline: 0.5rem; font-size: 0.9rem; line-height: 1.15; white-space: normal; }
 
 /* Joker tile — a wild card face. */
 .card--joker {
@@ -313,8 +375,8 @@
    mobile-first, RTL-safe (in-flow flex), never overlaps the hand/actions. */
 .fiftyone-calc-btn--on { background: var(--accent); color: var(--on-accent, #08130b); }
 .fiftyone-calc {
-  display: flex; flex-direction: column; gap: 0.3rem;
-  padding: 0.45rem 0.6rem; margin: 0.2rem 0;
+  display: flex; flex-direction: column; gap: 0.2rem;
+  padding: 0.3rem 0.6rem; margin: 0;
   border: 1px solid var(--accent-light, var(--accent)); border-radius: 12px;
   background: rgba(0, 0, 0, 0.22);
 }
@@ -354,3 +416,44 @@
 .fiftyone-layoff-option__side { font-weight: 700; }
 .fiftyone-layoff-option__preview { font-variant-numeric: tabular-nums; opacity: 0.92; }
 .fiftyone-layoff-cancel { min-height: 44px; min-width: 44px; align-self: stretch; }
+
+/* ---------------------------------------------------------------------------
+   LANDSCAPE PHONE (short and wide). Height is the scarce axis, so the three status
+   pieces share ONE row, and the action bar moves BESIDE the hand instead of under it:
+       top bar | scoreboard | room controls
+       table   (full width)
+       desk + hand                | actions
+   Same DOM, same pinned/flexible split — only the arrangement changes.
+   --------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  .fiftyone-screen {
+    display: grid;
+    grid-template-columns: minmax(12.5rem, auto) minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top   score social"
+      "table table table"
+      "dock  dock  actions";
+    gap: 0.3rem 0.5rem;
+    align-items: center;
+  }
+  .fiftyone-topbar { grid-area: top; flex-wrap: nowrap; }
+  .fiftyone-scoreboard { grid-area: score; min-width: 0; }
+  .fiftyone-screen > .room-social { grid-area: social; }
+  .fiftyone-screen > .fiftyone-table { grid-area: table; align-self: stretch; }
+  .fiftyone-dock {
+    grid-area: dock; min-width: 0;
+    display: grid; grid-template-columns: minmax(6.5rem, 8.5rem) minmax(0, 1fr); gap: 0.25rem 0.5rem;
+    align-items: end;
+  }
+  /* Builders span the dock above the desk + hand row (auto-placement follows `order`). */
+  .fiftyone-dock > * { order: 0; grid-column: 1 / -1; }
+  .fiftyone-dock > .fiftyone-desk { order: 1; grid-column: 1; flex-direction: column; align-items: flex-start; gap: 0.5rem; align-self: center; }
+  .fiftyone-dock > .hand-reorder-wrap { order: 2; grid-column: 2; }
+  .fiftyone-prompt { flex: 0 1 auto; font-size: 0.8rem; }
+  .fiftyone-actions {
+    grid-area: actions; flex-direction: column; justify-content: flex-end; align-self: end;
+    width: 8.5rem; min-height: 0;
+  }
+  .fiftyone-actions .btn { flex: 0 0 auto; max-width: none; }
+}

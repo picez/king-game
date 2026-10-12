@@ -296,7 +296,10 @@ html { scrollbar-gutter: stable; }
 .chat-panel {
   display: flex; flex-direction: column; gap: 0.4rem;
   width: 100%; min-width: 0;
-  max-height: min(46vh, 24rem);
+  /* 46vh, but never under 15rem: on a 375px-tall landscape phone 46vh is 172px — less
+     than the heading, the history floor and the composer need — and the composer was
+     measured 48px OUTSIDE the panel (545..596 in a panel that ended at 548). */
+  max-height: min(max(46vh, 15rem), 24rem);
   /* OPAQUE on purpose: `--surface` is a translucent wash and the felt read through it. */
   background: var(--panel); color: var(--text);
   border: 1px solid var(--border-strong);

@@ -28,7 +28,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
 import { LangProvider } from '../../src/i18n';
-import RoomSocial, { type SocialPanel } from '../../src/ui/online/RoomSocial';
+import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from '../../src/ui/online/RoomSocial';
 import PermanentLeaveControl from '../../src/ui/online/PermanentLeaveControl';
 import FiftyOneGameScreen from '../../src/ui/fiftyOne/FiftyOneGameScreen';
 import type {
@@ -43,6 +43,9 @@ const dir = qs.get('dir') === 'rtl' ? 'rtl' : 'ltr';
 const lang = qs.get('lang') ?? (dir === 'rtl' ? 'ar' : 'en');
 const faces = qs.get('faces') === 'clean' ? 'clean' : 'classic';
 const meldSet = qs.get('melds') ?? 'default';
+// (table redesign) `hand=14` deals the FULL opening hand: the 8-card default made every
+// measurement kinder than the first turn of a real round.
+const handSize = qs.get('hand') === '14' ? 14 : 8;
 const socialMode = qs.get('social') ?? 'none';        // 'none' | 'sheet'
 const withSocial = socialMode !== 'none';
 const startPanel = (qs.get('panel') ?? 'none') as SocialPanel;
@@ -138,6 +141,24 @@ function melds(): FiftyOneMeld[] {
       { id: 'U4', ownerSeat: seat(2), type: 'set', cards: set4, jokerRepresents: {}, value: 40 },
     ];
   }
+  if (meldSet === 'heavy') {
+    // A LATE round: three owners, eight melds — what the table really looks like when the
+    // player most needs to see their hand and the melds together.
+    const run5: FiftyOneCard[] = [c('9', 'diamonds'), c('10', 'diamonds'), c('J', 'diamonds'), c('Q', 'diamonds'), c('K', 'diamonds')];
+    const set3b: FiftyOneCard[] = [c('A', 'spades'), c('A', 'hearts'), c('A', 'clubs')];
+    const run3: FiftyOneCard[] = [c('2', 'hearts'), c('3', 'hearts'), c('4', 'hearts')];
+    const set3c: FiftyOneCard[] = [c('5', 'spades'), c('5', 'clubs'), c('5', 'diamonds')];
+    return [
+      { id: 'H1', ownerSeat: seat(1), type: 'set', cards: set3, jokerRepresents: {}, value: 36 },
+      { id: 'H2', ownerSeat: seat(1), type: 'run', cards: run4, jokerRepresents: {}, value: 30 },
+      { id: 'H3', ownerSeat: seat(1), type: 'run', cards: run5, jokerRepresents: {}, value: 50 },
+      { id: 'H4', ownerSeat: seat(2), type: 'run', cards: run7, jokerRepresents: { 3: { suit: 'hearts', rank: '7' } }, value: 52 },
+      { id: 'H5', ownerSeat: seat(2), type: 'set', cards: set4, jokerRepresents: {}, value: 40 },
+      { id: 'H6', ownerSeat: seat(0), type: 'set', cards: set3b, jokerRepresents: {}, value: 30 },
+      { id: 'H7', ownerSeat: seat(0), type: 'run', cards: run3, jokerRepresents: {}, value: 9 },
+      { id: 'H8', ownerSeat: seat(3), type: 'set', cards: set3c, jokerRepresents: {}, value: 15 },
+    ];
+  }
   if (meldSet === 'single') {
     // ONE owner, ONE 3-card meld — the most obvious "half the screen" case.
     return [{ id: 'S1', ownerSeat: seat(1), type: 'set', cards: set3, jokerRepresents: {}, value: 36 }];
@@ -155,6 +176,9 @@ function fixture(): FiftyOneState {
   const hand: FiftyOneCard[] = [
     c('4', 'spades'), c('7', 'spades'), c('4', 'clubs'), c('4', 'diamonds'),
     c('J', 'diamonds'), c('K', 'hearts'), c('2', 'clubs'), joker(),
+    ...(handSize === 14 ? [
+      c('8', 'hearts'), c('9', 'hearts'), c('10', 'spades'), c('Q', 'clubs'), c('A', 'diamonds'), c('3', 'spades'),
+    ] : []),
   ];
   return {
     gameType: 'fifty-one', phase: 'playing', playerCount: players, players: people,
@@ -205,6 +229,8 @@ function Harness() {
       setState((s) => {
         if (s.publicMelds.length === 0) return s;
         const [first, ...rest] = s.publicMelds;
+        // 13 cards (2..A) is the longest run the rules allow — never grow past it.
+        if (first.cards.length >= 13) return s;
         const grown: FiftyOneMeld = {
           ...first,
           cards: [...first.cards, c('10', first.cards[0].suit ?? 'spades')],
@@ -240,13 +266,23 @@ function Harness() {
     />
   ) : null;
 
-  return (
+  const screen = (
     <FiftyOneGameScreen
       state={state} humanSeat={0} apply={noop} onExit={noop} online={withSocial}
       socialSlot={social}
       timerSlot={withSocial ? <div className="turn-timer turn-timer--compact"><span>0:30</span></div> : undefined}
     />
   );
+  // (table redesign) Online, mount the screen exactly as `OnlineGame.roomLayout` does: the
+  // stage, and the social region as its SIBLING. Without the region RoomSocial falls back to
+  // rendering its panel inline, inside the one-viewport stage — a layout production never
+  // produces, and one that would make the fold budget fail for a reason that is not real.
+  return withSocial ? (
+    <div className="room-layout">
+      <div className="game-stage">{screen}</div>
+      <div className="social-region" id={SOCIAL_REGION_ID} />
+    </div>
+  ) : screen;
 }
 
 createRoot(document.getElementById('root')!).render(

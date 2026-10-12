@@ -170,8 +170,16 @@ describe('melds are GROUPED BY OWNER — one name, one total, compact rows', () 
     const src = readFileSync(join(process.cwd(), 'src/ui/fiftyOne/FiftyOneGameScreen.tsx'), 'utf8');
     // No repeated full-width labelled button under each meld any more.
     expect(src).not.toMatch(/fiftyone-meld__add[\s\S]{0,120}\{t\('fiftyOne\.addToMeld'\)\}\s*\n/);
-    expect(src).toMatch(/fiftyone-meld__add[\s\S]{0,200}aria-label=\{t\('fiftyOne\.addToMeld'\)\}/);
-    expect(src).toMatch(/\{\(addable \|\| swap\) && \(/);
+    // (table redesign) The FAN is the lay-off control: one overlay target per meld that is
+    // an add button only while the lay-off is legal, and a spread toggle otherwise.
+    expect(src).toContain("className={`fiftyone-meld__hit${addable ? ' fiftyone-meld__add' : ''}`}");
+    expect(src).toContain("aria-label={addable ? t('fiftyOne.addToMeld')");
+    // The joker buy-back keeps its own control column, only while the swap is possible.
+    expect(src).toMatch(/\{swap && \(\s*<span className="fiftyone-meld__ctrls">/);
+    // A card is itself a <button>: the target must be a SIBLING of the cards, never a parent.
+    const fan = src.slice(src.indexOf('className="fiftyone-meld__fan"'), src.indexOf('{/* Joker buy-back'));
+    expect(fan.indexOf('fiftyone-meld__cards')).toBeLessThan(fan.indexOf('<button'));
+    expect(fan.slice(fan.indexOf('<button'))).not.toContain('MeldCard');
   });
 });
 
@@ -184,28 +192,40 @@ describe('the meld stylesheet cannot re-create the clipping', () => {
     expect(css).toMatch(/\.fiftyone-meldgroup \{[^}]*flex: 1 1 100%/);
   });
 
-  it('the card row WRAPS instead of scrolling inside itself', () => {
+  it('a meld is a FAN that never scrolls inside itself, and SPREADS to wrapped, gapped cards', () => {
     const row = css.slice(css.indexOf('.fiftyone-meld__cards {'), css.indexOf('.fiftyone-meld__cards >'));
-    expect(row).toContain('flex-wrap: wrap');
-    expect(row).not.toContain('overflow-x: auto');
-    expect(row).not.toContain('nowrap');
+    expect(row).not.toMatch(/overflow[^:]*:\s*(auto|scroll|hidden)/);
+    // Spread out (tap a fan): the pre-redesign presentation — wrapping, a positive gap, no overlap.
+    expect(css).toMatch(/\.fiftyone-meld--open \.fiftyone-meld__cards \{[^}]*flex-wrap: wrap;[^}]*gap: var\(--f51-meld-gap\)/);
+    expect(css).toMatch(/\.fiftyone-meld--open \.fiftyone-meld__cards > \* \{[^}]*margin-left: 0/);
   });
 
-  it('card width is responsive, and 5 cards fit ONE row at 360 and 390', () => {
-    expect(css).toMatch(/--f51-meld-card-w:\s*clamp\(46px, 15vw, 66px\)/);
+  it('the fan overlap is ONE declared fraction, and it always leaves the index half visible', () => {
+    const overlap = Number(css.match(/--f51-meld-overlap:\s*([0-9.]+)/)?.[1]);
+    expect(overlap).toBeGreaterThan(0);
+    expect(overlap).toBeLessThanOrEqual(0.5);      // at least half of every card stays in view
+    // …applied through exactly one property on the slot, never per-card arithmetic.
+    expect(css).toContain('margin: 0 0 0 calc(var(--f51-meld-card-w) * var(--f51-meld-overlap) * -1);');
+    expect(css).toContain('.fiftyone-meld__cards > *:first-child { margin-left: 0; }');
+  });
+
+  it('card size follows the space, and the LONGEST legal run (13) fits ONE fan row at 360 and 390', () => {
+    expect(css).toMatch(/--f51-meld-card-w:\s*clamp\(40px, min\(12\.5vw, 11dvh\), 58px\)/);
     expect(css).toMatch(/--f51-meld-card-h:\s*calc\(var\(--f51-meld-card-w\)/);
+    const overlap = Number(css.match(/--f51-meld-overlap:\s*([0-9.]+)/)?.[1]);
     for (const vw of [360, 390]) {
-      const w = Math.min(Math.max(46, vw * 0.15), 66);
-      const gap = 6.4;
-      // screen padding 8×2, group padding ~6.4×2 → the row's usable width.
-      const usable = vw - 16 - 12.8;
-      expect(5 * w + 4 * gap, `${vw}px`).toBeLessThan(usable);
+      const w = Math.min(Math.max(40, vw * 0.125), 58);
+      // screen padding 8×2, table padding 5.6×2, group padding 5.6×2 → the usable width.
+      const usable = vw - 16 - 11.2 - 11.2;
+      expect(w + 12 * w * (1 - overlap), `${vw}px`).toBeLessThan(usable);
     }
   });
 
-  it('no negative margin, no transform and no card container hides overflow', () => {
-    expect(block).not.toMatch(/margin:\s*-/);
-    expect(block).not.toMatch(/margin-(left|right|inline-start|inline-end):\s*-/);
+  it('the fan margin is the ONLY negative offset, nothing is transformed, and no card container hides overflow', () => {
+    // Exactly one negative offset exists in the meld block: the declared fan overlap.
+    const negatives = block.match(/margin[^;]*:[^;]*(?:-\d|\* -1)[^;]*;/g) ?? [];
+    expect(negatives).toHaveLength(1);
+    expect(negatives[0]).toContain('--f51-meld-overlap');
     expect(block).toMatch(/transform: none/);          // the existing anti-overlap guard
     // No CARD container may mask its content. (`overflow: hidden` is allowed on the
     // owner NAME only, where it is a text ellipsis for a long display name.)

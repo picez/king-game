@@ -196,7 +196,9 @@ describe('ONE chat panel, one cluster, in normal flow', () => {
     // rail override) also contains the substring `.chat-panel {`.
     const rule = css.slice(css.search(/^\.chat-panel \{/m));
     const body = rule.slice(0, rule.indexOf('}'));
-    expect(body).toMatch(/max-height: min\(46vh, 24rem\)/);
+    // (Stage 39.0) Still bounded by 46vh and 24rem, with a 15rem FLOOR: on a 375px-tall
+    // landscape phone 46vh alone put the composer 48px outside the panel.
+    expect(body).toContain('max-height: min(max(46vh, 15rem), 24rem)');
     expect(body).toContain('width: 100%');
     expect(body).toContain('background: var(--panel)');
     expect(body).toContain('env(safe-area-inset-left)');

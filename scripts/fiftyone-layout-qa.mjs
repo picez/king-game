@@ -156,18 +156,74 @@ const PROBE = `JSON.stringify((() => {
     }
   });
 
-  // 5. NO TWO CARDS ANYWHERE may overlap, and same-row neighbours keep a positive gap.
+  // 5. (table redesign) A meld is a FAN, and the fan is a CONTRACT, not an accident:
+  //    inside one meld each card may be covered by the NEXT card only, only from the
+  //    right, and must keep at least 45% of its width (and 18px) — the index corner —
+  //    in view. Cards of DIFFERENT melds may never touch at all.
   const sorted = [...slots].sort((a, b) => (a.r.t - b.r.t) || (a.r.l - b.r.l));
   for (let i = 0; i < sorted.length; i++) {
     for (let j = i + 1; j < sorted.length; j++) {
       const a = sorted[i].r, b = sorted[j].r;
       if (b.t > a.b + 2) break;                    // rows below can no longer touch
-      if (hit(a, b)) add('card-overlap', sorted[i].label + '|' + sorted[j].label + ' ' + ov(a, b));
-      if (Math.abs(a.t - b.t) < 2 && b.l - a.r < 1 && b.l >= a.l) {
-        add('no-gap', sorted[i].label + ' ' + Math.round(b.l - a.r) + 'px');
+      if (!hit(a, b)) continue;
+      if (sorted[i].label !== sorted[j].label) {
+        add('card-overlap', sorted[i].label + '|' + sorted[j].label + ' ' + ov(a, b));
       }
     }
   }
+  melds.forEach((meld, mi) => {
+    const row = meld.querySelector('.fiftyone-meld__cards');
+    if (!row) return;
+    const rs = all('.fiftyone-meldcard', row).map(rect);
+    for (let k = 0; k + 1 < rs.length; k++) {
+      const a = rs[k], b = rs[k + 1];
+      if (Math.abs(a.t - b.t) > 2) continue;       // a spread meld wrapped to a new line
+      const strip = b.l - a.l;                      // what stays visible of card k
+      if (strip < Math.max(18, a.w * 0.45) - S) add('fan-strip', 'meld' + mi + ' card' + k + ' ' + Math.round(strip) + 'px of ' + Math.round(a.w));
+      if (strip > a.w + 12) add('fan-gap', 'meld' + mi + ' card' + k + ' ' + Math.round(strip - a.w) + 'px');
+    }
+    // A card two places on must be clear of this one: never three cards deep.
+    for (let k = 0; k + 2 < rs.length; k++) {
+      if (Math.abs(rs[k].t - rs[k + 2].t) < 2 && rs[k + 2].l < rs[k].r - S) add('fan-three-deep', 'meld' + mi + ' card' + k);
+    }
+  });
+
+  // 5b. (table redesign) THE FOLD BUDGET — the reason this stage exists. The screen is one
+  //     viewport tall and never scrolls; the hand, the action bar, the piles and the
+  //     prompt are inside the viewport in EVERY state; the table keeps a usable band.
+  const vh = window.innerHeight;
+  const docH = document.documentElement.scrollHeight;
+  const stage = one('.fiftyone-screen');
+  // Judged against the STAGE, not the viewport: with the chat open the document may be
+  // scrolled down to the social region, and a viewport-relative rect would report that
+  // scroll as a layout failure. The stage being one viewport tall is its own assertion.
+  if (!stage) add('missing', 'stage');
+  if (stage && stage.h > vh + 1) add('stage-taller-than-viewport', Math.round(stage.h) + '>' + vh);
+  for (const [name, r] of [['hand', hand], ['actions', actions], ['piles', piles], ['prompt', prompt], ['scoreboard', scoreboard]]) {
+    if (!r) { add('missing', name); continue; }
+    if (stage && (r.t < stage.t - S || r.b > stage.b + S)) add('below-fold', name + ' ' + Math.round(r.t - stage.t) + '..' + Math.round(r.b - stage.t) + ' of ' + Math.round(stage.h));
+    if (r.l < -S || r.r > vw + S) add('outside-viewport-x', name + ' ' + Math.round(r.l) + '..' + Math.round(r.r));
+  }
+  const table = one('.fiftyone-table');
+  if (!table) add('missing', 'table');
+  else if (table.h < 96) add('table-squeezed', Math.round(table.h) + 'px');
+  // The pinned bands may not sit on each other or on the table.
+  const bands = [['scoreboard', scoreboard], ['table', table], ['hand', hand], ['actions', actions], ['piles', piles]].filter((x) => x[1]);
+  for (let i = 0; i < bands.length; i++) {
+    for (let j = i + 1; j < bands.length; j++) {
+      if (hit(bands[i][1], bands[j][1])) add('band-overlap', bands[i][0] + '|' + bands[j][0] + ' ' + ov(bands[i][1], bands[j][1]));
+    }
+  }
+  // Every hand card keeps a tappable strip, and every scoreboard seat is on screen.
+  const handSlots = all('.hand-reorder__slot').map(rect);
+  for (const r of handSlots) if (r.w < 19.5) { add('hand-strip', Math.round(r.w) + 'px'); break; }
+  for (const r of all('.fiftyone-score').map(rect)) {
+    if (r.l < -S || r.r > vw + S) { add('seat-off-screen', Math.round(r.l) + '..' + Math.round(r.r)); break; }
+  }
+  // The only thing allowed to add document height is the social region BELOW the stage.
+  const region = document.querySelector('.social-region');
+  const regionH = region ? region.getBoundingClientRect().height : 0;
+  if (docH > vh + regionH + 2) add('page-scrolls', docH + '>' + vh + (regionH ? '+' + Math.round(regionH) : ''));
 
   // 6. meld blocks and owner GROUPS must not intersect each other.
   const mrs = melds.map(rect);
@@ -186,7 +242,15 @@ const PROBE = `JSON.stringify((() => {
 
   // 7. COLLAPSED social UI never covers gameplay. An OPEN sheet/dialog is a modal and
   //    is allowed to — that is the point of it.
-  const content = [...mrs, ...grs, prompt, actions, hand, scoreboard, piles].filter(Boolean);
+  // (table redesign) Melds live inside a scroller: what can be covered is only the part of
+  // a meld that is actually VISIBLE in the table band, not its scrolled-away remainder.
+  const tableBox = one('.fiftyone-table');
+  const visible = (r) => {
+    if (!tableBox) return r;
+    const c = { l: Math.max(r.l, tableBox.l), r: Math.min(r.r, tableBox.r), t: Math.max(r.t, tableBox.t), b: Math.min(r.b, tableBox.b) };
+    return c.r - c.l > S && c.b - c.t > S ? c : null;
+  };
+  const content = [...mrs.map(visible), ...grs.map(visible), prompt, actions, hand, scoreboard, piles].filter(Boolean);
   if (launcher && !modalOpen) {
     for (const el of content) if (hit(launcher, el)) add('social-over-content', ov(launcher, el));
   }
@@ -222,7 +286,7 @@ const PROBE = `JSON.stringify((() => {
   if (screen && screen.scrollWidth > screen.clientWidth + 1) add('screen-overflow-x', screen.scrollWidth + '>' + screen.clientWidth);
 
   // 9. touch targets for everything this stage owns.
-  const TAP = '.room-social__bar .social-fab, .chat-panel button, .fiftyone-meld__ctrls button, .permleave-trigger, .permleave-dialog button';
+  const TAP = '.room-social__bar .social-fab, .chat-panel button, .fiftyone-meld__ctrls button, .fiftyone-meld__hit, .fiftyone-actions .btn, .permleave-trigger, .permleave-dialog button';
   for (const b of all(TAP)) {
     const r = rect(b);
     if (r.w < 43.5 || r.h < 43.5) {
@@ -369,6 +433,10 @@ const PROBE = `JSON.stringify((() => {
 })())`;
 
 const VIEWPORTS = [
+  // (table redesign) The two shapes the old list never measured, and where players
+  // actually complained: a SHORT phone, and a phone held sideways.
+  { tag: '360x640', w: 360, h: 640, mobile: true },
+  { tag: '667x375', w: 667, h: 375, mobile: true },
   { tag: '360', w: 360, h: 800, mobile: true },
   { tag: '390', w: 390, h: 844, mobile: true },
   { tag: '768', w: 768, h: 1024, mobile: true },
@@ -385,6 +453,11 @@ function scenarios() {
     { name: '2p', q: 'players=2' },
     { name: '3p', q: 'players=3' },
     { name: '4p', q: 'players=4' },
+    // (table redesign) The FULL opening hand, and a late round with eight melds — the
+    // states the fold budget is really for.
+    { name: '4p-hand14', q: 'players=4&hand=14' },
+    { name: '4p-heavy-hand14', q: `players=4&hand=14&melds=heavy&${SOCIAL}` },
+    { name: '4p-heavy-rtl', q: `players=4&hand=14&melds=heavy&dir=rtl&lang=ar&${SOCIAL}` },
     { name: '4p-collapsed', q: `players=4&${SOCIAL}` },
     { name: '4p-chat', q: `players=4&${SOCIAL}&panel=chat` },
     // (38.0.12) The picker opens from INSIDE the chat and stays open while you use it;
@@ -546,7 +619,7 @@ async function run() {
     if (failures.length > 60) console.log(`  … ${failures.length - 60} more`);
     process.exitCode = 1;
   } else {
-    console.log('FIFTY-ONE LAYOUT OK — grouped melds fully visible, no overlap/clipping/inner scroll, social clear of the game.');
+    console.log('FIFTY-ONE LAYOUT OK — one viewport, hand + actions pinned, melds are bounded fans, social clear of the game.');
   }
   return failures.length ? 1 : 0;
 }

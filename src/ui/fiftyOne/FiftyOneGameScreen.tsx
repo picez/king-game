@@ -120,6 +120,9 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   // (38.0.9) An AMBIGUOUS lay-off waiting for the player to choose a side. Null until the
   // shared helper reports TWO legal ends; cancelling dispatches nothing.
   const [pendingLayoff, setPendingLayoff] = useState<{ meld: FiftyOneMeld; options: LayoffOption[] } | null>(null);
+  // Which public meld is spread out to full, gapped cards (tap a fan to toggle). Purely a
+  // display preference; one at a time, so the table never grows by more than one meld.
+  const [openMeld, setOpenMeld] = useState<string | null>(null);
 
   const { phase, turnStep, currentSeat, roundNumber } = state;
   const opened = state.openedBySeat[humanSeat];
@@ -363,6 +366,12 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         />
       )}
 
+      {/* ── TABLE SHELL (redesign stage 1) ────────────────────────────────────────
+          The screen is a CLOSED box exactly one viewport tall. Three bands are pinned —
+          status (top bar + scoreboard), the dock (piles, prompt, hand) and the action
+          bar — and ONE band is flexible: the table, the only thing that may scroll.
+          Measured before this change on the layout harness, the same content ran 1.94
+          screens tall at 360×640 and 3.44 at 667×375, with the hand starting at 944px. */}
       <div className="fiftyone-topbar">
         <button type="button" className="btn btn--ghost fiftyone-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
         <span className="fiftyone-round">{t('fiftyOne.round').replace('{n}', String(roundNumber))}</span>
@@ -375,12 +384,12 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           title={t('fiftyOne.calcToggle')}
         >🧮</button>
         <button type="button" className="btn btn--ghost fiftyone-help-btn" onClick={() => setShowHelp(true)} aria-label={t('help.howToPlay')}>❓</button>
-        {/* (38.0.5.1) Compact timer + the single social launcher live HERE, so the
-            gameplay column below stays free of any social row while collapsed. */}
+        {/* (38.0.5.1) The compact timer lives HERE, so the bands below stay gameplay-only. */}
         {timerSlot && <span className="fiftyone-topbar__timer">{timerSlot}</span>}
       </div>
 
-      {/* Scoreboard: per-seat running penalty + state badges. */}
+      {/* Scoreboard: per-seat running penalty + state badges. ONE row — it scrolls
+          sideways inside itself rather than wrapping into a second pinned row. */}
       <div className="fiftyone-scoreboard">
         {state.players.map((p) => {
           const seat = p.seatIndex;
@@ -406,204 +415,237 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
         })}
       </div>
 
-      {/* Piles: face-down draw + face-up discard top. */}
-      <div className="fiftyone-piles">
-        <div className="fiftyone-pile">
-          <span className="fiftyone-pile__label">{t('fiftyOne.drawPile')} · {state.drawPile.length}</span>
-          <div className={`card card--table card--back fiftyone-drawpile ${drawStep ? 'fiftyone-drawpile--live' : ''}`} aria-hidden="true" />
-        </div>
-        <div className="fiftyone-pile">
-          <span className="fiftyone-pile__label">{t('fiftyOne.discardPile')} · {state.discardPile.length}</span>
-          {topDiscard
-            ? (() => {
-                // An unopened seat may SELECT the top only to open with it (30.13).
-                const isSel = selected.includes(topDiscard.id);
-                const isStaged = stagedIds.has(topDiscard.id);
-                const onPick = discardOpenAvailable && !isStaged ? () => toggle(topDiscard.id) : undefined;
-                const wrap = `fiftyone-discard-top ${discardOpenAvailable ? 'fiftyone-discard-top--usable' : ''} ${isStaged ? 'fiftyone-discard-top--staged' : ''}`.trim();
-                return (
-                  <span className={wrap}>
-                    {topDiscard.joker
-                      ? <JokerCard size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />
-                      : <CardView card={toCard(topDiscard)} size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />}
-                  </span>
-                );
-              })()
-            : <div className="card card--table fiftyone-discard-empty" aria-hidden="true" />}
-          {discardOpenAvailable && <span className="fiftyone-pile__hint">{t('fiftyOne.useDiscardToOpen')}</span>}
-        </div>
-      </div>
-
-      {/* Public melds, GROUPED BY OWNER (Stage 38.0.5.1). The owner's name is printed
-          ONCE per group with that owner's total value; each combination inside is a
-          compact row (Run/Set + value, then the cards). Meld order and card order are
-          untouched — the sequence is the rule (51_RULES §5/§8), never a display choice. */}
-      <div className="fiftyone-melds" aria-label={t('fiftyOne.meldTable')}>
-        {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
-        {meldGroups.map((group) => {
-          const owner = group.seat === humanSeat ? t('fiftyOne.you') : state.players[group.seat].name;
-          const total = group.melds.reduce((sum, m) => sum + m.value, 0);
-          return (
-            <section
-              key={group.seat}
-              className={`fiftyone-meldgroup${state.eliminatedSeats[group.seat] ? ' fiftyone-meldgroup--out' : ''}`}
-              aria-label={owner}
-            >
-              <header className="fiftyone-meldgroup__head">
-                <span className="fiftyone-meldgroup__owner">{owner}</span>
-                <span className="fiftyone-meldgroup__total">{total}</span>
-              </header>
-              {group.melds.map((meld) => {
-                const addable = canAddTo(meld);
-                // Only an OPENED player on their own meld step ever sees table controls.
-                const swap = jokerSwap(meld);
-                return (
-                  <div key={meld.id} className="fiftyone-meld">
-                    <div className="fiftyone-meld__bar">
-                      <span className="fiftyone-meld__label">
-                        {t(meld.type === 'run' ? 'fiftyOne.typeRun' : 'fiftyOne.typeSet')} · {meld.value}
-                      </span>
-                      {/* Compact icon actions in the LABEL row — never a full-width button
-                          repeated under every meld, and never rendered when the action is
-                          impossible right now (they would only take space). Still 44×44. */}
-                      {(addable || swap) && (
-                        <span className="fiftyone-meld__ctrls">
-                          {addable && (
-                            <button type="button" className="btn btn--small fiftyone-meld__add"
-                              onClick={() => addToMeld(meld)}
-                              aria-label={t('fiftyOne.addToMeld')} title={t('fiftyOne.addToMeld')}>＋</button>
-                          )}
+      {/* THE TABLE — the one flexible band and the one scroller. Public melds, GROUPED BY
+          OWNER (Stage 38.0.5.1): the owner is named once with a total; each combination
+          is a compact FAN (every card keeps its index corner visible). Tapping a fan
+          lays the selection off onto it when that is legal, and otherwise spreads it out
+          to full, gapped cards. Meld order and card order are untouched — the sequence
+          is the rule (51_RULES §5/§8), never a display choice. */}
+      <div className="fiftyone-table">
+        <div className="fiftyone-melds" aria-label={t('fiftyOne.meldTable')}>
+          {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
+          {meldGroups.map((group) => {
+            const owner = group.seat === humanSeat ? t('fiftyOne.you') : state.players[group.seat].name;
+            const total = group.melds.reduce((sum, m) => sum + m.value, 0);
+            return (
+              <section
+                key={group.seat}
+                className={`fiftyone-meldgroup${state.eliminatedSeats[group.seat] ? ' fiftyone-meldgroup--out' : ''}`}
+                aria-label={owner}
+              >
+                <header className="fiftyone-meldgroup__head">
+                  <span className="fiftyone-meldgroup__owner">{owner}</span>
+                  <span className="fiftyone-meldgroup__total">{total}</span>
+                </header>
+                <div className="fiftyone-meldgroup__melds">
+                  {group.melds.map((meld) => {
+                    const addable = canAddTo(meld);
+                    // Only an OPENED player on their own meld step ever sees table controls.
+                    const swap = jokerSwap(meld);
+                    const open = openMeld === meld.id;
+                    return (
+                      <div key={meld.id} className={`fiftyone-meld${open ? ' fiftyone-meld--open' : ''}${addable ? ' fiftyone-meld--addable' : ''}`}>
+                        <div className="fiftyone-meld__bar">
+                          <span className="fiftyone-meld__label">
+                            {t(meld.type === 'run' ? 'fiftyOne.typeRun' : 'fiftyOne.typeSet')} · {meld.value}
+                          </span>
+                        </div>
+                        <div className="fiftyone-meld__row">
+                          {/* The fan itself is the control: the action is where the object
+                              is. Addable → lay off (gold ring + ＋). Otherwise → spread.
+                              The target is an overlay SIBLING of the cards, because a card
+                              is itself a <button> and buttons must never nest. */}
+                          <div className="fiftyone-meld__fan">
+                            <div className="fiftyone-meld__cards" dir="ltr">
+                              {meld.cards.map((c, i) => (
+                                <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              className={`fiftyone-meld__hit${addable ? ' fiftyone-meld__add' : ''}`}
+                              onClick={() => (addable ? addToMeld(meld) : setOpenMeld(open ? null : meld.id))}
+                              aria-label={addable ? t('fiftyOne.addToMeld') : t(meld.type === 'run' ? 'fiftyOne.typeRun' : 'fiftyOne.typeSet')}
+                              aria-expanded={addable ? undefined : open}
+                              title={addable ? t('fiftyOne.addToMeld') : undefined}
+                            >
+                              {addable && <span className="fiftyone-meld__plus" aria-hidden="true">＋</span>}
+                            </button>
+                          </div>
+                          {/* Joker buy-back: rare, so it is a real 44×44 button BESIDE the
+                              fan (never on the cards), rendered only while it is possible. */}
                           {swap && (
-                            <button type="button" className="btn btn--small fiftyone-meld__swap"
-                              onClick={() => replaceJoker(meld)}
-                              aria-label={t('fiftyOne.replaceJoker')} title={t('fiftyOne.replaceJoker')}>🃏</button>
+                            <span className="fiftyone-meld__ctrls">
+                              <button type="button" className="btn btn--small fiftyone-meld__swap"
+                                onClick={() => replaceJoker(meld)}
+                                aria-label={t('fiftyOne.replaceJoker')} title={t('fiftyOne.replaceJoker')}>🃏</button>
+                            </span>
                           )}
-                        </span>
-                      )}
-                    </div>
-                    <div className="fiftyone-meld__cards" dir="ltr">
-                      {meld.cards.map((c, i) => (
-                        <MeldCard key={c.id + i} card={c} represents={meld.jokerRepresents[i]} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </section>
-          );
-        })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Room social (Stage 38.0.14): in flow, between the public melds and the prompt —
-          it never covers the melds, the prompt, the actions or the hand. */}
+      {/* Room social (Stage 38.0.14): in flow, after the public melds and before the
+          prompt — one pinned control row. Its panels open in the social region BELOW the
+          stage (38.0.16), so they never take a pixel from the table, the hand or the
+          actions. */}
       {socialSlot}
 
-      <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
-        <span>{prompt}</span>
-        {validation && <span className="fiftyone-prompt__val">{validation}</span>}
+      {/* THE DOCK — pinned. Piles + prompt, the transient meld-building strips, the hand. */}
+      <div className="fiftyone-dock">
+        <div className="fiftyone-desk">
+          {/* Piles: face-down draw + face-up discard top, right above the hand. The draw
+              pile is itself the draw control on the draw step. */}
+          <div className="fiftyone-piles">
+            <div className="fiftyone-pile">
+              <button
+                type="button"
+                className={`card card--table card--back fiftyone-drawpile ${drawStep ? 'fiftyone-drawpile--live' : ''}`}
+                onClick={drawStep ? () => apply({ type: 'DRAW_FROM_DECK' }) : undefined}
+                disabled={!drawStep}
+                aria-label={`${t('fiftyOne.drawFromDeck')} · ${state.drawPile.length}`}
+              />
+              <span className="fiftyone-pile__label" title={t('fiftyOne.drawPile')}>{state.drawPile.length}</span>
+            </div>
+            <div className="fiftyone-pile">
+              {topDiscard
+                ? (() => {
+                    // An unopened seat may SELECT the top only to open with it (30.13).
+                    const isSel = selected.includes(topDiscard.id);
+                    const isStaged = stagedIds.has(topDiscard.id);
+                    const onPick = discardOpenAvailable && !isStaged ? () => toggle(topDiscard.id) : undefined;
+                    const wrap = `fiftyone-discard-top ${discardOpenAvailable ? 'fiftyone-discard-top--usable' : ''} ${isStaged ? 'fiftyone-discard-top--staged' : ''}`.trim();
+                    return (
+                      <span className={wrap}>
+                        {topDiscard.joker
+                          ? <JokerCard size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />
+                          : <CardView card={toCard(topDiscard)} size="table" onClick={onPick} selected={isSel} disabled={!discardOpenAvailable} />}
+                      </span>
+                    );
+                  })()
+                : <div className="card card--table fiftyone-discard-empty" aria-hidden="true" />}
+              <span className="fiftyone-pile__label" title={t('fiftyOne.discardPile')}>{state.discardPile.length}</span>
+            </div>
+          </div>
+
+          <div className={`fiftyone-prompt ${isMyTurn ? 'fiftyone-prompt--me' : ''}`}>
+            <span>{prompt}</span>
+            {validation && <span className="fiftyone-prompt__val">{validation}</span>}
+            {discardOpenAvailable && !validation && <span className="fiftyone-prompt__val">{t('fiftyOne.useDiscardToOpen')}</span>}
+          </div>
+        </div>
+
+        {/* Meld builder: the SELECTED cards in their chosen order (left→right = the run
+            order, which fixes a joker's position). Tap one, then ← / → to reorder — the
+            selection is never auto-sorted (30.9/30.12). Shows what a joker becomes. */}
+        {meldContext && selectedCards.length >= 2 && (
+          <div className="fiftyone-selbuilder">
+            <div className="fiftyone-selbuilder__strip" dir="ltr">
+              {selectedCards.map((c, i) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`fiftyone-selbuilder__card ${selPicked === i ? 'fiftyone-selbuilder__card--picked' : ''}`}
+                  aria-pressed={selPicked === i}
+                  onClick={() => setSelPicked((p) => (p === i ? null : i))}
+                >
+                  {c.joker ? <JokerCard size="mini" disabled /> : <CardView card={toCard(c)} size="mini" disabled />}
+                </button>
+              ))}
+            </div>
+            <div className="fiftyone-selbuilder__ctrl">
+              <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === 0}
+                onClick={() => moveSelected(-1)} aria-label={t('hand.moveLeft')}>←</button>
+              <span className="fiftyone-selbuilder__info">
+                {selResolved
+                  ? `${t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(selResolved.value))}`
+                    + Object.values(selResolved.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
+                  : t('fiftyOne.selOrderHint')}
+              </span>
+              <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === selectedCards.length - 1}
+                onClick={() => moveSelected(1)} aria-label={t('hand.moveRight')}>→</button>
+            </div>
+          </div>
+        )}
+
+        {/* Staged melds. Before opening they must total ≥ 51; after opening any value. */}
+        {staged.length > 0 && (
+          <div className="fiftyone-staged">
+            <span className="fiftyone-staged__label">
+              {opened
+                ? t('fiftyOne.meldTotal').replace('{n}', String(stagedTotal))
+                : t('fiftyOne.openTotal').replace('{n}', String(stagedTotal))}
+            </span>
+            <div className="fiftyone-staged__rows">
+              {stagedMelds.map((cards, i) => (
+                <div key={i} className="fiftyone-staged__meld">
+                  {cards.map((c) => (c.joker ? <JokerCard key={c.id} size="mini" disabled /> : <CardView key={c.id} card={toCard(c)} size="mini" disabled />))}
+                  <span className="fiftyone-staged__pts">{resolveMeld(cards)?.value ?? 0}</span>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setStaged([])}>{t('fiftyOne.clear')}</button>
+          </div>
+        )}
+
+        {/* Card calculator (Stage 36.0): available ANY time — tap your cards to preview
+            what a combination is worth, whether it's a valid meld, and your hand's total
+            penalty. Purely local: it dispatches nothing and never removes cards. */}
+        {calcMode && (
+          <div className="fiftyone-calc" role="region" aria-label={t('fiftyOne.calcToggle')}>
+            <div className="fiftyone-calc__row">
+              <span className="fiftyone-calc__hand">{t('fiftyOne.calcHandTotal').replace('{n}', String(calcTotal))}</span>
+              <span className="fiftyone-calc__hint">{t('fiftyOne.calcHint')}</span>
+            </div>
+            <div className="fiftyone-calc__row fiftyone-calc__sel">
+              {calcCards.length === 0
+                ? <span className="fiftyone-calc__empty">{t('fiftyOne.calcPickCards')}</span>
+                : (
+                  <span className={`fiftyone-calc__result ${calcResult.valid ? 'fiftyone-calc__result--ok' : 'fiftyone-calc__result--no'}`}>
+                    {calcResult.valid
+                      ? t(calcResult.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(calcResult.value))
+                        + (calcResult.jokerRepresents
+                          ? Object.values(calcResult.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
+                          : '')
+                      : t('fiftyOne.calcNotMeld').replace('{n}', String(calcResult.value))}
+                  </span>
+                )}
+              {calcCards.length > 0 && (
+                <button type="button" className="btn btn--ghost btn--small" onClick={() => setCalcSel([])}>{t('fiftyOne.clear')}</button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* The human's hand (staged cards are hidden here until Open/Clear), as an
+            overlapped FAN of fixed height. Drag to reorder; tap to select for a meld —
+            the tap order fixes a joker's spot. In calc mode a tap picks the card for the
+            calculator instead (any time). */}
+        <HandReorderTray
+          layout="fan"
+          items={handOrder.ordered}
+          cardId={fiftyOneCardId}
+          order={handOrder}
+          onTap={(c) => (calcMode ? toggleCalc(c.id) : toggle(c.id))}
+          canTap={() => calcMode || meldContext}
+          renderCard={(c) => {
+            const sel = calcMode ? calcSel.includes(c.id) : selected.includes(c.id);
+            const dis = calcMode ? false : !meldContext;
+            return c.joker
+              ? <JokerCard selected={sel} disabled={dis} />
+              : <CardView card={toCard(c)} size="hand" selected={sel} disabled={dis} />;
+          }}
+        />
       </div>
 
-      {/* Meld builder: the SELECTED cards in their chosen order (left→right = the run
-          order, which fixes a joker's position). Tap one, then ← / → to reorder — the
-          selection is never auto-sorted (30.9/30.12). Shows what a joker becomes. */}
-      {meldContext && selectedCards.length >= 2 && (
-        <div className="fiftyone-selbuilder">
-          <div className="fiftyone-selbuilder__strip" dir="ltr">
-            {selectedCards.map((c, i) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`fiftyone-selbuilder__card ${selPicked === i ? 'fiftyone-selbuilder__card--picked' : ''}`}
-                aria-pressed={selPicked === i}
-                onClick={() => setSelPicked((p) => (p === i ? null : i))}
-              >
-                {c.joker ? <JokerCard size="mini" disabled /> : <CardView card={toCard(c)} size="mini" disabled />}
-              </button>
-            ))}
-          </div>
-          <div className="fiftyone-selbuilder__ctrl">
-            <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === 0}
-              onClick={() => moveSelected(-1)} aria-label={t('hand.moveLeft')}>←</button>
-            <span className="fiftyone-selbuilder__info">
-              {selResolved
-                ? `${t(selResolved.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(selResolved.value))}`
-                  + Object.values(selResolved.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
-                : t('fiftyOne.selOrderHint')}
-            </span>
-            <button type="button" className="btn btn--outline btn--small" disabled={selPicked == null || selPicked === selectedCards.length - 1}
-              onClick={() => moveSelected(1)} aria-label={t('hand.moveRight')}>→</button>
-          </div>
-        </div>
-      )}
-
-      {/* Staged melds. Before opening they must total ≥ 51; after opening any value. */}
-      {staged.length > 0 && (
-        <div className="fiftyone-staged">
-          <span className="fiftyone-staged__label">
-            {opened
-              ? t('fiftyOne.meldTotal').replace('{n}', String(stagedTotal))
-              : t('fiftyOne.openTotal').replace('{n}', String(stagedTotal))}
-          </span>
-          <div className="fiftyone-staged__rows">
-            {stagedMelds.map((cards, i) => (
-              <div key={i} className="fiftyone-staged__meld">
-                {cards.map((c) => (c.joker ? <JokerCard key={c.id} size="mini" disabled /> : <CardView key={c.id} card={toCard(c)} size="mini" disabled />))}
-                <span className="fiftyone-staged__pts">{resolveMeld(cards)?.value ?? 0}</span>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="btn btn--ghost btn--small" onClick={() => setStaged([])}>{t('fiftyOne.clear')}</button>
-        </div>
-      )}
-
-      {/* Card calculator (Stage 36.0): available ANY time — tap your cards to preview
-          what a combination is worth, whether it's a valid meld, and your hand's total
-          penalty. Purely local: it dispatches nothing and never removes cards. */}
-      {calcMode && (
-        <div className="fiftyone-calc" role="region" aria-label={t('fiftyOne.calcToggle')}>
-          <div className="fiftyone-calc__row">
-            <span className="fiftyone-calc__hand">{t('fiftyOne.calcHandTotal').replace('{n}', String(calcTotal))}</span>
-            <span className="fiftyone-calc__hint">{t('fiftyOne.calcHint')}</span>
-          </div>
-          <div className="fiftyone-calc__row fiftyone-calc__sel">
-            {calcCards.length === 0
-              ? <span className="fiftyone-calc__empty">{t('fiftyOne.calcPickCards')}</span>
-              : (
-                <span className={`fiftyone-calc__result ${calcResult.valid ? 'fiftyone-calc__result--ok' : 'fiftyone-calc__result--no'}`}>
-                  {calcResult.valid
-                    ? t(calcResult.type === 'run' ? 'fiftyOne.validRun' : 'fiftyOne.validSet').replace('{n}', String(calcResult.value))
-                      + (calcResult.jokerRepresents
-                        ? Object.values(calcResult.jokerRepresents).map((r) => ` · 🃏=${r.rank}${SUIT_SYMBOL[r.suit]}`).join('')
-                        : '')
-                    : t('fiftyOne.calcNotMeld').replace('{n}', String(calcResult.value))}
-                </span>
-              )}
-            {calcCards.length > 0 && (
-              <button type="button" className="btn btn--ghost btn--small" onClick={() => setCalcSel([])}>{t('fiftyOne.clear')}</button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* The human's hand (staged cards are hidden here until Open/Clear). Drag to
-          reorder; tap to select for a meld — the tap order fixes a joker's spot. In
-          calc mode a tap picks the card for the calculator instead (any time). */}
-      <HandReorderTray
-        items={handOrder.ordered}
-        cardId={fiftyOneCardId}
-        order={handOrder}
-        onTap={(c) => (calcMode ? toggleCalc(c.id) : toggle(c.id))}
-        canTap={() => calcMode || meldContext}
-        renderCard={(c) => {
-          const sel = calcMode ? calcSel.includes(c.id) : selected.includes(c.id);
-          const dis = calcMode ? false : !meldContext;
-          return c.joker
-            ? <JokerCard selected={sel} disabled={dis} />
-            : <CardView card={toCard(c)} size="hand" selected={sel} disabled={dis} />;
-        }}
-      />
-
-      {/* Action bar — context-sensitive per step. */}
+      {/* Action bar — pinned under the hand, context-sensitive per step. */}
       <div className="fiftyone-actions">
         {drawStep && (
           <>

@@ -423,6 +423,32 @@
   border-radius: 3px; background: var(--accent); box-shadow: 0 0 6px var(--accent);
 }
 .hand-reorder__reset { min-height: 32px; }
+
+/* ---- Fan layout (table redesign, stage 1) — an OVERLAPPED hand of fixed height. ----
+   Every slot but the last is a flexible strip (`flex: 1 1 0; min-width: 0`) whose card
+   simply overflows it to the right, under the next slot. So the overlap is whatever the
+   row width demands — no per-count arithmetic, no JS — and few cards spread out to a
+   comfortable gap (`max-width`) instead of stretching. A slot IS the visible strip of
+   its card, which is exactly the area a tap on that card can land on.
+   `direction: ltr` always: the readable index is the card's top-LEFT corner, so under
+   RTL a mirrored fan would show every card's blank edge instead. */
+.hand-reorder-wrap--fan { gap: 0.1rem; padding-bottom: 0; }
+.hand-reorder--fan {
+  flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start;
+  gap: 0; min-height: 0; direction: ltr;
+  /* Head-room for the 12px lift of a selected card — inside the tray, never over the table. */
+  padding: 0.9rem 0.25rem 0.2rem;
+}
+.hand-reorder__fanrow { display: flex; justify-content: center; min-width: 0; }
+/* A second row tucks under the first: its cards cover the lower part of row one, whose
+   indices (top-left) stay readable and tappable. */
+.hand-reorder__fanrow + .hand-reorder__fanrow { margin-top: calc(var(--card-h) * -0.4); }
+.hand-reorder--fan .hand-reorder__slot {
+  flex: 1 1 0; min-width: 0; max-width: calc(var(--card-w) + 6px);
+  height: var(--card-h); padding: 0; border-radius: 8px;
+}
+.hand-reorder--fan .hand-reorder__slot:last-child { flex: 0 0 var(--card-w); }
+.hand-reorder--fan .hand-reorder__card { width: var(--card-w); }
 @media (prefers-reduced-motion: reduce) {
   .hand-reorder__slot--dragging .hand-reorder__card { transition: none; transform: translateY(-6px); }
 }

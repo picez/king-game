@@ -1863,3 +1863,44 @@ Use this file as the first read after archiving this chat. It is intentionally s
   108 OK; `layout:fiftyone` 150 OK; `layout:poker` 228 OK; screenshots reviewed at 360/390 for
   floating (King/Durak/…), docked (Poker), sheet (51) and Arabic RTL; `git diff --check` clean;
   libc 0; no dependency drift.
+
+### Stage 39.0 — table redesign 1/4: the shared-shell idea, piloted on Fifty-One (COMPLETE, Unreleased)
+- Owner decision 2026-10-12: release v0.5.0 first (done, tag `v0.5.0`, commit `2af4ef7`), then a
+  full redesign of the game tables — players complain about phones / small screens, 51 most.
+- **Measured before (harness, 4p / 4 melds / 8 cards):** document 1.94 screens at 360×640, 1.55
+  at 360×800, 1.51 at 390×844, **3.44 at 667×375**, 2.51 at 844×390, 1.13 at 768×1024, 1.04 at
+  1366×768. Hand top 944px, actions 1185px. **After: 1.00 at every size**, also with `hand=14`
+  and `melds=heavy` (8 melds).
+- **Root cause (applies to all 7 games, only 51 fixed so far):** every game screen is a
+  `min-height: 100vh` flow column with nothing pinned; breakpoints are by WIDTH only (17 of them,
+  none by height/orientation), so phone landscape got the 78px desktop cards.
+- **The shell (51):** `.fiftyone-screen` has `height: 100dvh; overflow: hidden`; children are
+  `flex: 0 0 auto` except `.fiftyone-table` (`flex: 1 1 0; min-height: 0; overflow-y: auto`) —
+  the ONE flexible band and the ONE scroller. DOM order = budget order: topbar → scoreboard →
+  table (melds) → `{socialSlot}` → `.fiftyone-dock` (desk = piles + prompt, builders, hand) →
+  actions. Card sizes: `--card-w: clamp(46px, min(15vw, 10dvh), 78px)` scoped to the dock;
+  meld cards `clamp(40px, min(12.5vw, 11dvh), 58px)`. Landscape = `@media (orientation:
+  landscape) and (max-height: 520px)` grid (`top score social / table / dock actions`).
+- **Why this does NOT break the chat contract (38.0.14 / 38.0.16):** the chat panel is portaled
+  to `.social-region`, a SIBLING of `.game-stage`, so a closed one-viewport stage is exactly the
+  "stage that never shrinks" that contract wants. `layout:social` passes untouched.
+- **Hand fan:** `HandReorderTray layout="fan"` (default stays `wrap`; the other 5 users are
+  unchanged). Slots are `flex: 1 1 0; min-width: 0` strips whose card overflows under the next
+  slot, last slot full width — overlap needs no arithmetic. Rows come from pure
+  `fanRowCapacity` / `fanRows` (30px minimum strip; two rows max; never two below 480px tall).
+  Forced `direction: ltr` (the index is the top-LEFT corner).
+- **Meld fan reverses an older rule ON PURPOSE.** 30.14 / 38.0.4 forbade any overlap between
+  meld cards (that overlap was a slot/card size disagreement). The fan is one declared fraction
+  `--f51-meld-overlap: 0.5` on one margin; tap spreads a meld to the old gapped, wrapping look
+  (`.fiftyone-meld--open`). If the owner rejects fans, set the overlap to 0 and restore
+  `flex-wrap: wrap` — the shell does not depend on it.
+- **Gotcha:** `CardView` renders a `<button>`, so the meld tap target is an absolute overlay
+  SIBLING (`.fiftyone-meld__hit`), never a parent of the cards.
+- **Gate:** `layout:fiftyone` 144 → **232 checks**, + fold budget, + 360×640 and 667×375, +
+  `hand=14` / `melds=heavy` harness params. The harness now wraps the screen in `.room-layout`
+  + `.social-region` (without the region RoomSocial renders its panel inline, which production
+  never does).
+- **NOT done / next:** stage 2 = measure the other six games with the same fold-budget probe,
+  then move them onto the shell (trick games first, then Durak, then Poker); stage 3 = delete
+  per-game layout CSS + unify tokens. Open polish for 51: the room control row costs 48px in
+  portrait; desktop could use larger meld cards. Real-phone check by the owner still owed.
