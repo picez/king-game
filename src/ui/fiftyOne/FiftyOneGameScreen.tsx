@@ -4,7 +4,7 @@ import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import GameHelpModal from '../components/GameHelpModal';
 import type { Card, Rank, Suit } from '../../models/types';
 import type { FiftyOneAction, FiftyOneCard, FiftyOneMeld, FiftyOneState } from '../../games/fiftyOne/types';
-import { resolveMeld, legalLayoffPlacements, type LayoffOption } from '../../games/fiftyOne/melds';
+import { resolveMeld, legalLayoffPlacements, isMeldClosed, type LayoffOption } from '../../games/fiftyOne/melds';
 import { calcSelection, calcHandTotal } from '../../games/fiftyOne/calculator';
 import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
 import HandReorderTray from '../components/HandReorderTray';
@@ -123,6 +123,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
   // Which public meld is spread out to full, gapped cards (tap a fan to toggle). Purely a
   // display preference; one at a time, so the table never grows by more than one meld.
   const [openMeld, setOpenMeld] = useState<string | null>(null);
+  // (Stage 39.1) CLOSED melds — four of a kind, a full run: nothing can ever be laid off
+  // onto them again — are folded away so the table shows only what a player can still act
+  // on. One button brings them back. A display preference only; nothing is dispatched.
+  const [showClosed, setShowClosed] = useState(false);
 
   const { phase, turnStep, currentSeat, roundNumber } = state;
   const opened = state.openedBySeat[humanSeat];
@@ -194,6 +198,12 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
     }
     return order.map((seat) => ({ seat, melds: bySeat.get(seat)! }));
   }, [state.publicMelds]);
+  // Decided by the shared rules helper, never by counting cards here.
+  const closedMeldIds = useMemo(
+    () => new Set(state.publicMelds.filter((m) => isMeldClosed(m.cards)).map((m) => m.id)),
+    [state.publicMelds],
+  );
+  const closedCount = closedMeldIds.size;
 
   const stagedIds = useMemo(() => new Set(staged.flat()), [staged]);
   const byId = useMemo(() => new Map(pool.map((c) => [c.id, c])), [hand, topDiscard, discardOpenAvailable]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -424,9 +434,22 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
       <div className="fiftyone-table">
         <div className="fiftyone-melds" aria-label={t('fiftyOne.meldTable')}>
           {state.publicMelds.length === 0 && <p className="fiftyone-melds__empty">{t('fiftyOne.noMelds')}</p>}
+          {closedCount > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small fiftyone-closed-toggle"
+              aria-pressed={showClosed}
+              onClick={() => setShowClosed((v) => !v)}
+            >
+              {t(showClosed ? 'fiftyOne.closedHide' : 'fiftyOne.closedShow').replace('{n}', String(closedCount))}
+            </button>
+          )}
           {meldGroups.map((group) => {
             const owner = group.seat === humanSeat ? t('fiftyOne.you') : state.players[group.seat].name;
+            // The owner's total always counts EVERY meld — folding one away is not a score change.
             const total = group.melds.reduce((sum, m) => sum + m.value, 0);
+            const shown = showClosed ? group.melds : group.melds.filter((m) => !closedMeldIds.has(m.id));
+            if (shown.length === 0) return null;
             return (
               <section
                 key={group.seat}
@@ -438,13 +461,13 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
                   <span className="fiftyone-meldgroup__total">{total}</span>
                 </header>
                 <div className="fiftyone-meldgroup__melds">
-                  {group.melds.map((meld) => {
+                  {shown.map((meld) => {
                     const addable = canAddTo(meld);
                     // Only an OPENED player on their own meld step ever sees table controls.
                     const swap = jokerSwap(meld);
                     const open = openMeld === meld.id;
                     return (
-                      <div key={meld.id} className={`fiftyone-meld${open ? ' fiftyone-meld--open' : ''}${addable ? ' fiftyone-meld--addable' : ''}`}>
+                      <div key={meld.id} className={`fiftyone-meld${open ? ' fiftyone-meld--open' : ''}${addable ? ' fiftyone-meld--addable' : ''}${closedMeldIds.has(meld.id) ? ' fiftyone-meld--closed' : ''}`}>
                         <div className="fiftyone-meld__bar">
                           <span className="fiftyone-meld__label">
                             {t(meld.type === 'run' ? 'fiftyOne.typeRun' : 'fiftyOne.typeSet')} · {meld.value}

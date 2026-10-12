@@ -36,6 +36,13 @@ also reported at `GET /health/diagnostics` (`version` field).
     screen its panel now keeps room for the message box (it was 48px outside the panel at
     667×375).
   - The other six games are not changed yet.
+- **Fifty-One folds away the melds nothing can be added to (Stage 39.1).** A combination that
+  can never be extended again — four of a kind without a joker, a full 2-to-Ace run — is hidden
+  from the table, so the room goes to the melds you can still play onto. One button at the top
+  of the table ("Show N closed melds") brings them back and hides them again. A meld with a
+  joker is never folded (the joker can still be bought back), the owner's total still counts
+  every meld, and whether a meld is "closed" is decided by the same lay-off rules the server
+  uses, checked against every card in the deck.
 
 ### Internal
 

@@ -352,3 +352,27 @@ export function legalLayoffPlacements(
 }
 
 export { jokerCount };
+
+const ALL_RANKS: readonly Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+/**
+ * A public meld nothing can ever happen to again: it holds no joker (a joker can still be
+ * bought back, 30.14) and NO card in the deck — nor a joker — can legally be laid off onto
+ * either end. Four nines, or a full 2..A run.
+ *
+ * Asked of the SAME `legalLayoffPlacements` the reducer, the bot and the table use, one
+ * probe card at a time, so this can never disagree with what the rules allow: if it says
+ * "closed", there is no lay-off the server would accept. (A multi-card lay-off extends a
+ * run from an end, so its first card would already be a legal single lay-off.)
+ * An invalid meld is never "closed" — it is reported as open so it stays in view.
+ */
+export function isMeldClosed(meldCards: readonly FiftyOneCard[]): boolean {
+  if (meldCards.length === 0) return false;
+  if (meldCards.some((c) => c.joker)) return false;
+  if (!resolveMeld(meldCards.slice())) return false;
+  const probes: FiftyOneCard[] = [{ id: '__probe-joker', joker: true, suit: null, rank: null } as FiftyOneCard];
+  for (const suit of ALL_SUITS) {
+    for (const rank of ALL_RANKS) probes.push({ id: `__probe-${suit}-${rank}`, joker: false, suit, rank } as FiftyOneCard);
+  }
+  return probes.every((probe) => legalLayoffPlacements(meldCards, [probe]).length === 0);
+}

@@ -139,6 +139,10 @@
   align-content: flex-start;
   max-width: 100%;
 }
+/* (Stage 39.1) The fold/unfold control for CLOSED melds: a full-width row of its own at
+   the top of the table, so the groups below never shift sideways when it appears. */
+.fiftyone-closed-toggle { flex: 1 1 100%; min-height: 44px; font-size: 0.8rem; opacity: 0.9; }
+.fiftyone-meld--closed { opacity: 0.72; }
 .fiftyone-melds__empty { opacity: 0.6; font-size: 0.82rem; margin: 0.6rem 0; }
 
 /* One OWNER GROUP (Stage 38.0.5.1): the owner is named ONCE, with that owner's total.

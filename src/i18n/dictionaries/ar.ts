@@ -756,6 +756,8 @@ export const AR: Record<string, string> = {
   'fiftyOne.typeSet': 'مجموعة',
   'fiftyOne.meldTable': 'التشكيلات على الطاولة',
   'fiftyOne.noMelds': 'لا تشكيلات على الطاولة بعد',
+  'fiftyOne.closedShow': 'إظهار التشكيلات المكتملة: {n}',
+  'fiftyOne.closedHide': 'إخفاء التشكيلات المكتملة: {n}',
   'fiftyOne.addToMeld': 'أضف',
   'fiftyOne.replaceJoker': 'استبدل الجوكر',
   'fiftyOne.openTotal': 'مجموع الافتتاح: {n}/51',

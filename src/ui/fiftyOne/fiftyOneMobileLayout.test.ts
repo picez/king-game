@@ -43,8 +43,10 @@ function melds(players: number): FiftyOneMeld[] {
       c('4', 'hearts'), c('5', 'hearts'), c('6', 'hearts'), joker(),
       c('8', 'hearts'), c('9', 'hearts'), c('10', 'hearts'),
     ], { jokerAt: 3, value: 52 }),
-    // Duplicate physical cards from the SECOND deck (same rank+suit as m2's 6♠).
-    meld('m4', seat(3), [c('6', 'spades'), c('6', 'clubs'), c('6', 'diamonds'), c('6', 'hearts')], { type: 'set', value: 24 }),
+    // Duplicate physical cards from the SECOND deck (same rank+suit as m2's 6♠). THREE
+    // sixes on purpose: four would be a CLOSED meld, which Stage 39.1 folds away by default
+    // (covered in fiftyOneClosedMelds.test.ts) — these tests are about what is on the table.
+    meld('m4', seat(3), [c('6', 'spades'), c('6', 'clubs'), c('6', 'diamonds')], { type: 'set', value: 18 }),
   ];
 }
 
@@ -75,8 +77,8 @@ const screen = (over: Record<string, unknown> = {}) => createElement(FiftyOneGam
 describe('every meld card is rendered — nothing is hidden behind an inner scroll', () => {
   it('a 3-card set and a 4-card run render ALL their cards', () => {
     const out = html(screen());
-    // Each meld card is a `.fiftyone-meldcard` slot; 3 + 4 + 7 + 4 = 18 across the table.
-    expect((out.match(/fiftyone-meldcard/g) ?? []).length).toBeGreaterThanOrEqual(18);
+    // Each meld card is a `.fiftyone-meldcard` slot; 3 + 4 + 7 + 3 = 17 across the table.
+    expect((out.match(/fiftyone-meldcard/g) ?? []).length).toBeGreaterThanOrEqual(17);
     expect((out.match(/fiftyone-meld__cards/g) ?? []).length).toBe(4);
   });
 
@@ -92,7 +94,7 @@ describe('every meld card is rendered — nothing is hidden behind an inner scro
 
   it('duplicate cards from the second deck each get their own slot', () => {
     const out = html(screen());
-    expect((out.match(/fiftyone-meldcard/g) ?? []).length).toBeGreaterThanOrEqual(18);
+    expect((out.match(/fiftyone-meldcard/g) ?? []).length).toBeGreaterThanOrEqual(17);
   });
 
   it('works for 2, 3 and 4 players', () => {

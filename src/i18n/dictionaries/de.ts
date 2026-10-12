@@ -756,6 +756,8 @@ export const DE: Record<string, string> = {
   'fiftyOne.typeSet': 'Satz',
   'fiftyOne.meldTable': 'Auslagen auf dem Tisch',
   'fiftyOne.noMelds': 'Noch keine Auslagen auf dem Tisch',
+  'fiftyOne.closedShow': '{n} abgeschlossene Auslagen zeigen',
+  'fiftyOne.closedHide': '{n} abgeschlossene Auslagen ausblenden',
   'fiftyOne.addToMeld': 'Anlegen',
   'fiftyOne.replaceJoker': 'Joker tauschen',
   'fiftyOne.openTotal': 'Eröffnungssumme: {n}/51',

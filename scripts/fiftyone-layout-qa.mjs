@@ -286,7 +286,7 @@ const PROBE = `JSON.stringify((() => {
   if (screen && screen.scrollWidth > screen.clientWidth + 1) add('screen-overflow-x', screen.scrollWidth + '>' + screen.clientWidth);
 
   // 9. touch targets for everything this stage owns.
-  const TAP = '.room-social__bar .social-fab, .chat-panel button, .fiftyone-meld__ctrls button, .fiftyone-meld__hit, .fiftyone-actions .btn, .permleave-trigger, .permleave-dialog button';
+  const TAP = '.room-social__bar .social-fab, .chat-panel button, .fiftyone-meld__ctrls button, .fiftyone-meld__hit, .fiftyone-closed-toggle, .fiftyone-actions .btn, .permleave-trigger, .permleave-dialog button';
   for (const b of all(TAP)) {
     const r = rect(b);
     if (r.w < 43.5 || r.h < 43.5) {
@@ -458,6 +458,9 @@ function scenarios() {
     { name: '4p-hand14', q: 'players=4&hand=14' },
     { name: '4p-heavy-hand14', q: `players=4&hand=14&melds=heavy&${SOCIAL}` },
     { name: '4p-heavy-rtl', q: `players=4&hand=14&melds=heavy&dir=rtl&lang=ar&${SOCIAL}` },
+    // (39.1) Closed melds are folded by default; the button unfolds them IN PLACE and the
+    // unfolded table must satisfy every rule above (the fold budget included).
+    { name: '4p-closed-shown', q: `players=4&hand=14&melds=heavy&${SOCIAL}`, click: ['.fiftyone-closed-toggle'], closedShown: true },
     { name: '4p-collapsed', q: `players=4&${SOCIAL}` },
     { name: '4p-chat', q: `players=4&${SOCIAL}&panel=chat` },
     // (38.0.12) The picker opens from INSIDE the chat and stays open while you use it;
@@ -582,6 +585,13 @@ async function run() {
           if (!String(typed).trim()) failures.push(`${vp.tag} ${sc.name}: the emoji did not reach the message box`);
         }
 
+        if (sc.closedShown) {
+          const pressed = await cdp.evaluate("(document.querySelector('.fiftyone-closed-toggle')||{getAttribute(){return null}}).getAttribute('aria-pressed')");
+          const closed = await cdp.evaluate("document.querySelectorAll('.fiftyone-meld--closed').length");
+          if (pressed !== 'true') failures.push(`${vp.tag} ${sc.name}: the closed-meld toggle is not pressed`);
+          if (!(closed > 0)) failures.push(`${vp.tag} ${sc.name}: no closed meld was unfolded`);
+          await cdp.evaluate(SETTLE);
+        }
         const res = JSON.parse(await cdp.evaluate(PROBE));
         checks++;
         // A scenario that claims social UI must actually have mounted it — otherwise the

@@ -756,6 +756,8 @@ export const UK: Record<string, string> = {
   'fiftyOne.typeSet': 'Сет',
   'fiftyOne.meldTable': 'Комбінації на столі',
   'fiftyOne.noMelds': 'Ще немає комбінацій на столі',
+  'fiftyOne.closedShow': 'Показати закриті комбінації: {n}',
+  'fiftyOne.closedHide': 'Сховати закриті комбінації: {n}',
   'fiftyOne.addToMeld': 'Додати',
   'fiftyOne.replaceJoker': 'Замінити джокер',
   'fiftyOne.openTotal': 'Сума відкриття: {n}/51',

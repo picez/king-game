@@ -1904,3 +1904,17 @@ Use this file as the first read after archiving this chat. It is intentionally s
   then move them onto the shell (trick games first, then Durak, then Poker); stage 3 = delete
   per-game layout CSS + unify tokens. Open polish for 51: the room control row costs 48px in
   portrait; desktop could use larger meld cards. Real-phone check by the owner still owed.
+
+### Stage 39.1 — Fifty-One folds closed melds (COMPLETE, Unreleased)
+- Owner request 2026-10-12: hide combinations that can no longer be extended (e.g. four nines
+  without a joker) and show them on a button.
+- Pure `isMeldClosed(cards)` in `src/games/fiftyOne/melds.ts`: valid meld, NO joker (a joker can
+  still be bought back), and `legalLayoffPlacements` returns nothing for a joker and for each of
+  the 52 rank×suit probes. An invalid meld is reported open. A test cross-checks it against the
+  lay-off helper for every card in both directions.
+- UI: `showClosed` (default false) + a full-width `.fiftyone-closed-toggle` at the top of the
+  table band with the count; a group whose melds are all closed disappears; the owner total
+  still sums every meld. i18n `fiftyOne.closedShow` / `closedHide` ×4. Display only — nothing
+  dispatched, no server/protocol change.
+- Fixture note: the shared layout-test fixture's four sixes became three (four is now folded);
+  `layout:fiftyone` has an unfold scenario → 240 checks.

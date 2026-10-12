@@ -756,6 +756,8 @@ export const EN: Record<string, string> = {
   'fiftyOne.typeSet': 'Set',
   'fiftyOne.meldTable': 'Melds on the table',
   'fiftyOne.noMelds': 'No melds on the table yet',
+  'fiftyOne.closedShow': 'Show {n} closed melds',
+  'fiftyOne.closedHide': 'Hide {n} closed melds',
   'fiftyOne.addToMeld': 'Add',
   'fiftyOne.replaceJoker': 'Replace joker',
   'fiftyOne.openTotal': 'Opening total: {n}/51',
