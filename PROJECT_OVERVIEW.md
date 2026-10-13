@@ -183,8 +183,8 @@ TURN credential is env-only (never committed) and redacted from diagnostics/logs
   checklist (health / 7 games / rooms / stats / avatars / social / security).
 - **Migrations:** when Postgres is enabled, run **`npm run db:migrate`** after every deploy —
   Friends need `0009_friends.sql` and the latest file on `main` is **`0014_online_matches.sql`**; a missing
-  column surfaces as `/api/me → 503 migration_required`. The runner keeps **no ledger** — its own transcript
-  is the only authoritative record of what was applied ([`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §0.2).
+  column surfaces as `/api/me → 503 migration_required`. The runner records what it applied in a
+  `schema_migrations` ledger (Stage 40.1) and `/health/diagnostics` → `migrations` reports it ([`PRODUCTION_SMOKE.md`](PRODUCTION_SMOKE.md) §0.2).
 - **Voice TURN (optional):** unset → STUN-only (strict-NAT users fall back to text). Set
   `VOICE_ICE_SERVERS` (server, runtime, served at `/api/voice/ice-config`) or the build-time
   `VITE_VOICE_ICE_SERVERS` to add a TURN relay — credentials are env-only, never committed.

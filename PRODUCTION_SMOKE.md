@@ -32,9 +32,10 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > that is a PASS for the native path, not a bug. Everything else works either way.
 
 > **Run migrations after every deploy (Postgres only).** If `DATABASE_URL` is set, run
-> **`npm run db:migrate`** (Render Shell / Job) so the schema is current. The runner applies every
-> `.sql` file in `server/db/migrations/` in filename order, every time — it keeps **no ledger**, so
-> re-running it is safe and is also the **only** authoritative record of what was applied. The
+> **`npm run db:migrate`** (Render Shell / Job) so the schema is current. The runner applies the
+> `.sql` files in `server/db/migrations/` in filename order and records each one in a
+> **`schema_migrations` ledger** (Stage 40.1): an already-recorded, unchanged file is skipped, so
+> re-running it is safe. `/health/diagnostics` → `migrations` reports what the ledger holds. The
 > latest file on `main` is **`0014_online_matches.sql`** (15 files, `0000`–`0014`). A missing
 > user-settings column surfaces as `/api/me → 503 migration_required`; Friends calls degrade to
 > `503`/empty until `0009` is applied.
@@ -54,15 +55,21 @@ per-area deep passes are §1–§11 below.
 - [ ] **0.1 Diagnostics.** `curl -s $HOST/health/diagnostics` → `version` = **`0.6.0`**, `commit`
       matches the deploy, `db` = **`enabled`**, **`games.count: 7`** with `ids` =
       `king, durak, deberc, tarneeb, preferans, fifty-one, poker`, `voice.ice` =
-      `stun_only`|`turn_configured`, `avatarUploads` present.
+      `stun_only`|`turn_configured`, `avatarUploads` present, `rooms.storage` =
+      `memory`|`file`|`pg` (only `pg` survives a redeploy on Render).
       **Does NOT prove the schema:** `db: enabled` only means Postgres answered and the four
       user-settings columns from **0005–0008** are present (`probeDbState` checks exactly those).
       It knows nothing about 0009–0014 — that is 0.2.
 
-- [ ] **0.2 Migration evidence 0009–0014.** There is **no migration ledger and no endpoint** that
-      reports which migrations ran. The only authoritative proof is the `npm run db:migrate`
-      transcript (`applied <file>.sql` per file, then `done (15 file(s))`). Everything below is
-      *indirect* — a feature that would fail on the missing object succeeded.
+- [ ] **0.2 Migration evidence 0009–0014.** Since Stage 40.1 the runner keeps a ledger and
+      `/health/diagnostics` reports it: **`migrations.state: "current"`** with `applied` =
+      `expected` = **15** and `latest: "0014_online_matches"` is direct proof that `db:migrate`
+      recorded every file. **`"unrecorded"`** means `db:migrate` has not been run since the
+      ledger existed (true of production until the owner runs it once more) — it says nothing
+      about the schema, and then the proof is still the `npm run db:migrate` transcript
+      (`applied <file>.sql` or `already applied <file>.sql` per file, then `done (15 file(s))`)
+      plus the *indirect* checks below — a feature that would fail on the missing object
+      succeeded. `"behind"` means a shipped migration is not recorded: run `db:migrate`.
 
       **Owner-provided migration evidence:** a `npm run db:migrate` run against the Render External
       Database URL completed with `applied 0014_online_matches.sql` and `done (15 file(s))`. That

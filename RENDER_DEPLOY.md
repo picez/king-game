@@ -516,6 +516,57 @@ as before, with emoji avatars only.
 
 ---
 
+## Deploy only after CI (Stage 40.1)
+
+By default Render deploys every push to the connected branch, whether or not its checks pass.
+`render.yaml` now asks for `autoDeployTrigger: checksPass`: Render waits for the commit's
+GitHub checks (the `CI` workflow = `npm run verify`) and deploys only if they pass.
+
+- **Service created from the Blueprint:** nothing to do — the next Blueprint sync applies it.
+- **Service created by hand in the dashboard** (it does not read `render.yaml`): Settings →
+  Build & Deploy → **Auto-Deploy** → **After CI Checks Pass**.
+
+A deploy now starts a few minutes after the push (when CI finishes) instead of immediately. A
+push whose CI fails is **not** deployed; the previous deploy keeps serving.
+
+## Migration ledger (Stage 40.1)
+
+`npm run db:migrate` records every applied file in `schema_migrations`. Check it without a
+shell:
+
+```bash
+curl -s https://<your-service>.onrender.com/health/diagnostics
+# "migrations": { "state": "current", "expected": 15, "applied": 15, "latest": "0014_online_matches" }
+```
+
+`unrecorded` = `db:migrate` has not been run since the ledger was added (run it once; the
+files are idempotent, so the first run re-applies them and records them). `behind` = a
+migration shipped with this build is not recorded: run `db:migrate`.
+
+## Keep rooms across redeploys (Stage 40.1)
+
+`/health/diagnostics` → `rooms.storage` says where rooms live. On Render's free plan `file`
+means an ephemeral disk: every redeploy or restart drops the rooms in play. With a database
+already attached, set **`ROOM_STORAGE=pg`** in the service's Environment (and make sure
+`db:migrate` has run — the `rooms` table is migration `0000`). The diagnostics value becomes
+`pg`. With `ROOM_STORAGE=pg` the server refuses to start if `DATABASE_URL` is missing, by
+design — a misconfigured deploy is obvious instead of silently losing rooms.
+
+## Voice relay with short-lived credentials (Stage 40.1)
+
+Voice is STUN-only until a TURN server exists (`/health/diagnostics` → `voice.ice`). Once you
+run one with a shared secret (coturn: `use-auth-secret` + `static-auth-secret=<secret>`), set:
+
+| Variable | Value |
+| --- | --- |
+| `VOICE_TURN_URLS` | `turn:turn.example.com:3478,turns:turn.example.com:5349` |
+| `VOICE_TURN_SECRET` | the same secret as the TURN server (keep it out of git) |
+| `VOICE_TURN_TTL_SECONDS` | optional; default `14400` (4h), clamped to 5min–24h |
+
+The server then mints a credential on every `GET /api/voice/ice-config` that the TURN server
+refuses after the lifetime. The secret itself is never sent to a browser. A provider that
+issues a fixed username/password still goes in `VOICE_ICE_SERVERS` as before.
+
 ## Security notes
 
 - **Render provides HTTPS/WSS.** Traffic (including the room password) is TLS-

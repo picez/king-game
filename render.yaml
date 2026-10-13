@@ -16,7 +16,12 @@ services:
     runtime: node
     plan: free                      # free tier sleeps when idle; upgrade for always-on + disks
     # region: oregon                # optional
-    autoDeploy: true                # redeploy on push to the connected branch
+    # Deploy a push to the connected branch only AFTER its CI checks pass (GitHub Actions
+    # `CI` = `npm run verify`). Until Stage 40.1 this was `autoDeploy: true`, which shipped
+    # every push whether or not CI was green. A service created by hand in the dashboard
+    # does not read this file: set Settings → Build & Deploy → Auto-Deploy → "After CI
+    # Checks Pass" there (RENDER_DEPLOY.md → "Deploy only after CI").
+    autoDeployTrigger: checksPass
     buildCommand: npm install && npm run build
     startCommand: npm run server:prod
     healthCheckPath: /health
@@ -43,12 +48,29 @@ services:
       - key: VITE_WS_URL
         sync: false
 
+      # --- Voice relay (OPTIONAL) --------------------------------------------
+      # Without TURN, voice fails between players behind strict NAT (mobile data).
+      # Preferred: SHORT-LIVED credentials minted per request from a shared secret
+      # (coturn `use-auth-secret`). The secret never reaches the browser.
+      # - key: VOICE_TURN_URLS          # e.g. turn:turn.example.com:3478,turns:turn.example.com:5349
+      #   sync: false
+      # - key: VOICE_TURN_SECRET
+      #   sync: false
+      # Alternative: a provider's static credential as a JSON array (client-visible).
+      # - key: VOICE_ICE_SERVERS
+      #   sync: false
+
       # --- Database (OPTIONAL, Stage 1) --------------------------------------
       # Postgres is OFF unless DATABASE_URL is set. With it unset the service
       # behaves exactly as today (file/memory rooms). To enable later, add a
       # Render PostgreSQL instance and reference it here, then run the migration
-      # (DATABASE_URL=… npm run db:migrate) as a one-off / release step. Stage 1
-      # does NOT move room persistence to Postgres — that is Stage 2.
+      # (DATABASE_URL=… npm run db:migrate) as a one-off / release step. The runner
+      # records what it applied; /health/diagnostics → `migrations` reports it.
+      # Rooms stay in the (ephemeral) file store unless you ALSO set ROOM_STORAGE=pg,
+      # which keeps them across restarts and redeploys (/health/diagnostics →
+      # `rooms.storage`).
+      # - key: ROOM_STORAGE
+      #   value: pg
       # - key: DATABASE_URL
       #   fromDatabase:
       #     name: king-db

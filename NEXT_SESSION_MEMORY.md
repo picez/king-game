@@ -2032,3 +2032,48 @@ Use this file as the first read after archiving this chat. It is intentionally s
   dead classes outside the table sheets (lobby/stats/scoreboard) — a separate cleanup.
 - Stale shot scripts still name removed classes (`deberc-shots`, `tarneeb*-shots`,
   `preferans*-shots`, `visual-qa`) — they are manual screenshot tools, not gates; not updated.
+
+### Stage 40.0 — the redesign's leftover debts (COMPLETE, Unreleased)
+- **51 portrait control row.** `.table-shell.fiftyone-screen > .room-social` has `height: 0`;
+  its bar hangs over the top of the dock at the inline end (`flex: 0 0 auto` or it collapses
+  into the zero-height column), `max-width` = stage minus the two piles. The prompt gets
+  `margin-top: calc(48px - 0.35rem)` via `.room-social ~ .fiftyone-dock .fiftyone-prompt` —
+  a MARGIN, because `layout:fiftyone` treats the prompt's box as content the controls may not
+  cover (padding failed 76 checks as `social-over-content`). `--f51-pile-w` moved from the
+  dock to the screen. Landscape resets all of it. Table 249→297px at 360×640. No DOM change.
+- The `social-games` harness gave 51's control row a timer production does not (it drew
+  0:30 twice); the harness now mirrors `OnlineGame.tsx`.
+- **Deberc ≤400px:** seats 6rem→4.7rem, centre `padding-inline: 4.5rem`, deck column
+  `minmax(min-content, 1fr)`.
+- **Text floor 12px.** 48 `font-size` declarations under 0.75rem raised in the table sheets
+  (+ `.social-fab__badge`, `.tag`). `fold-audit.mjs` walks the stage's text nodes and
+  `--assert` fails on any rendered size under 12px (`.card`, `aria-hidden`, `.sr-only`
+  exempt). Poker pods at ≤400px got `line-height: 1.05` — without it `layout:poker` failed
+  4 checks (pod over board by 2×5px with the history open).
+- Pruned 67 dead rules outside the table sheets with the same brace-aware script. KEPT
+  although no component names them literally: `poker-recovery-banner--*`,
+  `room-layout--sidecar-*`, `*--in_game` (built dynamically), and anything a test names.
+- Shot scripts: `.durak-hand` / `.tarneeb-hand` / `.preferans-hand` → `.hand-reorder-wrap`.
+  Syntax-checked only, NOT run.
+- Pins: `src/styles/tableTextFloor.test.ts`.
+
+### Stage 40.1 — operations (COMPLETE in code, Unreleased; three owner actions pending)
+- **Migration ledger.** `server/db/migrationLedger.ts` (pure: checksum with CRLF→LF,
+  `planMigrations`, `summarizeLedger`) + `migrate.ts` (creates `schema_migrations` itself —
+  NOT a numbered file, so the count stays 15; one transaction per file + ledger row).
+  `probeMigrationLedger` in `client.ts` (30s cache; 42P01 → `unrecorded`).
+  Diagnostics: `migrations` + `rooms.storage`. Verified live on a throwaway Postgres 16 in
+  Docker: fresh DB, re-run (0 applied), ledger dropped on a migrated DB (15 re-applied), and
+  the endpoint in all three states. Production reads `unrecorded` until the owner runs
+  `db:migrate` once.
+- **Deploy after CI:** `render.yaml` `autoDeployTrigger: checksPass` (the Blueprint spec's
+  replacement for the deprecated `autoDeploy`). The prod service looks hand-made (it runs
+  Docker while the file says `runtime: node`), so this likely needs the dashboard toggle.
+- **TURN:** `turnRestConfig` / `mintTurnCredential` in `server/voiceIce.ts`
+  (username `<expiry>:cardmajlis`, credential base64 HMAC-SHA1). No TURN server exists.
+- **Room storage on prod:** NOT switched. `ROOM_STORAGE=pg` is an owner env change;
+  `PgRoomStorage`'s integration test passes locally.
+- Local DB recipe used: `docker run -d --rm --name king-ledger-test -e POSTGRES_USER=king
+  -e POSTGRES_PASSWORD=king -e POSTGRES_DB=king_test -p 5439:5432 postgres:16`, then
+  `DATABASE_URL=postgres://king:king@localhost:5439/king_test npm run db:migrate` and
+  `TEST_DATABASE_URL=… npm test`. (`quiz-postgres-1` on :5433 is another project's.)

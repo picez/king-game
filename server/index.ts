@@ -44,7 +44,9 @@ import { runPermanentLeave, type PermanentLeaveDeps } from './permanentLeave';
 import { hashReconnectToken } from './reconnectToken';
 import { createStorage, type AppStorage } from './storage';
 import { resolveTrickAdvanceMs } from '../src/net/serverTiming';
-import { isDbEnabled, probeDbState } from './db/client';
+import { isDbEnabled, probeDbState, probeMigrationLedger } from './db/client';
+import type { MigrationStatus } from './db/migrationLedger';
+import { resolveStorageKind } from '../src/net/storageConfig';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { attachPresence, detachPresence, isOnline, presenceSocketsFor } from './friendsPresence';
 import { allowFriendInvite } from './friendsRateLimit';
@@ -1104,7 +1106,7 @@ const httpServer = createServer((req, res) => {
     // in-memory counters + the cached boot ffmpeg flag. See server/diagnostics.ts.
     let open = 0, inGame = 0;
     for (const room of rooms.values()) { if (room.started) inGame++; else open++; }
-    const emit = (db: DbState) => handleDiagnostics(res, {
+    const emit = (db: DbState, migrations: MigrationStatus | null) => handleDiagnostics(res, {
       version: serverVersion(),
       commit: gitCommit(),
       uptimeSeconds: process.uptime(),
@@ -1113,13 +1115,16 @@ const httpServer = createServer((req, res) => {
       rooms: { total: rooms.size, open, inGame },
       connections: sockets.size,
       voiceIce: iceMode(configuredIceServers()), // secret-free MODE only
+      migrations,
+      roomStorage: resolveStorageKind(process.env.ROOM_STORAGE),
     });
     void (async () => {
       // Cheap, short-TTL-cached probe: select 1 + a required-columns check on
       // user_settings → enabled / disabled / error / migration_required.
       const db: DbState = await probeDbState(Date.now());
-      emit(db);
-    })().catch(() => emit(isDbEnabled() ? 'error' : 'disabled')); // probeDbState never throws
+      // The ledger probe never throws either; it is null whenever the database is unusable.
+      emit(db, db === 'disabled' || db === 'error' ? null : await probeMigrationLedger(Date.now()));
+    })().catch(() => emit(isDbEnabled() ? 'error' : 'disabled', null)); // probeDbState never throws
     return;
   }
   if (path === '/health') {

@@ -9,6 +9,8 @@
 //     instead of crashing the process.
 // ---------------------------------------------------------------------------
 
+import { listMigrationFiles, summarizeLedger, type MigrationStatus } from './migrationLedger';
+
 // Minimal structural types so this file needs no static driver import.
 type Sql = ((strings: TemplateStringsArray, ...args: unknown[]) => Promise<unknown>) & {
   end: (opts?: { timeout?: number }) => Promise<void>;
@@ -117,9 +119,46 @@ export async function probeDbState(
   return state;
 }
 
+// ── Migration ledger probe (Stage 40.1) ──────────────────────────────────────
+let ledgerCache: { status: MigrationStatus | null; at: number } | null = null;
+let shippedMigrations: string[] | null = null;
+
+/**
+ * The migration ledger as diagnostics reports it, or null when there is no usable database
+ * (no DATABASE_URL, or the query failed for a reason other than "no ledger table").
+ * One `select name` on a table of a few dozen rows, cached for {@link SCHEMA_PROBE_TTL_MS}.
+ * Never throws.
+ */
+export async function probeMigrationLedger(now: number): Promise<MigrationStatus | null> {
+  if (!isDbEnabled()) return null;
+  if (ledgerCache && now - ledgerCache.at < SCHEMA_PROBE_TTL_MS) return ledgerCache.status;
+  let status: MigrationStatus | null = null;
+  try {
+    shippedMigrations ??= listMigrationFiles().map((f) => f.name);
+    const conn = await getDb();
+    if (conn) {
+      let recorded: string[] | null;
+      try {
+        const rows = (await conn.sql`select name from schema_migrations`) as Array<{ name: string }>;
+        recorded = rows.map((r) => r.name);
+      } catch (err) {
+        // 42P01 = the table does not exist: db:migrate has not run since the ledger existed.
+        if ((err as { code?: unknown } | null)?.code !== '42P01') throw err;
+        recorded = null;
+      }
+      status = summarizeLedger(shippedMigrations, recorded);
+    }
+  } catch {
+    status = null;
+  }
+  ledgerCache = { status, at: now };
+  return status;
+}
+
 /** Closes the pooled connection (for graceful shutdown / scripts). */
 export async function closeDb(): Promise<void> {
   if (!cached) return;
   try { await cached.sql.end({ timeout: 5 }); } catch { /* ignore */ }
   cached = null;
+  ledgerCache = null;
 }

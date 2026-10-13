@@ -9,6 +9,61 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+> Not released. Stage 40.0 closes the two cosmetic debts v0.6.0 shipped with and adds a text
+> floor; Stage 40.1 is operations. **Three of the operations items only take effect after an
+> owner action on Render** — each is marked below. Still not verified on a physical phone.
+
+### Changed
+
+- **Fifty-One: 48px more table on a phone (Stage 40.0).** The room controls (voice, chat,
+  quit) no longer take a row of their own in portrait — they sit to the right of the draw and
+  discard piles, and the prompt is under them. At 360×640 the meld area grows from 249px to
+  297px. Landscape is unchanged.
+- **Nothing on a game table is smaller than 12px (Stage 40.0).** Seat badges, the Tarneeb
+  ranking, Poker seat names and stacks, the Deberc role chips and the unread-chat counter were
+  9–11.5px. 48 declarations raised to 12px. `npm run layout:fold` now also fails on any
+  rendered table text under 12px (playing cards exempt).
+
+### Fixed
+
+- **Deberc on a narrow phone: the left seat no longer covers the deck (Stage 40.0).** The seat
+  was 96px wide but the centre kept only 58px clear at 360px. Below 400px the side seats are
+  narrower and the deck column can no longer be squeezed under a seat by a wide trick.
+
+### Operations
+
+- **Migration ledger (Stage 40.1).** `npm run db:migrate` now records what it applied in a
+  `schema_migrations` table (file name, checksum, time). A recorded, unchanged file is
+  skipped; a new one is applied; one edited after it was recorded is re-applied and reported.
+  Each file commits together with its ledger row. `GET /health/diagnostics` reports it as
+  `migrations: { state, expected, applied, latest }`. **Owner action:** run
+  `npm run db:migrate` against production once — until then production reads
+  `state: "unrecorded"`, which says nothing about the schema either way.
+- **Deploy only after CI passes (Stage 40.1).** `render.yaml` asks for
+  `autoDeployTrigger: checksPass` instead of deploying every push. **Owner action:** a
+  service created by hand in the Render dashboard does not read that file — set Settings →
+  Build & Deploy → Auto-Deploy → "After CI Checks Pass" (`RENDER_DEPLOY.md`).
+- **Short-lived TURN credentials for voice (Stage 40.1).** With `VOICE_TURN_URLS` and
+  `VOICE_TURN_SECRET` (coturn `use-auth-secret`) the server mints a credential per request
+  that expires after 4 hours; the secret never reaches the browser. The static
+  `VOICE_ICE_SERVERS` form still works. **Owner action:** there is still no TURN server —
+  voice stays STUN-only until one is provisioned and these are set.
+- **Diagnostics name the room storage (Stage 40.1).** `rooms.storage` is `memory`, `file`
+  or `pg`. **Owner action:** production keeps rooms in a file on an ephemeral disk, so every
+  redeploy drops the rooms in play; set `ROOM_STORAGE=pg` on Render to keep them
+  (`RENDER_DEPLOY.md`). Not switched on by default: it would change production behaviour on
+  the next push without anyone having chosen it.
+
+### Internal
+
+- Removed 67 more dead style rules outside the table sheets (the old lobby account panel and
+  game selector, the old stats tabs, the old kitty reveal, unused score-tracker parts).
+- The manual screenshot scripts (`deberc-shots`, `tarneeb*-shots`, `preferans*-shots`,
+  `visual-qa`) drive the shared hand tray instead of the removed per-game hand rows. They are
+  updated, not re-run.
+- The DB integration suites were run locally against a throwaway Postgres 16 for the first
+  time in this series (they are normally CI-only).
+
 ## [0.6.0] — 2026-10-12 — Every game table fits one screen
 
 > **Release note.** The table redesign (Stages 39.0–39.6): all seven game tables are one screen

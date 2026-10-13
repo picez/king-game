@@ -244,6 +244,15 @@ VOICE_CHAT_PLAN.md §7 for a comparison), configure the ICE servers one of two w
   # /etc/king/king.env  (gitignored, root-only perms)
   VOICE_ICE_SERVERS='[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"USER","credential":"SECRET"}]'
   ```
+- **Better with your own coturn — short-lived credentials (Stage 40.1).** Instead of a fixed
+  username/password that every visitor receives, give the server the TURN shared secret
+  (coturn `use-auth-secret` + `static-auth-secret`) and it mints a credential per request that
+  expires after 4 hours:
+  ```bash
+  VOICE_TURN_URLS=turn:turn.example.com:3478,turns:turn.example.com:5349
+  VOICE_TURN_SECRET=<the coturn static-auth-secret>
+  # VOICE_TURN_TTL_SECONDS=14400
+  ```
 - **Fallback — build-time `VITE_VOICE_ICE_SERVERS`.** Baked into the bundle; used only if the
   endpoint is unreachable. Needs a rebuild:
   ```bash

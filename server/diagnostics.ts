@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 import { GAME_TYPES, GAME_CATALOG } from '../src/games/catalog';
+import type { MigrationStatus } from './db/migrationLedger';
 
 // ── ffmpeg readiness cache ───────────────────────────────────────────────────
 // index.ts already probes ffmpeg ONCE at boot for its startup log; it calls
@@ -61,6 +62,11 @@ export interface DiagnosticsInput {
   /** Voice ICE mode (Stage 25.6) — resolved by the caller from server/voiceIce.ts. NEVER a
    *  credential: this is the secret-free MODE only. */
   voiceIce: 'stun_only' | 'turn_configured';
+  /** The migration ledger (Stage 40.1) — counts + the latest file name; null without a
+   *  usable database. File names are public (they are in the repository). */
+  migrations: MigrationStatus | null;
+  /** Where rooms are persisted (Stage 40.1) — the resolved ROOM_STORAGE kind, never a path. */
+  roomStorage: 'memory' | 'file' | 'pg';
 }
 
 export interface DiagnosticsResponse {
@@ -69,7 +75,13 @@ export interface DiagnosticsResponse {
   commit: string | null;
   uptime: number;
   db: DbState;
-  rooms: { total: number; open: number; inGame: number };
+  /** Which shipped migrations the database has RECORDED; null without a usable database.
+   *  `unrecorded` means db:migrate has not run since the ledger existed — not that the
+   *  schema is missing. */
+  migrations: MigrationStatus | null;
+  /** `storage` is where rooms survive a restart: `pg` does, `file` only on a persistent
+   *  disk, `memory` never. */
+  rooms: { total: number; open: number; inGame: number; storage: 'memory' | 'file' | 'pg' };
   connections: number;
   games: { count: number; ids: string[] };
   /** Voice connectivity mode — `stun_only` (default) or `turn_configured`. No credentials. */
@@ -112,10 +124,17 @@ export function buildDiagnostics(input: DiagnosticsInput): DiagnosticsResponse {
     commit: input.commit,
     uptime: Math.round(input.uptimeSeconds),
     db: input.db,
+    migrations: input.migrations === null ? null : {
+      state: input.migrations.state,
+      expected: input.migrations.expected,
+      applied: input.migrations.applied,
+      latest: input.migrations.latest,
+    },
     rooms: {
       total: input.rooms.total,
       open: input.rooms.open,
       inGame: input.rooms.inGame,
+      storage: input.roomStorage,
     },
     connections: input.connections,
     games: { count: games.length, ids: games },

@@ -51,11 +51,14 @@ Open `…/health/diagnostics`.
 
 ## 2. Migration evidence (0009–0014) — what each check really proves
 
-**There is no migration ledger and no endpoint that reports which migrations ran.** The only
-authoritative proof is the `npm run db:migrate` transcript itself, which prints one
-`applied <file>.sql` line per file and a final `done (15 file(s))`. Everything below is
-*indirect*: a feature that would fail on the missing table/column succeeded, so the migration
-behind it must have run.
+**Since Stage 40.1 there is a migration ledger.** `npm run db:migrate` records every file it
+applies, and `/health/diagnostics` shows the result under `migrations`. If it reads
+`"state": "current"` with `applied` and `expected` both **15**, every migration is recorded and
+this check is a PASS on that alone. If it reads `"unrecorded"`, nobody has run `db:migrate`
+since the ledger was added — run it once (it prints one `applied <file>.sql` or
+`already applied <file>.sql` line per file and a final `done (15 file(s))`). Until then
+everything below is the *indirect* evidence: a feature that would fail on the missing
+table/column succeeded, so the migration behind it must have run.
 
 **Owner-provided migration evidence:** a `npm run db:migrate` run against the Render External
 Database URL completed with `applied 0014_online_matches.sql` and `done (15 file(s))`. 15 files is

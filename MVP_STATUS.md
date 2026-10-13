@@ -465,7 +465,7 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
    - **Social (Stage 25.0–25.9 — DONE, see "What works" above):** Friends + room invites +
      presence badge ([`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)), online **rematch**, and opt-in in-room
      **WebRTC voice** with a runtime **TURN** config seam ([`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md)).
-     Remaining post-MVP: short-lived TURN credentials, cross-instance presence (Redis), and a
+     Short-lived TURN credentials are implemented (Stage 40.1: `VOICE_TURN_URLS` + `VOICE_TURN_SECRET`); a TURN server itself is still not provisioned. Remaining post-MVP: cross-instance presence (Redis), and a
      moderation console.
 3. **Durak (released — `available`, Stage 9.13).** Local Durak (simple + transfer)
    and **online Durak** rooms (host/join with bots) are fully playable — King

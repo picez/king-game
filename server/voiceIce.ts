@@ -11,12 +11,26 @@
 // SECURITY: a STATIC TURN credential is, by design, delivered to the browser — the browser must
 // authenticate to the TURN server, so the credential is inherently client-visible. We therefore
 // RETURN it from /api/voice/ice-config, but we NEVER log it and NEVER put it in
-// /health/diagnostics (which reports only the *mode*). Short-lived, per-session credentials
-// (minted here on each request) are the post-MVP hardening — this module is where they'd go.
+// /health/diagnostics (which reports only the *mode*).
 //
-// Pure + DOM-free (no `RTCIceServer` type) so it compiles under the server tsconfig and is fully
+// (Stage 40.1) SHORT-LIVED credentials. A static credential handed to every visitor can be
+// copied and used to relay unrelated traffic through the TURN server for as long as it is
+// not rotated. With
+//   VOICE_TURN_URLS    comma-separated turn:/turns: URLs
+//   VOICE_TURN_SECRET  the TURN server's shared secret (coturn `use-auth-secret` +
+//                      `static-auth-secret`, the "TURN REST API" scheme)
+//   VOICE_TURN_TTL_SECONDS  optional lifetime, default 4h (clamped to 5min–24h)
+// the server mints a fresh credential on every /api/voice/ice-config request:
+//   username   = "<unix expiry>:cardmajlis"
+//   credential = base64(HMAC-SHA1(secret, username))
+// The TURN server recomputes the HMAC and refuses the pair after the expiry. The SECRET
+// never leaves the server; what the browser receives stops working on its own.
+//
+// DOM-free (no `RTCIceServer` type) so it compiles under the server tsconfig and is fully
 // unit-testable. Mirrors the client parser in src/voice/iceConfig.ts.
 // ---------------------------------------------------------------------------
+
+import { createHmac } from 'node:crypto';
 
 export interface IceServer { urls: string | string[]; username?: string; credential?: string; }
 
@@ -64,14 +78,50 @@ export function iceMode(servers: IceServer[]): 'stun_only' | 'turn_configured' {
   return hasTurn(servers) ? 'turn_configured' : 'stun_only';
 }
 
-/** The runtime-configured ICE servers (reads the SERVER env, not the build-time VITE var). */
-export function configuredIceServers(): IceServer[] {
-  return parseIceServers(process.env.VOICE_ICE_SERVERS);
+// ── Short-lived TURN credentials (TURN REST API) ─────────────────────────────
+export const TURN_TTL_DEFAULT_SECONDS = 4 * 60 * 60;
+const TURN_TTL_MIN_SECONDS = 5 * 60;
+const TURN_TTL_MAX_SECONDS = 24 * 60 * 60;
+
+export interface TurnRestConfig { urls: string[]; secret: string; ttlSeconds: number; }
+
+/** The shared-secret TURN config from env, or null unless BOTH a relay URL and a secret are
+ *  set. A stun: URL in VOICE_TURN_URLS is ignored — a credential for it would mean nothing. */
+export function turnRestConfig(
+  env: { VOICE_TURN_URLS?: string; VOICE_TURN_SECRET?: string; VOICE_TURN_TTL_SECONDS?: string } = process.env,
+): TurnRestConfig | null {
+  const secret = env.VOICE_TURN_SECRET?.trim();
+  const urls = (env.VOICE_TURN_URLS ?? '').split(',').map((u) => u.trim()).filter((u) => /^turns?:/i.test(u));
+  if (!secret || urls.length === 0) return null;
+  const ttl = Number(env.VOICE_TURN_TTL_SECONDS);
+  const ttlSeconds = Number.isFinite(ttl) && ttl > 0
+    ? Math.min(TURN_TTL_MAX_SECONDS, Math.max(TURN_TTL_MIN_SECONDS, Math.floor(ttl)))
+    : TURN_TTL_DEFAULT_SECONDS;
+  return { urls, secret, ttlSeconds };
+}
+
+/** One TURN entry whose credential the TURN server will refuse after `ttlSeconds`. */
+export function mintTurnCredential(cfg: TurnRestConfig, nowMs: number): IceServer {
+  const username = `${Math.floor(nowMs / 1000) + cfg.ttlSeconds}:cardmajlis`;
+  const credential = createHmac('sha1', cfg.secret).update(username).digest('base64');
+  return { urls: cfg.urls, username, credential };
 }
 
 /**
- * The body served at GET /api/voice/ice-config. Includes any STATIC TURN credential BY DESIGN
- * (the browser must authenticate to the TURN server). Cheap, no I/O, never throws.
+ * The runtime-configured ICE servers (reads the SERVER env, not the build-time VITE var):
+ * VOICE_ICE_SERVERS (or the STUN default) plus, when the shared secret is configured, one
+ * freshly minted short-lived TURN entry.
+ */
+export function configuredIceServers(nowMs: number = Date.now()): IceServer[] {
+  const servers = parseIceServers(process.env.VOICE_ICE_SERVERS);
+  const turn = turnRestConfig();
+  return turn ? [...servers, mintTurnCredential(turn, nowMs)] : servers;
+}
+
+/**
+ * The body served at GET /api/voice/ice-config. Includes the TURN credential BY DESIGN (the
+ * browser must authenticate to the TURN server) — a static one from VOICE_ICE_SERVERS and/or
+ * a short-lived one minted for this request. Cheap, no I/O, never throws.
  */
 export function iceConfigPayload(): { iceServers: IceServer[] } {
   return { iceServers: configuredIceServers() };

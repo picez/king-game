@@ -22,13 +22,15 @@ const base: DiagnosticsInput = {
   rooms: { total: 3, open: 1, inGame: 2 },
   connections: 5,
   voiceIce: 'stun_only',
+  migrations: { state: 'current', expected: 15, applied: 15, latest: '0014_online_matches' },
+  roomStorage: 'file',
 };
 
 describe('buildDiagnostics — safe field shape', () => {
   it('returns exactly the allow-listed top-level keys (no extras can sneak in)', () => {
     const d = buildDiagnostics(base);
     expect(Object.keys(d).sort()).toEqual(
-      ['avatarUploads', 'commit', 'connections', 'db', 'games', 'rooms', 'status', 'uptime', 'version', 'voice'].sort(),
+      ['avatarUploads', 'commit', 'connections', 'db', 'games', 'migrations', 'rooms', 'status', 'uptime', 'version', 'voice'].sort(),
     );
   });
 
@@ -44,7 +46,7 @@ describe('buildDiagnostics — safe field shape', () => {
     expect(d.commit).toBe('abcdef1234');
     expect(d.uptime).toBe(124);                 // rounded
     expect(d.db).toBe('enabled');
-    expect(d.rooms).toEqual({ total: 3, open: 1, inGame: 2 });
+    expect(d.rooms).toEqual({ total: 3, open: 1, inGame: 2, storage: 'file' });
     expect(d.connections).toBe(5);
     expect(d.games.count).toBe(d.games.ids.length);
     expect(d.games.ids).toContain('king');
@@ -102,6 +104,33 @@ describe('buildDiagnostics — db + avatar readiness', () => {
     expect(d.avatarUploads.status).toBe('unknown');
     expect(d.avatarUploads.ffmpeg).toBe('unknown');
     expect(d.avatarUploads.reason).toBe('ffmpeg_probe_pending');
+  });
+});
+
+describe('buildDiagnostics — migration ledger + room storage (Stage 40.1)', () => {
+  it('reports the ledger as four allow-listed fields and nothing else', () => {
+    const d = buildDiagnostics(base);
+    expect(d.migrations).toEqual({ state: 'current', expected: 15, applied: 15, latest: '0014_online_matches' });
+    // A field smuggled onto the input (a checksum, a timestamp) must not reach the payload.
+    const noisy = { ...base.migrations!, checksum: 'deadbeef', appliedAt: 'x' } as DiagnosticsInput['migrations'];
+    expect(Object.keys(buildDiagnostics({ ...base, migrations: noisy }).migrations!).sort())
+      .toEqual(['applied', 'expected', 'latest', 'state']);
+  });
+
+  it('no usable database → migrations is null, never a guess', () => {
+    expect(buildDiagnostics({ ...base, db: 'disabled', migrations: null }).migrations).toBeNull();
+  });
+
+  it('a database migrated before the ledger existed reads "unrecorded", not "behind"', () => {
+    const d = buildDiagnostics({ ...base, migrations: { state: 'unrecorded', expected: 15, applied: null, latest: null } });
+    expect(d.migrations).toEqual({ state: 'unrecorded', expected: 15, applied: null, latest: null });
+  });
+
+  it('names where rooms are persisted — the kind only, never a path', () => {
+    for (const kind of ['memory', 'file', 'pg'] as const) {
+      expect(buildDiagnostics({ ...base, roomStorage: kind }).rooms.storage).toBe(kind);
+    }
+    expect(JSON.stringify(buildDiagnostics(base))).not.toMatch(/rooms\.json|\.data|DATA_DIR/);
   });
 });
 
