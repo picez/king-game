@@ -2071,8 +2071,11 @@ Use this file as the first read after archiving this chat. It is intentionally s
   Docker while the file says `runtime: node`), so this likely needs the dashboard toggle.
 - **TURN:** `turnRestConfig` / `mintTurnCredential` in `server/voiceIce.ts`
   (username `<expiry>:cardmajlis`, credential base64 HMAC-SHA1). No TURN server exists.
-- **Room storage on prod:** NOT switched. `ROOM_STORAGE=pg` is an owner env change;
-  `PgRoomStorage`'s integration test passes locally.
+- **Room storage on prod:** ALREADY Postgres. The live `/health/diagnostics` at commit
+  `7f4e5b4` reads `rooms.storage: "pg"` — the audit's "keep rooms in Postgres on prod" item
+  was done by the owner earlier and simply was not visible from outside. The same response
+  reads `migrations.state: "unrecorded"` (expected until `db:migrate` runs once) and
+  `voice.ice: "stun_only"`. CI run #253 on `7f4e5b4`: success.
 - Local DB recipe used: `docker run -d --rm --name king-ledger-test -e POSTGRES_USER=king
   -e POSTGRES_PASSWORD=king -e POSTGRES_DB=king_test -p 5439:5432 postgres:16`, then
   `DATABASE_URL=postgres://king:king@localhost:5439/king_test npm run db:migrate` and

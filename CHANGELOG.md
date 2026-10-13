@@ -9,9 +9,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-> Not released. Stage 40.0 closes the two cosmetic debts v0.6.0 shipped with and adds a text
-> floor; Stage 40.1 is operations. **Three of the operations items only take effect after an
-> owner action on Render** — each is marked below. Still not verified on a physical phone.
+> Not released as a version, but live: production serves commit `7f4e5b4` (CI run #253 green).
+> Stage 40.0 closes the two cosmetic debts v0.6.0 shipped with and adds a text floor; Stage
+> 40.1 is operations. **Three of the operations items only take effect after an owner action
+> on Render** — each is marked below. Still not verified on a physical phone.
 
 ### Changed
 
@@ -49,10 +50,9 @@ also reported at `GET /health/diagnostics` (`version` field).
   `VOICE_ICE_SERVERS` form still works. **Owner action:** there is still no TURN server —
   voice stays STUN-only until one is provisioned and these are set.
 - **Diagnostics name the room storage (Stage 40.1).** `rooms.storage` is `memory`, `file`
-  or `pg`. **Owner action:** production keeps rooms in a file on an ephemeral disk, so every
-  redeploy drops the rooms in play; set `ROOM_STORAGE=pg` on Render to keep them
-  (`RENDER_DEPLOY.md`). Not switched on by default: it would change production behaviour on
-  the next push without anyone having chosen it.
+  or `pg`. Production reads **`pg`** (checked 2026-10-13 on the live service): rooms are
+  already kept in Postgres and survive a redeploy. Nothing to do; the field makes that
+  visible instead of assumed.
 
 ### Internal
 
