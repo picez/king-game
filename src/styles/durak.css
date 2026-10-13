@@ -83,7 +83,7 @@
 .durak-seat__name { font-weight: 700; white-space: nowrap; max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; }
 .durak-seat__count { font-size: 0.76rem; color: var(--text-muted); }
 .durak-seat__role {
-  font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-light);
+  font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-light);
 }
 .durak-seat__role--take { color: var(--danger-light); }
 
@@ -130,7 +130,7 @@
 .durak-deck__count {
   position: absolute; left: calc(var(--dw) * 0.5); bottom: -0.45rem; transform: translateX(-50%); z-index: 2;
   min-width: 1.3rem; padding: 0 0.3rem; border-radius: 999px;
-  background: rgba(0, 0, 0, 0.78); color: var(--text); font-size: 0.74rem; font-weight: 800; text-align: center;
+  background: rgba(0, 0, 0, 0.78); color: var(--text); font-size: 0.75rem; font-weight: 800; text-align: center;
 }
 .durak-deck--empty { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.7rem; }
 .durak-deck__suit { font-size: 1.4rem; }
@@ -192,7 +192,7 @@
 .durak-prompt__text { font-size: 0.92rem; color: var(--text-muted); }
 .durak-prompt--me .durak-prompt__text { color: var(--text); font-weight: 700; }
 .durak-youare {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -233,25 +233,12 @@
 .durak-finished__sub { color: var(--text-muted); margin-bottom: 1rem; }
 .durak-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }
 
-/* Disabled online tiles when a local-only game (Durak) is selected. */
-.tile--disabled { opacity: 0.5; cursor: not-allowed; }
-.tile--disabled .tile__sub { color: var(--text-dim); font-style: italic; }
-
-/* Experimental online Durak note in the Host sheet + variant tag in the browser. */
-.host-experimental {
-  margin: 0 0 0.6rem; padding: 0.4rem 0.7rem; border-radius: 0.6rem;
-  background: rgba(245, 197, 24, 0.12); border: 1px solid var(--accent);
-  color: var(--accent-light); font-size: 0.82rem; font-weight: 600;
-}
 .sb-variant { color: var(--text-dim); }
 
 /* ===== Durak production polish (Stage 9.8) ===== */
 
 /* Game selector: name + subtitle column. */
 .game-chip { align-items: center; }
-.game-chip__text { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
-.game-chip__sub { font-size: 0.66rem; color: var(--text-dim); font-weight: 600; }
-
 /* Variant cards (local setup) — descriptive radio cards. */
 .durak-variant-cards { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
 .durak-variant-card {
@@ -263,7 +250,7 @@
 }
 .durak-variant-card--active { border-color: var(--accent); background: rgba(245, 197, 24, 0.12); }
 .durak-variant-card__name { font-weight: 800; font-size: 0.92rem; }
-.durak-variant-card__desc { font-size: 0.74rem; color: var(--text-muted); }
+.durak-variant-card__desc { font-size: 0.75rem; color: var(--text-muted); }
 .durak-variant-desc { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
 
 /* "How to play" toggle + rules list. */
@@ -298,12 +285,6 @@
 .durak-pair--beaten { opacity: 0.82; }
 
 .durak-finished__left { color: var(--text-dim); font-weight: 600; }
-
-/* Lobby experimental tag. */
-.lobby-exp {
-  font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
-  color: var(--accent-light);
-}
 
 /* Local/Host sheet CTA. (The King/Durak picker is now a SelectMenu.) */
 .sheet__cta { width: 100%; margin: 0.5rem 0; min-height: 48px; }

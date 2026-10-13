@@ -25,30 +25,6 @@
 .scoring-header { text-align: center; display: flex; flex-direction: column; gap: 0.3rem; }
 .scoring-header h2 { font-size: 1.4rem; }
 .scoring-header p  { color: var(--text-muted); font-size: 0.9rem; }
-
-.kitty-reveal {
-  background: rgba(0,0,0,0.25);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem 1rem;
-}
-
-.kitty-reveal h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
-
-.kitty-cards { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-.kitty-card {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--card-black);
-  background: var(--card-bg);
-  border-radius: 4px;
-  padding: 0.15rem 0.4rem;
-}
-
-.kitty-card--red { color: var(--card-red); }
-
-.kitty-note { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
-
 .kitty-counter { font-weight: 600; color: var(--accent); }
 
 /* ===== Select Trump ===== */
@@ -473,17 +449,6 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   user-select: none;
 }
-
-.ai-thinking-note {
-  font-size: 0.85rem;
-  color: #7ec8e3;
-  text-align: center;
-  padding: 0.75rem;
-  margin-top: 0.5rem;
-  background: rgba(100, 200, 255, 0.06);
-  border-radius: var(--radius-sm);
-}
-
 /* ===== Quick-rules help modal (Stage 22.0) — generic per-game "How to play" ===== */
 .game-help-overlay {
   position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;

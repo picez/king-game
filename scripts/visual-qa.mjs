@@ -97,7 +97,7 @@ async function run() {
       await cdp.send('Page.navigate', { url: URL });
       await sleep(900);
       await toDurakTable(cdp);
-      const cards = await cdp.evaluate(`document.querySelectorAll('.durak-hand .card').length`);
+      const cards = await cdp.evaluate(`document.querySelectorAll('.hand-reorder-wrap .card').length`);
       const seatGlow = await cdp.evaluate(`!!document.querySelector('.durak-seat--acting')`);
       console.log(`    reduced-motion: hand cards=${cards}, acting-seat present=${seatGlow}`);
       await shot(cdp, `${tag}-rm-durak-table`);

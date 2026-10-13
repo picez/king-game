@@ -64,6 +64,9 @@ const VIEWPORTS = [
   { tag: '1366x768', w: 1366, h: 768, mobile: false },
 ];
 
+/** The smallest text a table may render (the redesign's rule: nothing under 12px). */
+const TEXT_FLOOR_PX = 12;
+
 const probe = (g) => `JSON.stringify((() => {
   const box = (sel) => {
     if (!sel) return null;
@@ -75,7 +78,29 @@ const probe = (g) => `JSON.stringify((() => {
   const stage = box('.game-stage');
   const cards = [...document.querySelectorAll(${JSON.stringify(g.hand)} + ' .card')];
   const rows = new Set(cards.map((e) => Math.round(e.getBoundingClientRect().top))).size;
+  // (Stage 40.0) TEXT FLOOR. Every element of the stage that itself holds visible text,
+  // with its rendered font size. A playing card is exempt: its corner index is artwork
+  // sized with the card, and its text fallback sits under the art.
+  const small = {};
+  const stageEl = document.querySelector('.game-stage');
+  if (stageEl) {
+    const walker = document.createTreeWalker(stageEl, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      const el = n.parentElement;
+      if (!el || el.closest('.card, [aria-hidden="true"], .sr-only')) continue;
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      if (cs.visibility === 'hidden' || cs.display === 'none' || r.width < 1 || r.height < 1) continue;
+      const px = parseFloat(cs.fontSize);
+      if (px >= 1 && px < ${TEXT_FLOOR_PX} - 0.05) {
+        const key = (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(' ')[0] : el.tagName.toLowerCase());
+        small[key] = Math.min(small[key] ?? 99, +px.toFixed(1));
+      }
+    }
+  }
   return {
+    small,
     vh: innerHeight, stage, hand: box(${JSON.stringify(g.hand)}), actions: box(${JSON.stringify(g.actions)}),
     board: box(${JSON.stringify(g.board)}), cards: cards.length, rows,
     cardW: cards[0] ? Math.round(cards[0].getBoundingClientRect().width) : 0,
@@ -116,9 +141,10 @@ await runWithQaRuntime({
         // > 0 = this many px of the hand/action row are below the first screen.
         belowFold: last ? Math.max(0, last.b - r.vh) : null,
         boardH: r.board?.h ?? null, cards: r.cards, rows: r.rows, cardW: r.cardW, overflowX: r.overflowX,
+        smallText: Object.entries(r.small ?? {}).map(([k, v]) => `${k}=${v}px`),
       };
       rows.push(row);
-      console.log(`${g.tag.padEnd(15)} ${vp.tag.padEnd(9)} screens=${String(row.screens).padEnd(5)} hand@${String(row.handTop).padEnd(5)} reach.bottom=${String(row.reachBottom).padEnd(5)} belowFold=${String(row.belowFold).padEnd(5)} board.h=${String(row.boardH).padEnd(5)} cards=${row.cards} rows=${row.rows} cardW=${row.cardW}${row.overflowX ? ' OVERFLOW-X' : ''}`);
+      console.log(`${g.tag.padEnd(15)} ${vp.tag.padEnd(9)} screens=${String(row.screens).padEnd(5)} hand@${String(row.handTop).padEnd(5)} reach.bottom=${String(row.reachBottom).padEnd(5)} belowFold=${String(row.belowFold).padEnd(5)} board.h=${String(row.boardH).padEnd(5)} cards=${row.cards} rows=${row.rows} cardW=${row.cardW}${row.overflowX ? ' OVERFLOW-X' : ''}${row.smallText.length ? ' SMALL-TEXT ' + row.smallText.join(',') : ''}`);
       if (SHOTS) {
         const shot = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 70, captureBeyondViewport: true });
         const data = shot?.result?.data ?? shot?.data;
@@ -140,12 +166,13 @@ if (ASSERT) {
       continue;
     }
     if (r.screens == null) bad.push(`${r.game} ${r.vp}: no .game-stage rendered`);
-    else if (!fits) bad.push(`${r.game} ${r.vp}: ${r.screens} screens, ${r.belowFold}px of the hand/actions below the fold${r.overflowX ? ', horizontal overflow' : ''}`);
+    if (r.smallText.length) bad.push(`${r.game} ${r.vp}: text under ${TEXT_FLOOR_PX}px — ${r.smallText.join(', ')}`);
+    if (r.screens != null && !fits) bad.push(`${r.game} ${r.vp}: ${r.screens} screens, ${r.belowFold}px of the hand/actions below the fold${r.overflowX ? ', horizontal overflow' : ''}`);
   }
   const asserted = rows.filter((r) => ON_SHELL[gameOf(r.game)] && !ON_SHELL[gameOf(r.game)].includes(r.vp)).length;
   if (bad.length) {
     console.log(['', `FOLD BUDGET FAILED (${bad.length}):`, ...bad.map((b) => `  - ${b}`)].join('\n'));
     process.exit(1);
   }
-  console.log(['', `FOLD BUDGET OK — ${asserted} game×viewport checks: one screen, hand and actions inside it.`].join('\n'));
+  console.log(['', `FOLD BUDGET OK — ${asserted} game×viewport checks: one screen, hand and actions inside it, no text under ${TEXT_FLOOR_PX}px.`].join('\n'));
 }

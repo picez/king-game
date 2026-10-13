@@ -91,7 +91,7 @@ const HUMAN_STEP = `(()=>{
   const bids=[...document.querySelectorAll('.tarneeb-bidbtn')];
   if(bids.length){ bids[bids.length-1].click(); return 'bid'; }
   const pass=document.querySelector('.tarneeb-passbtn'); if(pass){pass.click();return 'pass'}
-  const card=[...document.querySelectorAll('.tarneeb-hand .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed'));
+  const card=[...document.querySelectorAll('.hand-reorder-wrap .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed'));
   if(card){card.click();return 'play'}
   const next=[...document.querySelectorAll('button')].find(x=>/Next hand|Наступна|Nächste|التالية/.test(x.textContent)); if(next){next.click();return 'next'}
   return 'wait';

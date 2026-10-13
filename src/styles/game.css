@@ -181,9 +181,7 @@
   .turn-timer--social.turn-timer--low { animation: none; }
 }
 /* RTL: the social cluster flips to the left edge, so the timer aligns left too. */
-[dir="rtl"] .turn-timer--social { align-self: flex-start; }
-.modal-card__timer { display: flex; justify-content: flex-end; }
-/* Header bar inside a center-screen card: score-tracker button (left) + timer. */
+[dir="rtl"] .turn-timer--social { align-self: flex-start; }/* Header bar inside a center-screen card: score-tracker button (left) + timer. */
 .modal-card__bar {
   display: flex;
   align-items: center;
@@ -452,7 +450,6 @@
 @media (prefers-reduced-motion: reduce) {
   .hand-reorder__slot--dragging .hand-reorder__card { transition: none; transform: translateY(-6px); }
 }
-
 
 /* ---------------------------------------------------------------------------
    King on the table shell (redesign stage 2). Measured before, on the real online

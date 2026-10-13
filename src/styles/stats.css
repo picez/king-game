@@ -1,34 +1,4 @@
-/* ===== Stats / leaderboard (Stage 5.1) ===== */
-.stats-section {
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--surface-3);
-  padding-top: 0.75rem;
-}
-.stats-section__toggle { width: 100%; }
-.stats-section__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.7rem;
-  margin-top: 0.6rem;
-}
 
-/* Tabs row: two pill tabs that share the width + a small refresh button. */
-.stats-tabs { display: flex; align-items: center; gap: 0.4rem; }
-.stats-tab {
-  flex: 1 1 0; min-width: 0;
-  padding: 0.45rem 0.5rem;
-  background: var(--surface-2); color: var(--text-muted);
-  border: 1px solid var(--border); border-radius: 999px;
-  font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  min-height: var(--tap-min);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.stats-tab--active {
-  background: var(--surface-3); color: var(--text);
-  border-color: var(--border-strong); box-shadow: var(--top-light);
-}
-.stats-refresh { flex: 0 0 auto; min-width: 2.4rem; }
 
 .stats-msg {
   color: var(--text-muted); font-size: 0.9rem;
@@ -268,7 +238,6 @@
 :root[data-motion-effective="reduced"] .ach-toast { animation: ach-toast-fade 0.3s ease-out both; }
 :root[data-motion-effective="off"] .ach-toast { animation: none; }
 @keyframes ach-toast-fade { from { opacity: 0; } to { opacity: 1; } }
-
 
 /* ---------------------------------------------------------------------------
    ONLINE participation tracker (Stage 38.0.6) — Profile → Statistics, ABOVE the

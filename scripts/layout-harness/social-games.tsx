@@ -304,10 +304,19 @@ function Harness() {
   );
 
   if (game === 'fiftyone') {
+    // As in production (OnlineGame.tsx): the timer is in the top bar, NOT in the control row.
+    const fiftyOneSocial = (
+      <RoomSocial
+        {...common}
+        timerSlot={null}
+        handVisible={false}
+        dangerSlot={<PermanentLeaveControl state={{ status: 'idle' }} onConfirm={noop} />}
+      />
+    );
     return (
       <FiftyOneGameScreen
         state={fiftyOne} humanSeat={0} apply={recordAction} onExit={noop} online
-        socialSlot={social} timerSlot={timerSlot}
+        socialSlot={fiftyOneSocial} timerSlot={timerSlot}
       />
     );
   }

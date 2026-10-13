@@ -26,6 +26,7 @@
    have cut the action bar off behind a tall meld builder). */
 .table-shell.fiftyone-screen {
   --shell-table-min: 6rem;
+  --f51-pile-w: clamp(38px, min(11.5vw, 7.5dvh), 62px);
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -253,7 +254,7 @@
 .fiftyone-meldcard { display: inline-flex; align-items: center; justify-content: center; }
 /* Kept INSIDE the card box, on the visible (left) half, so a fan never hides it. */
 .fiftyone-meldcard__jbadge {
-  position: absolute; bottom: 1px; left: 1px; font-size: 0.72rem; line-height: 1;
+  position: absolute; bottom: 1px; left: 1px; font-size: 0.75rem; line-height: 1;
   filter: drop-shadow(0 0 1px #000);
 }
 
@@ -264,7 +265,6 @@
 .fiftyone-dock {
   --card-w: clamp(46px, min(15vw, 10dvh), 78px);
   --card-h: calc(var(--card-w) * 1.59);
-  --f51-pile-w: clamp(38px, min(11.5vw, 7.5dvh), 62px);
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -314,6 +314,32 @@
   flex: 1 1 0; min-width: 0; text-align: start; font-size: 0.88rem; line-height: 1.25;
 }
 .fiftyone-prompt--me { font-weight: 700; }
+
+/* (Stage 40.0) The room controls share the desk row. As its own band the control row cost
+   48px of table on every portrait phone, while the space to the right of the two piles
+   held one line of prompt. The band now has NO height: its row hangs down over the top of
+   the dock, at the inline end, and the prompt starts under it. Nothing moved in the DOM —
+   the chat panel is portaled to the room's social region as before — and landscape, which
+   gives the controls their own grid area, switches all of this off below. */
+.table-shell.fiftyone-screen > .room-social {
+  height: 0; padding: 0; gap: 0;
+  position: relative; z-index: 2;
+  align-items: flex-end;
+}
+.table-shell.fiftyone-screen > .room-social > .room-social__bar {
+  /* The band has no height to give, so the row must not shrink into it. */
+  flex: 0 0 auto;
+  /* Never over the piles: at most the width to their right. */
+  max-width: calc(100% - (2 * var(--f51-pile-w) + 1.5rem));
+}
+/* Only when the controls are there (an online room). The row is 48px tall and starts one
+   stage gap above the dock. */
+.table-shell.fiftyone-screen > .room-social ~ .fiftyone-dock .fiftyone-desk { align-items: stretch; }
+.table-shell.fiftyone-screen > .room-social ~ .fiftyone-dock .fiftyone-piles { align-self: center; }
+.table-shell.fiftyone-screen > .room-social ~ .fiftyone-dock .fiftyone-prompt {
+  margin-top: calc(48px - 0.35rem);
+  justify-content: flex-end;
+}
 .fiftyone-prompt__val { font-size: 0.78rem; opacity: 0.92; padding: 0.1rem 0.4rem; border-radius: 6px; background: rgba(0,0,0,0.25); }
 
 /* Staged melds (pre-open) */
@@ -382,7 +408,7 @@
 }
 .fiftyone-calc__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
 .fiftyone-calc__hand { font-weight: 800; font-variant-numeric: tabular-nums; }
-.fiftyone-calc__hint { font-size: 0.72rem; opacity: 0.75; }
+.fiftyone-calc__hint { font-size: 0.75rem; opacity: 0.75; }
 .fiftyone-calc__empty { font-size: 0.8rem; opacity: 0.8; }
 .fiftyone-calc__result { font-weight: 700; }
 .fiftyone-calc__result--ok { color: var(--success, #7fdca0); }
@@ -441,7 +467,12 @@
   .screen.table-shell.fiftyone-screen > * { margin: 0; }
   .screen.table-shell.fiftyone-screen > .fiftyone-topbar { grid-area: top; flex-wrap: nowrap; }
   .screen.table-shell.fiftyone-screen > .fiftyone-scoreboard { grid-area: score; min-width: 0; }
-  .screen.table-shell.fiftyone-screen > .room-social { grid-area: social; align-self: center; }
+  .screen.table-shell.fiftyone-screen > .room-social {
+    grid-area: social; align-self: center;
+    height: auto; position: static; align-items: stretch;
+  }
+  .screen.table-shell.fiftyone-screen > .room-social > .room-social__bar { max-width: none; }
+  .screen.table-shell.fiftyone-screen > .room-social ~ .fiftyone-dock .fiftyone-prompt { margin-top: 0; }
   .screen.table-shell.fiftyone-screen > .fiftyone-table { grid-area: table; align-self: stretch; min-height: 0; }
   .screen.table-shell.fiftyone-screen > .fiftyone-dock {
     grid-area: dock; min-width: 0;

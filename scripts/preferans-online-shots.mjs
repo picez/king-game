@@ -85,14 +85,14 @@ const HUMAN_STEP = `(()=>{
   if(document.querySelector('.preferans-discardbar')){
     const confirm=document.querySelector('.preferans-discardbar .btn--primary');
     if(confirm && !confirm.disabled){confirm.click();return 'discard'}
-    const card=[...document.querySelectorAll('.preferans-hand .card')].find(c=>!c.classList.contains('card--selected'));
+    const card=[...document.querySelectorAll('.hand-reorder-wrap .card')].find(c=>!c.classList.contains('card--selected'));
     if(card){card.click();return 'pick'}
   }
   const decl=[...document.querySelectorAll('.preferans-declarebar .preferans-ladder__cell')].filter(c=>!c.disabled);
   if(decl.length){decl[0].click();return 'declare'}
   const bids=[...document.querySelectorAll('.preferans-bidbar .preferans-ladder__cell')].filter(c=>!c.disabled);
   if(bids.length){bids[bids.length-1].click();return 'bid'}
-  const play=[...document.querySelectorAll('.preferans-hand .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed'));
+  const play=[...document.querySelectorAll('.hand-reorder-wrap .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed'));
   if(play){play.click();return 'play'}
   return 'wait';
 })()`;

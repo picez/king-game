@@ -80,7 +80,7 @@
 }
 .tarneeb-rank thead th {
   padding: 0.1rem 0.3rem;
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -98,7 +98,7 @@
   border-top: 1px solid var(--border);
   vertical-align: middle;
 }
-.tarneeb-rank__turn { color: var(--accent, #e8c078); margin-inline-end: 0.18rem; font-size: 0.7em; }
+.tarneeb-rank__turn { color: var(--accent, #e8c078); margin-inline-end: 0.18rem; font-size: 0.75rem; }
 .tarneeb-rank__nametext {
   display: inline-block;
   max-width: 6.5rem;
@@ -166,10 +166,10 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   border-color: var(--accent-light);
 }
 .tarneeb-seat--offline { opacity: 0.6; }
-.tarneeb-seat__off { font-size: 0.72rem; }
+.tarneeb-seat__off { font-size: 0.75rem; }
 .tarneeb-seat__badges { display: flex; gap: 0.2rem; min-height: 0.9rem; }
 .tarneeb-badge {
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 900;
   line-height: 1.1;
   padding: 0 0.28rem;
@@ -187,10 +187,10 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tarneeb-seat__meta { font-size: 0.72rem; color: var(--text-dim); }
+.tarneeb-seat__meta { font-size: 0.75rem; color: var(--text-dim); }
 .tarneeb-seat__team { color: rgba(120, 220, 160, 0.95); font-weight: 700; }
 .tarneeb-seat__bid {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--accent-light);
   background: rgba(0, 0, 0, 0.35);
@@ -311,12 +311,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 .tarneeb-rules li { margin-bottom: 0.35rem; }
 .tarneeb-help__ok { width: 100%; margin-top: 0.6rem; min-height: 44px; }
 
-/* --- Setup / finished --- */
-.tarneeb-setup__teams { margin: 0 0 0.4rem; font-weight: 700; color: var(--text); }
-.tarneeb-setup__target { margin: 0 0 0.4rem; color: var(--text); }
-.tarneeb-setup__hint { margin: 0 0 0.6rem; color: var(--text-dim); font-size: 0.88rem; }
-.tarneeb-setup__hint--partner { margin-top: -0.2rem; }
-.tarneeb-howto {
+.tarneeb-setup__hint { margin: 0 0 0.6rem; color: var(--text-dim); font-size: 0.88rem; }.tarneeb-howto {
   background: none;
   border: none;
   color: var(--accent-light);
@@ -351,7 +346,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   background: rgba(0, 0, 0, 0.25);
 }
 .tarneeb-finished__score--win { border-color: var(--accent-light); box-shadow: 0 0 14px rgba(255, 226, 115, 0.35); }
-.tarneeb-finished__score-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
+.tarneeb-finished__score-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
 .tarneeb-finished__score-value { font-size: 1.8rem; font-weight: 900; color: var(--text); }
 .tarneeb-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }
 

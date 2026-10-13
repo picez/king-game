@@ -2070,7 +2070,11 @@ Fifty-One specifically:
 - [ ] The draw pile and the discard are right above your hand; tapping the draw pile draws.
 - [ ] All seats are visible in the scoreboard with their score and card count.
 
-Known and not fixed:
-- Deberc on a 360px-wide phone: the left seat overlaps the deck when the name is long and the
-  seat carries the DEALER / MAKER badges. It was the same before the redesign.
-- Fifty-One, portrait: the room-control row (mic / chat / quit) takes 48px of table height.
+Fixed after v0.6.0 (Stage 40.0, unreleased) — check these too:
+- [ ] **Deberc on a 360px-wide phone:** the left seat no longer covers the deck, also with a
+      long name and the DEALER / MAKER badges on that seat.
+- [ ] **Fifty-One, portrait:** the voice / chat / quit buttons sit to the right of the draw
+      and discard piles, with the prompt under them. They never cover a pile or the prompt.
+      Sideways they are in the top row as before.
+- [ ] **No tiny text:** seat badges, the Tarneeb ranking, Poker seat names and stacks are all
+      readable (12px at the default text size).

@@ -81,7 +81,7 @@ const HUMAN_STEP = `(()=>{
   const suit=document.querySelector('.tarneeb-suitbtn'); if(suit){suit.click();return 'trump'}
   const bids=[...document.querySelectorAll('.tarneeb-bidbtn')]; if(bids.length){bids[bids.length-1].click();return 'bid'}
   const pass=document.querySelector('.tarneeb-passbtn'); if(pass){pass.click();return 'pass'}
-  const card=[...document.querySelectorAll('.tarneeb-hand .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed')); if(card){card.click();return 'play'}
+  const card=[...document.querySelectorAll('.hand-reorder-wrap .card')].find(c=>!c.disabled && !c.classList.contains('card--dimmed')); if(card){card.click();return 'play'}
   return 'wait';
 })()`;
 

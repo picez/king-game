@@ -100,7 +100,7 @@
   position: absolute;
   bottom: -2px;
   color: var(--accent);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 .tseat__name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; }
 /* Stage 12.8 P1: the King active-turn marker shows the shared "active" badge coin
@@ -195,7 +195,7 @@
   .table__surface { inset: 2.2rem 0.25rem; }
   .game-body { padding: 0.5rem 0; }
   .tseat { min-width: 3.6rem; padding: 0.2rem 0.4rem; }
-  .tseat__name { font-size: 0.74rem; max-width: 6rem; }
+  .tseat__name { font-size: 0.75rem; max-width: 6rem; }
 }
 
 .trick-toast-bar {
@@ -246,11 +246,6 @@
 }
 .trick-group__num  { font-weight: 700; }
 .trick-group__lead { color: var(--text-muted); }
-/* The winning (own) card in each trick. */
-.mini-card--win {
-  outline: 2px solid #6dff6d;
-  outline-offset: 0;
-}
 
 /* ===== Dealer hand on the mode-choice screen ===== */
 .mode-hand {
@@ -290,7 +285,7 @@
 /* "Updated Ns ago" — sits between the label and Refresh; pushes Refresh right. */
 .room-updated {
   margin-inline-start: auto;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -317,7 +312,7 @@
   border-color: var(--accent); background: rgba(245, 197, 24, 0.16); color: var(--text);
 }
 .room-filter__count {
-  font-size: 0.72rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums;
   color: var(--text-muted); min-width: 0.9rem; text-align: center;
 }
 .room-filter__chip--on .room-filter__count { color: var(--accent-light); }
@@ -343,7 +338,7 @@
   top: 0;
   z-index: 1;
   padding: 0.45rem 0.7rem;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -399,7 +394,7 @@
 .sb-host__avatar { font-size: 1.3rem; line-height: 1; flex: none; }
 .sb-host__meta { display: flex; flex-direction: column; min-width: 0; }
 .sb-host__name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb-host__code { font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+.sb-host__code { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
 .sb-host .sb-dot { margin-inline-start: auto; }
 .sb-game, .sb-pass { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-game__val { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -426,7 +421,7 @@
   .sb-cell::before {
     content: attr(data-label);
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -439,18 +434,13 @@
 .room-list__status--lobby,
 .room-list__status--full,
 .room-list__status--in_game {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
 .room-list__status--lobby  { background: rgba(109,255,109,0.18); color: #6dff6d; }
 .room-list__status--full   { background: rgba(245,197,24,0.18); color: var(--accent); }
 .room-list__status--in_game { background: rgba(255,255,255,0.12); color: var(--text-muted); }
-
-.resume-panel__title { font-weight: 700; color: var(--accent); }
-.resume-panel__detail { font-size: 0.85rem; color: var(--text); }
-.resume-panel__server { color: var(--text-muted); word-break: break-all; }
-
 /* ===== Setup screen player row ===== */
 .player-setup-row {
   display: flex;

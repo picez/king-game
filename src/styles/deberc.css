@@ -53,7 +53,7 @@
   display: inline-block;
   padding: 0 0.4rem;
   border-radius: 999px;
-  font-size: 0.64rem;
+  font-size: 0.75rem;
   font-weight: 800;
   line-height: 1.55;
   text-transform: uppercase;
@@ -74,7 +74,7 @@
   display: inline-block;
   padding: 0 0.4rem;
   border-radius: 999px;
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.55;
   color: var(--text-muted);
@@ -91,7 +91,7 @@
   margin-top: 2px;
   padding: 0 0.4rem;
   border-radius: var(--radius-sm);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -157,7 +157,7 @@
   position: sticky;
   top: 0;
   background: var(--panel-2);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -196,7 +196,7 @@
   margin-left: 0.25rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -320,6 +320,20 @@
    they hug the board edge and never cover the centre play area. */
 .deberc-screen .durak-board--4 .durak-centre { padding-inline: clamp(3.2rem, 16vw, 5rem); }
 .deberc-screen .durak-board--3 .durak-centre { padding-top: clamp(2.5rem, 9vw, 3.6rem); }
+
+/* (Stage 40.0) A narrow phone. The side seat is 6rem wide but the centre kept only 16vw
+   clear of the edge — 58px at 360 — so the left seat lay over the deck by a third of its
+   width. Below 400px the seat is narrower, the centre starts past it, and the deck column
+   can no longer be squeezed under the seat by a wide trick: it keeps the deck's own width
+   and the played cards give way instead. */
+@media (max-width: 400px) {
+  .deberc-screen .durak-seat { width: 4.7rem; max-width: 4.7rem; padding-inline: 0.25rem; }
+  .deberc-screen .durak-seat__name { max-width: 4.2rem; }
+  .deberc-screen .durak-board--4 .durak-centre {
+    padding-inline: 4.5rem;
+    grid-template-columns: minmax(min-content, 1fr) auto minmax(0, 1fr);
+  }
+}
 
 /* ===========================================================================
    First-dealer draw intro (§3) — a brief, dismissible overlay on hand 1.

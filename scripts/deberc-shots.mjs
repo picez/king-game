@@ -75,12 +75,12 @@ async function shot(cdp, name) {
   writeFileSync(`${OUT}/${name}.png`, Buffer.from(r.result.data, 'base64'));
   const metrics = JSON.parse(await cdp.evaluate(`JSON.stringify((()=>{
     const board = document.querySelector('.deberc-screen');
-    const hand = document.querySelector('.durak-hand');
+    const hand = document.querySelector('.hand-reorder-wrap');
     const bcr = (el)=> el ? (r=>({l:Math.round(r.left),r:Math.round(r.right),t:Math.round(r.top),b:Math.round(r.bottom)}))(el.getBoundingClientRect()) : null;
     return {
       scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
       overflowX: document.documentElement.scrollWidth > window.innerWidth + 1,
-      phase: (document.querySelector('.deberc-firstdealer')?'intro':(document.querySelector('.deberc-declare')?'declaring':(document.querySelector('.durak-hand .card:not(.card--dimmed)')?'playing':'other'))),
+      phase: (document.querySelector('.deberc-firstdealer')?'intro':(document.querySelector('.deberc-declare')?'declaring':(document.querySelector('.hand-reorder-wrap .card:not(.card--dimmed)')?'playing':'other'))),
       board: bcr(board), hand: bcr(hand),
     };
   })())`));
@@ -97,7 +97,7 @@ const HUMAN_STEP = `(()=>{
   const byText=(ts)=>[...document.querySelectorAll('button')].find(x=>ts.some(t=>x.textContent.trim().includes(t)));
   const pass=byText(['Pass','Пас']); if(pass && !pass.disabled){pass.click();return 'bidPass'}
   const skip=byText(['Skip','Пропустити']); if(skip && !skip.disabled){skip.click();return 'declareSkip'}
-  const card=document.querySelector('.durak-hand .card:not(.card--dimmed)'); if(card){card.click();return 'play'}
+  const card=document.querySelector('.hand-reorder-wrap .card:not(.card--dimmed)'); if(card){card.click();return 'play'}
   return 'wait';
 })()`;
 
