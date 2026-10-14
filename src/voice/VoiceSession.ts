@@ -71,6 +71,8 @@ export class VoiceSession {
   // no audio ever flows. Flushed in order once setRemoteDescription resolves (Stage 25.7).
   private readonly pendingIce = new Map<string, unknown[]>();
   private readonly remoteReady = new Set<string>();
+  // Automatic re-offers spent per peer since it last connected (see `onPeerFailed`).
+  private readonly retries = new Map<string, number>();
 
   constructor(private readonly deps: VoiceDeps) {}
 
@@ -135,6 +137,7 @@ export class VoiceSession {
     this.peers.clear();
     this.pendingIce.clear();
     this.remoteReady.clear();
+    this.retries.clear();
     this.deps.signal.join();               // server → fresh VOICE_PEERS → rebuild
     if (this.muted) this.deps.signal.mute(true); // re-assert mute (server resets it on rejoin)
     this.deps.onChange();
@@ -153,11 +156,19 @@ export class VoiceSession {
   onMessage(msg: VoiceServerMessage): void {
     switch (msg.t) {
       case 'VOICE_PEERS': for (const p of msg.peers) this.addPeer(p.clientId, p.name, p.muted); break;
-      case 'VOICE_PEER_JOINED': this.addPeer(msg.clientId, msg.name, msg.muted); break;
+      case 'VOICE_PEER_JOINED':
+        // A JOINED for a peer we still hold a connection to means that peer came back on a
+        // NEW socket (a reconnect whose old socket the server had not closed yet, so no
+        // VOICE_PEER_LEFT came first). The old connection is dead on their side — keeping it
+        // left the pair silent for good: the offerer never re-offered (it "already had" a
+        // PC) and the answerer fed a fresh offer into the stale PC. Start clean instead.
+        if (this.pcs.has(msg.clientId)) this.dropConnection(msg.clientId);
+        this.addPeer(msg.clientId, msg.name, msg.muted);
+        break;
       case 'VOICE_PEER_LEFT': this.removePeer(msg.clientId); break;
-      case 'VOICE_SIGNAL_OFFER': void this.onOffer(msg.fromClientId, msg.sdp); break;
-      case 'VOICE_SIGNAL_ANSWER': void this.onAnswer(msg.fromClientId, msg.sdp); break;
-      case 'VOICE_SIGNAL_ICE': void this.onIce(msg.fromClientId, msg.candidate); break;
+      case 'VOICE_SIGNAL_OFFER': this.guard(msg.fromClientId, this.onOffer(msg.fromClientId, msg.sdp)); break;
+      case 'VOICE_SIGNAL_ANSWER': this.guard(msg.fromClientId, this.onAnswer(msg.fromClientId, msg.sdp)); break;
+      case 'VOICE_SIGNAL_ICE': this.guard(msg.fromClientId, this.onIce(msg.fromClientId, msg.candidate)); break;
       case 'VOICE_MUTE_STATE': {
         const p = this.peers.get(msg.clientId);
         if (p) { p.muted = msg.muted; this.deps.onChange(); }
@@ -177,6 +188,7 @@ export class VoiceSession {
     this.peers.clear();
     this.pendingIce.clear();
     this.remoteReady.clear();
+    this.retries.clear();
     for (const tr of this.local?.getTracks() ?? []) { try { tr.stop(); } catch { /* ignore */ } }
     this.local = null;
     this.muted = false;
@@ -188,7 +200,7 @@ export class VoiceSession {
     if (!this.pcs.has(clientId)) {
       const pc = this.newPeer(clientId);
       // GLARE: only the lower clientId offers; the other waits for the offer.
-      if (shouldOffer(this.deps.myClientId, clientId)) void this.makeOffer(clientId, pc);
+      if (shouldOffer(this.deps.myClientId, clientId)) this.guard(clientId, this.makeOffer(clientId, pc));
     }
     this.deps.onChange();
   }
@@ -200,8 +212,11 @@ export class VoiceSession {
     pc.onicecandidate = (ev) => { if (ev.candidate) this.deps.signal.ice(clientId, JSON.stringify(ev.candidate)); };
     pc.ontrack = (ev) => { const s = ev.streams?.[0]; if (s) this.deps.onRemoteStream?.(clientId, s); };
     pc.onconnectionstatechange = () => {
+      if (this.pcs.get(clientId) !== pc) return; // a replaced connection reporting late
       const p = this.peers.get(clientId);
       if (p) { p.connState = pc.connectionState; this.deps.onChange(); }
+      if (pc.connectionState === 'connected') this.retries.delete(clientId);
+      if (pc.connectionState === 'failed') this.onPeerFailed(clientId);
     };
     pc.oniceconnectionstatechange = () => {
       const p = this.peers.get(clientId);
@@ -217,7 +232,12 @@ export class VoiceSession {
   }
 
   private async onOffer(from: string, sdp: string): Promise<void> {
+    if (this.status !== 'joined') return; // left (or never joined) — never answer with no mic
     if (!this.peers.has(from)) this.peers.set(from, { clientId: from, name: from, muted: false, connState: 'new', iceState: 'new' });
+    // An offer on a connection that ALREADY completed a negotiation is a brand-new session
+    // from that peer (it reconnected, or it is retrying a failed link): answer it on a fresh
+    // connection — a stale one rejects the new DTLS fingerprint and the pair stays silent.
+    if (this.remoteReady.has(from)) this.dropConnection(from);
     const pc = this.pcs.get(from) ?? this.newPeer(from);
     await pc.setRemoteDescription(safeParse(sdp));
     await this.flushIce(from, pc); // remote description is now set — apply any buffered candidates
@@ -257,16 +277,60 @@ export class VoiceSession {
     for (const c of queued) { try { await pc.addIceCandidate(c); } catch { /* malformed candidate */ } }
   }
 
+  /**
+   * A link that FAILED (typically ICE: strict NAT, a network switch on a phone) is not
+   * left dead. The side that offers rebuilds it and offers again, a bounded number of
+   * times; the other side answers on a fresh connection (see `onOffer`). Without TURN some
+   * networks can never connect — the retries stop, and the UI shows the failure.
+   */
+  private onPeerFailed(clientId: string): void {
+    if (this.status !== 'joined' || !shouldOffer(this.deps.myClientId, clientId)) return;
+    const used = this.retries.get(clientId) ?? 0;
+    if (used >= MAX_RETRIES) return;
+    this.retries.set(clientId, used + 1);
+    this.dropConnection(clientId);
+    const p = this.peers.get(clientId);
+    if (p) { p.connState = 'connecting'; p.iceState = 'new'; }
+    const pc = this.newPeer(clientId);
+    this.guard(clientId, this.makeOffer(clientId, pc));
+    this.deps.onChange();
+  }
+
+  /** Close one peer's connection + its audio sink, keeping the peer itself listed. */
+  private dropConnection(clientId: string): void {
+    const pc = this.pcs.get(clientId);
+    if (pc) { try { pc.close(); } catch { /* ignore */ } this.pcs.delete(clientId); }
+    this.pendingIce.delete(clientId);
+    this.remoteReady.delete(clientId);
+    this.deps.onRemoteGone?.(clientId);
+  }
+
+  /**
+   * Signaling steps are async and were fired with `void` — a rejected step (a malformed
+   * SDP, a closed connection) became an unhandled rejection and the peer sat at
+   * "connecting" forever. Now a failed step marks that peer failed, which the UI shows.
+   */
+  private guard(clientId: string, step: Promise<void>): void {
+    step.catch(() => {
+      const p = this.peers.get(clientId);
+      if (p) { p.connState = 'failed'; this.deps.onChange(); }
+    });
+  }
+
   private removePeer(clientId: string): void {
     const pc = this.pcs.get(clientId);
     if (pc) { try { pc.close(); } catch { /* ignore */ } this.pcs.delete(clientId); }
     this.peers.delete(clientId);
     this.pendingIce.delete(clientId);
     this.remoteReady.delete(clientId);
+    this.retries.delete(clientId);
     this.deps.onRemoteGone?.(clientId);
     this.deps.onChange();
   }
 }
+
+/** Automatic re-offers per peer before a failed link is left to the UI (see onPeerFailed). */
+const MAX_RETRIES = 2;
 
 function safeParse(s: string): unknown {
   try { return JSON.parse(s); } catch { return {}; }

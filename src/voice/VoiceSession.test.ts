@@ -142,7 +142,8 @@ describe('VoiceSession — mesh signaling', () => {
     const s = new VoiceSession(deps); await s.join();
     s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
     s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
-    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    // (A repeated VOICE_PEER_JOINED is different: it means the peer re-joined on a new
+    // socket, and the connection IS rebuilt — see "reconnect and recovery" below.)
     expect(createPeer).toHaveBeenCalledTimes(1);
     expect([...s.peers.keys()]).toEqual(['bbb']);
   });
@@ -220,7 +221,8 @@ describe('VoiceSession — ICE queueing + connection summary (Stage 25.7)', () =
   });
 
   it('connectionSummary tracks peer states; allFailed only when every peer is down', async () => {
-    const { deps, peers } = makeDeps({ myClientId: 'aaa' });
+    // The ANSWERING side ('zzz' > 'bbb') never re-offers, so a failure stays visible here.
+    const { deps, peers } = makeDeps({ myClientId: 'zzz' });
     const s = new VoiceSession(deps); await s.join();
     s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
     await flush();
@@ -246,5 +248,92 @@ describe('VoiceSession — ICE queueing + connection summary (Stage 25.7)', () =
     pc.iceConnectionState = 'connected';
     pc.oniceconnectionstatechange();
     expect(s.connectionSummary().iceState).toBe('connected');
+  });
+});
+
+describe('VoiceSession — reconnect and recovery', () => {
+  it('a VOICE_PEER_JOINED for a peer we still hold replaces the stale connection (reconnect race)', async () => {
+    const { deps, signal, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await flush();
+    expect(signal.offer).toHaveBeenCalledTimes(1);
+    // 'bbb' comes back on a new socket before the server closed the old one: no PEER_LEFT.
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await flush();
+    expect(peers[0].close).toHaveBeenCalled();
+    expect(peers).toHaveLength(2);
+    expect(signal.offer).toHaveBeenCalledTimes(2);           // the offerer offers again
+    expect(deps.onRemoteGone).toHaveBeenCalledWith('bbb');   // the stale audio sink is dropped
+    expect(s.peers.has('bbb')).toBe(true);
+  });
+
+  it('a fresh OFFER on an already-negotiated connection is answered on a NEW connection', async () => {
+    const { deps, signal, peers } = makeDeps({ myClientId: 'zzz' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: JSON.stringify({ type: 'offer' }) });
+    await flush();
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: JSON.stringify({ type: 'offer' }) });
+    await flush();
+    expect(peers).toHaveLength(2);
+    expect(peers[0].close).toHaveBeenCalled();
+    expect(peers[1].setRemoteDescription).toHaveBeenCalled();
+    expect(signal.answer).toHaveBeenCalledTimes(2);
+  });
+
+  it('the offering side retries a FAILED link a bounded number of times', async () => {
+    const { deps, signal, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEERS', peers: [{ clientId: 'bbb', name: 'B', muted: false }] });
+    await flush();
+    const fail = (i: number) => {
+      const pc = peers[i] as unknown as { connectionState: string; onconnectionstatechange: () => void };
+      pc.connectionState = 'failed'; pc.onconnectionstatechange();
+    };
+    fail(0); await flush();
+    expect(peers).toHaveLength(2);
+    expect(signal.offer).toHaveBeenCalledTimes(2);
+    expect(s.connectionSummary().allFailed).toBe(false);
+    fail(1); await flush();
+    expect(peers).toHaveLength(3);
+    fail(2); await flush();
+    expect(peers).toHaveLength(3);                            // retries exhausted
+    expect(s.connectionSummary().allFailed).toBe(true);
+  });
+
+  it('a late state change from a replaced connection is ignored', async () => {
+    const { deps, peers } = makeDeps({ myClientId: 'aaa' });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    s.onMessage({ t: 'VOICE_PEER_JOINED', clientId: 'bbb', name: 'B', muted: false });
+    await flush();
+    const stale = peers[0] as unknown as { connectionState: string; onconnectionstatechange: () => void };
+    stale.connectionState = 'failed'; stale.onconnectionstatechange();
+    expect(peers).toHaveLength(2);
+    expect(s.peers.get('bbb')?.connState).not.toBe('failed');
+  });
+
+  it('a rejected signaling step marks the peer failed instead of hanging at connecting', async () => {
+    const { deps } = makeDeps({
+      myClientId: 'zzz',
+      createPeer: vi.fn(() => {
+        const p = fakePeer();
+        (p as unknown as { setRemoteDescription: () => Promise<void> }).setRemoteDescription = async () => { throw new Error('bad sdp'); };
+        return p;
+      }),
+    });
+    const s = new VoiceSession(deps); await s.join();
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: '{}' });
+    await flush();
+    expect(s.peers.get('bbb')?.connState).toBe('failed');
+  });
+
+  it('an offer while NOT joined is ignored (no mic, no answer)', async () => {
+    const { deps, signal, createPeer } = makeDeps({ myClientId: 'zzz' });
+    const s = new VoiceSession(deps);
+    s.onMessage({ t: 'VOICE_SIGNAL_OFFER', fromClientId: 'bbb', sdp: '{}' });
+    await flush();
+    expect(createPeer).not.toHaveBeenCalled();
+    expect(signal.answer).not.toHaveBeenCalled();
   });
 });
