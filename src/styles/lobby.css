@@ -360,14 +360,21 @@
 
 /* Lobby "Invite friends" collapsible (only when signed in). */
 .lobby-friends { margin: 0.6rem auto 0; width: min(94vw, 32rem); }
-/* Friend invite received — a top toast; pointer-events on the pill only, clears the notch. */
+/* Friend invite received — a top toast; pointer-events on the pill only, clears the notch.
+   (2026-10-14, owner FAIL "the invite lies over the text at the top") It used to paint
+   `var(--surface)` — a 7% white WASH, so the game title, round and seats showed straight
+   through and the two texts overlapped. The card is now OPAQUE (`--panel` ends in a solid
+   green) and lies above the top bar like any toast: what it hides it hides cleanly, and it
+   leaves with Join / Close. */
 .friend-invite-toast {
   position: fixed; top: calc(env(safe-area-inset-top, 0px) + 0.4rem); left: 50%; transform: translateX(-50%);
-  z-index: 70; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; justify-content: center;
-  max-width: min(94vw, 32rem); box-sizing: border-box; padding: 0.5rem 0.8rem; border-radius: 0.8rem;
-  background: var(--surface, #143a24); border: 1px solid var(--accent-light); box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  z-index: 70; display: flex; align-items: center; gap: 0.4rem 0.6rem; flex-wrap: wrap; justify-content: center;
+  inline-size: max-content; max-width: min(calc(100vw - 1rem), 42rem); box-sizing: border-box;
+  padding: 0.55rem 0.8rem; border-radius: 0.8rem;
+  background: var(--panel); background-color: #0f3f24;
+  border: 1px solid var(--accent-light); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
-.friend-invite-toast__text { font-size: 0.85rem; color: var(--text); min-width: 0; }
+.friend-invite-toast__text { font-size: 0.88rem; line-height: 1.35; color: var(--text); min-width: 0; text-align: center; overflow-wrap: anywhere; }
 .friend-invite-toast__text code { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 800; }
 .friend-invite-toast__actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
 .friend-invite-toast__actions .btn { min-height: var(--tap-min); }

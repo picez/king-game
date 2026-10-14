@@ -36,6 +36,13 @@ describe('Friends tab (Profile)', () => {
 });
 
 describe('Room invite wiring (OnlineGame)', () => {
+  it('the received-invite toast is OPAQUE — the top bar never shows through it (2026-10-14)', () => {
+    const css = read('src/styles/lobby.css');
+    const rule = /\.friend-invite-toast \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toContain('background-color: #0f3f24');
+    expect(rule).not.toMatch(/background:\s*var\(--surface/);
+  });
+
   it('offers Invite on online friends (in-room) and shows a received-invite toast', () => {
     expect(online).toContain('sendFriendInvite');
     expect(online).toContain('friend-invite-toast');
