@@ -131,9 +131,15 @@ describe('the chat is NOT a modal and never blocks the game', () => {
     const fixedRules = [...cssCode.matchAll(/([^{}]+)\{[^}]*position:\s*fixed[^}]*\}/g)]
       .map((m) => m[1].trim().split('\n').pop()!.trim());
     // `.permleave-backdrop` is a modal ON PURPOSE (an irreversible confirmation).
+    // (2026-10-14, owner) The in-room social REGION floats over the top of the table so the
+    // chat opens in view — but as a pointer-through layer with no backdrop: only the panel
+    // itself takes taps, and it is not a dialog.
     expect(fixedRules.sort()).toEqual([
-      '.chat-lightbox', '.permleave-backdrop', '.reactions-float', '.social-toast',
+      '.chat-lightbox', '.permleave-backdrop', '.reactions-float',
+      '.room-layout > .social-region:not(:empty)', '.social-toast',
     ]);
+    expect(cssCode).toMatch(/\.room-layout > \.social-region:not\(:empty\) \{[^}]*pointer-events: none/);
+    expect(cssCode).toMatch(/\.room-layout > \.social-region > \* \{ pointer-events: auto;/);
     expect(cssCode).toMatch(/\.social-toast \{[^}]*pointer-events: none/);
     expect(cssCode).toMatch(/\.reactions-float \{[^}]*pointer-events: none/);
   });

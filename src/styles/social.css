@@ -80,6 +80,43 @@
 .social-region { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .social-region:not(:empty) { padding: 0 max(0.6rem, env(safe-area-inset-left)) calc(0.6rem + env(safe-area-inset-bottom)); }
 
+/* ===== (2026-10-14, owner FAIL) THE FLOATING CHAT ==========================================
+   Every table is exactly one screen tall, so a panel AFTER the stage always opened below
+   the fold: to chat at all the player had to scroll the page away from their cards. The
+   owner chose a floating panel over the UPPER part of the table:
+     * it never covers the hand, the action bar or the control row (they sit low) — the
+       player keeps playing with the chat open, exactly as 38.0.14 demands;
+     * NO backdrop, NO aria-modal, NO scroll lock: the region passes taps through
+       (`pointer-events: none`) and only the panel itself takes them;
+     * anchored to the TOP, so a phone keyboard rising from the bottom never hides it.
+   The desktop sidecar below overrides all of this where a free side band exists. */
+.room-layout > .social-region:not(:empty) {
+  position: fixed; z-index: 58;
+  inset-block-start: calc(env(safe-area-inset-top) + 3.25rem);
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: min(calc(100% - 1rem), 34rem);
+  padding: 0;
+  pointer-events: none;
+}
+.room-layout > .social-region > * { pointer-events: auto; min-block-size: 0; }
+.room-layout > .social-region > .chat-panel {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  max-block-size: min(46dvh, 24rem);
+}
+/* Phone landscape: the hand runs along the bottom of the left band and the actions fill the
+   right column, so the panel takes the top-left only and stops well above the hand. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .room-layout > .social-region:not(:empty) {
+    inset-block-start: calc(env(safe-area-inset-top) + 0.4rem);
+    margin-inline: max(0.5rem, env(safe-area-inset-left)) auto;
+    inline-size: min(50vw, 26rem);
+  }
+  /* ~256px at 375 tall: heading + history + composer fit (15rem floor), and the panel still
+     ends above the hand, which starts at ~278px (fold-audit, 667x375). */
+  .room-layout > .social-region > .chat-panel { max-block-size: min(70dvh, 16rem); min-block-size: 0; }
+}
+
 /* A page that grows taller when the chat opens must not also grow a scrollbar: at 1920 the
    51 board lost 15px of width the moment the document overflowed. Reserving the gutter in
    every state costs the same 15px whether the chat is open or shut — which is the point. */
@@ -159,6 +196,8 @@ html { scrollbar-gutter: stable; }
     align-self: center; justify-self: start;
   }
   .room-layout--sidecar-compact > .social-region:not(:empty) {
+    /* In the declared side band the panel is an in-flow grid item again, not a float. */
+    position: static; inset: auto; z-index: auto; margin-block: 0;
     inline-size: var(--sidecar-chat);
     margin-inline: var(--sidecar-gap) var(--sidecar-margin);
     padding: 0;
@@ -172,7 +211,7 @@ html { scrollbar-gutter: stable; }
   }
   .room-layout--sidecar-compact > .social-region > * { pointer-events: auto; min-block-size: 0; }
   .room-layout--sidecar-compact > .social-region > .chat-panel {
-    block-size: 100%; max-block-size: 100%;
+    block-size: 100%; max-block-size: 100%; box-shadow: none;
   }
   /* With a full column to work in the picker can show whole rows of stickers instead of a
      clipped one, while the conversation above it keeps most of the panel. */
@@ -183,6 +222,8 @@ html { scrollbar-gutter: stable; }
     align-self: center; justify-self: start;
   }
   .room-layout--sidecar-wide > .social-region:not(:empty) {
+    /* In the declared side band the panel is an in-flow grid item again, not a float. */
+    position: static; inset: auto; z-index: auto; margin-block: 0;
     inline-size: var(--sidecar-chat);
     margin-inline: var(--sidecar-gap) var(--sidecar-margin);
     padding: 0;
@@ -196,7 +237,7 @@ html { scrollbar-gutter: stable; }
   }
   .room-layout--sidecar-wide > .social-region > * { pointer-events: auto; min-block-size: 0; }
   .room-layout--sidecar-wide > .social-region > .chat-panel {
-    block-size: 100%; max-block-size: 100%;
+    block-size: 100%; max-block-size: 100%; box-shadow: none;
   }
   /* With a full column to work in the picker can show whole rows of stickers instead of a
      clipped one, while the conversation above it keeps most of the panel. */
@@ -523,11 +564,20 @@ html { scrollbar-gutter: stable; }
 /* Phones: the text-emoji set is a two-row strip swiped sideways, so the stickers under it
    stay in view instead of sinking below a 54-emoji grid (measured at 360: the grid was
    ~300px tall in a picker capped at 210px). */
-@media (max-width: 600px) {
+@media (max-width: 600px), (max-height: 520px) {
   .chat-picker__emoji--text {
     grid-auto-flow: column; grid-template-rows: repeat(2, 44px);
     grid-auto-columns: 44px; grid-template-columns: none;
     overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
     scrollbar-width: thin; padding-bottom: 2px;
   }
+}
+
+/* Short screens (phone landscape): a 15rem panel cannot hold a 6.5rem history floor AND a
+   usable picker — the picker was squeezed to ~20px and its emoji could not be tapped. Here
+   the history keeps a smaller floor and the picker body always shows its two emoji rows. */
+@media (max-height: 520px) {
+  .chat-panel__list { min-height: 3.5rem; }
+  .chat-picker__body { min-height: 5.9rem; }
+  .chat-picker { max-height: none; }
 }

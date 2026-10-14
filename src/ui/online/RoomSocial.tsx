@@ -222,10 +222,13 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   // The panel opens IN FLOW, so on a tall board it can appear below the fold. Bring it
   // into view once — by SCROLLING THE PAGE, which is exactly what the player could have
   // done by hand, and which leaves the hand and the action row one scroll away.
+  // (2026-10-14) In a room the panel FLOATS over the top of the table, already in view —
+  // scrolling the page would only move the cards. Only the in-place fallback (no region:
+  // the lobby, an isolated harness) still needs bringing into view.
   useEffect(() => {
-    if (!chatOpen) return;
+    if (!chatOpen || panelHost) return;
     panelRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [chatOpen]);
+  }, [chatOpen, panelHost]);
 
   //
   // Opening the picker shortens the conversation above it — keep the newest message in

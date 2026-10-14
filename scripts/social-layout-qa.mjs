@@ -285,7 +285,11 @@ const PROBE = `JSON.stringify((() => {
   // 5. With the picker open the HISTORY must survive beside it, and the composer stay put.
   const histVisible = visibleH(listNode());
   if (picker && live(picker)) {
-    if (histVisible < 96) add('history-squeezed', Math.round(histVisible) + 'px');
+    // (2026-10-14) A 375px-tall landscape phone cannot hold a 96px history AND the composer
+    // AND two emoji rows in a panel that must end above the hand: there the floor is the
+    // last ~2 messages.
+    const histFloor = vh <= 520 ? 56 : 96;
+    if (histVisible < histFloor - S) add('history-squeezed', Math.round(histVisible) + 'px');
     if (shell && histVisible / shell.h < 0.2) {
       add('history-share', Math.round(100 * histVisible / shell.h) + '% of ' + Math.round(shell.h));
     }
@@ -384,6 +388,8 @@ const STATE = `JSON.stringify((() => {
 const VIEWPORTS = [
   { tag: '360', w: 360, h: 800, mobile: true },
   { tag: '390', w: 390, h: 844, mobile: true },
+  // (2026-10-14) Phone landscape: the floating chat must clear the hand there too.
+  { tag: '667L', w: 667, h: 375, mobile: true },
   { tag: '768', w: 768, h: 1024, mobile: true },
   { tag: '1366', w: 1366, h: 900, mobile: false },
   { tag: '1920', w: 1920, h: 1080, mobile: false },
@@ -551,10 +557,18 @@ function geoDiff(closed, other, label) {
 }
 
 /** Everything a player must be able to see and press while the chat is open. */
+/**
+ * (2026-10-14, owner FAIL "the chat goes down, I have to scroll to chat") Every table is one
+ * screen tall, so an in-flow panel always opened below the fold. The owner chose a panel
+ * FLOATING over the upper table. So the zones split in two:
+ *   PLAY zones — the hand, the action bars, the piles you draw from: what a player TAPS to
+ *     move. The open chat may never cover them, and a tap there must reach the game.
+ *   The board (`.game-body`, `.durak-board`, `.tarneeb-board`, `.preferans-board`,
+ *     `.fiftyone-melds`, `.poker-table`…) may sit under the floating panel while it is open.
+ */
 const GAMEPLAY_ZONES = [
-  '.game-body', '.game-footer', '.durak-board', '.durak-controls', '.deberc-firstdealer',
-  '.tarneeb-board', '.tarneeb-centre', '.preferans-board', '.fiftyone-piles', '.fiftyone-melds',
-  '.fiftyone-actions', '.poker-table', '.poker-actions', '.hand-reorder-wrap',
+  '.game-footer', '.durak-controls', '.deberc-firstdealer',
+  '.fiftyone-piles', '.fiftyone-actions', '.poker-actions', '.hand-reorder-wrap',
 ];
 
 function scenarios() {
@@ -662,6 +676,13 @@ const NONBLOCKING = `JSON.stringify((() => {
       }
     }
   }
+
+  // 5b. (2026-10-14) The open chat is ENTIRELY on screen — no scrolling to reach it.
+  if (panel && (panel.t < -S || panel.b > vh + S)) {
+    add('chat-off-screen', Math.round(panel.t) + '..' + Math.round(panel.b) + ' of ' + vh);
+  }
+  // …and its control row (timer, 💬, voice, leave) is never under it.
+  if (panel && clusterR && hit(panel, clusterR)) add('chat-over-controls', 'room-social__bar');
 
   // 6. The page still never scrolls sideways.
   const de = document.documentElement;

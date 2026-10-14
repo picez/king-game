@@ -383,7 +383,8 @@ const PROBE = `JSON.stringify((() => {
   const historyEl = document.querySelector('.chat-panel__list');
   if (pickerEl && historyEl) {
     const hv = visibleH(historyEl);
-    if (hv < 96) add('history-squeezed', Math.round(hv) + 'px');
+    // (2026-10-14) Same floor as layout:social: ~2 messages on a <=520px-tall landscape phone.
+    if (hv < (window.innerHeight <= 520 ? 55.5 : 96)) add('history-squeezed', Math.round(hv) + 'px');
     const panelEl = document.querySelector('.chat-panel');
     if (panelEl) {
       const pr = rect(panelEl);

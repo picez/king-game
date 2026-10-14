@@ -16,6 +16,12 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **The chat opens on screen — no scrolling.** Every table is exactly one screen tall, so
+  the chat used to open *below* it and players had to scroll away from their cards to talk.
+  It now floats over the upper part of the table (no dimming, nothing locked): the hand,
+  the action buttons, the timer and the 💬 button stay visible and keep working. Anchored to
+  the top, so the phone keyboard never hides it; in phone landscape it takes the top-left
+  and stops above the hand. Wide desktop screens keep the side panel.
 - **Every game names itself at the top.** All seven top bars carry the game's emblem and
   name plus its key facts in one line that scrolls sideways on a narrow phone (no extra
   height): Durak shows the variant, the cards left in the deck and the goal; Fifty-One the
