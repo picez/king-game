@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n';
 import { REACTIONS, MAX_CHAT_LEN } from '../../net/chatFilter';
+import { TEXT_EMOJI } from '../../net/chatEmoji';
 import { CHAT_MEDIA, type ChatMediaItem } from '../../net/chatMediaCatalog';
 import type { ChatMessage, ChatMedia } from '../../net/messages';
 import type { ReactionEvent, SocialNotice } from '../../hooks/useNetworkGame';
@@ -77,6 +78,15 @@ export type SocialPanel = 'none' | 'chat' | 'utility';
  */
 export const SOCIAL_REGION_ID = 'social-region';
 
+/**
+ * The picker's emoji tabs. Each does ONE thing, always, whatever the focus is doing:
+ * `emoji` puts the emoji INTO THE MESSAGE at the caret, `table` floats a reaction over the
+ * sender's seat. Stickers stay visible under both (a sticker is a message). (The older focus-derived destination
+ * misfired on phones: hiding the keyboard to see the picker blurred the field, so the
+ * emoji the player meant for their sentence was thrown onto the table instead.)
+ */
+export type PickerTab = 'emoji' | 'table';
+
 const REACTION_TTL_MS = 2600;
 
 /** A transient sticker floated on the table when a media chat message arrives. */
@@ -139,19 +149,19 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
    * 75a3b6d: opening the picker moved focus to the button.
    */
   const keepFocus = (e: { preventDefault: () => void }) => { e.preventDefault(); };
-  /**
-   * (38.0.15 corrective) There is ONE set of emoji, and what a tap on it does depends on
-   * whether the player was typing. That answer must be read at the START of the press,
-   * before anything can move the focus: on a phone the tap itself can dismiss the keyboard,
-   * and any stray blur between the finger landing and the `click` firing would silently
-   * flip the intent the player already expressed. `pointerdown` is the first event of the
-   * gesture — earlier than `mousedown`, earlier than the synthetic mouse events a touch
-   * produces — so the intent is captured there and merely SPENT on click.
-   * `null` = no press captured (keyboard activation): fall back to the live focus.
-   */
-  const intentRef = useRef<boolean | null>(null);
   const isTyping = () => typeof document !== 'undefined' && document.activeElement === inputRef.current;
-  const captureIntent = () => { intentRef.current = isTyping(); };
+  const [pickerTab, setPickerTab] = useState<PickerTab>('emoji');
+  /**
+   * The caret as the player last left it. On a phone the keyboard is usually closed while
+   * they pick (it covers the picker), so the field is blurred — and a blurred input's own
+   * `selectionStart` cannot be trusted (it reads 0 on some engines). Remembering the caret
+   * lets an emoji land exactly where the player stopped typing, mid-sentence included.
+   */
+  const caretRef = useRef<{ start: number; end: number } | null>(null);
+  const rememberCaret = () => {
+    const el = inputRef.current;
+    if (el && el.selectionStart != null) caretRef.current = { start: el.selectionStart, end: el.selectionEnd ?? el.selectionStart };
+  };
   /** Close ONLY the picker; the conversation — and the caret — stay exactly where they were. */
   const closePicker = () => {
     setPickerOpen(false);
@@ -262,56 +272,47 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
   const activeFloats = floats.filter((f) => now - f.at < REACTION_TTL_MS);
 
   /**
-   * NOT typing → the EXISTING server reaction (Stage 7 protocol, no new transport). The
-   * server stamps the sender and every client anchors it on that player's SEAT, so two
-   * players sharing a display name are still told apart. It never touches the draft — not
-   * even a non-empty one — never pulls focus into the field, and never closes anything.
+   * The `table` tab → the EXISTING server reaction (Stage 7 protocol, no new transport). The
+   * server stamps the sender and every client anchors it on that player's SEAT. It never
+   * touches the draft, never pulls focus into the field, and never closes anything.
    */
   function react(emoji: string) {
     onReact(emoji);
   }
   /**
-   * THE one emoji control. The destination is not a mode, a row or a guess made at click
-   * time: it is the intent captured when the press began (see `captureIntent`).
-   */
-  function pickEmoji(emoji: string) {
-    const typing = intentRef.current ?? isTyping();
-    intentRef.current = null;
-    if (typing) insertEmoji(emoji); else react(emoji);
-  }
-  /**
-   * (38.0.16) A sticker is a message, not a character — it cannot be typed into a plain
-   * `<input>`. So it ATTACHES to the draft instead, whenever there is a draft to attach it
-   * to: the field is active, or something is already written. The player keeps typing and
-   * one Send posts ONE message carrying both. Picking another sticker replaces this one —
-   * it never posts anything on its own (MVP: one attachment per message).
-   *
-   * With no draft and no caret there is nothing to combine with, so the old one-tap
-   * media-only message stands: exactly one send, nothing to confirm.
+   * A sticker is a message, not a character — it cannot be typed into a plain `<input>`.
+   * So it ATTACHES to the draft whenever there is a draft to attach it to (the field is
+   * active, or something is already written); one Send then posts ONE message carrying
+   * both. With no draft, the one-tap media-only message stands.
    */
   function sendMedia(item: ChatMediaItem) {
-    if (intentRef.current ?? (isTyping() || text.trim().length > 0)) {
-      intentRef.current = null;
+    if (isTyping() || text.trim().length > 0) {
       setAttachment(item);
       inputRef.current?.focus();
       return;
     }
-    intentRef.current = null;
     onChatMedia(item.id);
   }
   /**
-   * TYPING → the emoji is TEXT: it lands AT THE CARET, so it can be dropped into the middle
-   * of a half-typed line without wiping it, and the caret follows it. Nothing is sent —
-   * neither `onReact` nor `onChat`; the line leaves only when the player presses Send or
-   * Enter. The field keeps the focus and, on a phone, the keyboard.
+   * The `emoji` tab → the emoji is TEXT: it lands at the caret (live, or as the player last
+   * left it), so it drops into the middle of a half-typed line without wiping it, and the
+   * caret follows it. Nothing is sent — the line leaves only on Send / Enter.
+   *
+   * Focus is handed back ONLY if the player was in the field. On a phone, re-focusing a
+   * field the player had left would throw the keyboard up over the picker after every
+   * single emoji; leaving it down lets them tap several in a row and read the result.
    */
   function insertEmoji(emoji: string) {
+    const typing = isTyping();
     const el = inputRef.current;
-    const start = el?.selectionStart ?? text.length;
-    const end = el?.selectionEnd ?? text.length;
+    const saved = caretRef.current;
+    const start = Math.min(typing ? (el?.selectionStart ?? text.length) : (saved?.start ?? text.length), text.length);
+    const end = Math.min(Math.max(typing ? (el?.selectionEnd ?? start) : (saved?.end ?? start), start), text.length);
     const next = (text.slice(0, start) + emoji + text.slice(end)).slice(0, MAX_CHAT_LEN);
     setText(next);
     const caret = Math.min(start + emoji.length, next.length);
+    caretRef.current = { start: caret, end: caret };
+    if (!typing) return;
     requestAnimationFrame(() => {
       const input = inputRef.current;
       input?.focus();
@@ -333,6 +334,7 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
     onChat(v, attachment?.id);
     setText('');
     setAttachment(null);
+    caretRef.current = null;
   }
 
   const noticeText = notice
@@ -386,36 +388,65 @@ export default function RoomSocial({ reactions, chat, myClientId, onReact, onCha
         onMouseDown={keepFocus}
         onClick={() => (pickerOpen ? closePicker() : setPickerOpen(true))}>😀</button>
       <input ref={inputRef} className="input chat-input" value={text} maxLength={MAX_CHAT_LEN}
-        onChange={(e) => setText(e.target.value)} placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
-      <button type="submit" className="btn btn--primary btn--small"
-        disabled={!text.trim() && !attachment}>{t('chat.send')}</button>
+        onChange={(e) => { setText(e.target.value); rememberCaret(); }}
+        onSelect={rememberCaret} onBlur={rememberCaret}
+        enterKeyHint="send" autoComplete="off" spellCheck
+        placeholder={t('chat.placeholder')} aria-label={t('chat.message')} />
+      <button type="submit" className="btn btn--primary btn--small chat-send-btn"
+        disabled={!text.trim() && !attachment} aria-label={t('chat.send')} title={t('chat.send')}>
+        <span className="chat-send-btn__label">{t('chat.send')}</span>
+        <span className="chat-send-btn__icon" aria-hidden="true">➤</span>
+      </button>
     </form>
   );
 
   /**
-   * The in-chat picker: ONE emoji set and the sticker catalog. It is a BOUNDED SIBLING of
-   * the conversation — never a replacement for it — and the single scroller of its region.
-   *
-   * (38.0.15 corrective, owner FAIL) There is exactly ONE `chat-picker__emoji` container,
-   * ONE `REACTIONS.map`, and therefore each emoji exists exactly once in the DOM. The
-   * duplicated «into your message» / «on the table» rows are gone — deleted, not hidden —
-   * along with their headings, their wrappers, their CSS and their i18n keys. The same
-   * button carries both destinations, chosen by what the player was doing when the press
-   * began: typing → into the draft at the caret; not typing → onto the table over their
-   * seat. Stickers are untouched by all of this: a sticker is a message.
+   * The in-chat picker: two emoji tabs, each with ONE fixed meaning (see {@link PickerTab}),
+   * and the sticker catalog under them.
+   * It is a BOUNDED SIBLING of the conversation — never a replacement for it — and the
+   * single scroller of its region. No control in it takes focus (`keepFocus`).
    */
+  const pickerTabs: { id: PickerTab; icon: string; label: string }[] = [
+    { id: 'emoji', icon: '😀', label: t('chat.tabEmoji') },
+    { id: 'table', icon: '🎭', label: t('chat.tabTable') },
+  ];
   const chatPicker = pickerOpen ? (
     <div className="chat-picker" role="group" aria-label={t('chat.mediaPicker')}>
-      <div className="chat-picker__emoji">
-        {REACTIONS.map((e) => (
-          <button key={e} type="button" className="reaction-bar__btn"
-            onPointerDown={captureIntent} onMouseDown={keepFocus}
-            onClick={() => pickEmoji(e)} aria-label={`${t('social.emoji')} ${e}`}>
-            {e}
+      <div className="chat-picker__tabs" role="tablist" aria-label={t('chat.mediaPicker')}>
+        {pickerTabs.map((tab) => (
+          <button key={tab.id} type="button" role="tab" aria-selected={pickerTab === tab.id}
+            className={`chat-picker__tab ${pickerTab === tab.id ? 'chat-picker__tab--on' : ''}`}
+            onMouseDown={keepFocus} onClick={() => setPickerTab(tab.id)}>
+            <span aria-hidden="true">{tab.icon}</span> {tab.label}
           </button>
         ))}
       </div>
+      <div className="chat-picker__body">
+      {pickerTab === 'emoji' && (
+        <div className="chat-picker__emoji chat-picker__emoji--text" role="tabpanel">
+          {TEXT_EMOJI.map((e) => (
+            <button key={e} type="button" className="reaction-bar__btn"
+              onMouseDown={keepFocus} onClick={() => insertEmoji(e)}
+              aria-label={`${t('chat.insertEmoji')} ${e}`}>
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+      {pickerTab === 'table' && (
+        <div className="chat-picker__emoji chat-picker__emoji--table" role="tabpanel">
+          <p className="chat-picker__note">{t('chat.tableHint')}</p>
+          {REACTIONS.map((e) => (
+            <button key={e} type="button" className="reaction-bar__btn"
+              onMouseDown={keepFocus} onClick={() => react(e)}
+              aria-label={`${t('social.emoji')} ${e}`}>
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
       {stickerGrid}
+      </div>
     </div>
   ) : null;
 

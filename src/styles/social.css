@@ -481,3 +481,53 @@ html { scrollbar-gutter: stable; }
    button serves both destinations, so there is nothing left to label. */
 .chat-picker__emoji { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; }
 .chat-picker-btn { flex: 0 0 auto; padding: 0.25rem 0.45rem; font-size: 1.05rem; line-height: 1; }
+
+/* ── Picker tabs: each tab has ONE fixed meaning (emoji → into the text, table → reaction,
+   stickers). Pinned above the grid so the switch never scrolls away. */
+/* The tabs sit OUTSIDE the scroller (a sticky bar covered the stickers scrolled under it
+   on a short 360×800 picker); `.chat-picker__body` is the picker's one scroller. */
+.chat-picker:has(> .chat-picker__body) { overflow: hidden; }
+.chat-picker__tabs { flex: 0 0 auto; display: flex; gap: 4px; }
+.chat-picker__body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 0.4rem;
+}
+.chat-picker__tab {
+  flex: 1 1 0; min-width: 0; min-height: 36px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.2rem 0.5rem; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-picker__tab--on { color: var(--text); background: var(--surface-3); border-color: var(--accent, #f5c518); }
+.chat-picker__note { flex: 1 1 100%; margin: 0; font-size: 0.75rem; color: var(--text-muted); }
+/* The text-emoji grid fills the width evenly instead of leaving a ragged last row. */
+.chat-picker__emoji--text { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 2px; }
+/* Emoji must render as colour glyphs on every platform (Windows, Android, iOS, Linux). */
+.chat-msg__text, .chat-input, .reaction-bar__btn, .chat-picker__tab {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol";
+}
+/* 16px keeps iOS Safari from zooming the page when the field takes focus. */
+.chat-input { font-size: max(16px, 1rem); }
+.chat-send-btn { flex: 0 0 auto; min-height: 40px; }
+.chat-send-btn__icon { display: none; }
+/* Narrow phones: the send button shrinks to an arrow so the field keeps its width. */
+@media (max-width: 420px) {
+  .chat-send-btn__label { display: none; }
+  .chat-send-btn__icon { display: inline; font-size: 1.05rem; }
+  .chat-send-btn { min-width: 44px; padding-inline: 0.6rem; }
+}
+/* Phones: the text-emoji set is a two-row strip swiped sideways, so the stickers under it
+   stay in view instead of sinking below a 54-emoji grid (measured at 360: the grid was
+   ~300px tall in a picker capped at 210px). */
+@media (max-width: 600px) {
+  .chat-picker__emoji--text {
+    grid-auto-flow: column; grid-template-rows: repeat(2, 44px);
+    grid-auto-columns: 44px; grid-template-columns: none;
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+    scrollbar-width: thin; padding-bottom: 2px;
+  }
+}

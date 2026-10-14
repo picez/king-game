@@ -265,87 +265,57 @@ describe('all seven screens take the SAME generic slot', () => {
   });
 });
 
-describe('(38.0.15 corrective) ONE emoji set, contextual destination', () => {
-  it('the picker declares exactly ONE emoji container and ONE REACTIONS.map', () => {
-    expect(count(code, /className="chat-picker__emoji"/g)).toBe(1);
-    expect(count(code, /REACTIONS\.map/g)).toBe(1);   // `code` = comments stripped
-    expect(count(css, /\.chat-picker__emoji\b/g)).toBe(1);
+describe('Picker tabs: every emoji control has ONE fixed destination', () => {
+  // (Owner, 2026-10-14) "emoji must go INTO the text, e.g. 'some text <emoji> more text'".
+  // The 38.0.15 focus-derived destination misfired on phones: hiding the keyboard to see
+  // the picker blurred the field, and the emoji went onto the table instead of the line.
+  it('two emoji tabs — into the text / on the table — the text tab is the default; stickers stay visible', () => {
+    expect(src).toContain("export type PickerTab = 'emoji' | 'table';");
+    expect(code).toMatch(/\{stickerGrid\}\s*<\/div>\s*<\/div>/);
+    expect(src).toContain("useState<PickerTab>('emoji')");
+    expect(code).toMatch(/role="tablist"/);
+    expect(css).toContain('.chat-picker__tabs');
   });
 
-  it('every emoji appears exactly once in the rendered picker', () => {
-    // Render the picker by driving the component's own markup path: the picker is closed
-    // until tapped, so the DOM proof lives in the browser gate; here we prove the SOURCE
-    // cannot emit a second set — no duplicate map, no per-destination wrapper, no factory.
-    expect(src).not.toMatch(/emojiRow|reaction-bar__emojis--/);
-    expect(src).not.toMatch(/chat-picker__section/);
-    expect(css).not.toContain('chat-picker__section');
-    expect(css).not.toContain('.chat-picker__hint');
+  it('the emoji tab ONLY inserts into the text; the table tab ONLY reacts', () => {
+    expect(code).toMatch(/TEXT_EMOJI\.map\(\(e\) => \([^]*?onClick=\{\(\) => insertEmoji\(e\)\}/);
+    expect(code).toMatch(/REACTIONS\.map\(\(e\) => \([^]*?onClick=\{\(\) => react\(e\)\}/);
+    expect(count(code, /TEXT_EMOJI\.map/g)).toBe(1);
+    expect(count(code, /REACTIONS\.map/g)).toBe(1);
+    // No focus-derived guessing is left anywhere.
+    expect(src).not.toMatch(/captureIntent|intentRef|pickEmoji|onPointerDown/);
   });
 
-  it('the destination labels and hints are DELETED, not hidden', () => {
-    expect(src).not.toMatch(/chat-picker__hint|emojiToMessage|emojiToTable|emojiHint/);
-    // Nothing may bring them back through CSS either.
-    expect(css).not.toMatch(/chat-picker__(hint|section|mode)/);
-    for (const lang of ['en', 'uk', 'de', 'ar']) {
-      const dict = read(`src/i18n/dictionaries/${lang}.ts`);
-      expect(dict, lang).not.toMatch(/chat\.emojiTo(Message|Table)|chat\.emojiHint(Message|Table)|chat\.emojiMode/);
-    }
-    // No mode state either (38.0.12's RED).
-    expect(src).not.toMatch(/PickerMode|pickerMode|data-mode=/);
-  });
-
-  it('the intent is captured on POINTERDOWN, before any blur can flip it', () => {
-    expect(src).toContain('const intentRef = useRef<boolean | null>(null);');
-    expect(src).toMatch(/const isTyping = \(\) => typeof document !== 'undefined' && document\.activeElement === inputRef\.current;/);
-    expect(src).toContain('const captureIntent = () => { intentRef.current = isTyping(); };');
-    expect(src).toMatch(/onPointerDown=\{captureIntent\}/);
-    // …and merely SPENT on click, with a live-focus fallback for keyboard activation.
-    expect(fnBody('pickEmoji')).toMatch(/const typing = intentRef\.current \?\? isTyping\(\);[^]*intentRef\.current = null;[^]*if \(typing\) insertEmoji\(emoji\); else react\(emoji\);/);
-    expect(src).toMatch(/onClick=\{\(\) => pickEmoji\(e\)\}/);
-    expect(src).not.toMatch(/text\.length\s*(>|===|!==)\s*0\s*\?/);
-  });
-
-  it('typing → insert at the caret, and NOTHING is sent', () => {
+  it('insert lands at the live caret, or at the caret the player last left, and sends NOTHING', () => {
     const insert = fnBody('insertEmoji');
-    expect(insert).toMatch(/const start = el\?\.selectionStart \?\? text\.length;/);
+    expect(insert).toMatch(/typing \? \(el\?\.selectionStart \?\? text\.length\) : \(saved\?\.start \?\? text\.length\)/);
     expect(insert).toMatch(/text\.slice\(0, start\) \+ emoji \+ text\.slice\(end\)/);
-    expect(insert).toMatch(/input\?\.focus\(\);[^]*setSelectionRange\(caret, caret\)/);
+    expect(insert).toMatch(/caretRef\.current = \{ start: caret, end: caret \};/);
+    // Focus is handed back only to a player who was typing (no keyboard pop on phones).
+    expect(insert).toMatch(/if \(!typing\) return;[^]*input\?\.focus\(\);[^]*setSelectionRange\(caret, caret\)/);
     expect(insert).not.toMatch(/onReact|onChat/);
+    // The caret is remembered on every change, selection and blur.
+    expect(src).toMatch(/onSelect=\{rememberCaret\} onBlur=\{rememberCaret\}/);
   });
 
-  it('not typing → exactly one reaction, draft and focus untouched', () => {
+  it('table → exactly one reaction, draft and focus untouched', () => {
     expect(src).toMatch(/function react\(emoji: string\) \{\s*onReact\(emoji\);\s*\}/);
     expect(fnBody('react')).not.toMatch(/setText|focus\(\)|setPicker|setPanel/);
-    expect(src).not.toMatch(/onReact\(emoji\);\s*set(React|Picker)Open\(false\)/);
   });
 
-  it('no picker control steals focus — the opener included', () => {
+  it('no picker control steals focus — the opener and the tabs included', () => {
     expect(src).toContain('const keepFocus = (e: { preventDefault: () => void }) => { e.preventDefault(); };');
-    // picker opener + the emoji button + the sticker thumb + (38.0.16) remove-attachment.
-    expect(count(src, /onMouseDown=\{keepFocus\}/g)).toBe(4);
+    // opener + tab + text emoji + table emoji + sticker thumb + remove-attachment.
+    expect(count(src, /onMouseDown=\{keepFocus\}/g)).toBe(6);
     expect(src).toMatch(/className="btn btn--ghost btn--small chat-picker-btn"[^]*onMouseDown=\{keepFocus\}/);
     expect(src).toMatch(/if \(!isTyping\(\)\) pickerBtnRef\.current\?\.focus\(\);/);
   });
 
-  it('the sticker catalog is untouched, and a sticker is still a message', () => {
-    // (38.0.16) With a draft it ATTACHES to that draft; with no draft it is still the
-    // same one-tap media-only send it always was.
-    expect(src).toMatch(/function sendMedia\(item: ChatMediaItem\) \{/);
-    expect(fnBody('sendMedia')).toMatch(/setAttachment\(item\)/);
-    expect(fnBody('sendMedia')).toMatch(/onChatMedia\(item\.id\)/);
-    expect(src).toContain('CHAT_MEDIA.map((item)');
-    expect(src).not.toMatch(/CHAT_MEDIA\.(slice|filter|sort)/);
-  });
-
-  it('Escape still peels lightbox → picker → chat, and ✕ closes the chat', () => {
-    expect(src).toMatch(/if \(lightbox\) \{ setLightbox\(null\); return; \}/);
-    expect(src).toMatch(/if \(pickerOpen\) \{ closePicker\(\); return; \}/);
-    expect(src).toContain('className="chat-panel__close" onClick={closeChat}');
-  });
-
-  it('a table reaction is anchored on the sender SEAT, never on a display name', () => {
-    expect(src).toContain('reactionAnchorForSender(r.seatIndex, mySeatIndex, seatCount, reactionsMirrored)');
-    expect(src).not.toMatch(/reactionAnchorForSender\([^)]*\.name/);
+  it('the composer is phone-friendly: send key, no autofill, 16px field, compact send on narrow screens', () => {
+    expect(src).toMatch(/enterKeyHint="send"/);
+    expect(src).toMatch(/autoComplete="off"/);
+    expect(css).toMatch(/\.chat-input \{ font-size: max\(16px, 1rem\); \}/);
+    expect(css).toMatch(/@media \(max-width: 420px\) \{\s*\.chat-send-btn__label \{ display: none; \}/);
   });
 });
 

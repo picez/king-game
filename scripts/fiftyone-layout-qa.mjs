@@ -349,7 +349,10 @@ const PROBE = `JSON.stringify((() => {
   // The conversation and the picker each bound themselves; NOTHING inside either of
   // them may add a scrollbar of its own.
   for (const root of ['.chat-picker', '.chat-panel__list']) {
-    const region = document.querySelector(root);
+    // (2026-10-14) The picker's scroller is its body under the fixed tabs, when present.
+    const region = root === '.chat-picker'
+      ? (document.querySelector('.chat-picker > .chat-picker__body') || document.querySelector(root))
+      : document.querySelector(root);
     if (!region) continue;
     for (const el of region.querySelectorAll('*')) {
       const st = getComputedStyle(el);

@@ -107,10 +107,12 @@ describe('chat media stickers wiring (Stage 11.0)', () => {
     expect(social).toContain('setFloats');
   });
 
-  it('ONE emoji set, no destination labels, one sticker grid (38.0.15 corrective)', () => {
+  it('each emoji set renders once, behind its own tab; one sticker grid', () => {
     const body = social.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect((body.match(/className="chat-picker__emoji"/g) ?? []).length).toBe(1);
+    expect((body.match(/className="chat-picker__emoji chat-picker__emoji--text"/g) ?? []).length).toBe(1);
+    expect((body.match(/className="chat-picker__emoji chat-picker__emoji--table"/g) ?? []).length).toBe(1);
     expect((body.match(/REACTIONS\.map/g) ?? []).length).toBe(1);
+    expect((body.match(/TEXT_EMOJI\.map/g) ?? []).length).toBe(1);
     expect(body).not.toMatch(/emojiToMessage|emojiToTable|emojiHint|chat-picker__hint/);
     expect(social).toContain("t('chat.mediaPicker')");  // the picker's own label
     expect(social).toContain('reaction-bar__stickers');

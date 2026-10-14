@@ -160,7 +160,7 @@ describe('the composer and the bubble', () => {
   it('a sticker ATTACHES to a draft instead of sending, and replaces the previous one', () => {
     expect(src).toContain('const [attachment, setAttachment] = useState<ChatMediaItem | null>(null);');
     // Draft present (typing OR text already written) → attach; otherwise the old one-tap send.
-    expect(src).toMatch(/if \(intentRef\.current \?\? \(isTyping\(\) \|\| text\.trim\(\)\.length > 0\)\) \{[^]*?setAttachment\(item\);/);
+    expect(src).toMatch(/if \(isTyping\(\) \|\| text\.trim\(\)\.length > 0\) \{[^]*?setAttachment\(item\);/);
     expect(src).toMatch(/setAttachment\(item\);[^]*?return;/);
     expect(src).toMatch(/onChatMedia\(item\.id\);/);
   });
