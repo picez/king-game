@@ -79,6 +79,7 @@ export default function TablePlayers({ viewerId }: Props) {
             </div>
             <div className={`tseat__tricks ${isWinner ? 'tseat__tricks--bump' : ''}`} title="Tricks won">
               🂠 {tricksWon(p.id)}
+              <span className="tseat__score" title="Score">★ {state.scores[p.id]?.total ?? 0}</span>
             </div>
           </div>
         );

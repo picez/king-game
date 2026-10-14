@@ -18,6 +18,7 @@ import { tarneebRankRows } from './tarneebScoreTable';
 import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 import { teamDisplayName, pairTeamSeats } from '../teamName';
+import GameInfoBar from '../components/GameInfoBar';
 
 interface Props {
   state: TarneebState;
@@ -140,7 +141,9 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
 
       <div className="tarneeb-topbar">
         <button type="button" className="btn btn--ghost tarneeb-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className="tarneeb-phase">{t(`tarneeb.phase.${phaseKey(phase)}`)}</span>
+        <GameInfoBar game="tarneeb">
+          <span className="tarneeb-phase">{t(`tarneeb.phase.${phaseKey(phase)}`)}</span>
+        </GameInfoBar>
         {/* Review taken tricks (Stage 27.3). Pairs keeps the compact topbar badge (team
             tricks); Solo uses a larger dedicated button under the standings (Stage 29.2). */}
         {!solo && (

@@ -12,6 +12,7 @@ import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
 import DebercScoreTable from './DebercScoreTable';
 import DebercTricksReview from './DebercTricksReview';
+import GameInfoBar from '../components/GameInfoBar';
 
 /** Nominal (top card) label for a declared meld — from its cards, or its topValue. */
 const VALUE_TO_RANK: Record<number, string> = { 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
@@ -234,10 +235,12 @@ export default function DebercGameScreen({ state, humanId, apply, onExit, notice
       )}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
-          {t('deberc.trump')} <strong>{SUIT_SYMBOL[trumpSuit]}</strong>
-          {trump == null && <em className="deberc-trump__pending"> ?</em>}
-        </span>
+        <GameInfoBar game="deberc">
+          <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
+            {t('deberc.trump')} <strong>{SUIT_SYMBOL[trumpSuit]}</strong>
+            {trump == null && <em className="deberc-trump__pending"> ?</em>}
+          </span>
+        </GameInfoBar>
         <span className="durak-topbar__btns">
           <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowScore(true)} aria-label={t('deberc.scoreTable')}>📊</button>
           <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowTricks(true)} aria-label={t('deberc.myTricks')}>🃏</button>

@@ -48,6 +48,7 @@ import DurakHelp from './DurakHelp';
 import DurakDeck from './DurakDeck';
 import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
+import GameInfoBar, { GameInfoChip } from '../components/GameInfoBar';
 
 /** Transient "what just happened" banner (a bout resolved). */
 export type DurakNotice = { kind: 'took'; name: string } | { kind: 'beaten' };
@@ -182,9 +183,14 @@ export default function DurakGameScreen({ state, humanId, apply, onExit, notice,
       {showHelp && <DurakHelp variant={state.variant} onClose={() => setShowHelp(false)} />}
       <div className="durak-topbar">
         <button type="button" className="btn btn--ghost durak-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
-          {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
-        </span>
+        <GameInfoBar game="durak">
+          <GameInfoChip>{t(state.variant === 'transfer' ? 'durak.variantTransfer' : 'durak.variantSimple')}</GameInfoChip>
+          <span className={`durak-trump ${trumpRed ? 'durak-trump--red' : ''}`}>
+            {t('durak.trump')} <strong>{SUIT_SYMBOL[state.trumpSuit]}</strong>
+          </span>
+          <GameInfoChip title={t('gameInfo.deck')}>🂠 {state.drawPile.length}</GameInfoChip>
+          <GameInfoChip>{t('gameInfo.durakGoal')}</GameInfoChip>
+        </GameInfoBar>
         <button type="button" className="btn btn--ghost durak-help-btn" onClick={() => setShowHelp(true)} aria-label={t('durak.howToPlay')}>❓</button>
       </div>
 

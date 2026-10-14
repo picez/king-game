@@ -10,6 +10,7 @@ import { OPENING_MINIMUM } from '../../games/fiftyOne/rules';
 import HandReorderTray from '../components/HandReorderTray';
 import FiftyOneLayoffDialog from './FiftyOneLayoffDialog';
 import { useManualHandOrder } from '../../hooks/useManualHandOrder';
+import GameInfoBar, { GameInfoChip } from '../components/GameInfoBar';
 
 /** 51 cards carry a real unique id (two decks + jokers), so use it directly. */
 const fiftyOneCardId = (c: FiftyOneCard): string => c.id;
@@ -384,7 +385,10 @@ export default function FiftyOneGameScreen({ state, humanSeat, apply, onExit, on
           screens tall at 360×640 and 3.44 at 667×375, with the hand starting at 944px. */}
       <div className="fiftyone-topbar">
         <button type="button" className="btn btn--ghost fiftyone-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className="fiftyone-round">{t('fiftyOne.round').replace('{n}', String(roundNumber))}</span>
+        <GameInfoBar game="fifty-one">
+          <span className="fiftyone-round">{t('fiftyOne.round').replace('{n}', String(roundNumber))}</span>
+          <GameInfoChip title={t('gameInfo.eliminationAt')}>🎯 {state.options?.targetPenalty ?? 510}</GameInfoChip>
+        </GameInfoBar>
         <button
           type="button"
           className={`btn btn--ghost fiftyone-calc-btn ${calcMode ? 'fiftyone-calc-btn--on' : ''}`}

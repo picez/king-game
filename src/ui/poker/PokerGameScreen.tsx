@@ -7,6 +7,7 @@ import PokerHandRankings from './PokerHandRankings';
 import PokerShowdownReview from './PokerShowdownReview';
 import { seatPosition } from './pokerSeatLayout';
 import { clampAmount, commitAmount, parseAmountInput, syncAmountToRange, wagerKindFor, type BetRange } from './betAmount';
+import GameInfoBar, { GameInfoChip } from '../components/GameInfoBar';
 
 interface Props {
   state: PokerState;
@@ -71,10 +72,13 @@ export default function PokerGameScreen({
 
       <header className="poker-topbar">
         <button type="button" className="poker-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className="poker-topbar__meta">
-          <span className="poker-hand-no">{t('poker.hand')} #{state.handNumber}</span>
-          <span className="poker-blinds-now">🔺 {state.smallBlindCurrent}/{state.bigBlindCurrent}</span>
-        </span>
+        <GameInfoBar game="poker">
+          <span className="poker-topbar__meta">
+            <span className="poker-hand-no">{t('poker.hand')} #{state.handNumber}</span>
+            <span className="poker-blinds-now">🔺 {state.smallBlindCurrent}/{state.bigBlindCurrent}</span>
+          </span>
+          <GameInfoChip title={t('gameInfo.playersLeft')}>👥 {state.stacksBySeat.filter((s) => s > 0).length}/{state.stacksBySeat.length}</GameInfoChip>
+        </GameInfoBar>
         <button type="button" className="poker-help-btn" onClick={() => setShowHelp(true)} aria-label={t('poker.help.title')}>❓</button>
       </header>
 

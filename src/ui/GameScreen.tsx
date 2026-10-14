@@ -12,6 +12,7 @@ import CollectedPanel from './components/CollectedPanel';
 import ScoreBoard from './components/ScoreBoard';
 import ScoreTrackerButton from './components/ScoreTrackerButton';
 import TurnTimer from './components/TurnTimer';
+import { GameTitle } from './components/GameInfoBar';
 
 const SUIT_COLOR_CLASS: Record<Suit, string> = {
   hearts:   'trump-suit--red',
@@ -68,6 +69,7 @@ export default function GameScreen({ socialSlot }: Props = {}) {
       {/* ── Header ── */}
       <div className="game-header">
         <div className="game-header__info">
+          <GameTitle game="king" />
           <span className={`mode-badge mode-badge--${modeType}`}>{modeLabel}</span>
           <span className="round-info">{t('common.round')} {roundNum} / {totalRounds}</span>
 

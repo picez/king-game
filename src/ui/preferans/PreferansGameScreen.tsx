@@ -15,6 +15,7 @@ import { validBids, validDeclareContracts, bidKey } from './bids';
 import PreferansHelp from './PreferansHelp';
 import HandReorderTray from '../components/HandReorderTray';
 import { useManualHandOrder, singleDeckCardId } from '../../hooks/useManualHandOrder';
+import GameInfoBar from '../components/GameInfoBar';
 
 interface Props {
   state: PreferansState;
@@ -169,7 +170,9 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
 
       <div className="preferans-topbar">
         <button type="button" className="btn btn--ghost preferans-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
-        <span className="preferans-phase">{t(`preferans.phase.${phaseKey(phase)}`)}</span>
+        <GameInfoBar game="preferans">
+          <span className="preferans-phase">{t(`preferans.phase.${phaseKey(phase)}`)}</span>
+        </GameInfoBar>
         <button type="button" className="btn btn--ghost preferans-help-btn" onClick={() => setShowHelp(true)} aria-label={t('preferans.howToPlay')}>❓</button>
       </div>
 

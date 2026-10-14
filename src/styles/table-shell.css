@@ -73,3 +73,29 @@
   .screen.table-shell > .hand-reorder-wrap { grid-column: 1; grid-row: 10; margin: 0; }
   .screen.table-shell > .room-social { grid-column: 2; grid-row: 10; align-self: end; margin: 0; }
 }
+
+/* ── The game info strip (GameInfoBar): game emblem + name, then the game's own facts.
+   It takes the top bar's flexible slot (zero extra height) and scrolls sideways inside
+   itself on a narrow phone instead of wrapping into a second pinned row. */
+.game-info {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; gap: 0.4rem;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  white-space: nowrap;
+}
+.game-info::-webkit-scrollbar { display: none; }
+.game-info > * { flex: 0 0 auto; }
+.game-info__title { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 800; color: var(--text); }
+.game-info__title .game-icon--sm { width: 22px; height: 22px; padding: 2px; }
+.game-info__name { font-size: 0.9rem; letter-spacing: 0.01em; }
+.game-info__chip {
+  font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+/* The phase / round labels keep their own look but stop claiming the whole row. */
+.game-info .preferans-phase, .game-info .tarneeb-phase { width: auto; }
+.game-info .fiftyone-round { flex: 0 0 auto; overflow: visible; }
+.fiftyone-topbar > .game-info { flex: 1 1 0; min-width: 0; }
+/* King's seats carry the running total next to the trick count. */
+.tseat__score { margin-inline-start: 0.4rem; font-weight: 700; color: var(--accent-light, #f5c518); }
