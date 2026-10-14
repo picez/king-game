@@ -45,6 +45,9 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Fixed
 
+- **The friend-invite card is opaque.** It painted a 7% white wash, so the game title, round
+  and seats showed through the invite text. It is now solid, one row on wide screens, and a new
+  gate (`npm run layout:invite`) fails on a see-through card in the menu and four tables.
 - **Voice: no more silent pairs after a reconnect.** A player who reconnected before the
   server closed their old connection stayed silent to the others until someone rejoined;
   the stale link is now rebuilt. A link that fails is retried twice automatically, and a
