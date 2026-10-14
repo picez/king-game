@@ -489,3 +489,10 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
    Specs: [`DEBERC_RULES.md`](DEBERC_RULES.md) / [`TARNEEB_RULES.md`](TARNEEB_RULES.md).
 5. (Scale) add Redis/pub-sub only if one Node process is no longer enough.
 6. (Optional) public deal-commitment for verifiable fairness.
+7. (Optional, deferred by the owner 2026-10-14) **TURN relay for voice** — only if players
+   behind strict NAT / mobile networks report no voice. The code is ready (Stage 40.1);
+   what is missing is the server: either own coturn on a VPS with UDP (Render has none) →
+   `VOICE_TURN_URLS` + `VOICE_TURN_SECRET`, or a provider's fixed login →
+   `VOICE_ICE_SERVERS`. Steps: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) "Voice relay" and
+   [`DEPLOYMENT.md`](DEPLOYMENT.md) §5. Done when `/health/diagnostics` shows
+   `voice.ice: turn_configured`.

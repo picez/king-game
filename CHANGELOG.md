@@ -16,6 +16,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Every game names itself at the top.** All seven top bars carry the game's emblem and
+  name plus its key facts in one line that scrolls sideways on a narrow phone (no extra
+  height): Durak shows the variant, the cards left in the deck and the goal; Fifty-One the
+  elimination threshold; Poker how many players are still in. King's seats show each
+  player's running total next to their tricks.
+- **Chat: emoji go into your message.** The picker has two tabs — *Emoji* (the default)
+  always writes the emoji into the message where the cursor was, even mid-sentence and with
+  the phone keyboard hidden; *On table* sends the floating reaction. Previously the same
+  button guessed from the keyboard focus and, on phones, often threw the emoji onto the
+  table. 54 emoji instead of 7; stickers unchanged. Phone polish: a Send key on the
+  keyboard, no page zoom on iOS when typing, a compact ➤ send button on narrow screens.
+
 - **Fifty-One: 48px more table on a phone (Stage 40.0).** The room controls (voice, chat,
   quit) no longer take a row of their own in portrait — they sit to the right of the draw and
   discard piles, and the prompt is under them. At 360×640 the meld area grows from 249px to
@@ -26,6 +38,11 @@ also reported at `GET /health/diagnostics` (`version` field).
   rendered table text under 12px (playing cards exempt).
 
 ### Fixed
+
+- **Voice: no more silent pairs after a reconnect.** A player who reconnected before the
+  server closed their old connection stayed silent to the others until someone rejoined;
+  the stale link is now rebuilt. A link that fails is retried twice automatically, and a
+  broken handshake shows as failed instead of "connecting" forever.
 
 - **Deberc on a narrow phone: the left seat no longer covers the deck (Stage 40.0).** The seat
   was 96px wide but the centre kept only 58px clear at 360px. Below 400px the side seats are
