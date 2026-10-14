@@ -585,3 +585,31 @@ adb shell pm verify-app-links --re-verify com.cardmajlis.app
 
 > Until step 5-7 complete, any build (debug or internal) correctly opens as a **Custom Tab** — that is
 > expected, not a bug.
+
+## 10. Signed release APK, full-screen on the onrender origin (Stage 41.0 — 2026-10-14)
+
+The owner asked to start the mobile app. What changed against §9 (which assumed a custom domain + Play
+first): the app is now **built, signed and full-screen on the current origin**, without waiting for the
+store.
+
+- **Release key — owner-held, never in git.** `card-majlis-release.jks` (alias `cardmajlis`, RSA-2048,
+  10 000 days) lives in `C:\Users\User\CardMajlisKeys\` with its password file. **Back it up** (two
+  places, offline too): every future update of the installed app must be signed with this same key;
+  losing it means users must uninstall and reinstall. If the app goes to Google Play, this key becomes
+  the **upload key**, and Play App Signing adds Google's own key.
+- **Asset Links are served by the server, not a committed file.** `server/assetLinks.ts` answers
+  `GET /.well-known/assetlinks.json` with package `com.cardmajlis.app` and the release-key SHA-256
+  (`AF:FC:A7:44:…:8A:F1:EB`). Google's Play App-Signing SHA-256 is added later with the env var
+  `ANDROID_CERT_SHA256` (comma list) — no code change. The guards that forbid a committed
+  `public/.well-known/assetlinks.json` still hold. The onrender subdomain works for verification; a
+  custom domain (§9a) stays recommended before a store launch.
+- **Build (this machine):** `twa-manifest.json` → `appVersionName 0.6.1`, `appVersionCode 601`
+  (0.6.1 → 601: major·10000 + minor·100 + patch; it must only ever grow), `minSdkVersion 24`
+  (Android 7.0 — `androidbrowserhelper` 2.7.4 refuses 21). Then `bubblewrap update --skipVersionUpgrade`
+  → `gradlew.bat assembleRelease bundleRelease` → `zipalign` + `apksigner sign` (APK) / `jarsigner`
+  (AAB) with the release key. Outputs go to `C:\Users\User\CardMajlisKeys\builds\` — never into the repo.
+- **Install:** send `CardMajlis-0.6.1.apk` to the phone and open it (allow "install unknown apps" for
+  the file manager/browser once). It opens **full-screen** once the phone has fetched the Asset Links.
+- **Still owner-side for a store listing:** Google Play Console account, the `.aab` upload to an internal
+  track, the Play App-Signing SHA into `ANDROID_CERT_SHA256`, store listing assets (§6b), privacy policy
+  URL, Data safety form. iOS stays a PWA (§8).

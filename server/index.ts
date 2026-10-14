@@ -56,6 +56,7 @@ import { allowVoiceSignal } from './voiceRateLimit';
 import { isValidSdp, isValidIce } from '../src/net/voiceSignal';
 import { ffmpegAvailable } from './avatarProcess';
 import { serveStatic, handleHealth, handleDiagnostics, SERVE_STATIC, DIST } from './httpStatic';
+import { assetLinksPayload } from './assetLinks';
 import { setFfmpegReady, getFfmpegReady, serverVersion, gitCommit, type DbState } from './diagnostics';
 import { iceMode, configuredIceServers, iceConfigPayload } from './voiceIce';
 import { RoomSocialStore } from './roomSocial';
@@ -1129,6 +1130,13 @@ const httpServer = createServer((req, res) => {
   }
   if (path === '/health') {
     void handleHealth(res, rooms.size).catch(() => { /* handleHealth never throws */ });
+    return;
+  }
+  if (path === '/.well-known/assetlinks.json') {
+    // Digital Asset Links for the Android app (TWA): lets Chrome open it full-screen.
+    // Public, static per deploy; generated so a new signing key never means a hand-edited file.
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' });
+    res.end(JSON.stringify(assetLinksPayload()));
     return;
   }
   if (path === '/api/voice/ice-config') {
