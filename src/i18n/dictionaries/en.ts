@@ -3,7 +3,7 @@
 
 export const EN: Record<string, string> = {
   'app.title': 'Card Majlis',
-  'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb, Preferans & 51',
+  'app.subtitle': 'A card lounge for King, Durak, Deberc, Tarneeb, Preferans, 51 & Poker',
   'pwa.installTitle': 'Install Card Majlis',
   'pwa.installBody': 'Play faster from your home screen',
   'pwa.iosInstallHint': 'Tap Share, then “Add to Home Screen”',
