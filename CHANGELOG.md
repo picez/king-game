@@ -9,10 +9,16 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-> Not released as a version, but live: production serves commit `7f4e5b4` (CI run #253 green).
-> Stage 40.0 closes the two cosmetic debts v0.6.0 shipped with and adds a text floor; Stage
-> 40.1 is operations. **Three of the operations items only take effect after an owner action
-> on Render** — each is marked below. Still not verified on a physical phone.
+Nothing yet.
+
+## [0.6.1] — 2026-10-14 — The chat on screen, game facts on top, voice that recovers
+
+> Packages Stage 40.0–40.1 and the 2026-10-14 owner fixes: the chat floats over the table
+> instead of opening below it, every top bar names its game and its key facts, emoji go into
+> the message text, voice rebuilds itself after a reconnect, and the friend-invite card is
+> opaque. No migration (latest stays `0014`), no dependency change. Still **not verified on a
+> physical phone**, and the owner-only manual checks of `PRODUCTION_SMOKE.md` §0 are still
+> NOT RUN. A TURN relay for voice remains an optional, deferred task (`MVP_STATUS.md` #7).
 
 ### Changed
 
