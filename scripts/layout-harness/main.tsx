@@ -28,6 +28,7 @@ import PokerActionLog, {
 import PokerRebuyPanel from '../../src/ui/poker/PokerRebuyPanel';
 import { pokerReducer } from '../../src/games/poker/engine';
 import { pokerRedactStateFor } from '../../src/games/poker/redact';
+import { compareHands, evaluateSeat } from '../../src/games/poker/handEval';
 import type { PokerCard, PokerState, Rank, Suit } from '../../src/games/poker/types';
 
 const qs = new URLSearchParams(location.search);
@@ -86,11 +87,26 @@ function fixture(): PokerState {
     s.phase = 'rebuy_window';
     s.stacksBySeat = s.stacksBySeat.map((v, i) => (i === 1 || i === seats - 1 ? 0 : v));
     s.committedBySeat = s.committedBySeat.map(() => 0);
+    // A REAL showdown behind the window (the old fixture had no pots, so the review drew
+    // an empty "Showdown" box): the busted seats went all-in, the evaluator ranks every
+    // revealed hand, and the best one takes the pot.
+    const shown = [...new Set([0, 1, seats - 1])];
+    const score = (seat: number) => evaluateSeat(s.holeCardsBySeat[seat], s.board);
+    const best = shown.reduce((w, seat) => (compareHands(score(seat), score(w)) > 0 ? seat : w), shown[0]);
+    // Seat 0 survived, so it must hold the best hand: hand it the winning hole cards.
+    [s.holeCardsBySeat[0], s.holeCardsBySeat[best]] = [s.holeCardsBySeat[best], s.holeCardsBySeat[0]];
+    const scores = new Map(shown.map((seat) => [seat, score(seat)]));
+    const winner = 0;
+    const pot = 5000 * shown.length;
     s.lastHand = {
-      handNumber: 1, wonBySeat: s.stacksBySeat.map(() => 0), showdown: true,
-      revealedSeats: [], categoryBySeat: {}, winningFiveBySeat: {},
-      pots: [], newlyEliminated: [],
-    } as never;
+      handNumber: 1, showdown: true,
+      wonBySeat: s.stacksBySeat.map((_, i) => (i === winner ? pot : 0)),
+      revealedSeats: shown,
+      categoryBySeat: Object.fromEntries(shown.map((seat) => [seat, scores.get(seat)!.category])),
+      winningFiveBySeat: Object.fromEntries(shown.map((seat) => [seat, scores.get(seat)!.cards.map((c) => c.id)])),
+      pots: [{ amount: pot, eligibleSeats: shown, winners: [winner], returned: false }],
+      newlyEliminated: shown.filter((seat) => seat !== 0),
+    };
     s.rebuyWindow = {
       handNumber: 1,
       eligibleSeats: seats >= 3 ? [1, seats - 1] : [1],
