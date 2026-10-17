@@ -88,6 +88,9 @@ const SOUND_HOOK_CONSUMERS = [
   // King's TurnTimer + every online game screen render it, but only this one imports
   // the sound hook.
   'ui/components/TurnTimerBar.tsx',
+  // The "your turn" cue (Stage 41.3): the online screen is where every game's acting
+  // player is known, through each game's own getActingPlayerId.
+  'ui/online/OnlineGame.tsx',
 ].sort();
 // Decorative sound ids removed from gameplay wiring in 15.4 — they may live in the
 // manifest (as available assets) but must not be referenced by any app source.
@@ -139,7 +142,7 @@ describe('sound wiring boundary (Stage 15.2 + 15.4)', () => {
       .toEqual(['audio/useSoundAlerts.ts', 'ui/menu/ProfilePanel.tsx']);
   });
 
-  it('the sound-alert hook is imported ONLY by the turn timer', () => {
+  it('the sound-alert hooks are imported ONLY by the turn timer and the online screen', () => {
     const importers = importersOf(/from\s+['"][^'"]*useSoundAlerts['"]/);
     expect(importers, `unexpected useSoundAlerts importers: ${importers.join(', ')}`)
       .toEqual(SOUND_HOOK_CONSUMERS);

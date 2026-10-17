@@ -395,10 +395,11 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   profile/DB sync) drives a **client-side engine** (`src/audio/soundEngine.ts`, lazy,
   no-op when off/hidden/throttled) — 15.2. **Stage 15.4 re-scoped sound to useful ALERTS,
   not atmosphere:** the brief Stage 15.3 decorative cues (card-play / trick-collect /
-  trump-reveal / finish) were **removed**. The only wired sound now is a **low-time
+  trump-reveal / finish) were **removed**. The wired sounds are a **low-time
   alert** — one `ui-error` cue when my turn timer crosses below 10s on my turn (King
-  online with a host-set timer; `useSoundAlerts` → `TurnTimer`). A new-deal alert is
-  deferred. Client-side only, no hidden info, no server/rules change. Default off ⇒ silent
+  online with a host-set timer; `useSoundAlerts` → `TurnTimer`). Stage 41.3 adds a
+  **"your turn" cue** (`ui-open`) when the turn passes to me online, in every game
+  (`useMyTurnAlert` in `OnlineGame`). A new-deal alert is deferred. Client-side only, no hidden info, no server/rules change. Default off ⇒ silent
   until opt-in. Full plan in [`SOUND_DESIGN.md`](SOUND_DESIGN.md).
 - Room password is an **MVP gate**, not full moderation/auth; production should
   keep **WSS** enabled before a public launch.

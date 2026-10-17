@@ -11,6 +11,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **"Your turn" sound (Stage 41.3).** Online, in all seven games, one soft cue plays
+  when the turn passes to you — not while it stays yours, not when you join or reconnect
+  into your turn. It follows the existing sound setting (Profile → Appearance), so it is
+  silent until you turn sound on. Client-only.
 - **Per-IP HTTP rate limits (Stage 41.2).** `/auth/*` (Google sign-in start/callback)
   and every `/api/*` write (POST/PUT/PATCH/DELETE) are limited per client IP — burst 20
   then 1 / 2 s for sign-in, burst 60 then 2 / s for writes — answering `429` with

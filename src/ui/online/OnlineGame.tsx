@@ -36,6 +36,7 @@ import OnlineWaitingScreen from './OnlineWaitingScreen';
 import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from './RoomSocial';
 import { roomLayoutClass } from './roomLayout';
 import PermanentLeaveControl from './PermanentLeaveControl';
+import { useMyTurnAlert } from '../../audio/useSoundAlerts';
 import type { RematchUi } from './RematchControls';
 
 const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', 'NAME_TAKEN', 'GAME_ALREADY_STARTED']);
@@ -165,6 +166,11 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
   const pokerLogLength = net.room?.gameType === 'poker'
     ? ((net.state as unknown as PokerState | null)?.actionLog?.length ?? 0) : 0;
   const pokerLogUnread = useLogUnread(pokerLogLength, socialPanel === 'utility');
+  // (Stage 41.3) One soft cue when the turn passes to me — every game, through each game's own
+  // `getActingPlayerId`. Opt-in: silent while the sound preference is off (the default).
+  const turnDef = net.room?.gameType && net.state ? getGameDefinition(net.room.gameType) : null;
+  const actingId = turnDef ? turnDef.getActingPlayerId(net.state as never) : null;
+  useMyTurnAlert(actingId != null && actingId === net.myPlayerId);
   // The viewer's seat + table size (Stage 27.1) so RoomSocial floats a reaction over the sender's
   // seat. Derived from the room snapshot (public); null/0 for a spectator → reactions stay centred.
   const myMember = net.room?.members.find((m) => m.clientId === net.myClientId);

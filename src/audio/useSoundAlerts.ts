@@ -100,3 +100,35 @@ export function useTimerLowAlert(input: TimerLowInput): void {
     if (play) playSound(TIMER_LOW_SOUND);
   }, [input.secondsLeft, input.active, input.turnKey]);
 }
+
+// ---------------------------------------------------------------------------
+// "Your turn" alert (Stage 41.3). Online play waits on other people, and a player
+// who looked away misses the moment the table comes back to them. One short cue
+// when the turn PASSES TO ME — the same opt-in preference, the same engine.
+//
+//   • fires on the transition not-mine → mine, never while it stays mine (a Durak
+//     attacker adding cards, a bidding step) and never for anyone else's turn;
+//   • never on the first observation — joining or reconnecting into my turn is
+//     not "the table just came back to me";
+//   • the engine still mutes it when sound is off (the default) or the tab is hidden.
+// ---------------------------------------------------------------------------
+
+/** The cue for "it is your turn" — the existing soft `ui-open`, distinct from the low-time `ui-error`. */
+export const MY_TURN_SOUND = 'ui-open' as const;
+
+/** null = nothing observed yet; otherwise whether it was my turn at the last look. */
+export type MyTurnMemo = boolean | null;
+
+export function myTurnStep(prev: MyTurnMemo, isMyTurn: boolean): { memo: MyTurnMemo; play: boolean } {
+  return { memo: isMyTurn, play: prev === false && isMyTurn };
+}
+
+/** Play the "your turn" cue once each time the turn passes to this client. */
+export function useMyTurnAlert(isMyTurn: boolean): void {
+  const memo = useRef<MyTurnMemo>(null);
+  useEffect(() => {
+    const { memo: next, play } = myTurnStep(memo.current, isMyTurn);
+    memo.current = next;
+    if (play) playSound(MY_TURN_SOUND);
+  }, [isMyTurn]);
+}

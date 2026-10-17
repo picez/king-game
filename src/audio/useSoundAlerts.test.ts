@@ -6,7 +6,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   timerLowStep, TIMER_LOW_INITIAL, TIMER_LOW_THRESHOLD_SEC, TIMER_LOW_SOUND,
   type TimerLowInput, type TimerLowMemo,
+  myTurnStep, MY_TURN_SOUND, type MyTurnMemo,
 } from './useSoundAlerts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /** Fold a sequence of inputs through the reducer; return how many times it played. */
 function fold(inputs: TimerLowInput[], start: TimerLowMemo = TIMER_LOW_INITIAL) {
@@ -107,5 +110,28 @@ describe('alert → engine wiring', () => {
       if (r.play) playSound(TIMER_LOW_SOUND);
     }
     expect(playSound).not.toHaveBeenCalled();
+  });
+});
+
+describe('myTurnStep — the "your turn" cue (Stage 41.3)', () => {
+  const fold = (seq: boolean[]) => {
+    let memo: MyTurnMemo = null;
+    return seq.map((v) => { const r = myTurnStep(memo, v); memo = r.memo; return r.play; });
+  };
+  it('plays only when the turn PASSES to me', () => {
+    expect(fold([false, true])).toEqual([false, true]);
+    expect(fold([false, true, true, true])).toEqual([false, true, false, false]);
+    expect(fold([false, true, false, true])).toEqual([false, true, false, true]);
+  });
+  it('never on the first observation (join / reconnect into my turn)', () => {
+    expect(fold([true, true])).toEqual([false, false]);
+  });
+  it('uses its own soft cue, distinct from the low-time alert', () => {
+    expect(MY_TURN_SOUND).toBe('ui-open');
+    expect(MY_TURN_SOUND).not.toBe(TIMER_LOW_SOUND);
+  });
+  it('is wired into the online screen for every game', () => {
+    const src = readFileSync(join(process.cwd(), 'src/ui/online/OnlineGame.tsx'), 'utf8');
+    expect(src).toContain('useMyTurnAlert(actingId != null && actingId === net.myPlayerId)');
   });
 });
