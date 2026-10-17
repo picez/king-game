@@ -436,6 +436,8 @@ export const EN: Record<string, string> = {
   'poker.check': 'Check',
   'poker.call': 'Call',
   'poker.raiseTo': 'Raise to',
+  'poker.raise': 'Raise',
+  'poker.exitConfirm': 'Leave the game? This match will end.',
   'poker.amount': 'Amount',
   'poker.amountRange': 'Min {min} · Max {max}',
   'poker.rebuy.title': 'Buy back in',

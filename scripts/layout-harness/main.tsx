@@ -43,6 +43,8 @@ const localScreen = qs.get('local') === '1';
 const withRebuy = qs.get('rebuy') === '1';
 /** `poor=1` renders the online insufficient-wallet state. */
 const poorWallet = qs.get('poor') === '1';
+/** `actor=N` (Stage 41.1): another seat is to act — no action row, the timer on THEIR plate. */
+const actor = Math.max(0, Math.min(seats - 1, num('actor', 0)));
 
 document.documentElement.dir = dir;
 document.documentElement.lang = lang;
@@ -69,7 +71,7 @@ function fixture(): PokerState {
   })!;
   s.street = street;
   s.board = BOARD.slice(0, BOARD_LEN[street] ?? 3);
-  s.toActSeat = 0;
+  s.toActSeat = actor;
   // Committed bets on every seat so the bet chips are part of the measurement.
   s.committedBySeat = s.committedBySeat.map(() => 350);
   s.contributedBySeat = s.contributedBySeat.map(() => 1200);
@@ -148,10 +150,9 @@ function Harness() {
       myClientId="me"
       onReact={noop} onChat={noop} onChatMedia={noop}
       notice={null} onClearNotice={noop}
-      handVisible={false} onLeaveGame={noop}
+      handVisible={false}
       voiceButton={<button type="button" className="social-fab" aria-label="voice">🎙️</button>}
       mySeatIndex={0} seatCount={seats}
-      timerSlot={<div className="turn-timer turn-timer--compact"><span>0:20</span></div>}
       openPanel={panel}
       onPanelChange={setPanel}
       utilitySlot={<PokerActionLogButton open={logOpen} unread={unread} onToggle={(n) => setPanel(n ? 'utility' : 'none')} />}
@@ -159,7 +160,10 @@ function Harness() {
     />
   );
   return (
-    <PokerGameScreen state={state} mySeat={0} apply={noop} onExit={noop} online socialSlot={social} rebuySlot={rebuySlot} />
+    <PokerGameScreen
+      state={state} mySeat={0} apply={noop} onExit={noop} online socialSlot={social} rebuySlot={rebuySlot}
+      turnTimer={<div className="turn-timer turn-timer--pod" role="timer"><span className="turn-timer__icon" aria-hidden="true">⏱</span><span className="turn-timer__num">20s</span></div>}
+    />
   );
 }
 

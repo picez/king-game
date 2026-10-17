@@ -93,7 +93,7 @@ describe('the games on the shell opt in the same way', () => {
     expect(src).toContain('className="screen table-shell poker-screen"');
     expect(src).toContain('className="poker-table-wrap table-shell__table"');
     // The viewer's own hole cards never shrink with the felt.
-    expect(read('src/styles/poker.css')).toContain('.table-shell .poker-pod--me .poker-card--sm { --w: 2rem; }');
+    expect(read('src/styles/poker.css')).toContain('.table-shell .poker-pod--me .poker-card--lg { --w: min(3.3rem, max(2.4rem, 8.4cqh)); }');
   });
 
   it('the fold gate asserts exactly the games that are on the shell', () => {

@@ -80,6 +80,10 @@
   user-select: none;
 }
 .poker-card--sm { --w: 2rem; }
+/* (Stage 41.1) The viewer's own hole cards — the one thing on the felt that must be READ. */
+.poker-card--lg { --w: 3.3rem; border-radius: 0.5rem; }
+.poker-card--lg .poker-card__rank { font-size: 1.35rem; }
+.poker-card--lg .poker-card__suit { font-size: 1.45rem; }
 .poker-card--red { color: #c0392b; }
 .poker-card__rank { font-size: 0.95rem; }
 .poker-card__suit { font-size: 1.05rem; }
@@ -212,20 +216,58 @@
      distinct pods, and the acting / my-seat states must stay obvious. */
   background: rgba(9, 26, 18, 0.62); border: 2px solid transparent; text-align: center;
 }
-.poker-pod--me { background: rgba(9, 26, 18, 0.78); border-color: rgba(255, 255, 255, 0.35); }
+.poker-pod--me {
+  width: auto; min-width: 6.5rem; padding: 0.4rem 0.55rem 0.3rem;
+  background: rgba(9, 26, 18, 0.78); border-color: rgba(255, 255, 255, 0.35);
+}
 .poker-pod--acting { border-color: var(--accent, #e8b84b); box-shadow: 0 0 14px 2px var(--accent, #e8b84b); }
 .poker-pod--folded { opacity: 0.5; }
 .poker-pod--out { opacity: 0.36; }
-.poker-pod__badges { display: flex; gap: 0.15rem; min-height: 0.9rem; flex-wrap: wrap; justify-content: center; }
+.poker-pod__badges {
+  /* (Stage 41.1) D / SB / BB sit on the plate's top-left corner instead of a row of their
+     own: the plate loses a line and the button reads like a dealer puck. */
+  position: absolute; top: -0.6rem; left: -0.35rem; z-index: 1;
+  display: flex; gap: 0.12rem;
+}
+.poker-pod__badges .poker-badge { background: #20352a; color: #fff; border: 1px solid rgba(255, 255, 255, 0.35); }
+.poker-pod__badges .poker-badge--btn { background: var(--accent, #e8b84b); color: #1a1a1a; border-color: transparent; }
 .poker-pod__cards { display: flex; gap: 0.15rem; }
+/* Opponents' backs overlap like a held hand — they only need to say "still in". */
+.poker-pod:not(.poker-pod--me) .poker-pod__cards .poker-card + .poker-card { margin-inline-start: -0.55rem; }
+.poker-pod--me .poker-pod__cards { gap: 0.3rem; }
+.poker-pod__strength { font-size: 0.78rem; font-weight: 800; color: var(--accent, #e8b84b); line-height: 1.1; white-space: nowrap; }
+.poker-pod__meta { display: flex; align-items: center; gap: 0.35rem; max-width: 100%; }
+.poker-pod__timer { position: absolute; top: -0.7rem; right: -0.45rem; z-index: 2; }
+/* The viewer's bet sits centred ABOVE their plate, so their countdown goes beside it. */
+.poker-pod--me .poker-pod__timer { top: 50%; right: auto; left: calc(100% + 0.35rem); transform: translateY(-50%); }
+.turn-timer--pod {
+  padding: 0.08rem 0.4rem; border-radius: 999px; font-size: 0.75rem; line-height: 1.2;
+  background: rgba(0, 0, 0, 0.82); border: 1px solid var(--accent, #e8b84b);
+}
+.turn-timer--pod.turn-timer--low { border-color: #ff7070; background: rgba(90, 0, 0, 0.85); }
 .poker-pod__name { font-size: 0.75rem; font-weight: 600; max-width: 5.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
 .poker-pod__stack { font-size: 0.75rem; color: #ffe9a8; font-weight: 700; }
 .poker-pod__tag { font-size: 0.75rem; opacity: 0.85; color: #fff; }
-.poker-pod__bet {
-  position: absolute; top: -0.6rem; inset-inline-end: -0.4rem;
-  background: var(--accent, #e8b84b); color: #1a1a1a; font-weight: 700; font-size: 0.75rem;
-  padding: 0.05rem 0.3rem; border-radius: 0.6rem;
+/* (Stage 41.1) The street's bet is CHIPS ON THE FELT between the seat and the pot — the
+   old gold badge on the plate's corner read as a second stack. The side is per seat
+   (pokerSeatLayout `bet`), always facing the pot; physical like the seat geometry. */
+.poker-bet {
+  position: absolute; z-index: 1;
+  display: inline-flex; align-items: center; gap: 0.22rem;
+  padding: 0.1rem 0.45rem 0.1rem 0.18rem; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42); color: #fff;
+  font-weight: 800; font-size: 0.75rem; line-height: 1.15; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
+.poker-bet__chip {
+  width: 0.85rem; height: 0.85rem; border-radius: 50%; flex: none; box-sizing: border-box;
+  background: radial-gradient(circle, #c0392b 0 38%, #fff 39% 52%, #c0392b 53%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+.poker-bet--up { bottom: calc(100% + 0.35rem); left: 50%; transform: translateX(-50%); }
+.poker-bet--down { top: calc(100% + 0.3rem); left: 50%; transform: translateX(-50%); }
+.poker-bet--right { left: calc(100% + 0.3rem); top: 50%; transform: translateY(-50%); }
+.poker-bet--left { right: calc(100% + 0.3rem); top: 50%; transform: translateY(-50%); }
 .poker-card--win { outline: 3px solid var(--accent, #e8b84b); outline-offset: 1px; box-shadow: 0 0 8px var(--accent, #e8b84b); }
 
 /* Narrow phones (Stage 38.0.3): shrink the pods, their hole cards and the community
@@ -241,6 +283,7 @@
      gives back the height that cost, so the pods still clear the board band. */
   .poker-pod__name, .poker-pod__stack, .poker-pod__tag, .poker-pod .poker-badge { line-height: 1.05; }
   .poker-pod .poker-card--sm { --w: 1.6rem; }
+  .poker-card--lg { --w: 3rem; }
   .poker-center { width: 96%; }
   .poker-center .poker-card { --w: 2.15rem; }
   .poker-center .poker-board { gap: 0.25rem; }
@@ -548,10 +591,10 @@
    the sizes each width already had, so a tall felt looks exactly as it did. */
 .table-shell .poker-table { container-type: size; }
 .table-shell .poker-pod .poker-card--sm { --w: min(2rem, max(1rem, 4.4cqh)); }
-.table-shell .poker-center .poker-card { --w: min(2.6rem, max(1.4rem, 6.3cqh)); }
+.table-shell .poker-center .poker-card { --w: min(2.6rem, max(1.75rem, 6.3cqh)); }
 @media (max-width: 400px) {
   .table-shell .poker-pod .poker-card--sm { --w: min(1.6rem, max(1rem, 4.4cqh)); }
-  .table-shell .poker-center .poker-card { --w: min(2.15rem, max(1.4rem, 6.3cqh)); }
+  .table-shell .poker-center .poker-card { --w: min(2.15rem, max(1.75rem, 6.3cqh)); }
 }
 @media (orientation: landscape) and (max-height: 520px) {
   /* The side column is narrow: the slider gets its own row instead of a sliver. */
@@ -569,5 +612,28 @@
 /* …but never the viewer's OWN hole cards: they are the one thing on the felt that must be
    read, not just seen. The hero pod sits at the bottom edge, clear of the board, so it
    keeps the size its width had before. */
-.table-shell .poker-pod--me .poker-card--sm { --w: 2rem; }
-@media (max-width: 400px) { .table-shell .poker-pod--me .poker-card--sm { --w: 1.6rem; } }
+.table-shell .poker-pod--me .poker-card--lg { --w: min(3.3rem, max(2.4rem, 8.4cqh)); }
+@media (max-width: 400px) { .table-shell .poker-pod--me .poker-card--lg { --w: min(3rem, max(2.4rem, 8.4cqh)); } }
+
+/* (Stage 41.1) Action row: Fold | Check/Call | Raise ▴ on one line; the sizing panel opens
+   above it on demand. Fold is a real (danger-outlined) button, not grey text. */
+.poker-fold {
+  background: transparent; color: #ff9a9c;
+  border: 1.5px solid var(--danger, #e5484d);
+}
+.poker-raise-toggle {
+  background: var(--surface-2, rgba(255, 255, 255, 0.08)); color: var(--accent, #e8b84b);
+  border: 1.5px solid var(--accent, #e8b84b); font-weight: 800;
+}
+.poker-raise-toggle.is-open { background: color-mix(in srgb, var(--accent, #e8b84b) 16%, transparent); }
+.poker-actions__wager {
+  padding: 0.45rem; border-radius: 0.75rem;
+  background: var(--surface-1, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.2));
+}
+.poker-preset {
+  border: 1px solid var(--border-strong, rgba(255, 255, 255, 0.2)); border-radius: 999px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.08)); color: var(--text, #fff);
+  font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+}
+.poker-preset.is-active { border-color: var(--accent, #e8b84b); color: var(--accent, #e8b84b); }

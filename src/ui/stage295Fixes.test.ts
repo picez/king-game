@@ -33,7 +33,7 @@ describe('Timer lives in the social control cluster with a bigger icon (Scope B;
     expect(pill).toContain('pointer-events: none');
     expect(pill).not.toContain('position: fixed'); // it flows inside the fixed .social-controls
     // OnlineGame tags the timer with the social class and RoomSocial renders the slot.
-    expect(online).toContain("className=\"turn-timer--social\"");
+    expect(online).toContain("className = 'turn-timer--social'"); // the default; Poker alone passes 'turn-timer--pod' (Stage 41.1)
     expect(social).toContain('timerSlot');
   });
 

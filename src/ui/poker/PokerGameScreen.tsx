@@ -6,6 +6,7 @@ import PokerCardView from './PokerCardView';
 import PokerHandRankings from './PokerHandRankings';
 import PokerShowdownReview from './PokerShowdownReview';
 import { seatPosition } from './pokerSeatLayout';
+import { CATEGORY_KEY, compactChips, myHandCategory } from './handStrength';
 import { clampAmount, commitAmount, parseAmountInput, syncAmountToRange, wagerKindFor, type BetRange } from './betAmount';
 import GameInfoBar, { GameInfoChip } from '../components/GameInfoBar';
 
@@ -39,6 +40,12 @@ interface Props {
   statsEligible?: boolean;
   /** (38.0.8) Rebuys this viewer's seat may still take, or `undefined` when uncapped. */
   rebuysLeft?: number;
+  /**
+   * (Stage 41.1) The online turn countdown. It is drawn ON the acting seat's plate, where
+   * the eye already is, instead of at the end of the utility row. Null when the host left
+   * the timer off, between turns, and for a bot (the server sets no human deadline).
+   */
+  turnTimer?: ReactNode;
 }
 
 /**
@@ -53,7 +60,7 @@ interface Props {
  * a matching bottom-end cluster locally — so exactly one log control exists per table.
  */
 export default function PokerGameScreen({
-  state, mySeat, apply, onExit, online, readOnly, socialSlot, rebuySlot, statsEligible, rebuysLeft,
+  state, mySeat, apply, onExit, online, readOnly, socialSlot, rebuySlot, statsEligible, rebuysLeft, turnTimer,
 }: Props) {
   const { t } = useI18n();
   const pot = state.contributedBySeat.reduce((a, b) => a + b, 0);
@@ -65,13 +72,20 @@ export default function PokerGameScreen({
   // The hand review stays up through the rebuy window (§17) so the showdown that
   // busted someone is still readable while they decide.
   const inReview = state.phase === 'hand_complete' || state.phase === 'rebuy_window';
+  const myCategory = mySeat != null ? myHandCategory(state.holeCardsBySeat[mySeat] ?? [], state.board) : null;
+  // (Stage 41.1) ✕ is now the ONLY way out of a live table — the 🚪 that sat between 💬 and
+  // the betting row was one slip of the thumb away — so it asks first.
+  const exit = () => {
+    if (typeof window !== 'undefined' && !window.confirm(t(online ? 'online.leaveGameConfirm' : 'poker.exitConfirm'))) return;
+    onExit();
+  };
 
   return (
     <div className="screen table-shell poker-screen">
       {showHelp && <PokerHandRankings onClose={() => setShowHelp(false)} />}
 
       <header className="poker-topbar">
-        <button type="button" className="poker-exit" onClick={onExit} aria-label={t('btn.backToMenu')}>✕</button>
+        <button type="button" className="poker-exit" onClick={exit} aria-label={t('btn.backToMenu')}>✕</button>
         <GameInfoBar game="poker">
           <span className="poker-topbar__meta">
             <span className="poker-hand-no">{t('poker.hand')} #{state.handNumber}</span>
@@ -124,24 +138,54 @@ export default function PokerGameScreen({
             const isMe = seat === mySeat;
             const acting = state.phase === 'betting' && state.toActSeat === seat;
             const hole = state.holeCardsBySeat[seat] ?? [];
+            const allIn = state.allInBySeat[seat];
+            const bet = state.committedBySeat[seat];
             const cls = `poker-pod${acting ? ' poker-pod--acting' : ''}${folded ? ' poker-pod--folded' : ''}${out ? ' poker-pod--out' : ''}${isMe ? ' poker-pod--me' : ''}`;
+            const name = <span className="poker-pod__name">{isMe ? t('poker.you') : p.name}</span>;
+            const stack = allIn
+              ? <span className="poker-badge poker-badge--allin">{t('poker.allInShort')}</span>
+              : <span className="poker-pod__stack">🪙 {compactChips(state.stacksBySeat[seat])}</span>;
+            const tag = out ? t('poker.out') : folded ? t('poker.folded') : null;
             return (
               <div key={p.id} className={cls} style={{ left: `${pos.left}%`, top: `${pos.top}%` }}>
-                <div className="poker-pod__badges">
-                  {seat === state.buttonSeat && <span className="poker-badge poker-badge--btn" title={t('poker.button')}>D</span>}
-                  {seat === sb && <span className="poker-badge">SB</span>}
-                  {seat === bb && <span className="poker-badge">BB</span>}
-                  {state.allInBySeat[seat] && <span className="poker-badge poker-badge--allin">{t('poker.allInShort')}</span>}
-                </div>
-                <div className="poker-pod__cards">
-                  {hole.map((c, i) => <PokerCardView key={c.id === 'hidden' ? `h-${seat}-${i}` : c.id} card={c} size="sm" />)}
-                </div>
-                <span className="poker-pod__name">{isMe ? t('poker.you') : p.name}</span>
-                <span className="poker-pod__stack">🪙 {state.stacksBySeat[seat]}</span>
-                {folded && <span className="poker-pod__tag">{t('poker.folded')}</span>}
-                {out && <span className="poker-pod__tag">{t('poker.out')}</span>}
-                {state.committedBySeat[seat] > 0 && !out && (
-                  <span className="poker-pod__bet">{state.committedBySeat[seat]}</span>
+                {/* Dealer / blinds ride on the plate's corner, not in a row of their own. */}
+                {(seat === state.buttonSeat || seat === sb || seat === bb) && (
+                  <div className="poker-pod__badges">
+                    {seat === state.buttonSeat && <span className="poker-badge poker-badge--btn" title={t('poker.button')}>D</span>}
+                    {seat === sb && <span className="poker-badge">SB</span>}
+                    {seat === bb && <span className="poker-badge">BB</span>}
+                  </div>
+                )}
+                {acting && turnTimer && <div className="poker-pod__timer">{turnTimer}</div>}
+                {isMe ? (
+                  <>
+                    <div className="poker-pod__cards">
+                      {hole.map((c, i) => <PokerCardView key={c.id === 'hidden' ? `h-${seat}-${i}` : c.id} card={c} size="lg" />)}
+                    </div>
+                    {(tag || myCategory) && (
+                      <span className="poker-pod__strength">{tag ?? t(CATEGORY_KEY[myCategory!])}</span>
+                    )}
+                    <span className="poker-pod__meta">{name}{stack}</span>
+                  </>
+                ) : (
+                  <>
+                    {/* A folded / busted opponent has no cards in front of them any more. */}
+                    {tag
+                      ? <span className="poker-pod__tag">{tag}</span>
+                      : (
+                        <div className="poker-pod__cards">
+                          {hole.map((c, i) => <PokerCardView key={c.id === 'hidden' ? `h-${seat}-${i}` : c.id} card={c} size="sm" />)}
+                        </div>
+                      )}
+                    {name}
+                    {stack}
+                  </>
+                )}
+                {bet > 0 && !out && (
+                  <span className={`poker-bet poker-bet--${pos.bet}`} aria-label={`${t('poker.bet')} ${bet}`}>
+                    <span className="poker-bet__chip" aria-hidden="true" />
+                    {compactChips(bet)}
+                  </span>
                 )}
               </div>
             );
@@ -200,6 +244,7 @@ function PokerActions({ la, pot, apply }: { la: ReturnType<typeof legalActions>;
   /** The text in the numeric field. Kept in sync with `amount`; may be blank mid-edit. */
   const [draft, setDraft] = useState<string>(() => String(clampAmount(raiseMin, { min: raiseMin, max: la.maxTo })));
   const canWager = la.canBet || la.canRaise;
+  const [wagerOpen, setWagerOpen] = useState(false);
 
   // The legal window can change under us (new street / new actor / short stack):
   // re-clamp the held amount into the NEW range instead of keeping a stale one.
@@ -231,18 +276,16 @@ function PokerActions({ la, pot, apply }: { la: ReturnType<typeof legalActions>;
     else apply({ type: 'RAISE', amount: v });
   };
 
+  const wagerLabel = `${la.canBet ? t('poker.bet') : t('poker.raiseTo')} ${clampAmount(amount, range)}`;
   return (
     <div className="poker-actions">
-      <div className="poker-actions__primary">
-        {la.canFold && <button type="button" className="btn btn--ghost" onClick={() => apply({ type: 'FOLD' })}>{t('poker.fold')}</button>}
-        {la.canCheck && <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'CHECK' })}>{t('poker.check')}</button>}
-        {la.canCall && <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'CALL' })}>{t('poker.call')} {la.callAmount}</button>}
-      </div>
-      {canWager && (
-        <div className="poker-actions__wager">
+      {/* (Stage 41.1) The sizing panel opens only on demand — presets, field and slider were
+          three always-open rows (~190px) and one stray drag away from an unintended raise. */}
+      {canWager && wagerOpen && (
+        <div className="poker-actions__wager" id="poker-wager">
           <div className="poker-presets">
             {presets.map(([label, v]) => (
-              <button key={label} type="button" className="btn btn--ghost poker-preset" onClick={() => setBoth(v)}>{label}</button>
+              <button key={label} type="button" className={`poker-preset${v === clampAmount(amount, range) ? ' is-active' : ''}`} onClick={() => setBoth(v)}>{label}</button>
             ))}
           </div>
           <div className="poker-amount-row">
@@ -279,11 +322,25 @@ function PokerActions({ la, pot, apply }: { la: ReturnType<typeof legalActions>;
             onChange={(e) => setBoth(Number(e.target.value))}
             aria-label={t('poker.amount')}
           />
-          <button type="button" className="btn btn--primary poker-wager-go" onClick={sendWager}>
-            {la.canBet ? t('poker.bet') : t('poker.raiseTo')} {clampAmount(amount, range)}
-          </button>
+          <button type="button" className="btn btn--primary poker-wager-go" onClick={sendWager}>{wagerLabel}</button>
         </div>
       )}
+      <div className="poker-actions__primary">
+        {la.canFold && <button type="button" className="btn poker-fold" onClick={() => apply({ type: 'FOLD' })}>{t('poker.fold')}</button>}
+        {la.canCheck && <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'CHECK' })}>{t('poker.check')}</button>}
+        {la.canCall && <button type="button" className="btn btn--primary" onClick={() => apply({ type: 'CALL' })}>{t('poker.call')} {la.callAmount}</button>}
+        {canWager && (
+          <button
+            type="button"
+            className={`btn poker-raise-toggle${wagerOpen ? ' is-open' : ''}`}
+            aria-expanded={wagerOpen}
+            aria-controls="poker-wager"
+            onClick={() => setWagerOpen((v) => !v)}
+          >
+            {wagerOpen ? `✕ ${la.canBet ? t('poker.bet') : t('poker.raise')}` : `${la.canBet ? t('poker.bet') : t('poker.raise')} ▴`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

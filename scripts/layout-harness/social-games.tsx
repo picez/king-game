@@ -139,8 +139,10 @@ function kingFixture(): GameState {
   })!;
   // The opening leader is random, so the default scene differs from load to load. A named
   // scene pins who acts: the current player is `currentLeaderIdx` + the plays so far.
-  if (scene === 'myturn') return { ...s, currentLeaderIdx: 0, currentTrick: null };
-  if (scene === 'wait') return { ...s, currentLeaderIdx: 1, currentTrick: null };
+  // The dealer is random too — pin the WORST case, the long display name, which used to wrap
+  // the mode banner onto a second line and push the hand 18–30px below the fold.
+  if (scene === 'myturn') return { ...s, dealerIndex: 1, currentLeaderIdx: 0, currentTrick: null };
+  if (scene === 'wait') return { ...s, dealerIndex: 1, currentLeaderIdx: 1, currentTrick: null };
   return s;
 }
 

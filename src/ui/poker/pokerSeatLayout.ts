@@ -21,11 +21,20 @@
 // and cards, which can never re-create the overlap.
 // ---------------------------------------------------------------------------
 
+/** Which side of its pod a seat's bet chip sits on — always the side facing the pot. */
+export type BetSide = 'up' | 'down' | 'left' | 'right';
+
 export interface SeatPos {
   /** Horizontal centre, % of the table width. */
   left: number;
   /** Vertical centre, % of the table height. */
   top: number;
+  /**
+   * (Stage 41.1) Where the seat's bet for this street is drawn: on the felt between the
+   * pod and the pot, like chips pushed forward — not as a badge on the plate, where it
+   * read as a second stack. Physical, like the coordinates.
+   */
+  bet: BetSide;
 }
 
 /**
@@ -55,34 +64,36 @@ export const POD_HALF_HEIGHT = 11;
  */
 const LAYOUTS: Record<number, SeatPos[]> = {
   2: [
-    { left: 50, top: 86 },                    // viewer
-    { left: 50, top: 12 },                    // opponent (across)
+    { left: 50, top: 86, bet: 'up' },                     // viewer
+    { left: 50, top: 13, bet: 'down' },                   // opponent (across)
   ],
   3: [
-    { left: 50, top: 86 },
-    { left: 22, top: 20 },
-    { left: 78, top: 20 },
+    { left: 50, top: 86, bet: 'up' },
+    { left: 24, top: 19, bet: 'right' },
+    { left: 76, top: 19, bet: 'left' },
   ],
+  // (Stage 41.1) 4 players: the opponents sit LEFT, ACROSS and RIGHT, as at a real table.
+  // The old layout crowded all three into the top fifth and left the lower felt empty.
   4: [
-    { left: 50, top: 86 },
-    { left: 20, top: 19 },
-    { left: 50, top: 10 },
-    { left: 80, top: 19 },
+    { left: 50, top: 86, bet: 'up' },
+    { left: 20, top: 64, bet: 'right' },
+    { left: 50, top: 13, bet: 'down' },
+    { left: 80, top: 64, bet: 'left' },
   ],
   5: [
-    { left: 50, top: 87 },
-    { left: 20, top: 64 },
-    { left: 28, top: 16 },
-    { left: 72, top: 16 },
-    { left: 80, top: 64 },
+    { left: 50, top: 86, bet: 'up' },
+    { left: 20, top: 64, bet: 'right' },
+    { left: 28, top: 17, bet: 'down' },
+    { left: 72, top: 17, bet: 'down' },
+    { left: 80, top: 64, bet: 'left' },
   ],
   6: [
-    { left: 50, top: 87 },
-    { left: 20, top: 64 },
-    { left: 23, top: 20 },
-    { left: 50, top: 10 },
-    { left: 77, top: 20 },
-    { left: 80, top: 64 },
+    { left: 50, top: 86, bet: 'up' },
+    { left: 20, top: 64, bet: 'right' },
+    { left: 21, top: 19, bet: 'down' },
+    { left: 50, top: 12, bet: 'down' },
+    { left: 79, top: 19, bet: 'down' },
+    { left: 80, top: 64, bet: 'left' },
   ],
 };
 

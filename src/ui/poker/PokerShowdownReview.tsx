@@ -10,15 +10,9 @@
 
 import { useMemo, useState } from 'react';
 import { useI18n } from '../../i18n';
-import type { HandCategory, PokerCard, PokerState } from '../../games/poker/types';
+import type { PokerCard, PokerState } from '../../games/poker/types';
 import PokerCardView from './PokerCardView';
-
-const CATEGORY_KEY: Record<HandCategory, string> = {
-  high_card: 'poker.cat.highCard', one_pair: 'poker.cat.onePair', two_pair: 'poker.cat.twoPair',
-  three_of_a_kind: 'poker.cat.trips', straight: 'poker.cat.straight', flush: 'poker.cat.flush',
-  full_house: 'poker.cat.fullHouse', four_of_a_kind: 'poker.cat.quads',
-  straight_flush: 'poker.cat.straightFlush', royal_flush: 'poker.cat.royalFlush',
-};
+import { CATEGORY_KEY } from './handStrength';
 
 export default function PokerShowdownReview({ state, mySeat, onNext }: { state: PokerState; mySeat?: number | null; onNext?: () => void }) {
   const { t } = useI18n();

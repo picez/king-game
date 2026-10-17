@@ -30,6 +30,12 @@
   color: var(--text-muted);
 }
 
+/* A long dealer name is capped with an ellipsis so it never takes a header line of its own. */
+.dealer-info {
+  display: inline-block; max-width: 8rem; vertical-align: middle;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .trump-info { color: var(--accent); font-weight: 600; }
 
 .mode-badge {
@@ -115,7 +121,13 @@
 .game-banner--positive { border-left-color: var(--accent); }
 .game-banner__mode { font-weight: 800; font-size: 1.05rem; }
 .game-banner__trump { font-weight: 700; }
-.game-banner__dealer { font-size: 0.85rem; color: var(--text-muted); }
+/* A long dealer name shrinks to an ellipsis instead of wrapping ⓘ onto a second line — on a
+   360px phone that extra line pushed the hand below the fold. */
+.game-banner__dealer {
+  font-size: 0.85rem; color: var(--text-muted);
+  flex: 1 1 0; min-width: 3.5rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .game-banner__info {
   margin-left: auto;
   display: inline-flex;

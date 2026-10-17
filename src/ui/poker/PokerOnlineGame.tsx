@@ -23,6 +23,8 @@ interface Props {
   /** (38.0.8) Public anti-dumping status of the CURRENT paid match (online only). */
   statsEligible?: boolean;
   rebuysLeft?: number;
+  /** (Stage 41.1) The turn countdown, drawn on the acting seat's plate. */
+  turnTimer?: ReactNode;
 }
 
 /** Seat index encoded in a `player-<seat>` id, or null. */
@@ -42,7 +44,7 @@ function seatOf(playerId: string | null): number | null {
  * renders it inside PokerFinished) so it is never shown twice (37.7.7 FAIL 3).
  */
 export default function PokerOnlineGame({
-  state, myPlayerId, dispatch, onExit, rematch, recovery, socialSlot, rebuySlot, statsEligible, rebuysLeft,
+  state, myPlayerId, dispatch, onExit, rematch, recovery, socialSlot, rebuySlot, statsEligible, rebuysLeft, turnTimer,
 }: Props) {
   const mySeat = seatOf(myPlayerId);
   const blocked = recovery === 'frozen' || recovery === 'settlement_pending' || recovery === 'payout_pending' || recovery === 'stats_pending';
@@ -62,7 +64,7 @@ export default function PokerOnlineGame({
       <PokerGameScreen
         state={state} mySeat={mySeat} apply={dispatch} onExit={onExit} online
         readOnly={blocked} socialSlot={socialSlot} rebuySlot={rebuySlot}
-        statsEligible={statsEligible} rebuysLeft={rebuysLeft}
+        statsEligible={statsEligible} rebuysLeft={rebuysLeft} turnTimer={turnTimer}
       />
     </>
   );

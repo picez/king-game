@@ -436,6 +436,8 @@ export const UK: Record<string, string> = {
   'poker.check': 'Чек',
   'poker.call': 'Колл',
   'poker.raiseTo': 'Підвищити до',
+  'poker.raise': 'Рейз',
+  'poker.exitConfirm': 'Вийти з гри? Поточна партія завершиться.',
   'poker.amount': 'Сума',
   'poker.amountRange': 'Мін {min} · Макс {max}',
   'poker.rebuy.title': 'Докупити фішки',

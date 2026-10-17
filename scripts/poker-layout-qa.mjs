@@ -44,6 +44,7 @@ const SHOT_SET = new Set([
   '390/2p-river/closed', '390/6p-flop/closed', '390/6p-states/closed',
   '390/4p-river/history-open', '390/4p-river/chat-open', '390/4p-local/closed',
   'desktop/6p-river/closed', '360/4p-flop/history-open',
+  '360/4p-flop/raise-open', '390/6p-oppturn/closed', '360/6p-states/closed', '360/2p-preflop/closed',
 ]);
 async function waitHttp(url, timeout = 60000) {
   const start = Date.now();
@@ -110,6 +111,25 @@ const PROBE = `JSON.stringify((() => {
 
   const v = [];
   const add = (kind, detail) => v.push(kind + ': ' + detail);
+
+  // 0. (Stage 41.1) bet chips + the seat timer live ON the felt, outside their own plate:
+  // neither may land on the board, the pot, another seat's plate, another chip or the rail.
+  const owned = (sel) => [...document.querySelectorAll(sel)].map((el) => ({ r: rect(el), pod: el.closest('.poker-pod') })).filter((x) => live(x.r));
+  const extras = [...owned('.poker-bet'), ...owned('.poker-pod__timer')];
+  extras.forEach((x, i) => {
+    const tag = (x.pod?.querySelector('.poker-pod__name')?.textContent || '?').slice(0, 14);
+    if (hit(x.r, board)) add('chip-over-board', tag + ' ' + overlap(x.r, board));
+    if (hit(x.r, info)) add('chip-over-pot', tag + ' ' + overlap(x.r, info));
+    pods.forEach((p, j) => { if (p !== x.pod && hit(x.r, podRects[j])) add('chip-over-pod', tag + '|' + podName(j) + ' ' + overlap(x.r, podRects[j])); });
+    for (let k = i + 1; k < extras.length; k++) if (hit(x.r, extras[k].r)) add('chip-over-chip', tag + ' ' + overlap(x.r, extras[k].r));
+    if (table && (x.r.l < table.l - S || x.r.r > table.r + S || x.r.t < table.t - 12 || x.r.b > table.b + S)) add('chip-off-felt', tag);
+  });
+  // 0b. the viewer's own hole cards are the thing that must be READ.
+  for (const c of all('.poker-pod--me .poker-card')) if (c.w < 37.5) add('hero-card-small', Math.round(c.w) + 'px');
+  // 0c. with the sizing panel shut the betting row is ONE row of 44px buttons.
+  const primary = one('.poker-actions__primary');
+  if (primary && !document.querySelector('.poker-actions__wager') && primary.h > 52) add('action-row-tall', Math.round(primary.h) + 'px');
+  for (const b of [...all('.poker-actions__primary button'), ...all('.poker-wager-go')]) if (b.h < 43.5) add('action-touch-target', Math.round(b.w) + 'x' + Math.round(b.h));
 
   // 1. seat pods vs the community board / pot / each other / topbar / actions
   podRects.forEach((p, i) => {
@@ -214,6 +234,9 @@ function scenarios() {
   out.push({ name: '6p-states', q: 'seats=6&street=turn&states=1' });
   out.push({ name: '4p-states-rtl', q: 'seats=4&street=turn&states=1&dir=rtl&lang=ar' });
   out.push({ name: '4p-local', q: 'seats=4&street=flop&local=1' });
+  // (Stage 41.1) an opponent to act: the countdown rides on THEIR plate.
+  out.push({ name: '6p-oppturn', q: 'seats=6&street=flop&actor=2' });
+  out.push({ name: '4p-oppturn', q: 'seats=4&street=turn&actor=1' });
   // §17 rebuy window — the panel must never cover the toolbar, table or controls.
   out.push({ name: '4p-rebuy', q: 'seats=4&street=river&rebuy=1' });
   out.push({ name: '6p-rebuy', q: 'seats=6&street=river&rebuy=1' });
@@ -228,6 +251,8 @@ const PANEL_STEPS = [
   { name: 'closed', steps: [] },
   { name: 'history-open', steps: ['.poker-log-fab'] },
   { name: 'chat-open', steps: ['CHAT'] },
+  // (Stage 41.1) the bet-sizing panel opens on demand, above the betting row.
+  { name: 'raise-open', steps: ['.poker-raise-toggle'] },
 ];
 
 async function run() {
@@ -272,7 +297,7 @@ async function run() {
         for (let i = 0; i < 50; i++) {
           // During a rebuy window there are no betting controls at all (that is the
           // point), so the panel is an equally valid readiness signal.
-          if (await cdp.evaluate(`!!document.querySelector('.poker-actions, .poker-rebuy')`)) { mounted = true; break; }
+          if (await cdp.evaluate(`!!document.querySelector('.poker-actions, .poker-rebuy, .poker-waiting')`)) { mounted = true; break; }
           await sleep(100);
         }
         await sleep(120);
@@ -283,7 +308,8 @@ async function run() {
         const proof = await provePage(owned, vp, url, `${vp.tag} ${sc.name}`);
         if (proof.length) { failures.push(...proof); continue; }
 
-        const steps = isLocal ? PANEL_STEPS.slice(0, 2) : PANEL_STEPS;
+        const steps = (isLocal ? PANEL_STEPS.filter((p) => p.name !== 'chat-open') : PANEL_STEPS)
+          .filter((p) => p.name !== 'raise-open' || !/rebuy|actor=/.test(sc.q));
         for (const ps of steps) {
           // Toggle INTO this panel state through the real control, then back out.
           for (const sel of ps.steps) await cdp.evaluate(CLICK(sel));

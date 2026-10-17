@@ -436,6 +436,8 @@ export const AR: Record<string, string> = {
   'poker.check': 'تمرير',
   'poker.call': 'مجاراة',
   'poker.raiseTo': 'ارفع إلى',
+  'poker.raise': 'ارفع',
+  'poker.exitConfirm': 'مغادرة اللعبة؟ ستنتهي هذه المباراة.',
   'poker.amount': 'المبلغ',
   'poker.amountRange': 'الحد الأدنى {min} · الحد الأقصى {max}',
   'poker.rebuy.title': 'إعادة الشراء',

@@ -53,7 +53,7 @@ const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', '
  * table or hand. Returns null when the host left the timer off (turnTimerSec 0). King
  * keeps its own in-banner TurnTimer.
  */
-function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number, timer: ClientTimer | null): ReactNode {
+function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerId: string | null, turnTimerSec: number, timer: ClientTimer | null, className = 'turn-timer--social'): ReactNode {
   if (turnTimerSec <= 0 || !gameType || !state) return null;
   const def = getGameDefinition(gameType);
   const actingId = def ? def.getActingPlayerId(state as never) : null;
@@ -64,7 +64,7 @@ function onlineTurnTimer(gameType: string | undefined, state: unknown, myPlayerI
       revision={timer?.revision ?? 0}
       clockOffset={timer?.clockOffset ?? 0}
       active={actingId != null && actingId === myPlayerId}
-      className="turn-timer--social"
+      className={className}
     />
   );
 }
@@ -501,6 +501,10 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
     // and the action row, and owns which single surface is open (history / chat /
     // reactions) so two panels can never stack on the same spot.
     const logOpen = socialPanel === 'utility';
+    // (Stage 41.1) Poker draws the countdown on the acting seat's plate, and the table's ✕
+    // (with a confirm) is its one exit — the 🚪 in the utility row sat next to 💬 and the
+    // betting buttons, one slip from leaving a live hand.
+    const pokerTimerEl = onlineTurnTimer('poker', net.state, net.myPlayerId, net.room?.turnTimerSec ?? 0, net.timer, 'turn-timer--pod');
     // §17 — the between-hands rebuy. The client decides NOTHING: it renders the server's
     // window, shows the countdown from the server's absolute deadline, and offers the
     // buttons ONLY for this viewer's own eligible seat. Every other seat is public
@@ -530,10 +534,9 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           reactions={net.reactions} chat={net.chat} myClientId={net.myClientId}
           onReact={net.sendReaction} onChat={net.sendChat} onChatMedia={net.sendChatMedia}
           notice={net.socialNotice} onClearNotice={net.clearSocialNotice}
-          handVisible={false} onLeaveGame={leaveGameToMenu}
+          handVisible={false}
           voiceButton={<VoiceControl voice={voice} variant="compact" />}
           mySeatIndex={mySeatIndex} seatCount={seatCount}
-          timerSlot={timerEl}
           openPanel={socialPanel}
           onPanelChange={setSocialPanel}
           utilitySlot={
@@ -563,6 +566,7 @@ export default function OnlineGame({ url, intent, onExit, signedIn = false, onJo
           recovery={net.room?.pokerRecovery}
           socialSlot={social}
           rebuySlot={rebuySlot}
+          turnTimer={pokerTimerEl}
           statsEligible={net.room?.pokerStatsEligible}
           rebuysLeft={
             net.room?.pokerStatsEligible === undefined || mySeatIndex == null

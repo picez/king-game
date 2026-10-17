@@ -9,7 +9,28 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Poker table redesigned for phones (Stage 41.1).** Client-only — no rule, server,
+  protocol or DB change.
+  - **Your cards are big** (about twice the old size) and show what you hold right now
+    ("Pair", "Flush"…), from the same evaluator that decides the showdown.
+  - **Bets are chips on the felt** between each seat and the pot, instead of a gold badge
+    on the seat that read as a second stack. Large stacks/bets abbreviate (12.5K, 1.2M).
+  - **One betting row: Fold | Check/Call | Raise ▴.** Fold is a real red-outlined button;
+    the presets, amount and slider open only after tapping Raise, so the panel is half as
+    tall and a stray drag can no longer raise by accident. Presets are proper chip buttons.
+  - **The turn timer sits on the acting player's seat**, not at the end of the icon row.
+  - **No 🚪 next to 💬 any more** — ✕ in the top bar is the exit and asks first.
+  - **4 players sit left / across / right** like a real table; D/SB/BB ride on the seat's
+    corner; folded or busted opponents show no cards; seats are more compact.
+  - `npm run layout:poker` now also checks chips, the seat timer, the hero card size, the
+    one-row betting bar and the open Raise panel (309 checks).
+- **King: a long dealer name no longer pushes your hand off a small screen.** The name in
+  the mode banner and the top bar is cut with "…" instead of wrapping onto an extra line
+  (it pushed the hand 18–30px below the fold at 360×640 and 667×375). `layout:fold` was
+  flaky because the harness dealt a random dealer; it now pins the long-name worst case,
+  and its Poker row measures the real hero cards.
 
 ## [0.6.1] — 2026-10-14 — The chat on screen, game facts on top, voice that recovers
 

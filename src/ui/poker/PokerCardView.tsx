@@ -6,7 +6,7 @@ const IS_RED: Record<Suit, boolean> = { spades: false, hearts: true, diamonds: t
 
 /** A compact poker card: real face when suit/rank present, else a face-down back.
  *  `highlight` rings a card as part of the winning five (§16 G showdown review). */
-export default function PokerCardView({ card, size = 'md', highlight = false }: { card: PokerCard; size?: 'md' | 'sm'; highlight?: boolean }) {
+export default function PokerCardView({ card, size = 'md', highlight = false }: { card: PokerCard; size?: 'lg' | 'md' | 'sm'; highlight?: boolean }) {
   const hidden = card.suit === null || card.rank === null;
   const cls = `poker-card poker-card--${size}${highlight ? ' poker-card--win' : ''}`;
   if (hidden) return <div className={`${cls} poker-card--back`} aria-hidden="true" />;

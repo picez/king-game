@@ -51,7 +51,7 @@ const GAMES = [
   { tag: 'tarneeb-mybid', q: 'game=tarneeb&seats=4&scene=mybid', hand: '.hand-reorder-wrap', actions: null, board: '.tarneeb-board' },
   { tag: 'preferans', q: 'game=preferans&seats=3', hand: '.hand-reorder-wrap', actions: null, board: '.preferans-board' },
   { tag: 'fiftyone', q: 'game=fiftyone&seats=4', hand: '.hand-reorder-wrap', actions: '.fiftyone-actions', board: '.fiftyone-table' },
-  { tag: 'poker', q: 'game=poker&seats=6', hand: '.poker-hero__cards', actions: '.poker-actions', board: '.poker-table' },
+  { tag: 'poker', q: 'game=poker&seats=6', hand: '.poker-pod--me .poker-pod__cards', actions: '.poker-actions', board: '.poker-table' },
 ];
 
 const VIEWPORTS = [
