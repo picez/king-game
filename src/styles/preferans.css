@@ -205,6 +205,16 @@
 .preferans-declarebar__label { font-size: 0.85rem; font-weight: 700; color: var(--text); text-align: center; }
 .preferans-declarebar__min { color: var(--accent-light); font-weight: 800; }
 .preferans-passbtn { min-height: 2.4rem; }
+/* (Stage 41.4) Misère + Pass share one side column; each takes half of its height. */
+.preferans-bidbar__side { display: flex; flex-direction: column; gap: 0.3rem; }
+.preferans-bidbar__side > .btn { flex: 1 1 auto; min-height: 2.4rem; }
+.preferans-miserebtn { color: var(--accent-light); font-weight: 800; }
+/* In the shell's side-by-side bar the column stays as narrow as Pass alone was, so the
+   ladder never loses width to the longer "Misère" label. */
+.table-shell .preferans-bidbar__side { flex: 0 0 auto; max-width: 4.6rem; }
+.table-shell .preferans-bidbar__side > .preferans-miserebtn {
+  padding-inline: 0.3rem; font-size: 0.8rem; overflow-wrap: anywhere;
+}
 
 /* Bid / declare ladder: levels 6–10 (rows) × ♠♣♦♥NT (cells). */
 .preferans-ladder { display: flex; flex-direction: column; gap: 0.25rem; }

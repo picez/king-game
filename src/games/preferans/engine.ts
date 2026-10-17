@@ -15,18 +15,26 @@ import type { Rng } from '../../core/rng';
 import { dealPreferans, nextSeat, NUM_SEATS, HAND_TRICKS } from './deck';
 import {
   activeBidders, canBid, canDeclareContract, canDiscard, canPassBid,
-  canPlayCard, canTakeTalon, cardEquals, determineTrickWinner, trumpSuitOf,
+  canPlayCard, canTakeTalon, cardEquals, determineTrickWinner, handTrumpSuit, MISERE_BID,
 } from './rules';
 import type {
   Bid, PreferansAction, PreferansContext, PreferansOptions, PreferansPlayer, PreferansState,
 } from './types';
 
 const DEFAULT_TARGET = 10;
-const DEFAULT_OPTIONS: PreferansOptions = { targetScore: DEFAULT_TARGET };
+const DEFAULT_OPTIONS: PreferansOptions = { targetScore: DEFAULT_TARGET, misere: false, allPass: false };
 
 /** Game value G(L) = L − 5, so 6→1 … 10→5 (RULES §10). */
 export function gameValue(level: number): number {
   return level - 5;
+}
+
+/** A misère is worth as much as a 10-level game (RULES §7a). */
+export const MISERE_VALUE = 5;
+
+/** Value of a contract — level-based, or the misère value. */
+export function contractValue(contract: Bid): number {
+  return contract.misere ? MISERE_VALUE : gameValue(contract.level);
 }
 
 /**
@@ -112,7 +120,34 @@ function dealFreshHand(base: PreferansState, dealerSeat: number, rng: Rng, incre
   s.currentTrick = null;
   s.completedTricks = [];
   s.tricksBySeat = [0, 0, 0];
+  delete s.allPass;
   if (incrementHandNumber) s.handNumber += 1;
+  return s;
+}
+
+/**
+ * Everyone passed and the table plays распасы (RULES §5a): no declarer, no contract,
+ * No-Trump; the talon stays face-down aside; the seat left of the dealer leads.
+ */
+function enterAllPass(s: PreferansState): PreferansState {
+  s.allPass = true;
+  s.declarerSeat = null;
+  s.contract = null;
+  s.phase = 'playing';
+  const lead = nextSeat(s.dealerSeat);
+  s.currentSeat = lead;
+  s.currentTrick = { leadSeat: lead, ledSuit: null, plays: [], winnerSeat: null };
+  return s;
+}
+
+/** Enter trick play under the declared contract; the declarer's left-hand defender leads (§8). */
+function enterPlay(s: PreferansState, contract: Bid): PreferansState {
+  const declarer = s.declarerSeat as number;
+  s.contract = contract;
+  s.phase = 'playing';
+  const lead = nextSeat(declarer);
+  s.currentSeat = lead;
+  s.currentTrick = { leadSeat: lead, ledSuit: null, plays: [], winnerSeat: null };
   return s;
 }
 
@@ -135,29 +170,49 @@ function enterTalon(s: PreferansState, declarer: number): PreferansState {
 // --- Scoring (§10, §11) -----------------------------------------------------
 
 function scoreHand(s: PreferansState): PreferansState {
-  const declarer = s.declarerSeat as number;
-  const contract = s.contract as Bid;
-  const g = gameValue(contract.level);
-  const declTricks = s.tricksBySeat[declarer];
-  const made = declTricks >= contract.level;
-
-  const delta = [0, 0, 0];
-  if (made) {
-    delta[declarer] = g;                                   // made → declarer +G
+  if (s.allPass) {
+    // Распасы (§5a): every seat that took the FEWEST tricks scores +1. Nobody loses
+    // points, so the score sum still rises every hand and a match always ends.
+    const fewest = Math.min(...s.tricksBySeat);
+    const delta = s.tricksBySeat.map((t) => (t === fewest ? 1 : 0));
+    for (let seat = 0; seat < NUM_SEATS; seat++) s.scores[seat] += delta[seat];
+    s.lastHand = {
+      handNumber: s.handNumber,
+      kind: 'allpass',
+      declarerSeat: -1,
+      contract: { level: 0, suit: 'NT' },
+      declarerTricks: 0,
+      made: false,
+      deltaBySeat: delta,
+      tricksBySeat: s.tricksBySeat.slice(),
+    };
   } else {
-    delta[declarer] = -g;                                  // set → declarer −G
-    for (let seat = 0; seat < NUM_SEATS; seat++) if (seat !== declarer) delta[seat] = g; // each defender +G
-  }
-  for (let seat = 0; seat < NUM_SEATS; seat++) s.scores[seat] += delta[seat];
+    const declarer = s.declarerSeat as number;
+    const contract = s.contract as Bid;
+    const g = contractValue(contract);
+    const declTricks = s.tricksBySeat[declarer];
+    // A misère is made only with ZERO tricks (§7a); a contract with at least its level.
+    const made = contract.misere ? declTricks === 0 : declTricks >= contract.level;
 
-  s.lastHand = {
-    handNumber: s.handNumber,
-    declarerSeat: declarer,
-    contract,
-    declarerTricks: declTricks,
-    made,
-    deltaBySeat: delta,
-  };
+    const delta = [0, 0, 0];
+    if (made) {
+      delta[declarer] = g;                                   // made → declarer +G
+    } else {
+      delta[declarer] = -g;                                  // set → declarer −G
+      for (let seat = 0; seat < NUM_SEATS; seat++) if (seat !== declarer) delta[seat] = g; // each defender +G
+    }
+    for (let seat = 0; seat < NUM_SEATS; seat++) s.scores[seat] += delta[seat];
+
+    s.lastHand = {
+      handNumber: s.handNumber,
+      kind: contract.misere ? 'misere' : 'contract',
+      declarerSeat: declarer,
+      contract,
+      declarerTricks: declTricks,
+      made,
+      deltaBySeat: delta,
+    };
+  }
   // Append the score-only record (public; no cards, §14). NEW array — clone shares
   // the previous history by reference, so we must not mutate it in place.
   s.handHistory = [...s.handHistory, s.lastHand];
@@ -198,9 +253,9 @@ export function preferansReducer(
   switch (action.type) {
     case 'BID': {
       const seat = state.currentSeat;
-      if (!canBid(state, seat, action.level, action.suit)) return state;
+      if (!canBid(state, seat, action.level, action.suit, action.misere === true)) return state;
       const s = clone(state);
-      const bid: Bid = { level: action.level, suit: action.suit };
+      const bid: Bid = action.misere ? { ...MISERE_BID } : { level: action.level, suit: action.suit };
       s.highBid = { ...bid, seat };
       s.bids.push({ seat, bid });
       const active = activeBidders(s);
@@ -218,8 +273,9 @@ export function preferansReducer(
       const active = activeBidders(s);
       if (s.highBid && active.length === 1) return enterTalon(s, active[0]); // lone bidder wins
       if (!s.highBid && active.length === 0) {
-        // All passed with no bid → redeal to the NEXT dealer, scores/handNumber
-        // unchanged (§5). The dealer rotation keeps the deal sequence advancing.
+        // All passed with no bid → распасы when the host enabled them (§5a), else a
+        // redeal to the NEXT dealer, scores/handNumber unchanged (§5).
+        if (s.options.allPass) return enterAllPass(s);
         return dealFreshHand(s, nextSeat(s.dealerSeat), rng, false);
       }
       s.currentSeat = nextActiveBidder(s, seat);
@@ -242,20 +298,15 @@ export function preferansReducer(
       removeCard(s.handsBySeat[seat], action.cards[0]);
       removeCard(s.handsBySeat[seat], action.cards[1]);
       s.discards = [action.cards[0], action.cards[1]];
+      // A misère cannot be changed, so the discard plays it straight away (§7a).
+      if (s.highBid?.misere) return enterPlay(s, { ...MISERE_BID });
       return s; // still in 'talon' → next step is DECLARE_CONTRACT
     }
 
     case 'DECLARE_CONTRACT': {
       const seat = state.currentSeat;
       if (!canDeclareContract(state, seat, action.level, action.suit)) return state;
-      const s = clone(state);
-      s.contract = { level: action.level, suit: action.suit };
-      s.phase = 'playing';
-      // The declarer's left-hand defender leads the first trick (§8).
-      const lead = nextSeat(seat);
-      s.currentSeat = lead;
-      s.currentTrick = { leadSeat: lead, ledSuit: null, plays: [], winnerSeat: null };
-      return s;
+      return enterPlay(clone(state), { level: action.level, suit: action.suit });
     }
 
     case 'PLAY_CARD': {
@@ -273,7 +324,7 @@ export function preferansReducer(
       }
 
       // Third card → resolve the trick.
-      const winner = determineTrickWinner(trick.plays, trick.ledSuit as Card['suit'], trumpSuitOf(s.contract as Bid));
+      const winner = determineTrickWinner(trick.plays, trick.ledSuit as Card['suit'], handTrumpSuit(s));
       trick.winnerSeat = winner;
       s.completedTricks.push(trick);
       s.tricksBySeat[winner] += 1;

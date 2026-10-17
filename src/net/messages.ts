@@ -19,6 +19,7 @@ import type { AnyGameState, AnyGameAction } from '../games/anyGame';
 import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
+import type { PreferansRuleOptions } from '../games/preferans/variants';
 
 // ---------------------------------------------------------------------------
 // Lobby / room model
@@ -81,6 +82,8 @@ export interface RoomSnapshot {
   tarneebVariant?: TarneebVariant;
   /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
   tarneebTargetScore?: number;
+  /** Preferans optional rules (Stage 41.4): misère / распасы; undefined (→ both off) for other games / legacy rooms. */
+  preferansRules?: PreferansRuleOptions;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   /** Poker recovery public status (§16, 37.7.6): 'settlement_pending' added — the previous
@@ -142,6 +145,8 @@ export interface RoomSummary {
   tarneebVariant?: TarneebVariant;
   /** Tarneeb match target score (Stage 29.8); undefined (→ 41) for other games / legacy rooms. */
   tarneebTargetScore?: number;
+  /** Preferans optional rules (Stage 41.4): misère / распасы; undefined (→ both off) for other games / legacy rooms. */
+  preferansRules?: PreferansRuleOptions;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   /** Poker online bankroll stakes for the browser (§16): PUBLIC blinds + derived
@@ -195,7 +200,7 @@ export interface ChatMessage {
 // ---------------------------------------------------------------------------
 
 export type ClientMessage =
-  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
+  | { t: 'CREATE_ROOM'; name: string; playerCount?: 2 | 3 | 4 | 5 | 6; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; preferansRules?: PreferansRuleOptions; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
   | { t: 'JOIN_ROOM'; code: RoomCode; name: string; role?: SeatRole; password?: string; avatar?: string }
   | { t: 'RECONNECT'; code: RoomCode; reconnectToken: string }
   /**

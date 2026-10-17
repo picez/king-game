@@ -6,8 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import type { Card, Suit } from '../../models/types';
-import { PREFERANS_SUITS, rankValue } from './deck';
-import { determineTrickWinner, getValidPlayableCards, trumpSuitOf } from './rules';
+import { PREFERANS_SUITS, rankValue, rankValueOf } from './deck';
+import { canBidMisere, determineTrickWinner, getValidPlayableCards, handTrumpSuit } from './rules';
 import type { Bid, PreferansAction, PreferansState } from './types';
 
 /** The suit the hand is longest in (length first; suit order breaks ties — §5). */
@@ -38,12 +38,37 @@ function wouldWin(state: PreferansState, seat: number, card: Card): boolean {
   const trick = state.currentTrick;
   if (!trick || trick.plays.length === 0) return true; // leading "wins" so far
   const hypothetical = [...trick.plays, { seat, card, playOrder: trick.plays.length + 1 }];
-  return determineTrickWinner(hypothetical, trick.ledSuit as Suit, trumpSuitOf(state.contract as Bid)) === seat;
+  return determineTrickWinner(hypothetical, trick.ledSuit as Suit, handTrumpSuit(state)) === seat;
 }
+
+/** The highest card (by rank) of a non-empty list. */
+function highestCard(cards: Card[]): Card {
+  let high = cards[0];
+  for (const c of cards) if (rankValue(c) > rankValue(high)) high = c;
+  return high;
+}
+
+/**
+ * Ducking play for a seat that wants NO tricks — the misère declarer and everyone in
+ * распасы (RULES §5a/§7a): lead low; follow with the highest card that still loses;
+ * when every card would win, get rid of the highest.
+ */
+function duckCard(state: PreferansState, seat: number, legal: Card[]): Card {
+  const trick = state.currentTrick;
+  if (!trick || trick.plays.length === 0) return lowestCard(legal);
+  const losers = legal.filter((c) => !wouldWin(state, seat, c));
+  return highestCard(losers.length > 0 ? losers : legal);
+}
+
+/** Highest card rank a hand may hold and still bid misère (the bot is cautious). */
+const MISERE_MAX_RANK = rankValueOf('10');
 
 /** Choose a legal card: lead low; else win as cheaply as possible; else discard low. */
 function chooseCard(state: PreferansState, seat: number): Card {
   const legal = getValidPlayableCards(state, seat);
+  if (state.allPass || (state.contract?.misere && seat === state.declarerSeat)) return duckCard(state, seat, legal);
+  // Defending a misère: play low and let the declarer be the one forced to win.
+  if (state.contract?.misere) return lowestCard(legal);
   const trick = state.currentTrick;
   if (!trick || trick.plays.length === 0) return lowestCard(legal); // lead low
   const winners = legal.filter((c) => wouldWin(state, seat, c));
@@ -73,7 +98,15 @@ export function preferansBotAction(state: PreferansState, seat: number): Prefera
       // sum then strictly rises each hand and the match is guaranteed to terminate
       // in bounded hands (never an endless redeal loop).
       const lastActiveNoBid = state.highBid == null && state.passed.every((p, i) => i === seat || p);
-      if (lastActiveNoBid) return { type: 'BID', level, suit };
+      // With распасы on, an all-pass is a scored hand too (the sum still rises), so
+      // the bot may let it happen.
+      if (lastActiveNoBid && !state.options.allPass) return { type: 'BID', level, suit };
+
+      // A hand with nothing above a ten is a misère hand (the rule allows it only
+      // as this seat's first bid — canBidMisere checks that and the host option).
+      if (canBidMisere(state, seat) && hand.every((c) => rankValue(c) <= MISERE_MAX_RANK)) {
+        return { type: 'BID', level: 0, suit: 'NT', misere: true };
+      }
 
       if (length < 4) return { type: 'PASS_BID' };
       if (state.highBid) {
@@ -88,7 +121,9 @@ export function preferansBotAction(state: PreferansState, seat: number): Prefera
     case 'talon': {
       if (state.talon.length > 0) return { type: 'TAKE_TALON' };
       if (state.discards.length === 0) {
-        const [c1, c2] = lowestN(state.handsBySeat[seat], 2);
+        // A misère sheds its two most dangerous (highest) cards; a contract its weakest.
+        const sorted = state.handsBySeat[seat].slice().sort((a, b) => rankValue(a) - rankValue(b));
+        const [c1, c2] = state.highBid?.misere ? sorted.slice(-2) : lowestN(state.handsBySeat[seat], 2);
         return { type: 'DISCARD', cards: [c1, c2] };
       }
       // Declare the minimum: exactly the winning bid (§6).

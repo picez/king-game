@@ -104,9 +104,9 @@ as the other five. Its pure core is `src/games/fiftyOne/` (id **`fifty-one`**), 
 **Preferans / Преферанс** (5th game) is **released** (Stage 19.7): `status: available`,
 local + online, score-only stats/leaderboard, a favorite-game option, and a "Preferans
 Declarer" achievement. A 3-player, each-for-self contract-bidding trick game with a talon;
-shared UI in `src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Post-MVP variants
-(misère, распасы, whist/pass, Sochi pool/mountain scoring, 4-player) remain documented,
-not built. [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
+shared UI in `src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Misère and распасы are host
+options (Stage 41.4, off by default); whist/pass, Sochi pool/mountain scoring and
+4-player remain documented, not built. [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## Core architecture
 

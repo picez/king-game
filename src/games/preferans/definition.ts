@@ -16,6 +16,7 @@ import { preferansBotAction } from './ai';
 import { preferansRedactStateFor } from './redact';
 import { getActingPreferansPlayerId, getActingPreferansSeat, isPreferansFinished } from './rules';
 import type { PreferansAction, PreferansState } from './types';
+import { normalizePreferansRules } from './variants';
 
 const entry = GAME_CATALOG.preferans;
 
@@ -33,7 +34,8 @@ function buildPreferansStartAction(room: RoomSnapshot): PreferansAction {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
-    options: { targetScore: 10 },
+    // Host-optional misère / распасы (Stage 41.4); a legacy room → both off.
+    options: { targetScore: 10, ...normalizePreferansRules(room.preferansRules) },
   };
 }
 

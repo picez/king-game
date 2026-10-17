@@ -171,8 +171,9 @@ pattern for stats.
   stays emoji-only 🎩 — gameIconIntegration test excludes it from the on-disk PNG check);
   **no DB migration, no protocol message types, no rules change.** App subtitle now lists
   all 5 games. Visual smoke (picker/setup/host/lobby/stats/leaderboard, 360/390, no
-  overflow). **Preferans is RELEASED.** Remaining post-MVP variants (misère, распасы,
-  whist/pass, classic Sochi pool/mountain scoring, 4-player) stay documented, not built.
+  overflow). **Preferans is RELEASED.** Misère + распасы became host options in
+  Stage 41.4 (RULES §5a/§7a); whist/pass, classic Sochi pool/mountain scoring and
+  4-player stay documented, not built.
 
 ## Local UI stages (detail)
 

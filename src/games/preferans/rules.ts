@@ -23,14 +23,24 @@ export function isValidBidShape(level: number, suit: ContractSuit): boolean {
   return Number.isInteger(level) && level >= MIN_LEVEL && level <= MAX_LEVEL && suitIndex(suit) >= 0;
 }
 
-/** A single ascending rank for a contract: 6♠=0, 6♣=1 … 6NT=4, 7♠=5 … 10NT=24. */
+/** The misère bid / contract (RULES §7a): No-Trump, zero tricks. */
+export const MISERE_BID: Bid = { level: 0, suit: 'NT', misere: true };
+
+/** A single ascending rank for a contract: 6♠=0, 6♣=1 … 6NT=4, 7♠=5 … 10NT=24.
+ *  Misère sits between 8NT (14) and 9♠ (15). */
 export function bidRank(bid: Bid): number {
+  if (bid.misere) return (8 - MIN_LEVEL) * CONTRACT_SUIT_ORDER.length + suitIndex('NT') + 0.5;
   return (bid.level - MIN_LEVEL) * CONTRACT_SUIT_ORDER.length + suitIndex(bid.suit);
 }
 
-/** The trump suit of a contract, or null for No-Trump. */
+/** The trump suit of a contract, or null for No-Trump (and misère). */
 export function trumpSuitOf(contract: Bid): Suit | null {
-  return contract.suit === 'NT' ? null : contract.suit;
+  return contract.suit === 'NT' || contract.misere ? null : contract.suit;
+}
+
+/** The trump of the hand being played: none for распасы, else the contract's. */
+export function handTrumpSuit(s: PreferansState): Suit | null {
+  return s.allPass || !s.contract ? null : trumpSuitOf(s.contract);
 }
 
 export function cardEquals(a: Card, b: Card): boolean {
@@ -46,11 +56,24 @@ export function activeBidders(s: PreferansState): number[] {
 
 // ── Bidding ──────────────────────────────────────────────────────────────────
 
-export function canBid(s: PreferansState, seat: number, level: number, suit: ContractSuit): boolean {
+export function canBid(s: PreferansState, seat: number, level: number, suit: ContractSuit, misere = false): boolean {
   if (s.phase !== 'bidding' || seat !== s.currentSeat || s.passed[seat]) return false;
+  // A misère bidder is committed to misère: it may only pass from here (RULES §7a).
+  if (s.bids.some((b) => b.seat === seat && b.bid?.misere)) return false;
+  if (misere) {
+    if (!s.options.misere) return false;
+    // Misère must be the seat's FIRST bid of the auction.
+    if (s.bids.some((b) => b.seat === seat && b.bid)) return false;
+    return s.highBid ? bidRank(MISERE_BID) > bidRank(s.highBid) : true;
+  }
   if (!isValidBidShape(level, suit)) return false;
   const rank = bidRank({ level, suit });
   return s.highBid ? rank > bidRank(s.highBid) : true; // strictly above the current high bid
+}
+
+/** Whether `seat` may bid misère right now (for the UI / bots). */
+export function canBidMisere(s: PreferansState, seat: number): boolean {
+  return canBid(s, seat, 0, 'NT', true);
 }
 
 export function canPassBid(s: PreferansState, seat: number): boolean {
@@ -78,6 +101,7 @@ export function canDiscard(s: PreferansState, seat: number, cards: readonly Card
 export function canDeclareContract(s: PreferansState, seat: number, level: number, suit: ContractSuit): boolean {
   if (s.phase !== 'talon' || seat !== s.declarerSeat || s.currentSeat !== seat) return false;
   if (s.discards.length !== TALON_SIZE || s.contract !== null) return false; // discarded, not yet declared
+  if (s.highBid?.misere) return false; // a misère is fixed — the discard plays it (RULES §7a)
   if (!isValidBidShape(level, suit)) return false;
   const min = s.highBid ? bidRank(s.highBid) : bidRank({ level: MIN_LEVEL, suit: 'spades' });
   return bidRank({ level, suit }) >= min;

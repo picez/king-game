@@ -187,7 +187,10 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             ) : room.gameType === 'preferans' ? (
               // Preferans (3-player, each-for-self) has no King-style mode; show its
               // contract-game label rather than a dealer's-choice/fixed-order term.
-              <>🎩 {t('preferans.metaShort')}</>
+              // Stage 41.4: name any optional rule the host turned on.
+              <>🎩 {t('preferans.metaShort')}
+                {room.preferansRules?.misere ? <> · {t('preferans.misere')}</> : null}
+                {room.preferansRules?.allPass ? <> · {t('preferans.allPass')}</> : null}</>
             ) : room.gameType === 'fifty-one' ? (
               // 51 (Stage 30.5) is cutthroat rummy — no King-style mode; show its
               // Rummy meta + the elimination score (Stage 30.15; default 510 for legacy rooms).

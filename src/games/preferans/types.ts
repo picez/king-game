@@ -5,8 +5,9 @@
 //
 // MVP: 3 players, 32-card deck, 10 each + a 2-card talon (прикуп), an ascending
 // contract auction (levels 6–10 × suits ♠<♣<♦<♥<NT), compulsory whist, all-pass →
-// redeal, simplified single-score scoring (RULES §10). No misère / распасы / whist
-// phase in the MVP.
+// redeal, simplified single-score scoring (RULES §10). Stage 41.4 adds two
+// host-optional variants, both OFF by default: misère and распасы (RULES §5a/§7a).
+// Still no whist phase.
 // ---------------------------------------------------------------------------
 
 import type { Card, PlayerType, Suit } from '../../models/types';
@@ -27,10 +28,15 @@ export type ContractSuit = Suit | 'NT';
  */
 export type PreferansPhase = 'bidding' | 'talon' | 'playing' | 'hand_complete' | 'game_finished';
 
-/** A contract bid: level (6–10 = tricks) × suit/NT. */
+/**
+ * A contract bid: level (6–10 = tricks) × suit/NT. A MISÈRE bid (Stage 41.4, RULES §7a)
+ * carries `misere: true` with level 0 and suit 'NT' — No-Trump, contract to take ZERO
+ * tricks — and ranks between 8NT and 9♠ on the ladder.
+ */
 export interface Bid {
   level: number;
   suit: ContractSuit;
+  misere?: true;
 }
 
 export interface PreferansPlayer {
@@ -59,16 +65,29 @@ export interface PreferansTrick {
 export interface PreferansOptions {
   /** Score a player must reach to end the match (RULES §11). Default 10. */
   targetScore: number;
+  /** Misère may be bid (RULES §7a). Default false. */
+  misere?: boolean;
+  /** All-pass is played as распасы instead of a redeal (RULES §5a). Default false. */
+  allPass?: boolean;
 }
+
+/** What a scored hand was: a normal contract, a misère, or распасы (no declarer). */
+export type PreferansHandKind = 'contract' | 'misere' | 'allpass';
 
 /** Summary of a scored hand (RULES §13) — PUBLIC, score-only (no cards). */
 export interface PreferansHandResult {
   handNumber: number;
+  /** Absent on hands recorded before Stage 41.4 = 'contract'. */
+  kind?: PreferansHandKind;
+  /** The declarer; -1 for распасы (nobody declared). */
   declarerSeat: number;
   contract: Bid;
   declarerTricks: number;
-  /** Whether the contract was made (declarerTricks >= contract.level). */
+  /** Whether the contract was made (declarerTricks >= contract.level; 0 tricks for a
+   *  misère). Always false for распасы — the per-seat result is in `tricksBySeat`. */
   made: boolean;
+  /** Tricks per seat — recorded for распасы, where every seat's count decides the score. */
+  tricksBySeat?: number[];
   /** Score change applied per seat this hand (length 3). */
   deltaBySeat: number[];
 }
@@ -102,6 +121,9 @@ export interface PreferansState {
   declarerSeat: number | null;
   /** The final contract (trump = suit, or NT); null until DECLARE_CONTRACT. */
   contract: Bid | null;
+  /** True while распасы are being played (all passed, RULES §5a): no declarer, no
+   *  contract, No-Trump, everyone tries to take as few tricks as possible. */
+  allPass?: boolean;
 
   // ── play ──
   currentTrick: PreferansTrick | null;
@@ -129,8 +151,9 @@ export type PreferansAction =
       options?: Partial<PreferansOptions>;
       dealerSeat?: number;                // optional explicit first dealer (tests)
     }
-  /** A legal bid strictly above the current high bid. Seat = currentSeat. */
-  | { type: 'BID'; level: number; suit: ContractSuit }
+  /** A legal bid strictly above the current high bid. Seat = currentSeat. `misere`
+   *  bids misère (level/suit are then ignored). */
+  | { type: 'BID'; level: number; suit: ContractSuit; misere?: boolean }
   /** Permanently drop out of the current auction. Seat = currentSeat. */
   | { type: 'PASS_BID' }
   /** Declarer takes the 2 talon cards into hand (→ 12). Seat = currentSeat = declarer. */

@@ -185,6 +185,9 @@ function tarneebFixture(): TarneebState {
 function preferansFixture(): PreferansState {
   return preferansReducer(null, {
     type: 'START_GAME', playerNames: names(3), playerTypes: types(3), dealerSeat: 2,
+    // Misère on (Stage 41.4): the viewer's first bid then shows Misère above Pass — the
+    // widest the bid bar gets, so the gates measure the worst case.
+    options: { targetScore: 10, misere: true, allPass: true },
   })!;
 }
 

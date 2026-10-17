@@ -4,12 +4,13 @@ import CardView, { SUIT_SYMBOL } from '../components/CardView';
 import type { Card, Suit } from '../../models/types';
 import type { Bid, ContractSuit, PreferansAction, PreferansState, PreferansTrick } from '../../games/preferans/types';
 import {
+  canBidMisere,
   canDiscard,
   cardEquals,
   CONTRACT_SUIT_ORDER,
   getActingPreferansSeat,
   getValidPlayableCards,
-  trumpSuitOf,
+  handTrumpSuit,
 } from '../../games/preferans/rules';
 import { validBids, validDeclareContracts, bidKey } from './bids';
 import PreferansHelp from './PreferansHelp';
@@ -56,8 +57,9 @@ const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
 function contractSuitSymbol(suit: ContractSuit): string {
   return suit === 'NT' ? 'NT' : SUIT_SYMBOL[suit];
 }
-/** e.g. "8♥" or "7 NT". */
-function contractLabel(bid: Bid): string {
+/** e.g. "8♥" or "7 NT"; a misère bid shows `misereLabel` (Stage 41.4). */
+function contractLabel(bid: Bid, misereLabel: string): string {
+  if (bid.misere) return misereLabel;
   return bid.suit === 'NT' ? `${bid.level} NT` : `${bid.level}${SUIT_SYMBOL[bid.suit]}`;
 }
 
@@ -75,6 +77,7 @@ function sortHand(cards: Card[], trump: Suit | null): Card[] {
 /** The local human's table view for one Preferans hand. */
 export default function PreferansGameScreen({ state, humanSeat, apply, onExit, reviewTrick, online = false, disconnectedSeats, socialSlot }: Props) {
   const { t } = useI18n();
+  const label = (b: Bid) => contractLabel(b, t('preferans.misere'));
   const [showHelp, setShowHelp] = useState(false);
   const offline = (seat: number) => (disconnectedSeats ?? []).includes(seat);
   // Cards the human has picked to bury (talon discard step); reset whenever the
@@ -96,7 +99,9 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
     setSelectedDiscards([]);
   }, [phase, actingSeat]);
 
-  const trumpSuit = state.contract ? trumpSuitOf(state.contract) : null;
+  const trumpSuit = handTrumpSuit(state);
+  const allPass = state.allPass === true;
+  const misere = state.contract?.misere === true;
   // Client-only hand display order (default = sortHand; manual on reorder, Stage 30.12).
   const handOrder = useManualHandOrder(sortHand(state.handsBySeat[humanSeat], trumpSuit), singleDeckCardId);
   const legalCards = phase === 'playing' && isMyTurn ? getValidPlayableCards(state, humanSeat) : [];
@@ -162,7 +167,8 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
   const mustFollow = phase === 'playing' && isMyTurn && ledSuit != null &&
     state.handsBySeat[humanSeat].some((c) => c.suit === ledSuit);
   // The minimum contract the declarer may name = the winning bid (§6).
-  const declareMinLabel = state.highBid ? contractLabel(state.highBid) : null;
+  const declareMinLabel = state.highBid ? label(state.highBid) : null;
+  const misereBiddable = phase === 'bidding' && isMyTurn && canBidMisere(state, humanSeat);
 
   return (
     <div className={`screen table-shell preferans-screen ${online ? 'preferans-screen--online' : ''}`}>
@@ -190,15 +196,19 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
         </div>
         <div className="preferans-scoreboard__mid">
           <span className="preferans-target">🎯 {state.targetScore}</span>
-          {state.contract ? (
+          {allPass ? (
+            <span className="preferans-contract preferans-contract--allpass">
+              <strong>{t('preferans.allPass')}</strong>
+            </span>
+          ) : state.contract ? (
             <span className={`preferans-contract ${trumpIsRed ? 'preferans-contract--red' : ''}`}>
-              {t('preferans.contract')} <strong>{contractLabel(state.contract)}</strong>
+              {t('preferans.contract')} <strong>{label(state.contract)}</strong>
               {declarerName && <span className="preferans-contract__by"> · {declarerName}</span>}
             </span>
           ) : (
             <span className="preferans-bid">
               {t('preferans.highestBid')}:{' '}
-              <strong>{state.highBid ? contractLabel(state.highBid) : t('preferans.noBid')}</strong>
+              <strong>{state.highBid ? label(state.highBid) : t('preferans.noBid')}</strong>
               {highBidderName && <span className="preferans-bid__by"> · {highBidderName}</span>}
             </span>
           )}
@@ -227,7 +237,7 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
           const bidLabel = phase === 'bidding'
             ? (state.passed[p.seatIndex]
               ? t('preferans.passed')
-              : state.highBid?.seat === p.seatIndex ? contractLabel(state.highBid) : '')
+              : state.highBid?.seat === p.seatIndex ? label(state.highBid) : '')
             : '';
           return (
             <div
@@ -277,15 +287,30 @@ export default function PreferansGameScreen({ state, humanSeat, apply, onExit, r
         {iPassed && <span className="preferans-prompt__note">{t('preferans.youPassed')}</span>}
         {discardMode && <span className="preferans-prompt__note">{t('preferans.discardHint')}</span>}
         {mustFollow && <span className="preferans-prompt__note">{t('preferans.mustFollow')}</span>}
+        {phase === 'playing' && allPass && <span className="preferans-prompt__note">{t('preferans.allPassNote')}</span>}
+        {phase === 'playing' && misere && (
+          <span className="preferans-prompt__note">
+            {t(iAmDeclarer ? 'preferans.misereNoteDeclarer' : 'preferans.misereNoteDefender')}
+          </span>
+        )}
       </div>
 
       {/* Action area: bidding ladder, talon buttons, discard confirm, or declare ladder. */}
       {phase === 'bidding' && isMyTurn && (
         <div className="preferans-actions preferans-bidbar">
           <BidLadder legalKeys={legalBidKeys} onPick={(b) => apply({ type: 'BID', level: b.level, suit: b.suit })} />
-          <button type="button" className="btn btn--ghost preferans-passbtn" onClick={() => apply({ type: 'PASS_BID' })}>
-            {t('preferans.pass')}
-          </button>
+          {/* Misère (when the host enabled it) stacks above Pass in the same side column. */}
+          <div className="preferans-bidbar__side">
+            {misereBiddable && (
+              <button type="button" className="btn btn--ghost preferans-miserebtn"
+                onClick={() => apply({ type: 'BID', level: 0, suit: 'NT', misere: true })}>
+                {t('preferans.misere')}
+              </button>
+            )}
+            <button type="button" className="btn btn--ghost preferans-passbtn" onClick={() => apply({ type: 'PASS_BID' })}>
+              {t('preferans.pass')}
+            </button>
+          </div>
         </div>
       )}
 
@@ -402,18 +427,26 @@ function HandComplete({ state, humanSeat, onNext, online }: {
 }) {
   const { t } = useI18n();
   const hand = state.lastHand!;
-  const declarerName = hand.declarerSeat === humanSeat ? t('preferans.you') : state.players[hand.declarerSeat].name;
+  const allPass = hand.kind === 'allpass';
+  const declarerName = allPass ? ''
+    : hand.declarerSeat === humanSeat ? t('preferans.you') : state.players[hand.declarerSeat].name;
   const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
 
   return (
     <div className="preferans-handdone-overlay" role="dialog" aria-modal="true">
       <div className="preferans-handdone">
         <h2 className="preferans-handdone__title">
-          {hand.made ? `✅ ${t('preferans.contractMade')}` : `❌ ${t('preferans.contractFailed')}`}
+          {allPass ? `🃏 ${t('preferans.allPass')}`
+            : hand.made ? `✅ ${t('preferans.contractMade')}` : `❌ ${t('preferans.contractFailed')}`}
         </h2>
         <p className="preferans-handdone__line">
-          <span className="preferans-badge preferans-badge--declarer">★</span> {declarerName} · {t('preferans.contract')}{' '}
-          <strong>{contractLabel(hand.contract)}</strong> · {t('preferans.tricks')} <strong>{hand.declarerTricks}/{hand.contract.level}</strong>
+          {allPass ? t('preferans.allPassResult') : (
+            <>
+              <span className="preferans-badge preferans-badge--declarer">★</span> {declarerName} · {t('preferans.contract')}{' '}
+              <strong>{contractLabel(hand.contract, t('preferans.misere'))}</strong> · {t('preferans.tricks')}{' '}
+              <strong>{hand.declarerTricks}/{hand.contract.misere ? 0 : hand.contract.level}</strong>
+            </>
+          )}
         </p>
         <table className="preferans-handdone__table">
           <thead>

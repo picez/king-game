@@ -192,7 +192,7 @@ describe('scoring + end (bot-driven real hands)', () => {
       // Each hand played 10 tricks; history is score-only (no cards).
       for (const h of s.handHistory) {
         expect(h).not.toHaveProperty('cards');
-        expect(Object.keys(h).sort()).toEqual(['contract', 'declarerSeat', 'declarerTricks', 'deltaBySeat', 'handNumber', 'made'].sort());
+        expect(Object.keys(h).sort()).toEqual(['contract', 'declarerSeat', 'declarerTricks', 'deltaBySeat', 'handNumber', 'kind', 'made'].sort());
       }
     }
   });

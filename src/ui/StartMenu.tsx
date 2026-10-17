@@ -31,6 +31,7 @@ import type { TarneebVariant } from '../games/tarneeb/types';
 import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../games/tarneeb/rules';
 import { DEFAULT_TARGET_PENALTY, ELIMINATION_SCORE_PRESETS } from '../games/fiftyOne/rules';
 import AccountBar from './menu/AccountBar';
+import PreferansRulesPicker, { DEFAULT_PREFERANS_RULES, type PreferansRuleOptions } from './preferans/PreferansRulesPicker';
 import ProfileMenu from './ProfileMenu';
 import SelectMenu from './components/SelectMenu';
 import GameIcon from './components/GameIcon';
@@ -92,6 +93,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   const [tarneebVariant, setTarneebVariant] = useState<TarneebVariant>('pairs');
   // Tarneeb match target (Stage 29.8): the score that wins the match. Default 41 (unchanged).
   const [tarneebTargetScore, setTarneebTargetScore] = useState<number>(DEFAULT_TARGET_SCORE);
+  const [preferansRules, setPreferansRules] = useState<PreferansRuleOptions>(DEFAULT_PREFERANS_RULES);
   // 51 elimination score (Stage 30.15): the running-penalty threshold a seat is out at.
   // Default 510 (unchanged); the host may lower it to 410/310/210 for shorter matches.
   const [fiftyOneEliminationScore, setFiftyOneEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
@@ -253,7 +255,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       turnTimerSec: defaultTimer,
       password: pw || undefined,
       durakVariant, debercMatchSize, debercPlayers,
-      tarneebVariant, tarneebTargetScore, fiftyOneEliminationScore,
+      tarneebVariant, tarneebTargetScore, preferansRules, fiftyOneEliminationScore,
       // Poker bankroll stakes (§16): the buy-in is re-derived + validated server-side.
       pokerSmallBlind: pokerStakes?.smallBlind,
       pokerBigBlind: pokerStakes?.bigBlind,
@@ -614,9 +616,12 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 </div>
               )}
               {gameType === 'preferans' && (
-                <div className="field">
-                  <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
-                </div>
+                <>
+                  <div className="field">
+                    <p className="durak-variant-desc">{t('preferans.setupTagline')}</p>
+                  </div>
+                  <PreferansRulesPicker value={preferansRules} onChange={setPreferansRules} />
+                </>
               )}
               {gameType === 'poker' && (
                 <>

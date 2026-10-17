@@ -13,6 +13,7 @@ export function PreferansRulesList() {
       <li>{t('preferans.rule.play')}</li>
       <li>{t('preferans.rule.scoring')}</li>
       <li>{t('preferans.rule.goal')}</li>
+      <li><strong>{t('preferans.misere')}</strong> / <strong>{t('preferans.allPass')}</strong> — {t('preferans.rule.optional')}</li>
     </ul>
   );
 }

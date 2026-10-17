@@ -6,6 +6,7 @@ import type { PlayerType } from '../../models/types';
 import type { PreferansAction, PreferansState, PreferansTrick } from '../../games/preferans/types';
 import { localBotNames } from '../../games/botIdentities';
 import PreferansSetup from './PreferansSetup';
+import type { PreferansRuleOptions } from './PreferansRulesPicker';
 import PreferansGameScreen from './PreferansGameScreen';
 import PreferansFinished from './PreferansFinished';
 
@@ -58,12 +59,12 @@ export default function PreferansLocalGame({ onExit }: { onExit: () => void }) {
     return () => clearTimeout(timer);
   }, [state, reviewTrick, apply]);
 
-  function start() {
+  function start(rules: PreferansRuleOptions) {
     const playerNames = ['You', ...localBotNames('preferans', 2, ['You'])];
     const playerTypes: PlayerType[] = ['human', 'ai', 'ai'];
     setReviewTrick(null);
     prevCompleted.current = 0;
-    apply({ type: 'START_GAME', playerNames, playerTypes, options: { targetScore: TARGET_SCORE } });
+    apply({ type: 'START_GAME', playerNames, playerTypes, options: { targetScore: TARGET_SCORE, misere: rules.misere, allPass: rules.allPass } });
   }
 
   function playAgain() {

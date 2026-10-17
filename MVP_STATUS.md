@@ -91,9 +91,9 @@ runs/sets, open with 51+ points, jokers wild, penalty scoring, host-configurable
 local + server-authoritative online + score-only stats/leaderboard, a favorite-game
 option, and a "Preferans Declarer" achievement. A 3-player, 32-card, each-for-self
 contract-bidding trick game (declarer + talon vs two defenders). Shared UI in
-`src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Remaining Preferans variants
-(misère, распасы, whist/pass, classic Sochi pool/mountain scoring, 4-player) are
-documented as post-MVP, not built. Spec + plan:
+`src/ui/preferans/` (+ the `PreferansOnlineGame` adapter). Misère and распасы are host
+options since Stage 41.4 (off by default); whist/pass, classic Sochi pool/mountain
+scoring and 4-player remain documented as post-MVP, not built. Spec + plan:
 [`PREFERANS_RULES.md`](PREFERANS_RULES.md) / [`PREFERANS_PLAN.md`](PREFERANS_PLAN.md).
 
 ## What works

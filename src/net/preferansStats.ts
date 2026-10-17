@@ -23,8 +23,9 @@ const NUM_SEATS = 3;
 /** Single-letter suit code for a compact, word-free contract label (public). */
 const SUIT_CODE: Record<Suit, string> = { spades: 'S', hearts: 'H', diamonds: 'D', clubs: 'C' };
 
-/** Compact, word-free contract label, e.g. "6S", "7NT", "10H". Public. */
+/** Compact, word-free contract label, e.g. "6S", "7NT", "10H", "MIS" (misère). Public. */
 export function preferansContractLabel(contract: Bid): string {
+  if (contract.misere) return 'MIS';
   return `${contract.level}${contract.suit === 'NT' ? 'NT' : SUIT_CODE[contract.suit]}`;
 }
 
@@ -99,6 +100,7 @@ export function summarizeFinishedPreferansGame(state: PreferansState): Preferans
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
   for (const h of state.handHistory) {
+    if (h.kind === 'allpass') continue; // распасы have no declarer (Stage 41.4)
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
     if (h.made) contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
     else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
@@ -125,7 +127,8 @@ export function summarizeFinishedPreferansGame(state: PreferansState): Preferans
     for (const p of state.players) {
       scoreByPlayer[seatToPlayerId.get(p.seatIndex)!] = h.deltaBySeat[p.seatIndex] ?? 0;
     }
-    return { roundIndex: i, modeId: preferansContractLabel(h.contract), scoreByPlayer };
+    const modeId = h.kind === 'allpass' ? 'PASS' : preferansContractLabel(h.contract);
+    return { roundIndex: i, modeId, scoreByPlayer };
   });
 
   return {

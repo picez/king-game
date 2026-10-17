@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import { PreferansRulesList } from './PreferansHelp';
+import PreferansRulesPicker, { DEFAULT_PREFERANS_RULES, type PreferansRuleOptions } from './PreferansRulesPicker';
 
 interface Props {
-  onStart: () => void;
+  onStart: (rules: PreferansRuleOptions) => void;
   onExit: () => void;
 }
 
@@ -16,6 +17,7 @@ interface Props {
 export default function PreferansSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
   const [showHelp, setShowHelp] = useState(false);
+  const [rules, setRules] = useState<PreferansRuleOptions>(DEFAULT_PREFERANS_RULES);
 
   return (
     <div className="screen menu-screen preferans-setup">
@@ -29,6 +31,7 @@ export default function PreferansSetup({ onStart, onExit }: Props) {
         <p className="preferans-setup__target">
           🎯 {t('preferans.target')}: <strong>10</strong>
         </p>
+        <PreferansRulesPicker value={rules} onChange={setRules} />
 
         <button
           type="button"
@@ -40,7 +43,7 @@ export default function PreferansSetup({ onStart, onExit }: Props) {
         </button>
         {showHelp && <PreferansRulesList />}
 
-        <button type="button" className="btn btn--primary preferans-setup__start" onClick={onStart}>
+        <button type="button" className="btn btn--primary preferans-setup__start" onClick={() => onStart(rules)}>
           {t('preferans.start')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onExit}>

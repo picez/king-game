@@ -11,6 +11,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Preferans: misère and распасы, as host options (Stage 41.4).** Both are OFF by default
+  (a room or save that never mentions them plays exactly as before), and switch on in the
+  local setup or the online host flow; the lobby names them.
+  - **Misère** — bid it as your first bid (between 8NT and 9♠, only a 9 outbids it); take
+    the talon, discard 2, and play No-Trump to take **no** tricks. Worth 5: made +5;
+    failed −5 and each defender +5.
+  - **Распасы** — when everyone passes the hand is played No-Trump instead of redealt;
+    whoever takes the fewest tricks scores +1, nobody loses points (so a match still
+    always ends). Распасы are not counted as anyone's contract in the stats.
+  - Bots bid misère on a hand with nothing above a ten and duck tricks in misère and
+    распасы. PREFERANS_RULES §5a/§7a. Open misère and the classic talon reveal stay
+    post-MVP. `layout:fold` now measures the bid bar with Misère showing.
 - **"Your turn" sound (Stage 41.3).** Online, in all seven games, one soft cue plays
   when the turn passes to you — not while it stays yours, not when you join or reconnect
   into your turn. It follows the existing sound setting (Profile → Appearance), so it is

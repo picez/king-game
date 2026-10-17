@@ -23,13 +23,13 @@
 - The auction winner takes the talon, discards 2, then declares a final contract.
 - **Compulsory whist:** both defenders always play to defeat the contract (there is
   **no** whist/pass decision in MVP).
-- **All-pass → redeal** (no распасы in MVP).
-- **Misère excluded from MVP** (positive suit/NT contracts only).
+- **All-pass → redeal** by default; **распасы** are a host option (§5a, Stage 41.4).
+- **Misère** is a host option (§7a, Stage 41.4); off by default.
 - **Simplified single-score "contract points" scoring** (§10) with a target to end —
   NOT the classic pool/mountain/whist (пуля/гора/висты) ledger.
 
-**Explicitly post-MVP** (documented, not built): misère & open misère; распасы
-(all-pass play-for-fewest); whist/pass + half-whist + open/closed whist; the classic
+**Explicitly post-MVP** (documented, not built): OPEN misère (the declarer's cards
+shown); the classic распасы talon reveal; whist/pass + half-whist + open/closed whist; the classic
 **Sochi (Сочинка)** pool/mountain/whist scoring; 4-player Preferans (with a sitting-out
 dealer); overtrick/undertrick fine-tuning; "гусарик"/"чиновничий" and other house rules.
 
@@ -72,6 +72,16 @@ dealer); overtrick/undertrick fine-tuning; "гусарик"/"чиновничи�
   deal passes to the next dealer, and a fresh hand is dealt (**no распасы in MVP**).
   **[CONFIRM]**
 
+### 5a. Распасы — host option (Stage 41.4)
+
+When the host turns **распасы** on (`options.allPass`), an all-pass is NOT redealt:
+- the hand is played **No-Trump** with no declarer and no contract (`state.allPass`);
+- the talon stays face-down aside for the whole hand (it is never revealed);
+- the seat **left of the dealer** leads the first trick; normal follow-suit rules;
+- **scoring:** every seat that took the **fewest** tricks scores **+1**; nobody loses
+  points. The score sum still rises every hand, so a match always ends;
+- it is a real hand: the hand counter advances and the deal rotates as usual.
+
 ## 6. Talon (прикуп)
 
 Order of operations for the auction winner:
@@ -95,9 +105,19 @@ hidden. Bids and the final contract are **public**.
 - **Suit contract:** `S` is trump. **No-Trump (NT):** no trump suit.
 - **Required tricks:** the declarer must take **at least `L`** of the 10 tricks to make
   the contract.
-- **Misère:** *post-MVP.* (A misère is a No-Trump contract to take **zero** tricks; it
-  changes scoring and play/defence enough that it is excluded from the MVP for a clean,
-  cleanly-statable rule set.) **[CONFIRM]**
+- **Misère:** a host option — see §7a.
+
+### 7a. Misère — host option (Stage 41.4)
+
+When the host turns **misère** on (`options.misere`):
+- a seat may bid **misère** (`BID { misere: true }`) only as its **first** bid of the
+  auction; it ranks **between 8NT and 9♠**, so only a 9-level bid outbids it;
+- a misère bidder is committed: from then on it may only **pass**;
+- the misère winner takes the talon and discards 2 as usual, but **cannot change the
+  contract** — the discard starts play at once; No-Trump; the declarer's left leads;
+- **made = the declarer takes ZERO tricks.** Value **5** (as a 10-level game): made →
+  declarer +5; failed → declarer −5 and **each defender +5** (the §10 swing);
+- the misère is **closed** (the declarer's cards stay hidden); open misère is post-MVP.
 
 ## 8. Trick play
 
