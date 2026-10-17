@@ -576,7 +576,10 @@ issues a fixed username/password still goes in `VOICE_ICE_SERVERS` as before.
   anything sensitive.
 - **Set `ALLOWED_ORIGINS` to your exact Render URL**, not `*`. With it unset the
   server allows any origin and only logs a warning in production.
-- **Add rate limiting before a public launch** (per-IP connection/join limits)
-  to blunt brute-forcing room codes/passwords. Render does not do this for you.
+- **Rate limits are built in** (per connection, per IP, and per IP over HTTP for
+  `/auth/*` and `/api/*` writes — Stage 41.2). Behind Render's proxy set
+  **`TRUST_PROXY=true`** so the server sees each player's real IP; without it the
+  HTTP limit stays OFF for proxy-range peers (it would otherwise throttle every
+  player as one), and the WS per-IP limit counts the proxy address.
 - **Logs never contain secrets** — only deal `seed`/`deckHash` for audit, never
   passwords, full hands, or the deck.

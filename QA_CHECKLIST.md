@@ -1540,7 +1540,7 @@ transient (~2.6 s), opaque, and by design never over the hand/trick.
 
 - Room password is an **MVP gate**, not full account-level authentication; use
   **WSS** in production so it isn't sent in clear (see DEPLOYMENT.md).
-- Join/create rate limiting is still the main missing public-launch hardening.
+- Rate limits: per connection + per IP (WS) and per IP over HTTP (`/auth/*`, `/api/*` writes, Stage 41.2); production needs `TRUST_PROXY=true` behind the proxy.
 - Rooms can persist to file or Postgres, but the live room process is still a
   single Node instance. Use Redis/pub-sub or sticky sessions for multi-instance
   scale.

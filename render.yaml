@@ -31,6 +31,10 @@ services:
       - key: HOST
         value: 0.0.0.0              # Render requires binding 0.0.0.0
       # PORT is injected by Render automatically — do NOT set it here.
+      # Render's proxy sets X-Forwarded-For: read the real client IP for the per-IP limits
+      # (without it every player arrives from the proxy's address).
+      - key: TRUST_PROXY
+        value: "true"
       - key: ROOM_TTL_HOURS
         value: "24"
       - key: ROOM_HARD_TTL_HOURS

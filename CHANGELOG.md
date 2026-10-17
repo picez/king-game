@@ -11,6 +11,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Per-IP HTTP rate limits (Stage 41.2).** `/auth/*` (Google sign-in start/callback)
+  and every `/api/*` write (POST/PUT/PATCH/DELETE) are limited per client IP — burst 20
+  then 1 / 2 s for sign-in, burst 60 then 2 / s for writes — answering `429` with
+  `Retry-After`. Reads are never limited; loopback is exempt. Env: `HTTP_AUTH_BURST`,
+  `HTTP_AUTH_PER_SEC`, `HTTP_WRITE_BURST`, `HTTP_WRITE_PER_SEC`. `render.yaml` now sets
+  `TRUST_PROXY=true`; without it a private (proxy) peer is NOT limited, because on Render
+  that address is every player at once. Pure limiter in `src/net/httpRateLimit.ts`.
 - **Poker table redesigned for phones (Stage 41.1).** Client-only — no rule, server,
   protocol or DB change.
   - **Your cards are big** (about twice the old size) and show what you hold right now

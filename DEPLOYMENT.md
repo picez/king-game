@@ -274,8 +274,9 @@ only changes how the browsers find a P2P path.
 - **Room password is an MVP gate, not authentication.** It's a salted but
   lightweight hash and only controls joining a room — there are no user
   accounts. Don't rely on it for anything sensitive.
-- **Add rate limiting** (per-IP connection/join limits at the proxy or in the
-  server) before exposing publicly, to blunt brute-forcing room codes/passwords.
+- **Rate limiting is in the server** (per connection, per IP for WS, per IP over
+  HTTP for `/auth/*` and `/api/*` writes). Behind a reverse proxy set
+  `TRUST_PROXY=true` so it sees real client IPs.
 - **Set `ALLOWED_ORIGINS`** in production so only your site's origin may open a
   socket; in `production` the server warns if it's unset.
 - **Rooms persist to a JSON file** and survive a restart (§6b). It's a sensitive

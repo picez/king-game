@@ -404,8 +404,9 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
   keep **WSS** enabled before a public launch.
 - **Per-connection** WS rate limiting is in place (message + CREATE_ROOM token
   buckets, env-tunable via `WS_MSG_BURST`/`WS_MSG_PER_SEC`/`WS_CREATE_BURST`/
-  `WS_CREATE_PER_SEC`). It caps amplification through one socket; **per-IP /
-  connection-count** limiting is still an infra/proxy concern for a public launch.
+  `WS_CREATE_PER_SEC`). Per-IP limits cover WS connections (`IP_*`) and, since
+  Stage 41.2, HTTP `/auth/*` + `/api/*` writes (`HTTP_AUTH_*`, `HTTP_WRITE_*`, 429 +
+  `Retry-After`). Behind Render's proxy they need **`TRUST_PROXY=true`**.
 - The production server is still a **single Node instance**. Rooms can persist to
   Postgres (`ROOM_STORAGE=pg`), but horizontal scaling needs Redis/pub-sub or
   sticky sessions.
@@ -461,7 +462,7 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
 ## Recommended next steps (after manual LAN/mobile QA)
 
 1. Run the manual [`QA_CHECKLIST.md`](QA_CHECKLIST.md) on real phones (LAN + PWA install).
-2. Add join/create **rate limiting** before any broader public launch.
+2. ~~Add join/create **rate limiting**~~ — done (WS per connection + per IP; HTTP per IP, Stage 41.2). Set `TRUST_PROXY=true` on Render.
    - **Social (Stage 25.0–25.9 — DONE, see "What works" above):** Friends + room invites +
      presence badge ([`FRIENDS_PLAN.md`](FRIENDS_PLAN.md)), online **rematch**, and opt-in in-room
      **WebRTC voice** with a runtime **TURN** config seam ([`VOICE_CHAT_PLAN.md`](VOICE_CHAT_PLAN.md)).

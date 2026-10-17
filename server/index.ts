@@ -88,6 +88,7 @@ import type { FiftyOneState } from '../src/games/fiftyOne/types';
 import type { PokerState } from '../src/games/poker/types';
 import { ConnectionLimiter, DEFAULT_RATE_LIMITS, type RateLimitConfig } from '../src/net/rateLimit';
 import { IpConnectionLimiter, DEFAULT_IP_RATE_LIMITS, type IpRateLimitConfig } from '../src/net/ipRateLimit';
+import { HttpIpRateLimiter, DEFAULT_HTTP_RATE_LIMITS, httpLimitKind, isPrivateIp } from '../src/net/httpRateLimit';
 
 /**
  * Debug-safe lobby log for CREATE_ROOM / JOIN_ROOM / RECONNECT. Logs only
@@ -213,6 +214,17 @@ const IP_RATE_LIMITS: IpRateLimitConfig = {
 const TRUST_PROXY = boolEnv('TRUST_PROXY', false);
 const IP_LIMIT_EXEMPT_LOOPBACK = boolEnv('IP_LIMIT_EXEMPT_LOOPBACK', true);
 const ipLimiter = new IpConnectionLimiter(IP_RATE_LIMITS);
+// Per-IP HTTP limits (Stage 41.2): `/auth/*` and `/api/*` mutations; reads are never limited.
+const httpLimiter = new HttpIpRateLimiter({
+  auth: {
+    capacity: numEnv('HTTP_AUTH_BURST', DEFAULT_HTTP_RATE_LIMITS.auth.capacity),
+    refillPerSec: numEnv('HTTP_AUTH_PER_SEC', DEFAULT_HTTP_RATE_LIMITS.auth.refillPerSec),
+  },
+  mutation: {
+    capacity: numEnv('HTTP_WRITE_BURST', DEFAULT_HTTP_RATE_LIMITS.mutation.capacity),
+    refillPerSec: numEnv('HTTP_WRITE_PER_SEC', DEFAULT_HTTP_RATE_LIMITS.mutation.refillPerSec),
+  },
+});
 
 /**
  * The remote IP of an upgrade request. Behind a trusted proxy the real client is
@@ -1150,6 +1162,22 @@ const httpServer = createServer((req, res) => {
   // Profiles/settings/auth API (Stage 4). Shares this port; never touches /ws,
   // /health, static, or the SPA fallback. Gracefully 503s when no DATABASE_URL.
   if (path === '/api' || path.startsWith('/api/') || path.startsWith('/auth/')) {
+    const limitKind = httpLimitKind(req.method, path);
+    const ip = limitKind ? extractClientIp(req) : '';
+    // Without TRUST_PROXY a private peer is the platform's proxy = every player at once:
+    // fail OPEN there rather than throttle the whole site through one shared bucket.
+    const sharedProxyPeer = !TRUST_PROXY && isPrivateIp(ip);
+    if (limitKind && !sharedProxyPeer && !(IP_LIMIT_EXEMPT_LOOPBACK && isLoopbackIp(ip))) {
+      const verdict = httpLimiter.check(ip, limitKind, Date.now());
+      if (!verdict.ok) {
+        res.writeHead(429, {
+          'content-type': 'application/json', 'cache-control': 'no-store',
+          'retry-after': String(verdict.retryAfterSec),
+        });
+        res.end(JSON.stringify({ error: 'rate_limited', message: 'Too many requests. Try again later.' }));
+        return;
+      }
+    }
     void handleApiRequest(req, res).catch((err) => {
       console.error('[King] /api handler crashed:', String(err?.message ?? err));
       if (!res.headersSent) {
