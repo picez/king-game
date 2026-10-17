@@ -1016,7 +1016,7 @@ function applySeatTakeover(
 export function startGame(room: ServerRoom, deal: DealContext = {}): OpResult {
   if (room.started) return { ok: false, error: 'ILLEGAL_ACTION' };
   // Start once the seated players are within the game's catalog range (Stage 9.10).
-  // King: 3–4, Durak: 2–4. The room caps at maxPlayers; the host may start early.
+  // King: 3–4, Durak: 2–6. The room caps at maxPlayers; the host may start early.
   const entry = getGameCatalogEntry(room.gameType ?? DEFAULT_GAME_TYPE);
   const count = activePlayers(room).length;
   if (!entry || count < entry.minPlayers || count > entry.maxPlayers) {

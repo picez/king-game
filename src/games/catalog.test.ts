@@ -18,7 +18,7 @@ describe('game catalog', () => {
       supportsOnline: true, supportsBots: true, status: 'available', rulesDoc: 'KING_RULES.md',
     });
     expect(GAME_CATALOG.durak).toMatchObject({
-      id: 'durak', minPlayers: 2, maxPlayers: 5, defaultPlayerCount: 2,
+      id: 'durak', minPlayers: 2, maxPlayers: 6, defaultPlayerCount: 2,
       supportsLocal: true, supportsOnline: true, supportsBots: true,
       status: 'available', rulesDoc: 'DURAK_RULES.md',
     });

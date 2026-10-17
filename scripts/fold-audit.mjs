@@ -45,6 +45,9 @@ const GAMES = [
   { tag: 'king', q: 'game=king&seats=4&scene=myturn', hand: '.hand-reorder-wrap', actions: null, board: '.game-body' },
   { tag: 'king-wait', q: 'game=king&seats=4&scene=wait', hand: '.ai-hand-placeholder', actions: null, board: '.game-body' },
   { tag: 'durak', q: 'game=durak&seats=4', hand: '.hand-reorder-wrap', actions: '.durak-controls', board: '.durak-board' },
+  // Stage 41.6: five and six players — the seats around the felt must still leave room for the hand.
+  { tag: 'durak-5', q: 'game=durak&seats=5', hand: '.hand-reorder-wrap', actions: '.durak-controls', board: '.durak-board' },
+  { tag: 'durak-6', q: 'game=durak&seats=6', hand: '.hand-reorder-wrap', actions: '.durak-controls', board: '.durak-board' },
   { tag: 'deberc', q: 'game=deberc&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.durak-board' },
   { tag: 'deberc-declare', q: 'game=deberc&seats=4&scene=declare', hand: '.hand-reorder-wrap', actions: null, board: '.durak-board' },
   { tag: 'tarneeb', q: 'game=tarneeb&seats=4', hand: '.hand-reorder-wrap', actions: null, board: '.tarneeb-board' },

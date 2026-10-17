@@ -268,8 +268,16 @@ detecting the end of the game.
 Documented so they are not silently assumed present:
 
 - Co-attacker throw-ins from players other than the primary attacker.
-- 5–6 players, teams, "passport", "погоны" (epaulettes). (Перевод by showing a
-  trump — the one-time trump-show transfer — is now IN scope; see §3a.)
+- Teams, "passport", "погоны" (epaulettes — a cosmetic shame mark for a fool who
+  loses on sixes; the closest thing in the app is the Durak "sixes" achievement).
+  (Перевод by showing a trump — the one-time trump-show transfer — is now IN scope;
+  see §3a.)
+
+**Player counts (Stage 41.6): 2–6.** Five players leave a 6-card draw pile. **Six
+players deal the whole 36-card deck**: there is no draw pile, and the trump is the
+**last card dealt** — it stays in its player's hand, shown face-up to everyone
+(`trumpCard` is public). Every other rule is unchanged; with no pile, nobody draws
+after a bout.
 - "Перебивной"/"дорожный" and other regional variants.
 - Speed Durak, открытый/closed-hand variants.
 

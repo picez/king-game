@@ -141,10 +141,9 @@ function finalizeTake(s: DurakState): void {
 
 function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?: DurakContext): DurakState | null {
   const numPlayers = action.playerNames.length;
-  // Up to 5 players: the 36-card deck deals 6 each (5×6 = 30) and still leaves a
-  // 6-card draw pile. Six players would deal the whole deck (no draw/trump), so 5
-  // is the max (DURAK_RULES.md §6 lifts the earlier 4-player MVP cap).
-  if (numPlayers < 2 || numPlayers > 5) return null;
+  // Up to 6 players (Stage 41.6): five leave a 6-card draw pile; six deal the whole
+  // deck — no draw pile, and the last card dealt shows the trump (dealDurak).
+  if (numPlayers < 2 || numPlayers > 6) return null;
   const rng = ctx?.rng ?? Math.random;
   const { hands, drawPile, trumpCard, trumpSuit } = dealDurak(numPlayers, rng);
   const players: DurakPlayer[] = action.playerNames.map((name, i) => ({

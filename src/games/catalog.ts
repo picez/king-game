@@ -60,7 +60,7 @@ export const GAME_CATALOG = {
     titleKey: 'gameType.durak',
     shortTitleKey: 'gameType.durak',
     minPlayers: 2,
-    maxPlayers: 5,          // FIX-3: 36-card deck deals 6 each up to 5 players
+    maxPlayers: 6,          // 6 × 6 = the whole 36-card deck; the last card dealt is trump (Stage 41.6)
     defaultPlayerCount: 2,
     supportsLocal: true,    // local play (Stage 9.3)
     supportsOnline: true,   // server-authoritative online rooms (Stage 9.6)

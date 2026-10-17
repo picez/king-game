@@ -149,7 +149,7 @@ function kingFixture(): GameState {
 // --- Durak: seat 0 ATTACKS an empty table, so every card in hand is legal --------------
 function durakFixture(): DurakState {
   const s = durakReducer(null, {
-    type: 'START_DURAK', playerNames: names(Math.min(4, seats)), playerTypes: types(Math.min(4, seats)), variant: 'simple',
+    type: 'START_DURAK', playerNames: names(Math.min(6, seats)), playerTypes: types(Math.min(6, seats)), variant: 'simple',
   })!;
   // Deterministic: the viewer opens the bout. `getValidAttackCards` on an empty table is
   // the whole hand, so the gate can click ANY card and expect exactly one action.

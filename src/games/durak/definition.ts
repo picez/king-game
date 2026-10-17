@@ -34,7 +34,7 @@ export const durakGameDefinition: GameDefinition<DurakState, DurakAction> = {
   id: 'durak',
   catalog: entry,
   rulesDoc: entry.rulesDoc,
-  supportedPlayerCounts: playerCountRange(entry.minPlayers, entry.maxPlayers), // [2, 3, 4]
+  supportedPlayerCounts: playerCountRange(entry.minPlayers, entry.maxPlayers), // [2..6]
   reducer: durakReducer,
   getActingPlayerId: getActingDurakPlayerId,
   buildStartAction: buildDurakStartAction,

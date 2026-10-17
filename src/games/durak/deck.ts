@@ -48,6 +48,10 @@ export interface DealResult {
 /**
  * Shuffle, deal 6 to each player (round-robin), then reveal the next card as the
  * trump and slide it to the bottom of the draw pile (last to be drawn).
+ *
+ * Six players (Stage 41.6) deal the WHOLE 36-card deck: there is no draw pile, and
+ * the trump is the LAST card dealt — it stays in its player's hand, shown face-up to
+ * everyone (the classic rule), so `trumpCard` names it publicly.
  */
 export function dealDurak(numPlayers: number, rng: Rng): DealResult {
   const deck = shuffle(createDurakDeck(), rng);
@@ -57,6 +61,10 @@ export function dealDurak(numPlayers: number, rng: Rng): DealResult {
     for (let p = 0; p < numPlayers; p++) hands[p].push(deck[idx++]);
   }
   const remaining = deck.slice(idx);
+  if (remaining.length === 0) {
+    const trumpCard = deck[idx - 1];                    // the last card dealt
+    return { hands, drawPile: [], trumpCard, trumpSuit: trumpCard.suit };
+  }
   const trumpCard = remaining[0];                       // revealed trump
   const drawPile = remaining.slice(1).concat(trumpCard); // trump at the bottom
   return { hands, drawPile, trumpCard, trumpSuit: trumpCard.suit };

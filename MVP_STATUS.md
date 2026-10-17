@@ -61,7 +61,7 @@ recording its own per-`game_type` stats + leaderboard):**
 | Game | Players | Notes |
 |------|---------|-------|
 | **King** (default) | 3–4 | 7 modes, Dealer's Choice; source of truth [`KING_RULES.md`](KING_RULES.md) |
-| **Durak** | 2–5 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
+| **Durak** | 2–6 | Simple + Transfer variants; [`DURAK_RULES.md`](DURAK_RULES.md) |
 | **Deberc** | 3–4 | **3 solo (every-player-for-self) / 4 team**, target 510/1020; [`DEBERC_RULES.md`](DEBERC_RULES.md) |
 | **Tarneeb** | 4 | Two released modes — **Pairs** (2×2, default) & **Solo** (4p cutthroat); bid 3–13, **host-configurable target (default 41; presets 31/41/61/101, Stage 29.8)**. Solo **fully released local + online + stats** (Stage 28.4), [`TARNEEB_SOLO_PLAN.md`](TARNEEB_SOLO_PLAN.md); [`TARNEEB_RULES.md`](TARNEEB_RULES.md) |
 | **Preferans** | 3 | Solo contract auction + talon, 32-card, target 10; [`PREFERANS_RULES.md`](PREFERANS_RULES.md) |

@@ -76,6 +76,16 @@
 /* 3-player: the two opponents sit at the TOP corners. */
 .durak-board--3 .durak-seat--left  { left: 0;  top: 0; transform: none; }
 .durak-board--3 .durak-seat--right { right: 0; top: 0; transform: none; }
+/* 5–6 players (Stage 41.6): two seats on the top corners, the side seats lower down. */
+.durak-seat--top-left  { top: 0; left: 0; }
+.durak-seat--top-right { top: 0; right: 0; }
+.durak-board--5 .durak-seat--left,
+.durak-board--6 .durak-seat--left,
+.durak-board--5 .durak-seat--right,
+.durak-board--6 .durak-seat--right { top: 58%; }
+/* Six: three seats share the top row — narrower plates, shorter names. */
+.durak-board--6 .durak-seat { max-width: 6.4rem; padding-inline: 0.45rem; }
+.durak-board--6 .durak-seat__name { max-width: 5rem; }
 .durak-seat--atk { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
 .durak-seat--def { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
 .durak-seat--acting { box-shadow: 0 0 0 2px var(--accent-light) inset, 0 0 14px rgba(245, 197, 24, 0.4); }
@@ -101,6 +111,8 @@
 /* Keep the centre clear of the side seats (4p mid-edges / 3p top corners). */
 .durak-board--4 .durak-centre { padding-inline: clamp(2.3rem, 13vw, 3.6rem); }
 .durak-board--3 .durak-centre { padding-top: clamp(1.6rem, 7vw, 2.6rem); }
+.durak-board--5 .durak-centre,
+.durak-board--6 .durak-centre { padding-inline: clamp(2.3rem, 13vw, 3.6rem); padding-top: clamp(1.6rem, 7vw, 2.6rem); }
 
 /* Deck + trump — prominent on the felt; scales with clamp for mobile (Stage 9.11).
    Vertical closed pile on the left; the face-up trump lies across it (rotated) and

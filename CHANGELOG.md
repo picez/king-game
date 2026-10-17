@@ -11,6 +11,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Durak for up to 6 players (Stage 41.6).** Six players deal the whole 36-card deck:
+  no draw pile, and the last card dealt is the trump — it stays in that player's hand,
+  shown to everyone. Local setup offers 2–6; online rooms seat up to 6.
+  - **Fixed:** at **5 players** the fifth opponent had no seat slot on the table (it
+    rendered unpositioned). Five and six players now sit left / top-left / (top) /
+    top-right / right, in play order; with six, the plates are narrower so three fit
+    the top row of a 360px phone.
+  - `layout:fold` now also measures Durak at 5 and 6 players (21 Durak checks).
+  - "Погоны" stay out of scope (cosmetic; see DURAK_RULES §6).
 - **Tarneeb: Kaboot and No-Trump, as host options (Stage 41.5).** Both OFF by default
   (legacy rooms and saves play as before); they switch on in the local setup and the
   online host flow, and the lobby names them. Pairs and Solo.

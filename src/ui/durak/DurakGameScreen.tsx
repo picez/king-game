@@ -78,11 +78,15 @@ const SUIT_ORDER: Record<Suit, number> = { spades: 0, clubs: 1, diamonds: 2, hea
  *  - 2p: me bottom, opponent top
  *  - 3p: me bottom, opponents at the two top corners (left/right)
  *  - 4p: me bottom, opponents left / top / right
+ *  - 5p: left / top-left / top-right / right (Stage 41.6 — the 5th seat had no slot)
+ *  - 6p: left / top-left / top / top-right / right
  */
 const SEAT_LAYOUT: Record<number, string[]> = {
   2: ['bottom', 'top'],
   3: ['bottom', 'left', 'right'],
   4: ['bottom', 'left', 'top', 'right'],
+  5: ['bottom', 'left', 'top-left', 'top-right', 'right'],
+  6: ['bottom', 'left', 'top-left', 'top', 'top-right', 'right'],
 };
 
 /** Display sort: group by suit, low→high, trumps last (so they read clearly). */
