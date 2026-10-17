@@ -162,7 +162,7 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
         <div className="tarneeb-scoreboard__mid">
           <span className="tarneeb-target">🎯 {state.targetScore}</span>
           <span className={`tarneeb-trump ${trumpRed ? 'tarneeb-trump--red' : ''}`}>
-            {t('tarneeb.trump')} <strong>{state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
+            {t('tarneeb.trump')} <strong>{state.noTrump ? t('tarneeb.noTrump') : state.trumpSuit ? SUIT_SYMBOL[state.trumpSuit] : '—'}</strong>
           </span>
           {phase === 'playing' && ledSuit && (
             <span className={`tarneeb-led ${isRed(ledSuit) ? 'tarneeb-led--red' : ''}`}>
@@ -309,6 +309,14 @@ export default function TarneebGameScreen({ state, humanSeat, apply, onExit, rev
                 {SUIT_SYMBOL[s]}
               </button>
             ))}
+            {/* No-Trump (§6a) — only when the host enabled it (Stage 41.5). */}
+            {state.options.allowNoTrump && (
+              <button type="button" className="btn btn--outline tarneeb-suitbtn tarneeb-suitbtn--nt"
+                onClick={() => apply({ type: 'CHOOSE_TRUMP', suit: 'NT' })}
+                aria-label={t('tarneeb.noTrump')}>
+                {t('tarneeb.noTrumpShort')}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -381,7 +389,7 @@ function HandComplete({ state, humanSeat, onNext, online }: {
           <p className="tarneeb-handdone__double">✨ {t('tarneeb.exactBidDouble')}</p>
         )}
         <p className="tarneeb-handdone__line">
-          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {declarerName} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{SUIT_SYMBOL[hand.trumpSuit]}</strong>
+          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {declarerName} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{hand.trumpSuit === 'NT' ? t('tarneeb.noTrumpShort') : SUIT_SYMBOL[hand.trumpSuit]}</strong>{hand.kaboot ? <> · <strong>{t('tarneeb.kaboot')}</strong></> : null}
         </p>
         <table className="tarneeb-handdone__table">
           <thead>
@@ -438,7 +446,7 @@ function SoloHandComplete({ state, humanSeat, onNext, online }: {
           <p className="tarneeb-handdone__double">✨ {t('tarneeb.exactBidDouble')}</p>
         )}
         <p className="tarneeb-handdone__line">
-          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {nameOf(hand.declarerSeat)} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{SUIT_SYMBOL[hand.trumpSuit]}</strong>
+          <span className="tarneeb-badge tarneeb-badge--declarer">★</span> {nameOf(hand.declarerSeat)} · {t('tarneeb.bid')} <strong>{hand.bid}</strong> · {t('tarneeb.trump')} <strong>{hand.trumpSuit === 'NT' ? t('tarneeb.noTrumpShort') : SUIT_SYMBOL[hand.trumpSuit]}</strong>{hand.kaboot ? <> · <strong>{t('tarneeb.kaboot')}</strong></> : null}
         </p>
         <table className="tarneeb-handdone__table">
           <thead>

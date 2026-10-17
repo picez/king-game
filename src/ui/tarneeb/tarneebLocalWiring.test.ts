@@ -250,7 +250,9 @@ describe('local Tarneeb setup exposes Pairs (default) + Solo', () => {
     // Target score selector: presets + default 41; onStart now carries the chosen target.
     expect(setup).toContain('TARGET_SCORE_PRESETS');
     expect(setup).toContain('useState<number>(DEFAULT_TARGET_SCORE)');
-    expect(setup).toContain('onStart(variant, targetScore)');
+    // …and, since Stage 41.5, the optional rules (Kaboot table / No-Trump).
+    expect(setup).toContain('onStart(variant, targetScore, rules)');
+    expect(setup).toContain('useState<TarneebRuleOptions>(DEFAULT_TARNEEB_RULES)');
   });
   it('the local game threads variant:solo ONLY for Solo (Pairs omits it → default)', () => {
     expect(local).toContain("...(variant === 'solo' ? { variant } : {})");

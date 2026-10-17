@@ -6,6 +6,7 @@ import type { PlayerType } from '../../models/types';
 import type { TarneebAction, TarneebState, TarneebTrick, TarneebVariant } from '../../games/tarneeb/types';
 import { localBotNames } from '../../games/botIdentities';
 import TarneebSetup from './TarneebSetup';
+import { tarneebRuleEngineOptions, type TarneebRuleOptions } from '../../games/tarneeb/variants';
 import TarneebGameScreen from './TarneebGameScreen';
 import TarneebFinished from './TarneebFinished';
 
@@ -55,7 +56,7 @@ export default function TarneebLocalGame({ onExit }: { onExit: () => void }) {
     return () => clearTimeout(timer);
   }, [state, reviewTrick, apply]);
 
-  function start(variant: TarneebVariant, targetScore: number) {
+  function start(variant: TarneebVariant, targetScore: number, rules: TarneebRuleOptions) {
     const playerNames = ['You', ...localBotNames('tarneeb', 3, ['You'])];
     const playerTypes: PlayerType[] = ['human', 'ai', 'ai', 'ai'];
     setReviewTrick(null);
@@ -65,7 +66,7 @@ export default function TarneebLocalGame({ onExit }: { onExit: () => void }) {
     // normalises it (a missing/invalid value → the default 41).
     apply({
       type: 'START_GAME', playerNames, playerTypes,
-      options: { targetScore },
+      options: { targetScore, ...tarneebRuleEngineOptions(rules) },
       ...(variant === 'solo' ? { variant } : {}),
     });
   }

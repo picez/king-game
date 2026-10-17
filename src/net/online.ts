@@ -16,6 +16,7 @@ import type { DurakVariant } from '../games/durak/types';
 import type { DebercMatchSize } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
 import type { PreferansRuleOptions } from '../games/preferans/variants';
+import type { TarneebRuleOptions } from '../games/tarneeb/variants';
 
 /** Human-readable text for a server error code (used by the join UI). */
 export function humanError(code: ErrorCode | null | undefined): string {
@@ -41,7 +42,7 @@ export function isJoinError(code: ErrorCode | null | undefined): boolean {
 
 /** What the user chose on the start menu — the single intent for a session. */
 export type OnlineIntent =
-  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 2 | 3 | 4 | 5 | 6; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; preferansRules?: PreferansRuleOptions; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
+  | { kind: 'create'; name: string; modeSelectionType: 'fixed' | 'dealer_choice'; password?: string; avatar?: string; turnTimerSec?: number; gameType?: GameType; variant?: DurakVariant; matchSize?: DebercMatchSize; playerCount?: 2 | 3 | 4 | 5 | 6; tarneebVariant?: TarneebVariant; tarneebTargetScore?: number; preferansRules?: PreferansRuleOptions; tarneebRules?: TarneebRuleOptions; fiftyOneEliminationScore?: number; pokerSmallBlind?: number; pokerBigBlind?: number; pokerBlindGrowth?: number }
   | { kind: 'join'; code: string; name: string; password?: string; avatar?: string }
   /** Resume a saved session after a tab reload (sends RECONNECT). */
   | { kind: 'resume'; code: string; reconnectToken: string; name: string }
@@ -69,6 +70,8 @@ export interface CreateIntentParams {
   tarneebTargetScore?: number;
   /** Preferans optional rules (Stage 41.4). */
   preferansRules?: PreferansRuleOptions;
+  /** Tarneeb optional rules (Stage 41.5). */
+  tarneebRules?: TarneebRuleOptions;
   fiftyOneEliminationScore?: number;
   // Poker online bankroll (§16): host-chosen base blinds + growth. The buy-in is
   // ALWAYS derived server-side (100 big blinds) — never supplied by the client.
@@ -101,6 +104,7 @@ export function buildCreateIntent(p: CreateIntentParams): CreateIntent {
     ...(p.gameType === 'deberc' ? { matchSize: p.debercMatchSize, playerCount: p.debercPlayers } : {}),
     ...(p.gameType === 'tarneeb' ? { tarneebVariant: p.tarneebVariant, tarneebTargetScore: p.tarneebTargetScore } : {}),
     ...(p.gameType === 'preferans' && p.preferansRules ? { preferansRules: p.preferansRules } : {}),
+    ...(p.gameType === 'tarneeb' && p.tarneebRules ? { tarneebRules: p.tarneebRules } : {}),
     ...(p.gameType === 'fifty-one' ? { fiftyOneEliminationScore: p.fiftyOneEliminationScore } : {}),
     ...(p.gameType === 'poker' ? { pokerSmallBlind: p.pokerSmallBlind, pokerBigBlind: p.pokerBigBlind, pokerBlindGrowth: p.pokerBlindGrowth } : {}),
   };
@@ -127,6 +131,7 @@ export function firstConnectMessage(intent: OnlineIntent): ClientMessage {
       ...(intent.tarneebVariant ? { tarneebVariant: intent.tarneebVariant } : {}),
       ...(intent.tarneebTargetScore ? { tarneebTargetScore: intent.tarneebTargetScore } : {}),
       ...(intent.preferansRules ? { preferansRules: intent.preferansRules } : {}),
+      ...(intent.tarneebRules ? { tarneebRules: intent.tarneebRules } : {}),
       ...(intent.fiftyOneEliminationScore ? { fiftyOneEliminationScore: intent.fiftyOneEliminationScore } : {}),
       ...(intent.pokerSmallBlind ? { pokerSmallBlind: intent.pokerSmallBlind } : {}),
       ...(intent.pokerBigBlind ? { pokerBigBlind: intent.pokerBigBlind } : {}),

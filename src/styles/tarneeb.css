@@ -266,6 +266,8 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   padding: 0.2rem;
 }
 .tarneeb-suitbtn--red { color: var(--card-red); }
+/* (Stage 41.5) No-Trump is a word, not a suit symbol. */
+.tarneeb-suitbtn--nt { font-size: 1rem; font-weight: 800; }
 
 /* --- Hand-complete overlay --- */
 .tarneeb-handdone-overlay,

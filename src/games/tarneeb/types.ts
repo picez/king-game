@@ -39,8 +39,12 @@ export type TarneebPhase =
   | 'hand_complete'
   | 'game_finished';
 
-/** Kaboot scoring mode. MVP hard-defaults to 'off' (all-13 = plain +13, §9). */
-export type TarneebKabootMode = 'off';
+/** Kaboot scoring mode (§9): 'off' (default) = pure §8; 'recommended' = the §9 table
+ *  (Stage 41.5, a host option). */
+export type TarneebKabootMode = 'off' | 'recommended';
+
+/** The contract's trump as recorded in a hand result: a suit, or 'NT' (Stage 41.5). */
+export type TarneebTrump = Suit | 'NT';
 
 export interface TarneebPlayer {
   id: string;            // 'player-<seat>' (matches King/Durak/Deberc seat ids)
@@ -81,10 +85,10 @@ export interface TarneebTrick {
 export interface TarneebOptions {
   /** Match target (default 41). §10 documents 31 / 61 as future variants. */
   targetScore: number;
-  /** MVP: only 'off' is wired (all-13 = plain +13, §9). */
+  /** Kaboot scoring (§9). 'off' by default; 'recommended' is a host option (Stage 41.5). */
   kabootMode: TarneebKabootMode;
-  /** MVP: No-Trump is excluded (§6). Reserved future option. */
-  allowNoTrump: false;
+  /** The declarer may name No-Trump (§6a, a host option since Stage 41.5). Default false. */
+  allowNoTrump: boolean;
 }
 
 /** Summary of a hand once it is scored (§8) — for display / score sheets. */
@@ -93,7 +97,7 @@ export interface TarneebHandResult {
   bid: number;
   declarerSeat: number;
   declarerTeam: Team;
-  trumpSuit: Suit;
+  trumpSuit: TarneebTrump;
   declarerTricks: number;
   defenderTricks: number;
   /** Whether the contract was made (declarerTricks >= bid). */
@@ -104,6 +108,8 @@ export interface TarneebHandResult {
    * Optional/backward-compatible: absent (falsy) on non-exact or failed hands.
    */
   exactBidDouble?: boolean;
+  /** The §9 Kaboot table applied to this hand (Stage 41.5). Absent when it did not. */
+  kaboot?: boolean;
   /** Score change applied per team this hand. */
   deltaByTeam: Record<Team, number>;
 }
@@ -117,7 +123,7 @@ export interface TarneebSoloHandResult {
   handNumber: number;
   bid: number;
   declarerSeat: number;
-  trumpSuit: Suit;
+  trumpSuit: TarneebTrump;
   /** Tricks each seat won this hand (length 4). */
   tricksBySeat: number[];
   /** Whether the declarer made the contract (declarer tricks >= bid). */
@@ -128,6 +134,8 @@ export interface TarneebSoloHandResult {
    * backward-compatible: absent (falsy) on non-exact or failed hands.
    */
   exactBidDouble?: boolean;
+  /** The §9 Kaboot table applied to this hand (Stage 41.5). Absent when it did not. */
+  kaboot?: boolean;
   /** Score change applied per seat this hand (length 4). */
   deltaBySeat: number[];
 }
@@ -165,8 +173,10 @@ export interface TarneebState {
   /** Winner of the auction (null until decided). */
   declarerSeat: number | null;
   declarerTeam: Team | null;
-  /** Chosen trump suit (null until choosing_trump resolves). */
+  /** Chosen trump suit (null until choosing_trump resolves, and under No-Trump). */
   trumpSuit: Suit | null;
+  /** The declarer named No-Trump this hand (§6a, Stage 41.5); absent otherwise. */
+  noTrump?: boolean;
 
   /** The trick in progress (null outside the playing phase). */
   currentTrick: TarneebTrick | null;
@@ -227,7 +237,7 @@ export type TarneebAction =
   /** Permanently drop out of the current auction. Seat = currentSeat. */
   | { type: 'PASS_BID' }
   /** The declarer names the trump suit; enter playing. Seat = currentSeat = declarer. */
-  | { type: 'CHOOSE_TRUMP'; suit: Suit }
+  | { type: 'CHOOSE_TRUMP'; suit: Suit | 'NT' }
   /** Play one legal card into the current trick. Seat = currentSeat. */
   | { type: 'PLAY_CARD'; card: Card }
   /** Advance from hand_complete to the next hand (rotates dealer to the right). */

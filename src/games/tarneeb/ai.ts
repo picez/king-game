@@ -89,6 +89,12 @@ function bestSuit(hand: Card[]): Suit {
   return best;
 }
 
+/** At least three aces and no suit longer than four cards (§6a bot heuristic). */
+function prefersNoTrump(hand: Card[]): boolean {
+  const aces = hand.filter((c) => c.rank === 'A').length;
+  return aces >= 3 && TARNEEB_SUITS.every((suit) => ofSuit(hand, suit).length <= 4);
+}
+
 /** The lowest card (by rank) of a list — deterministic (ties impossible in a hand). */
 function lowestCard(cards: Card[]): Card {
   let low = cards[0];
@@ -216,7 +222,11 @@ export function tarneebBotAction(state: TarneebState, seat: number): TarneebActi
     }
 
     case 'choosing_trump': {
-      return { type: 'CHOOSE_TRUMP', suit: bestSuit(state.handsBySeat[seat]) };
+      const hand = state.handsBySeat[seat];
+      // No-Trump (§6a, when the host allows it): a balanced hand rich in aces plays
+      // better without a trump than with its "best" suit.
+      if (state.options.allowNoTrump && prefersNoTrump(hand)) return { type: 'CHOOSE_TRUMP', suit: 'NT' };
+      return { type: 'CHOOSE_TRUMP', suit: bestSuit(hand) };
     }
 
     case 'playing': {

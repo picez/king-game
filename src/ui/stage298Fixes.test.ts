@@ -36,7 +36,7 @@ describe('Tarneeb match-target selector (Scope B — UI)', () => {
 
   it('the local Tarneeb setup renders a target-score picker and passes it to onStart', () => {
     expect(setup).toContain('TARGET_SCORE_PRESETS');
-    expect(setup).toContain('onStart(variant, targetScore)');
+    expect(setup).toContain('onStart(variant, targetScore, rules)');
   });
 
   it('the lobby shows the match target next to the Pairs/Solo label', () => {

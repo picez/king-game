@@ -30,6 +30,7 @@ import type { ConnectionLimiter } from '../src/net/rateLimit';
 import { scryptPasswordHasher } from './roomPassword';
 import { hashReconnectToken } from './reconnectToken';
 import { normalizePreferansRules } from '../src/games/preferans/variants';
+import { normalizeTarneebRules } from '../src/games/tarneeb/variants';
 
 /** One connection's room session (mutable; set on CREATE/JOIN/RECONNECT). */
 export interface Session { room: ServerRoom; clientId: string }
@@ -180,6 +181,8 @@ export function handleClientMessage(
       const tarneebTargetScore = gameType === 'tarneeb' ? normalizeTargetScore(msg.tarneebTargetScore) : undefined;
       // Preferans optional rules (Stage 41.4): strict booleans, both off unless the host turned them on.
       const preferansRules = gameType === 'preferans' ? normalizePreferansRules(msg.preferansRules) : undefined;
+      // Tarneeb optional rules (Stage 41.5): Kaboot table / No-Trump, both off unless chosen.
+      const tarneebRules = gameType === 'tarneeb' ? normalizeTarneebRules(msg.tarneebRules) : undefined;
       // 51 elimination score (Stage 30.15): normalised to an allowed preset here (a missing/invalid
       // value → the default 510), so the room stores a sane value the lobby can display pre-start.
       const fiftyOneEliminationScore = gameType === 'fifty-one' ? normalizeEliminationScore(msg.fiftyOneEliminationScore) : undefined;
@@ -201,7 +204,7 @@ export function handleClientMessage(
         const clientId = randomUUID();
         const reconnectToken = randomUUID();
         const room = createRoom({
-          code, gameType, variant, matchSize, tarneebVariant, tarneebTargetScore, preferansRules, fiftyOneEliminationScore,
+          code, gameType, variant, matchSize, tarneebVariant, tarneebTargetScore, preferansRules, tarneebRules, fiftyOneEliminationScore,
           pokerSmallBlind: poker.pokerSmallBlind, pokerBigBlind: poker.pokerBigBlind,
           pokerBuyIn: poker.pokerBuyIn, pokerBlindGrowth: poker.pokerBlindGrowth,
           playerCount,

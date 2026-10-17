@@ -23,6 +23,7 @@ import {
   determineTrickWinner,
   HAND_TRICKS,
   isSoloTarneeb,
+  kabootOutcome,
   nextSeatCounterClockwise,
   normalizeTargetScore,
   NUM_SEATS,
@@ -91,9 +92,10 @@ function startGame(action: Extract<TarneebAction, { type: 'START_GAME' }>, rng: 
     // Match target is configurable (Stage 29.8) but always normalised to a safe integer in range;
     // a missing/invalid value falls back to the default 41 so old callers are unchanged.
     targetScore: normalizeTargetScore(action.options?.targetScore),
-    // MVP hard-defaults — no No-Trump, kaboot off (§6, §9).
-    kabootMode: 'off',
-    allowNoTrump: false,
+    // Host options (Stage 41.5): only exact, known values switch a rule on; anything
+    // else keeps the original defaults — no No-Trump, kaboot off (§6, §9).
+    kabootMode: action.options?.kabootMode === 'recommended' ? 'recommended' : 'off',
+    allowNoTrump: action.options?.allowNoTrump === true,
   };
 
   const dealerSeat = action.dealerSeat ?? Math.floor(rng() * 4);
@@ -161,6 +163,7 @@ function dealFreshHand(
   s.declarerSeat = null;
   s.declarerTeam = null;
   s.trumpSuit = null;
+  delete s.noTrump;
   s.currentTrick = null;
   s.completedTricks = [];
   s.tricksByTeam = { A: 0, B: 0 };
@@ -213,7 +216,15 @@ function scoreSoloHand(s: TarneebState): TarneebState {
   const exactBidDouble = made && declTricks === bid;
 
   const delta = [0, 0, 0, 0];
-  if (made) {
+  const kaboot = kabootOutcome(s.options.kabootMode, bid, declTricks);
+  if (kaboot) {
+    // §9 'recommended' (Stage 41.5): all 13 on a lower bid → +16; a failed 13 → −16,
+    // each defender twice its own tricks.
+    delta[declarer] = kaboot.declarer;
+    for (let seat = 0; seat < NUM_SEATS; seat++) {
+      if (seat !== declarer) delta[seat] = tricks[seat] * kaboot.defenderMultiplier;
+    }
+  } else if (made) {
     delta[declarer] = exactBidDouble ? bid * 2 : declTricks; // defenders score 0
   } else {
     delta[declarer] = -bid;
@@ -228,10 +239,11 @@ function scoreSoloHand(s: TarneebState): TarneebState {
     handNumber: s.handNumber,
     bid,
     declarerSeat: declarer,
-    trumpSuit: s.trumpSuit as Card['suit'],
+    trumpSuit: s.noTrump ? 'NT' : s.trumpSuit as Card['suit'],
     tricksBySeat: tricks.slice(),
     made,
     exactBidDouble,
+    ...(kaboot ? { kaboot: true } : {}),
     deltaBySeat: delta.slice(),
   };
   s.lastSoloHand = result;
@@ -271,7 +283,13 @@ function scoreHand(s: TarneebState): TarneebState {
   const exactBidDouble = made && declTricks === bid;
 
   const delta: Record<Team, number> = { A: 0, B: 0 };
-  if (made) {
+  const kaboot = kabootOutcome(s.options.kabootMode, bid, declTricks);
+  if (kaboot) {
+    // §9 'recommended' (Stage 41.5): all 13 on a lower bid → +16; a failed 13 → −16,
+    // the defenders twice their tricks.
+    delta[declTeam] = kaboot.declarer;
+    delta[defTeam] = defTricks * kaboot.defenderMultiplier;
+  } else if (made) {
     // Made contract: exact bid doubles (bid×2); overtricks score the tricks won.
     delta[declTeam] = exactBidDouble ? bid * 2 : declTricks;
     delta[defTeam] = 0;
@@ -288,11 +306,12 @@ function scoreHand(s: TarneebState): TarneebState {
     bid,
     declarerSeat: s.declarerSeat as number,
     declarerTeam: declTeam,
-    trumpSuit: s.trumpSuit as Card['suit'],
+    trumpSuit: s.noTrump ? 'NT' : s.trumpSuit as Card['suit'],
     declarerTricks: declTricks,
     defenderTricks: defTricks,
     made,
     exactBidDouble,
+    ...(kaboot ? { kaboot: true } : {}),
     deltaByTeam: delta,
   };
   // Append the score-only record to the match history (public; no cards, §13).
@@ -372,7 +391,8 @@ export function tarneebReducer(
       const seat = state.currentSeat;
       if (!canChooseTrump(state, seat, action.suit)) return state;
       const s = clone(state);
-      s.trumpSuit = action.suit;
+      // No-Trump (§6a): no suit is trump this hand; the rest of play is unchanged.
+      if (action.suit === 'NT') { s.trumpSuit = null; s.noTrump = true; } else s.trumpSuit = action.suit;
       s.phase = 'playing';
       // The declarer leads the first trick (§7, [MVP]).
       s.currentSeat = s.declarerSeat as number;

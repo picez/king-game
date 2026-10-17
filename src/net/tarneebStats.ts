@@ -138,7 +138,7 @@ function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedS
     for (const p of state.players) {
       scoreByPlayer[seatToPlayerId.get(p.seatIndex)!] = h.deltaBySeat[p.seatIndex];
     }
-    return { roundIndex: i, modeId: `${h.bid}${SUIT_CODE[h.trumpSuit]}`, scoreByPlayer };
+    return { roundIndex: i, modeId: `${h.bid}${h.trumpSuit === 'NT' ? 'NT' : SUIT_CODE[h.trumpSuit]}`, scoreByPlayer };
   });
 
   return {
@@ -203,7 +203,7 @@ export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinish
     }
     // Contract label = bid + a single-letter trump code (e.g. "9S"). Public, and
     // deliberately word-free so no card/suit vocabulary lands in durable rows.
-    return { roundIndex: i, modeId: `${h.bid}${SUIT_CODE[h.trumpSuit]}`, scoreByPlayer };
+    return { roundIndex: i, modeId: `${h.bid}${h.trumpSuit === 'NT' ? 'NT' : SUIT_CODE[h.trumpSuit]}`, scoreByPlayer };
   });
 
   return {

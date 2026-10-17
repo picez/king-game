@@ -33,6 +33,7 @@ import { isPokerAction } from '../games/poker/rules';
 import type { ErrorCode, RoomSnapshot, RoomSummary, RoomTimerInfo, SeatRole } from './messages';
 import { authorizeAction, seatToPlayerId } from './online';
 import { normalizePreferansRules, type PreferansRuleOptions } from '../games/preferans/variants';
+import { normalizeTarneebRules, type TarneebRuleOptions } from '../games/tarneeb/variants';
 import {
   buildOnlineMatchMeta, deserializeOnlineMatch, serializeOnlineMatch,
   type OnlineMatchMeta, type OnlineMatchSeat,
@@ -165,6 +166,8 @@ export interface ServerRoom {
   tarneebTargetScore?: number;
   /** Preferans optional rules (Stage 41.4): misère / распасы; undefined (→ both off) for other games / legacy rooms. */
   preferansRules?: PreferansRuleOptions;
+  /** Tarneeb optional rules (Stage 41.5): Kaboot table / No-Trump; undefined (→ both off) for other games / legacy rooms. */
+  tarneebRules?: TarneebRuleOptions;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   /** Poker online bankroll config (§16): host-chosen base blinds, server-derived buy-in
@@ -371,6 +374,8 @@ export function createRoom(opts: {
   tarneebTargetScore?: number;
   /** Preferans optional rules (Stage 41.4); ignored for other games. */
   preferansRules?: PreferansRuleOptions;
+  /** Tarneeb optional rules (Stage 41.5); ignored for other games. */
+  tarneebRules?: TarneebRuleOptions;
   /** 51 elimination score (Stage 30.15); ignored for other games. */
   fiftyOneEliminationScore?: number;
   /** Poker online bankroll (§16): base blinds + server-derived buy-in + growth. The
@@ -402,6 +407,7 @@ export function createRoom(opts: {
     tarneebVariant: opts.tarneebVariant,
     tarneebTargetScore: opts.tarneebTargetScore,
     preferansRules: opts.preferansRules,
+    tarneebRules: opts.tarneebRules,
     fiftyOneEliminationScore: opts.fiftyOneEliminationScore,
     pokerSmallBlind: opts.pokerSmallBlind,
     pokerBigBlind: opts.pokerBigBlind,
@@ -1483,6 +1489,7 @@ export function snapshot(room: ServerRoom): RoomSnapshot {
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
     preferansRules: room.preferansRules,
+    tarneebRules: room.tarneebRules,
     fiftyOneEliminationScore: room.fiftyOneEliminationScore,
     // Poker bankroll stakes (§16): PUBLIC blinds/buy-in/growth only — never escrow
     // internals (match id, seat→user map, wallet balances).
@@ -1569,6 +1576,7 @@ export function roomSummary(room: ServerRoom): RoomSummary {
     ...(room.tarneebTargetScore ? { tarneebTargetScore: room.tarneebTargetScore } : {}),
     // Only present for Preferans → other games' summaries are unchanged.
     ...(room.preferansRules ? { preferansRules: room.preferansRules } : {}),
+    ...(room.tarneebRules ? { tarneebRules: room.tarneebRules } : {}),
     // Only present for 51 → other games' summaries are unchanged.
     ...(room.fiftyOneEliminationScore ? { fiftyOneEliminationScore: room.fiftyOneEliminationScore } : {}),
     // Poker bankroll: PUBLIC stakes only (blinds/buy-in/growth) — never escrow/wallet data.
@@ -1668,6 +1676,8 @@ export interface PersistedRoom {
   tarneebTargetScore?: number;
   /** Preferans optional rules (Stage 41.4): misère / распасы; undefined (→ both off) for other games / legacy rooms. */
   preferansRules?: PreferansRuleOptions;
+  /** Tarneeb optional rules (Stage 41.5): Kaboot table / No-Trump; undefined (→ both off) for other games / legacy rooms. */
+  tarneebRules?: TarneebRuleOptions;
   /** 51 elimination score (Stage 30.15); undefined (→ 510) for other games / legacy rooms. */
   fiftyOneEliminationScore?: number;
   /** Poker bankroll config + escrow (§16). Legacy/local/other-game saves lack these. */
@@ -1726,6 +1736,7 @@ export function serializeRoom(room: ServerRoom): PersistedRoom {
     tarneebVariant: room.tarneebVariant,
     tarneebTargetScore: room.tarneebTargetScore,
     preferansRules: room.preferansRules,
+    tarneebRules: room.tarneebRules,
     fiftyOneEliminationScore: room.fiftyOneEliminationScore,
     pokerSmallBlind: room.pokerSmallBlind,
     pokerBigBlind: room.pokerBigBlind,
@@ -1922,6 +1933,7 @@ export function deserializeRoom(data: unknown): ServerRoom | null {
     tarneebTargetScore: o.tarneebTargetScore != null ? normalizeTargetScore(o.tarneebTargetScore) : undefined,
     // Preferans optional rules (Stage 41.4): re-normalised to strict booleans on restore.
     preferansRules: o.preferansRules != null ? normalizePreferansRules(o.preferansRules) : undefined,
+    tarneebRules: o.tarneebRules != null ? normalizeTarneebRules(o.tarneebRules) : undefined,
     // 51 elimination score (Stage 30.15): re-normalise on restore; a missing/legacy value stays
     // undefined (buildStartAction then applies the default 510), a bad value snaps to a preset.
     fiftyOneEliminationScore: o.fiftyOneEliminationScore != null ? normalizeEliminationScore(o.fiftyOneEliminationScore as number) : undefined,

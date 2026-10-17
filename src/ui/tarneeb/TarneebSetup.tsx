@@ -3,9 +3,10 @@ import { useI18n } from '../../i18n';
 import type { TarneebVariant } from '../../games/tarneeb/types';
 import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../../games/tarneeb/rules';
 import { TarneebRulesList } from './TarneebHelp';
+import TarneebRulesPicker, { DEFAULT_TARNEEB_RULES, type TarneebRuleOptions } from './TarneebRulesPicker';
 
 interface Props {
-  onStart: (variant: TarneebVariant, targetScore: number) => void;
+  onStart: (variant: TarneebVariant, targetScore: number, rules: TarneebRuleOptions) => void;
   onExit: () => void;
 }
 
@@ -23,6 +24,8 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
   const [variant, setVariant] = useState<TarneebVariant>('pairs');
   // Match target (Stage 29.8): choose how many points wins the match. Default 41 (unchanged).
   const [targetScore, setTargetScore] = useState<number>(DEFAULT_TARGET_SCORE);
+  // Optional rules (Stage 41.5): the Kaboot table and No-Trump, both off by default.
+  const [rules, setRules] = useState<TarneebRuleOptions>(DEFAULT_TARNEEB_RULES);
 
   const modes: { id: TarneebVariant; name: string; desc: string }[] = [
     { id: 'pairs', name: t('tarneeb.modePairs'), desc: t('tarneeb.modePairsDesc') },
@@ -64,6 +67,7 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
             </button>
           ))}
         </div>
+        <TarneebRulesPicker value={rules} onChange={setRules} />
         <p className="tarneeb-setup__hint">{t('tarneeb.botsHint')}</p>
 
         <button
@@ -76,7 +80,7 @@ export default function TarneebSetup({ onStart, onExit }: Props) {
         </button>
         {showHelp && <TarneebRulesList />}
 
-        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={() => onStart(variant, targetScore)}>
+        <button type="button" className="btn btn--primary tarneeb-setup__start" onClick={() => onStart(variant, targetScore, rules)}>
           {t('tarneeb.start')}
         </button>
         <button type="button" className="btn btn--ghost" onClick={onExit}>

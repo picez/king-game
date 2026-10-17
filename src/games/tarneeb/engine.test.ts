@@ -170,7 +170,7 @@ describe('Tarneeb START_GAME', () => {
     expect(tarneebReducer(null, { type: 'START_GAME', playerNames: ['a', 'b', 'c'] }, ctx)).toBeNull();
   });
 
-  it('forces MVP options (kaboot off, no No-Trump) even if asked otherwise', () => {
+  it('defaults to kaboot off and no No-Trump when the host did not ask for them', () => {
     const { state } = start({ options: { targetScore: 31 } as never });
     expect(state.options.kabootMode).toBe('off');
     expect(state.options.allowNoTrump).toBe(false);

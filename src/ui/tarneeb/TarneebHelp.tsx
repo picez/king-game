@@ -13,6 +13,7 @@ export function TarneebRulesList() {
       <li>{t('tarneeb.rule.scoring')}</li>
       <li>{t('tarneeb.rule.allTricks')}</li>
       <li>{t('tarneeb.rule.goal')}</li>
+      <li><strong>{t('tarneeb.kaboot')}</strong> / <strong>{t('tarneeb.noTrump')}</strong> — {t('rules.optionalNote')}</li>
     </ul>
   );
 }

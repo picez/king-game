@@ -183,7 +183,9 @@ export default function Lobby({ room, isHost, myPlayerId, myClientId, onStart, o
             ) : room.gameType === 'tarneeb' ? (
               // Tarneeb has two modes (Stage 28.4): Pairs (fixed 2×2) or Solo (cutthroat).
               // Show the chosen mode + the match target (Stage 29.8; default 41 for legacy rooms).
-              <>♠️ {t(room.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs')} · 🎯 {room.tarneebTargetScore ?? 41}</>
+              <>♠️ {t(room.tarneebVariant === 'solo' ? 'tarneeb.modeSolo' : 'tarneeb.modePairs')} · 🎯 {room.tarneebTargetScore ?? 41}
+                {room.tarneebRules?.kaboot ? <> · {t('tarneeb.kaboot')}</> : null}
+                {room.tarneebRules?.noTrump ? <> · {t('tarneeb.noTrumpShort')}</> : null}</>
             ) : room.gameType === 'preferans' ? (
               // Preferans (3-player, each-for-self) has no King-style mode; show its
               // contract-game label rather than a dealer's-choice/fixed-order term.

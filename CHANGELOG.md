@@ -11,6 +11,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Tarneeb: Kaboot and No-Trump, as host options (Stage 41.5).** Both OFF by default
+  (legacy rooms and saves play as before); they switch on in the local setup and the
+  online host flow, and the lobby names them. Pairs and Solo.
+  - **Kaboot** (the TARNEEB_RULES §9 recommended table) — all 13 tricks on a lower bid
+    score **+16** (instead of +13); a failed bid of 13 costs **−16** and the defenders
+    score twice their tricks. A made 13 is still the exact double, +26.
+  - **No-Trump** (§6a) — the declarer may pick **NT** next to the four suits: nothing is
+    trump that hand, scoring unchanged. Bots pick it with three aces and no long suit.
+  - Shared `RuleToggles` (Off/On rows) now draws the optional rules of both games.
 - **Preferans: misère and распасы, as host options (Stage 41.4).** Both are OFF by default
   (a room or save that never mentions them plays exactly as before), and switch on in the
   local setup or the online host flow; the lobby names them.

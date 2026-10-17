@@ -16,6 +16,7 @@ import { tarneebBotAction } from './ai';
 import { tarneebRedactStateFor } from './redact';
 import { getActingTarneebPlayerId, getActingTarneebSeat, isTarneebFinished, normalizeTargetScore } from './rules';
 import type { TarneebAction, TarneebState } from './types';
+import { normalizeTarneebRules, tarneebRuleEngineOptions } from './variants';
 
 const entry = GAME_CATALOG.tarneeb;
 
@@ -40,7 +41,8 @@ function buildTarneebStartAction(room: RoomSnapshot): TarneebAction {
     type: 'START_GAME',
     playerNames: players.map((m) => m.name),
     playerTypes: players.map((m) => (m.type === 'ai' ? 'ai' : 'human')),
-    options: { targetScore, kabootMode: 'off', allowNoTrump: false },
+    // Host-optional Kaboot table / No-Trump (Stage 41.5); a legacy room → both off.
+    options: { targetScore, ...tarneebRuleEngineOptions(normalizeTarneebRules(room.tarneebRules)) },
     ...(variant ? { variant } : {}),
   };
 }

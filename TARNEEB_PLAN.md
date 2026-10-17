@@ -129,8 +129,9 @@ None of these need changes to the shared seam; they live in Tarneeb's own core.
   `tarneeb.experimental`/`tarneeb.onlineBeta` i18n keys + dead CSS. No behaviour,
   rules, DB, or protocol changes.
 
-**Post-MVP options (documented, not scheduled):** §9 kaboot modes, §6 No-Trump,
-§10 target variants 31 / 61 — all still opt-in future work.
+**Host options since Stage 41.5:** the §9 kaboot table (`'recommended'`) and §6a No-Trump.
+**Post-MVP options (documented, not scheduled):** the §9 instant-win table and the §5
+"dealer stuck" redeal variant. (The §10 targets became a host option in Stage 29.8.)
 
 ---
 

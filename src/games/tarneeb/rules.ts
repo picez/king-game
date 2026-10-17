@@ -166,13 +166,25 @@ export function activeBidders(state: TarneebState): number[] {
 // --- Trump legality (§6) ----------------------------------------------------
 
 /** Whether `seat` may name `suit` as trump right now (declarer only, no No-Trump). */
-export function canChooseTrump(state: TarneebState, seat: number, suit: Suit): boolean {
+export function canChooseTrump(state: TarneebState, seat: number, suit: Suit | 'NT'): boolean {
   return (
     state.phase === 'choosing_trump' &&
     seat === state.currentSeat &&
     seat === state.declarerSeat &&
-    TARNEEB_SUITS.includes(suit)
+    (suit === 'NT' ? state.options.allowNoTrump === true : TARNEEB_SUITS.includes(suit))
   );
+}
+
+/** The §9 'recommended' Kaboot table (Stage 41.5), or null when it does not apply:
+ *  bid < 13 and all 13 tricks → +16; bid 13 and short → declarer −16, defenders 2× their
+ *  tricks. (Bid 13 made is the §8 exact double, +26, either way.) */
+export function kabootOutcome(
+  mode: TarneebState['options']['kabootMode'], bid: number, declTricks: number,
+): { declarer: number; defenderMultiplier: number } | null {
+  if (mode !== 'recommended') return null;
+  if (bid < 13 && declTricks === 13) return { declarer: 16, defenderMultiplier: 0 };
+  if (bid === 13 && declTricks < 13) return { declarer: -16, defenderMultiplier: 2 };
+  return null;
 }
 
 // --- Play legality (§7) -----------------------------------------------------

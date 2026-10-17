@@ -130,7 +130,15 @@ successive **hands** up to a target (default **41**).
 - **`[MVP]`** **No-Trump is excluded.** The declarer must name one of the four
   suits.
 - **`[VARIANT]` / future option:** allow a **No-Trump** contract (often scored /
-  bid differently). Reserved; not MVP.
+  bid differently). See §6a.
+
+### 6a. No-Trump — host option (Stage 41.5)
+
+When the host turns **No-Trump** on (`options.allowNoTrump`), the declarer may name
+**No-Trump** (`CHOOSE_TRUMP { suit: 'NT' }`) instead of a suit: no card is trump that
+hand (`state.trumpSuit` null, `state.noTrump` true), only the led suit can win a trick,
+and the hand is scored exactly like a suit contract (§8). Hand results record the trump
+as `'NT'`. Off by default.
 
 ---
 
@@ -226,7 +234,12 @@ After all 13 tricks, count `declarerTeamTricks` and `defenderTeamTricks`
 - *Simpler table:* winning all 13 **instantly wins the game**; or all 13 just
   **counts as 13** (identical to `'off'`).
 
-**MVP behaviour is `kabootMode: 'off'` = pure §8 (incl. the exact-bid double)** —
+**Host option (Stage 41.5):** turning **Kaboot** on sets `kabootMode: 'recommended'`
+— the *recommended table* above, in Pairs and Solo alike (Solo: the declarer alone
+scores +16, and on a failed 13 every defender scores twice its own tricks). A bid of 13
+made is still the §8 exact double (+26). The *instant-win* table stays unimplemented.
+
+**Default behaviour is `kabootMode: 'off'` = pure §8 (incl. the exact-bid double)** —
 there is no separate Kaboot bonus, but an all-13 contract made **exactly** still
 doubles to **+26** via §8. Only the extra flat Kaboot bonus / instant-win is off.
 
@@ -301,9 +314,9 @@ core (`gameType: 'tarneeb'`):
 - `handNumber` — 1-based hand counter.
 - `options`:
   - `targetScore: 41` (`[VARIANT]` 31 / 61)
-  - `kabootMode: 'off' | 'recommended' | 'instant-win'` — **MVP hard-defaults to
-    `'off'`** (all-13 = plain +13, §9); other modes are future options.
-  - `allowNoTrump: false` — reserved future option, **not in MVP** (§6).
+  - `kabootMode: 'off' | 'recommended'` — defaults to `'off'` (all-13 = plain +13,
+    §9); `'recommended'` is a host option since Stage 41.5.
+  - `allowNoTrump: boolean` — default `false`; a host option since Stage 41.5 (§6a).
 
 ---
 
@@ -381,8 +394,8 @@ A future implementation is **not accepted** until these pass:
     **bonus** stays off (no extra flat all-13 bonus / instant win) — §8/§9.
 22. **Tie at target:** both teams ≥ target → higher score wins; equal → the game
     continues one more hand (§10).
-23. *(future, when kaboot enabled)* **Kaboot** scoring matches §9 under each
-    non-`'off'` `kabootMode`.
+23. **Kaboot** scoring matches §9 under `kabootMode: 'recommended'` (Stage 41.5,
+    `src/games/tarneeb/variants.test.ts`).
 
 ---
 
