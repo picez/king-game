@@ -342,6 +342,8 @@ export const AR: Record<string, string> = {
   'durak.youWon': 'لقد فزت!',
   'durak.youLost': 'أنت الأحمق',
   'durak.draw': 'تعادل',
+  'durak.epaulettes': 'الكتّافات!',
+  'durak.epaulettesDesc': 'أنهى {attacker} اللعبة بالستات — {fool} يحمل الكتّافات.',
   'durak.playAgain': 'العب مجددًا',
   'durak.youAre': 'أنت',
   'durak.took': 'يأخذ البطاقات',

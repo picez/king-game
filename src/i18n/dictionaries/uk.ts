@@ -342,6 +342,8 @@ export const UK: Record<string, string> = {
   'durak.youWon': 'Ви виграли!',
   'durak.youLost': 'Ви — дурень',
   'durak.draw': 'Нічия',
+  'durak.epaulettes': 'Погони!',
+  'durak.epaulettesDesc': '{attacker} добив гру шістками — {fool} отримує погони.',
   'durak.playAgain': 'Ще раз',
   'durak.youAre': 'Ви',
   'durak.took': 'бере карти',

@@ -297,6 +297,7 @@
 .durak-pair--beaten { opacity: 0.82; }
 
 .durak-finished__left { color: var(--text-dim); font-weight: 600; }
+.durak-finished__epaulettes { margin: -0.4rem 0 1rem; color: var(--text); max-width: 22rem; }
 
 /* Local/Host sheet CTA. (The King/Durak picker is now a SelectMenu.) */
 .sheet__cta { width: 100%; margin: 0.5rem 0; min-height: 48px; }

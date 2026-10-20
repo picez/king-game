@@ -342,6 +342,8 @@ export const EN: Record<string, string> = {
   'durak.youWon': 'You won!',
   'durak.youLost': 'You are the fool',
   'durak.draw': 'Draw',
+  'durak.epaulettes': 'Epaulettes!',
+  'durak.epaulettesDesc': '{attacker} finished the game with sixes — {fool} wears the epaulettes.',
   'durak.playAgain': 'Play again',
   'durak.youAre': 'You are',
   'durak.took': 'took the cards',

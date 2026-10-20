@@ -61,7 +61,7 @@ export interface DurakStatDelta {
  * attacker (winner) + fool (loser) ids, or null. Pure; reads only the public
  * last-bout cards + seat roles the finished state already carries.
  */
-function detectSixAttack(state: DurakState): { winnerId: string; loserId: string } | null {
+export function detectSixAttack(state: DurakState): { winnerId: string; loserId: string } | null {
   if (state.isDraw || !state.foolId) return null;
   const lb = state.lastBout;
   if (!lb || lb.length === 0) return null;

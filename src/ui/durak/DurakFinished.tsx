@@ -2,6 +2,7 @@ import { useI18n } from '../../i18n';
 import type { DurakState } from '../../games/durak/types';
 import WinnerCelebration from '../components/WinnerCelebration';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
+import { detectSixAttack } from '../../net/durakStats';
 
 interface Props {
   state: DurakState;
@@ -18,6 +19,9 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rem
   const humanIsFool = state.foolId === humanId;
   const title = state.isDraw ? t('durak.draw') : humanIsFool ? t('durak.youLost') : t('durak.youWon');
   const fool = state.players.find((p) => p.id === state.foolId);
+  // «Погони» (DURAK_RULES §6): the fool took a finishing attack of sixes — a cosmetic shame mark.
+  const six = detectSixAttack(state);
+  const sixAttacker = six && state.players.find((p) => p.id === six.winnerId);
 
   return (
     <div className="screen durak-screen durak-finished">
@@ -30,6 +34,12 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rem
           <p className="durak-finished__sub">
             {t('durak.fool')}: <strong>{fool.name}</strong>
             {fool.hand.length > 0 && <span className="durak-finished__left"> · {fool.hand.length} {t('durak.cardsRemaining')}</span>}
+          </p>
+        )}
+        {six && fool && sixAttacker && (
+          <p className="durak-finished__epaulettes" role="status">
+            <strong>🎖️ {t('durak.epaulettes')}</strong>{' '}
+            {t('durak.epaulettesDesc').replace('{attacker}', sixAttacker.name).replace('{fool}', fool.name)}
           </p>
         )}
         <div className="durak-finished__actions">

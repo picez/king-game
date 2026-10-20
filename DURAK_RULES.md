@@ -21,7 +21,7 @@ sections add to or override it.
 
 ### Players and order
 
-- **Players:** 2–4 (MVP). No teams — every player is for themselves.
+- **Players:** 2–6 (Stage 41.6). No teams — every player is for themselves.
 - **Seating / turn order:** clockwise. The **defender** is always the player
   immediately clockwise (to the left) of the current **attacker**. After the
   defender comes the next player, and so on.
@@ -213,7 +213,7 @@ again).
 
 These pin down the ambiguous points so the implementation is unambiguous:
 
-- **Players:** 2–4. **No teams.**
+- **Players:** 2–6 (Stage 41.6). **No teams.**
 - **Throw-in:** **priority** — the primary attacker leads until they pass, then it
   moves clockwise to the next eligible attacker; co-attackers throw matching ranks
   only; the **defender never throws**. A player who cannot throw auto-passes.
@@ -267,11 +267,16 @@ detecting the end of the game.
 
 Documented so they are not silently assumed present:
 
-- Co-attacker throw-ins from players other than the primary attacker.
-- Teams, "passport", "погоны" (epaulettes — a cosmetic shame mark for a fool who
-  loses on sixes; the closest thing in the app is the Durak "sixes" achievement).
+- Free-for-all (simultaneous) throw-ins — every co-attacker throws in, but in the
+  §1 priority order, one at a time.
+- Teams and "passport".
   (Перевод by showing a trump — the one-time trump-show transfer — is now IN scope;
   see §3a.)
+
+**«Погоны» (Stage 41.7) — cosmetic only.** When the fool **took** a finishing
+attack made only of sixes, the end screen shows a «Погони!» line naming the
+attacker and the fool. It changes no score; it reuses the Stage 37.3 six-attack
+detector (`detectSixAttack`) that also drives the two «sixes» achievements.
 
 **Player counts (Stage 41.6): 2–6.** Five players leave a 6-card draw pile. **Six
 players deal the whole 36-card deck**: there is no draw pile, and the trump is the

@@ -11,6 +11,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Durak «Погоны» (Stage 41.7).** When the fool took a finishing attack made only of
+  sixes, the end screen now says so — «Погони!», naming the attacker and the fool.
+  Cosmetic only: no score change; it reuses the six-attack detector behind the two
+  «sixes» achievements. i18n ×4.
 - **Durak for up to 6 players (Stage 41.6).** Six players deal the whole 36-card deck:
   no draw pile, and the last card dealt is the trump — it stays in that player's hand,
   shown to everyone. Local setup offers 2–6; online rooms seat up to 6.
