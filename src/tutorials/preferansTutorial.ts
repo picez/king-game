@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // Preferans scripted tutorial (Stage 31.2). 6 steps, ≤120 s — a LIGHT MVP intro
 // (TUTORIALS_PLAN.md §3.5). Teaches only product-supported behaviour: contract,
-// declarer vs two defenders, the talon, 10 tricks, contract scoring. It does NOT
-// present classic variants (misère, four-player) as playable — the last step notes
-// they are not in the app yet. Pure; no engine imports.
+// declarer vs two defenders, the talon, 10 tricks, contract scoring, and (Stage 41.8)
+// the two host options — misère and распасы. Four-player Preferans is still not in
+// the app. Pure; no engine imports.
 // ---------------------------------------------------------------------------
 
 import type { Tutorial, TutorialCardFace, TutorialSeat, TutorialTrickCard } from './types';
@@ -96,6 +96,22 @@ export const preferansTutorial: Tutorial = {
         ],
       },
       highlight: [{ targetId: 'zone.make' }, { targetId: 'zone.miss' }],
+    },
+    {
+      // Stage 41.8 — the two host options (PREFERANS_RULES §5a, §7a); both off by default.
+      id: 'options',
+      titleKey: 'tutorial.preferans.options.title',
+      bodyKey: 'tutorial.preferans.options.body',
+      estimatedSeconds: 16,
+      scene: {
+        layout: 'hand-only',
+        chips: [
+          { id: 'zone.misere', text: 'misère: 0 tricks → +5', tone: 'gold' },
+          { id: 'zone.allpass', text: 'all pass → fewest tricks +1', tone: 'good' },
+        ],
+        hand: [c('h1', 'spades', '7'), c('h2', 'hearts', '8'), c('h3', 'diamonds', '7'), c('h4', 'clubs', '9')],
+      },
+      highlight: [{ targetId: 'zone.misere', pulse: true }, { targetId: 'zone.allpass' }],
     },
   ],
 };

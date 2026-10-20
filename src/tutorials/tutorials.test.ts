@@ -21,7 +21,7 @@ import { AR } from '../i18n/dictionaries/ar';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 const EXPECTED_STEPS: Record<string, number> = {
-  king: 6, durak: 6, deberc: 7, tarneeb: 6, preferans: 6, 'fifty-one': 7, poker: 7,
+  king: 6, durak: 6, deberc: 7, tarneeb: 7, preferans: 7, 'fifty-one': 7, poker: 7,
 };
 
 describe('tutorial catalog', () => {
@@ -141,11 +141,14 @@ describe('tutorial i18n', () => {
     for (const [lang, dict] of [['en', EN], ['uk', UK], ['de', DE], ['ar', AR]] as const) {
       for (const [key, val] of Object.entries(dict)) {
         if (!key.startsWith('tutorial.preferans.')) continue;
-        // Any mention of a classic variant must be negated ("not in the app yet" / "немає" / "noch nicht" / "ليست").
-        const mentionsVariant = /mis[eè]re|misère|мізер|Misère|ميزير/i.test(val);
-        if (mentionsVariant) {
-          const negated = /not in the app yet|поки немає|noch nicht in der App|ليست في التطبيق بعد/.test(val);
-          expect(negated, `${lang}:${key} mentions a variant without a "not yet" qualifier`).toBe(true);
+        // Four-player Preferans is still unsupported: any mention must be negated.
+        if (/four-player|4 гравц|zu viert|أربعة لاعبين/i.test(val)) {
+          const negated = /not in the app yet|поки немає|noch nicht|ليس في التطبيق بعد/.test(val);
+          expect(negated, `${lang}:${key} mentions four-player without a "not yet" qualifier`).toBe(true);
+        }
+        // Misère is a host option since Stage 41.4 — a mention must say the host turns it on.
+        if (/mis[eè]re|мізер|ميزير/i.test(val)) {
+          expect(/host|хост|Host|المضيف/.test(val), `${lang}:${key} presents misère without the host-option qualifier`).toBe(true);
         }
       }
     }

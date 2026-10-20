@@ -103,5 +103,21 @@ export const tarneebTutorial: Tutorial = {
       },
       highlight: [{ targetId: 'zone.exact', pulse: true }],
     },
+    {
+      // Stage 41.8 — the two host options (TARNEEB_RULES §6a, §9); both off by default.
+      id: 'options',
+      titleKey: 'tutorial.tarneeb.options.title',
+      bodyKey: 'tutorial.tarneeb.options.body',
+      estimatedSeconds: 15,
+      scene: {
+        layout: 'hand-only',
+        chips: [
+          { id: 'zone.nt', text: 'NT · no trump', tone: 'gold' },
+          { id: 'zone.kaboot', text: '13/13 → +16', tone: 'good' },
+          { id: 'zone.fail13', text: 'bid 13 missed → −16', tone: 'bad' },
+        ],
+      },
+      highlight: [{ targetId: 'zone.nt', pulse: true }, { targetId: 'zone.kaboot' }],
+    },
   ],
 };

@@ -11,6 +11,10 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Tutorials explain the host-option rules (Stage 41.9).** Preferans and Tarneeb each
+  gain a 7th step: misère + распасы, and No-Trump + the Kaboot table, all marked as
+  host options. The Preferans scoring step no longer claims misère is missing (only
+  four-player Preferans is). i18n ×4.
 - **Four achievements for the new host-option rules (Stage 41.8, catalog 52 → 56).**
   *Misère* (make a misère in Preferans), *Clean Pass-Out* (fewest tricks in a распасы
   hand), *Kaboot* (all 13 in Tarneeb under the Kaboot table) and *No Trumps Needed*

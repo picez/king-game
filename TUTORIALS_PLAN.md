@@ -160,7 +160,7 @@ highlight target**, and the **takeaway** (what the learner should remember). Cop
 
 *Visual moments:* the length-first Палтіна comparison (step 3), the Bela K/Q winning its trick (step 5).
 
-### 3.4 Tarneeb — target ~100 s, 6 steps
+### 3.4 Tarneeb — target ~115 s, 7 steps
 
 | # | Step | Scene | Highlight | Takeaway |
 |---|---|---|---|---|
@@ -170,10 +170,11 @@ highlight target**, and the **takeaway** (what the learner should remember). Cop
 | 4 | Trump obligation | `trick` | led suit / trump | Follow suit if you can; **any trump beats non-trumps**. |
 | 5 | Exact vs miss | scoreboard | bid vs tricks | Make your bid → score the tricks; hit it **exactly → doubled**; miss → **defenders** score. |
 | 6 | Pairs vs Solo | seats diagram | teams / solo | **Pairs** = 2×2 partners; **Solo** = every player for themself. Tap **Play Tarneeb**. |
+| 7 | Host options (Stage 41.8) | `hand-only` chips | NT / 13→+16 | **No-Trump** and the **Kaboot** table — both off unless the host turns them on. |
 
 *Visual moments:* a rising bid (step 2), an exact-bid double vs a miss (step 5).
 
-### 3.5 Preferans — target ~90 s, 6 steps (kept light per owner)
+### 3.5 Preferans — target ~112 s, 7 steps (kept light per owner)
 
 | # | Step | Scene | Highlight | Takeaway |
 |---|---|---|---|---|
@@ -183,6 +184,7 @@ highlight target**, and the **takeaway** (what the learner should remember). Cop
 | 4 | Talon | `hand-only` | talon + buried 2 | The bid winner takes the **talon** and buries **2** cards. |
 | 5 | Play 10 tricks | `trick` | trick count | All play **10 tricks**; meet your contract level. |
 | 6 | Score | scoreboard | contract value | Take at least your level to score it; miss → each defender scores. Tap **Play Preferans**. |
+| 7 | Host options (Stage 41.8) | `hand-only` chips | misère / all-pass | **Misère** (0 tricks, ±5) and **распасы** (fewest tricks +1) — both off unless the host turns them on. |
 
 *Note:* keep Preferans intentionally brief — surface the loop, not every contract nuance (owner ask).
 
