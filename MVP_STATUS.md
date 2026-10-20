@@ -1,7 +1,7 @@
 # Card Majlis — MVP Status
 
 > **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, 51, **Poker**) ·
-> **52 achievements** · latest migration **`0014_online_matches.sql`** · version **`0.6.1`**.
+> **56 achievements** · latest migration **`0014_online_matches.sql`** · version **`0.6.1`**.
 > The stage-by-stage narrative below is a running log: entries describe what was true **at that
 > stage**, so their counts are historical. Where a stage entry disagrees with this block, this
 > block is current.

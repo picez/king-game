@@ -49,6 +49,9 @@ interface PreferansStatsBlob {
   totalScore: number;
   bestGameScore: number;   // -Infinity sentinel when no games yet
   worstGameScore: number;  // +Infinity sentinel when no games yet
+  // Stage 41.8 telemetry (host options misère / распасы).
+  miseresMade: number;
+  allPassWins: number;
 }
 
 /** Reads the Preferans stats JSONB, defaulting missing counters safely. Pure. */
@@ -63,6 +66,8 @@ export function readPreferansStats(raw: unknown): PreferansStatsBlob {
     totalScore: num(o.totalScore, 0),
     bestGameScore: num(o.bestGameScore, Number.NEGATIVE_INFINITY),
     worstGameScore: num(o.worstGameScore, Number.POSITIVE_INFINITY),
+    miseresMade: num(o.miseresMade, 0),
+    allPassWins: num(o.allPassWins, 0),
   };
 }
 
@@ -74,6 +79,8 @@ function serializePreferansStats(s: PreferansStatsBlob): Record<string, unknown>
     contractsMade: s.contractsMade,
     contractsFailed: s.contractsFailed,
     totalScore: s.totalScore,
+    miseresMade: s.miseresMade,
+    allPassWins: s.allPassWins,
   };
   if (Number.isFinite(s.bestGameScore)) out.bestGameScore = s.bestGameScore;
   if (Number.isFinite(s.worstGameScore)) out.worstGameScore = s.worstGameScore;
@@ -183,6 +190,8 @@ async function upsertPreferansUserStats(
     // Preferans scores can be negative; best = MAX, worst = MIN final score.
     bestGameScore: Math.max(prev.bestGameScore, delta.finalScore),
     worstGameScore: Math.min(prev.worstGameScore, delta.finalScore),
+    miseresMade: prev.miseresMade + delta.miseresMade,
+    allPassWins: prev.allPassWins + delta.allPassWins,
   });
 
   const now = new Date();
@@ -241,6 +250,8 @@ function toPreferansStatsView(
     averageScore: avg(blob.totalScore, gamesPlayed),
     bestGameScore: Number.isFinite(blob.bestGameScore) ? blob.bestGameScore : null,
     worstGameScore: Number.isFinite(blob.worstGameScore) ? blob.worstGameScore : null,
+    miseresMade: blob.miseresMade,
+    allPassWins: blob.allPassWins,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

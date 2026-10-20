@@ -18,7 +18,7 @@ A post-deploy pass. Run it after every production deploy (Render or VPS). It con
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
   release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.6.1`** (tag `v0.6.1`).
 - **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, Fifty-One,
-  Poker) · **52 achievements** · latest migration **`0014_online_matches.sql`** · version
+  Poker) · **56 achievements** · latest migration **`0014_online_matches.sql`** · version
   **`0.6.1`**. Everything after v0.6.1 is **Unreleased** and ships only when a release stage says so.
 
 Set your host once and reuse it below:
@@ -146,7 +146,7 @@ per-area deep passes are §1–§11 below.
 
 > **This section is the v0.4.8 release-time pass, not current state.** It is preserved because its
 > per-feature detail is still useful, but where it disagrees with §0 about counts, migrations or the
-> chat UI, **§0 is correct**. Current state: 7 games · 52 achievements · latest migration `0014`.
+> chat UI, **§0 is correct**. Current state: 7 games · 56 achievements · latest migration `0014`.
 
 v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (per-game filter chip strip, no "All")
 and grows the released catalog **29 → 34**. **Unreleased Stage 37.3** adds the full owner-requested pack of
@@ -166,7 +166,7 @@ account; the carried-over cross-device one needs two devices/browsers):
       **no "All" tab**) and shows the **filter chip strip** (Global + every game), each chip an icon +
       short name + its own **earned/total**; tapping a chip swaps the grid to that group. The strip scrolls
       **inside itself** (styled scrollbar, not the native OS bar), so **360/390** and **Arabic RTL** never
-      overflow the page. Header count read out of **34** at v0.4.8; the catalog is **52** today (§0).
+      overflow the page. Header count read out of **34** at v0.4.8; the catalog is **56** today (§0).
 - [ ] **Stage 37.3 pack (Unreleased, needs real play + a DB):** the new badges unlock only from real
       telemetry — e.g. win a 51 round on the first move (*First-Move Finish*), be dealt two jokers
       (*Double Joker*), win a Deberc match with no «Бейт» (*Beyt-Free*), bid 13 and make it in Tarneeb

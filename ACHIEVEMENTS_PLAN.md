@@ -310,6 +310,8 @@ state through the API. **No DB migration.**
 **Durak «sixes» semantics** — DURAK_RULES has no named six-attack rule for the supported 2–4p game (the
 «погони»/epaulettes variant is 5–6p, unimplemented), so the condition was confirmed with the owner
 (Stage 37.3): the game finished on an all-sixes attack that the fool TOOK. Nothing was invented.
+(Stage 41.7 corrected the record: «погоны» is a cosmetic shame mark, not a 5–6p rule; the end screen
+now shows it for the same condition.)
 
 **Deberc «бейт»** — confirmed in DEBERC_RULES §7: the display label «Бейт» is the об'яз-under-score event,
 stored internally on `hvTeam` (the internal field names are swapped vs the display labels). The badge uses
@@ -321,3 +323,19 @@ The finish summarizer reads them; redaction is unchanged (they are public boolea
 
 **Rarity:** reused the existing `common | uncommon | rare | epic`. All-Rounder, `totalWins`, `totalGames`
 and the totals are **unchanged**; every new evaluator is null-safe.
+
+## 9. Stage 41.8 — badges for the host-option rules (catalog 52 → 56)
+
+The Stage 41.4/41.5 host options got one badge each. Only rooms that enabled the option can earn
+them. Counters live in the existing per-game stats JSONB (no DB migration) and come from the
+score-only hand history — never a card.
+
+| id | game | telemetry field | how it's recorded |
+|---|---|---|---|
+| `preferans-misere` | Preferans | `miseresMade` | summarizer: a `kind: 'misere'` hand the seat declared and made |
+| `preferans-all-pass` | Preferans | `allPassWins` | summarizer: a `kind: 'allpass'` hand where the seat scored +1 (fewest tricks) |
+| `tarneeb-kaboot` | Tarneeb (Pairs) | `kaboots` | summarizer: a made declarer hand with `kaboot: true` (all 13 under the table) |
+| `tarneeb-no-trump` | Tarneeb (Pairs) | `noTrumpMade` | summarizer: a made declarer hand with `trumpSuit: 'NT'` |
+
+Solo Tarneeb records the same counters under `tarneeb-solo`; as with every other Tarneeb badge, only
+the canonical Pairs stats are read.

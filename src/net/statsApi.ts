@@ -323,6 +323,9 @@ export interface TarneebStats {
   cleanContractGames: number;
   /** Highest bid the user MADE as declarer across games (0 when none). */
   maxWinningBid: number;
+  /** Stage 41.8 — all-13 Kaboot hands / No-Trump contracts made as declarer. */
+  kaboots: number;
+  noTrumpMade: number;
   lastGameAt: string | null;
 }
 
@@ -351,6 +354,8 @@ export function parseTarneebStats(raw: unknown): TarneebStats {
     worstGameScore: numOrNull(s.worstGameScore),
     cleanContractGames: num(s.cleanContractGames),
     maxWinningBid: num(s.maxWinningBid),
+    kaboots: num(s.kaboots),
+    noTrumpMade: num(s.noTrumpMade),
     lastGameAt: str(s.lastGameAt),
   };
 }
@@ -383,6 +388,9 @@ export interface PreferansStats {
   /** Best/worst final score across games, or null when none. */
   bestGameScore: number | null;
   worstGameScore: number | null;
+  /** Stage 41.8 — misères made as declarer / распасы hands won. */
+  miseresMade: number;
+  allPassWins: number;
   lastGameAt: string | null;
 }
 
@@ -410,6 +418,8 @@ export function parsePreferansStats(raw: unknown): PreferansStats {
     averageScore: 'averageScore' in s ? numOrNull(s.averageScore) : (gamesPlayed > 0 ? Math.round(num(s.totalScore) / gamesPlayed) : null),
     bestGameScore: numOrNull(s.bestGameScore),
     worstGameScore: numOrNull(s.worstGameScore),
+    miseresMade: num(s.miseresMade),
+    allPassWins: num(s.allPassWins),
     lastGameAt: str(s.lastGameAt),
   };
 }

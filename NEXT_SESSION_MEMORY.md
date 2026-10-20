@@ -10,7 +10,7 @@ Use this file as the first read after archiving this chat. It is intentionally s
 - Dependencies are intentionally stable; do not run `npm install` unless explicitly approved. `package-lock.json` must keep `"libc"` count `0`.
 
 ## Current feature baseline
-- Achievements: **52 total** (34 released + 14 Unreleased Stage 37.3 + 4 Poker badges Stage 37.4), grouped by Global + each game; **no `All` tab**; default group is Global; styled horizontal chip scroll. The Stage 37.3 pack is backed by real per-round/per-hand/per-game telemetry added to the JSONB stats (no DB migration); 51 telemetry lives on `FiftyOneState.telemetry`.
+- Achievements: **56 total** (34 released + 14 Stage 37.3 + 4 Poker badges Stage 37.4 + 4 host-option rule badges Stage 41.8, Unreleased), grouped by Global + each game; **no `All` tab**; default group is Global; styled horizontal chip scroll. The Stage 37.3 pack is backed by real per-round/per-hand/per-game telemetry added to the JSONB stats (no DB migration); 51 telemetry lives on `FiftyOneState.telemetry`.
 - Recent reconnect work: 5-minute orphan room TTL, same-user cross-device room discovery/reclaim via `FIND_MY_ROOMS -> MY_ROOMS -> RECLAIM_ROOM`.
 - Syrian 51: released local+online+stats+achievement; configurable elimination score 210/310/410/510; Count cards calculator; discard-to-open; joker replacement; meld cards use uniform slots.
 - Tutorials: scripted tutorials for **all 7 games** (Poker added in Stage 37.4), not live practice.

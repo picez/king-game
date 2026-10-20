@@ -46,6 +46,10 @@ export interface TarneebPlayerResult {
   cleanContractGame: boolean;
   /** Highest bid this seat MADE as declarer this game (0 when none). */
   maxWinningBid: number;
+  /** Stage 41.8: declarer hands that took all 13 under the Kaboot table. */
+  kaboots: number;
+  /** Stage 41.8: No-Trump contracts this seat MADE as declarer. */
+  noTrumpMade: number;
 }
 
 /** A score-only per-hand record for durable `rounds` (never any cards). */
@@ -84,6 +88,9 @@ export interface TarneebStatDelta {
   cleanContractGame: boolean;
   /** Highest bid this seat made as declarer this game (running max across games). */
   maxWinningBid: number;
+  /** Kaboots / No-Trump contracts made as declarer this game (Stage 41.8). */
+  kaboots: number;
+  noTrumpMade: number;
 }
 
 /** True only for a finished Tarneeb match. */
@@ -108,11 +115,15 @@ function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedS
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
   const maxWinningBid: Record<number, number> = {};
+  const kaboots: Record<number, number> = {};
+  const noTrumpMade: Record<number, number> = {};
   for (const h of history) {
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
     if (h.made) {
       contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
       maxWinningBid[h.declarerSeat] = Math.max(maxWinningBid[h.declarerSeat] ?? 0, h.bid);
+      if (h.kaboot) kaboots[h.declarerSeat] = (kaboots[h.declarerSeat] ?? 0) + 1;
+      if (h.trumpSuit === 'NT') noTrumpMade[h.declarerSeat] = (noTrumpMade[h.declarerSeat] ?? 0) + 1;
     } else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
   }
 
@@ -130,6 +141,8 @@ function summarizeFinishedSoloTarneebGame(state: TarneebState): TarneebFinishedS
     contractsFailed: contractsFailed[p.seatIndex] ?? 0,
     cleanContractGame: (declarerCount[p.seatIndex] ?? 0) >= 1 && (contractsFailed[p.seatIndex] ?? 0) === 0,
     maxWinningBid: maxWinningBid[p.seatIndex] ?? 0,
+    kaboots: kaboots[p.seatIndex] ?? 0,
+    noTrumpMade: noTrumpMade[p.seatIndex] ?? 0,
   }));
 
   const seatToPlayerId = new Map(state.players.map((p) => [p.seatIndex, p.id]));
@@ -166,11 +179,15 @@ export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinish
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
   const maxWinningBid: Record<number, number> = {};
+  const kaboots: Record<number, number> = {};
+  const noTrumpMade: Record<number, number> = {};
   for (const h of state.handHistory) {
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
     if (h.made) {
       contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
       maxWinningBid[h.declarerSeat] = Math.max(maxWinningBid[h.declarerSeat] ?? 0, h.bid);
+      if (h.kaboot) kaboots[h.declarerSeat] = (kaboots[h.declarerSeat] ?? 0) + 1;
+      if (h.trumpSuit === 'NT') noTrumpMade[h.declarerSeat] = (noTrumpMade[h.declarerSeat] ?? 0) + 1;
     } else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
   }
 
@@ -190,6 +207,8 @@ export function summarizeFinishedTarneebGame(state: TarneebState): TarneebFinish
       contractsFailed: contractsFailed[p.seatIndex] ?? 0,
       cleanContractGame: (declarerCount[p.seatIndex] ?? 0) >= 1 && (contractsFailed[p.seatIndex] ?? 0) === 0,
       maxWinningBid: maxWinningBid[p.seatIndex] ?? 0,
+      kaboots: kaboots[p.seatIndex] ?? 0,
+      noTrumpMade: noTrumpMade[p.seatIndex] ?? 0,
     };
   });
 
@@ -229,6 +248,8 @@ export function computeTarneebStatDeltas(summary: TarneebFinishedSummary): Tarne
     contractsFailed: p.contractsFailed,
     cleanContractGame: p.cleanContractGame,
     maxWinningBid: p.maxWinningBid,
+    kaboots: p.kaboots,
+    noTrumpMade: p.noTrumpMade,
   }));
 }
 
@@ -266,5 +287,7 @@ export interface TarneebStatsView {
   worstGameScore: number | null;   // worst (lowest) team final score
   cleanContractGames: number;      // games with ≥1 declared + 0 failed (Stage 37.3)
   maxWinningBid: number;           // highest bid ever made as declarer (0 when none)
+  kaboots: number;                 // all-13 Kaboot hands made as declarer (Stage 41.8)
+  noTrumpMade: number;             // No-Trump contracts made as declarer (Stage 41.8)
   lastGameAt: string | null;
 }

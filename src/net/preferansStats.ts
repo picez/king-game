@@ -45,6 +45,10 @@ export interface PreferansPlayerResult {
   /** Of those declarer hands: how many made / failed the contract. */
   contractsMade: number;
   contractsFailed: number;
+  /** Stage 41.8: misères this seat MADE as declarer (took no trick). */
+  miseresMade: number;
+  /** Stage 41.8: распасы hands this seat won (took the fewest tricks → +1). */
+  allPassWins: number;
 }
 
 /** A score-only per-hand record for durable `rounds` (never any cards). */
@@ -83,6 +87,8 @@ export interface PreferansStatDelta {
   declarerCount: number;
   contractsMade: number;
   contractsFailed: number;
+  miseresMade: number;
+  allPassWins: number;
 }
 
 /** True only for a finished Preferans match. */
@@ -99,8 +105,14 @@ export function summarizeFinishedPreferansGame(state: PreferansState): Preferans
   const declarerCount: Record<number, number> = {};
   const contractsMade: Record<number, number> = {};
   const contractsFailed: Record<number, number> = {};
+  const miseresMade: Record<number, number> = {};
+  const allPassWins: Record<number, number> = {};
   for (const h of state.handHistory) {
-    if (h.kind === 'allpass') continue; // распасы have no declarer (Stage 41.4)
+    if (h.kind === 'allpass') { // распасы have no declarer (Stage 41.4); +1 marks the winners
+      h.deltaBySeat.forEach((d, seat) => { if (d > 0) allPassWins[seat] = (allPassWins[seat] ?? 0) + 1; });
+      continue;
+    }
+    if (h.kind === 'misere' && h.made) miseresMade[h.declarerSeat] = (miseresMade[h.declarerSeat] ?? 0) + 1;
     declarerCount[h.declarerSeat] = (declarerCount[h.declarerSeat] ?? 0) + 1;
     if (h.made) contractsMade[h.declarerSeat] = (contractsMade[h.declarerSeat] ?? 0) + 1;
     else contractsFailed[h.declarerSeat] = (contractsFailed[h.declarerSeat] ?? 0) + 1;
@@ -117,6 +129,8 @@ export function summarizeFinishedPreferansGame(state: PreferansState): Preferans
     declarerCount: declarerCount[p.seatIndex] ?? 0,
     contractsMade: contractsMade[p.seatIndex] ?? 0,
     contractsFailed: contractsFailed[p.seatIndex] ?? 0,
+    miseresMade: miseresMade[p.seatIndex] ?? 0,
+    allPassWins: allPassWins[p.seatIndex] ?? 0,
   }));
 
   // Score-only rounds: each player gets its own per-hand score delta + the public
@@ -155,6 +169,8 @@ export function computePreferansStatDeltas(summary: PreferansFinishedSummary): P
     declarerCount: p.declarerCount,
     contractsMade: p.contractsMade,
     contractsFailed: p.contractsFailed,
+    miseresMade: p.miseresMade,
+    allPassWins: p.allPassWins,
   }));
 }
 
@@ -188,5 +204,7 @@ export interface PreferansStatsView {
   averageScore: number | null;        // rounded mean over games; null when none
   bestGameScore: number | null;       // best (highest) final score
   worstGameScore: number | null;      // worst (lowest) final score
+  miseresMade: number;                // misères made as declarer (Stage 41.8)
+  allPassWins: number;                // распасы hands won (Stage 41.8)
   lastGameAt: string | null;
 }

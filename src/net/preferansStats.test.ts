@@ -126,3 +126,19 @@ describe('preferansFinishSignature', () => {
     expect(preferansFinishSignature(finished({ scores: [10, -2, 2] }))).not.toBe(a);
   });
 });
+
+describe('Stage 41.8 — misère / распасы counters', () => {
+  it('counts made misères for the declarer and распасы wins for the +1 seats', () => {
+    const s = finished({
+      handHistory: [
+        hand({ handNumber: 1, kind: 'misere', declarerSeat: 1, contract: { level: 0, suit: 'NT', misere: true }, declarerTricks: 0, made: true, deltaBySeat: [0, 5, 0] }),
+        hand({ handNumber: 2, kind: 'misere', declarerSeat: 0, contract: { level: 0, suit: 'NT', misere: true }, declarerTricks: 1, made: false, deltaBySeat: [-5, 0, 0] }),
+        hand({ handNumber: 3, kind: 'allpass', declarerSeat: -1, made: false, tricksBySeat: [2, 2, 6], deltaBySeat: [1, 1, 0] }),
+      ],
+    });
+    const d = Object.fromEntries(computePreferansStatDeltas(summarizeFinishedPreferansGame(s)).map((x) => [x.playerId, x]));
+    expect(d['player-1']).toMatchObject({ miseresMade: 1, allPassWins: 1 });
+    expect(d['player-0']).toMatchObject({ miseresMade: 0, allPassWins: 1, contractsFailed: 1 });
+    expect(d['player-2']).toMatchObject({ miseresMade: 0, allPassWins: 0 });
+  });
+});

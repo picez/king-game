@@ -11,6 +11,12 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **Four achievements for the new host-option rules (Stage 41.8, catalog 52 → 56).**
+  *Misère* (make a misère in Preferans), *Clean Pass-Out* (fewest tricks in a распасы
+  hand), *Kaboot* (all 13 in Tarneeb under the Kaboot table) and *No Trumps Needed*
+  (make a No-Trump contract in Tarneeb). New score-only counters `miseresMade`,
+  `allPassWins`, `kaboots`, `noTrumpMade` in the existing stats JSONB — no DB migration;
+  older rows read as 0. i18n ×4.
 - **Durak «Погоны» (Stage 41.7).** When the fool took a finishing attack made only of
   sixes, the end screen now says so — «Погони!», naming the attacker and the fool.
   Cosmetic only: no score change; it reuses the six-attack detector behind the two

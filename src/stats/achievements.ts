@@ -397,6 +397,28 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'poker-royal-flush', titleKey: 'ach.pokerRoyalFlush.title', descriptionKey: 'ach.pokerRoyalFlush.desc',
     icon: '👑', gameType: 'poker', rarity: 'epic', evaluate: (s) => (s.poker ? s.poker.royalFlushCount : 0) >= 1,
   },
+  // ── Stage 41.8 — the host-option rules (Preferans misère/распасы, Tarneeb Kaboot/No-Trump).
+  //    Only rooms that enabled the option can earn them; missing counters → locked. ──
+  {
+    // Made a misère as declarer (took no trick) — `miseresMade`.
+    id: 'preferans-misere', titleKey: 'ach.preferansMisere.title', descriptionKey: 'ach.preferansMisere.desc',
+    icon: '🕳️', gameType: 'preferans', rarity: 'rare', evaluate: (s) => (s.preferans?.miseresMade ?? 0) >= 1,
+  },
+  {
+    // Took the fewest tricks in a распасы hand (+1) — `allPassWins`.
+    id: 'preferans-all-pass', titleKey: 'ach.preferansAllPass.title', descriptionKey: 'ach.preferansAllPass.desc',
+    icon: '🫥', gameType: 'preferans', rarity: 'uncommon', evaluate: (s) => (s.preferans?.allPassWins ?? 0) >= 1,
+  },
+  {
+    // Took all 13 tricks under the Kaboot table (Pairs) — `kaboots`.
+    id: 'tarneeb-kaboot', titleKey: 'ach.tarneebKaboot.title', descriptionKey: 'ach.tarneebKaboot.desc',
+    icon: '💥', gameType: 'tarneeb', rarity: 'epic', evaluate: (s) => (s.tarneeb?.kaboots ?? 0) >= 1,
+  },
+  {
+    // Made a No-Trump contract as declarer (Pairs) — `noTrumpMade`.
+    id: 'tarneeb-no-trump', titleKey: 'ach.tarneebNoTrump.title', descriptionKey: 'ach.tarneebNoTrump.desc',
+    icon: '🚫', gameType: 'tarneeb', rarity: 'uncommon', evaluate: (s) => (s.tarneeb?.noTrumpMade ?? 0) >= 1,
+  },
 ] as const;
 
 /** Evaluate every achievement against the combined stats, in catalog order. */

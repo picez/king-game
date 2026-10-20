@@ -241,3 +241,21 @@ describe('negative scores', () => {
     expect(byId['player-1'].teamFinalScore).toBe(-13);
   });
 });
+
+describe('Stage 41.8 — Kaboot / No-Trump counters', () => {
+  it('counts made Kaboots and made No-Trump contracts for the declarer only', () => {
+    const s = finished({
+      handHistory: [
+        hand({ handNumber: 1, declarerSeat: 0, bid: 7, declarerTricks: 13, defenderTricks: 0, made: true, kaboot: true, deltaByTeam: { A: 16, B: 0 } }),
+        hand({ handNumber: 2, declarerSeat: 2, bid: 8, trumpSuit: 'NT', made: true, deltaByTeam: { A: 8, B: 0 } }),
+        hand({ handNumber: 3, declarerSeat: 1, declarerTeam: 'B', bid: 13, declarerTricks: 11, defenderTricks: 2, made: false, kaboot: true, deltaByTeam: { A: 4, B: -16 } }),
+        hand({ handNumber: 4, declarerSeat: 3, declarerTeam: 'B', bid: 9, trumpSuit: 'NT', made: false, deltaByTeam: { A: 4, B: -9 } }),
+      ],
+    });
+    const d = Object.fromEntries(computeTarneebStatDeltas(summarizeFinishedTarneebGame(s)).map((x) => [x.playerId, x]));
+    expect(d['player-0']).toMatchObject({ kaboots: 1, noTrumpMade: 0 });
+    expect(d['player-2']).toMatchObject({ kaboots: 0, noTrumpMade: 1 });
+    expect(d['player-1']).toMatchObject({ kaboots: 0, noTrumpMade: 0 }); // a failed 13 is no Kaboot
+    expect(d['player-3']).toMatchObject({ kaboots: 0, noTrumpMade: 0 }); // a failed NT does not count
+  });
+});

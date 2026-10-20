@@ -61,6 +61,9 @@ interface TarneebStatsBlob {
   // Stage 37.3 telemetry.
   cleanContractGames: number;
   maxWinningBid: number;   // running MAX of made-as-declarer bids (0 when none)
+  // Stage 41.8 telemetry (host options Kaboot / No-Trump).
+  kaboots: number;
+  noTrumpMade: number;
 }
 
 /** Reads the Tarneeb stats JSONB, defaulting missing counters safely. Pure. */
@@ -76,6 +79,8 @@ export function readTarneebStats(raw: unknown): TarneebStatsBlob {
     worstGameScore: num(o.worstGameScore, Number.POSITIVE_INFINITY),
     cleanContractGames: num(o.cleanContractGames, 0),
     maxWinningBid: num(o.maxWinningBid, 0),
+    kaboots: num(o.kaboots, 0),
+    noTrumpMade: num(o.noTrumpMade, 0),
   };
 }
 
@@ -88,6 +93,8 @@ function serializeTarneebStats(s: TarneebStatsBlob): Record<string, unknown> {
     totalTeamScore: s.totalTeamScore,
     cleanContractGames: s.cleanContractGames,
     maxWinningBid: s.maxWinningBid,
+    kaboots: s.kaboots,
+    noTrumpMade: s.noTrumpMade,
   };
   if (Number.isFinite(s.bestGameScore)) out.bestGameScore = s.bestGameScore;
   if (Number.isFinite(s.worstGameScore)) out.worstGameScore = s.worstGameScore;
@@ -200,6 +207,8 @@ async function upsertTarneebUserStats(
     worstGameScore: Math.min(prev.worstGameScore, delta.teamFinalScore),
     cleanContractGames: prev.cleanContractGames + (delta.cleanContractGame ? 1 : 0),
     maxWinningBid: Math.max(prev.maxWinningBid, delta.maxWinningBid),
+    kaboots: prev.kaboots + delta.kaboots,
+    noTrumpMade: prev.noTrumpMade + delta.noTrumpMade,
   });
 
   const now = new Date();
@@ -259,6 +268,8 @@ function toTarneebStatsView(
     worstGameScore: Number.isFinite(blob.worstGameScore) ? blob.worstGameScore : null,
     cleanContractGames: blob.cleanContractGames,
     maxWinningBid: blob.maxWinningBid,
+    kaboots: blob.kaboots,
+    noTrumpMade: blob.noTrumpMade,
     lastGameAt: row?.lastPlayedAt ? row.lastPlayedAt.toISOString() : null,
   };
 }

@@ -54,8 +54,8 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 52 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4)', () => {
-    expect(ACHIEVEMENTS.length).toBe(52);
+  it('has 56 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4 + 4 Stage 41.8)', () => {
+    expect(ACHIEVEMENTS.length).toBe(56);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
@@ -268,6 +268,19 @@ describe('each badge has a positive + negative case', () => {
     { id: 'poker-royal-flush',
       earn: { ...zero(), poker: poker({ royalFlushCount: 1 }) },
       lock: { ...zero(), poker: poker({ royalFlushCount: 0, gamesPlayed: 3 }) } },
+    // ── Stage 41.8 — host-option rule badges ─────────────────────────────────
+    { id: 'preferans-misere',
+      earn: { ...zero(), preferans: preferans({ miseresMade: 1 }) },
+      lock: { ...zero(), preferans: preferans({ miseresMade: 0, contractsMade: 5 }) } },
+    { id: 'preferans-all-pass',
+      earn: { ...zero(), preferans: preferans({ allPassWins: 1 }) },
+      lock: { ...zero(), preferans: preferans({ allPassWins: 0, gamesPlayed: 3 }) } },
+    { id: 'tarneeb-kaboot',
+      earn: { ...zero(), tarneeb: tarneeb({ kaboots: 1 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ kaboots: 0, maxWinningBid: 13 }) } },
+    { id: 'tarneeb-no-trump',
+      earn: { ...zero(), tarneeb: tarneeb({ noTrumpMade: 1 }) },
+      lock: { ...zero(), tarneeb: tarneeb({ noTrumpMade: 0, contractsMade: 5 }) } },
   ];
 
   it('covers every catalog badge', () => {
