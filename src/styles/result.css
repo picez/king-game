@@ -1,0 +1,227 @@
+/* ---------------------------------------------------------------------------
+ * Match result (Stage 42.1) — the shared end screen, MatchResult.tsx.
+ * The finishers are dealt onto the table as cards: cream faces, the place in the
+ * corner, a lifted winner. Colours come from the theme tokens, so it reads in both
+ * Midnight and Classic. One motion moment (deal, then lift), gated by the motion pref.
+ * ------------------------------------------------------------------------- */
+
+.result-screen {
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(70% 40% at 50% 0%, rgb(var(--accent-rgb) / 0.18) 0%, rgb(var(--accent-rgb) / 0) 70%),
+    radial-gradient(135% 100% at 50% 30%,
+      var(--felt-lit) 0%, var(--felt-mid) 38%, var(--felt-edge) 72%, var(--felt-deep) 100%),
+    var(--room-bg-2);
+}
+.result-screen--loss,
+.result-screen--fool {
+  background:
+    radial-gradient(135% 100% at 50% 30%,
+      var(--felt-mid) 0%, var(--felt-edge) 60%, var(--felt-deep) 100%),
+    var(--room-bg-2);
+}
+
+/* --- card faces (shared by seat + team cards) --- */
+.result-screen {
+  --rc-face: linear-gradient(170deg, #fdfbf5 0%, #f1ecdf 100%);
+  --rc-ink: #1b2130;
+  --rc-ink-soft: #5d6577;
+  --rc-red: #c8102e;
+}
+
+.result {
+  position: relative;
+  isolation: isolate; /* contains the WinnerCelebration layers */
+  width: min(100%, 27rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 1.1rem 1rem 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3), var(--top-light);
+  text-align: center;
+}
+
+.result__game {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.82rem; font-weight: 700; color: var(--text-muted);
+}
+.result__medallion {
+  display: grid; place-items: center;
+  width: 3.6rem; height: 3.6rem; border-radius: 50%;
+  font-size: 1.9rem; line-height: 1;
+  background: radial-gradient(circle at 50% 35%, var(--surface-3), var(--surface-2));
+  border: 1px solid var(--border-strong);
+}
+.result-screen--win .result__medallion {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.16), 0 0 28px rgb(var(--accent-rgb) / 0.45);
+}
+.result-screen--fool .result__medallion { border-color: var(--danger); box-shadow: 0 0 0 4px var(--danger-soft); }
+
+.result__title {
+  margin: 0;
+  font-size: clamp(1.7rem, 7.5vw, 2.3rem);
+  font-weight: 850;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.result-screen--win .result__title {
+  background: linear-gradient(180deg, var(--accent-highlight) 0%, var(--accent) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.result__subtitle { margin: 0; max-width: 22rem; font-size: 0.92rem; color: var(--text-muted); }
+.result__subtitle strong { color: var(--text); }
+
+/* --- the deal --- */
+.result__deal {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: 0.5rem; width: 100%;
+  padding: 1.1rem 0 0.9rem;
+}
+.result__deal--row { flex-wrap: wrap; align-items: stretch; }
+.result__teams { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; width: 100%; padding: 1rem 0 0.9rem; }
+
+.result-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 0.15rem;
+  width: 5.3rem; min-width: 0;
+  padding: 1.35rem 0.35rem 0.55rem;
+  border-radius: 0.6rem;
+  background: var(--rc-face);
+  color: var(--rc-ink);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 0 0 3px rgba(255, 255, 255, 0.55);
+  animation: result-deal 420ms cubic-bezier(.2,.8,.25,1) both;
+  animation-delay: calc(var(--deal, 0) * 110ms);
+}
+.result-card--place-2 { min-height: 7.6rem; }
+.result-card--place-3,
+.result-card--place-4 { min-height: 6.9rem; }
+.result-card--winner {
+  width: 6.4rem; min-height: 9rem;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 26px rgb(var(--accent-rgb) / 0.55),
+    0 14px 26px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+  animation: result-deal 420ms cubic-bezier(.2,.8,.25,1) both, result-lift 520ms 0s cubic-bezier(.3,1.4,.5,1) both;
+  animation-delay: calc(var(--deal, 0) * 110ms), calc(var(--deal, 0) * 110ms + 520ms);
+}
+.result__deal--row .result-card--winner { width: 5.6rem; min-height: 7.8rem; }
+.result-card--lose {
+  --rc-face: linear-gradient(170deg, #fff4f4 0%, #f6dcdc 100%);
+  border-color: rgba(200, 16, 46, 0.55);
+  transform: rotate(-3deg);
+}
+.result-card--me .result-card__name { text-decoration: underline 2px rgb(var(--accent-rgb) / 0.7); text-underline-offset: 3px; }
+
+.result-card__corner {
+  position: absolute; top: 0.3rem; inset-inline-start: 0.4rem;
+  display: flex; flex-direction: column; align-items: center;
+  font-size: 0.95rem; font-weight: 900; line-height: 0.95; color: var(--rc-ink);
+}
+.result-card__corner i { font-style: normal; font-size: 0.8rem; }
+.result-card--place-2 .result-card__corner,
+.result-card--lose .result-card__corner { color: var(--rc-red); }
+
+.result-card__avatar {
+  display: grid; place-items: center;
+  width: 2.5rem; height: 2.5rem; border-radius: 50%;
+  font-size: 1.45rem; line-height: 1;
+  background: #fff; border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+.result-card--winner .result-card__avatar { width: 3rem; height: 3rem; font-size: 1.8rem; }
+.result-card__name {
+  max-width: 100%; margin-top: 0.2rem;
+  font-size: 0.82rem; font-weight: 800; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.result-card__you { font-size: 0.72rem; font-weight: 700; color: var(--rc-ink-soft); }
+.result-card__value { font-size: 1.05rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.result-card--winner .result-card__value { font-size: 1.25rem; }
+.result-card__note {
+  margin-top: 0.1rem; padding: 0.05rem 0.4rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 800; color: #fff; background: var(--rc-red);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.result-card__ribbon {
+  position: absolute; bottom: -0.65rem; left: 50%; transform: translateX(-50%);
+  padding: 0.1rem 0.55rem; border-radius: 999px; white-space: nowrap;
+  font-size: 0.72rem; font-weight: 800;
+  color: var(--on-accent); background: var(--gold-grad); box-shadow: var(--shadow-1);
+}
+
+/* team cards: wide, two avatars */
+.result-card--team { width: auto; min-height: 8rem; padding-top: 1.5rem; }
+.result-card--team.result-card--winner { width: auto; min-height: 8.8rem; }
+.result-card--down { opacity: 0.88; }
+.result-card__faces { display: flex; justify-content: center; }
+.result-card__faces .result-card__avatar + .result-card__avatar { margin-inline-start: -0.55rem; }
+.result-card--team .result-card__name { white-space: normal; overflow-wrap: anywhere; }
+
+/* --- standings (4th place and the losers of a winner group) --- */
+.result__standings {
+  list-style: none; margin: 0.6rem 0 0; padding: 0;
+  width: 100%; display: flex; flex-direction: column; gap: 0.3rem;
+}
+.result-row {
+  display: grid; grid-template-columns: 1.5rem 2rem minmax(0, 1fr) auto auto;
+  align-items: center; gap: 0.45rem;
+  padding: 0.4rem 0.6rem; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  text-align: start;
+  animation: result-fade 360ms ease both;
+  animation-delay: calc(var(--deal, 0) * 110ms);
+}
+.result-row--me { border-color: rgb(var(--accent-rgb) / 0.6); }
+.result-row--lose { border-color: rgba(229, 72, 77, 0.55); background: var(--danger-soft); }
+.result-row__place { font-weight: 900; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
+.result-row__avatar {
+  display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%;
+  font-size: 1.15rem; background: var(--surface-3);
+}
+.result-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--text); }
+.result-row__name em { font-style: normal; font-weight: 600; color: var(--text-muted); }
+.result-row__note {
+  padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800;
+  color: var(--danger-light); border: 1px solid rgba(229, 72, 77, 0.5);
+}
+.result-row__value { font-weight: 900; font-variant-numeric: tabular-nums; color: var(--text); }
+
+.result__details { width: 100%; margin-top: 0.4rem; text-align: start; }
+.result__actions { display: flex; flex-direction: column; gap: 0.5rem; width: 100%; margin-top: 0.5rem; }
+
+@keyframes result-deal {
+  from { opacity: 0; transform: translateY(-2.2rem) rotate(-9deg) scale(0.92); }
+}
+@keyframes result-lift {
+  from { translate: 0 0; }
+  to { translate: 0 -0.55rem; }
+}
+@keyframes result-fade { from { opacity: 0; transform: translateY(0.4rem); } }
+
+:root[data-motion-effective="reduced"] .result-card,
+:root[data-motion-effective="reduced"] .result-row { animation: result-fade-only 300ms ease both; }
+:root[data-motion-effective="reduced"] .result-card--winner { translate: 0 -0.55rem; }
+:root[data-motion-effective="off"] .result-card,
+:root[data-motion-effective="off"] .result-row { animation: none; }
+:root[data-motion-effective="off"] .result-card--winner { translate: 0 -0.55rem; }
+@keyframes result-fade-only { from { opacity: 0; } }
+
+@media (max-width: 359px) {
+  .result-card { width: 4.7rem; }
+  .result-card--winner { width: 5.6rem; }
+}
+
+/* Scores read left-to-right in every language ("-3", not "3-" in Arabic). */
+.result-card__value,
+.result-row__value { direction: ltr; unicode-bidi: isolate; }

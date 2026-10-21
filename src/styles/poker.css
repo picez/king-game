@@ -434,12 +434,7 @@
 }
 .poker-handover__title { font-size: 1.2rem; font-weight: 700; }
 
-.poker-finished { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
-.poker-finished__card { text-align: center; padding: 1.5rem; max-width: 22rem; }
-.poker-finished__stacks { list-style: none; padding: 0; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.3rem; }
-.poker-finished__stacks li { display: flex; justify-content: space-between; gap: 1rem; }
-.poker-finished__stacks li.is-winner { font-weight: 700; color: var(--accent, #e8b84b); }
-.poker-finished__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+
 
 /* Panel close buttons must still be a real tap target (Stage 38.0.3 — measured 42×35).
    (38.0.14) The chat is the shared in-flow `.chat-panel`, whose own rule already sizes

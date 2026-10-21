@@ -237,27 +237,6 @@
 .deberc-tricks__n { min-width: 2.2rem; color: var(--text-dim); font-weight: 700; font-size: 0.8rem; }
 .deberc-tricks__cards { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
-.deberc-final-scores {
-  list-style: none;
-  width: 100%;
-  max-width: 24rem;
-  margin: 0.5rem auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-.deberc-final-scores li {
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  font-variant-numeric: tabular-nums;
-}
-.deberc-final--win {
-  background: rgb(var(--accent-rgb) / 0.14);
-  color: var(--accent-light);
-  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
-}
-
 /* ===========================================================================
    Board layout — deberc reuses durak's felt/seat shells but adds more per-seat
    chips (роль + ставка + взятки) and top strips, which skewed the table. Scope

@@ -1,7 +1,8 @@
 import { useI18n } from '../../i18n';
 import type { DebercState } from '../../games/deberc/types';
 import { DebercScoreSheet } from './DebercScoreTable';
-import WinnerCelebration from '../components/WinnerCelebration';
+import MatchResult from '../components/MatchResult';
+import { competitionPlaces, playerAvatar, type ResultSeat, type ResultTeam } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
@@ -19,33 +20,49 @@ export default function DebercFinished({ state, humanId, onPlayAgain, onExit, re
   const me = state.players.find((p) => p.id === humanId);
   const myTeam = me ? state.teamOf[me.seatIndex] : 0;
   const won = state.winnerTeam === myTeam;
-  const title = won ? t('deberc.youWon') : t('deberc.youLost');
-  const teamName = (team: number) =>
-    state.players.filter((p) => state.teamOf[p.seatIndex] === team).map((p) => p.name).join(' & ');
+  const membersOf = (team: number) => state.players.filter((p) => state.teamOf[p.seatIndex] === team);
 
+  const actions = <>
+    {rematch
+      ? <RematchControls {...rematch} />
+      : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('deberc.playAgain')}</button>}
+    <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
+  </>;
+  const details = <>
+    {state.jackpot && <p className="result__subtitle">🎴 {t('deberc.jackpot')}</p>}
+    {state.handHistory.length > 0 && <DebercScoreSheet state={state} />}
+  </>;
+
+  // 4p Pairs: two team cards. 3p Solo: every player is a "team" of one → ranked cards.
+  if (state.teamCount === 2) {
+    const team = (id: number): ResultTeam => ({
+      key: String(id),
+      label: membersOf(id).map((p) => p.name).join(' & '),
+      members: membersOf(id).map((p) => ({ name: p.name, avatar: playerAvatar(p), isMe: p.id === humanId })),
+      value: String(state.matchScore[id]),
+      won: state.winnerTeam === id,
+    });
+    return (
+      <MatchResult game="deberc" outcome={won ? 'win' : 'loss'}
+        title={won ? t('deberc.youWon') : t('deberc.youLost')}
+        teams={[team(myTeam), team(myTeam === 0 ? 1 : 0)]} actions={actions}>
+        {details}
+      </MatchResult>
+    );
+  }
+
+  const teamOfP = (p: { seatIndex: number }) => state.teamOf[p.seatIndex];
+  const places = competitionPlaces(state.players, (a, b) =>
+    Number(teamOfP(b) === state.winnerTeam) - Number(teamOfP(a) === state.winnerTeam)
+    || state.matchScore[teamOfP(b)] - state.matchScore[teamOfP(a)]);
+  const seats: ResultSeat[] = state.players.map((p, i) => ({
+    key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.id === humanId,
+    place: places[i], value: String(state.matchScore[teamOfP(p)]),
+  }));
   return (
-    <div className="screen durak-screen durak-finished">
-      <div className="durak-finished__card finish-frame">
-        {/* Celebrate a win; 3p Solo is an individual win, 4p Pairs a team win. */}
-        <WinnerCelebration kind={won ? (state.teamCount === 2 ? 'teamWin' : 'win') : 'loss'} />
-        <div className="durak-finished__emoji" aria-hidden="true">{won ? '🏆' : '🙃'}</div>
-        <h1 className="durak-finished__title">{title}</h1>
-        {state.jackpot && <p className="durak-finished__sub">🎴 {t('deberc.jackpot')}</p>}
-        <ul className="deberc-final-scores">
-          {state.matchScore.map((sc, team) => (
-            <li key={team} className={team === state.winnerTeam ? 'deberc-final--win' : ''}>
-              <strong>{teamName(team)}</strong>: {sc}
-            </li>
-          ))}
-        </ul>
-        {state.handHistory.length > 0 && <DebercScoreSheet state={state} />}
-        <div className="durak-finished__actions">
-          {rematch
-            ? <RematchControls {...rematch} />
-            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('deberc.playAgain')}</button>}
-          <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
-        </div>
-      </div>
-    </div>
+    <MatchResult game="deberc" outcome={won ? 'win' : 'loss'}
+      title={won ? t('deberc.youWon') : t('deberc.youLost')} seats={seats} actions={actions}>
+      {details}
+    </MatchResult>
   );
 }

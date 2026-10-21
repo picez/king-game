@@ -42,14 +42,13 @@ describe('P1 CSS single-source vars', () => {
   });
 });
 
-describe('Finish screens wear the frame (all 6 games, graceful)', () => {
-  it('each finish component adds the finish-frame class', () => {
-    expect(read('src/ui/GameFinishedScreen.tsx')).toContain('finish-frame');
-    expect(read('src/ui/durak/DurakFinished.tsx')).toContain('finish-frame');
-    expect(read('src/ui/deberc/DebercFinished.tsx')).toContain('finish-frame');
-    expect(read('src/ui/tarneeb/TarneebFinished.tsx')).toContain('finish-frame');
-    expect(read('src/ui/preferans/PreferansFinished.tsx')).toContain('finish-frame');
-    expect(read('src/ui/fiftyOne/FiftyOneFinished.tsx')).toContain('finish-frame');
+describe('Finish screens share one result layout (Stage 42.1; the frame stays available)', () => {
+  it('every game finish screen renders the shared MatchResult', () => {
+    for (const f of [
+      'src/ui/GameFinishedScreen.tsx', 'src/ui/durak/DurakFinished.tsx', 'src/ui/deberc/DebercFinished.tsx',
+      'src/ui/tarneeb/TarneebFinished.tsx', 'src/ui/preferans/PreferansFinished.tsx',
+      'src/ui/fiftyOne/FiftyOneFinished.tsx', 'src/ui/poker/PokerFinished.tsx',
+    ]) expect(read(f), f).toContain('<MatchResult');
   });
   it('screens.css layers the frame behind content via var(--finish-frame)', () => {
     const css = read('src/styles/screens.css');

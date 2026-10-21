@@ -11,6 +11,15 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **One new end-of-match screen for all seven games (Stage 42.1).** The result is dealt
+  onto the table as playing cards: each player's card shows their place, avatar, name
+  and score. A single winner stands tallest in a 2 · 1 · 3 podium with a "Winner"
+  ribbon; a group of survivors (Durak) sits side by side with the fool on a red card;
+  Tarneeb/Deberc pairs get two team cards; busted / eliminated players (Poker, 51) are
+  marked. Score sheets, «Погони» and the poker recovery banner stay below. One deal-in
+  animation that follows the animation setting; RTL-safe numbers. Shared
+  `MatchResult` + a pure `matchResultModel` (places, podium split, avatars); ~120 lines
+  of dead per-game finish CSS removed. i18n ×4.
 - **New default look: the "Midnight" theme (Stage 42.0).** Deep navy surfaces, glassy
   panels, a slate table rim and a blue accent replace the green felt across the menu,
   lobby, profile and all seven tables. The original green is kept as **Classic** —

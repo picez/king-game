@@ -395,7 +395,7 @@
 /* Rematch / Play again controls on an online finish screen (Stage 25.9). */
 .rematch { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
 .rematch__note { margin: 0; font-weight: 700; text-align: center; }
-.finished-actions { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+
 .voice-card {
   display: flex; flex-direction: column; gap: 0.5rem;
   padding: 0.6rem 0.7rem; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);

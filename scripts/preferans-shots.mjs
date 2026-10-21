@@ -164,7 +164,7 @@ async function run() {
         if (!grabbed.talon && await cdp.evaluate(`!!document.querySelector('.preferans-talonbar, .preferans-discardbar, .preferans-declarebar')`)) { await shot(cdp, `${cfg.tag}-3-talon`); grabbed.talon = true; }
         if (!grabbed.play && await cdp.evaluate(`!!document.querySelector('.preferans-play .card')`)) { await shot(cdp, `${cfg.tag}-4-playing`); grabbed.play = true; }
         if (!grabbed.done && await cdp.evaluate(`!!document.querySelector('.preferans-handdone')`)) { await shot(cdp, `${cfg.tag}-5-handcomplete`); grabbed.done = true; }
-        if (!grabbed.fin && await cdp.evaluate(`!!document.querySelector('.preferans-finished')`)) { await shot(cdp, `${cfg.tag}-6-finished`); grabbed.fin = true; break; }
+        if (!grabbed.fin && await cdp.evaluate(`!!document.querySelector('.result-screen')`)) { await shot(cdp, `${cfg.tag}-6-finished`); grabbed.fin = true; break; }
         await cdp.evaluate(HUMAN_STEP);
         await sleep(360);
       }

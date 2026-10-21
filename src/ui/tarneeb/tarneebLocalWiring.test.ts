@@ -300,10 +300,10 @@ describe('Solo UI drops team labels; Pairs keeps them (source guards)', () => {
     expect(screen).toContain("t('tarneeb.teamThem')");
   });
   it('finished screen has an individual Solo winner path + keeps the team path', () => {
-    expect(finished).toContain('SoloFinished');
+    expect(finished).toContain('if (isSoloTarneeb(state))');
     expect(finished).toContain('state.soloWinnerSeat');
-    expect(finished).toContain("kind={humanWon ? 'win' : 'loss'}");   // solo = individual win
-    expect(finished).toContain("kind={humanWon ? 'teamWin' : 'loss'}"); // pairs = team win
+    expect(finished).toContain('seats={seats}');                        // solo = individual cards
+    expect(finished).toContain('teams={[team(myTeam), team(other)]}');  // pairs = two team cards
   });
 });
 

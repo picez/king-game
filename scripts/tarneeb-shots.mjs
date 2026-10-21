@@ -157,7 +157,7 @@ async function run() {
         if (!grabbed.trump && await cdp.evaluate(`!!document.querySelector('.tarneeb-trumpbar')`)) { await shot(cdp, `${cfg.tag}-2-trump`); grabbed.trump = true; }
         if (!grabbed.play && await cdp.evaluate(`!!document.querySelector('.tarneeb-play .card')`)) { await shot(cdp, `${cfg.tag}-3-playing`); grabbed.play = true; }
         if (!grabbed.done && await cdp.evaluate(`!!document.querySelector('.tarneeb-handdone')`)) { await shot(cdp, `${cfg.tag}-4-handcomplete`); grabbed.done = true; }
-        if (!grabbed.fin && await cdp.evaluate(`!!document.querySelector('.tarneeb-finished')`)) { await shot(cdp, `${cfg.tag}-5-finished`); grabbed.fin = true; break; }
+        if (!grabbed.fin && await cdp.evaluate(`!!document.querySelector('.result-screen')`)) { await shot(cdp, `${cfg.tag}-5-finished`); grabbed.fin = true; break; }
         await cdp.evaluate(HUMAN_STEP);
         await sleep(420);
       }

@@ -230,7 +230,6 @@ body {
   overscroll-behavior-y: none;  /* avoid pull-to-refresh swallowing game gestures */
 }
 
-
 /* ===== Screens ===== */
 .screen {
   min-height: 100vh;

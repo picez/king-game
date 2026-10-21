@@ -61,7 +61,6 @@
   font-size: 0.9rem;
   font-weight: 700;
 }
-.tarneeb-finished__scores--solo { flex-wrap: wrap; }
 
 /* Ranked standings table: sorted by total score desc. COMPACT + CENTERED (Stage 29.8) — capped at
    a small max-width and centred with margin-inline:auto so it no longer stretches the full board on
@@ -322,35 +321,6 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   cursor: pointer;
 }
 .tarneeb-setup__start { width: 100%; margin: 0.6rem 0 0.4rem; min-height: 48px; }
-
-.tarneeb-finished { align-items: center; justify-content: center; }
-.tarneeb-finished__card {
-  margin: auto;
-  text-align: center;
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  border-radius: 1.1rem;
-  padding: 1.4rem 1.2rem;
-  width: min(22rem, 100%);
-}
-.tarneeb-finished__emoji { font-size: 3rem; }
-.tarneeb-finished__title { margin: 0.4rem 0; color: var(--text); }
-.tarneeb-finished__sub { margin: 0 0 0.8rem; color: var(--text-dim); }
-.tarneeb-finished__scores { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
-.tarneeb-finished__score {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 4.5rem;
-  padding: 0.5rem 0.7rem;
-  border-radius: 0.7rem;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.25);
-}
-.tarneeb-finished__score--win { border-color: var(--accent-light); box-shadow: 0 0 14px rgb(var(--accent-light-rgb) / 0.35); }
-.tarneeb-finished__score-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
-.tarneeb-finished__score-value { font-size: 1.8rem; font-weight: 900; color: var(--text); }
-.tarneeb-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }
 
 /* Team-tricks review (Stage 27.3): a modal listing the tricks your side has taken this hand. */
 .tarneeb-tricks-btn { min-height: 2rem; padding: 0.15rem 0.5rem; font-size: 0.85rem; }

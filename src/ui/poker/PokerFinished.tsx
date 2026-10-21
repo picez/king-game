@@ -1,5 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { PokerState } from '../../games/poker/types';
+import MatchResult from '../components/MatchResult';
+import { competitionPlaces, playerAvatar, type ResultSeat } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 import PokerRecoveryBanner, { type PokerRecoveryStatus } from './PokerRecoveryBanner';
 
@@ -21,30 +23,37 @@ export default function PokerFinished({ state, mySeat, onPlayAgain, onExit, rema
   const iWon = winner != null && winner === mySeat;
   const winnerName = winner != null ? state.players[winner]?.name ?? '' : '';
 
+  // The winner first; everyone else by remaining stack (busted seats tie at 0).
+  const stack = (seat: number) => state.stacksBySeat[seat] ?? 0;
+  const places = competitionPlaces(state.players, (a, b) =>
+    Number(b.seatIndex === winner) - Number(a.seatIndex === winner) || stack(b.seatIndex) - stack(a.seatIndex));
+  const seats: ResultSeat[] = state.players.map((p, i) => {
+    const busted = p.seatIndex !== winner && stack(p.seatIndex) === 0;
+    return {
+      key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.seatIndex === mySeat,
+      place: places[i], value: `🪙 ${stack(p.seatIndex)}`,
+      note: busted ? t('result.busted') : undefined, tone: busted ? 'lose' : undefined,
+    };
+  });
+
   return (
-    <div className="screen poker-finished">
-      <div className="finish-frame poker-finished__card">
-        <h1 className="poker-finished__title">{iWon ? '🏆 ' + t('poker.youWin') : t('poker.matchOver')}</h1>
-        <p className="poker-finished__winner">{t('poker.winnerIs').replace('{name}', winnerName)}</p>
-        <ul className="poker-finished__stacks">
-          {state.players.map((p) => (
-            <li key={p.id} className={p.seatIndex === winner ? 'is-winner' : ''}>
-              <span>{p.seatIndex === mySeat ? t('poker.you') : p.name}</span>
-              <span>🪙 {state.stacksBySeat[p.seatIndex]}</span>
-            </li>
-          ))}
-        </ul>
-        {/* Recovery (§16, 37.7.6): a frozen/settlement-pending finished table shows the banner
-            and offers NO rematch (the rematch controls are suppressed by the caller). */}
-        <PokerRecoveryBanner status={recovery} />
-        <div className="poker-finished__actions">
-          {/* Online (Stage 37.7.6): shared rematch readiness starts a new PAID match; local: Play Again. */}
-          {rematch
-            ? <RematchControls {...rematch} />
-            : onPlayAgain && <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('poker.playAgain')}</button>}
-          <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
-        </div>
-      </div>
-    </div>
+    <MatchResult
+      game="poker"
+      outcome={iWon ? 'win' : 'loss'}
+      title={iWon ? t('poker.youWin') : t('poker.matchOver')}
+      subtitle={!iWon && winnerName ? t('poker.winnerIs').replace('{name}', winnerName) : undefined}
+      seats={seats}
+      actions={<>
+        {/* Online (Stage 37.7.6): shared rematch readiness starts a new PAID match; local: Play Again. */}
+        {rematch
+          ? <RematchControls {...rematch} />
+          : onPlayAgain && <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('poker.playAgain')}</button>}
+        <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
+      </>}
+    >
+      {/* Recovery (§16, 37.7.6): a frozen/settlement-pending finished table shows the banner
+          and offers NO rematch (the rematch controls are suppressed by the caller). */}
+      <PokerRecoveryBanner status={recovery} />
+    </MatchResult>
   );
 }

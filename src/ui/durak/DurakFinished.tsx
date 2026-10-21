@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { DurakState } from '../../games/durak/types';
-import WinnerCelebration from '../components/WinnerCelebration';
+import MatchResult from '../components/MatchResult';
+import { playerAvatar, type ResultSeat } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 import { detectSixAttack } from '../../net/durakStats';
 
@@ -13,7 +14,7 @@ interface Props {
   rematch?: RematchUi | null;
 }
 
-/** End screen: did the human win / lose (become the fool) / draw. */
+/** End screen: everyone who got rid of their cards survives; the last one holding cards is the fool. */
 export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rematch }: Props) {
   const { t } = useI18n();
   const humanIsFool = state.foolId === humanId;
@@ -23,32 +24,38 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rem
   const six = detectSixAttack(state);
   const sixAttacker = six && state.players.find((p) => p.id === six.winnerId);
 
+  // Survivors share first place (the engine keeps no exit order); the fool is last.
+  const seats: ResultSeat[] = state.players.map((p) => {
+    const isFool = p.id === state.foolId;
+    return {
+      key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.id === humanId,
+      place: isFool ? state.players.length : 1,
+      tone: isFool ? 'lose' : 'win',
+      note: isFool ? t('durak.fool') : undefined,
+      value: isFool && p.hand.length > 0 ? `🂠 ${p.hand.length}` : undefined,
+    };
+  });
+
   return (
-    <div className="screen durak-screen durak-finished">
-      <div className="durak-finished__card finish-frame">
-        {/* Celebrate the survivor; the fool / a draw render the calm state. */}
-        <WinnerCelebration kind={state.isDraw ? 'draw' : humanIsFool ? 'fool' : 'win'} />
-        <div className="durak-finished__emoji" aria-hidden="true">{state.isDraw ? '🤝' : humanIsFool ? '🤡' : '🏆'}</div>
-        <h1 className="durak-finished__title">{title}</h1>
-        {!state.isDraw && fool && (
-          <p className="durak-finished__sub">
-            {t('durak.fool')}: <strong>{fool.name}</strong>
-            {fool.hand.length > 0 && <span className="durak-finished__left"> · {fool.hand.length} {t('durak.cardsRemaining')}</span>}
-          </p>
-        )}
-        {six && fool && sixAttacker && (
-          <p className="durak-finished__epaulettes" role="status">
-            <strong>🎖️ {t('durak.epaulettes')}</strong>{' '}
-            {t('durak.epaulettesDesc').replace('{attacker}', sixAttacker.name).replace('{fool}', fool.name)}
-          </p>
-        )}
-        <div className="durak-finished__actions">
-          {rematch
-            ? <RematchControls {...rematch} />
-            : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('durak.playAgain')}</button>}
-          <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
-        </div>
-      </div>
-    </div>
+    <MatchResult
+      game="durak"
+      outcome={state.isDraw ? 'draw' : humanIsFool ? 'fool' : 'win'}
+      title={title}
+      subtitle={!state.isDraw && fool ? <>{t('durak.fool')}: <strong>{fool.name}</strong></> : undefined}
+      seats={seats}
+      actions={<>
+        {rematch
+          ? <RematchControls {...rematch} />
+          : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('durak.playAgain')}</button>}
+        <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
+      </>}
+    >
+      {six && fool && sixAttacker && (
+        <p className="durak-finished__epaulettes" role="status">
+          <strong>🎖️ {t('durak.epaulettes')}</strong>{' '}
+          {t('durak.epaulettesDesc').replace('{attacker}', sixAttacker.name).replace('{fool}', fool.name)}
+        </p>
+      )}
+    </MatchResult>
   );
 }

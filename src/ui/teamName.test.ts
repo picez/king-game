@@ -47,10 +47,13 @@ describe('team names are wired into the pairs UIs (and NOT solo)', () => {
 
   it('Tarneeb pairs finished + HUD use named teams; solo keeps individual names', () => {
     const fin = read('src/ui/tarneeb/TarneebFinished.tsx');
-    expect(fin).toContain('teamDisplayName(pairTeamSeats');   // pairs branch
+    expect(fin).toContain('pairTeamSeats(');                   // pairs branch
+    expect(fin).toContain('teamDisplayName(seatsOf');          // named teams
     expect(fin).toContain('state.players[seat]?.name');        // named from players
-    // Solo end screen shows individual player names, never a team label.
-    expect(fin).toMatch(/SoloFinished[\s\S]*state\.players\[seat\]\?\.name/);
+    // Solo end screen (Stage 42.1: an early return) shows individual seats, never a team.
+    const solo = fin.slice(fin.indexOf('if (isSoloTarneeb(state))'), fin.indexOf('// Pairs:'));
+    expect(solo).toContain('seats={seats}');
+    expect(solo).not.toContain('teamDisplayName');
     const hud = read('src/ui/tarneeb/TarneebGameScreen.tsx');
     expect(hud).toContain('teamDisplayName(');
     // Solo HUD rows still use the seat's player name, not a team.

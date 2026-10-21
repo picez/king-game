@@ -88,24 +88,7 @@
   filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
 }
 
-.winner-banner {
-  font-size: 1.5rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background:
-    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.2) 0%, rgb(var(--accent-rgb) / 0.06) 100%),
-    rgb(var(--shade-rgb) / 0.4);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 0.75rem 1.5rem;
-  box-shadow: var(--top-light), 0 0 22px rgb(var(--accent-rgb) / 0.15);
-}
-
 .trophy { font-size: 1.8rem; }
-
-.score-row--winner { background: rgb(var(--accent-rgb) / 0.1); }
 
 /* ===== Responsive ===== */
 @media (max-width: 600px) {

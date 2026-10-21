@@ -52,20 +52,26 @@ describe('WinnerCelebration CSS respects motion + never blocks clicks', () => {
   });
 });
 
-describe('all four finished screens render the celebration', () => {
+describe('the finished screens render the celebration (Stage 42.1: via MatchResult)', () => {
   const screens: [string, string][] = [
-    ['src/ui/GameFinishedScreen.tsx', "kind={winners.length === 1 ? 'win' : 'draw'}"],
+    ['src/ui/GameFinishedScreen.tsx', "tie ? 'draw'"],
     ['src/ui/durak/DurakFinished.tsx', "humanIsFool ? 'fool' : 'win'"],
-    ['src/ui/deberc/DebercFinished.tsx', "won ? (state.teamCount === 2 ? 'teamWin' : 'win') : 'loss'"],
-    ['src/ui/tarneeb/TarneebFinished.tsx', "humanWon ? 'teamWin' : 'loss'"],
+    ['src/ui/deberc/DebercFinished.tsx', "won ? 'win' : 'loss'"],
+    ['src/ui/tarneeb/TarneebFinished.tsx', "humanWon ? 'win' : 'loss'"],
   ];
 
-  it('imports + renders <WinnerCelebration> with a kind derived from state', () => {
-    for (const [file, kindExpr] of screens) {
+  it('MatchResult mounts <WinnerCelebration>, team results as a team win', () => {
+    const src = read('src/ui/components/MatchResult.tsx');
+    expect(src).toMatch(/import WinnerCelebration from '\.\/WinnerCelebration'/);
+    expect(src).toContain('<WinnerCelebration kind={celebrate} />');
+    expect(src).toContain("outcome === 'win' ? (teams ? 'teamWin' : 'win')");
+  });
+
+  it('each screen derives its outcome from state', () => {
+    for (const [file, outcomeExpr] of screens) {
       const src = read(file);
-      expect(src, file).toMatch(/import WinnerCelebration from '\.[./]*components\/WinnerCelebration'/);
-      expect(src, file).toContain('<WinnerCelebration');
-      expect(src, file).toContain(kindExpr);
+      expect(src, file).toContain('<MatchResult');
+      expect(src, file).toContain(outcomeExpr);
     }
   });
 });

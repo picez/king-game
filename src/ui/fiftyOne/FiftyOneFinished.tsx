@@ -1,5 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
+import MatchResult from '../components/MatchResult';
+import { competitionPlaces, playerAvatar, type ResultSeat } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
@@ -18,36 +20,32 @@ export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit
   const name = winner === humanSeat ? t('fiftyOne.you') : (winner != null ? state.players[winner].name : '');
   const humanWon = winner === humanSeat;
 
+  // The survivor first; then the others by running penalty (lower is better); the
+  // eliminated (crossed the target) are marked "Out".
+  const out = (seat: number) => !!state.eliminatedSeats[seat];
+  const places = competitionPlaces(state.players, (a, b) =>
+    Number(b.seatIndex === winner) - Number(a.seatIndex === winner)
+    || Number(out(a.seatIndex)) - Number(out(b.seatIndex))
+    || state.scoresBySeat[a.seatIndex] - state.scoresBySeat[b.seatIndex]);
+  const seats: ResultSeat[] = state.players.map((p, i) => ({
+    key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.seatIndex === humanSeat,
+    place: places[i], value: String(state.scoresBySeat[p.seatIndex]),
+    note: p.seatIndex !== winner && out(p.seatIndex) ? t('result.out') : undefined,
+    tone: p.seatIndex !== winner && out(p.seatIndex) ? 'lose' : undefined,
+  }));
+
   return (
-    <div className="screen menu-screen fiftyone-finished">
-      <header className="menu-header">
-        <h1 className="menu-title">{humanWon ? '🏆' : '🏁'} {t('fiftyOne.matchWinner').replace('{name}', name)}</h1>
-      </header>
-
-      <div className="setup-card finish-frame">
-        <table className="fiftyone-roundover__table">
-          <thead>
-            <tr><th></th><th>{t('fiftyOne.total')}</th></tr>
-          </thead>
-          <tbody>
-            {state.players.map((p) => (
-              <tr key={p.id} className={state.eliminatedSeats[p.seatIndex] ? 'fiftyone-roundover__out' : ''}>
-                <td>
-                  {p.seatIndex === humanSeat ? t('fiftyOne.you') : p.name}
-                  {p.seatIndex === winner && <span> 🏆</span>}
-                  {state.eliminatedSeats[p.seatIndex] && <span> ☠</span>}
-                </td>
-                <td><strong>{state.scoresBySeat[p.seatIndex]}</strong></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
+    <MatchResult
+      game="fifty-one"
+      outcome={humanWon ? 'win' : 'loss'}
+      title={t('fiftyOne.matchWinner').replace('{name}', name)}
+      seats={seats}
+      actions={<>
         {rematch
           ? <RematchControls {...rematch} />
           : <button type="button" className="btn btn--primary" onClick={onPlayAgain}>{t('fiftyOne.playAgain')}</button>}
         <button type="button" className="btn btn--ghost" onClick={onExit}>{t('btn.backToMenu')}</button>
-      </div>
-    </div>
+      </>}
+    />
   );
 }
