@@ -10,6 +10,14 @@ import { seatPosition, positionIndexFor } from './pokerSeatLayout';
 // captured with Chrome device emulation — 0 clipped pods, 0 horizontal overflow.
 
 const css = readFileSync(join(process.cwd(), 'src/styles/poker.css'), 'utf8');
+// Stage 42.0: the felt/rail tokens moved to the theme blocks in base.css. The
+// "lighter than the old felt" rule binds the classic (green) theme it was written for.
+const base = readFileSync(join(process.cwd(), 'src/styles/base.css'), 'utf8');
+const blockOf = (sel: string) => { const i = base.indexOf(sel); return base.slice(i, base.indexOf('}', i)); };
+const classic = blockOf(':root[data-app-theme="classic"] {');
+const midnight = blockOf(':root {');
+const tokenIn = (block: string, name: string): string | undefined =>
+  new RegExp(`--poker-${name}:\\s*(#[0-9a-fA-F]{6})`).exec(block)?.[1];
 
 /** '#1e8a56' → relative luminance 0..1 (sRGB, gamma-corrected). */
 function luminance(hex: string): number {
@@ -22,9 +30,9 @@ function luminance(hex: string): number {
 
 describe('the poker felt is genuinely lighter', () => {
   const token = (name: string): string => {
-    const m = new RegExp(`--poker-${name}:\\s*(#[0-9a-fA-F]{6})`).exec(css);
-    expect(m, `--poker-${name} must be defined`).toBeTruthy();
-    return m![1];
+    const v = tokenIn(classic, name);
+    expect(v, `--poker-${name} must be defined`).toBeTruthy();
+    return v!;
   };
 
   it('defines the scoped felt/rail tokens', () => {
@@ -39,6 +47,12 @@ describe('the poker felt is genuinely lighter', () => {
     // And the lit centre is lighter than the body, which is lighter than the rim.
     expect(luminance(token('felt-lit'))).toBeGreaterThan(luminance(token('felt')));
     expect(luminance(token('felt'))).toBeGreaterThan(luminance(token('felt-edge')));
+  });
+
+  it('the midnight felt keeps the same lit-centre → rim ordering', () => {
+    const tok = (n: string) => tokenIn(midnight, n)!;
+    expect(luminance(tok('felt-lit'))).toBeGreaterThan(luminance(tok('felt')));
+    expect(luminance(tok('felt'))).toBeGreaterThan(luminance(tok('felt-edge')));
   });
 
   it('the old dark felt value and the black-out inset shadow are gone', () => {

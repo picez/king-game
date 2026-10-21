@@ -30,3 +30,6 @@ android-twa/**/*.apk
 android-twa/**/*.aab
 android-twa/**/build/
 android-twa/**/.gradle/
+
+# Playwright MCP screenshots / snapshots (local only)
+.playwright-mcp/

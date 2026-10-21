@@ -11,7 +11,16 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0d4f28" />
+    <meta name="theme-color" content="#0b0e15" />
+    <!-- Stage 42.0: stamp the saved colour theme before first paint (no flash).
+         Mirrors src/ui/components/appThemeStore.ts + APP_THEME_KEY in src/net/prefs.ts. -->
+    <script>
+      try {
+        var t = localStorage.getItem('king.appTheme.v1') === 'classic' ? 'classic' : 'midnight';
+        document.documentElement.setAttribute('data-app-theme', t);
+        if (t === 'classic') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d4f28');
+      } catch (e) { document.documentElement.setAttribute('data-app-theme', 'midnight'); }
+    </script>
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

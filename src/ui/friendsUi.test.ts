@@ -39,7 +39,10 @@ describe('Room invite wiring (OnlineGame)', () => {
   it('the received-invite toast is OPAQUE — the top bar never shows through it (2026-10-14)', () => {
     const css = read('src/styles/lobby.css');
     const rule = /\.friend-invite-toast \{([^}]*)\}/.exec(css)?.[1] ?? '';
-    expect(rule).toContain('background-color: #0f3f24');
+    expect(rule).toContain('background-color: var(--panel-solid)');
+    // Stage 42.0: --panel-solid is an OPAQUE hex in both themes.
+    const base = read('src/styles/base.css');
+    expect([...base.matchAll(/--panel-solid:\s*(#[0-9a-fA-F]{6});/g)]).toHaveLength(2);
     expect(rule).not.toMatch(/background:\s*var\(--surface/);
   });
 

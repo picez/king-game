@@ -48,10 +48,10 @@
     radial-gradient(ellipse at 50% 42%, var(--felt-lit) 0%, var(--felt-mid) 46%, var(--felt-edge) 82%, var(--felt-deep) 100%);
   background-blend-mode: normal, soft-light, normal;
   /* A raised wooden/leather rim: dark ring + a thin gold hairline inside it. */
-  border: 8px solid #1a0f06;
+  border: 8px solid var(--table-rim);
   box-shadow:
     inset 0 0 60px rgba(0, 0, 0, 0.5),
-    inset 0 0 0 2px rgba(245, 197, 24, 0.12),
+    inset 0 0 0 2px rgb(var(--accent-rgb) / 0.12),
     inset 0 2px 6px rgba(255, 255, 255, 0.06),
     0 10px 30px rgba(0, 0, 0, 0.5),
     0 2px 0 rgba(255, 255, 255, 0.04);
@@ -67,7 +67,7 @@
   min-width: 4.2rem;
   max-width: 8rem;
   padding: 0.35rem 0.6rem;
-  background: linear-gradient(180deg, rgba(28, 50, 36, 0.92) 0%, rgba(8, 22, 14, 0.92) 100%);
+  background: var(--seat-plate);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   text-align: center;
@@ -84,16 +84,16 @@
 .table--3 .tseat--right { right: 0; top: 0; transform: none; }
 .tseat--active {
   border-color: var(--accent);
-  background: linear-gradient(180deg, rgba(245, 197, 24, 0.28) 0%, rgba(120, 92, 8, 0.45) 100%);
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.28) 0%, rgba(120, 92, 8, 0.45) 100%);
   box-shadow:
-    inset 0 0 0 1px rgba(245, 197, 24, 0.6),
-    0 0 16px rgba(245, 197, 24, 0.45),
+    inset 0 0 0 1px rgb(var(--accent-rgb) / 0.6),
+    0 0 16px rgb(var(--accent-rgb) / 0.45),
     0 4px 12px rgba(0, 0, 0, 0.45);
   animation: seat-glow 2s ease-in-out infinite;
 }
 @keyframes seat-glow {
-  0%, 100% { box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.6), 0 0 12px rgba(245, 197, 24, 0.35), 0 4px 12px rgba(0, 0, 0, 0.45); }
-  50%      { box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.85), 0 0 22px rgba(245, 197, 24, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45); }
+  0%, 100% { box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.6), 0 0 12px rgb(var(--accent-rgb) / 0.35), 0 4px 12px rgba(0, 0, 0, 0.45); }
+  50%      { box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.85), 0 0 22px rgb(var(--accent-rgb) / 0.6), 0 4px 12px rgba(0, 0, 0, 0.45); }
 }
 .tseat--you::after {
   content: '•';
@@ -167,8 +167,8 @@
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 @keyframes winner-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245,197,24,0.0); }
-  50%      { box-shadow: 0 0 0 4px rgba(245,197,24,0.9); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.0); }
+  50%      { box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 0.9); }
 }
 @keyframes trick-bump {
   0% { transform: scale(1); }
@@ -206,10 +206,10 @@
   padding: 0.55rem 1rem;
   border-radius: 999px;
   background:
-    linear-gradient(180deg, rgba(245, 197, 24, 0.18) 0%, rgba(245, 197, 24, 0.05) 100%),
-    rgba(4, 14, 9, 0.5);
-  border: 1px solid rgba(245, 197, 24, 0.4);
-  box-shadow: var(--top-light), 0 0 16px rgba(245, 197, 24, 0.18);
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.18) 0%, rgb(var(--accent-rgb) / 0.05) 100%),
+    rgb(var(--shade-rgb) / 0.5);
+  border: 1px solid rgb(var(--accent-rgb) / 0.4);
+  box-shadow: var(--top-light), 0 0 16px rgb(var(--accent-rgb) / 0.18);
   align-self: center;
 }
 
@@ -268,7 +268,7 @@
 .first-dealer-note {
   font-size: 0.95rem;
   color: var(--accent);
-  background: rgba(245, 197, 24, 0.12);
+  background: rgb(var(--accent-rgb) / 0.12);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   padding: 0.4rem 0.75rem;
@@ -307,9 +307,9 @@
   font-size: 0.85rem; font-weight: 600; cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
 }
-.room-filter__chip:hover { border-color: rgba(245, 197, 24, 0.5); }
+.room-filter__chip:hover { border-color: rgb(var(--accent-rgb) / 0.5); }
 .room-filter__chip--on {
-  border-color: var(--accent); background: rgba(245, 197, 24, 0.16); color: var(--text);
+  border-color: var(--accent); background: rgb(var(--accent-rgb) / 0.16); color: var(--text);
 }
 .room-filter__count {
   font-size: 0.75rem; font-weight: 800; font-variant-numeric: tabular-nums;
@@ -373,16 +373,16 @@
   transition: border-color 0.15s, background 0.15s, transform 0.08s, box-shadow 0.15s;
 }
 .server-browser__row:hover:not(:disabled) {
-  border-color: rgba(245, 197, 24, 0.5);
-  background: linear-gradient(180deg, rgba(245, 197, 24, 0.08) 0%, rgba(0, 0, 0, 0.12) 100%), var(--surface-3);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.08) 0%, rgba(0, 0, 0, 0.12) 100%), var(--surface-3);
   transform: translateY(-1px);
   box-shadow: var(--top-light), 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 .server-browser__row:disabled { opacity: 0.5; cursor: not-allowed; }
 .server-browser__row--selected {
   border-color: var(--accent);
-  background: rgba(245, 197, 24, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.4);
+  background: rgb(var(--accent-rgb) / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.4);
 }
 /* Leading status rail: open=green, full=gold, in-game=quiet. The `--selected`
    ring above still wins the rest of the border. */
@@ -439,7 +439,7 @@
   letter-spacing: 0.04em;
 }
 .room-list__status--lobby  { background: rgba(109,255,109,0.18); color: #6dff6d; }
-.room-list__status--full   { background: rgba(245,197,24,0.18); color: var(--accent); }
+.room-list__status--full   { background: rgb(var(--accent-rgb) / 0.18); color: var(--accent); }
 .room-list__status--in_game { background: rgba(255,255,255,0.12); color: var(--text-muted); }
 /* ===== Setup screen player row ===== */
 .player-setup-row {

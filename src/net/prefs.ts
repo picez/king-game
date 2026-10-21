@@ -14,6 +14,7 @@ import { isValidAvatar } from '../core/avatars';
 import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
 import { normalizeMotionPreference, type AnimationPreference } from '../ui/components/motionPref';
 import { normalizeCardFaceTheme, type CardFaceTheme } from '../ui/components/cardFaceTheme';
+import { normalizeAppTheme, type AppTheme } from '../ui/components/appTheme';
 import { normalizeFavoriteGame } from '../games/catalog';
 import type { GameType } from '../games/catalog';
 
@@ -26,6 +27,8 @@ const CARDBACK_KEY = 'king.cardStyle.v1';
 const MOTION_KEY = 'king.motion.v1';
 const FAVGAME_KEY = 'king.favoriteGame.v1';
 const CARDFACE_KEY = 'king.cardFaceTheme.v1';
+/** Read by the inline script in index.html too — keep the two in sync. */
+export const APP_THEME_KEY = 'king.appTheme.v1';
 
 /** Allowed default turn-timer values (seconds); 0 = off. Mirrors KING_RULES.md. */
 const TIMER_VALUES = [0, 30, 60, 90];
@@ -104,6 +107,19 @@ export function loadCardFaceTheme(storage: StorageLike | null = defaultStorage()
 export function saveCardFaceTheme(theme: string, storage: StorageLike | null = defaultStorage()): void {
   const t = normalizeCardFaceTheme(theme); // only ever persist a valid theme
   try { storage?.setItem(CARDFACE_KEY, t); } catch { /* non-fatal */ }
+}
+
+/**
+ * App colour theme (Stage 42.0): 'midnight' (default) or 'classic'. A purely visual,
+ * local preference — never game state, never synced. Unknown → 'midnight'.
+ */
+export function loadAppTheme(storage: StorageLike | null = defaultStorage()): AppTheme {
+  return normalizeAppTheme(storage?.getItem(APP_THEME_KEY));
+}
+
+export function saveAppTheme(theme: string, storage: StorageLike | null = defaultStorage()): void {
+  const t = normalizeAppTheme(theme);
+  try { storage?.setItem(APP_THEME_KEY, t); } catch { /* non-fatal */ }
 }
 
 /**

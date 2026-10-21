@@ -128,7 +128,7 @@
 .tutorial-trickcard__lead {
   position: absolute; top: -6px; inset-inline-start: -6px;
   font-size: 0.7rem; line-height: 1; padding: 0.05rem 0.2rem; border-radius: 999px;
-  background: var(--accent, #f5c518); color: #1a1d2b; font-weight: 700;
+  background: var(--accent); color: var(--on-accent); font-weight: 700;
 }
 .tutorial-melds { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; align-items: center; }
 .tutorial-meld { display: flex; gap: 0.25rem; padding: 0.2rem; border-radius: 0.5rem; overflow-x: auto; max-width: 100%; }
@@ -168,8 +168,8 @@
 .tutorial-hl { outline: 2px solid var(--accent, #f5c518); outline-offset: 1px; border-radius: 6px; }
 .tutorial-hl--pulse { animation: tutorial-pulse 1.4s ease-in-out infinite; }
 @keyframes tutorial-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(245, 197, 24, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.5); }
+  50%      { box-shadow: 0 0 0 5px rgb(var(--accent-rgb) / 0); }
 }
 @media (prefers-reduced-motion: reduce) {
   .tutorial-hl--pulse { animation: none; }

@@ -11,6 +11,12 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Changed
 
+- **New default look: the "Midnight" theme (Stage 42.0).** Deep navy surfaces, glassy
+  panels, a slate table rim and a blue accent replace the green felt across the menu,
+  lobby, profile and all seven tables. The original green is kept as **Classic** —
+  Profile → Appearance → App theme. Local preference, applied before first paint (no
+  flash). Colour-only: no layout change; all six layout gates green. Card backs stay the
+  player's own choice.
 - **Tutorials explain the host-option rules (Stage 41.9).** Preferans and Tarneeb each
   gain a 7th step: misère + распасы, and No-Trump + the Kaboot table, all marked as
   host options. The Preferans scoring step no longer claims misère is missing (only

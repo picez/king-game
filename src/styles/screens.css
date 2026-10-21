@@ -81,7 +81,7 @@
 .finished-title {
   font-size: 2.5rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #ffe88a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+  background: linear-gradient(180deg, var(--accent-highlight) 0%, var(--accent) 55%, var(--accent-dark) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -95,17 +95,17 @@
   align-items: center;
   gap: 0.5rem;
   background:
-    linear-gradient(180deg, rgba(245, 197, 24, 0.2) 0%, rgba(245, 197, 24, 0.06) 100%),
-    rgba(4, 14, 9, 0.4);
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.2) 0%, rgb(var(--accent-rgb) / 0.06) 100%),
+    rgb(var(--shade-rgb) / 0.4);
   border: 1px solid var(--accent);
   border-radius: var(--radius);
   padding: 0.75rem 1.5rem;
-  box-shadow: var(--top-light), 0 0 22px rgba(245, 197, 24, 0.15);
+  box-shadow: var(--top-light), 0 0 22px rgb(var(--accent-rgb) / 0.15);
 }
 
 .trophy { font-size: 1.8rem; }
 
-.score-row--winner { background: rgba(245,197,24,0.1); }
+.score-row--winner { background: rgb(var(--accent-rgb) / 0.1); }
 
 /* ===== Responsive ===== */
 @media (max-width: 600px) {
@@ -177,7 +177,7 @@
 .mode-btn--negative { border-left-color: var(--danger); }
 .mode-btn--positive { border-left-color: var(--accent); }
 .mode-btn--negative:hover:not(:disabled) { border-color: rgba(229, 72, 77, 0.5); }
-.mode-btn--positive:hover:not(:disabled) { border-color: rgba(245, 197, 24, 0.5); }
+.mode-btn--positive:hover:not(:disabled) { border-color: rgb(var(--accent-rgb) / 0.5); }
 
 .mode-btn--used {
   opacity: 0.4;
@@ -271,7 +271,7 @@
   min-height: 100vh;
   min-height: 100dvh;
   background:
-    radial-gradient(60% 45% at 50% 38%, rgba(245, 197, 24, 0.06) 0%, rgba(245, 197, 24, 0) 60%),
+    radial-gradient(60% 45% at 50% 38%, rgb(var(--accent-rgb) / 0.06) 0%, rgb(var(--accent-rgb) / 0) 60%),
     radial-gradient(130% 90% at 50% 30%, var(--room-bg) 0%, var(--room-bg-2) 80%);
   display: flex;
   flex-direction: column;
@@ -321,7 +321,7 @@
 
 .pass-btn {
   background: var(--gold-grad);
-  color: #2a2300;
+  color: var(--on-accent);
   font-size: 1.1rem;
   font-weight: 700;
   padding: 1rem 2.5rem;
@@ -381,11 +381,11 @@
 /* ===== Active turn banner ===== */
 .turn-banner--active {
   background:
-    linear-gradient(180deg, rgba(245, 197, 24, 0.16) 0%, rgba(245, 197, 24, 0.04) 100%),
-    rgba(4, 14, 9, 0.5);
-  border: 1px solid rgba(245, 197, 24, 0.4);
+    linear-gradient(180deg, rgb(var(--accent-rgb) / 0.16) 0%, rgb(var(--accent-rgb) / 0.04) 100%),
+    rgb(var(--shade-rgb) / 0.5);
+  border: 1px solid rgb(var(--accent-rgb) / 0.4);
   border-radius: var(--radius);
-  box-shadow: var(--top-light), 0 0 18px rgba(245, 197, 24, 0.12);
+  box-shadow: var(--top-light), 0 0 18px rgb(var(--accent-rgb) / 0.12);
 }
 .turn-banner--active .turn-banner__indicator { animation: turn-blink 1.4s ease-in-out infinite; }
 @keyframes turn-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -443,7 +443,7 @@
   color: transparent; font-size: 0; line-height: 0; overflow: hidden;
   background:
     var(--card-back) center / cover no-repeat,
-    repeating-linear-gradient(45deg, rgba(245, 197, 24, 0.10) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(45deg, rgb(var(--accent-rgb) / 0.10) 0 3px, transparent 3px 6px),
     linear-gradient(160deg, #2a5d44, #143a2a);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);

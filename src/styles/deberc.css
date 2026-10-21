@@ -40,9 +40,9 @@
 
 .deberc-declared__item { font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.3rem; }
 .deberc-declared__item--jackpot {
-  border-color: rgba(245, 197, 24, 0.5);
+  border-color: rgb(var(--accent-rgb) / 0.5);
   color: var(--accent-light);
-  background: rgba(245, 197, 24, 0.12);
+  background: rgb(var(--accent-rgb) / 0.12);
 }
 /* The §4 winner DEMONSTRATES the actual cards (mini) to everyone. */
 .deberc-declared__cards { display: inline-flex; gap: 2px; margin-left: 0.15rem; }
@@ -65,9 +65,9 @@
   border: 1px solid rgba(110, 200, 236, 0.45);
 }
 .deberc-role--objaz {
-  background: rgba(245, 197, 24, 0.16);
+  background: rgb(var(--accent-rgb) / 0.16);
   color: var(--accent-light);
-  border: 1px solid rgba(245, 197, 24, 0.45);
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
 }
 /* Shown on the об'яз seat when it differs from the dealer (bid interception). */
 .deberc-role--intercept {
@@ -117,7 +117,7 @@
 .deberc-declare__buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
 .deberc-declare__none { color: var(--text-dim); font-style: italic; }
 .deberc-meld-chip { font-size: 0.85rem; padding: 0.4rem 0.85rem; }
-.deberc-meld-chip--jackpot { box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.5); }
+.deberc-meld-chip--jackpot { box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.5); }
 
 /* ===========================================================================
    Score sheet — the per-hand score pad (📊 modal + embedded on Finished).
@@ -179,9 +179,9 @@
 }
 
 /* Per-hand top scorer + winning column highlights. */
-.deberc-sheet__top { background: rgba(245, 197, 24, 0.16); }
+.deberc-sheet__top { background: rgb(var(--accent-rgb) / 0.16); }
 .deberc-sheet__top strong { color: var(--accent-light); }
-.deberc-sheet__win { color: var(--accent-light); background: rgba(245, 197, 24, 0.10); }
+.deberc-sheet__win { color: var(--accent-light); background: rgb(var(--accent-rgb) / 0.10); }
 
 .deberc-sheet__empty {
   padding: 1rem;
@@ -253,9 +253,9 @@
   font-variant-numeric: tabular-nums;
 }
 .deberc-final--win {
-  background: rgba(245, 197, 24, 0.14);
+  background: rgb(var(--accent-rgb) / 0.14);
   color: var(--accent-light);
-  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.35);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
 }
 
 /* ===========================================================================
@@ -377,9 +377,9 @@
   border: 1px solid var(--border);
 }
 .deberc-firstdealer__seat--drawn {
-  background: rgba(245, 197, 24, 0.16);
-  border-color: rgba(245, 197, 24, 0.5);
-  box-shadow: 0 0 0 1px rgba(245, 197, 24, 0.4);
+  background: rgb(var(--accent-rgb) / 0.16);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.4);
 }
 .deberc-firstdealer__suit { font-size: 1.7rem; line-height: 1; }
 .deberc-firstdealer__suit--red { color: var(--card-red); }

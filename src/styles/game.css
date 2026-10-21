@@ -88,7 +88,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: rgba(4, 14, 9, 0.5);
+  background: rgb(var(--shade-rgb) / 0.5);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.6rem 1rem;
@@ -112,7 +112,7 @@
   border-radius: var(--radius);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.28) 100%),
-    rgba(4, 14, 9, 0.5);
+    rgb(var(--shade-rgb) / 0.5);
   border: 1px solid var(--border);
   border-left: 4px solid var(--accent);
   box-shadow: var(--top-light), 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -257,7 +257,7 @@
   transform: translateY(-12px);
   box-shadow:
     0 0 0 3px var(--accent),
-    0 0 16px rgba(245, 197, 24, 0.6),
+    0 0 16px rgb(var(--accent-rgb) / 0.6),
     0 10px 22px rgba(0, 0, 0, 0.5);
 }
 
@@ -319,7 +319,7 @@
 /* A green/gold CSS back is the fallback UNDER the image (shown if it 404s). */
 .card--back {
   background:
-    repeating-linear-gradient(45deg, rgba(245, 197, 24, 0.10) 0 3px, transparent 3px 6px),
+    repeating-linear-gradient(45deg, rgb(var(--accent-rgb) / 0.10) 0 3px, transparent 3px 6px),
     linear-gradient(160deg, #2a5d44, #143a2a);
 }
 .card--back .card__corner,

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './App.css'
 import App from './App'
 import { LangProvider } from './i18n'
+import './ui/components/appThemeStore' // stamps <html data-app-theme> (Stage 42.0)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

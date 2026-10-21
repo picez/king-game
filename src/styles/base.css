@@ -1,12 +1,29 @@
 /* ===== CSS Variables ===== */
 :root {
-  /* ---- Felt / table greens (layered, never a single flat fill) ---- */
-  --felt-lit:   #1f7a45;  /* the lit centre of the table */
-  --felt-mid:   #155f36;  /* main felt body */
-  --felt-edge:  #0c4324;  /* felt near the rim */
-  --felt-deep:  #082b18;  /* deepest shadow / under the rim */
-  --room-bg:    #0a1812;  /* dark room behind the table */
-  --room-bg-2:  #04100a;  /* darkest corners of the room */
+  /* ===== App theme (Stage 42.0) =====
+     :root carries the DEFAULT "midnight" theme — deep navy surfaces, glassy panels and
+     a blue accent. The original green felt lives on as the opt-in "classic" theme in
+     the :root[data-app-theme="classic"] block below; it redefines only these tokens.
+     The choice is a local visual pref (appThemeStore.ts), stamped on <html> by an
+     inline script in index.html before first paint. */
+
+  /* ---- Felt / table (layered, never a single flat fill) ---- */
+  --felt-lit:   #2a3243;  /* the lit centre of the table */
+  --felt-mid:   #1e2431;  /* main felt body */
+  --felt-edge:  #161b26;  /* felt near the rim */
+  --felt-deep:  #0c0f16;  /* deepest shadow / under the rim */
+  --room-bg:    #111624;  /* dark room behind the table */
+  --room-bg-2:  #07090e;  /* darkest corners of the room */
+  /* Poker's own, slightly brighter table + rail (Stage 38.0.2 readability). */
+  --poker-felt-lit:  #2e384c;
+  --poker-felt:      #232b3a;
+  --poker-felt-edge: #19202c;
+  --poker-rail:      #3a4459;
+  --poker-rail-edge: #252c3b;
+  /* The rim round the King/Durak felt; the RGB of overlay shades and poker pods. */
+  --table-rim:  #2b3345;
+  --shade-rgb:  5 7 12;
+  --pod-rgb:    14 18 28;
 
   /* Legacy aliases — kept so existing selectors keep resolving. */
   --green-dark:   var(--felt-edge);
@@ -31,12 +48,20 @@
   --card-h-mini:    67px;
 
   /* ---- Accent / gold (tactile, with a gradient + darker rim) ---- */
-  --accent:       #f5c518;
-  --accent-light: #ffe273;
-  --accent-dark:  #b8870a;
-  --gold-grad:    linear-gradient(180deg, #ffe070 0%, #f7cb26 42%, #e3ab0c 100%);
+  --accent:       #4c8dff;
+  --accent-light: #8cb6ff;
+  --accent-dark:  #2f63d8;
+  --accent-rgb:       76 141 255;   /* for rgb(var(--accent-rgb) / α) glows */
+  --accent-light-rgb: 140 182 255;
+  --gold-grad:    linear-gradient(180deg, #6ea4ff 0%, #4c8dff 45%, #3a74ea 100%);
+  /* Text/icons drawn ON an accent fill, the top stop of accent text gradients, the focus ring. */
+  --on-accent:        #ffffff;
+  --on-accent-light:  #0d1424;  /* text on accent-light / pale badges */
+  --accent-highlight: #dce8ff;
+  --focus-ring:       rgba(76, 141, 255, 0.5);
+  --btn-text-shadow:  0 1px 0 rgba(0, 0, 0, 0.25);
   /* Stage 12.2 art (single source; graceful fallback if a file 404s). */
-  --felt-tile:    url('/visual/felt-tile.png');
+  --felt-tile:    none; /* the green felt texture belongs to the classic theme */
   --card-back:    url('/cards/back/back-green.png'); /* default; red via [data-card-back] */
   /* Stage 12.8 P1 art (finish frame + unified seat-status badge coins). */
   --finish-frame:  url('/visual/finish-frame.png');
@@ -44,21 +69,27 @@
   --badge-bot:     url('/visual/badges/badge-bot.png');
   --badge-offline: url('/visual/badges/badge-offline.png');
   --badge-active:  url('/visual/badges/badge-active.png');
-  --gold-grad-hover: linear-gradient(180deg, #ffe888 0%, #ffd23e 42%, #efb615 100%);
+  --gold-grad-hover: linear-gradient(180deg, #84b2ff 0%, #5f9aff 45%, #4680f0 100%);
 
   /* ---- Text ---- */
-  --text:         #eef3ef;
-  --text-muted:   #9fbdac;
-  --text-dim:     #6f8c7c;
+  --text:         #e9edf5;
+  --text-muted:   #98a3ba;
+  --text-dim:     #69738b;
 
   /* ---- Surfaces (panels, chips, inputs) ---- */
-  --overlay:      rgba(4, 14, 9, 0.6);
+  --overlay:      rgba(5, 7, 12, 0.66);
   --surface:      rgba(255, 255, 255, 0.07);
   --surface-2:    rgba(255, 255, 255, 0.035);
   --surface-3:    rgba(255, 255, 255, 0.11);
   /* A raised panel: subtle vertical sheen over a dark green base. */
-  --panel:        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 16%, rgba(0,0,0,0.18) 100%), #0f3f24;
-  --panel-2:      linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.16) 100%), #124a2a;
+  --panel:        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 16%, rgba(0,0,0,0.14) 100%), #151a25;
+  --panel-2:      linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.14) 100%), #1a2030;
+  /* Opaque surfaces: a solid panel, a seat plate, and the score table's sticky cells. */
+  --panel-solid:  #151a25;
+  --seat-plate:   linear-gradient(180deg, rgba(34, 41, 56, 0.94) 0%, rgba(13, 16, 24, 0.94) 100%);
+  --sticky-1:     #141925;
+  --sticky-2:     #181e2b;
+  --sticky-3:     #1c2332;
 
   /* ---- Borders / highlight (top light edge + base hairline) ---- */
   --border:        rgba(255, 255, 255, 0.12);
@@ -100,6 +131,49 @@
   --safe-left:   env(safe-area-inset-left, 0px);
 }
 
+/* The original green-felt look (Stage 42.0: opt-in "classic" theme). Only the
+   theme tokens are redefined; every component reads them. */
+:root[data-app-theme="classic"] {
+  --felt-lit:   #1f7a45;
+  --felt-mid:   #155f36;
+  --felt-edge:  #0c4324;
+  --felt-deep:  #082b18;
+  --room-bg:    #0a1812;
+  --room-bg-2:  #04100a;
+  --poker-felt-lit:  #2fa268;
+  --poker-felt:      #1e8a56;
+  --poker-felt-edge: #14663e;
+  --poker-rail:      #6d4a2c;
+  --poker-rail-edge: #4a3120;
+  --table-rim:  #1a0f06;
+  --shade-rgb:  4 14 9;
+  --pod-rgb:    9 26 18;
+  --accent:       #f5c518;
+  --accent-light: #ffe273;
+  --accent-dark:  #b8870a;
+  --accent-rgb:       245 197 24;
+  --accent-light-rgb: 255 226 115;
+  --gold-grad:    linear-gradient(180deg, #ffe070 0%, #f7cb26 42%, #e3ab0c 100%);
+  --gold-grad-hover: linear-gradient(180deg, #ffe888 0%, #ffd23e 42%, #efb615 100%);
+  --on-accent:        #2a2300;
+  --on-accent-light:  #10230f;
+  --accent-highlight: #ffe88a;
+  --focus-ring:       rgba(245, 197, 24, 0.45);
+  --btn-text-shadow:  0 1px 0 rgba(255, 255, 255, 0.3);
+  --felt-tile:    url('/visual/felt-tile.png');
+  --text:         #eef3ef;
+  --text-muted:   #9fbdac;
+  --text-dim:     #6f8c7c;
+  --overlay:      rgba(4, 14, 9, 0.6);
+  --panel:        linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 16%, rgba(0,0,0,0.18) 100%), #0f3f24;
+  --panel-2:      linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.16) 100%), #124a2a;
+  --panel-solid:  #0f3f24;
+  --seat-plate:   linear-gradient(180deg, rgba(28, 50, 36, 0.92) 0%, rgba(8, 22, 14, 0.92) 100%);
+  --sticky-1:     #103a23;
+  --sticky-2:     #124a2a;
+  --sticky-3:     #15512f;
+}
+
 /* Stage 13.0: card-back style is a local visual pref, applied by flipping the
    `--card-back` image on <html data-card-back="red">. Green is the :root default
    above, so no attribute (or data-card-back="green") keeps the classic back. This
@@ -120,8 +194,10 @@
    the big OPAQUE assets; the PNG urls set above stay as the universal fallback
    (both inside image-set AND for browsers that skip this @supports block). */
 @supports (background-image: image-set(url('/visual/felt-tile.webp') type('image/webp'))) {
-  :root {
+  :root[data-app-theme="classic"] {
     --felt-tile: image-set(url('/visual/felt-tile.webp') type('image/webp'), url('/visual/felt-tile.png') type('image/png'));
+  }
+  :root {
     --card-back: image-set(url('/cards/back/back-green.webp') type('image/webp'), url('/cards/back/back-green.png') type('image/png'));
   }
   :root[data-card-back="red"] {
@@ -207,7 +283,7 @@ body {
   letter-spacing: 0.04em;
   line-height: 1.05;
   text-align: center;
-  background: linear-gradient(180deg, #ffe88a 0%, var(--accent) 55%, var(--accent-dark) 100%);
+  background: linear-gradient(180deg, var(--accent-highlight) 0%, var(--accent) 55%, var(--accent-dark) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -269,7 +345,7 @@ body {
   outline: none;
   border-color: var(--accent);
   background: rgba(0, 0, 0, 0.35);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(245, 197, 24, 0.25);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 3px rgb(var(--accent-rgb) / 0.25);
 }
 .input--error { border-color: var(--danger); }
 .input--error:focus { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--danger-soft); }
@@ -295,15 +371,15 @@ body {
               border-color 0.15s ease, filter 0.15s ease;
 }
 
-.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(245, 197, 24, 0.45); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
 .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: saturate(0.6); box-shadow: none; }
 
 /* Primary: a raised, glossy gold key with a darker rim and a pressed state. */
 .btn--primary {
   background: var(--gold-grad);
-  color: #2a2300;
+  color: var(--on-accent);
   border-color: rgba(0, 0, 0, 0.25);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  text-shadow: var(--btn-text-shadow);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
     inset 0 -1px 0 rgba(0, 0, 0, 0.18),
@@ -328,8 +404,8 @@ body {
 .btn--outline.btn--active {
   border-color: var(--accent);
   color: var(--accent-light);
-  background: rgba(245, 197, 24, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.4);
+  background: rgb(var(--accent-rgb) / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.4);
 }
 
 /* Ghost: text-only, gains a faint surface on hover. */

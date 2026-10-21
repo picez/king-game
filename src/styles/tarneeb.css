@@ -162,7 +162,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 .tarneeb-seat--us { border-color: rgba(120, 220, 160, 0.55); }
 .tarneeb-seat--them { border-color: rgba(240, 170, 120, 0.4); }
 .tarneeb-seat--acting {
-  box-shadow: 0 0 0 2px var(--accent-light), 0 0 14px rgba(255, 226, 115, 0.55);
+  box-shadow: 0 0 0 2px var(--accent-light), 0 0 14px rgb(var(--accent-light-rgb) / 0.55);
   border-color: var(--accent-light);
 }
 .tarneeb-seat--offline { opacity: 0.6; }
@@ -174,7 +174,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   line-height: 1.1;
   padding: 0 0.28rem;
   border-radius: 0.5rem;
-  color: #10230f;
+  color: var(--on-accent-light);
 }
 .tarneeb-badge--dealer { background: #cfd8dc; }
 .tarneeb-badge--declarer { background: var(--accent-light); }
@@ -284,7 +284,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 .tarneeb-handdone,
 .tarneeb-help {
   width: min(24rem, 100%);
-  background: var(--surface, #143a24);
+  background: var(--panel-solid);
   border: 1px solid var(--border-strong);
   border-radius: 1rem;
   padding: 1rem;
@@ -294,7 +294,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
 /* Exact-bid double banner (Stage 13.4): a small gold pill above the score table. */
 .tarneeb-handdone__double {
   margin: 0 0 0.6rem; padding: 0.2rem 0.6rem; display: inline-block;
-  background: var(--gold-grad); color: #2a2407; border-radius: 999px;
+  background: var(--gold-grad); color: var(--on-accent); border-radius: 999px;
   font-size: 0.82rem; font-weight: 800;
 }
 .tarneeb-handdone__line { margin: 0 0 0.7rem; color: var(--text); font-size: 0.9rem; }
@@ -347,7 +347,7 @@ td.tarneeb-rank__score { font-weight: 900; font-size: 1rem; color: var(--text); 
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.25);
 }
-.tarneeb-finished__score--win { border-color: var(--accent-light); box-shadow: 0 0 14px rgba(255, 226, 115, 0.35); }
+.tarneeb-finished__score--win { border-color: var(--accent-light); box-shadow: 0 0 14px rgb(var(--accent-light-rgb) / 0.35); }
 .tarneeb-finished__score-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
 .tarneeb-finished__score-value { font-size: 1.8rem; font-weight: 900; color: var(--text); }
 .tarneeb-finished__actions { display: flex; flex-direction: column; gap: 0.5rem; }

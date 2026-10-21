@@ -129,7 +129,7 @@
 }
 .ach-segment:active { transform: scale(0.97); }
 .ach-segment--active {
-  background: var(--accent); color: var(--on-accent, #08130b);
+  background: var(--accent); color: var(--on-accent);
   border-color: var(--accent-light, var(--accent));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent, #f5c518) 40%, transparent);
 }
@@ -176,7 +176,7 @@
   position: absolute; top: 0.35rem; inset-inline-end: 0.35rem;
   font-size: 0.6rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
   padding: 0.08rem 0.34rem; border-radius: 999px;
-  color: #1c1400; background: var(--gold-grad); box-shadow: var(--top-light);
+  color: var(--on-accent); background: var(--gold-grad); box-shadow: var(--top-light);
 }
 
 /* ===== Achievement unlock toast (Stage 16.1) ===== */
@@ -219,7 +219,7 @@
 .ach-toast__actions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; }
 .ach-toast__more { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
 .ach-toast__btn {
-  font-size: 0.78rem; font-weight: 700; color: #1c1400; cursor: pointer;
+  font-size: 0.78rem; font-weight: 700; color: var(--on-accent); cursor: pointer;
   padding: 0.3rem 0.7rem; border: none; border-radius: 999px; background: var(--gold-grad);
   box-shadow: var(--top-light);
 }
@@ -299,7 +299,7 @@
 }
 .online-tracker__chip--active {
   background: var(--accent);
-  color: var(--on-accent, #08130b);
+  color: var(--on-accent);
   border-color: var(--accent-light, var(--accent));
 }
 /* One card per FROZEN category. Stacked on a phone; side by side once they fit. */

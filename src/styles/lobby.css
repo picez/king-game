@@ -6,12 +6,12 @@
   text-align: center;
   color: var(--accent-light);
   background:
-    radial-gradient(120% 140% at 50% -20%, rgba(245, 197, 24, 0.16) 0%, rgba(245, 197, 24, 0) 60%),
+    radial-gradient(120% 140% at 50% -20%, rgb(var(--accent-rgb) / 0.16) 0%, rgb(var(--accent-rgb) / 0) 60%),
     rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(245, 197, 24, 0.4);
+  border: 1px solid rgb(var(--accent-rgb) / 0.4);
   border-radius: var(--radius);
   padding: 0.7rem 0.5rem 0.7rem 0.8rem;
-  text-shadow: 0 2px 10px rgba(245, 197, 24, 0.3);
+  text-shadow: 0 2px 10px rgb(var(--accent-rgb) / 0.3);
   box-shadow: var(--top-light), inset 0 0 24px rgba(0, 0, 0, 0.25);
 }
 
@@ -100,7 +100,7 @@
 .lobby-team--a .lobby-team__label { color: var(--accent); }
 .lobby-team--b .lobby-team__label { color: #e0a879; }
 .lobby-team__you {
-  font-size: 0.62rem; font-weight: 700; color: #1c1400; background: var(--gold-grad);
+  font-size: 0.62rem; font-weight: 700; color: var(--on-accent); background: var(--gold-grad);
   padding: 0.06rem 0.4rem; border-radius: 999px; box-shadow: var(--top-light);
 }
 .lobby-team__seats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
@@ -141,7 +141,7 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
-.tag--host { background: rgba(245, 197, 24, 0.18); border-color: rgba(245, 197, 24, 0.4); color: var(--accent-light); }
+.tag--host { background: rgb(var(--accent-rgb) / 0.18); border-color: rgb(var(--accent-rgb) / 0.4); color: var(--accent-light); }
 .tag--bot  { background: var(--info-soft); border-color: rgba(110, 200, 236, 0.4); color: #9cd8f0; }
 
 /* Stage 12.8 P1: a small unified "coin" badge before the host/bot/offline label.
@@ -371,7 +371,7 @@
   z-index: 70; display: flex; align-items: center; gap: 0.4rem 0.6rem; flex-wrap: wrap; justify-content: center;
   inline-size: max-content; max-width: min(calc(100vw - 1rem), 42rem); box-sizing: border-box;
   padding: 0.55rem 0.8rem; border-radius: 0.8rem;
-  background: var(--panel); background-color: #0f3f24;
+  background: var(--panel); background-color: var(--panel-solid);
   border: 1px solid var(--accent-light); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 .friend-invite-toast__text { font-size: 0.88rem; line-height: 1.35; color: var(--text); min-width: 0; text-align: center; overflow-wrap: anywhere; }
@@ -455,7 +455,7 @@
 .continue-card {
   display: flex; align-items: center; gap: 0.75rem; width: 100%;
   padding: 0.8rem 0.9rem; cursor: pointer; text-align: start;
-  background: var(--gold-grad); color: #2a2407;
+  background: var(--gold-grad); color: var(--on-accent);
   border: none; border-radius: 16px; box-shadow: var(--shadow-2);
 }
 .continue-card__icon { font-size: 1.35rem; flex: 0 0 auto; }
@@ -697,7 +697,7 @@
    overflows at 360/390). Content is metadata only — no secrets (see accountDiagnostics). */
 .profile-account__diag {
   margin: 0; padding: 0.5rem 0.6rem; border-radius: 10px;
-  background: var(--surface-2, #10281a); border: 1px solid var(--border);
+  background: var(--surface-2); border: 1px solid var(--border);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.72rem; line-height: 1.5; color: var(--text-muted);
   white-space: pre-wrap; word-break: break-word; overflow-x: auto; max-width: 100%;
@@ -734,6 +734,39 @@
 
 /* Card-FACE theme picker (Stage 13.5): two swatches, each a tiny MOCK sample card
    (not the live global theme) so both previews read independently. */
+/* App theme picker (Stage 42.0): each swatch paints its OWN fixed colours, so it
+   previews that theme whatever theme is live. */
+.theme-picker { display: flex; gap: 0.5rem; }
+.theme-swatch {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+}
+.theme-swatch:hover { background: var(--surface); }
+.theme-swatch--on {
+  border-color: var(--accent); background: var(--surface);
+  box-shadow: var(--top-light), 0 0 0 1px var(--accent) inset;
+}
+.theme-swatch__label {
+  font-size: 0.82rem; font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.theme-swatch__sample {
+  position: relative; flex: 0 0 auto; width: 42px; height: 30px;
+  border-radius: 6px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.theme-swatch__felt { position: absolute; inset: 4px 4px 11px; border-radius: 999px; }
+.theme-swatch__btn { position: absolute; inset: auto 10px 3px; height: 5px; border-radius: 3px; }
+.theme-swatch__sample--midnight { background: #0b0e15; }
+.theme-swatch__sample--midnight .theme-swatch__felt { background: radial-gradient(#2e384c, #19202c); box-shadow: 0 0 0 1px #3a4459; }
+.theme-swatch__sample--midnight .theme-swatch__btn { background: #4c8dff; }
+.theme-swatch__sample--classic { background: #04100a; }
+.theme-swatch__sample--classic .theme-swatch__felt { background: radial-gradient(#1f7a45, #0c4324); box-shadow: 0 0 0 1px #6d4a2c; }
+.theme-swatch__sample--classic .theme-swatch__btn { background: #f5c518; }
+
 .cardface-picker { display: flex; gap: 0.5rem; }
 .cardface-swatch {
   flex: 1 1 0; min-width: 0;
@@ -796,7 +829,7 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: background 0.15s, color 0.15s;
 }
-.segmented__tab--active { background: var(--gold-grad); color: #2a2407; box-shadow: var(--shadow-1); }
+.segmented__tab--active { background: var(--gold-grad); color: var(--on-accent); box-shadow: var(--shadow-1); }
 .drawer__refresh { min-width: 2rem; }
 
 /* ===== Game selector (Stage 8.3 skeleton — King only today) ===== */
@@ -815,8 +848,8 @@
   flex: 0 0 auto;
   object-fit: contain;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 32%, rgba(245, 197, 24, 0.18), rgba(0, 0, 0, 0.28));
-  box-shadow: inset 0 0 0 1px rgba(245, 197, 24, 0.34), var(--top-light);
+  background: radial-gradient(circle at 50% 32%, rgb(var(--accent-rgb) / 0.18), rgba(0, 0, 0, 0.28));
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.34), var(--top-light);
   vertical-align: middle;
 }
 .game-icon--sm { width: 24px; height: 24px; padding: 3px; }
@@ -829,3 +862,11 @@
 /* Lobby game line: keep the emblem baseline-aligned with the players text. */
 .lobby-game-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
 .lobby-game-icon { margin-inline-end: 0.1rem; }
+
+/* Stage 42.0 — the midnight theme swaps the green hero art for a soft blue glow from
+   the top (the reference look). The classic theme keeps the hero image above. */
+:root:not([data-app-theme="classic"]) .menu-screen::before {
+  background:
+    radial-gradient(70% 38% at 50% -4%, rgb(var(--accent-rgb) / 0.28) 0%, rgb(var(--accent-rgb) / 0) 70%),
+    radial-gradient(60% 30% at 100% 100%, rgb(var(--accent-rgb) / 0.12) 0%, rgb(var(--accent-rgb) / 0) 70%);
+}

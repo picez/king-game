@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useI18n, LanguageSelector } from '../../i18n';
 import { AVATARS, sanitizeAvatar } from '../../core/avatars';
-import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme } from '../../net/prefs';
+import { saveNickname, saveAvatar, saveDefaultTimer, saveCardStyle, saveMotionPreference, saveFavoriteGame, saveCardFaceTheme, saveAppTheme } from '../../net/prefs';
+import { APP_THEMES, type AppTheme } from '../components/appTheme';
+import { useAppTheme, setAppTheme } from '../components/appThemeStore';
 import { saveCustomAvatar, clearCustomAvatar, AVATAR_ACCEPT_ATTR } from '../../net/customAvatar';
 import type { AvatarUploadError } from '../../net/avatarApi';
 import { saveCustomServer, clearCustomServer } from '../../net/connection';
@@ -33,6 +35,11 @@ const TIMER_OPTIONS = [0, 30, 60, 90] as const;
 const GAME_EMOJI: Record<FavoriteGame, string> = { king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️' };
 
 /** i18n label key per card-back style. */
+const APP_THEME_LABEL_KEY: Record<AppTheme, string> = {
+  midnight: 'profile.themeMidnight',
+  classic: 'profile.themeClassic',
+};
+
 const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {
   green: 'profile.cardBackClassic',
   red: 'profile.cardBackRed',
@@ -91,6 +98,7 @@ export default function ProfilePanel({
   const firstLang = useRef(true);
   const cardBack = useCardBackStyle();
   const cardFace = useCardFaceTheme();
+  const appTheme = useAppTheme();
   const animation = useMotionPreference();
   const sound = useSoundPreference();
   // Local-only custom avatar (Stage 14.1): NEVER uploaded/synced/put on the wire.
@@ -212,6 +220,9 @@ export default function ProfilePanel({
   function changeTimer(v: number) { onDefaultTimer(v); saveDefaultTimer(v); account.pushTimer(v); }
   // Card back is a local visual pref applied immediately (store + <html> attr),
   // persisted locally, and mirrored to the server profile when signed in.
+  function changeAppTheme(v: AppTheme) {
+    setAppTheme(v); saveAppTheme(v);
+  }
   function changeCardBack(v: CardBackStyle) {
     setCardBackStyle(v); saveCardStyle(v); account.pushCardStyle(cardBackToSetting(v));
   }
@@ -506,6 +517,23 @@ export default function ProfilePanel({
       </div>
 
       <h3 className="profile-section-head">{t('profile.appearance')}</h3>
+
+      <div className="field">
+        <label className="field__label">{t('profile.appTheme')}</label>
+        <div className="theme-picker" role="radiogroup" aria-label={t('profile.appTheme')}>
+          {APP_THEMES.map((th) => (
+            <button key={th} type="button" role="radio" aria-checked={appTheme === th}
+              className={`theme-swatch ${appTheme === th ? 'theme-swatch--on' : ''}`}
+              onClick={() => changeAppTheme(th)}>
+              <span className={`theme-swatch__sample theme-swatch__sample--${th}`} aria-hidden="true">
+                <span className="theme-swatch__felt" />
+                <span className="theme-swatch__btn" />
+              </span>
+              <span className="theme-swatch__label">{t(APP_THEME_LABEL_KEY[th])}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="field">
         <label className="field__label">{t('profile.cardBack')}</label>

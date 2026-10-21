@@ -12,11 +12,7 @@
      Scoped to the poker screen, so the shared --felt-* tokens (and every other game)
      are untouched. A lit centre fading to a slightly deeper rim keeps it looking like
      a real felt rather than a flat, over-saturated green. */
-  --poker-felt-lit: #2fa268;
-  --poker-felt: #1e8a56;
-  --poker-felt-edge: #14663e;
-  --poker-rail: #6d4a2c;
-  --poker-rail-edge: #4a3120;
+  /* --poker-felt-* / --poker-rail-* are theme tokens (base.css, Stage 42.0). */
 
   overflow-x: hidden;
   display: flex;
@@ -106,7 +102,7 @@
   border-radius: 0.3rem;
   background: rgba(255, 255, 255, 0.15);
 }
-.poker-badge--btn { background: var(--accent, #e8b84b); color: #1a1a1a; }
+.poker-badge--btn { background: var(--accent); color: var(--on-accent); }
 .poker-badge--allin { background: #c0392b; color: #fff; }
 
 /* Action row — wraps, clears the home indicator. */
@@ -214,11 +210,11 @@
   width: 4.5rem; padding: 0.3rem 0.28rem; border-radius: 0.6rem;
   /* Slightly deeper plates than before: on the lighter felt they must still read as
      distinct pods, and the acting / my-seat states must stay obvious. */
-  background: rgba(9, 26, 18, 0.62); border: 2px solid transparent; text-align: center;
+  background: rgb(var(--pod-rgb) / 0.62); border: 2px solid transparent; text-align: center;
 }
 .poker-pod--me {
   width: auto; min-width: 6.5rem; padding: 0.4rem 0.55rem 0.3rem;
-  background: rgba(9, 26, 18, 0.78); border-color: rgba(255, 255, 255, 0.35);
+  background: rgb(var(--pod-rgb) / 0.78); border-color: rgba(255, 255, 255, 0.35);
 }
 .poker-pod--acting { border-color: var(--accent, #e8b84b); box-shadow: 0 0 14px 2px var(--accent, #e8b84b); }
 .poker-pod--folded { opacity: 0.5; }
@@ -229,8 +225,8 @@
   position: absolute; top: -0.6rem; left: -0.35rem; z-index: 1;
   display: flex; gap: 0.12rem;
 }
-.poker-pod__badges .poker-badge { background: #20352a; color: #fff; border: 1px solid rgba(255, 255, 255, 0.35); }
-.poker-pod__badges .poker-badge--btn { background: var(--accent, #e8b84b); color: #1a1a1a; border-color: transparent; }
+.poker-pod__badges .poker-badge { background: var(--panel-solid); color: #fff; border: 1px solid rgba(255, 255, 255, 0.35); }
+.poker-pod__badges .poker-badge--btn { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .poker-pod__cards { display: flex; gap: 0.15rem; }
 /* Opponents' backs overlap like a held hand — they only need to say "still in". */
 .poker-pod:not(.poker-pod--me) .poker-pod__cards .poker-card + .poker-card { margin-inline-start: -0.55rem; }
@@ -301,7 +297,7 @@
   padding: 0.35rem 0.55rem; border-radius: 0.5rem; border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
   background: transparent; color: inherit; cursor: pointer; min-height: 40px;
 }
-.poker-review__pot.is-selected { border-color: var(--accent, #e8b84b); background: rgba(232, 184, 75, 0.12); }
+.poker-review__pot.is-selected { border-color: var(--accent, #e8b84b); background: rgb(var(--accent-rgb) / 0.12); }
 .poker-review__pot-winners { opacity: 0.9; font-size: 0.8rem; }
 .poker-review__winners { display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; }
 .poker-review__winner { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }

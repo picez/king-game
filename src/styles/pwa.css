@@ -39,11 +39,11 @@
 .pwa-banner__action { flex: 0 0 auto; min-height: var(--tap-min); }
 
 .pwa-banner--offline {
-  background: var(--surface-2, #143a24);
+  background: var(--surface-2);
   color: var(--text-dim);
 }
 .pwa-banner--update {
-  background: var(--surface, #143a24);
+  background: var(--surface);
   border-color: var(--accent-light);
   color: var(--text);
 }
@@ -62,7 +62,7 @@
   box-sizing: border-box;
   padding: 0.6rem 0.7rem;
   border-radius: 0.9rem;
-  background: var(--surface, #143a24);
+  background: var(--surface);
   border: 1px solid var(--border-strong);
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
 }

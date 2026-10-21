@@ -47,8 +47,8 @@
     var(--felt-tile) center / 240px 240px repeat,
     radial-gradient(ellipse at 50% 44%, var(--felt-lit) 0%, var(--felt-mid) 48%, var(--felt-edge) 84%, var(--felt-deep) 100%);
   background-blend-mode: normal, soft-light, normal;
-  border: 7px solid #1a0f06;
-  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(245, 197, 24, 0.12), 0 8px 24px rgba(0, 0, 0, 0.45);
+  border: 7px solid var(--table-rim);
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgb(var(--accent-rgb) / 0.12), 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 /* Opponent seats — positioned like King's .tseat (NOT mirrored in RTL). */
@@ -61,7 +61,7 @@
   gap: 0.05rem;
   max-width: 8rem;
   padding: 0.28rem 0.6rem;
-  background: linear-gradient(180deg, rgba(28, 50, 36, 0.92), rgba(8, 22, 14, 0.92));
+  background: var(--seat-plate);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   text-align: center;
@@ -88,7 +88,7 @@
 .durak-board--6 .durak-seat__name { max-width: 5rem; }
 .durak-seat--atk { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
 .durak-seat--def { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger) inset, 0 4px 12px rgba(0, 0, 0, 0.45); }
-.durak-seat--acting { box-shadow: 0 0 0 2px var(--accent-light) inset, 0 0 14px rgba(245, 197, 24, 0.4); }
+.durak-seat--acting { box-shadow: 0 0 0 2px var(--accent-light) inset, 0 0 14px rgb(var(--accent-rgb) / 0.4); }
 .durak-seat--offline { opacity: 0.6; }
 .durak-seat__name { font-weight: 700; white-space: nowrap; max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis; }
 .durak-seat__count { font-size: 0.76rem; color: var(--text-muted); }
@@ -184,7 +184,7 @@
   top: auto;
   bottom: 0.5rem;
   background: var(--gold-grad);
-  color: #2a2407;
+  color: var(--on-accent);
 }
 .durak-notice--show strong { font-size: 1.05rem; }
 .durak-notice--show-red strong { color: var(--card-red); }
@@ -211,7 +211,7 @@
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
 }
-.durak-youare--atk { background: rgba(245, 197, 24, 0.16); color: var(--accent-light); border: 1px solid var(--accent); }
+.durak-youare--atk { background: rgb(var(--accent-rgb) / 0.16); color: var(--accent-light); border: 1px solid var(--accent); }
 .durak-youare--def { background: var(--danger-soft); color: var(--danger-light); border: 1px solid var(--danger); }
 
 /* In transfer mode, tint the table so the special action is obvious. */
@@ -260,7 +260,7 @@
   border: 1px solid var(--border); background: var(--surface-2);
   color: var(--text); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
 }
-.durak-variant-card--active { border-color: var(--accent); background: rgba(245, 197, 24, 0.12); }
+.durak-variant-card--active { border-color: var(--accent); background: rgb(var(--accent-rgb) / 0.12); }
 .durak-variant-card__name { font-weight: 800; font-size: 0.92rem; }
 .durak-variant-card__desc { font-size: 0.75rem; color: var(--text-muted); }
 .durak-variant-desc { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--text-muted); }

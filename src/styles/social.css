@@ -390,7 +390,7 @@ html { scrollbar-gutter: stable; }
   font-size: 0.88rem; color: var(--text); word-break: break-word;
   background: var(--surface-2); padding: 4px 9px; border-radius: 11px; max-width: 100%;
 }
-.chat-msg--mine .chat-msg__text { background: rgba(245, 197, 24, 0.16); }
+.chat-msg--mine .chat-msg__text { background: rgb(var(--accent-rgb) / 0.16); }
 .chat-panel__compose {
   flex: 0 0 auto; display: flex; gap: 6px; align-items: center;
   padding: 0.4rem 0 0; border-top: 1px solid var(--border-strong);
@@ -419,7 +419,7 @@ html { scrollbar-gutter: stable; }
   display: block; padding: 3px; cursor: pointer;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px;
 }
-.chat-msg--mine .chat-msg__media { background: rgba(245, 197, 24, 0.16); }
+.chat-msg--mine .chat-msg__media { background: rgb(var(--accent-rgb) / 0.16); }
 .chat-msg__media img { display: block; max-width: 160px; max-height: 160px; object-fit: contain; border-radius: 8px; }
 /* (38.0.16) A combined message is ONE bubble: the line, then the sticker under it, both
    inside the same body and on the same side. `object-fit: contain` above is what keeps the
