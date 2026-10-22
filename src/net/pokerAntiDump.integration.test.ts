@@ -100,7 +100,21 @@ async function playPaidMatch(ids: string[], opts: { unrankedConfirmed?: boolean;
   r.gameState = finished(0, BUY_IN * ids.length, ids.length) as never;
   bindGameToEscrow(r);
   expect(await escrow.payoutStacks(r, r.gameState as never)).toBe('paid');
+  if (opts.now) await stampSettled(r, opts.now());
   return r;
+}
+
+/**
+ * The ranked/day tests run on a FIXED clock early in a UTC day: a series steps ~16 min per
+ * match, and a CI run at 23:21 UTC once rolled it past midnight (the 4th match came out
+ * ranked). The settlement row's `created_at` is the DB's real `now()`, so it is stamped
+ * onto the same injected clock — otherwise the two times would sit on different days.
+ */
+const CLOCK_BASE = Date.UTC(2027, 0, 15, 1);
+async function stampSettled(r: ServerRoom, atMs: number): Promise<void> {
+  const { client } = await mods();
+  const conn = await client.getDb();
+  await conn!.sql`UPDATE poker_match_settlements SET created_at = ${new Date(atMs).toISOString()}::timestamptz WHERE match_id = ${r.pokerEscrow!.matchId}`;
 }
 
 /** Deps that record real Poker stats, so "unranked writes nothing" is measurable. */
@@ -346,7 +360,7 @@ describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: PAIR COOLDOWN (real PostgreSQ
 
 describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: RANKED / UNRANKED (real PostgreSQL)', () => {
   /** Play `n` settled matches for a pair, stepping the clock past each cooldown. */
-  async function playSeries(ids: string[], n: number, base = Date.now()): Promise<number> {
+  async function playSeries(ids: string[], n: number, base = CLOCK_BASE): Promise<number> {
     let clock = base;
     for (let i = 0; i < n; i++) {
       await playPaidMatch(ids, { now: () => clock });
@@ -399,13 +413,14 @@ describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: RANKED / UNRANKED (real Postg
     const deps = await statsDeps();
 
     // Three RANKED matches → three recorded results.
-    let clock = Date.now();
+    let clock = CLOCK_BASE;
     for (let i = 0; i < 3; i++) {
       const r = room([A, B]);
       expect(await escrow.debitFreshStart(r, { now: () => clock })).toMatchObject({ ok: true });
       r.gameState = finished(0, BUY_IN * 2, 2) as never;
       bindGameToEscrow(r);
       expect(await escrow.payoutStacks(r, r.gameState as never)).toBe('paid');
+      await stampSettled(r, clock);
       expect(await finish.recordConfirmedPokerStats(r, r.gameState as never, deps as never)).toBe('recorded');
       clock += BANKROLL_PAIR_COOLDOWN_MS + 1000;
     }
@@ -441,7 +456,7 @@ describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: RANKED / UNRANKED (real Postg
     const { escrow } = await mods();
     const A = await newUser('slot-a'); const B = await newUser('slot-b');
     await fund(A, B);
-    let clock = Date.now();
+    let clock = CLOCK_BASE;
     // Two refunded starts…
     for (let i = 0; i < 2; i++) {
       const r = room([A, B]);
@@ -466,6 +481,7 @@ describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: RANKED / UNRANKED (real Postg
       r.gameState = finished(0, BUY_IN * 2, 2) as never;
       bindGameToEscrow(r);
       expect(await escrow.payoutStacks(r, r.gameState as never)).toBe('paid');
+      await stampSettled(r, clock);
       clock += BANKROLL_PAIR_COOLDOWN_MS + 1000;
     }
     // Only now is the pair out of ranked slots.
@@ -489,7 +505,7 @@ describe.skipIf(!TEST_DATABASE_URL)('anti-dumping: RANKED / UNRANKED (real Postg
     await fund(A, B);
     await playSeries([A, B], 3);
     // A clock in the NEXT UTC day: the settled matches are outside the day window.
-    const tomorrow = Date.now() + 26 * 60 * 60 * 1000;
+    const tomorrow = CLOCK_BASE + 26 * 60 * 60 * 1000;
     const r = room([A, B]);
     expect(await escrow.debitFreshStart(r, { now: () => tomorrow })).toMatchObject({ ok: true });
     expect(r.pokerEscrow!.antiDumpPolicy!.statsEligible).toBe(true);
