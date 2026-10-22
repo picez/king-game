@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { APP_THEME_COLOR, DEFAULT_APP_THEME } from './ui/components/appTheme';
 
 const PUBLIC = join(process.cwd(), 'public');
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -146,6 +147,14 @@ describe('Android TWA scaffold (Stage 33.2/33.3/33.8) — twa-manifest + repo hy
     expect(twa.orientation).toBe('portrait'); // manifest is portrait-primary
     expect(twa.themeColor.toLowerCase()).toBe(manifest.theme_color.toLowerCase());
     expect(twa.backgroundColor.toLowerCase()).toBe(manifest.background_color.toLowerCase());
+  });
+
+  it('the installed app wears the DEFAULT theme colour (Midnight, Stage 42.0/42.3)', () => {
+    expect(manifest.theme_color.toLowerCase()).toBe(APP_THEME_COLOR[DEFAULT_APP_THEME]);
+    expect(manifest.background_color.toLowerCase()).toBe(APP_THEME_COLOR[DEFAULT_APP_THEME]);
+    for (const k of ['themeColorDark', 'navigationColor', 'navigationColorDark', 'navigationDividerColor', 'navigationDividerColorDark']) {
+      expect(String(twa[k]).toLowerCase(), k).toBe(APP_THEME_COLOR[DEFAULT_APP_THEME]);
+    }
   });
 
   it('webManifestUrl points at the same host\'s manifest.webmanifest (init reads this)', () => {

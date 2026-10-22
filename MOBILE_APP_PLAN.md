@@ -40,7 +40,7 @@
 
 | Area | Current state (audited) | Implication for a wrapper |
 |---|---|---|
-| **Manifest** (`public/manifest.webmanifest`) | `name`/`short_name` **Card Majlis**, `start_url:"/"`, `scope:"/"`, `display:"standalone"`, `orientation:"portrait-primary"`, `theme_color`/`background_color` `#0d4f28`, icons **192 / 512 / maskable-512 / svg**. | TWA-ready. **Gap:** `description` names only 4 games (missing Preferans & 51) — copy fix for 33.1. |
+| **Manifest** (`public/manifest.webmanifest`) | `name`/`short_name` **Card Majlis**, `start_url:"/"`, `scope:"/"`, `display:"standalone"`, `orientation:"portrait-primary"`, `theme_color`/`background_color` `#0b0e15` (Midnight navy since Stage 42.3; was `#0d4f28`), icons **192 / 512 / maskable-512 / svg**. | TWA-ready. **Gap:** `description` names only 4 games (missing Preferans & 51) — copy fix for 33.1. |
 | **Service worker** (`public/sw.js`) | Network-first shell cache; **`/api/*` and `/auth/*` are NETWORK-ONLY** (never cached); WebSocket bypasses `fetch`; **controlled updates** (no `skipWaiting` until the user taps Refresh). Prod-only registration (`src/pwa/pwaClient.ts`). | Ideal for a wrapper — OAuth/stats/live traffic are never served stale; updates never reload mid-game. |
 | **Auth** (`server/googleOAuth.ts`) | **Google OAuth Authorization-Code + PKCE**, server-side token exchange, **cookie session** (login-only; no client tokens stored). `redirect_uri` from `GOOGLE_REDIRECT_URI` env (same-origin `/auth/callback`). | **Decisive:** Google **blocks OAuth inside embedded WebViews** (`disallowed_useragent`). A **TWA (Chrome engine)** handles it natively; a **plain Capacitor WebView would break Google login** unless routed through a system browser / Custom Tab. |
 | **Voice** (`server/voiceIce.ts`) | Opt-in WebRTC mesh; **STUN by default** (Google public), **TURN via `VOICE_ICE_SERVERS`** env; server relays signaling only; TURN credential is client-visible by design. | Needs **microphone permission**. Works natively under Chrome (TWA). Cross-network still needs **TURN** (existing known limit). WebView needs explicit mic-permission wiring. |
@@ -176,7 +176,7 @@ Legend: ✅ works · ⚠️ risky (needs care) · 🔧 needs work · ❌ not sup
 - [x] `name` / `short_name` present (**Card Majlis**).
 - [x] Icons **192 / 512** + a **maskable-512** + svg present (`public/icons/…`); confirm the maskable
       safe-zone renders correctly on Android adaptive icons.
-- [x] `theme_color` / `background_color` set (`#0d4f28`).
+- [x] `theme_color` / `background_color` set (`#0b0e15` (Midnight navy since Stage 42.3; was `#0d4f28`)).
 - [x] `start_url:"/"`, `scope:"/"`, `display:"standalone"`, `orientation` set.
 - [x] **Service worker** caches the shell (network-first) and is **prod-only**; `/api`+`/auth` bypass it.
 - [x] **Offline** fallback to the cached shell on navigation.
@@ -283,7 +283,7 @@ The scaffold lives at [`android-twa/`](android-twa/) and is **config + runbook o
 - **`twa-manifest.json`** — the Bubblewrap **input** (source of truth for the wrapper), hand-authored to
   mirror `public/manifest.webmanifest`: `packageId: com.cardmajlis.app`, `host:
   king-game-cqgd.onrender.com`, `startUrl: /`, `display: standalone`, `orientation: portrait`, theme /
-  background / nav colors `#0d4f28`, icons `icon-512.png` + maskable `maskable-512.png`, notifications
+  background / nav colors `#0b0e15` (Midnight navy since Stage 42.3; was `#0d4f28`), icons `icon-512.png` + maskable `maskable-512.png`, notifications
   off. Edit this file then `bubblewrap update` — never hand-edit generated Gradle files.
 - **`check-env.ps1`** — a **read-only** Windows PowerShell checker (33.3): verifies JDK 17+, Android SDK,
   adb, node/npm, Bubblewrap, and `twa-manifest.json` validity; prints `PASS`/`WARN`/`FAIL`, exits `1` on a

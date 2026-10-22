@@ -1086,7 +1086,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > Web-side prerequisites, checkable now on the deploy:
 > - [ ] `manifest.webmanifest` `description` names **all seven** games; `name`/`short_name` = **Card
 >       Majlis**; `start_url`/`scope` = `/`; `display` = `standalone`; 192 + 512 + **maskable** icons.
-> - [ ] `index.html` `<meta description>` matches (seven games); `theme-color` = `#0d4f28`.
+> - [ ] `index.html` `<meta description>` matches (seven games); `theme-color` = `#0b0e15` (Midnight; `#0d4f28` when the player picks Classic).
 > - [ ] `public/.well-known/assetlinks.example.json` exists (package `com.cardmajlis.app`, **placeholder**
 >       fingerprint); **no real `assetlinks.json`** in the repo (`/.well-known/assetlinks.json` → 404 on
 >       the deploy until store setup).
@@ -1101,7 +1101,7 @@ friends badges; no horizontal overflow. Not automatable here — listed honestly
 > **Scaffold hygiene (checkable now, no device — guarded by `src/pwa.test.ts`):**
 > - [ ] `git ls-files android-twa` → only `twa-manifest.json`, `check-env.ps1`, `.gitignore`, `README.md`,
 >       `BUILD_LOG_TEMPLATE.md` (no `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`).
-> - [ ] `twa-manifest.json` `packageId` = `com.cardmajlis.app`; `host`/`startUrl`/theme `#0d4f28`/
+> - [ ] `twa-manifest.json` `packageId` = `com.cardmajlis.app`; `host`/`startUrl`/theme `#0b0e15`/
 >       `standalone`/`portrait`/icons match `public/manifest.webmanifest` + `assetlinks.example.json`.
 > - [ ] `android-twa\check-env.ps1` runs read-only and reports JDK/SDK/adb/node/npm/Bubblewrap **plus
 >       config-sanity** (packageId / webManifestUrl / README uses `@bubblewrap/cli`, no wrong `npx

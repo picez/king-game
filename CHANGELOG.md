@@ -17,6 +17,11 @@ also reported at `GET /health/diagnostics` (`version` field).
   that never picked a back cannot be told apart from one that picked green). Picking any
   back — green included — pins it; a pinned green is stored as `green` (whitelist extension,
   no migration).
+- **The installed app wears the Midnight colours (Stage 42.3).** `manifest.webmanifest` and the
+  Android TWA config (`twa-manifest.json`: status bar, navigation bar, splash) move from green
+  `#0d4f28` to the Midnight navy `#0b0e15`, so the home-screen app and its splash match the
+  default theme. The Android app picks this up at its next APK build; a guard test keeps the
+  manifest equal to the default theme colour.
 
 ## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
 

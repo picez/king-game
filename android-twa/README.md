@@ -44,7 +44,7 @@ choose to — the default is to leave it uncommitted and regenerate from `twa-ma
 | **Host / start URL** | `king-game-cqgd.onrender.com` · `/` | **MVP uses the Render subdomain.** Replace with the custom domain (e.g. `cardmajlis.app`) **before a Play release** — Digital Asset Links are tied to the exact origin. |
 | **Display** | `standalone` | Matches manifest. |
 | **Orientation** | `portrait` | Card tables are designed for 360/390 portrait; matches manifest `portrait-primary`. |
-| **Theme / background** | `#0d4f28` | Status/nav bar match the manifest theme. |
+| **Theme / background** | `#0b0e15` (the Midnight theme, v0.7.0+) | Status/nav bar match the manifest theme. |
 | **Icons** | `/icons/icon-512.png`, maskable `/icons/maskable-512.png` | Fetched from the live origin at build time. |
 | **Web manifest** | `…/manifest.webmanifest` | Bubblewrap reads it to fill defaults. |
 | **Notifications** | disabled | No push in the MVP (Stage 33.5, optional). |
@@ -106,7 +106,7 @@ the web manifest, but confirm/enter these:
 | App name / launcher name | `Card Majlis` |
 | Display mode | `standalone` |
 | Orientation | `portrait` |
-| Theme / background / nav colors | `#0d4f28` |
+| Theme / background / nav colors | `#0b0e15` (the Midnight theme, v0.7.0+) |
 | Signing key | create a new local `android.keystore` (keep it off git) |
 
 **Optional — pin the exact committed config.** `init` writes its own `twa-manifest.json`; to force the

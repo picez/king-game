@@ -741,7 +741,7 @@ to the 2 MB input cap) or a known-good png/jpeg/webp:
       `BUILD_LOG_TEMPLATE.md`, `DEBUG_BUILD_EVIDENCE.md` — **no** `app/`, `gradlew`, `*.gradle`, `*.apk`,
       `*.aab`, `*.keystore`, `emulator-*.png`, or `manifest-checksum.txt` (guarded by `src/pwa.test.ts`).
 - [ ] **Config matches manifest:** `twa-manifest.json` `packageId` = `com.cardmajlis.app`, `host`/`startUrl`
-      / theme `#0d4f28` / `standalone` / `portrait` / icons match `public/manifest.webmanifest` and
+      / theme `#0b0e15` / `standalone` / `portrait` / icons match `public/manifest.webmanifest` and
       `assetlinks.example.json` (guarded by `src/pwa.test.ts`).
 - [ ] **Env check runs read-only:** `pwsh android-twa/check-env.ps1` (or `powershell -File …`) prints
       PASS/WARN/FAIL and installs nothing; JDK must be PASS (17+) before a build. It also runs
