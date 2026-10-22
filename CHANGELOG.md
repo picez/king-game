@@ -9,7 +9,14 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Card backs follow the theme by default (Stage 42.2).** A new first option, **Match theme**,
+  draws the sapphire back on Midnight and the green back on Classic, and switches with the
+  theme. It is the default, and the stored legacy value `classic` now means it (an account
+  that never picked a back cannot be told apart from one that picked green). Picking any
+  back — green included — pins it; a pinned green is stored as `green` (whitelist extension,
+  no migration).
 
 ## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
 

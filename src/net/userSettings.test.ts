@@ -22,7 +22,7 @@ describe('userSettings field validators', () => {
     expect(sanitizeCardStyle('blue')).toBe('blue'); // Stage 13.5
     expect(sanitizeCardStyle('dark')).toBe('dark'); // Stage 13.5
     expect(sanitizeCardStyle('holographic')).toBe(DEFAULT_CARD_STYLE);
-    expect(sanitizeCardStyle('green')).toBe(DEFAULT_CARD_STYLE); // client visual value ≠ stored value
+    expect(sanitizeCardStyle('green')).toBe('green'); // Stage 42.2: a PINNED green (classic = follow the theme)
   });
 
   it('validates the card face theme with fallback (Stage 13.5)', () => {

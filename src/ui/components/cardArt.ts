@@ -1,4 +1,5 @@
 import type { Rank, Suit } from '../../models/types';
+import type { AppTheme } from './appTheme';
 
 /**
  * Maps a (suit, rank) to its production face-artwork URL under
@@ -64,11 +65,35 @@ export function normalizeCardBack(v: string | null | undefined): CardBackStyle {
 }
 
 /**
- * Maps a visual style to the server/DB `card_style` value: green → the legacy
- * `'classic'` (so existing rows are never broken); red/blue/dark are stored as-is.
+ * What the player PICKED (Stage 42.2): `'auto'` follows the app theme (sapphire on
+ * Midnight, green on Classic); any concrete style pins that back. `'auto'` is the
+ * default, and the DB's legacy default `'classic'` reads as `'auto'` — an account
+ * that never chose a back cannot be told apart from one that chose green, so it
+ * follows the theme (on the Classic theme that is still the green back).
  */
-export function cardBackToSetting(style: CardBackStyle): 'classic' | 'red' | 'blue' | 'dark' {
-  return style === 'green' ? 'classic' : style;
+export type CardBackChoice = 'auto' | CardBackStyle;
+export const CARD_BACK_CHOICES: readonly CardBackChoice[] = ['auto', ...CARD_BACK_STYLES];
+
+/** Any input → a valid CardBackChoice. Known styles pass through; else → auto. */
+export function normalizeCardBackChoice(v: string | null | undefined): CardBackChoice {
+  return v === 'auto' || (CARD_BACK_STYLES as readonly string[]).includes(v as string)
+    ? (v as CardBackChoice)
+    : 'auto';
+}
+
+/** The back actually drawn for a choice under a theme. */
+export function resolveCardBack(choice: CardBackChoice, theme: AppTheme): CardBackStyle {
+  if (choice !== 'auto') return choice;
+  return theme === 'classic' ? 'green' : 'blue';
+}
+
+/**
+ * Maps a choice to the server/DB `card_style` value: auto → the legacy default
+ * `'classic'` (so existing rows keep meaning "never chose"); a pinned green is
+ * stored as `'green'`; red/blue/dark as-is.
+ */
+export function cardBackToSetting(choice: CardBackChoice): 'classic' | 'green' | 'red' | 'blue' | 'dark' {
+  return choice === 'auto' ? 'classic' : choice;
 }
 
 /**

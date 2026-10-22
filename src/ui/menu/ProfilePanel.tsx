@@ -16,9 +16,9 @@ import GameIcon from '../components/GameIcon';
 import type { Account } from '../../hooks/useAccount';
 import SelectMenu from '../components/SelectMenu';
 import {
-  CARD_BACK_STYLES, cardBackUrl, cardBackWebpUrl, cardBackToSetting, type CardBackStyle,
+  CARD_BACK_CHOICES, cardBackUrl, cardBackWebpUrl, cardBackToSetting, resolveCardBack, type CardBackChoice,
 } from '../components/cardArt';
-import { useCardBackStyle, setCardBackStyle } from '../components/cardBackStore';
+import { useCardBackChoice, setCardBackStyle } from '../components/cardBackStore';
 import { CARD_FACE_THEMES, type CardFaceTheme } from '../components/cardFaceTheme';
 import { useCardFaceTheme, setCardFaceTheme } from '../components/cardFaceStore';
 import { ANIMATION_PREFERENCES, type AnimationPreference } from '../components/motionPref';
@@ -40,7 +40,8 @@ const APP_THEME_LABEL_KEY: Record<AppTheme, string> = {
   classic: 'profile.themeClassic',
 };
 
-const CARD_BACK_LABEL_KEY: Record<CardBackStyle, string> = {
+const CARD_BACK_LABEL_KEY: Record<CardBackChoice, string> = {
+  auto: 'profile.cardBackAuto',
   green: 'profile.cardBackClassic',
   red: 'profile.cardBackRed',
   blue: 'profile.cardBackBlue',
@@ -96,7 +97,7 @@ export default function ProfilePanel({
 }: Props) {
   const { t, lang } = useI18n();
   const firstLang = useRef(true);
-  const cardBack = useCardBackStyle();
+  const cardBack = useCardBackChoice();
   const cardFace = useCardFaceTheme();
   const appTheme = useAppTheme();
   const animation = useMotionPreference();
@@ -223,10 +224,10 @@ export default function ProfilePanel({
   function changeAppTheme(v: AppTheme) {
     setAppTheme(v); saveAppTheme(v);
   }
-  function changeCardBack(v: CardBackStyle) {
+  function changeCardBack(v: CardBackChoice) {
     setCardBackStyle(v); saveCardStyle(v); account.pushCardStyle(cardBackToSetting(v));
   }
-  const cardBackLabel = (s: CardBackStyle) => t(CARD_BACK_LABEL_KEY[s]);
+  const cardBackLabel = (s: CardBackChoice) => t(CARD_BACK_LABEL_KEY[s]);
   // Card face theme is a local, CSS-only visual pref (store + <html data-card-faces>),
   // persisted locally + mirrored to the server profile when signed in.
   function changeCardFace(v: CardFaceTheme) {
@@ -538,14 +539,14 @@ export default function ProfilePanel({
       <div className="field">
         <label className="field__label">{t('profile.cardBack')}</label>
         <div className="cardback-picker" role="radiogroup" aria-label={t('profile.cardBack')}>
-          {CARD_BACK_STYLES.map((s) => (
+          {CARD_BACK_CHOICES.map((s) => (
             <button key={s} type="button" role="radio" aria-checked={cardBack === s}
               className={`cardback-swatch ${cardBack === s ? 'cardback-swatch--on' : ''}`}
               onClick={() => changeCardBack(s)} title={cardBackLabel(s)}>
               <span className="cardback-swatch__art">
                 <picture>
-                  <source srcSet={cardBackWebpUrl(s)} type="image/webp" />
-                  <img src={cardBackUrl(s)} alt="" draggable={false} loading="lazy" decoding="async" />
+                  <source srcSet={cardBackWebpUrl(resolveCardBack(s, appTheme))} type="image/webp" />
+                  <img src={cardBackUrl(resolveCardBack(s, appTheme))} alt="" draggable={false} loading="lazy" decoding="async" />
                 </picture>
               </span>
               <span className="cardback-swatch__label">{cardBackLabel(s)}</span>

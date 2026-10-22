@@ -11,7 +11,7 @@
 
 import type { StorageLike } from './session';
 import { isValidAvatar } from '../core/avatars';
-import { normalizeCardBack, type CardBackStyle } from '../ui/components/cardArt';
+import { normalizeCardBackChoice, type CardBackChoice } from '../ui/components/cardArt';
 import { normalizeMotionPreference, type AnimationPreference } from '../ui/components/motionPref';
 import { normalizeCardFaceTheme, type CardFaceTheme } from '../ui/components/cardFaceTheme';
 import { normalizeAppTheme, type AppTheme } from '../ui/components/appTheme';
@@ -83,16 +83,16 @@ export function saveDefaultTimer(seconds: number, storage: StorageLike | null = 
 }
 
 /**
- * Preferred card-back style (Stage 13.0): 'green' (classic default) or 'red'.
- * A purely visual, local UI preference — never game state. Any legacy/unknown
- * value (e.g. the DB's 'classic') normalises to 'green'.
+ * Preferred card-back CHOICE (Stage 13.0; 'auto' since 42.2): 'auto' follows the app
+ * theme, or a pinned style. A purely visual, local UI preference — never game state.
+ * Any legacy/unknown value (e.g. the DB's 'classic') normalises to 'auto'.
  */
-export function loadCardStyle(storage: StorageLike | null = defaultStorage()): CardBackStyle {
-  return normalizeCardBack(storage?.getItem(CARDBACK_KEY));
+export function loadCardStyle(storage: StorageLike | null = defaultStorage()): CardBackChoice {
+  return normalizeCardBackChoice(storage?.getItem(CARDBACK_KEY));
 }
 
 export function saveCardStyle(style: string, storage: StorageLike | null = defaultStorage()): void {
-  const s = normalizeCardBack(style); // only ever persist a valid style
+  const s = normalizeCardBackChoice(style); // only ever persist a valid choice
   try { storage?.setItem(CARDBACK_KEY, s); } catch { /* non-fatal */ }
 }
 

@@ -53,7 +53,7 @@ describe('card themes DO sync through the profile (HTTP) when signed in', () => 
 
   it('new card BACK styles reuse the existing card_style column (no migration)', () => {
     const settings = read('src/net/userSettings.ts');
-    expect(settings).toContain("SUPPORTED_CARD_STYLES = ['classic', 'red', 'blue', 'dark']");
+    expect(settings).toContain("SUPPORTED_CARD_STYLES = ['classic', 'green', 'red', 'blue', 'dark']");
   });
 });
 

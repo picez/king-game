@@ -706,6 +706,8 @@
 /* Card-back style picker (Stage 13.0; 4 styles in a 2×2 grid at 360/390 — Stage
    13.5): compact swatches with a mini live preview of each back. */
 .cardback-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+/* Stage 42.2: "Match theme" leads on its own row; the four pinned backs sit 2 × 2 below. */
+.cardback-picker > .cardback-swatch:first-child { grid-column: 1 / -1; }
 .cardback-swatch {
   flex: 1 1 0; min-width: 0;
   display: flex; align-items: center; gap: 0.55rem;

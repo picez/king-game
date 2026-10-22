@@ -884,6 +884,7 @@ export const EN: Record<string, string> = {
   'lang.label': 'Language',
   'profile.appearance': 'Appearance',
   'profile.cardBack': 'Card back',
+  'profile.cardBackAuto': 'Match theme',
   'profile.cardBackClassic': 'Classic green',
   'profile.cardBackRed': 'Red gold',
   'profile.cardBackBlue': 'Sapphire blue',

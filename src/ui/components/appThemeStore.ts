@@ -38,6 +38,9 @@ function subscribe(cb: () => void): () => void {
   return () => { listeners.delete(cb); };
 }
 
+/** Non-React subscription (the card-back store re-resolves its 'auto' back). */
+export const subscribeAppTheme = subscribe;
+
 export function useAppTheme(): AppTheme {
   return useSyncExternalStore(subscribe, getAppTheme, getAppTheme);
 }

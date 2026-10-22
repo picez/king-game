@@ -883,6 +883,7 @@ export const AR: Record<string, string> = {
   'mode.trump': 'الحكم',
   'lang.label': 'اللغة',
   'profile.cardBack': 'ظهر البطاقة',
+  'profile.cardBackAuto': 'حسب السمة',
   'profile.cardBackClassic': 'أخضر كلاسيكي',
   'profile.appearance': 'المظهر',
   'profile.cardBackRed': 'أحمر وذهبي',

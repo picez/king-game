@@ -13,7 +13,7 @@ describe('cardBackStore ⇄ <html data-card-back> (Stage 13.1)', () => {
 
   beforeEach(() => {
     el = { dataset: {} };
-    G.document = { documentElement: el };
+    G.document = { documentElement: el, querySelector: () => null }; // the theme store looks up its meta
     vi.resetModules(); // so the module-load applyDom() runs against our stub
   });
   afterEach(() => {
@@ -21,26 +21,35 @@ describe('cardBackStore ⇄ <html data-card-back> (Stage 13.1)', () => {
     vi.resetModules();
   });
 
-  it('stamps the default style (green) on the element at import time', async () => {
-    await import('./cardBackStore'); // no localStorage in node → default green
-    expect(el.dataset.cardBack).toBe('green');
+  it('stamps the default (auto → sapphire on Midnight) on the element at import time', async () => {
+    await import('./cardBackStore'); // no localStorage in node → auto, Midnight
+    expect(el.dataset.cardBack).toBe('blue');
   });
 
-  it('updates the attribute on change and normalises legacy/unknown → green', async () => {
+  it('re-stamps an auto back when the theme changes (Stage 42.2)', async () => {
+    await import('./cardBackStore');
+    const theme = await import('./appThemeStore');
+    theme.setAppTheme('classic');
+    expect(el.dataset.cardBack).toBe('green');
+    theme.setAppTheme('midnight');
+    expect(el.dataset.cardBack).toBe('blue');
+  });
+
+  it('updates the attribute on change and normalises legacy/unknown → auto', async () => {
     const store = await import('./cardBackStore');
     store.setCardBackStyle('red');
     expect(el.dataset.cardBack).toBe('red');
     expect(store.getCardBackStyle()).toBe('red');
 
-    store.setCardBackStyle('classic'); // legacy DB value for the green back
-    expect(el.dataset.cardBack).toBe('green');
+    store.setCardBackStyle('classic'); // legacy DB default → auto → sapphire on Midnight
+    expect(el.dataset.cardBack).toBe('blue');
 
     store.setCardBackStyle('red');
-    store.setCardBackStyle('holographic'); // off the whitelist → green
-    expect(el.dataset.cardBack).toBe('green');
+    store.setCardBackStyle('holographic'); // off the whitelist → auto
+    expect(el.dataset.cardBack).toBe('blue');
 
-    store.setCardBackStyle(null); // idempotent (already green)
-    expect(el.dataset.cardBack).toBe('green');
+    store.setCardBackStyle(null); // idempotent (already auto)
+    expect(el.dataset.cardBack).toBe('blue');
   });
 
   it('notifies subscribers only when the resolved style actually changes', async () => {

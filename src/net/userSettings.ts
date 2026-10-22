@@ -27,7 +27,9 @@ export const DEFAULT_LANG: Lang = 'en';
 // rows are never broken); 'red' = burgundy/gold (Stage 13.0); 'blue' = sapphire,
 // 'dark' = charcoal/gold (Stage 13.5). Whitelist EXTENSION only — no DB schema
 // change (card_style is a free text column; unknown values sanitise to 'classic').
-export const SUPPORTED_CARD_STYLES = ['classic', 'red', 'blue', 'dark'] as const;
+// 'green' (Stage 42.2) = a PINNED green back; 'classic' now means "follow the app
+// theme" (sapphire on Midnight, green on Classic) — the default for every account.
+export const SUPPORTED_CARD_STYLES = ['classic', 'green', 'red', 'blue', 'dark'] as const;
 export type CardStyle = (typeof SUPPORTED_CARD_STYLES)[number];
 export const DEFAULT_CARD_STYLE: CardStyle = 'classic';
 

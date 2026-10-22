@@ -17,9 +17,10 @@ describe('ProfilePanel card-back selector', () => {
   });
 
   it('shows a mini preview per style (picture + WebP source + PNG img)', () => {
-    expect(SRC).toContain('CARD_BACK_STYLES.map');
-    expect(SRC).toContain('cardBackWebpUrl(s)');
-    expect(SRC).toContain('cardBackUrl(s)');
+    expect(SRC).toContain('CARD_BACK_CHOICES.map');
+    // 'auto' previews the back the current theme draws (Stage 42.2).
+    expect(SRC).toContain('cardBackWebpUrl(resolveCardBack(s, appTheme))');
+    expect(SRC).toContain('cardBackUrl(resolveCardBack(s, appTheme))');
   });
 
   it('applies immediately (store), persists locally, and syncs to the server', () => {

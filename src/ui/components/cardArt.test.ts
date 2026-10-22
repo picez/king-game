@@ -14,6 +14,9 @@ import {
   CARD_BACK_STYLES,
   normalizeCardBack,
   cardBackToSetting,
+  CARD_BACK_CHOICES,
+  normalizeCardBackChoice,
+  resolveCardBack,
 } from './cardArt';
 import type { Rank, Suit } from '../../models/types';
 
@@ -126,11 +129,27 @@ describe('card back style selection (Stage 13.0)', () => {
     expect(normalizeCardBack(undefined)).toBe('green');
   });
 
-  it('maps a visual style back to the server setting value (green = classic; rest as-is)', () => {
-    expect(cardBackToSetting('green')).toBe('classic');
+  it('maps a choice to the server setting value (auto = classic; a pinned green = green)', () => {
+    expect(cardBackToSetting('auto')).toBe('classic');
+    expect(cardBackToSetting('green')).toBe('green');
     expect(cardBackToSetting('red')).toBe('red');
     expect(cardBackToSetting('blue')).toBe('blue');
     expect(cardBackToSetting('dark')).toBe('dark');
+  });
+
+  it('the choice adds "auto" first; classic/unknown/null read as auto (Stage 42.2)', () => {
+    expect([...CARD_BACK_CHOICES]).toEqual(['auto', 'green', 'red', 'blue', 'dark']);
+    for (const s of ['auto', 'red', 'green', 'blue', 'dark']) expect(normalizeCardBackChoice(s)).toBe(s);
+    for (const v of ['classic', 'holographic', null, undefined]) expect(normalizeCardBackChoice(v)).toBe('auto');
+  });
+
+  it('auto resolves to sapphire on Midnight and green on Classic; a pinned back ignores the theme', () => {
+    expect(resolveCardBack('auto', 'midnight')).toBe('blue');
+    expect(resolveCardBack('auto', 'classic')).toBe('green');
+    for (const s of CARD_BACK_STYLES) {
+      expect(resolveCardBack(s, 'midnight')).toBe(s);
+      expect(resolveCardBack(s, 'classic')).toBe(s);
+    }
   });
 
   it('cardBackUrl / cardBackWebpUrl resolve per style; default stays green', () => {

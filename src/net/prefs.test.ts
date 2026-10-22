@@ -35,21 +35,21 @@ describe('prefs — guest device handle (Stage 4)', () => {
 });
 
 describe('prefs — card back style (Stage 13.0)', () => {
-  it('defaults to green and round-trips every back style (Stage 13.5)', () => {
+  it('defaults to auto and round-trips every choice (Stage 13.5; auto 42.2)', () => {
     const s = mem();
-    expect(loadCardStyle(s)).toBe('green');
-    for (const style of ['red', 'blue', 'dark', 'green'] as const) {
+    expect(loadCardStyle(s)).toBe('auto');
+    for (const style of ['red', 'blue', 'dark', 'green', 'auto'] as const) {
       saveCardStyle(style, s);
       expect(loadCardStyle(s)).toBe(style);
     }
   });
 
-  it('maps the legacy "classic" value and rejects junk → green', () => {
+  it('maps the legacy "classic" value and rejects junk → auto', () => {
     const s = mem();
-    saveCardStyle('classic', s);        // legacy DB value → normalised to green
-    expect(loadCardStyle(s)).toBe('green');
-    saveCardStyle('holographic', s);    // off the whitelist → green
-    expect(loadCardStyle(s)).toBe('green');
+    saveCardStyle('classic', s);        // legacy DB default → auto
+    expect(loadCardStyle(s)).toBe('auto');
+    saveCardStyle('holographic', s);    // off the whitelist → auto
+    expect(loadCardStyle(s)).toBe('auto');
   });
 });
 

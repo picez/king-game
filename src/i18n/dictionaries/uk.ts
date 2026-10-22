@@ -883,6 +883,7 @@ export const UK: Record<string, string> = {
   'mode.trump': 'Козир',
   'lang.label': 'Мова',
   'profile.cardBack': 'Сорочка карт',
+  'profile.cardBackAuto': 'Під тему',
   'profile.cardBackClassic': 'Класична зелена',
   'profile.appearance': 'Вигляд',
   'profile.cardBackRed': 'Червоно-золота',

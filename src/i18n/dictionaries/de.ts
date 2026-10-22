@@ -883,6 +883,7 @@ export const DE: Record<string, string> = {
   'mode.trump': 'Trumpf',
   'lang.label': 'Sprache',
   'profile.cardBack': 'Kartenrückseite',
+  'profile.cardBackAuto': 'Passend zum Theme',
   'profile.cardBackClassic': 'Klassisch Grün',
   'profile.appearance': 'Darstellung',
   'profile.cardBackRed': 'Rot-Gold',
