@@ -603,13 +603,14 @@ store.
   `ANDROID_CERT_SHA256` (comma list) — no code change. The guards that forbid a committed
   `public/.well-known/assetlinks.json` still hold. The onrender subdomain works for verification; a
   custom domain (§9a) stays recommended before a store launch.
-- **Build (this machine):** `twa-manifest.json` → `appVersionName 0.6.1`, `appVersionCode 601`
-  (0.6.1 → 601: major·10000 + minor·100 + patch; it must only ever grow), `minSdkVersion 24`
+- **Build (this machine):** `twa-manifest.json` → `appVersionName 0.7.1`, `appVersionCode 701`
+  (0.7.1 → 701: major·10000 + minor·100 + patch; it must only ever grow), `minSdkVersion 24`
   (Android 7.0 — `androidbrowserhelper` 2.7.4 refuses 21). Then `bubblewrap update --skipVersionUpgrade`
   → `gradlew.bat assembleRelease bundleRelease` → `zipalign` + `apksigner sign` (APK) / `jarsigner`
   (AAB) with the release key. Outputs go to `C:\Users\User\CardMajlisKeys\builds\` — never into the repo.
-- **Install:** send `CardMajlis-0.6.1.apk` to the phone and open it (allow "install unknown apps" for
-  the file manager/browser once). It opens **full-screen** once the phone has fetched the Asset Links.
+- **Install:** send `CardMajlis-0.7.1.apk` to the phone and open it (allow "install unknown apps" for
+  the file manager/browser once). It opens **full-screen** once the phone has fetched the Asset Links
+  (0.7.1 checked 2026-10-22 on the `Medium_Phone_API_36.1` emulator: full-screen, no URL bar, navy bars).
 - **Still owner-side for a store listing:** Google Play Console account, the `.aab` upload to an internal
   track, the Play App-Signing SHA into `ANDROID_CERT_SHA256`, store listing assets (§6b), privacy policy
   URL, Data safety form. iOS stays a PWA (§8).
