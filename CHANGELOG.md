@@ -9,6 +9,21 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
+
+> Packages Stages 41.1–42.1: the navy **Midnight** look as the default (green kept as
+> Classic), one dealt-cards **end-of-match screen** for all seven games, Preferans misère +
+> распасы and Tarneeb Kaboot + No-Trump as **host options** (with tutorial steps and four
+> achievements, catalog 52 → 56), **Durak for up to 6 players** and its «Погоны» line, the
+> poker table redesigned for phones, a "your turn" sound and **per-IP HTTP rate limits**
+> (`TRUST_PROXY` set on Render). No migration (latest stays `0014`), no dependency change.
+> **Owner sign-off 2026-10-22:** the theme was checked on a phone with no complaints, and the
+> owner runs the manual checks live with players every day — the long-owed
+> `PRODUCTION_SMOKE.md` §0 owner pass is closed by that decision. Also: the Poker
+> anti-dumping day tests now run on a fixed clock (a CI run at 23:21 UTC crossed midnight).
+
 ### Changed
 
 - **One new end-of-match screen for all seven games (Stage 42.1).** The result is dealt
