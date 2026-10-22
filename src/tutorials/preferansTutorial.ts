@@ -29,7 +29,7 @@ export const preferansTutorial: Tutorial = {
       estimatedSeconds: 15,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.target', text: 'target 10' }],
+        chips: [{ id: 'zone.target', textKey: 'tutorial.chip.preferans.target' }],
         hand: [c('h1', 'spades', 'A'), c('h2', 'spades', 'K'), c('h3', 'hearts', 'A'), c('h4', 'diamonds', '10'), c('h5', 'clubs', 'K')],
       },
       highlight: [{ targetId: 'zone.target', pulse: true }],
@@ -42,7 +42,7 @@ export const preferansTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         seats: [YOU, DEF_L, DEF_R],
-        chips: [{ id: 'zone.contract', text: '6–10 × ♠♣♦♥ / NT' }],
+        chips: [{ id: 'zone.contract', textKey: 'tutorial.chip.preferans.contracts' }],
       },
       highlight: [{ targetId: 's.me', pulse: true }, { targetId: 'zone.contract' }],
     },
@@ -53,7 +53,7 @@ export const preferansTutorial: Tutorial = {
       estimatedSeconds: 16,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.talon', text: 'talon +2 · bury 2', tone: 'gold' }],
+        chips: [{ id: 'zone.talon', textKey: 'tutorial.chip.preferans.talon', tone: 'gold' }],
         hand: [c('h1', 'spades', 'A'), c('h2', 'spades', 'K'), c('h3', 'hearts', 'A'), c('h4', 'diamonds', '10')],
       },
       highlight: [{ targetId: 'zone.talon', pulse: true }],
@@ -78,7 +78,7 @@ export const preferansTutorial: Tutorial = {
       estimatedSeconds: 15,
       scene: {
         layout: 'trick',
-        chips: [{ id: 'zone.leads', text: 'winner leads next →' }],
+        chips: [{ id: 'zone.leads', textKey: 'tutorial.chip.preferans.leads' }],
         trick: [tc('t.win', c('tw', 'diamonds', 'A'), { winner: true })],
       },
       highlight: [{ targetId: 'tw', pulse: true }, { targetId: 'zone.leads' }],
@@ -91,8 +91,8 @@ export const preferansTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.make', text: 'make level → score', tone: 'good' },
-          { id: 'zone.miss', text: 'miss → defenders score', tone: 'bad' },
+          { id: 'zone.make', textKey: 'tutorial.chip.preferans.make', tone: 'good' },
+          { id: 'zone.miss', textKey: 'tutorial.chip.preferans.miss', tone: 'bad' },
         ],
       },
       highlight: [{ targetId: 'zone.make' }, { targetId: 'zone.miss' }],
@@ -106,8 +106,8 @@ export const preferansTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.misere', text: 'misère: 0 tricks → +5', tone: 'gold' },
-          { id: 'zone.allpass', text: 'all pass → fewest tricks +1', tone: 'good' },
+          { id: 'zone.misere', textKey: 'tutorial.chip.preferans.misere', tone: 'gold' },
+          { id: 'zone.allpass', textKey: 'tutorial.chip.preferans.allPass', tone: 'good' },
         ],
         hand: [c('h1', 'spades', '7'), c('h2', 'hearts', '8'), c('h3', 'diamonds', '7'), c('h4', 'clubs', '9')],
       },

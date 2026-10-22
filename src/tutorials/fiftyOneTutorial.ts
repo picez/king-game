@@ -72,7 +72,7 @@ export const fiftyOneTutorial: Tutorial = {
       scene: {
         layout: 'meld',
         discardTop: c('disc', 'spades', '4'),
-        chips: [{ id: 'zone.take', text: 'Take & open 51', tone: 'gold' }],
+        chips: [{ id: 'zone.take', textKey: 'tutorial.chip.fiftyOne.takeOpen', tone: 'gold' }],
         hand: [c('h1', 'spades', '5'), c('h2', 'spades', '6'), c('h3', 'hearts', 'A'), c('h4', 'diamonds', 'A'), c('h5', 'clubs', 'A')],
       },
       highlight: [{ targetId: 'zone.discard', pulse: true }, { targetId: 'zone.take' }],
@@ -103,7 +103,7 @@ export const fiftyOneTutorial: Tutorial = {
       estimatedSeconds: 18,
       scene: {
         layout: 'meld',
-        chips: [{ id: 'zone.jhand', text: '🃏 in hand = 25', tone: 'bad' }],
+        chips: [{ id: 'zone.jhand', textKey: 'tutorial.chip.fiftyOne.jokerHand', tone: 'bad' }],
         melds: [
           { id: 'm.jok', cards: [c('j1', 'diamonds', '7'), joker('j2', { suit: 'diamonds', rank: '8' }), c('j3', 'diamonds', '9')] },
         ],
@@ -120,8 +120,8 @@ export const fiftyOneTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.you', text: 'You 0', tone: 'good' },
-          { id: 'zone.r1', text: 'Rival 100', tone: 'default' },
+          { id: 'zone.you', textKey: 'tutorial.chip.fiftyOne.you', tone: 'good' },
+          { id: 'zone.r1', textKey: 'tutorial.chip.fiftyOne.rival', tone: 'default' },
           { id: 'zone.elim', text: '☠ 510', tone: 'bad' },
         ],
         hand: [],

@@ -174,3 +174,16 @@ describe('tutorial purity (no engine/net/server; scripted only)', () => {
     });
   }
 });
+
+describe('scene chips never show untranslated words (Stage 42.6)', () => {
+  it('a literal chip text holds only symbols, numbers and 1–2 letter marks (SB, BB, D, Q)', () => {
+    for (const id of GAME_TYPES) {
+      for (const step of TUTORIALS[id].steps) {
+        for (const chip of step.scene.chips ?? []) {
+          expect(Boolean(chip.text) !== Boolean(chip.textKey), `${id}/${step.id}/${chip.id}: text XOR textKey`).toBe(true);
+          if (chip.text) expect(chip.text, `${id}/${step.id}/${chip.id}`).not.toMatch(/\p{L}{3,}/u);
+        }
+      }
+    }
+  });
+});

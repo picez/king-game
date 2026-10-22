@@ -24,7 +24,7 @@ export const debercTutorial: Tutorial = {
       estimatedSeconds: 15,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.solo', text: 'Solo · 3' }, { id: 'zone.pairs', text: 'Pairs · 4' }],
+        chips: [{ id: 'zone.solo', textKey: 'tutorial.chip.deberc.solo' }, { id: 'zone.pairs', textKey: 'tutorial.chip.deberc.pairs' }],
         hand: [c('h1', 'clubs', 'A'), c('h2', 'clubs', 'K'), c('h3', 'hearts', '9'), c('h4', 'spades', '10'), c('h5', 'diamonds', 'J')],
       },
       highlight: [{ targetId: 'zone.solo' }, { targetId: 'zone.pairs' }],
@@ -37,7 +37,7 @@ export const debercTutorial: Tutorial = {
       scene: {
         layout: 'trick',
         trump: 'clubs',
-        chips: [{ id: 'zone.bid', text: 'bid on 6 cards' }],
+        chips: [{ id: 'zone.bid', textKey: 'tutorial.chip.deberc.bid' }],
         trick: [tc('t.tt', c('tt', 'clubs', '10'))],
         hand: [c('h1', 'clubs', 'A'), c('h2', 'clubs', '7'), c('h3', 'hearts', '9'), c('h4', 'spades', '10')],
       },
@@ -50,7 +50,7 @@ export const debercTutorial: Tutorial = {
       estimatedSeconds: 17,
       scene: {
         layout: 'meld',
-        chips: [{ id: 'zone.terce', text: 'Terce 20' }, { id: 'zone.palt', text: '50' }],
+        chips: [{ id: 'zone.terce', textKey: 'tutorial.chip.deberc.terce' }, { id: 'zone.palt', text: '50' }],
         melds: [
           { id: 'm.terce', cards: [c('e1', 'spades', '9'), c('e2', 'spades', '10'), c('e3', 'spades', 'J')] },
           { id: 'm.palt', cards: [c('p1', 'hearts', '7'), c('p2', 'hearts', '8'), c('p3', 'hearts', '9'), c('p4', 'hearts', '10')] },
@@ -65,7 +65,7 @@ export const debercTutorial: Tutorial = {
       estimatedSeconds: 17,
       scene: {
         layout: 'meld',
-        chips: [{ id: 'zone.len', text: '5 > 4 · length first', tone: 'good' }],
+        chips: [{ id: 'zone.len', textKey: 'tutorial.chip.deberc.length', tone: 'good' }],
         melds: [
           { id: 'm.p5', cards: [c('a1', 'spades', '5'), c('a2', 'spades', '6'), c('a3', 'spades', '7'), c('a4', 'spades', '8'), c('a5', 'spades', '9')] },
           { id: 'm.p4', cards: [c('b1', 'hearts', 'J'), c('b2', 'hearts', 'Q'), c('b3', 'hearts', 'K'), c('b4', 'hearts', 'A')] },
@@ -96,7 +96,7 @@ export const debercTutorial: Tutorial = {
       scene: {
         layout: 'trick',
         trump: 'clubs',
-        chips: [{ id: 'zone.bela', text: '🔔 Bela +20 if won', tone: 'gold' }],
+        chips: [{ id: 'zone.bela', textKey: 'tutorial.chip.deberc.bela', tone: 'gold' }],
         trick: [tc('t.k', c('k.c', 'clubs', 'K'), { winner: true }), tc('t.9', c('n.d', 'diamonds', '9'))],
         hand: [c('h.q', 'clubs', 'Q'), c('h2', 'spades', '8')],
       },
@@ -109,7 +109,7 @@ export const debercTutorial: Tutorial = {
       estimatedSeconds: 15,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.last', text: 'last trick +10', tone: 'good' }, { id: 'zone.tot', text: 'cards + melds' }],
+        chips: [{ id: 'zone.last', textKey: 'tutorial.chip.deberc.lastTrick', tone: 'good' }, { id: 'zone.tot', textKey: 'tutorial.chip.deberc.total' }],
       },
       highlight: [{ targetId: 'zone.last', pulse: true }],
     },

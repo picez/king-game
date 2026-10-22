@@ -30,7 +30,7 @@ export const tarneebTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         seats: [YOU, PARTNER, RIVAL_L, RIVAL_R],
-        chips: [{ id: 'zone.pairs', text: 'Pairs · 2×2' }, { id: 'zone.solo', text: 'Solo' }],
+        chips: [{ id: 'zone.pairs', textKey: 'tutorial.chip.tarneeb.pairs' }, { id: 'zone.solo', textKey: 'tutorial.chip.tarneeb.solo' }],
       },
       highlight: [{ targetId: 's.partner', pulse: true }, { targetId: 'zone.pairs' }],
     },
@@ -41,7 +41,7 @@ export const tarneebTutorial: Tutorial = {
       estimatedSeconds: 17,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.b1', text: 'You: 7', tone: 'good' }, { id: 'zone.b2', text: 'Rival: pass' }],
+        chips: [{ id: 'zone.b1', textKey: 'tutorial.chip.tarneeb.you', tone: 'good' }, { id: 'zone.b2', textKey: 'tutorial.chip.tarneeb.rivalPass' }],
         hand: [c('h1', 'spades', 'A'), c('h2', 'spades', 'K'), c('h3', 'spades', 'Q'), c('h4', 'hearts', 'A'), c('h5', 'clubs', '10')],
       },
       highlight: [{ targetId: 'zone.b1', pulse: true }],
@@ -54,7 +54,7 @@ export const tarneebTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         trump: 'spades',
-        chips: [{ id: 'zone.tb', text: 'top bidder → ♠ + leads' }],
+        chips: [{ id: 'zone.tb', textKey: 'tutorial.chip.tarneeb.topBidder' }],
         hand: [c('h1', 'spades', 'A'), c('h2', 'spades', 'K'), c('h3', 'spades', 'Q'), c('h4', 'hearts', 'A')],
       },
       highlight: [{ targetId: 'zone.trump', pulse: true }],
@@ -81,7 +81,7 @@ export const tarneebTutorial: Tutorial = {
       scene: {
         layout: 'trick',
         trump: 'spades',
-        chips: [{ id: 'zone.void', text: 'void → trump wins', tone: 'good' }],
+        chips: [{ id: 'zone.void', textKey: 'tutorial.chip.tarneeb.void', tone: 'good' }],
         trick: [tc('t.lead', c('tl', 'hearts', 'A'), { lead: true }), tc('t.win', c('tw', 'spades', '2'), { winner: true })],
         hand: [c('h.2s', 'spades', '2'), c('h.kd', 'diamonds', 'K'), c('h.5c', 'clubs', '5')],
       },
@@ -95,10 +95,10 @@ export const tarneebTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.exact', text: 'exact = ×2', tone: 'good' },
-          { id: 'zone.over', text: 'over = tricks' },
-          { id: 'zone.miss', text: 'miss = −', tone: 'bad' },
-          { id: 'zone.target', text: 'target 41' },
+          { id: 'zone.exact', textKey: 'tutorial.chip.tarneeb.exact', tone: 'good' },
+          { id: 'zone.over', textKey: 'tutorial.chip.tarneeb.over' },
+          { id: 'zone.miss', textKey: 'tutorial.chip.tarneeb.miss', tone: 'bad' },
+          { id: 'zone.target', textKey: 'tutorial.chip.tarneeb.target' },
         ],
       },
       highlight: [{ targetId: 'zone.exact', pulse: true }],
@@ -112,9 +112,9 @@ export const tarneebTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.nt', text: 'NT · no trump', tone: 'gold' },
+          { id: 'zone.nt', textKey: 'tutorial.chip.tarneeb.nt', tone: 'gold' },
           { id: 'zone.kaboot', text: '13/13 → +16', tone: 'good' },
-          { id: 'zone.fail13', text: 'bid 13 missed → −16', tone: 'bad' },
+          { id: 'zone.fail13', textKey: 'tutorial.chip.tarneeb.fail13', tone: 'bad' },
         ],
       },
       highlight: [{ targetId: 'zone.nt', pulse: true }, { targetId: 'zone.kaboot' }],

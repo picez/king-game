@@ -59,11 +59,13 @@ export interface TutorialPair {
   beaten?: boolean;
 }
 
-/** A small info chip (score, elimination target, a note). `text` is literal
- *  (symbols/numbers, language-neutral); prose lives in the step captions. */
+/** A small info chip (score, elimination target, a note). `text` is literal and
+ *  language-neutral (symbols/numbers only); any WORD goes through `textKey`, an i18n
+ *  key (Stage 42.6 — the chips used to show English in every language). */
 export interface TutorialChip {
   id: string;
-  text: string;
+  text?: string;
+  textKey?: string;
   tone?: 'default' | 'good' | 'bad' | 'gold';
 }
 

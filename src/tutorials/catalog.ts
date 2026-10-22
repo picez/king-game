@@ -54,6 +54,7 @@ export function allTutorialContentKeys(): string[] {
     for (const step of tut.steps) {
       keys.push(step.titleKey, step.bodyKey);
       if (step.actionHintKey) keys.push(step.actionHintKey);
+      for (const chip of step.scene.chips ?? []) if (chip.textKey) keys.push(chip.textKey);
     }
   }
   return keys;

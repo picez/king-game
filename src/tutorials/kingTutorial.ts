@@ -26,7 +26,7 @@ export const kingTutorial: Tutorial = {
       estimatedSeconds: 16,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.win', text: '↓ lowest total wins', tone: 'good' }],
+        chips: [{ id: 'zone.win', textKey: 'tutorial.chip.king.lowestTotal', tone: 'good' }],
         hand: [c('h1', 'spades', 'K'), c('h2', 'hearts', 'Q'), c('h3', 'diamonds', '10'), c('h4', 'clubs', '7'), c('h5', 'spades', '9')],
       },
       highlight: [{ targetId: 'zone.win', pulse: true }],
@@ -68,10 +68,10 @@ export const kingTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.m1', text: '🚫 tricks', tone: 'bad' },
+          { id: 'zone.m1', textKey: 'tutorial.chip.king.noTricks', tone: 'bad' },
           { id: 'zone.m2', text: '♥ ✗', tone: 'bad' },
           { id: 'zone.m3', text: 'Q ✗', tone: 'bad' },
-          { id: 'zone.m4', text: '♠ Trump +', tone: 'good' },
+          { id: 'zone.m4', textKey: 'tutorial.chip.king.trumpPlus', tone: 'good' },
         ],
       },
       highlight: [{ targetId: 'zone.m4', pulse: true }],
@@ -84,8 +84,8 @@ export const kingTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.neg', text: 'negative round = −', tone: 'bad' },
-          { id: 'zone.pos', text: 'Trump round = +', tone: 'good' },
+          { id: 'zone.neg', textKey: 'tutorial.chip.king.negRound', tone: 'bad' },
+          { id: 'zone.pos', textKey: 'tutorial.chip.king.trumpRound', tone: 'good' },
         ],
       },
       highlight: [{ targetId: 'zone.neg' }, { targetId: 'zone.pos' }],
@@ -98,9 +98,9 @@ export const kingTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.you', text: 'You 12', tone: 'good' },
-          { id: 'zone.rival', text: 'Rival 30', tone: 'default' },
-          { id: 'zone.win', text: '↓ lowest wins', tone: 'good' },
+          { id: 'zone.you', textKey: 'tutorial.chip.king.you', tone: 'good' },
+          { id: 'zone.rival', textKey: 'tutorial.chip.king.rival', tone: 'default' },
+          { id: 'zone.win', textKey: 'tutorial.chip.king.lowest', tone: 'good' },
         ],
       },
       highlight: [{ targetId: 'zone.you', pulse: true }, { targetId: 'zone.win' }],

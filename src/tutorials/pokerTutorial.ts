@@ -55,10 +55,10 @@ export const pokerTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.fold', text: 'Fold', tone: 'bad' },
-          { id: 'zone.call', text: 'Call', tone: 'default' },
-          { id: 'zone.raise', text: 'Raise', tone: 'good' },
-          { id: 'zone.allin', text: 'All-in', tone: 'gold' },
+          { id: 'zone.fold', textKey: 'tutorial.chip.poker.fold', tone: 'bad' },
+          { id: 'zone.call', textKey: 'tutorial.chip.poker.call', tone: 'default' },
+          { id: 'zone.raise', textKey: 'tutorial.chip.poker.raise', tone: 'good' },
+          { id: 'zone.allin', textKey: 'tutorial.chip.poker.allIn', tone: 'gold' },
         ],
         hand: [c('h1', 'hearts', 'J'), c('h2', 'hearts', '10')],
       },
@@ -72,7 +72,7 @@ export const pokerTutorial: Tutorial = {
       estimatedSeconds: 16,
       scene: {
         layout: 'meld',
-        chips: [{ id: 'zone.flop', text: 'Flop 3 · Turn 1 · River 1', tone: 'default' }],
+        chips: [{ id: 'zone.flop', textKey: 'tutorial.chip.poker.streets', tone: 'default' }],
         melds: [{ id: 'board', cards: [c('b1', 'spades', '10'), c('b2', 'hearts', 'J'), c('b3', 'diamonds', 'Q'), c('b4', 'clubs', '3'), c('b5', 'spades', '8')] }],
         hand: [c('h1', 'clubs', 'A'), c('h2', 'spades', 'K')],
       },
@@ -86,7 +86,7 @@ export const pokerTutorial: Tutorial = {
       estimatedSeconds: 17,
       scene: {
         layout: 'meld',
-        chips: [{ id: 'zone.rank', text: '♠A ♠K ♠Q ♠J ♠10 — Royal!', tone: 'gold' }],
+        chips: [{ id: 'zone.rank', textKey: 'tutorial.chip.poker.royal', tone: 'gold' }],
         melds: [{ id: 'board', cards: [c('b1', 'spades', 'Q'), c('b2', 'spades', 'J'), c('b3', 'spades', '10'), c('b4', 'hearts', '3'), c('b5', 'clubs', '4')] }],
         hand: [c('h1', 'spades', 'A'), c('h2', 'spades', 'K')],
       },
@@ -101,9 +101,9 @@ export const pokerTutorial: Tutorial = {
       scene: {
         layout: 'hand-only',
         chips: [
-          { id: 'zone.main', text: 'Main pot', tone: 'good' },
-          { id: 'zone.side', text: 'Side pot', tone: 'default' },
-          { id: 'zone.fold', text: 'All fold → you win', tone: 'gold' },
+          { id: 'zone.main', textKey: 'tutorial.chip.poker.mainPot', tone: 'good' },
+          { id: 'zone.side', textKey: 'tutorial.chip.poker.sidePot', tone: 'default' },
+          { id: 'zone.fold', textKey: 'tutorial.chip.poker.allFold', tone: 'gold' },
         ],
         hand: [c('h1', 'diamonds', 'A'), c('h2', 'clubs', 'A')],
       },
@@ -117,7 +117,7 @@ export const pokerTutorial: Tutorial = {
       estimatedSeconds: 15,
       scene: {
         layout: 'hand-only',
-        chips: [{ id: 'zone.priv', text: '🔒 Hole cards private', tone: 'good' }],
+        chips: [{ id: 'zone.priv', textKey: 'tutorial.chip.poker.private', tone: 'good' }],
         hand: [c('h1', 'hearts', 'K'), c('h2', 'spades', '9')],
       },
       highlight: [{ targetId: 'zone.priv', pulse: true }],

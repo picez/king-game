@@ -34,6 +34,15 @@ also reported at `GET /health/diagnostics` (`version` field).
   step adds **Practice with bots**, which opens that game's real local table — for King the
   setup now pre-fills bots in seats 2–4. Skip never ticks. i18n ×4.
 
+### Fixed
+
+- **Tutorial scenes speak your language (Stage 42.6).** The small labels on the tutorial
+  boards ("You 12", "Rival 30", "lowest wins", "Main pot", "talon +2 · bury 2"…) were English
+  in every language. 53 of them, across all seven tutorials, now come from the dictionaries
+  (×4, using the same terms as the game screens); pure symbols and numbers stay literal. A guard
+  test fails if a chip ever shows a word without a translation. Checked every step of every
+  tutorial at 360px in Ukrainian and Arabic: no overflow.
+
 ## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
 
 > Packages Stages 41.1–42.1: the navy **Midnight** look as the default (green kept as

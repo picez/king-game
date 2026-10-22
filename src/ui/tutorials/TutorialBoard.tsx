@@ -117,7 +117,7 @@ export default function TutorialBoard({ scene, highlightIds, pulseIds }: Props) 
         <div className="tutorial-chips">
           {scene.chips.map((chip) => (
             <span key={chip.id} className={`tutorial-chip tutorial-chip--${chip.tone ?? 'default'}${hl(chip.id)}`}>
-              {chip.text}
+              {chip.textKey ? t(chip.textKey) : chip.text}
             </span>
           ))}
         </div>
