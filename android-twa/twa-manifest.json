@@ -23,8 +23,8 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionName": "0.6.1",
-  "appVersionCode": 601,
+  "appVersionName": "0.7.1",
+  "appVersionCode": 701,
   "shellApkVersion": 1,
   "webManifestUrl": "https://king-game-cqgd.onrender.com/manifest.webmanifest",
   "fallbackType": "customtabs",
@@ -40,5 +40,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "0.6.1"
+  "appVersion": "0.7.1"
 }

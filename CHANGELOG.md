@@ -9,6 +9,11 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-10-22 — Theme card backs, real places, tutorial practice
+
+> Packages Stages 42.2–42.6: card backs follow the theme, the installed app and Android TWA wear the Midnight colours, real finishing places in Durak and Poker, tutorial ✓ progress + Practice with bots, translated tutorial scene labels. No migration (latest stays `0014`), no dependency
+> change; the server only widens the card-style whitelist (`green`).
+
 ### Changed
 
 - **Card backs follow the theme by default (Stage 42.2).** A new first option, **Match theme**,
