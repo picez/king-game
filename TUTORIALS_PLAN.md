@@ -56,6 +56,7 @@ A simple sheet (reuse the `.sheet` / `.sheet__head` pattern already used by Prof
 - **Back** button → `setPane('menu')`.
 - **Progress (optional, post-MVP):** a small “✓ done” tick per game, persisted in `localStorage`
   (client-only, like the favorite game). NOT in the MVP — the hub is stateless at first.
+  **Shipped in Stage 42.5** (`src/tutorials/progress.ts`, key `king.tutorialsDone.v1`).
 - The hub is reachable **without an account** and **offline** (no network, no stats).
 
 ### 1.3 Tutorial player
@@ -392,7 +393,8 @@ intact.
 | **31.0** | This plan (design only). ✅ |
 | **31.1** | **✅ DONE.** Framework shipped: `src/tutorials/` + UI (`TutorialHub` / `TutorialPlayer` / `TutorialBoard`), `styles/tutorials.css`, the `'tutorials'` StartMenu pane + tile, i18n ×4, guard tests. **51 (7 steps)** + **Durak (6 steps)** scripted; the other four were **“Coming next”** placeholders. |
 | **31.2** | **✅ DONE.** **King (6)**, **Deberc (7)**, **Tarneeb (6)**, **Preferans (6, light)** scripted → **all 6 enabled**, no placeholders. Added a minimal generic `TutorialScene.trick` (standard-trick centre row: lead badge + winner ring) reused by King/Tarneeb/Preferans. i18n ×4 (incl. `tutorial.seat.partner`, `tutorial.role.declarer`). Guards extended (all-6-enabled, 5–8 steps + ≤120 s, dup step ids, "Палтіна" spelling, Preferans-no-unsupported-variants). Visual smoke (`scripts/tutorial-shots.mjs`) confirms **0 horizontal overflow** at 360/390 for the hub + a step per game. |
-| **31.3+** | (Optional/future) Practice mode, progress ticks; Arabic RTL screenshot automation (today RTL is source-guarded via `dir="ltr"` card rows + logical CSS + manual QA). |
+| **42.5** | **✅ DONE.** **Progress ticks:** finishing a tutorial (Done, or Practice on the last step) marks it "✓ Done" in the hub and relabels its button "Again" — `src/tutorials/progress.ts`, localStorage only; Skip never ticks. **Practice:** the last step offers "Practice with bots", which opens that game's real local table (the real reducer enforces every rule). The six other games already seat you + bots; King's setup pre-fills bots when opened as practice. No scripted sandbox and no undo — the real game is the practice. |
+| **42.5+** | (Optional/future) Arabic RTL screenshot automation (today RTL is source-guarded via `dir="ltr"` card rows + logical CSS + manual QA). |
 
 > **Implementation note (31.1):** the scene model landed slightly leaner than §5 — a flat
 > `TutorialScene` (`layout` + `seats` / `pairs` / `melds` / `discardTop` / `drawCount` / `chips` /

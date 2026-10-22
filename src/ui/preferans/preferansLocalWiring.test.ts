@@ -33,7 +33,7 @@ describe('App routes local Preferans to its own screen', () => {
     expect(app).toContain('<PreferansLocalGame');
     expect(app).toContain("import PreferansLocalGame from './ui/preferans/PreferansLocalGame'");
     // King is still routed to its own LocalGame — behaviour unchanged.
-    expect(app).toContain('<LocalGame />');
+    expect(app).toContain('<LocalGame practice={mode.practice} />');
   });
 });
 

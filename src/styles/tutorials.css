@@ -37,6 +37,12 @@
   flex: 1 1 auto;
 }
 .tutorial-row__name { font-weight: 700; }
+/* Stage 42.5: a finished tutorial carries a small tick beside its name. */
+.tutorial-row__done {
+  margin-inline-start: 0.4rem; padding: 0.05rem 0.4rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  color: var(--accent-light); background: rgb(var(--accent-rgb) / 0.16);
+}
 .tutorial-row__learn {
   font-size: 0.8rem;
   opacity: 0.85;
@@ -190,3 +196,7 @@
 }
 .tutorial-btn { min-height: 44px; flex: 1 1 0; }
 .tutorial-btn--skip { flex: 0 0 auto; }
+/* Stage 42.5: on the last step Practice takes its own full-width row under Back · Done,
+   so the long label never pushes the row past a 360px screen. */
+.tutorial-controls:has(.tutorial-btn--practice) { flex-wrap: wrap; }
+.tutorial-btn--practice { flex: 1 1 100%; order: 3; }

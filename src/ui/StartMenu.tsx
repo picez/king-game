@@ -54,7 +54,7 @@ const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', '
 
 interface Props {
   /** Start a local game of the selected type (King unchanged; Durak prototype). */
-  onLocal: (gameType: GameType) => void;
+  onLocal: (gameType: GameType, opts?: { practice?: boolean }) => void;
   onOnline: (url: string, intent: OnlineIntent, signedIn?: boolean) => void;
   /** A join error carried back from a failed attempt (highlights the field). */
   initialError?: ErrorCode | null;
@@ -456,7 +456,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       )}
 
       {pane === 'tutorials' && (
-        <TutorialHub onExit={() => setPane('menu')} />
+        <TutorialHub onExit={() => setPane('menu')} onPractice={(g) => onLocal(g, { practice: true })} />
       )}
 
       {pane === 'profile' && (

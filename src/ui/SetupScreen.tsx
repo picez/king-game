@@ -6,18 +6,23 @@ import type { PlayerType } from '../models/types';
 const DEFAULT_NAMES_3 = ['Alice', 'Bob', 'Carol'];
 const DEFAULT_NAMES_4 = ['Alice', 'Bob', 'Carol', 'Dave'];
 
-export default function SetupScreen() {
+/** Seat types for `n` players: all humans (pass-and-play), or you + bots for practice (Stage 42.5). */
+function defaultTypes(n: number, practice?: boolean): PlayerType[] {
+  return Array.from({ length: n }, (_, i) => (practice && i > 0 ? 'ai' : 'human'));
+}
+
+export default function SetupScreen({ practice }: { practice?: boolean } = {}) {
   const { dispatch } = useGame();
   const { t } = useI18n();
   const [playerCount, setPlayerCount] = useState<3 | 4>(4);
   const [names, setNames] = useState<string[]>(DEFAULT_NAMES_4);
-  const [playerTypes, setPlayerTypes] = useState<PlayerType[]>(['human', 'human', 'human', 'human']);
+  const [playerTypes, setPlayerTypes] = useState<PlayerType[]>(() => defaultTypes(4, practice));
   const [modeSelectionType, setModeSelectionType] = useState<'fixed' | 'dealer_choice'>('dealer_choice');
 
   function handleCountChange(count: 3 | 4) {
     setPlayerCount(count);
     setNames(count === 3 ? DEFAULT_NAMES_3 : DEFAULT_NAMES_4);
-    setPlayerTypes(Array(count).fill('human') as PlayerType[]);
+    setPlayerTypes(defaultTypes(count, practice));
   }
 
   function handleNameChange(idx: number, value: string) {

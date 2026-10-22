@@ -37,7 +37,7 @@ describe('App routes local Tarneeb to its own screen', () => {
     expect(app).toContain('<TarneebLocalGame');
     expect(app).toContain("import TarneebLocalGame from './ui/tarneeb/TarneebLocalGame'");
     // King is still routed to its own LocalGame — behaviour unchanged.
-    expect(app).toContain('<LocalGame />');
+    expect(app).toContain('<LocalGame practice={mode.practice} />');
   });
 });
 

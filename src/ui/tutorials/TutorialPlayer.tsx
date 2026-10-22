@@ -3,22 +3,27 @@
 // tutorial. Renders the current step's scene (TutorialBoard) + caption + controls
 // (Back / Next / Skip·Done) + progress. Keyboard: ← / → / Esc. Client-only — no
 // network, account, stats or achievements; Done/Skip return to the hub via onExit.
+// Stage 42.5: finishing (Done, or Practice on the last step) ticks the game as done
+// on this device; Practice hands off to the caller, which opens a local bot game.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n';
 import type { GameType } from '../../games/catalog';
 import { getTutorial } from '../../tutorials/catalog';
+import { markTutorialDone } from '../../tutorials/progress';
 import { GAME_EMOJI } from '../components/GameIcon';
 import TutorialBoard from './TutorialBoard';
 
 interface Props {
   game: GameType;
-  /** Return to the tutorial hub (Skip / Done / Esc / ✕). Never routes to a live game. */
+  /** Return to the tutorial hub (Skip / Done / Esc / ✕). */
   onExit: () => void;
+  /** Stage 42.5: "Practice with bots" on the last step; absent → no Practice button. */
+  onPractice?: () => void;
 }
 
-export default function TutorialPlayer({ game, onExit }: Props) {
+export default function TutorialPlayer({ game, onExit, onPractice }: Props) {
   const { t } = useI18n();
   const tutorial = getTutorial(game);
   const steps = tutorial.steps;
@@ -28,7 +33,9 @@ export default function TutorialPlayer({ game, onExit }: Props) {
   const isLast = index >= total - 1;
 
   const back = () => setIndex((i) => Math.max(0, i - 1));
-  const next = () => (isLast ? onExit() : setIndex((i) => Math.min(total - 1, i + 1)));
+  const finish = () => { markTutorialDone(game); onExit(); };
+  const practice = () => { markTutorialDone(game); onPractice?.(); };
+  const next = () => (isLast ? finish() : setIndex((i) => Math.min(total - 1, i + 1)));
 
   // Keyboard: ← back, → next, Esc exits. Registered once; reads live handlers.
   useEffect(() => {
@@ -78,9 +85,15 @@ export default function TutorialPlayer({ game, onExit }: Props) {
         <button type="button" className="btn btn--ghost tutorial-btn" onClick={back} disabled={index === 0}>
           {t('tutorials.back')}
         </button>
-        <button type="button" className="btn btn--outline tutorial-btn tutorial-btn--skip" onClick={onExit}>
-          {t('tutorials.skip')}
-        </button>
+        {isLast && onPractice ? (
+          <button type="button" className="btn btn--outline tutorial-btn tutorial-btn--practice" onClick={practice}>
+            🎮 {t('tutorials.practice')}
+          </button>
+        ) : (
+          <button type="button" className="btn btn--outline tutorial-btn tutorial-btn--skip" onClick={onExit}>
+            {t('tutorials.skip')}
+          </button>
+        )}
         <button type="button" className="btn btn--primary tutorial-btn" onClick={next}>
           {isLast ? t('tutorials.done') : t('tutorials.next')}
         </button>

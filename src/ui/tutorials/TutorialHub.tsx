@@ -11,18 +11,25 @@ import type { GameType } from '../../games/catalog';
 import { TUTORIAL_ORDER, getTutorial, isTutorialEnabled, tutorialTotalSeconds } from '../../tutorials/catalog';
 import GameIcon from '../components/GameIcon';
 import TutorialPlayer from './TutorialPlayer';
+import { useTutorialsDone } from '../../tutorials/progress';
 
 interface Props {
   /** Back to the main menu. */
   onExit: () => void;
+  /** Stage 42.5: open a local bot game of this type after its tutorial. */
+  onPractice?: (game: GameType) => void;
 }
 
-export default function TutorialHub({ onExit }: Props) {
+export default function TutorialHub({ onExit, onPractice }: Props) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<GameType | null>(null);
+  const done = useTutorialsDone();
 
   if (selected) {
-    return <TutorialPlayer game={selected} onExit={() => setSelected(null)} />;
+    return (
+      <TutorialPlayer game={selected} onExit={() => setSelected(null)}
+        onPractice={onPractice ? () => onPractice(selected) : undefined} />
+    );
   }
 
   return (
@@ -37,11 +44,15 @@ export default function TutorialHub({ onExit }: Props) {
         {TUTORIAL_ORDER.map((game) => {
           const enabled = isTutorialEnabled(game);
           const secs = tutorialTotalSeconds(game);
+          const isDone = done.includes(game);
           return (
             <li key={game} className={`tutorial-row${enabled ? '' : ' tutorial-row--soon'}`}>
               <GameIcon game={game} size="md" className="tutorial-row__icon" />
               <span className="tutorial-row__text">
-                <span className="tutorial-row__name">{t(`gameType.${game}`)}</span>
+                <span className="tutorial-row__name">
+                  {t(`gameType.${game}`)}
+                  {isDone && <span className="tutorial-row__done">✓ {t('tutorials.completed')}</span>}
+                </span>
                 <span className="tutorial-row__learn">{t(getTutorial(game).learnKey)}</span>
                 {enabled && (
                   <span className="tutorial-row__dur">⏱ {t('tutorials.duration').replace('{n}', String(secs))}</span>
@@ -49,7 +60,7 @@ export default function TutorialHub({ onExit }: Props) {
               </span>
               {enabled ? (
                 <button type="button" className="btn btn--primary tutorial-row__cta" onClick={() => setSelected(game)}>
-                  {t('tutorials.start')}
+                  {isDone ? t('tutorials.again') : t('tutorials.start')}
                 </button>
               ) : (
                 <span className="tutorial-row__soon" aria-disabled="true">{t('tutorials.comingNext')}</span>

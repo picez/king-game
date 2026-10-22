@@ -20,7 +20,7 @@ type PassInfo = { playerId: string; name: string; seatIndex: number };
  * PassScreen before revealing each human's private view. Unchanged by online
  * play — online runs through OnlineGame with its own transport.
  */
-export default function LocalGame() {
+export default function LocalGame({ practice }: { practice?: boolean } = {}) {
   const [state, dispatch] = useReducer(gameReducer, null);
   const [passScreen, setPassScreen] = useState<PassInfo | null>(null);
 
@@ -127,7 +127,7 @@ export default function LocalGame() {
   return (
     <GameContext.Provider value={gameValue}>
       {!state ? (
-        <SetupScreen />
+        <SetupScreen practice={practice} />
       ) : passScreen ? (
         <PassScreen name={passScreen.name} seatIndex={passScreen.seatIndex} onReady={handlePassReady} />
       ) : (

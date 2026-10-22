@@ -74,7 +74,7 @@ describe('App routing — local Durak goes to its own screen', () => {
   it("routes gameType==='durak' to DurakLocalGame and keeps King on LocalGame", () => {
     expect(src).toContain("mode.gameType === 'durak'");
     expect(src).toContain('<DurakLocalGame');
-    expect(src).toContain('<LocalGame />');
+    expect(src).toContain('<LocalGame practice={mode.practice} />');
   });
 });
 

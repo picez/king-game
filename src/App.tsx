@@ -17,7 +17,8 @@ import PwaBanners from './ui/components/PwaBanners';
 type Mode =
   | { kind: 'menu' }
   // Local play carries the chosen game (King unchanged; Durak = local prototype).
-  | { kind: 'local'; gameType: GameType }
+  // `practice` (Stage 42.5): opened from a tutorial — King's setup pre-fills bots.
+  | { kind: 'local'; gameType: GameType; practice?: boolean }
   | { kind: 'online'; url: string; intent: OnlineIntent; signedIn: boolean };
 
 export default function App() {
@@ -41,7 +42,7 @@ export default function App() {
           : mode.gameType === 'preferans' ? <PreferansLocalGame onExit={toMenu} />
             : mode.gameType === 'fifty-one' ? <FiftyOneLocalGame onExit={toMenu} />
               : mode.gameType === 'poker' ? <PokerLocalGame onExit={toMenu} />
-                : <LocalGame />; // King — unchanged
+                : <LocalGame practice={mode.practice} />; // King
   } else if (mode.kind === 'online') {
     content = (
       <OnlineGame
@@ -57,7 +58,7 @@ export default function App() {
       <StartMenu
         initialError={joinError}
         initialInviteCode={inviteCode}
-        onLocal={(gameType) => setMode({ kind: 'local', gameType })}
+        onLocal={(gameType, opts) => setMode({ kind: 'local', gameType, practice: opts?.practice })}
         onOnline={(url, intent, signedIn) => {
           // Any online transition consumes a pending invite code (avoid re-joining on a later menu return).
           setJoinError(null); setInviteCode(null);

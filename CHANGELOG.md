@@ -29,6 +29,10 @@ also reported at `GET /health/diagnostics` (`version` field).
   podium and the fool is last; in Poker the later a seat busted, the higher it places.
   Players who went out in the same step share a place. Display-only, optional fields: a
   game saved before this keeps the old shared-first layout. No rule, stats or server change.
+- **Tutorials: progress ticks and Practice (Stage 42.5).** Finishing a tutorial marks it
+  **✓ Done** in the hub (its button becomes **Again**); stored on the device only. The last
+  step adds **Practice with bots**, which opens that game's real local table — for King the
+  setup now pre-fills bots in seats 2–4. Skip never ticks. i18n ×4.
 
 ## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
 
