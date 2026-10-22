@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { DurakState } from '../../games/durak/types';
 import MatchResult from '../components/MatchResult';
-import { playerAvatar, type ResultSeat } from '../components/matchResultModel';
+import { competitionPlaces, groupIndex, playerAvatar, type ResultSeat } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 import { detectSixAttack } from '../../net/durakStats';
 
@@ -24,12 +24,18 @@ export default function DurakFinished({ state, humanId, onPlayAgain, onExit, rem
   const six = detectSixAttack(state);
   const sixAttacker = six && state.players.find((p) => p.id === six.winnerId);
 
-  // Survivors share first place (the engine keeps no exit order); the fool is last.
-  const seats: ResultSeat[] = state.players.map((p) => {
+  // Stage 42.4: whoever went out first ranks first (players who went out together share a
+  // place) and the fool is last. A game saved before the engine kept that order falls
+  // back to every survivor sharing first place.
+  const exitRank = (id: string) => (id === state.foolId ? Infinity : groupIndex(state.exitOrder, id));
+  const places = state.exitOrder
+    ? competitionPlaces(state.players, (a, b) => exitRank(a.id) - exitRank(b.id) || 0)
+    : state.players.map((p) => (p.id === state.foolId ? state.players.length : 1));
+  const seats: ResultSeat[] = state.players.map((p, i) => {
     const isFool = p.id === state.foolId;
     return {
       key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.id === humanId,
-      place: isFool ? state.players.length : 1,
+      place: places[i],
       tone: isFool ? 'lose' : 'win',
       note: isFool ? t('durak.fool') : undefined,
       value: isFool && p.hand.length > 0 ? `🂠 ${p.hand.length}` : undefined,

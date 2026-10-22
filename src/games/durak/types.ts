@@ -90,6 +90,13 @@ export interface DurakState {
   winnerIds: string[];
   /** Finished with no fool (last players emptied simultaneously). */
   isDraw: boolean;
+  /**
+   * DISPLAY-ONLY (Stage 42.4): who went out, in order — one group per moment, so players
+   * who emptied their hands in the same step share a place. A player is out once the deck
+   * is empty and their hand is too (that can never be undone). The fool never appears;
+   * on a draw the last group holds the final players. Optional: older saved games lack it.
+   */
+  exitOrder?: string[][];
 }
 
 export type DurakAction =

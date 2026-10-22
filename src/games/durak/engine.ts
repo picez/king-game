@@ -162,7 +162,29 @@ function startDurak(action: Extract<DurakAction, { type: 'START_DURAK' }>, ctx?:
   };
 }
 
+/**
+ * Record players who just went out (Stage 42.4): with the deck empty, an empty hand is
+ * final, so everyone newly empty since the last action shares one place in the order.
+ */
+function noteExits(s: DurakState): void {
+  if (s.drawPile.length > 0) return;
+  const order = s.exitOrder ?? [];
+  const seen = new Set(order.flat());
+  const group = s.players.filter((p) => p.hand.length === 0 && !seen.has(p.id)).map((p) => p.id);
+  if (group.length > 0) s.exitOrder = [...order, group];
+}
+
 export function durakReducer(
+  state: DurakState | null,
+  action: DurakAction,
+  ctx?: DurakContext,
+): DurakState | null {
+  const next = durakStep(state, action, ctx);
+  if (next && next !== state) noteExits(next);
+  return next;
+}
+
+function durakStep(
   state: DurakState | null,
   action: DurakAction,
   ctx?: DurakContext,

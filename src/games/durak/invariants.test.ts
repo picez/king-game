@@ -46,6 +46,9 @@ function playOut(numPlayers: number, variant: DurakVariant, seed: number): Durak
     if (!action) throw new Error('no action while not finished');
     const next = durakReducer(s, action);
     if (next === s || next === null) throw new Error(`illegal/no-op bot action: ${JSON.stringify(action)}`);
+    // Stage 42.4: the exit order only ever grows (an earlier exit is never rewritten).
+    const before = JSON.stringify(s.exitOrder ?? []).slice(0, -1);
+    expect(JSON.stringify(next.exitOrder ?? []).startsWith(before)).toBe(true);
     s = next;
     assertInvariants(s);
   }
@@ -71,6 +74,11 @@ describe('Durak invariants hold through full simulated games', () => {
             expect(final.winnerIds).not.toContain(final.foolId);
             expect(final.winnerIds).toHaveLength(final.players.length - 1);
           }
+          // Stage 42.4: the exit order lists every non-fool exactly once, never the fool.
+          const exited = (final.exitOrder ?? []).flat();
+          expect(new Set(exited).size).toBe(exited.length);
+          expect(exited.sort()).toEqual([...final.winnerIds].sort());
+          for (const g of final.exitOrder ?? []) expect(g.length).toBeGreaterThan(0);
         }
       });
     }

@@ -22,6 +22,13 @@ also reported at `GET /health/diagnostics` (`version` field).
   `#0d4f28` to the Midnight navy `#0b0e15`, so the home-screen app and its splash match the
   default theme. The Android app picks this up at its next APK build; a guard test keeps the
   manifest equal to the default theme colour.
+- **Real places in Durak and Poker (Stage 42.4).** Both engines now remember who went out
+  and when: Durak records the order players emptied their hands once the deck was gone
+  (`exitOrder`), Poker the order seats were eliminated (`eliminationOrder`, one group per
+  closed rebuy window). The end screen ranks by it — Durak's first out stands on the
+  podium and the fool is last; in Poker the later a seat busted, the higher it places.
+  Players who went out in the same step share a place. Display-only, optional fields: a
+  game saved before this keeps the old shared-first layout. No rule, stats or server change.
 
 ## [0.7.0] — 2026-10-22 — Midnight theme, one end-of-match screen, host-option rules
 

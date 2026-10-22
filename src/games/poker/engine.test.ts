@@ -229,6 +229,9 @@ describe('poker hand loop & match finish (§2/§11)', () => {
     expect(closed.winnerSeat).toBe(0);
     expect(closed.eliminatedBySeat[1]).toBe(true);
     expect(closed.lastHand?.newlyEliminated).toEqual([1]);
+    // Stage 42.4: the elimination is recorded in order; the open window recorded nothing.
+    expect(r.eliminationOrder ?? []).toEqual([]);
+    expect(closed.eliminationOrder).toEqual([[1]]);
   });
 });
 

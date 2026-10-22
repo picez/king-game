@@ -52,6 +52,14 @@ export function competitionPlaces<T>(items: readonly T[], better: (a: T, b: T) =
 }
 
 /**
+ * The index of the group holding `key` in an ordered list of groups (Durak's exit
+ * order, Poker's elimination order — Stage 42.4), or -1 when it is in none.
+ */
+export function groupIndex<K>(groups: readonly (readonly K[])[] | undefined, key: K): number {
+  return groups ? groups.findIndex((g) => g.includes(key)) : -1;
+}
+
+/**
  * The podium shows the top three as 2 · 1 · 3 — only when exactly ONE seat holds
  * first place (a single winner). Everyone else goes to the standings list.
  */

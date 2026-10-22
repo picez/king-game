@@ -599,6 +599,7 @@ function closeRebuyWindow(s: PokerState): boolean {
     newlyEliminated.push(seat);
   }
   if (s.lastHand) s.lastHand = { ...s.lastHand, newlyEliminated };
+  if (newlyEliminated.length > 0) s.eliminationOrder = [...(s.eliminationOrder ?? []), newlyEliminated];
   s.rebuyWindow = null;
 
   const remaining = activeSeats(s);

@@ -235,6 +235,12 @@ export interface PokerState {
   raiseOpenBySeat: boolean[];
   /** Seats eliminated from the match (stack 0 between hands). */
   eliminatedBySeat: boolean[];
+  /**
+   * DISPLAY-ONLY (Stage 42.4): the seats eliminated, in order — one group per closed rebuy
+   * window, so seats knocked out on the same hand share a place. Optional: states from
+   * before 42.4 lack it.
+   */
+  eliminationOrder?: number[][];
 
   /** Highest committed-this-street amount (the bet to match). */
   currentBet: number;

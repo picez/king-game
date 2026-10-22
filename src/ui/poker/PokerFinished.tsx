@@ -1,7 +1,7 @@
 import { useI18n } from '../../i18n';
 import type { PokerState } from '../../games/poker/types';
 import MatchResult from '../components/MatchResult';
-import { competitionPlaces, playerAvatar, type ResultSeat } from '../components/matchResultModel';
+import { competitionPlaces, groupIndex, playerAvatar, type ResultSeat } from '../components/matchResultModel';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 import PokerRecoveryBanner, { type PokerRecoveryStatus } from './PokerRecoveryBanner';
 
@@ -23,10 +23,15 @@ export default function PokerFinished({ state, mySeat, onPlayAgain, onExit, rema
   const iWon = winner != null && winner === mySeat;
   const winnerName = winner != null ? state.players[winner]?.name ?? '' : '';
 
-  // The winner first; everyone else by remaining stack (busted seats tie at 0).
+  // The winner first; then seats still holding chips, by stack; then the eliminated, the
+  // LATER knocked out ranking higher (Stage 42.4 — seats out on the same hand tie). A
+  // state from before the engine kept that order ties every busted seat at 0.
   const stack = (seat: number) => state.stacksBySeat[seat] ?? 0;
+  const outRound = (seat: number) => groupIndex(state.eliminationOrder, seat);
   const places = competitionPlaces(state.players, (a, b) =>
-    Number(b.seatIndex === winner) - Number(a.seatIndex === winner) || stack(b.seatIndex) - stack(a.seatIndex));
+    Number(b.seatIndex === winner) - Number(a.seatIndex === winner)
+    || stack(b.seatIndex) - stack(a.seatIndex)
+    || outRound(b.seatIndex) - outRound(a.seatIndex));
   const seats: ResultSeat[] = state.players.map((p, i) => {
     const busted = p.seatIndex !== winner && stack(p.seatIndex) === 0;
     return {
