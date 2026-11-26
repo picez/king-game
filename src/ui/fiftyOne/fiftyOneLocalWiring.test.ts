@@ -147,13 +147,16 @@ describe('51 local UI wiring (no rule duplication)', () => {
     expect(src).toContain('drawStep && opened && state.discardPile.length > 0');
   });
 
-  it('FiftyOneSetup reads the deck rule from the core (2p vs 3–4p) and offers 2/3/4', () => {
+  it('FiftyOneSetup reads the deck rule from the core (1/2/3 decks) and offers 2..6', () => {
     const src = read('src/ui/fiftyOne/FiftyOneSetup.tsx');
-    expect(src).toContain('deckCountFor');
-    expect(src).toContain('totalDeckSize');
-    expect(src).toContain('fiftyOne.deckNote2');
-    expect(src).toContain('fiftyOne.deckNote34');
-    expect(src).toContain('[2, 3, 4]');
+    const note = read('src/ui/fiftyOne/deckNote.ts');
+    expect(src).toContain('fiftyOneDeckNote');
+    expect(note).toContain('deckCountFor');
+    expect(note).toContain('totalDeckSize');
+    expect(note).toContain('fiftyOne.deckNote2');
+    expect(note).toContain('fiftyOne.deckNote34');
+    expect(note).toContain('fiftyOne.deckNote56');
+    expect(src).toContain('[2, 3, 4, 5, 6]');
   });
 });
 

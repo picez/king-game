@@ -468,6 +468,10 @@ function scenarios() {
     { name: '2p', q: 'players=2' },
     { name: '3p', q: 'players=3' },
     { name: '4p', q: 'players=4' },
+    { name: '5p', q: 'players=5' },
+    { name: '6p', q: 'players=6' },
+    { name: '6p-heavy-hand14', q: `players=6&hand=14&melds=heavy&${SOCIAL}` },
+    { name: '6p-rtl', q: 'players=6&dir=rtl&lang=ar' },
     // (table redesign) The FULL opening hand, and a late round with eight melds — the
     // states the fold budget is really for.
     { name: '4p-hand14', q: 'players=4&hand=14' },

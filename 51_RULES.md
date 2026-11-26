@@ -34,22 +34,24 @@ penalty reaches 510** (§12). Lower is better.
 
 ## 2. Players
 
-- **MVP: 2–4 players.** *[owner override: source says 2–5; MVP caps at 4.]*
+- **2–6 players** (Stage 43.2, owner decision 2026-11-26; was 2–4).
 - Every player is on their **own side** (no partnerships) — this is a cutthroat game.
 
 ---
 
 ## 3. Deck
 
-The deck size depends on the player count. Two **Jokers** are always in play.
+The deck size depends on the player count. Two **Jokers** are in play (three on the 3-deck table).
 
 | Players | Cards | Jokers | Total |
 |--------:|-------|:------:|:-----:|
 | **2**   | 1 standard 52-card deck | 2 | **54** (52 + 2) |
 | **3–4** | 2 standard 52-card decks (104) | 2 | **106** (104 + 2) |
+| **5–6** | 3 standard 52-card decks (156) | 3 | **159** (156 + 3) |
 
 - **Exactly:** 2 players use **1 deck + 2 jokers = 54** cards; **3 or 4** players use **2 decks +
-  2 jokers = 106** cards. There is no other size — a 3-player and a 4-player game use the identical
+  2 jokers = 106** cards; **5 or 6** players use **3 decks + 3 jokers = 159** cards (Stage 43.2;
+  the third joker is our default for the bigger table). A 3-player and a 4-player game use the identical
   106-card deck. (Confirmed & regression-guarded in Stage 30.16, `src/games/fiftyOne/deck.test.ts`.)
 - *[owner decision]* This 1-deck-for-2 / 2-decks-for-3–4 split is the **owner's confirmed
   interpretation** of an ambiguous source ("1 deck for 2–3, 2 decks for 4–5; usually 2 jokers").
@@ -280,6 +282,9 @@ Worked notes:
   *(Alternative "stop at first threshold, lowest score wins" is explicitly NOT preferred, because
   the owner said "eliminated".)* See [§16 Q7](#16-open-questions--confirmations-needed).
 - With 2 players, one crossing the elimination score ends the match (the other wins).
+- **Final standings** (Stage 43.1): the winner is 1st; the others rank by **when** they were
+  eliminated — the later out ranks higher (the last one eliminated is 2nd), whatever the score.
+  Seats eliminated in the same round rank by lower penalty; equal penalties share a place.
 
 ---
 

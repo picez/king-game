@@ -11,7 +11,7 @@
 // readiness through `window.__f51ready`.
 //
 // Query params:
-//   players=2..4        seats at the table
+//   players=2..6        seats at the table
 //   dir=ltr|rtl         document direction   lang=en|uk|de|ar
 //   faces=classic|clean card-face theme (the real `data-card-faces` switch)
 //   melds=default|long|jokers|sameowner|redacted   the public-meld fixture
@@ -38,7 +38,7 @@ import type { ChatMessage } from '../../src/net/messages';
 import type { Rank, Suit } from '../../src/models/types';
 
 const qs = new URLSearchParams(location.search);
-const players = Math.max(2, Math.min(4, Number(qs.get('players') ?? 4)));
+const players = Math.max(2, Math.min(6, Number(qs.get('players') ?? 4)));
 const dir = qs.get('dir') === 'rtl' ? 'rtl' : 'ltr';
 const lang = qs.get('lang') ?? (dir === 'rtl' ? 'ar' : 'en');
 const faces = qs.get('faces') === 'clean' ? 'clean' : 'classic';
@@ -167,7 +167,7 @@ function melds(): FiftyOneMeld[] {
   return base;
 }
 
-const NAMES = ['You', 'A-player-with-a-really-long-display-name', 'Kai AI', 'Aziz AI'];
+const NAMES = ['You', 'A-player-with-a-really-long-display-name', 'Kai AI', 'Aziz AI', 'Layla AI', 'Omar-with-a-long-name AI'];
 
 function fixture(): FiftyOneState {
   const people: FiftyOnePlayer[] = Array.from({ length: players }, (_, i) => ({

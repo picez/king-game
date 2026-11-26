@@ -818,6 +818,7 @@ export const EN: Record<string, string> = {
   'fiftyOne.playersHint': '{n} players — you + bots',
   'fiftyOne.deckNote2': '1 deck + 2 jokers = {total} cards',
   'fiftyOne.deckNote34': '2 decks + 2 jokers = {total} cards',
+  'fiftyOne.deckNote56': '3 decks + 3 jokers = {total} cards',
   'fiftyOne.start': 'Start game',
   'fiftyOne.eliminationScore': 'Elimination score',
   'fiftyOne.eliminationScoreHint': 'A player is out once their penalty reaches this score (lower = shorter match).',

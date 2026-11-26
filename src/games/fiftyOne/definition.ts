@@ -52,7 +52,7 @@ export const fiftyOneGameDefinition: GameDefinition<FiftyOneState, FiftyOneActio
   id: 'fifty-one',
   catalog: entry,
   rulesDoc: entry.rulesDoc,
-  supportedPlayerCounts: playerCountRange(entry.minPlayers, entry.maxPlayers), // [2, 3, 4]
+  supportedPlayerCounts: playerCountRange(entry.minPlayers, entry.maxPlayers), // [2, 3, 4, 5, 6]
   reducer: fiftyOneReducer,
   getActingPlayerId: getActingFiftyOnePlayerId,
   buildStartAction: buildFiftyOneStartAction,

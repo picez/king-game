@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../../i18n';
 import GameHelpModal from '../components/GameHelpModal';
-import { deckCountFor, totalDeckSize } from '../../games/fiftyOne/deck';
+import { fiftyOneDeckNote } from './deckNote';
 import { DEFAULT_TARGET_PENALTY, ELIMINATION_SCORE_PRESETS } from '../../games/fiftyOne/rules';
 
 interface Props {
@@ -9,12 +9,12 @@ interface Props {
   onExit: () => void;
 }
 
-const PLAYER_COUNTS = [2, 3, 4] as const;
+const PLAYER_COUNTS = [2, 3, 4, 5, 6] as const;
 
 /**
- * Local 51 (Syrian 51) setup — pick 2–4 players (1 human + bots). Shows the deck
+ * Local 51 (Syrian 51) setup — pick 2–6 players (1 human + bots). Shows the deck
  * rule that follows from the count (§3): 2p = 1 deck + 2 jokers, 3–4p = 2 decks +
- * 2 jokers. Released game (Stage 30.7): local + online + stats.
+ * 2 jokers, 5–6p = 3 decks + 3 jokers (Stage 43.2). Released game (Stage 30.7): local + online + stats.
  */
 export default function FiftyOneSetup({ onStart, onExit }: Props) {
   const { t } = useI18n();
@@ -23,9 +23,7 @@ export default function FiftyOneSetup({ onStart, onExit }: Props) {
   const [eliminationScore, setEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
   const [showHelp, setShowHelp] = useState(false);
 
-  const decks = deckCountFor(count);
-  const deckNote = t(decks === 1 ? 'fiftyOne.deckNote2' : 'fiftyOne.deckNote34')
-    .replace('{total}', String(totalDeckSize(count)));
+  const deckNote = fiftyOneDeckNote(t, count);
 
   return (
     <div className="screen menu-screen fiftyone-setup">

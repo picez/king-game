@@ -69,7 +69,12 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 0.3rem;
-  justify-content: center;
+  justify-content: safe center;
+  /* Stage 43.2: 5–6 seats — cells shrink (names ellipsize); a last-resort sideways
+     scroll stays INSIDE the strip so the screen never widens. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 .fiftyone-score {
   display: grid;

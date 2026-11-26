@@ -818,6 +818,7 @@ export const AR: Record<string, string> = {
   'fiftyOne.playersHint': '{n} لاعبين — أنت + بوتات',
   'fiftyOne.deckNote2': 'مجموعة واحدة + جوكران = {total} ورقة',
   'fiftyOne.deckNote34': 'مجموعتان + جوكران = {total} ورقة',
+  'fiftyOne.deckNote56': 'ثلاث مجموعات + ثلاثة جوكرات = {total} ورقة',
   'fiftyOne.start': 'ابدأ اللعبة',
   'fiftyOne.eliminationScore': 'نقاط الإقصاء',
   'fiftyOne.eliminationScoreHint': 'يخرج اللاعب عندما تبلغ نقاط الجزاء هذا الحد (أقل = مباراة أقصر).',

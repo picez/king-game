@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Fixed
+
+- **51 final places follow the elimination order (Stage 43.1).** The winner is 1st, then the
+  others by how LATE they were knocked out — the last one eliminated is 2nd, whatever the
+  score. Seats out in the same round rank by lower penalty (equal = shared place). The engine
+  records a display-only `eliminationOrder`; older saved states keep the score order.
+
+### Added
+
+- **51 for 2–6 players (Stage 43.2).** Local setup and the online host picker offer 2–6 seats:
+  2 = 1 deck + 2 jokers (54), 3–4 = 2 decks + 2 jokers (106), 5–6 = 3 decks + 3 jokers (159).
+
 ## [0.7.1] — 2026-10-22 — Theme card backs, real places, tutorial practice
 
 > Packages Stages 42.2–42.6: card backs follow the theme, the installed app and Android TWA wear the Midnight colours, real finishing places in Durak and Poker, tutorial ✓ progress + Practice with bots, translated tutorial scene labels. No migration (latest stays `0014`), no dependency

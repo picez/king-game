@@ -2,6 +2,7 @@ import { useI18n } from '../../i18n';
 import type { FiftyOneState } from '../../games/fiftyOne/types';
 import MatchResult from '../components/MatchResult';
 import { competitionPlaces, playerAvatar, type ResultSeat } from '../components/matchResultModel';
+import { fiftyOneStandingsCompare } from './fiftyOneStandings';
 import RematchControls, { type RematchUi } from '../online/RematchControls';
 
 interface Props {
@@ -20,13 +21,11 @@ export default function FiftyOneFinished({ state, humanSeat, onPlayAgain, onExit
   const name = winner === humanSeat ? t('fiftyOne.you') : (winner != null ? state.players[winner].name : '');
   const humanWon = winner === humanSeat;
 
-  // The survivor first; then the others by running penalty (lower is better); the
-  // eliminated (crossed the target) are marked "Out".
+  // The survivor first; then the eliminated by HOW LATE they went out (Stage 43.1 —
+  // the last one knocked out is 2nd). The eliminated are marked "Out".
   const out = (seat: number) => !!state.eliminatedSeats[seat];
-  const places = competitionPlaces(state.players, (a, b) =>
-    Number(b.seatIndex === winner) - Number(a.seatIndex === winner)
-    || Number(out(a.seatIndex)) - Number(out(b.seatIndex))
-    || state.scoresBySeat[a.seatIndex] - state.scoresBySeat[b.seatIndex]);
+  const compare = fiftyOneStandingsCompare(state);
+  const places = competitionPlaces(state.players, (a, b) => compare(a.seatIndex, b.seatIndex));
   const seats: ResultSeat[] = state.players.map((p, i) => ({
     key: p.id, name: p.name, avatar: playerAvatar(p), isMe: p.seatIndex === humanSeat,
     place: places[i], value: String(state.scoresBySeat[p.seatIndex]),

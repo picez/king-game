@@ -18,6 +18,16 @@ describe('51 deck', () => {
     expect(totalDeckSize(2)).toBe(54);
   });
 
+  it.each([5, 6])('builds 159 cards (3 decks + 3 jokers) for %i players (Stage 43.2)', (n) => {
+    const deck = createFiftyOneDeck(n);
+    expect(deck).toHaveLength(159);
+    expect(deck.filter((c) => c.joker)).toHaveLength(3);
+    expect(deck.filter((c) => !c.joker)).toHaveLength(156);
+    expect(deckCountFor(n)).toBe(3);
+    expect(totalDeckSize(n)).toBe(159);
+    expect(new Set(deck.map((c) => c.id)).size).toBe(159);
+  });
+
   it.each([3, 4])('builds 106 cards (2 decks + 2 jokers) for %i players', (n) => {
     const deck = createFiftyOneDeck(n);
     expect(deck).toHaveLength(106);
@@ -43,7 +53,7 @@ describe('51 deck', () => {
     expect(new Set(a.map((c) => c.id)).size).toBe(106);
   });
 
-  it.each([2, 3, 4])('deals 14 to the starter, 13 to the rest; discard empty (%i players)', (n) => {
+  it.each([2, 3, 4, 5, 6])('deals 14 to the starter, 13 to the rest; discard empty (%i players)', (n) => {
     const seats = Array.from({ length: n }, (_, i) => i);
     const starter = 1;
     const { handsBySeat, drawPile, discardPile } = dealFiftyOne(n, seats, starter, makeRng(5));

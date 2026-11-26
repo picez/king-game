@@ -42,7 +42,7 @@ describe('game catalog', () => {
 
   it('registers 51 (Syrian 51) as available — fully released (Stage 30.7)', () => {
     expect(GAME_CATALOG['fifty-one']).toMatchObject({
-      id: 'fifty-one', minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
+      id: 'fifty-one', minPlayers: 2, maxPlayers: 6, defaultPlayerCount: 4,
       supportsLocal: true,    // Stage 30.3: local play
       supportsOnline: true,   // Stage 30.5: online rooms
       supportsBots: true,     // pure-core bot exists (30.1)
@@ -92,7 +92,7 @@ describe('game catalog', () => {
     const fiftyOne = pub.find((g) => g.id === 'fifty-one')!;
     expect(fiftyOne).toEqual({
       id: 'fifty-one', title: 'gameType.fifty-one', shortTitle: 'gameType.fifty-one',
-      minPlayers: 2, maxPlayers: 4, defaultPlayerCount: 4,
+      minPlayers: 2, maxPlayers: 6, defaultPlayerCount: 4,
       supportsLocal: true, supportsOnline: true, supportsBots: true, status: 'available',
     });
     // Preferans surfaces publicly as available — startable local AND online.

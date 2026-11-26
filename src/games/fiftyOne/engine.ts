@@ -132,6 +132,7 @@ function startGame(action: Extract<FiftyOneAction, { type: 'START_GAME' }>, rng:
     publicMelds: [],
     scoresBySeat: Array.from({ length: playerCount }, () => 0),
     eliminatedSeats: Array.from({ length: playerCount }, () => false),
+    eliminationOrder: [],
     roundNumber: 1,
     roundWinnerSeat: null,
     winnerSeat: null,
@@ -219,6 +220,8 @@ function scoreRound(s: FiftyOneState, roundWinner: number): FiftyOneState {
       newlyEliminated.push(seat);
     }
   }
+
+  if (newlyEliminated.length > 0) s.eliminationOrder = [...(s.eliminationOrder ?? []), newlyEliminated];
 
   s.roundWinnerSeat = roundWinner;
   const result: FiftyOneRoundResult = {

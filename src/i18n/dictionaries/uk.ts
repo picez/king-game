@@ -818,6 +818,7 @@ export const UK: Record<string, string> = {
   'fiftyOne.playersHint': '{n} гравці — ви + боти',
   'fiftyOne.deckNote2': '1 колода + 2 джокери = {total} карт',
   'fiftyOne.deckNote34': '2 колоди + 2 джокери = {total} карт',
+  'fiftyOne.deckNote56': '3 колоди + 3 джокери = {total} карт',
   'fiftyOne.start': 'Почати гру',
   'fiftyOne.eliminationScore': 'Поріг вибування',
   'fiftyOne.eliminationScoreHint': 'Гравець вибуває, коли його штраф сягає цього значення (менше = коротша гра).',

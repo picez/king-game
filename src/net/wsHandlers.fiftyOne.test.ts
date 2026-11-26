@@ -49,7 +49,7 @@ function makeCtx(): { ctx: WsContext; rooms: Map<string, ServerRoom>; errors: Er
   return { ctx, rooms, errors };
 }
 
-const create = (playerCount?: 2 | 3 | 4 | 5): ClientMessage =>
+const create = (playerCount?: 2 | 3 | 4 | 5 | 6): ClientMessage =>
   ({ t: 'CREATE_ROOM', name: 'Host', modeSelectionType: 'fixed', gameType: 'fifty-one', ...(playerCount ? { playerCount } : {}) } as ClientMessage);
 
 function fresh() {
@@ -68,27 +68,27 @@ describe('wsHandlers allows hosting 51 online (Stage 30.5; released 30.7)', () =
     expect(GAME_DEFINITIONS['fifty-one'].recordsStats).toBe(true); // Stage 30.6: stats on
   });
 
-  it('CREATE_ROOM fifty-one with no player count → a 4-seat room (catalog max)', () => {
+  it('CREATE_ROOM fifty-one with no player count → a 6-seat room (catalog max)', () => {
     const { rooms, sessionRef, run } = fresh();
     run(create());
     expect(rooms.size).toBe(1);
     const room = sessionRef.value!.room;
     expect(room.gameType).toBe('fifty-one');
-    expect(room.playerCount).toBe(4);
+    expect(room.playerCount).toBe(6);
   });
 
-  it('CREATE_ROOM fifty-one honours an explicit 2 / 3 player count', () => {
-    for (const pc of [2, 3] as const) {
+  it('CREATE_ROOM fifty-one honours an explicit 2..6 player count (Stage 43.2)', () => {
+    for (const pc of [2, 3, 4, 5, 6] as const) {
       const { sessionRef, run } = fresh();
       run(create(pc));
       expect(sessionRef.value!.room.playerCount).toBe(pc);
     }
   });
 
-  it('CREATE_ROOM fifty-one clamps an out-of-range count (5) to the catalog max (4)', () => {
+  it('CREATE_ROOM fifty-one clamps an out-of-range count (7) to the catalog max (6)', () => {
     const { sessionRef, run } = fresh();
-    run(create(5)); // 5 > maxPlayers(4) → clamped
-    expect(sessionRef.value!.room.playerCount).toBe(4);
+    run(create(7 as 6)); // 7 > maxPlayers(6) → clamped
+    expect(sessionRef.value!.room.playerCount).toBe(6);
   });
 
   it('the public room summary exposes 51 metadata and never the game state', () => {

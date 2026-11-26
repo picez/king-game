@@ -69,6 +69,7 @@ describe('51 round scoring (§11)', () => {
     expect(done.phase).toBe('game_finished');
     expect(done.winnerSeat).toBe(0);
     expect(done.lastRound?.newlyEliminated).toEqual([1]);
+    expect(done.eliminationOrder).toEqual([[1]]); // Stage 43.1: one group per round
   });
 
   it('continues (round_complete) when more than one seat remains (3p)', () => {

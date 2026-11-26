@@ -73,6 +73,8 @@ export interface CreateIntentParams {
   /** Tarneeb optional rules (Stage 41.5). */
   tarneebRules?: TarneebRuleOptions;
   fiftyOneEliminationScore?: number;
+  /** 51 table size (Stage 43.2): 2–6 seats; 5–6 play with 3 decks. */
+  fiftyOnePlayers?: 2 | 3 | 4 | 5 | 6;
   // Poker online bankroll (§16): host-chosen base blinds + growth. The buy-in is
   // ALWAYS derived server-side (100 big blinds) — never supplied by the client.
   pokerSmallBlind?: number;
@@ -105,7 +107,7 @@ export function buildCreateIntent(p: CreateIntentParams): CreateIntent {
     ...(p.gameType === 'tarneeb' ? { tarneebVariant: p.tarneebVariant, tarneebTargetScore: p.tarneebTargetScore } : {}),
     ...(p.gameType === 'preferans' && p.preferansRules ? { preferansRules: p.preferansRules } : {}),
     ...(p.gameType === 'tarneeb' && p.tarneebRules ? { tarneebRules: p.tarneebRules } : {}),
-    ...(p.gameType === 'fifty-one' ? { fiftyOneEliminationScore: p.fiftyOneEliminationScore } : {}),
+    ...(p.gameType === 'fifty-one' ? { fiftyOneEliminationScore: p.fiftyOneEliminationScore, ...(p.fiftyOnePlayers ? { playerCount: p.fiftyOnePlayers } : {}) } : {}),
     ...(p.gameType === 'poker' ? { pokerSmallBlind: p.pokerSmallBlind, pokerBigBlind: p.pokerBigBlind, pokerBlindGrowth: p.pokerBlindGrowth } : {}),
   };
 }

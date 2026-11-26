@@ -2,7 +2,8 @@
 // 51 — deck construction and the deal. Pure + deterministic (all randomness via
 // the injected rng). See 51_RULES.md §3 (deck) and §4 (deal).
 //   • 2 players  → 1 standard 52-card deck + 2 jokers  = 54 cards;
-//   • 3–4 players → 2 standard 52-card decks + 2 jokers = 106 cards.
+//   • 3–4 players → 2 standard 52-card decks + 2 jokers = 106 cards;
+//   • 5–6 players → 3 standard 52-card decks + 3 jokers = 159 cards (Stage 43.2).
 //   • Each active seat is dealt 13, the STARTER gets 14; the rest form the
 //     face-down draw pile; the discard pile starts EMPTY.
 // ---------------------------------------------------------------------------
@@ -19,15 +20,20 @@ export const FIFTY_ONE_SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs']
 
 /** How many standard 52-card decks are used for a given player count (§3). */
 export function deckCountFor(playerCount: number): number {
-  return playerCount <= 2 ? 1 : 2;
+  return playerCount <= 2 ? 1 : playerCount <= 4 ? 2 : 3;
 }
 
-/** Total cards in play for a given player count (decks × 52 + 2 jokers). */
+/** Jokers in play: 2 for 1–2 decks, 3 for the 3-deck (5–6 player) table. */
+export function jokerCountFor(playerCount: number): number {
+  return deckCountFor(playerCount) >= 3 ? 3 : 2;
+}
+
+/** Total cards in play for a given player count (decks × 52 + jokers). */
 export function totalDeckSize(playerCount: number): number {
-  return deckCountFor(playerCount) * 52 + 2;
+  return deckCountFor(playerCount) * 52 + jokerCountFor(playerCount);
 }
 
-/** Build the unshuffled deck for `playerCount` (1 or 2 decks + 2 jokers). */
+/** Build the unshuffled deck for `playerCount` (1–3 decks + 2–3 jokers). */
 export function createFiftyOneDeck(playerCount: number): FiftyOneCard[] {
   const decks = deckCountFor(playerCount);
   const cards: FiftyOneCard[] = [];
@@ -38,9 +44,10 @@ export function createFiftyOneDeck(playerCount: number): FiftyOneCard[] {
       }
     }
   }
-  // Two jokers are always in play (§3).
-  cards.push({ id: 'joker-0', joker: true, suit: null, rank: null });
-  cards.push({ id: 'joker-1', joker: true, suit: null, rank: null });
+  // Two jokers (three on the 3-deck table) are in play (§3).
+  for (let j = 0; j < jokerCountFor(playerCount); j++) {
+    cards.push({ id: `joker-${j}`, joker: true, suit: null, rank: null });
+  }
   return cards;
 }
 

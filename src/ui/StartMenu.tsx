@@ -30,6 +30,7 @@ import type { DebercMatchSize } from '../games/deberc/types';
 import type { TarneebVariant } from '../games/tarneeb/types';
 import { DEFAULT_TARGET_SCORE, TARGET_SCORE_PRESETS } from '../games/tarneeb/rules';
 import { DEFAULT_TARGET_PENALTY, ELIMINATION_SCORE_PRESETS } from '../games/fiftyOne/rules';
+import { fiftyOneDeckNote } from './fiftyOne/deckNote';
 import AccountBar from './menu/AccountBar';
 import PreferansRulesPicker, { DEFAULT_PREFERANS_RULES, type PreferansRuleOptions } from './preferans/PreferansRulesPicker';
 import TarneebRulesPicker, { DEFAULT_TARNEEB_RULES, type TarneebRuleOptions } from './tarneeb/TarneebRulesPicker';
@@ -99,6 +100,8 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   // 51 elimination score (Stage 30.15): the running-penalty threshold a seat is out at.
   // Default 510 (unchanged); the host may lower it to 410/310/210 for shorter matches.
   const [fiftyOneEliminationScore, setFiftyOneEliminationScore] = useState<number>(DEFAULT_TARGET_PENALTY);
+  // 51 table size (Stage 43.2): 2–6 seats (2 = 1 deck, 3–4 = 2 decks, 5–6 = 3 decks).
+  const [fiftyOnePlayers, setFiftyOnePlayers] = useState<2 | 3 | 4 | 5 | 6>(4);
   // Poker online bankroll stakes (Stage 37.7 §16 J): host-chosen stakes + growth +
   // wallet affordability, reported by the PokerStakesPicker. Null until it mounts.
   const [pokerStakes, setPokerStakes] = useState<PokerStakesSelection | null>(null);
@@ -257,7 +260,7 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
       turnTimerSec: defaultTimer,
       password: pw || undefined,
       durakVariant, debercMatchSize, debercPlayers,
-      tarneebVariant, tarneebTargetScore, tarneebRules, preferansRules, fiftyOneEliminationScore,
+      tarneebVariant, tarneebTargetScore, tarneebRules, preferansRules, fiftyOneEliminationScore, fiftyOnePlayers,
       // Poker bankroll stakes (§16): the buy-in is re-derived + validated server-side.
       pokerSmallBlind: pokerStakes?.smallBlind,
       pokerBigBlind: pokerStakes?.bigBlind,
@@ -636,6 +639,18 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
               )}
               {gameType === 'fifty-one' && (
                 <div className="field">
+                  <label className="field__label">👥 {t('fiftyOne.players')}</label>
+                  <div className="segmented segmented--inline fiftyone-players-picker" role="group" aria-label={t('fiftyOne.players')}>
+                    {([2, 3, 4, 5, 6] as const).map((n) => (
+                      <button key={n} type="button"
+                        className={`segmented__tab ${fiftyOnePlayers === n ? 'segmented__tab--active' : ''}`}
+                        aria-pressed={fiftyOnePlayers === n}
+                        onClick={() => setFiftyOnePlayers(n)}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="durak-variant-desc">🂠 {fiftyOneDeckNote(t, fiftyOnePlayers)}</p>
                   <label className="field__label">☠️ {t('fiftyOne.eliminationScore')}</label>
                   <div className="segmented segmented--inline fiftyone-elim-picker" role="group" aria-label={t('fiftyOne.eliminationScore')}>
                     {ELIMINATION_SCORE_PRESETS.map((v) => (

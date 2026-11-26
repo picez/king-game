@@ -111,8 +111,8 @@ export const GAME_CATALOG = {
     id: 'fifty-one',
     titleKey: 'gameType.fifty-one',
     shortTitleKey: 'gameType.fifty-one',
-    minPlayers: 2,          // 2–4 players, each on their own side (51_RULES §2)
-    maxPlayers: 4,
+    minPlayers: 2,          // 2–6 players, each on their own side (51_RULES §2)
+    maxPlayers: 6,          // Stage 43.2: 5–6 seats play with 3 decks
     defaultPlayerCount: 4,  // social table default (2–4 all supported by the core)
     supportsLocal: true,    // Stage 30.3: local play (1 human + bots)
     supportsOnline: true,   // Stage 30.5: server-authoritative online rooms

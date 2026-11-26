@@ -818,6 +818,7 @@ export const DE: Record<string, string> = {
   'fiftyOne.playersHint': '{n} Spieler — du + Bots',
   'fiftyOne.deckNote2': '1 Deck + 2 Joker = {total} Karten',
   'fiftyOne.deckNote34': '2 Decks + 2 Joker = {total} Karten',
+  'fiftyOne.deckNote56': '3 Decks + 3 Joker = {total} Karten',
   'fiftyOne.start': 'Spiel starten',
   'fiftyOne.eliminationScore': 'Ausscheidungspunkte',
   'fiftyOne.eliminationScoreHint': 'Ein Spieler scheidet aus, sobald seine Strafpunkte diesen Wert erreichen (weniger = kürzeres Spiel).',

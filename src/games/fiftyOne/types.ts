@@ -126,7 +126,7 @@ export interface FiftyOneState {
   gameType: 'fifty-one';
   phase: FiftyOnePhase;
 
-  /** 2–4 (§2). Decides the deck size (§3) and seat count. */
+  /** 2–6 (§2). Decides the deck size (§3) and seat count. */
   playerCount: number;
   players: FiftyOnePlayer[];
 
@@ -155,6 +155,12 @@ export interface FiftyOneState {
   scoresBySeat: number[];
   /** Whether each seat has been eliminated (running penalty ≥ target, §12). */
   eliminatedSeats: boolean[];
+  /**
+   * DISPLAY-ONLY (Stage 43.1): the seats eliminated, in order — one group per scored
+   * round, so seats knocked out in the same round share a round. The final standings
+   * rank the LATER eliminated higher. Optional: states from before 43.1 lack it.
+   */
+  eliminationOrder?: number[][];
 
   /** 1-based round counter (increments on START_NEXT_ROUND). */
   roundNumber: number;
@@ -180,7 +186,7 @@ export type FiftyOneAction =
       type: 'START_GAME';
       playerNames: string[];              // length must equal playerCount
       playerTypes?: PlayerType[];         // defaults to 'human'
-      playerCount?: number;               // 2–4, defaults to playerNames.length
+      playerCount?: number;               // 2–6, defaults to playerNames.length
       options?: Partial<FiftyOneOptions>;
       /** Optional explicit first dealer (for tests); random via rng otherwise. */
       dealerSeat?: number;

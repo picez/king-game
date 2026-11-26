@@ -23,14 +23,14 @@ export const NEVER_OPENED_PENALTY = 100;
 export const JOKER_HAND_PENALTY = 25;
 
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 6;
 
 /** Two cards are the same physical card iff they share the unique deck id. */
 export function cardEquals(a: FiftyOneCard, b: FiftyOneCard): boolean {
   return a.id === b.id;
 }
 
-/** Clamp/validate a requested player count into the legal 2–4 range. */
+/** Clamp/validate a requested player count into the legal 2–6 range. */
 export function normalizePlayerCount(n: number | undefined, fallback: number): number {
   if (typeof n !== 'number' || !Number.isFinite(n)) return clampPlayers(fallback);
   return clampPlayers(Math.floor(n));
