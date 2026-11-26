@@ -44,6 +44,10 @@ services:
       #   https://<your-service>.onrender.com
       - key: ALLOWED_ORIGINS
         sync: false
+      # Admin panel (/admin, Stage 44.0): comma-separated Google emails of the admins.
+      # Empty = no admin panel. Set in the dashboard.
+      - key: ADMIN_EMAILS
+        sync: false
       # OPTIONAL. The client is served from the SAME origin, so without this it
       # auto-connects to wss://<this-domain>/ws — correct on Render with no
       # build-time domain needed. Set it only if you host the client elsewhere.

@@ -54,6 +54,9 @@ describe('poker stats add NO migration but DO feed achievements (Stage 37.4)', (
     const pokerMigrations = files.filter((f) => read(join('server/db/migrations', f)).match(/poker_/i));
     expect(pokerMigrations).toEqual([
       '0010_poker_wallet.sql', '0011_poker_settlement.sql', '0012_poker_matches.sql', '0013_poker_rebuy.sql',
+      // Stage 44.0: the admin migration widens the ledger `reason` CHECK with `admin_adjust`
+      // (an economy change — the admin chip correction), still never a stats table.
+      '0015_admin.sql',
     ]);
     // The economy migrations create ONLY wallet/ledger/settlement tables — never stats tables.
     for (const f of pokerMigrations) {

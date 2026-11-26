@@ -314,7 +314,7 @@ export function useNetworkGame(url: string, intent: OnlineIntent): NetworkGame {
         tokenRef.current = null;
         codeRef.current = null;
         clearSession();
-        setErrorCode('KICKED_BY_HOST');
+        setErrorCode(msg.reason === 'ADMIN_CLOSED' ? 'ROOM_CLOSED_BY_ADMIN' : msg.reason === 'BANNED' ? 'BANNED' : 'KICKED_BY_HOST');
         setError(null);
         setStatus('kicked');
         transportRef.current?.close();

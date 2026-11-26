@@ -64,7 +64,7 @@ export default function AccountBar({ account, name, avatar }: Props) {
 
       {account.banner && (
         <div className={`account-bar__banner account-bar__banner--${account.banner}`} role="status">
-          {account.banner === 'success' ? `✅ ${t('account.loginSuccess')}` : t('account.loginError')}
+          {account.banner === 'success' ? `✅ ${t('account.loginSuccess')}` : account.banner === 'banned' ? `⛔ ${t('account.loginBanned')}` : t('account.loginError')}
         </div>
       )}
     </div>

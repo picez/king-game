@@ -39,6 +39,7 @@ import {
 import {
   makePkce, signState, verifyState, statesMatch, randomToken,
 } from './oauthState';
+import { adminEmails, handleAdminRoutes, handlePlayerFeedbackRoutes, type RouteHelpers } from './admin/routes';
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
   .split(',').map((s) => s.trim()).filter(Boolean);
@@ -243,6 +244,18 @@ function logDbBrief(where: string, err: unknown): void {
 }
 
 /**
+ * Admin panel (Stage 44.0): records today's activity (DAU/WAU/MAU) and tells the menu
+ * whether to show the /admin link. Never throws — every /api/admin route re-checks.
+ */
+async function adminFlagFor(userId: string, isGuest: boolean): Promise<boolean> {
+  try {
+    const adminStore = await import('./admin/store');
+    void adminStore.touchActivity(userId).catch(() => { /* metrics only */ });
+    return !isGuest && !!(await adminStore.isAdminUser(userId, adminEmails()));
+  } catch { return false; }
+}
+
+/**
  * GET /api/me — "who am I?". Resilient by design: a TRANSIENT DB error (e.g. a Render
  * free-tier Postgres cold-start or a dropped pooled connection) must NOT hard-fail
  * identity. The safe answer is always "a guest", so on any DB error we degrade to
@@ -266,6 +279,7 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
     // Distinct from `avatarUrl` (the OAuth provider picture) — never conflated.
     const { getAvatarForUser } = await import('./db/userAvatars');
     const uploaded = await getAvatarForUser(userId);
+    const admin = await adminFlagFor(userId, profile.isGuest);
     json(res, 200, {
       authenticated: true,
       user: { ...publicUser(profile), avatar: profile.settings.avatar },
@@ -274,6 +288,7 @@ async function handleMe(req: IncomingMessage, res: ServerResponse): Promise<void
       avatarUrl: account?.picture ?? null,
       avatarImageUrl: uploaded ? avatarImageUrlPath(uploaded.id, uploaded.version) : null,
       settings: profile.settings,
+      admin,
     }, corsHeaders(req));
   } catch (err) {
     logDbBrief('GET /api/me', err);
@@ -427,6 +442,10 @@ async function handleGuestSession(req: IncomingMessage, res: ServerResponse): Pr
     : randomUUID();
   const { getOrCreateGuest, getProfile } = await import('./db/users');
   const user = await getOrCreateGuest(guestKey);
+  // A banned device handle gets no new session (Stage 44.0).
+  // Fail OPEN on a DB hiccup / a database not yet migrated to 0015: sign-in must never break.
+  const { isBanned } = await import('./admin/store');
+  if (await isBanned(user.id).catch(() => false)) return json(res, 403, { error: 'banned' }, corsHeaders(req));
 
   const token = generateSessionToken();
   const { createSession } = await import('./db/sessions');
@@ -659,8 +678,8 @@ function setStateCookie(res: ServerResponse, value: string): void {
   }));
 }
 
-/** Redirects to the app root with a `?login=success|error` flag. */
-function redirectLogin(req: IncomingMessage, res: ServerResponse, status: 'success' | 'error', cookies: string[] = []): void {
+/** Redirects to the app root with a `?login=success|error|banned` flag. */
+function redirectLogin(req: IncomingMessage, res: ServerResponse, status: 'success' | 'error' | 'banned', cookies: string[] = []): void {
   const headers: Record<string, string | string[]> = { location: `${appBaseFrom(req)}/?login=${status}` };
   if (cookies.length) headers['set-cookie'] = cookies;
   res.writeHead(302, headers);
@@ -746,6 +765,9 @@ async function handleGoogleCallback(req: IncomingMessage, res: ServerResponse): 
     provider: 'google', providerAccountId: identity.sub,
     email: identity.email, name: identity.name, picture: identity.picture,
   });
+  // A banned account is linked (so the ban keeps matching it) but gets NO session.
+  const { isBanned } = await import('./admin/store');
+  if (await isBanned(userId).catch(() => false)) return redirectLogin(req, res, 'banned', [clearState]);
 
   // Issue a fresh session for the resolved user.
   const token = generateSessionToken();
@@ -856,7 +878,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       ...corsHeaders(req),
-      'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
       'access-control-allow-headers': 'content-type',
       'access-control-max-age': '600',
     });
@@ -913,6 +935,20 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   }
 
   try {
+    // Admin panel + player feedback/inbox/announcement (Stage 44.0).
+    if (path === '/api/admin' || path.startsWith('/api/admin/') || path === '/api/announcement'
+      || path === '/api/feedback' || path === '/api/me/feedback' || path.startsWith('/api/me/inbox')) {
+      const h: RouteHelpers = {
+        req, res, path, method,
+        query: new URL(req.url ?? '/', 'http://localhost').searchParams,
+        json: (status, body, headers = {}) => json(res, status, body, { ...corsHeaders(req), ...headers }),
+        readBody: () => readJsonBody(req),
+        resolveUserId: () => resolveUserId(req),
+      };
+      if (path.startsWith('/api/admin')) return await handleAdminRoutes(h);
+      if (await handlePlayerFeedbackRoutes(h)) return;
+    }
+
     // Public (session-optional) routes.
     if (path === '/api/me' && method === 'GET') return await handleMe(req, res);
     if (path === '/api/guest-session' && method === 'POST') return await handleGuestSession(req, res);

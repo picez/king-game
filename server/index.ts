@@ -31,7 +31,7 @@ import {
   actingMember, applyTimeoutAction, recomputeOrphan, publicScreenOf, roomTimerInfo,
   beginTurnDeadline, resolveHumanFireAt,
   isRoomFinished, markRematchReady, removeRematchReady, clearRematch, rematchStateOf,
-  allHumansReady, restartGame, freezeOnlineMatch,
+  allHumansReady, restartGame, freezeOnlineMatch, roomCapacity,
   type ServerRoom, type ServerMember,
 } from '../src/net/serverCore';
 import {
@@ -48,7 +48,9 @@ import { isDbEnabled, probeDbState, probeMigrationLedger } from './db/client';
 import type { MigrationStatus } from './db/migrationLedger';
 import { resolveStorageKind } from '../src/net/storageConfig';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
-import { attachPresence, detachPresence, isOnline, presenceSocketsFor } from './friendsPresence';
+import { setAdminRuntime, startLagSampler } from './admin/runtime';
+import { installErrorCapture } from './admin/errorSink';
+import { attachPresence, detachPresence, isOnline, presenceSocketsFor, onlineUserIds } from './friendsPresence';
 import { allowFriendInvite } from './friendsRateLimit';
 import { verifyFriendInvite, inviteReasonToErrorCode } from '../src/net/friendInvite';
 import { joinVoice, leaveVoice, relayVoiceSignal, setVoiceMute, type VoiceDelivery } from './voiceSignaling';
@@ -1205,6 +1207,58 @@ const wsCtx: WsContext = {
   persistRoom, freezeRoom: freezeRoomForOperator, beginOnlineMatch, welcome, handleLeave, detachSession,
   makeRoomCode, logRoomEvent, logLatestDeal,
 };
+
+// Admin panel runtime (Stage 44.0): read live rooms, close a room, kick a banned user.
+setAdminRuntime({
+  liveRooms: () => [...rooms.values()].map((room) => {
+    const members = [...room.members.values()];
+    const host = members.find((m) => m.isHost);
+    return {
+      code: room.code,
+      gameType: room.gameType,
+      started: room.started,
+      hostName: host?.name ?? null,
+      players: members.filter((m) => m.role === 'player').map((m) => ({
+        name: m.name, type: m.type, connected: m.type === 'ai' ? true : m.connected, userId: m.userId ?? null,
+      })),
+      spectators: members.filter((m) => m.role === 'spectator').length,
+      capacity: roomCapacity(room),
+      createdAt: room.createdAt ?? null,
+      updatedAt: room.updatedAt ?? null,
+      hasPassword: room.passwordHash !== null,
+    };
+  }).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)),
+  closeRoom: (code) => {
+    const room = rooms.get(code);
+    if (!room) return false;
+    for (const m of room.members.values()) {
+      const s = socketOf(m);
+      if (!s) continue;
+      send(s, { t: 'KICKED', reason: 'ADMIN_CLOSED' });
+      try { s.close(); } catch { /* already closing */ }
+      sockets.delete(m.clientId);
+    }
+    deleteRoomWithSettlement(code, room);
+    console.log(`[King] room ${code} closed by an admin`);
+    return true;
+  },
+  connections: () => sockets.size,
+  onlineUserIds: () => onlineUserIds(),
+  kickUser: (userId) => {
+    let n = 0;
+    for (const room of rooms.values()) {
+      for (const m of room.members.values()) {
+        if (m.userId !== userId) continue;
+        const s = socketOf(m);
+        if (s) { send(s, { t: 'KICKED', reason: 'BANNED' }); try { s.close(); } catch { /* closing */ } n++; }
+      }
+    }
+    for (const s of presenceSocketsFor(userId)) { try { (s as WebSocket).close(); } catch { /* closing */ } }
+    return n;
+  },
+});
+startLagSampler();
+installErrorCapture(isDbEnabled());
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   // Per-IP gate (infra-level): reject before any per-socket state is set up when a

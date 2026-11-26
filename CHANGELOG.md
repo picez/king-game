@@ -18,6 +18,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Admin panel at `/admin` + player complaints & suggestions (Stage 44.0).** Modelled on the quiz
+  project's admin, adapted to the card games. Access: a verified Google account whose email is in
+  the new `ADMIN_EMAILS` env var; everyone else gets a plain 404. Tabs: **Overview** (users, online,
+  live tables, online games by game, DAU/WAU/MAU, daily/hourly charts, top players, server health),
+  **Live** (every room, close it — players are sent to the menu), **Players** (search, card with
+  stats/matches/feedback; ban/unban, reset nickname/avatar, sign out everywhere, poker chip
+  correction, per-game stats reset, delete with typed confirmation), **Appeals** (player
+  complaints, suggestions & bug reports with one reply each, grouped server errors), **Announcement**
+  (menu banner), **Broadcast** (to the players' new Inbox), **Log** (every admin action, filters, CSV)
+  and **Backup** (JSON download). Players get a **💬 Complaints & ideas** tile: write a complaint
+  (optionally naming the player and room), an idea or a bug; see their items and the admin's reply;
+  read admin messages in the Inbox. A ban ends every session, kicks the player from rooms and blocks
+  Google and guest sign-in. Migration **`0015_admin.sql`** (run `npm run db:migrate` after deploy).
 - **51 for 2–6 players (Stage 43.2).** Local setup and the online host picker offer 2–6 seats:
   2 = 1 deck + 2 jokers (54), 3–4 = 2 decks + 2 jokers (106), 5–6 = 3 decks + 3 jokers (159).
 

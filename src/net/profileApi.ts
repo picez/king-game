@@ -48,6 +48,8 @@ export interface MeResponse {
    * provider picture). Not consumed by any UI yet — the backend is hidden this stage.
    */
   avatarImageUrl?: string | null;
+  /** The account may open the admin panel (Stage 44.0). Routes re-check server-side. */
+  admin?: boolean;
 }
 
 /**

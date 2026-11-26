@@ -39,6 +39,9 @@ import SelectMenu from './components/SelectMenu';
 import GameIcon from './components/GameIcon';
 import GameHelpModal from './components/GameHelpModal';
 import TutorialHub from './tutorials/TutorialHub';
+import FeedbackPane from './menu/FeedbackPane';
+import AnnouncementBanner from './menu/AnnouncementBanner';
+import { fetchInbox } from '../net/feedbackApi';
 import { gameIconSrc } from '../visual/visualAssets';
 import { setCardBackStyle } from './components/cardBackStore';
 import { setCardFaceTheme } from './components/cardFaceStore';
@@ -63,7 +66,7 @@ interface Props {
   initialInviteCode?: string | null;
 }
 
-type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile' | 'tutorials';
+type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile' | 'tutorials' | 'feedback';
 
 export default function StartMenu({ onLocal, onOnline, initialError, initialInviteCode }: Props) {
   const { t } = useI18n();
@@ -120,6 +123,14 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
   function openHost() { setGameType(favoriteGame); setPane('host'); }
 
   const account = useAccount(url, customServer);
+  // Admin messages / replies waiting in the inbox (Stage 44.0) — the feedback tile badge.
+  const [inboxUnread, setInboxUnread] = useState(0);
+  useEffect(() => {
+    if (!account.hasSession) { setInboxUnread(0); return; }
+    let alive = true;
+    void fetchInbox(account.base).then((r) => { if (alive) setInboxUnread(r.unread); });
+    return () => { alive = false; };
+  }, [account.base, account.hasSession]);
   const roomList = useRoomList();
   const myRooms = useMyRooms(); // same-user cross-device discovery (Stage 36.1)
   // App-level presence (Stage 25.7): keeps a signed-in user "online" at the menu and drives
@@ -359,6 +370,8 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
         <p className="menu-tagline">{t('app.subtitle')}</p>
       </header>
 
+      {pane === 'menu' && account.authAvailable && <AnnouncementBanner base={account.base} />}
+
       {pane === 'menu' && (
         <div className="menu-main">
           {resumable && (
@@ -454,8 +467,33 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 </span>
               )}
             </button>
+            <button className="tile tile--badgeable" onClick={() => setPane('feedback')}>
+              <span className="tile__icon" aria-hidden="true">💬</span>
+              <span className="tile__text">
+                <span className="tile__title">{t('feedback.title')}</span>
+                <span className="tile__sub">{t('feedback.sub')}</span>
+              </span>
+              {inboxUnread > 0 && (
+                <span className="notif-badge" aria-label={`${inboxUnread} ${t('feedback.tab.inbox')}`}>{inboxUnread}</span>
+              )}
+            </button>
+            {account.isAdmin && (
+              <a className="tile tile--admin" href="/admin">
+                <span className="tile__icon" aria-hidden="true">🛡️</span>
+                <span className="tile__text">
+                  <span className="tile__title">{t('menu.adminTitle')}</span>
+                  <span className="tile__sub">{t('menu.adminSub')}</span>
+                </span>
+              </a>
+            )}
           </div>
         </div>
+      )}
+
+      {pane === 'feedback' && (
+        <FeedbackPane base={account.base} hasSession={account.hasSession}
+          initialTab={inboxUnread > 0 ? 'inbox' : 'write'}
+          onClose={() => setPane('menu')} onUnread={setInboxUnread} />
       )}
 
       {pane === 'tutorials' && (

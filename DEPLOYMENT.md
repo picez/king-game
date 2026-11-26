@@ -93,6 +93,7 @@ All optional; defaults keep LAN/dev simple.
 | `DATA_DIR`        | `.data`       | Directory for `rooms.json` when `ROOM_STORAGE_FILE` is unset. File mode only. |
 | `DATABASE_URL`    | _(unset)_     | Postgres connection string. Required when `ROOM_STORAGE=pg`; also enables the `/health` DB probe **and the Stage 4 `/api/*` profile/settings/session surface**. Unset = file/memory + every `/api/*` returns 503 (play unaffected). |
 | `DATABASE_POOL_MAX` | `5`         | Max Postgres connections in the pool (pg mode). |
+| `ADMIN_EMAILS`    | _(empty)_     | Stage 44.0: comma-separated Google emails allowed into the admin panel at `/admin` (verified, non-guest). Empty = no admin panel; everyone else gets a 404. |
 | `SESSION_SECRET`  | _(empty)_     | Stage 4: server-side pepper for hashing session tokens. **Required in production** (e.g. `openssl rand -hex 32`); rotating it invalidates all sessions. |
 | `COOKIE_SECURE`   | _(prod=on)_   | Stage 4: force the `Secure` session-cookie flag (`true`/`false`). Default = secure when `NODE_ENV=production`, off on dev `http://localhost`. |
 | `SESSION_TTL_DAYS`| `30`          | Stage 4: session lifetime in days (clamped 1..365). |

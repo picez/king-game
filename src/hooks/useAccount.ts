@@ -54,7 +54,9 @@ export interface Account {
    * or null. DISTINCT from the OAuth provider picture. Shown only on "me" surfaces.
    */
   avatarImageUrl: string | null;
-  banner: 'success' | 'error' | null;
+  /** May open the admin panel at /admin (Stage 44.0). */
+  isAdmin: boolean;
+  banner: 'success' | 'error' | 'banned' | null;
   clearBanner: () => void;
   syncing: boolean;
   googleUrl: string;
@@ -84,7 +86,7 @@ export function useAccount(serverUrl: string, customServer: string | null = null
   // "not signed in" apart from "server unreachable" vs "sign-in disabled here".
   const [probe, setProbe] = useState<MeProbe | null>(null);
   const [serverTimer, setServerTimer] = useState<number | null>(null);
-  const [banner, setBanner] = useState<'success' | 'error' | null>(null);
+  const [banner, setBanner] = useState<'success' | 'error' | 'banned' | null>(null);
   const [syncing, setSyncing] = useState(false);
   // False until the first /api/me settles (reachable or not). Prevents a premature
   // "Guest" flash + a hidden sign-in button while the identity is still unknown.
@@ -112,7 +114,7 @@ export function useAccount(serverUrl: string, customServer: string | null = null
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const login = params.get('login');
-      if (login === 'success' || login === 'error') {
+      if (login === 'success' || login === 'error' || login === 'banned') {
         setBanner(login);
         params.delete('login');
         const qs = params.toString();
@@ -217,6 +219,7 @@ export function useAccount(serverUrl: string, customServer: string | null = null
     hasSession, isGuest, signedIn,
     displayName: me?.user?.displayName ?? null, email: me?.email ?? null, serverTimer,
     avatarImageUrl: me?.avatarImageUrl ?? null,
+    isAdmin: me?.admin === true,
     banner, clearBanner: () => setBanner(null), syncing, googleUrl: googleStartUrl(base),
     hydrate, saveProgress, logout, uploadAvatarImage, removeAvatarImage,
     pushName, pushAvatar, pushLang, pushTimer, pushCardStyle, pushAnimation, pushFavoriteGame, pushCardFaceTheme,

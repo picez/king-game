@@ -18,7 +18,7 @@ A post-deploy pass. Run it after every production deploy (Render or VPS). It con
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
   release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.7.1`** (tag `v0.7.1`).
 - **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, Fifty-One,
-  Poker) · **56 achievements** · latest migration **`0014_online_matches.sql`** · version
+  Poker) · **56 achievements** · latest migration **`0015_admin.sql`** · version
   **`0.7.1`**. Everything after v0.7.1 is **Unreleased** and ships only when a release stage says so.
 
 Set your host once and reuse it below:
@@ -36,7 +36,7 @@ HOST=https://<your-service>.onrender.com      # no trailing slash
 > `.sql` files in `server/db/migrations/` in filename order and records each one in a
 > **`schema_migrations` ledger** (Stage 40.1): an already-recorded, unchanged file is skipped, so
 > re-running it is safe. `/health/diagnostics` → `migrations` reports what the ledger holds. The
-> latest file on `main` is **`0014_online_matches.sql`** (15 files, `0000`–`0014`). A missing
+> latest file on `main` is **`0015_admin.sql`** (16 files, `0000`–`0015`). A missing
 > user-settings column surfaces as `/api/me → 503 migration_required`; Friends calls degrade to
 > `503`/empty until `0009` is applied.
 
@@ -67,15 +67,16 @@ per-area deep passes are §1–§11 below.
       recorded every file. **`"unrecorded"`** means `db:migrate` has not been run since the
       ledger existed (true of production until the owner runs it once more) — it says nothing
       about the schema, and then the proof is still the `npm run db:migrate` transcript
-      (`applied <file>.sql` or `already applied <file>.sql` per file, then `done (15 file(s))`)
+      (`applied <file>.sql` or `already applied <file>.sql` per file, then `done (16 file(s))`)
       plus the *indirect* checks below — a feature that would fail on the missing object
       succeeded. `"behind"` means a shipped migration is not recorded: run `db:migrate`.
 
       **Owner-provided migration evidence:** a `npm run db:migrate` run against the Render External
       Database URL completed with `applied 0014_online_matches.sql` and `done (15 file(s))`. That
-      file count matches `server/db/migrations/` exactly (15 files, `0000`–`0014`) and `0014` sorts
+      file count matched `server/db/migrations/` at the time (15 files, `0000`–`0014`) and `0014` sorted
       last, so the transcript is consistent with a full in-order run — the strongest evidence
-      available for the whole range.
+      available for that range. **Stage 44.0 added `0015_admin.sql` — not yet applied in prod:**
+      run `db:migrate` after the deploy and expect `applied 0015_admin.sql`, `done (16 file(s))`.
 
       | Migration | Observable check | Success proves | Does NOT prove |
       | --- | --- | --- | --- |
@@ -146,7 +147,7 @@ per-area deep passes are §1–§11 below.
 
 > **This section is the v0.4.8 release-time pass, not current state.** It is preserved because its
 > per-feature detail is still useful, but where it disagrees with §0 about counts, migrations or the
-> chat UI, **§0 is correct**. Current state: 7 games · 56 achievements · latest migration `0014`.
+> chat UI, **§0 is correct**. Current state: 7 games · 56 achievements · latest migration `0015`.
 
 v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (per-game filter chip strip, no "All")
 and grows the released catalog **29 → 34**. **Unreleased Stage 37.3** adds the full owner-requested pack of
@@ -199,7 +200,7 @@ Security spot-checks are §11; Android TWA owner-build tooling is §10b; iOS PWA
 - [ ] `curl -s $HOST/health/diagnostics` → `version` = **`0.4.8`**, `commit` matches the deploy,
       `db.enabled: true` (`db` status), **`games.count: 7`** with `ids` including **`fifty-one`** and **`poker`**,
       `voice.ice` = `stun_only`|`turn_configured`, `avatarUploads` present.
-      Then **`npm run db:migrate`** after every deploy — the latest file on `main` is now `0014_online_matches.sql` (§0.2).
+      Then **`npm run db:migrate`** after every deploy — the latest file on `main` is now `0015_admin.sql` (§0.2).
 - [ ] **No native artifacts in the repo:** `git ls-files android-twa` lists only `twa-manifest.json`,
       `check-env.ps1`, `triage-build-log.ps1`, `.gitignore`, `README.md`, `BUILD_LOG_TEMPLATE.md` — **no**
       `app/`, `gradlew`, `*.gradle`, `*.apk`, `*.aab`, `*.keystore`; `…/.well-known/assetlinks.json` → 404

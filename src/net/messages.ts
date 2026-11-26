@@ -362,7 +362,7 @@ export type ServerMessage =
    *  never an opponent identity, a pair, a threshold or a history. */
   | { t: 'ERROR'; code: ErrorCode; message: string; retryAfterSeconds?: number }
   /** The host removed this client from the room (before game start). */
-  | { t: 'KICKED'; reason: 'HOST_REMOVED' }
+  | { t: 'KICKED'; reason: 'HOST_REMOVED' | 'ADMIN_CLOSED' | 'BANNED' }
   /** Room-social broadcast: a member sent a whitelisted reaction (transient UI). */
   | { t: 'REACTION'; clientId: string; name: string; avatar: string; emoji: string; seatIndex: number | null; at: number }
   /** Room-social broadcast: a new (sanitised) chat message for everyone in room. */
@@ -411,6 +411,10 @@ export type ErrorCode =
   | 'NOT_HOST'
   /** The client was removed from the room by the host (UI message key). */
   | 'KICKED_BY_HOST'
+  /** An admin closed the room (Stage 44.0). */
+  | 'ROOM_CLOSED_BY_ADMIN'
+  /** The account was banned by an admin (Stage 44.0). */
+  | 'BANNED'
   /** Reaction cooldown / chat rate limit not elapsed yet (Stage 7). */
   | 'RATE_LIMITED'
   /** Chat message had nothing safe to send after filtering (Stage 7). */

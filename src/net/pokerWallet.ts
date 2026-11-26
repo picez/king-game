@@ -14,7 +14,7 @@ export const DAILY_CLAIM_CHIPS = 1_000_000;
  *  SEPARATE reason from `table_buy_in` on purpose: durable ownership requires exactly one
  *  initial buy-in row per participant, so a rebuy written under that reason would be read
  *  as a duplicate debit and freeze its own match. */
-export type PokerLedgerReason = 'daily_claim' | 'table_buy_in' | 'table_rebuy' | 'table_payout' | 'table_cancel_refund';
+export type PokerLedgerReason = 'daily_claim' | 'table_buy_in' | 'table_rebuy' | 'table_payout' | 'table_cancel_refund' | 'admin_adjust';
 
 /** The public wallet view returned by GET /api/me/poker-wallet + POST daily-claim. */
 export interface PokerWalletView {

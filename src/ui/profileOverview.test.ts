@@ -135,7 +135,7 @@ describe('Account auth controls + recovery (no dead-end)', () => {
 
   it('/api/me: transient error → guest; schema drift → 503 migration_required (not masked)', () => {
     const api = read('server/api.ts');
-    const me = api.slice(api.indexOf('async function handleMe'), api.indexOf('async function handleMe') + 1900);
+    const me = api.slice(api.indexOf('async function handleMe'), api.indexOf('async function handleMe') + 2400); // window grew with the 44.0 admin flag
     // Schema drift must NOT be masked as a guest — it returns a safe migration_required code.
     expect(me).toMatch(/classifyDbError\(err\) === 'migration_required'/);
     expect(me).toMatch(/error: 'migration_required'/);
