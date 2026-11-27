@@ -11,7 +11,7 @@ import type { Sql, TransactionSql } from 'postgres';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { getDb } from '../db/client';
 import {
-  BACKUP_TABLES, BROADCAST_DAILY_MAX, BROADCAST_MIN_INTERVAL_MS, FEEDBACK_HOURLY_MAX, dayRange, kindsForGroups,
+  BACKUP_FORMAT, BACKUP_TABLES, BROADCAST_DAILY_MAX, BROADCAST_MIN_INTERVAL_MS, FEEDBACK_HOURLY_MAX, dayRange, kindsForGroups,
   type AdminActionKind, type AdminBadge, type AdminBroadcastRow, type AdminErrorRow, type AdminFeedbackRow,
   type AdminLogRow, type AdminMetrics, type AdminUserDetail, type AdminUserRow, type Announcement,
   type FeedbackInput, type FeedbackStatus, type InboxResponse, type MyFeedbackItem,
@@ -718,18 +718,35 @@ export async function exportLog(f: LogFilter): Promise<AdminLogRow[]> {
 // ── backup ──────────────────────────────────────────────────────────────────
 
 /** Every row of the listed tables (sessions and avatar bytes excluded) as one object. */
-export async function exportBackup(actor: Actor): Promise<{ meta: Record<string, unknown>; tables: Record<string, unknown[]> }> {
-  const s = await sql();
-  const existing = new Set((await s`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`).map((r) => String(r.tablename)));
+export interface BackupDump {
+  meta: { format: typeof BACKUP_FORMAT; version: number; createdAt: string; by: string; commit: string | null; migrations: string[]; counts: Record<string, number> };
+  tables: Record<string, unknown[]>;
+}
+
+/**
+ * Every BACKUP_TABLES table as JSON rows. Pass a REPEATABLE READ transaction to get
+ * all tables from one snapshot (the cloud backup does), so foreign keys line up.
+ */
+export async function dumpTables(q: Q, by: string, commit: string | null): Promise<BackupDump> {
+  const existing = new Set((await q`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`).map((r) => String(r.tablename)));
   const tables: Record<string, unknown[]> = {};
   const counts: Record<string, number> = {};
   for (const t of BACKUP_TABLES) {
     if (!existing.has(t)) continue;
     // row_to_json keeps jsonb as real objects (drizzle's pass-through parser would give text).
-    const rows = await s`SELECT row_to_json(x)::text AS j FROM ${s(t)} x`;
+    const rows = await q`SELECT row_to_json(x)::text AS j FROM ${q(t)} x`;
     tables[t] = rows.map((r) => JSON.parse(String(r.j)));
     counts[t] = rows.length;
   }
-  await logAction(s, actor, 'backup_export', null, { tables: Object.keys(tables).length, rows: Object.values(counts).reduce((a, b) => a + b, 0) });
-  return { meta: { createdAt: new Date().toISOString(), by: actor.label, counts }, tables };
+  const migrations = existing.has('schema_migrations')
+    ? (await q`SELECT name FROM schema_migrations ORDER BY name`).map((r) => String(r.name))
+    : [];
+  return { meta: { format: BACKUP_FORMAT, version: 1, createdAt: new Date().toISOString(), by, commit, migrations, counts }, tables };
+}
+
+export async function exportBackup(actor: Actor, commit: string | null = null): Promise<BackupDump> {
+  const s = await sql();
+  const dump = await dumpTables(s, actor.label, commit);
+  await logAction(s, actor, 'backup_export', null, { tables: Object.keys(dump.tables).length, rows: Object.values(dump.meta.counts).reduce((a, b) => a + b, 0) });
+  return dump;
 }

@@ -34,6 +34,7 @@
     "rooms:cleanup": "tsx server/cleanup.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx server/db/migrate.ts",
+    "db:restore": "tsx server/db/restore.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

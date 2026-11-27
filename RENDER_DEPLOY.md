@@ -279,6 +279,7 @@ API** and **guest sessions** on the same port — no extra service. Add:
 |-----|-------|-------|
 | `DATABASE_URL` | _(Render Postgres URL)_ | enables `/api/*`; without it everything 503s and play is unaffected |
 | `ADMIN_EMAILS` | _(your Google email, comma-separated for several)_ | admin panel at `/admin` (Stage 44.0); empty = no admin panel |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` | _(Cloudflare R2 bucket + an Object Read & Write API token)_ | Stage 44.1: daily database backup; admin → Backup lists the copies; restore with `npm run db:restore -- <file>` |
 | `SESSION_SECRET` | _(strong random, e.g. `openssl rand -hex 32`)_ | **required in prod** — pepper for hashing session tokens; rotating it logs everyone out |
 | `COOKIE_SECURE` | `true` | optional override; defaults to secure when `NODE_ENV=production` |
 | `SESSION_TTL_DAYS` | `30` | optional; session lifetime (1..365) |

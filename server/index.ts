@@ -50,6 +50,7 @@ import { resolveStorageKind } from '../src/net/storageConfig';
 import { handleApiRequest, resolveSessionUserId, resolveAvatarImageUrl } from './api';
 import { setAdminRuntime, startLagSampler } from './admin/runtime';
 import { installErrorCapture } from './admin/errorSink';
+import { startBackupScheduler } from './admin/cloudBackup';
 import { attachPresence, detachPresence, isOnline, presenceSocketsFor, onlineUserIds } from './friendsPresence';
 import { allowFriendInvite } from './friendsRateLimit';
 import { verifyFriendInvite, inviteReasonToErrorCode } from '../src/net/friendInvite';
@@ -1259,6 +1260,7 @@ setAdminRuntime({
 });
 startLagSampler();
 installErrorCapture(isDbEnabled());
+if (isDbEnabled()) startBackupScheduler();
 
 wss.on('connection', (socket: WebSocket, request: IncomingMessage) => {
   // Per-IP gate (infra-level): reject before any per-socket state is set up when a

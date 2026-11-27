@@ -944,6 +944,7 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
         json: (status, body, headers = {}) => json(res, status, body, { ...corsHeaders(req), ...headers }),
         readBody: () => readJsonBody(req),
         resolveUserId: () => resolveUserId(req),
+        cors: () => corsHeaders(req),
       };
       if (path.startsWith('/api/admin')) return await handleAdminRoutes(h);
       if (await handlePlayerFeedbackRoutes(h)) return;

@@ -48,6 +48,16 @@ services:
       # Empty = no admin panel. Set in the dashboard.
       - key: ADMIN_EMAILS
         sync: false
+      # Daily database backup to Cloudflare R2 (Stage 44.1). All four set = on;
+      # any missing = cloud backups off (the admin can still download a JSON copy).
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
       # OPTIONAL. The client is served from the SAME origin, so without this it
       # auto-connects to wss://<this-domain>/ws — correct on Render with no
       # build-time domain needed. Set it only if you host the client elsewhere.

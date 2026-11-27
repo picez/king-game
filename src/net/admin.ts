@@ -120,7 +120,7 @@ export const ADMIN_ACTION_GROUPS = {
   games: ['room_close'],
   appeals: ['feedback_resolve', 'feedback_reopen', 'feedback_reply', 'error_resolve'],
   announcements: ['announcement_set', 'announcement_clear', 'broadcast_send'],
-  system: ['backup_export'],
+  system: ['backup_export', 'backup_cloud_run', 'backup_cloud_download'],
 } as const;
 export type AdminActionGroup = keyof typeof ADMIN_ACTION_GROUPS;
 export type AdminActionKind = (typeof ADMIN_ACTION_GROUPS)[AdminActionGroup][number];
@@ -136,6 +136,7 @@ export const ADMIN_ACTION_LABEL: Record<AdminActionKind, string> = {
   error_resolve: 'Помилку закрито',
   announcement_set: 'Оголошення', announcement_clear: 'Оголошення знято', broadcast_send: 'Розсилка',
   backup_export: 'Резервна копія',
+  backup_cloud_run: 'Хмарна копія (вручну)', backup_cloud_download: 'Завантаження хмарної копії',
 };
 
 export const ADMIN_GROUP_LABEL: Record<AdminActionGroup, string> = {
@@ -319,6 +320,25 @@ export interface AdminBroadcastRow {
 export const BROADCAST_MIN_INTERVAL_MS = 10 * 60 * 1000;
 export const BROADCAST_DAILY_MAX = 10;
 export const FEEDBACK_HOURLY_MAX = 5;
+/** `meta.format` of every backup file (manual download and cloud copy alike). */
+export const BACKUP_FORMAT = 'card-majlis-backup';
+
+/** One cloud copy as the admin sees it. */
+export interface AdminCloudBackup { key: string; size: number; at: string }
+
+/** GET /api/admin/backups. */
+export interface AdminBackupStatus {
+  /** R2 settings present (all four env vars). */
+  configured: boolean;
+  /** The schedule runs (DB_BACKUP / production). */
+  scheduled: boolean;
+  running: boolean;
+  lastRun: { at: string; ok: boolean; reason: 'schedule' | 'manual'; key: string | null; bytes: number | null; error: string | null } | null;
+  backups: AdminCloudBackup[];
+  /** Listing the bucket failed (credentials / network); `backups` is then empty. */
+  listError: string | null;
+}
+
 export const BACKUP_TABLES = [
   'users', 'user_settings', 'user_game_settings', 'auth_accounts', 'games', 'game_players', 'rounds',
   'user_stats', 'friendships', 'poker_wallets', 'poker_ledger', 'poker_matches', 'poker_match_settlements',

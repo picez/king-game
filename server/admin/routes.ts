@@ -26,6 +26,8 @@ export interface RouteHelpers {
   json: (status: number, body: unknown, headers?: Record<string, string>) => void;
   readBody: () => Promise<Record<string, unknown>>;
   resolveUserId: () => Promise<string | null>;
+  /** CORS headers for a response written directly (not through json). */
+  cors?: () => Record<string, string>;
 }
 
 export function adminEmails(): Set<string> { return parseAdminEmails(process.env.ADMIN_EMAILS); }
@@ -283,9 +285,44 @@ export async function handleAdminRoutes(h: RouteHelpers): Promise<void> {
 
     // ── backup (download)
     if (a === 'backup' && m === 'GET') {
-      const dump = await store.exportBackup(actor);
+      const dump = await store.exportBackup(actor, gitCommit());
       const name = `card-majlis-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
       return h.json(200, dump, { 'content-disposition': `attachment; filename="${name}"` });
+    }
+
+    // ── cloud backups (Stage 44.1, R2)
+    if (a === 'backups') {
+      const cloud = await import('./cloudBackup');
+      try {
+        if (!b && m === 'GET') return h.json(200, await cloud.backupStatus());
+        if (b === 'run' && m === 'POST') {
+          const made = await cloud.runBackup('manual', actor.label);
+          const s = await (await import('../db/client')).getDb();
+          if (s) await store.logAction(s.sql as never, actor, 'backup_cloud_run', null, { key: made?.key ?? null, bytes: made?.bytes ?? null });
+          return h.json(200, { ok: true, key: made?.key ?? null, bytes: made?.bytes ?? null });
+        }
+        if (b === 'download' && m === 'GET') {
+          const key = h.query.get('key') ?? '';
+          const res = await cloud.downloadBackup(key);
+          if (!res) return notFound();
+          const bytes = new Uint8Array(await res.arrayBuffer());
+          const s = await (await import('../db/client')).getDb();
+          if (s) await store.logAction(s.sql as never, actor, 'backup_cloud_download', null, { key });
+          h.res.writeHead(200, {
+            ...(h.cors?.() ?? {}),
+            'content-type': 'application/gzip',
+            'content-length': String(bytes.length),
+            'content-disposition': `attachment; filename="${key.split('/').pop()}"`,
+            'cache-control': 'no-store',
+          });
+          h.res.end(bytes);
+          return;
+        }
+      } catch (e) {
+        if (e instanceof cloud.BackupError) return h.json(e.status, { error: e.code });
+        throw e;
+      }
+      return notFound();
     }
 
     return notFound();

@@ -63,6 +63,9 @@ export function errorText(e: unknown): string {
     db_disabled: 'База даних не налаштована (DATABASE_URL).',
     db_error: 'База даних тимчасово недоступна.',
     migration_required: 'Потрібно застосувати міграції бази даних.',
+    backup_not_configured: 'Хмарне сховище не налаштоване (змінні R2_* на сервері).',
+    backup_running: 'Копія вже робиться — зачекайте.',
+    backup_too_soon: 'Остання копія зроблена менше ніж 10 хвилин тому.',
   };
   return map[code] ?? `Помилка: ${code}`;
 }
