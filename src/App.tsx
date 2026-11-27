@@ -19,13 +19,16 @@ const PreferansLocalGame = lazy(screenLoaders.preferans);
 const FiftyOneLocalGame = lazy(screenLoaders.fiftyOne);
 const PokerLocalGame = lazy(screenLoaders.poker);
 const OnlineGame = lazy(screenLoaders.online);
+const SolitaireApp = lazy(screenLoaders.solitaire);
 
 type Mode =
   | { kind: 'menu' }
   // Local play carries the chosen game (King unchanged; Durak = local prototype).
   // `practice` (Stage 42.5): opened from a tutorial — King's setup pre-fills bots.
   | { kind: 'local'; gameType: GameType; practice?: boolean }
-  | { kind: 'online'; url: string; intent: OnlineIntent; signedIn: boolean };
+  | { kind: 'online'; url: string; intent: OnlineIntent; signedIn: boolean }
+  // The solitaire section (its own hub + game screen).
+  | { kind: 'solitaire' };
 
 export default function App() {
   const [mode, setMode] = useState<Mode>({ kind: 'menu' });
@@ -50,6 +53,8 @@ export default function App() {
             : mode.gameType === 'fifty-one' ? <FiftyOneLocalGame onExit={toMenu} />
               : mode.gameType === 'poker' ? <PokerLocalGame onExit={toMenu} />
                 : <LocalGame practice={mode.practice} />; // King
+  } else if (mode.kind === 'solitaire') {
+    content = <SolitaireApp onExit={toMenu} />;
   } else if (mode.kind === 'online') {
     content = (
       <OnlineGame
@@ -66,6 +71,7 @@ export default function App() {
         initialError={joinError}
         initialInviteCode={inviteCode}
         onLocal={(gameType, opts) => setMode({ kind: 'local', gameType, practice: opts?.practice })}
+        onSolitaire={() => setMode({ kind: 'solitaire' })}
         onOnline={(url, intent, signedIn) => {
           // Any online transition consumes a pending invite code (avoid re-joining on a later menu return).
           setJoinError(null); setInviteCode(null);

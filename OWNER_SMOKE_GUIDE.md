@@ -56,7 +56,7 @@ applies, and `/health/diagnostics` shows the result under `migrations`. If it re
 `"state": "current"` with `applied` and `expected` both **15**, every migration is recorded and
 this check is a PASS on that alone. If it reads `"unrecorded"`, nobody has run `db:migrate`
 since the ledger was added — run it once (it prints one `applied <file>.sql` or
-`already applied <file>.sql` line per file and a final `done (16 file(s))`). Until then
+`already applied <file>.sql` line per file and a final `done (17 file(s))`). Until then
 everything below is the *indirect* evidence: a feature that would fail on the missing
 table/column succeeded, so the migration behind it must have run.
 
@@ -67,9 +67,8 @@ last of them — so that transcript is consistent with a full, in-order run and 
 evidence available for the whole 0000–0014 range.
 
 **Stage 44.0 added `0015_admin.sql`** (admin panel, bans, player feedback, inbox, announcements,
-audit log). It is **not yet applied in production**: after the deploy run `npm run db:migrate`
-and expect `applied 0015_admin.sql` and `done (16 file(s))`. Until then `/admin`, complaints &
-suggestions and the announcement banner answer `migration_required`; play is unaffected.
+audit log) and the solitaire section added **`0016_solitaire.sql`** (server-verified solitaire wins).
+Both were **applied in production on 2026-11-27** (`done (17 file(s))`).
 
 | Migration | Check you can run | A success proves | It does NOT prove |
 | --- | --- | --- | --- |

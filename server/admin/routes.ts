@@ -24,7 +24,7 @@ export interface RouteHelpers {
   method: string;
   query: URLSearchParams;
   json: (status: number, body: unknown, headers?: Record<string, string>) => void;
-  readBody: () => Promise<Record<string, unknown>>;
+  readBody: (maxBytes?: number) => Promise<Record<string, unknown>>;
   resolveUserId: () => Promise<string | null>;
   /** CORS headers for a response written directly (not through json). */
   cors?: () => Record<string, string>;

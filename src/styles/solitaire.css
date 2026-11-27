@@ -1,0 +1,122 @@
+/* ===========================================================================
+   Solitaire section (S2). Theme tokens only (both Midnight and Classic define
+   them). The board is one viewport: top bar, the table (flex), the action bar.
+   Card size comes from JS (--sol-cw / --sol-ch) so 7–10 columns fit 360 px.
+   =========================================================================== */
+
+/* ── hub ─────────────────────────────────────────────────────────────────── */
+.sol-hub-page { min-height: 100dvh; padding: 0.75rem; display: flex; justify-content: center; }
+.sol-hub { width: 100%; max-width: 720px; }
+.sol-hub__totals { color: var(--text-muted); margin: 0 0 0.5rem; font-size: 0.9rem; }
+.sol-tabs { display: flex; gap: 0.25rem; margin: 0.5rem 0 0.75rem; border-bottom: 1px solid var(--border); }
+.sol-tab {
+  min-height: 44px; padding: 0 1rem; border: 0; background: transparent; color: var(--text-muted);
+  font: inherit; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+}
+.sol-tab--on { color: var(--text); border-bottom-color: var(--accent); }
+
+.sol-continue {
+  width: 100%; display: flex; align-items: center; gap: 0.75rem; min-height: 56px; padding: 0.6rem 0.9rem;
+  margin-bottom: 0.75rem; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-3);
+  color: var(--text); font: inherit; text-align: start; cursor: pointer;
+}
+.sol-continue__icon { font-size: 1.2rem; color: var(--accent-light); }
+.sol-continue__text { display: grid; }
+.sol-continue__title { font-weight: 700; }
+.sol-continue__sub { color: var(--text-muted); font-size: 0.85rem; }
+
+.sol-list { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.sol-card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 0.75rem; display: grid; gap: 0.5rem; }
+.sol-card__head { display: flex; gap: 0.6rem; align-items: flex-start; }
+.sol-card__icon { font-size: 1.8rem; line-height: 1; }
+.sol-card__titles { flex: 1; min-width: 0; }
+.sol-card__title { margin: 0; font-size: 1.05rem; }
+.sol-card__sub { margin: 0.1rem 0 0; color: var(--text-muted); font-size: 0.85rem; }
+.sol-card__level { color: var(--accent-light); letter-spacing: 1px; font-size: 0.8rem; white-space: nowrap; }
+.sol-card__stats { margin: 0; color: var(--text-muted); font-size: 0.85rem; }
+.sol-card__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.sol-card__actions .btn { min-height: 44px; }
+.sol-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.sol-chip {
+  min-height: 36px; padding: 0 0.75rem; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: transparent; color: var(--text); font: inherit; font-size: 0.85rem; cursor: pointer;
+}
+.sol-chip--on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* ── game screen ─────────────────────────────────────────────────────────── */
+.sol-screen {
+  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 35%, var(--felt-lit) 0%, var(--felt-mid) 55%, var(--felt-edge) 100%);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.sol-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem; min-height: 48px; }
+.sol-bar .btn { min-width: 44px; min-height: 44px; }
+.sol-bar__title { flex: 1; min-width: 0; display: grid; }
+.sol-bar__name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sol-bar__daily { font-size: 0.75rem; color: var(--text-muted); }
+.sol-bar__stat { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.9rem; white-space: nowrap; }
+
+.sol-table { flex: 1; min-height: 0; position: relative; display: flex; justify-content: center; padding: 0.25rem 0.5rem; overflow: hidden; }
+.sol-table--shake .sol-board { animation: sol-shake 0.3s ease; }
+@keyframes sol-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .sol-table--shake .sol-board { animation: none; } }
+
+.sol-board { position: relative; flex: 0 0 auto; }
+.sol-slot { position: absolute; width: var(--sol-cw); height: var(--sol-ch); }
+.sol-board .card {
+  width: var(--sol-cw); height: var(--sol-ch);
+  border-radius: max(4px, calc(var(--sol-cw) * 0.09));
+}
+.sol-slot--covered .card { cursor: default; }
+.sol-base {
+  position: absolute; width: var(--sol-cw); height: var(--sol-ch); padding: 0;
+  border-radius: max(4px, calc(var(--sol-cw) * 0.09));
+  border: 2px dashed var(--border-strong); background: var(--surface-2);
+  color: var(--text-dim); font: inherit; font-weight: 700; font-size: calc(var(--sol-cw) * 0.38); cursor: pointer;
+}
+.sol-base--static { cursor: default; border-style: solid; opacity: 0.5; }
+.sol-base--hint { border-color: var(--accent-light); box-shadow: 0 0 0 2px rgb(var(--accent-light-rgb) / 0.55); }
+.sol-base--target { border-color: rgb(var(--accent-light-rgb) / 0.7); }
+.sol-count, .sol-passes {
+  position: absolute; z-index: 60; min-width: 18px; padding: 0 4px; border-radius: 9px;
+  background: var(--panel-solid); color: var(--text); font-size: 0.72rem; line-height: 18px; text-align: center; pointer-events: none;
+}
+
+.sol-note { margin: 0; padding: 0.3rem 0.75rem; text-align: center; color: var(--text); background: var(--overlay); font-size: 0.9rem; }
+.sol-actions {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; padding: 0.4rem 0.5rem 0.5rem;
+}
+.sol-actions .btn {
+  min-height: 48px; padding: 0.2rem 0.15rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  font-size: 0.74rem; line-height: 1.1; min-width: 0;
+}
+.sol-act__icon { font-size: 1.05rem; line-height: 1; }
+.sol-act__label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── dialogs ─────────────────────────────────────────────────────────────── */
+.sol-modal {
+  position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 1rem;
+  background: var(--overlay);
+}
+.sol-modal__box {
+  width: min(100%, 460px); max-height: 85dvh; overflow-y: auto; padding: 1rem 1.1rem;
+  border-radius: 16px; border: 1px solid var(--border-strong); background: var(--panel-solid); color: var(--text);
+}
+.sol-modal__box h3 { margin-top: 0; }
+.sol-modal__box p { margin: 0.4rem 0; line-height: 1.45; }
+.sol-modal__box .btn { min-height: 44px; margin-top: 0.5rem; }
+.sol-win { text-align: center; }
+.sol-win__burst { font-size: 2.6rem; }
+.sol-win__line { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.sol-win__best { color: var(--text-muted); }
+.sol-win__actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+
+/* ── leaderboards (S3) ───────────────────────────────────────────────────── */
+.sol-lb { display: grid; gap: 0.6rem; }
+.sol-lb__filters { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.sol-lb__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.sol-lb__table th { text-align: start; color: var(--text-muted); font-weight: 600; font-size: 0.78rem; padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--border); }
+.sol-lb__table td { padding: 0.45rem 0.4rem; border-bottom: 1px solid var(--hairline); font-variant-numeric: tabular-nums; }
+.sol-lb__me td { background: rgb(var(--accent-rgb) / 0.14); }
+.sol-lb__name { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sol-lb__empty { color: var(--text-muted); }

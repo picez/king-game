@@ -17,7 +17,7 @@
 // (they have no user_id). See ARCHITECTURE_DB_AUTH.md §2.11/§5.
 // ---------------------------------------------------------------------------
 
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { users, userSettings, userGameSettings, gamePlayers, games, sessions } from './schema';
 import { getDb } from './client';
@@ -97,6 +97,17 @@ export async function mergeGuestInto(guestUserId: string, targetUserId: string):
     // Repoint historical participation + winner attribution to the real account.
     await tx.update(gamePlayers).set({ userId: targetUserId }).where(eq(gamePlayers.userId, guestUserId));
     await tx.update(games).set({ winnerUserId: targetUserId }).where(eq(games.winnerUserId, guestUserId));
+
+    // Solitaire wins (Stage S3) follow the player; a deal of the day / deal the
+    // account already has keeps the account's own result. Skipped before 0016.
+    const hasSolitaire = await tx.execute(sql`SELECT to_regclass('public.solitaire_results') IS NOT NULL AS ok`);
+    if ((hasSolitaire as unknown as Array<{ ok: boolean }>)[0]?.ok) {
+      await tx.execute(sql`
+        DELETE FROM solitaire_results g WHERE g.user_id = ${guestUserId} AND EXISTS (
+          SELECT 1 FROM solitaire_results a WHERE a.user_id = ${targetUserId} AND a.variant = g.variant
+            AND ((g.daily IS NOT NULL AND a.daily = g.daily) OR (g.daily IS NULL AND a.daily IS NULL AND a.seed = g.seed)))`);
+      await tx.execute(sql`UPDATE solitaire_results SET user_id = ${targetUserId} WHERE user_id = ${guestUserId}`);
+    }
 
     // Carry over a custom display name only if the target has none.
     if ((!target.displayName || !target.displayName.trim()) && guest.displayName?.trim()) {

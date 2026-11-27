@@ -59,6 +59,8 @@ const JOIN_ERR_CODES = new Set(['ROOM_NOT_FOUND', 'ROOM_FULL', 'BAD_PASSWORD', '
 interface Props {
   /** Start a local game of the selected type (King unchanged; Durak prototype). */
   onLocal: (gameType: GameType, opts?: { practice?: boolean }) => void;
+  /** Opens the solitaire section. */
+  onSolitaire?: () => void;
   onOnline: (url: string, intent: OnlineIntent, signedIn?: boolean) => void;
   /** A join error carried back from a failed attempt (highlights the field). */
   initialError?: ErrorCode | null;
@@ -68,7 +70,7 @@ interface Props {
 
 type Pane = 'menu' | 'host' | 'join' | 'local' | 'profile' | 'tutorials' | 'feedback';
 
-export default function StartMenu({ onLocal, onOnline, initialError, initialInviteCode }: Props) {
+export default function StartMenu({ onLocal, onSolitaire, onOnline, initialError, initialInviteCode }: Props) {
   const { t } = useI18n();
   const errText = (code: ErrorCode) =>
     t(JOIN_ERR_CODES.has(code) || code === 'KICKED_BY_HOST' ? `err.${code}` : 'err.generic');
@@ -434,6 +436,15 @@ export default function StartMenu({ onLocal, onOnline, initialError, initialInvi
                 <span className="tile__sub">{t('menu.localSub')}</span>
               </span>
             </button>
+            {onSolitaire && (
+              <button className="tile" onClick={onSolitaire}>
+                <span className="tile__icon" aria-hidden="true">🃏</span>
+                <span className="tile__text">
+                  <span className="tile__title">{t('menu.solitaireTitle')}</span>
+                  <span className="tile__sub">{t('menu.solitaireSub')}</span>
+                </span>
+              </button>
+            )}
             <button className="tile" onClick={() => setPane('tutorials')}>
               <span className="tile__icon" aria-hidden="true">🎓</span>
               <span className="tile__text">

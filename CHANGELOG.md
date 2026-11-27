@@ -9,6 +9,19 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Added — Solitaire section (🃏)
+
+- **Seven solitaires** in their own menu section: Klondike (draw 1 / draw 3), Spider (1, 2 or 4
+  suits), FreeCell, Pyramid, TriPeaks, Yukon and Forty Thieves. Tap a card and it goes to its best
+  place (tap again to choose another); undo, hint, restart, new deal, one-tap finish when the rest
+  plays itself. An unfinished game is kept and offered as "Continue".
+- **Stats per variant** (played, won, streak, best time and moves) and the **deal of the day** —
+  the same deal for everyone, per variant and UTC day.
+- **Server-verified leaderboards** per variant: fastest, fewest moves, most wins and today's deal.
+  The server hands out the deal (signed start token), replays every move before a win counts, and
+  times the game itself. Migration `0016_solitaire.sql` (applied in production).
+- Rules for every solitaire in four languages. Achievements, tutorials and the admin view follow.
+
 ### Changed
 
 - **Faster first load (Stage 44.2).** Each game screen is now its own download, and only the

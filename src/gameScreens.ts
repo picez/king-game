@@ -13,6 +13,7 @@ export const screenLoaders = {
   fiftyOne: () => import('./ui/fiftyOne/FiftyOneLocalGame'),
   poker: () => import('./ui/poker/PokerLocalGame'),
   online: () => import('./ui/online/OnlineGame'),
+  solitaire: () => import('./ui/solitaire/SolitaireApp'),
 } as const;
 
 /** Delay after the menu mounts before warming the chunks (first paint stays light). */

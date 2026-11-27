@@ -40,6 +40,7 @@ import {
   makePkce, signState, verifyState, statesMatch, randomToken,
 } from './oauthState';
 import { adminEmails, handleAdminRoutes, handlePlayerFeedbackRoutes, type RouteHelpers } from './admin/routes';
+import { handleSolitaireRoutes } from './solitaire';
 
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '')
   .split(',').map((s) => s.trim()).filter(Boolean);
@@ -82,7 +83,7 @@ function corsHeaders(req: IncomingMessage): Record<string, string> {
 }
 
 /** Reads + JSON-parses the request body (capped). Returns {} for empty/invalid. */
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<Record<string, unknown>> {
   return new Promise((resolve) => {
     let size = 0;
     const chunks: Buffer[] = [];
@@ -90,7 +91,7 @@ async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknow
     req.on('data', (c: Buffer) => {
       if (aborted) return;
       size += c.length;
-      if (size > MAX_BODY_BYTES) { aborted = true; resolve({}); return; }
+      if (size > maxBytes) { aborted = true; resolve({}); return; }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -937,16 +938,18 @@ export async function handleApiRequest(req: IncomingMessage, res: ServerResponse
   try {
     // Admin panel + player feedback/inbox/announcement (Stage 44.0).
     if (path === '/api/admin' || path.startsWith('/api/admin/') || path === '/api/announcement'
-      || path === '/api/feedback' || path === '/api/me/feedback' || path.startsWith('/api/me/inbox')) {
+      || path === '/api/feedback' || path === '/api/me/feedback' || path.startsWith('/api/me/inbox')
+      || path.startsWith('/api/solitaire/')) {
       const h: RouteHelpers = {
         req, res, path, method,
         query: new URL(req.url ?? '/', 'http://localhost').searchParams,
         json: (status, body, headers = {}) => json(res, status, body, { ...corsHeaders(req), ...headers }),
-        readBody: () => readJsonBody(req),
+        readBody: (maxBytes?: number) => readJsonBody(req, maxBytes),
         resolveUserId: () => resolveUserId(req),
         cors: () => corsHeaders(req),
       };
       if (path.startsWith('/api/admin')) return await handleAdminRoutes(h);
+      if (await handleSolitaireRoutes(h)) return;
       if (await handlePlayerFeedbackRoutes(h)) return;
     }
 
