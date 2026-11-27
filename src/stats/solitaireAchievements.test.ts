@@ -12,11 +12,11 @@ const earned = (solitaire: SolitaireStats) => new Set(evaluateAchievements({ ...
 describe('solitaire achievements', () => {
   const sol = ACHIEVEMENTS.filter((a) => a.group === 'solitaire');
 
-  it('twelve badges, all in the solitaire group, none tied to a table game', () => {
-    expect(sol).toHaveLength(12);
+  it('fourteen badges, all in the solitaire group, none tied to a table game', () => {
+    expect(sol).toHaveLength(14);
     expect(sol.every((a) => a.gameType === undefined)).toBe(true);
     const g = groupAchievements(evaluateAchievements(base)).find((x) => x.key === 'solitaire');
-    expect(g?.total).toBe(12);
+    expect(g?.total).toBe(14);
   });
 
   it('locked without stats; unlock from local results', () => {

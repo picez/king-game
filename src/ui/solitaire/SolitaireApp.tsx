@@ -6,7 +6,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { ACHIEVEMENTS, type Achievement, type AllStats } from '../../stats/achievements';
 import type { VariantKey } from '../../solitaire/engine';
-import { fromSaved, newSession, started, toSaved, type Session } from '../../solitaire/session';
+import { current, fromSaved, newSession, started, toSaved, type Session } from '../../solitaire/session';
+import type { HeartsState } from '../../solitaire/hearts';
 import { loadSavedGame, loadStats, recordResult, saveGame, saveStats, type GameResult, type SolitaireStats } from '../../solitaire/stats';
 import { dailySeed, utcDay } from '../../solitaire/daily';
 import { startRankedDeal, submitSolitaireResult, type RankedOutcome } from '../../net/solitaireApi';
@@ -28,6 +29,7 @@ export function newlyEarned(before: SolitaireStats, after: SolitaireStats): Achi
 
 const resultOf = (s: Session, won: boolean): GameResult => ({
   key: s.key, won, ms: s.elapsedMs, moves: s.moves.length, undos: s.undos, hints: s.hints, daily: s.daily,
+  moons: s.key === 'hearts' ? (current(s) as HeartsState).moons[0] : 0,
 });
 
 export default function SolitaireApp({ onExit }: Props) {
@@ -87,6 +89,10 @@ export default function SolitaireApp({ onExit }: Props) {
       setBadges(record(resultOf(s, true)));
       setRanked('pending');
       void submitSolitaireResult(s).then(setRanked);
+    } else if (s.finished === 'lost') {
+      saveGame(null);
+      setBadges(record(resultOf(s, false)));
+      setRanked(null);
     } else if (started(s)) {
       saveGame(toSaved(s));
     }

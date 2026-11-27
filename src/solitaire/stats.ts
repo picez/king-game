@@ -19,6 +19,8 @@ export interface VariantStats {
   /** Wins without a hint. */
   noHintWins: number;
   dailyWins: number;
+  /** Hearts: times you shot the moon. */
+  moons: number;
 }
 
 export interface SolitaireStats {
@@ -29,7 +31,7 @@ export interface SolitaireStats {
 }
 
 export const emptyVariant = (): VariantStats => ({
-  played: 0, won: 0, streak: 0, bestStreak: 0, bestMs: null, bestMoves: null, cleanWins: 0, noHintWins: 0, dailyWins: 0,
+  played: 0, won: 0, streak: 0, bestStreak: 0, bestMs: null, bestMoves: null, cleanWins: 0, noHintWins: 0, dailyWins: 0, moons: 0,
 });
 export const emptyStats = (): SolitaireStats => ({ v: 1, variants: {}, daily: {} });
 export const variantStats = (s: SolitaireStats, k: VariantKey): VariantStats => s.variants[k] ?? emptyVariant();
@@ -42,6 +44,8 @@ export interface GameResult {
   undos: number;
   hints: number;
   daily: string | null;
+  /** Hearts: moons shot during the game. */
+  moons?: number;
 }
 
 export function recordResult(stats: SolitaireStats, r: GameResult): SolitaireStats {
@@ -60,6 +64,7 @@ export function recordResult(stats: SolitaireStats, r: GameResult): SolitaireSta
       dailyWins: v.dailyWins + (r.daily ? 1 : 0),
     }
     : { ...v, played: v.played + 1, streak: 0 };
+  next.moons = v.moons + Math.max(0, r.moons ?? 0);
   const daily = r.daily
     ? { ...stats.daily, [r.key]: { day: r.daily, won: r.won, ms: r.ms, moves: r.moves } }
     : stats.daily;

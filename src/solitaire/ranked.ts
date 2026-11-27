@@ -41,7 +41,7 @@ export interface LeaderRow {
 
 export interface LeaderboardResponse { variant: VariantKey; board: LeaderBoard; day: string | null; rows: LeaderRow[]; me: LeaderRow | null }
 
-const MOVE_KEYS = new Set(['t', 'from', 'n', 'to', 'ids']);
+const MOVE_KEYS = new Set(['t', 'from', 'n', 'to', 'ids', 'id']);
 
 /** Shape-checks a result body (the replay then checks the meaning). */
 export function parseResultBody(b: unknown): ResultBody | null {

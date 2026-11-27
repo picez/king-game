@@ -14,6 +14,9 @@ import type { PyramidState } from '../../solitaire/pyramid';
 import type { TriPeaksState } from '../../solitaire/triPeaks';
 import PileBoard from './PileBoard';
 import { PyramidBoard, TriPeaksBoard } from './PeakBoards';
+import HeartsBoard from './HeartsBoard';
+import type { HeartsState } from '../../solitaire/hearts';
+import type { HeartsMove } from '../../solitaire/engine';
 import { formatClock } from './format';
 import { labelOf } from './SolitaireHub';
 import type { RankedOutcome } from '../../net/solitaireApi';
@@ -101,8 +104,10 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
   }
 
   const won = session.finished === 'won';
+  const lost = session.finished === 'lost';
+  const isHearts = info.id === 'hearts';
   const canFinish = !won && engine.canAutoFinish(state);
-  const stuck = !won && engine.legal(state).length === 0;
+  const stuck = !won && !lost && engine.legal(state).length === 0;
   const best = variantStats(stats, session.key);
 
   return (
@@ -118,7 +123,9 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
       </header>
 
       <div className={`sol-table${shake ? ' sol-table--shake' : ''}`} ref={box.ref}>
-        {box.w > 0 && (info.id === 'pyramid'
+        {box.w > 0 && (info.id === 'hearts'
+          ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} onTap={onTap} onPass={(ids) => commit({ t: 'pass', ids })} width={box.w} height={box.h} />
+          : info.id === 'pyramid'
           ? <PyramidBoard state={state as PyramidState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={box.w} height={box.h} />
           : info.id === 'tripeaks'
             ? <TriPeaksBoard state={state as TriPeaksState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={box.w} height={box.h} />
@@ -127,19 +134,57 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
 
       {stuck && <p className="sol-note" role="status">{t('sol.stuck')}</p>}
 
-      <nav className="sol-actions" aria-label={t('sol.actions')}>
-        <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
-          onClick={() => { setSelection(null); onChange(undo(session)); }}><span className="sol-act__icon" aria-hidden="true">↶</span><span className="sol-act__label">{t('sol.undo')}</span></button>
-        <button type="button" className="btn btn--small" disabled={won}
+      <nav className={`sol-actions${isHearts ? ' sol-actions--two' : ''}`} aria-label={t('sol.actions')}>
+        {!isHearts && <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
+          onClick={() => { setSelection(null); onChange(undo(session)); }}><span className="sol-act__icon" aria-hidden="true">↶</span><span className="sol-act__label">{t('sol.undo')}</span></button>}
+        <button type="button" className="btn btn--small" disabled={won || lost}
           onClick={() => { const h = hintOf(session); setSelection(null); setHint(h.move); if (h.move) onChange(h.session); else setShake(true); }}><span className="sol-act__icon" aria-hidden="true">💡</span><span className="sol-act__label">{t('sol.hint')}</span></button>
         {canFinish
           ? <button type="button" className="btn btn--primary btn--small" onClick={() => onChange(autoFinish(session))}><span className="sol-act__icon" aria-hidden="true">⚡</span><span className="sol-act__label">{t('sol.finish')}</span></button>
-          : <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
+          : !isHearts && <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
             onClick={() => { setSelection(null); onChange(restart(session)); }}><span className="sol-act__icon" aria-hidden="true">⟲</span><span className="sol-act__label">{t('sol.restart')}</span></button>}
         <button type="button" className="btn btn--small" onClick={onNewDeal}><span className="sol-act__icon" aria-hidden="true">🂠</span><span className="sol-act__label">{t('sol.new')}</span></button>
       </nav>
 
-      {won && (
+      {isHearts && (won || lost) && (
+        <div className="sol-modal" role="dialog" aria-modal="true" aria-label={t('hearts.over')}>
+          <div className="sol-modal__box sol-win">
+            <div className="sol-win__burst" aria-hidden="true">{won ? '🎉' : '♥️'}</div>
+            <h3>{t('hearts.over')}</h3>
+            <p className="sol-win__line">{won
+              ? t('hearts.won').replace('{score}', String((state as HeartsState).scores[0]))
+              : (() => { const sc = (state as HeartsState).scores; const w = sc.indexOf(Math.min(...sc)); return t('hearts.lost').replace('{name}', t(`hearts.seat.${w === 0 ? 'you' : w}`)).replace('{score}', String(sc[w])); })()}</p>
+            <table className="hearts-final">
+              <tbody>
+                {(state as HeartsState).scores.map((v, i) => (
+                  <tr key={i} className={v === Math.min(...(state as HeartsState).scores) ? 'hearts-final__best' : undefined}>
+                    <td>{t(`hearts.seat.${i === 0 ? 'you' : i}`)}</td><td>{v}</td><td>{(state as HeartsState).moons[i] ? `🌕×${(state as HeartsState).moons[i]}` : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {won && (
+              <p className="sol-win__ranked" role="status">
+                {ranked === 'pending' ? t('sol.ranked.pending')
+                  : ranked?.kind === 'ranked' ? t('sol.ranked.ok').replace('{rank}', String(ranked.rank ?? '—')).replace('{time}', formatClock(ranked.ms))
+                    : ranked?.kind === 'error' ? t('sol.ranked.error') : t('sol.ranked.local')}
+              </p>
+            )}
+            {badges.length > 0 && (
+              <div className="sol-win__badges">
+                <p className="sol-win__badges-title">🏆 {t('sol.newBadges')}</p>
+                {badges.map((a) => <p key={a.id} className="sol-win__badge"><span aria-hidden="true">{a.icon}</span> <b>{t(a.titleKey)}</b> — {t(a.descriptionKey)}</p>)}
+              </div>
+            )}
+            <div className="sol-win__actions">
+              <button type="button" className="btn btn--primary" onClick={onNewDeal}>{t('sol.newDeal')}</button>
+              <button type="button" className="btn btn--ghost" onClick={onExit}>{t('sol.toHub')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {won && !isHearts && (
         <div className="sol-modal" role="dialog" aria-modal="true" aria-label={t('sol.won')}>
           <div className="sol-modal__box sol-win">
             <div className="sol-win__burst" aria-hidden="true">🎉</div>

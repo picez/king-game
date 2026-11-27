@@ -38,6 +38,10 @@ restart. Cards scale to fit 7–10 columns at 360 px.
 
 ## Stages
 
+**Status (2026-11-27): all five stages shipped** — S1 `9305780`, S2+S3 `21e8082`, S4 `7e50911`, S5 (Hearts) next commit.
+Hearts is built as one more variant of the same Engine contract: the bots play deterministically
+inside `apply`, so `seed + your moves` replays the whole game and ranks like a solitaire.
+
 | Stage | Content |
 |---|---|
 | S1 | pure core + all 7 engines + replay + daily seeds, exhaustive unit tests |

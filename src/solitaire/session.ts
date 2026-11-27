@@ -21,7 +21,7 @@ export interface Session {
   /** Milliseconds of play (paused while the page is hidden). */
   elapsedMs: number;
   /** Set when the result was recorded (won or given up). */
-  finished: 'won' | null;
+  finished: 'won' | 'lost' | null;
   /** Server start token (S3): only a deal started with one can be ranked. */
   token: string | null;
 }
@@ -40,7 +40,8 @@ export function play(s: Session, m: Move): Session {
   const next = engineFor(s.key).apply(current(s), m);
   if (next === null) return s;
   const out: Session = { ...s, states: [...s.states, next], moves: [...s.moves, m] };
-  return engineFor(s.key).won(next) ? { ...out, finished: 'won' } : out;
+  const e = engineFor(s.key);
+  return e.won(next) ? { ...out, finished: 'won' } : e.lost?.(next) ? { ...out, finished: 'lost' } : out;
 }
 
 export function undo(s: Session): Session {

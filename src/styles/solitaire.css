@@ -132,3 +132,34 @@
 .sol-tutorial__wrong { color: var(--card-red); font-weight: 600; }
 .sol-tutorial__done { color: var(--accent-light); font-weight: 700; }
 .sol-actions--tutorial { grid-template-columns: 1fr 3fr; }
+
+/* ── Hearts (S5) ─────────────────────────────────────────────────────────── */
+.hearts-board { display: flex; flex-direction: column; justify-content: space-between; gap: 0.25rem; }
+.hearts-top { display: flex; justify-content: center; }
+.hearts-mid { display: flex; align-items: center; justify-content: space-between; gap: 0.25rem; flex: 1; min-height: 0; }
+.hearts-seat {
+  display: grid; justify-items: center; gap: 0.05rem; min-width: 64px; padding: 0.3rem 0.45rem;
+  border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 0.8rem;
+}
+.hearts-seat--turn { border-color: var(--accent-light); box-shadow: 0 0 0 2px rgb(var(--accent-light-rgb) / 0.35); }
+.hearts-seat__name { font-weight: 700; }
+.hearts-seat__score { font-variant-numeric: tabular-nums; color: var(--text); }
+.hearts-seat__cards { color: var(--text-muted); font-size: 0.72rem; }
+.hearts-trick { position: relative; flex: 0 0 auto; }
+.hearts-trick--last { opacity: 0.55; }
+.hearts-trick__card { position: absolute; }
+.hearts-trick .card { width: var(--h-tw); height: var(--h-th); }
+.hearts-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.5rem; min-height: 44px; text-align: center; font-weight: 600; }
+.hearts-status__sub { width: 100%; font-weight: 400; color: var(--text-muted); font-size: 0.8rem; }
+.hearts-status .btn { min-height: 44px; }
+.hearts-hand-row { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.hearts-hand-row .hearts-seat { grid-auto-flow: column; gap: 0.5rem; }
+.hearts-hand { position: relative; }
+.hearts-hand .card { width: var(--sol-cw); height: var(--sol-ch); border-radius: max(4px, calc(var(--sol-cw) * 0.09)); }
+.hearts-hand__card { transition: transform 0.12s ease; }
+.hearts-hand__card--up { transform: translateY(-12px); }
+.hearts-final { margin: 0.4rem auto; border-collapse: collapse; min-width: 60%; }
+.hearts-final td { padding: 0.2rem 0.6rem; text-align: start; font-variant-numeric: tabular-nums; }
+.hearts-final__best td { color: var(--accent-light); font-weight: 700; }
+.sol-actions--two { grid-template-columns: repeat(2, 1fr); }
+@media (prefers-reduced-motion: reduce) { .hearts-hand__card { transition: none; } }

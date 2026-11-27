@@ -8,6 +8,7 @@ import { yukon } from './yukon';
 import { fortyThieves } from './fortyThieves';
 import { pyramid } from './pyramid';
 import { triPeaks } from './triPeaks';
+import { hearts } from './hearts';
 
 const ENGINES: Record<VariantKey, Engine<unknown, Move>> = {
   'klondike-1': makeKlondike(1) as Engine<unknown, Move>,
@@ -20,6 +21,7 @@ const ENGINES: Record<VariantKey, Engine<unknown, Move>> = {
   tripeaks: triPeaks as Engine<unknown, Move>,
   yukon: yukon as Engine<unknown, Move>,
   'forty-thieves': fortyThieves as Engine<unknown, Move>,
+  hearts: hearts as Engine<unknown, Move>,
 };
 
 export function engineFor(key: VariantKey): Engine<unknown, Move> {

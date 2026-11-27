@@ -30,6 +30,8 @@ describe('solitaire guides', () => {
       let target: TapTarget;
       if (m.t === 'stock') target = { kind: 'stock' };
       else if (m.t === 'remove') target = { kind: 'card', id: m.ids[0] };
+      else if (m.t === 'play') target = { kind: 'card', id: m.id };
+      else if (m.t === 'pass') continue;
       else target = { kind: 'pile', pile: m.from, index: (st.state as PileState).piles[m.from].length - m.n };
       let r = tap(t.id, e, st.state, null, target);
       if (!r.move && r.selection && m.t === 'remove' && m.ids[1] !== undefined) r = tap(t.id, e, st.state, r.selection, { kind: 'card', id: m.ids[1] });

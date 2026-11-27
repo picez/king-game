@@ -14,7 +14,10 @@ import { pyramid, pyramidCovers, type PyramidState } from './pyramid';
 import { triPeaks, triPeaksCovers, connects, type TriPeaksState } from './triPeaks';
 import { dailySeed, isUtcDay, utcDay } from './daily';
 
-const TOTAL: Record<VariantKey, number> = {
+/** Hearts has its own suite (hearts.test.ts): the pile/board invariants below do not apply. */
+const PATIENCES = VARIANT_KEYS.filter((k) => k !== 'hearts');
+
+const TOTAL: Record<Exclude<VariantKey, 'hearts'>, number> = {
   'klondike-1': 52, 'klondike-3': 52, 'spider-1': 104, 'spider-2': 104, 'spider-4': 104,
   freecell: 52, pyramid: 52, tripeaks: 52, yukon: 52, 'forty-thieves': 104,
 };
@@ -26,7 +29,7 @@ function allCards(s: unknown): SCard[] {
   return [...(st.board ?? []).filter((c): c is SCard => c !== null), ...(st.stock ?? []), ...(st.waste ?? [])];
 }
 /** Cards removed from play in Pyramid / TriPeaks are not in the state; count them back. */
-function conserved(key: VariantKey, s0: unknown, s: unknown): boolean {
+function conserved(key: Exclude<VariantKey, 'hearts'>, s0: unknown, s: unknown): boolean {
   const ids = allCards(s).map((c) => c.id);
   if (new Set(ids).size !== ids.length) return false;
   if (key === 'pyramid') return ids.length <= TOTAL[key];
@@ -37,7 +40,7 @@ function conserved(key: VariantKey, s0: unknown, s: unknown): boolean {
 const c = (suit: SCard['suit'], rank: number, up = true, id = Math.floor(Math.random() * 1e9)): SCard => ({ id, suit, rank, up });
 
 describe('deals', () => {
-  it.each(VARIANT_KEYS)('%s: right card count, deterministic, seed-sensitive', (key) => {
+  it.each(PATIENCES)('%s: right card count, deterministic, seed-sensitive', (key) => {
     const e = engineFor(key);
     const a = e.deal(42);
     expect(allCards(a).length).toBe(TOTAL[key]);
@@ -99,7 +102,7 @@ describe('deals', () => {
 });
 
 describe('random play keeps every invariant and replays exactly', () => {
-  it.each(VARIANT_KEYS)('%s over 40 seeds', (key) => {
+  it.each(PATIENCES)('%s over 40 seeds', (key) => {
     const e = engineFor(key);
     for (let seed = 1; seed <= 40; seed++) {
       const rng = makeRng(seed * 7919);
@@ -123,7 +126,7 @@ describe('random play keeps every invariant and replays exactly', () => {
     }
   });
 
-  it.each(VARIANT_KEYS)('%s: hints are always legal', (key) => {
+  it.each(PATIENCES)('%s: hints are always legal', (key) => {
     const e = engineFor(key);
     for (let seed = 1; seed <= 15; seed++) {
       let s = e.deal(seed);

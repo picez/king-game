@@ -22,6 +22,7 @@ export const SOLITAIRES: readonly SolitaireInfo[] = [
   { id: 'tripeaks', icon: '⛰️', columns: 10, difficulty: 1, variants: [{ key: 'tripeaks', labelKey: null }] },
   { id: 'yukon', icon: '❄️', columns: 7, difficulty: 3, variants: [{ key: 'yukon', labelKey: null }] },
   { id: 'forty-thieves', icon: '🗝️', columns: 10, difficulty: 3, variants: [{ key: 'forty-thieves', labelKey: null }] },
+  { id: 'hearts', icon: '♥️', columns: 4, difficulty: 2, variants: [{ key: 'hearts', labelKey: null }] },
 ];
 
 export const solitaireInfo = (id: SolitaireId): SolitaireInfo => SOLITAIRES.find((s) => s.id === id)!;

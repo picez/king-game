@@ -13,6 +13,9 @@ import type { PyramidState } from '../../solitaire/pyramid';
 import type { TriPeaksState } from '../../solitaire/triPeaks';
 import PileBoard from './PileBoard';
 import { PyramidBoard, TriPeaksBoard } from './PeakBoards';
+import HeartsBoard from './HeartsBoard';
+import type { HeartsState } from '../../solitaire/hearts';
+import type { HeartsMove } from '../../solitaire/engine';
 
 interface Props { id: SolitaireId; onExit: () => void; onPlay: (key: VariantKey) => void }
 
@@ -73,7 +76,9 @@ export default function SolitaireTutorial({ id, onExit, onPlay }: Props) {
   }
 
   const hint = waiting ? step.expect ?? null : null;
-  const board = size.w > 0 && (id === 'pyramid'
+  const board = size.w > 0 && (id === 'hearts'
+    ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} onTap={onTap} width={size.w} height={size.h} />
+    : id === 'pyramid'
     ? <PyramidBoard state={state as PyramidState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={size.w} height={size.h} />
     : id === 'tripeaks'
       ? <TriPeaksBoard state={state as TriPeaksState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={size.w} height={size.h} />

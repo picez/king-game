@@ -63,8 +63,8 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 68 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4 + 4 Stage 41.8 + 12 solitaire)', () => {
-    expect(ACHIEVEMENTS.length).toBe(68);
+  it('has 70 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4 + 4 Stage 41.8 + 14 solitaire section)', () => {
+    expect(ACHIEVEMENTS.length).toBe(70);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
@@ -147,6 +147,8 @@ describe('each badge has a positive + negative case', () => {
     { id: 'sol-streak-5', earn: { ...zero(), solitaire: solWins(...many(5, 'yukon')) }, lock: { ...zero(), solitaire: solWins(...many(4, 'yukon'), ...many(4, 'freecell')) } },
     { id: 'sol-clean', earn: { ...zero(), solitaire: solWins(['freecell', { undos: 0 }]) }, lock: { ...zero(), solitaire: solWins(['freecell', { undos: 2 }]) } },
     { id: 'sol-speed', earn: { ...zero(), solitaire: solWins(['klondike-1', { ms: 180_000 }]) }, lock: { ...zero(), solitaire: solWins(['klondike-1', { ms: 180_001 }], ['klondike-3', { ms: 60_000 }]) } },
+    { id: 'sol-hearts-win', earn: { ...zero(), solitaire: solWins(['hearts']) }, lock: { ...zero(), solitaire: solWins(['freecell']) } },
+    { id: 'sol-moon', earn: { ...zero(), solitaire: solWins(['hearts', { won: false, moons: 1 }]) }, lock: { ...zero(), solitaire: solWins(['hearts']) } },
     { id: 'sol-daily-7', earn: { ...zero(), solitaire: solWins(...many(7, 'pyramid', { daily: 'x' })) }, lock: { ...zero(), solitaire: solWins(...many(6, 'pyramid', { daily: 'x' })) } },
     { id: 'first-win', earn: { ...zero(), king: king({ gamesWon: 1 }) }, lock: zero() },
     { id: 'veteran', earn: { ...zero(), king: king({ gamesPlayed: 25 }) }, lock: { ...zero(), king: king({ gamesPlayed: 24 }) } },

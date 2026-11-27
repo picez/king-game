@@ -87,7 +87,15 @@ export function tapTriPeaks(e: Engine<unknown, PairMove>, s: unknown, t: TapTarg
   return { move: m ?? null, selection: null };
 }
 
+/** Hearts: a tap plays a legal card from your hand (passing is chosen with the pass button). */
+export function tapHearts(e: Engine<unknown, Move>, s: unknown, t: TapTarget): TapResult {
+  if (t.kind !== 'card') return { move: null, selection: null };
+  const m = e.legal(s).find((x) => x.t === 'play' && x.id === t.id);
+  return { move: m ?? null, selection: null };
+}
+
 export function tap(id: SolitaireId, e: Engine<unknown, Move>, s: unknown, sel: Selection, t: TapTarget): TapResult {
+  if (id === 'hearts') return tapHearts(e, s, t);
   if (id === 'pyramid') return tapPyramid(e as unknown as Engine<PyramidState, PairMove>, s as PyramidState, sel, t);
   if (id === 'tripeaks') return tapTriPeaks(e as unknown as Engine<unknown, PairMove>, s, t);
   return tapPile(e as unknown as Engine<PileState, PileMove>, s as PileState, sel, t);

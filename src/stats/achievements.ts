@@ -13,7 +13,7 @@
 import type { GameType } from '../games/catalog';
 import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats, PokerStats } from '../net/statsApi';
 import { totals as solitaireTotals, variantStats as solitaireVariant, type SolitaireStats } from '../solitaire/stats';
-import { VARIANT_KEYS as SOLITAIRE_VARIANTS, solitaireOf, type VariantKey } from '../solitaire/engine';
+import { PATIENCE_IDS, VARIANT_KEYS as SOLITAIRE_VARIANTS, solitaireOf, type VariantKey } from '../solitaire/engine';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
@@ -128,7 +128,7 @@ const solSum = (s: AllStats, f: 'cleanWins' | 'dailyWins'): number =>
 export function solitairesWon(s: AllStats): number {
   const ids = new Set<string>();
   for (const k of SOLITAIRE_VARIANTS) if (solWon(s, k) > 0) ids.add(solitaireOf(k));
-  return ids.size;
+  return PATIENCE_IDS.filter((id) => ids.has(id)).length;
 }
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
@@ -487,6 +487,14 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'sol-speed', titleKey: 'ach.solSpeed.title', descriptionKey: 'ach.solSpeed.desc',
     icon: '⚡', group: 'solitaire', rarity: 'rare',
     evaluate: (s) => { const b = s.solitaire ? solitaireVariant(s.solitaire, 'klondike-1').bestMs : null; return b !== null && b <= 180_000; },
+  },
+  {
+    id: 'sol-hearts-win', titleKey: 'ach.solHeartsWin.title', descriptionKey: 'ach.solHeartsWin.desc',
+    icon: '♥️', group: 'solitaire', rarity: 'uncommon', evaluate: (s) => solWon(s, 'hearts') >= 1,
+  },
+  {
+    id: 'sol-moon', titleKey: 'ach.solMoon.title', descriptionKey: 'ach.solMoon.desc',
+    icon: '🌕', group: 'solitaire', rarity: 'epic', evaluate: (s) => (s.solitaire ? solitaireVariant(s.solitaire, 'hearts').moons : 0) >= 1,
   },
   {
     id: 'sol-daily-7', titleKey: 'ach.solDaily7.title', descriptionKey: 'ach.solDaily7.desc',

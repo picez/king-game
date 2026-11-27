@@ -5,13 +5,15 @@
 
 import type { SCard } from './cards';
 
-export const SOLITAIRE_IDS = ['klondike', 'spider', 'freecell', 'pyramid', 'tripeaks', 'yukon', 'forty-thieves'] as const;
+export const SOLITAIRE_IDS = ['klondike', 'spider', 'freecell', 'pyramid', 'tripeaks', 'yukon', 'forty-thieves', 'hearts'] as const;
+/** The seven true solitaires (Hearts lives in the section but is a trick game vs bots). */
+export const PATIENCE_IDS = ['klondike', 'spider', 'freecell', 'pyramid', 'tripeaks', 'yukon', 'forty-thieves'] as const;
 export type SolitaireId = typeof SOLITAIRE_IDS[number];
 
 /** A playable variant = one leaderboard. */
 export const VARIANT_KEYS = [
   'klondike-1', 'klondike-3', 'spider-1', 'spider-2', 'spider-4', 'freecell',
-  'pyramid', 'tripeaks', 'yukon', 'forty-thieves',
+  'pyramid', 'tripeaks', 'yukon', 'forty-thieves', 'hearts',
 ] as const;
 export type VariantKey = typeof VARIANT_KEYS[number];
 
@@ -27,7 +29,12 @@ export type PairMove =
   | { t: 'remove'; ids: number[] }  // Pyramid: one King or two cards summing 13; TriPeaks: one card onto the waste
   | { t: 'stock' };
 
-export type Move = PileMove | PairMove;
+/** Hearts (S5): pass three cards, or play one. */
+export type HeartsMove =
+  | { t: 'pass'; ids: number[] }
+  | { t: 'play'; id: number };
+
+export type Move = PileMove | PairMove | HeartsMove;
 
 export interface Engine<S = unknown, M extends Move = Move> {
   key: VariantKey;
@@ -45,6 +52,8 @@ export interface Engine<S = unknown, M extends Move = Move> {
   finishStep(s: S): M | null;
   /** Cards still in play (0 when won) — for the win screen and stats. */
   cardsLeft(s: S): number;
+  /** The game ended without a win (Hearts: someone else has the lowest score). */
+  lost?(s: S): boolean;
 }
 
 /** Generic helpers over the engines. */

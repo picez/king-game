@@ -25,6 +25,11 @@ also reported at `GET /health/diagnostics` (`version` field).
 - **12 solitaire achievements** in their own group (first win, 10 / 100 wins, Klondike draw 3,
   FreeCell, Spider 4 suits, Forty Thieves, all seven solved, a 5-win streak, a win without undo,
   Klondike under 3 minutes, 7 deals of the day) — 68 badges in all; new ones show on the win card.
+- **Hearts («Черві») vs three bots** in the same section: pass 3 cards (left / right / across /
+  none), 2♣ leads, no points on the first trick, hearts broken, Q♠ = 13, shooting the moon, game to
+  100 — lowest wins. The bots are deterministic, so a won game is replayed by the server and ranked
+  like the solitaires; stats, guide (3 practice moves) and two badges (a Hearts win, shooting the
+  moon) — **70 badges** in all. No undo in Hearts.
 - **Admin → 🃏 Solitaire:** verified wins per variant, the latest results and removal of a
   suspicious one (logged with its reason).
 

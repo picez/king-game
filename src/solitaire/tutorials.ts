@@ -11,6 +11,7 @@ import type { Move, SolitaireId, VariantKey } from './engine';
 import type { PileState } from './pileKit';
 import { pyramidExposed, type PyramidState } from './pyramid';
 import type { TriPeaksState } from './triPeaks';
+import type { HeartsState } from './hearts';
 
 export interface TutorialStep {
   /** i18n key of the caption. */
@@ -54,8 +55,28 @@ function board28(fill: Record<number, string>): (SCard | null)[] {
 
 const mv = (from: string, to: string, n = 1): Move => ({ t: 'move', from, n, to });
 
+/**
+ * A Hearts position mid-hand: seats 1–3 have played `trick` (in order), it is your
+ * turn; each bot keeps a few low clubs so the game can go on after your card.
+ */
+let heartsCards: Record<string, number> = {};
+function heartsState(o: { hand: string; trick: string[] }): HeartsState {
+  const hand = cards(o.hand);
+  for (const c of hand) heartsCards[`${c.suit[0].toUpperCase()}${c.rank === 12 ? 'Q' : c.rank}`] = c.id;
+  const trick = o.trick.map((code, i) => ({ seat: i + 1, card: card(code) }));
+  const bot = () => cards('C3 C5 C8');
+  return {
+    hands: [hand, bot(), bot(), bot()], phase: 'play', hand: 0, trick, lastTrick: null,
+    turn: trick.length === 0 ? 0 : (trick.length + 1) % 4, heartsBroken: false, trickNo: 5,
+    taken: [0, 0, 0, 0], scores: [0, 0, 0, 0], moons: [0, 0, 0, 0], received: [], seed: 1,
+  };
+}
+/** The play move of a card you were dealt in the PREVIOUS heartsState() call. */
+const playOf = (code: string): Move => ({ t: 'play', id: heartsCards[code] });
+
 export function buildTutorials(): SolitaireTutorial[] {
   nextId = 1000;
+  heartsCards = {};
   const spiderFill = (extra: Record<string, string>) => {
     const f: Record<string, string> = {};
     for (let i = 0; i < 10; i++) f[`t${i}`] = 'SK';
@@ -119,6 +140,14 @@ export function buildTutorials(): SolitaireTutorial[] {
         { textKey: 'solTut.forty.suit', state: piles(FORTY, { t0: 'C7 H9', t1: 'D4 H8', t2: 'SA', s: '_C3 _D6' }), expect: mv('t1', 't0') },
         { textKey: 'solTut.forty.ace', state: piles(FORTY, { t0: 'C7 H9 H8', t1: 'D4', t2: 'SA', s: '_C3 _D6' }), expect: mv('t2', 'f0') },
         { textKey: 'solTut.forty.stock', state: piles(FORTY, { t0: 'C7 H9 H8', t1: 'D4', f0: 'SA', s: '_C3 _D6' }), expect: { t: 'stock' } },
+      ],
+    },
+    {
+      id: 'hearts', key: 'hearts', steps: [
+        { textKey: 'solTut.hearts.goal', state: heartsState({ hand: 'D2 S5 H7', trick: ['D9', 'D4', 'DQ'] }) },
+        { textKey: 'solTut.hearts.follow', state: heartsState({ hand: 'D2 S5 H7', trick: ['D9', 'D4', 'DQ'] }), expect: playOf('D2') },
+        { textKey: 'solTut.hearts.queen', state: heartsState({ hand: 'SQ H7 D5', trick: ['C9', 'C4', 'CK'] }), expect: playOf('SQ') },
+        { textKey: 'solTut.hearts.lead', state: heartsState({ hand: 'H2 H9 C6', trick: [] }), expect: playOf('C6') },
       ],
     },
   ];
