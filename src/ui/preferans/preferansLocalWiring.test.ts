@@ -31,7 +31,7 @@ describe('App routes local Preferans to its own screen', () => {
   it("routes gameType==='preferans' to PreferansLocalGame (not the King GameRouter)", () => {
     expect(app).toContain("mode.gameType === 'preferans'");
     expect(app).toContain('<PreferansLocalGame');
-    expect(app).toContain("import PreferansLocalGame from './ui/preferans/PreferansLocalGame'");
+    expect(read('../../gameScreens.ts')).toContain("preferans: () => import('./ui/preferans/PreferansLocalGame')");
     // King is still routed to its own LocalGame — behaviour unchanged.
     expect(app).toContain('<LocalGame practice={mode.practice} />');
   });

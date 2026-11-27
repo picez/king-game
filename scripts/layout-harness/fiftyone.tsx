@@ -27,7 +27,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
-import { LangProvider } from '../../src/i18n';
+import { LangProvider, preloadInitialLang } from '../../src/i18n';
 import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from '../../src/ui/online/RoomSocial';
 import PermanentLeaveControl from '../../src/ui/online/PermanentLeaveControl';
 import FiftyOneGameScreen from '../../src/ui/fiftyOne/FiftyOneGameScreen';
@@ -285,10 +285,12 @@ function Harness() {
   ) : screen;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LangProvider>
-      <Harness />
-    </LangProvider>
-  </StrictMode>,
-);
+void preloadInitialLang().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <LangProvider>
+        <Harness />
+      </LangProvider>
+    </StrictMode>,
+  );
+});

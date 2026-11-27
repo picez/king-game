@@ -5,10 +5,10 @@ import SelectMenu from '../ui/components/SelectMenu';
 // Translation dictionaries (Stage 8.2): one file per language under
 // ./dictionaries/. Keys are unchanged; English is the source/fallback used by
 // translate() and I18N_KEYS below.
+// Stage 44.2: only English ships in the main bundle; uk/de/ar are separate chunks
+// loaded on demand (main.tsx awaits the saved language before the first render,
+// so there is no English flash). Tests register all four (src/i18n/testSetup.ts).
 import { EN } from './dictionaries/en';
-import { UK } from './dictionaries/uk';
-import { DE } from './dictionaries/de';
-import { AR } from './dictionaries/ar';
 
 export type Lang = 'en' | 'uk' | 'de' | 'ar';
 export const LANGS: { code: Lang; label: string; flag: string }[] = [
@@ -24,7 +24,32 @@ export function isRtl(lang: Lang): boolean {
 
 type Dict = Record<string, string>;
 
-const DICTS: Record<Lang, Dict> = { en: EN, uk: UK, de: DE, ar: AR };
+const DICTS: Partial<Record<Lang, Dict>> = { en: EN };
+
+const LOADERS: Record<Exclude<Lang, 'en'>, () => Promise<Dict>> = {
+  uk: () => import('./dictionaries/uk').then((m) => m.UK),
+  de: () => import('./dictionaries/de').then((m) => m.DE),
+  ar: () => import('./dictionaries/ar').then((m) => m.AR),
+};
+
+/** Makes a dictionary available synchronously (the loader, tests). */
+export function registerDict(lang: Lang, dict: Dict): void { DICTS[lang] = dict; }
+export function isLangLoaded(lang: Lang): boolean { return DICTS[lang] !== undefined; }
+
+const pending = new Map<Lang, Promise<void>>();
+/** Loads a language's dictionary once. Never rejects: a failure leaves the English fallback. */
+export function ensureLang(lang: Lang): Promise<void> {
+  if (isLangLoaded(lang) || lang === 'en') return Promise.resolve();
+  let p = pending.get(lang);
+  if (!p) {
+    p = LOADERS[lang]().then((d) => registerDict(lang, d)).catch(() => { pending.delete(lang); });
+    pending.set(lang, p);
+  }
+  return p;
+}
+
+/** Awaited by every entry point before its first render. */
+export function preloadInitialLang(): Promise<void> { return ensureLang(initialLang()); }
 
 /** Every translation key (English is the source of truth). Exposed for tests. */
 export const I18N_KEYS: string[] = Object.keys(EN);
@@ -50,6 +75,16 @@ function initialLang(): Lang {
 
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(initialLang);
+  // Bumped when a dictionary arrives, so `t` re-renders consumers with real text.
+  const [loaded, setLoaded] = useState(() => isLangLoaded(lang));
+
+  useEffect(() => {
+    if (isLangLoaded(lang)) { setLoaded(true); return; }
+    let live = true;
+    setLoaded(false);
+    void ensureLang(lang).then(() => { if (live) setLoaded(isLangLoaded(lang)); });
+    return () => { live = false; };
+  }, [lang]);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -58,8 +93,13 @@ export function LangProvider({ children }: { children: ReactNode }) {
     }
   }, [lang]);
 
-  const setLang = useCallback((l: Lang) => { saveLang(l); setLangState(l); }, []);
-  const t = useCallback((key: string) => translate(lang, key), [lang]);
+  const setLang = useCallback((l: Lang) => {
+    saveLang(l);
+    // Switch once the dictionary is in, so the screen never flashes English.
+    void ensureLang(l).then(() => setLangState(l));
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const t = useCallback((key: string) => translate(lang, key), [lang, loaded]);
 
   // Memoize the context value so consumers only re-render when the language
   // actually changes, not on every LangProvider render.

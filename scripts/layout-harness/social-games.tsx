@@ -30,7 +30,7 @@
 import { StrictMode, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
-import { LangProvider } from '../../src/i18n';
+import { LangProvider, preloadInitialLang } from '../../src/i18n';
 import { GameContext } from '../../src/hooks/useGame';
 import RoomSocial, { SOCIAL_REGION_ID, type SocialPanel } from '../../src/ui/online/RoomSocial';
 import { roomLayoutClass } from '../../src/ui/online/roomLayout';
@@ -387,12 +387,14 @@ function Room() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LangProvider>
-      <Room />
-    </LangProvider>
-  </StrictMode>,
-);
+void preloadInitialLang().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <LangProvider>
+        <Room />
+      </LangProvider>
+    </StrictMode>,
+  );
+});
 
 requestAnimationFrame(() => requestAnimationFrame(() => { window.__socialReady = true; }));

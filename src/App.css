@@ -28,3 +28,15 @@
 @import './styles/winner.css';
 @import './styles/result.css';
 @import './styles/table-shell.css';
+
+/* Stage 44.2 — placeholder while a lazy game screen chunk loads (usually a blink:
+   the chunks are prefetched after the menu is idle) and the refresh card after a
+   failed chunk load. */
+.screen-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: 0.75rem;
+  text-align: center;
+  color: var(--text, inherit);
+}

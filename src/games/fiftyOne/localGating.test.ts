@@ -29,7 +29,7 @@ describe('51 is a released game — local + online + stats + favorite (Stage 30.
   it('App routes local fifty-one to FiftyOneLocalGame', () => {
     const app = read('src/App.tsx');
     expect(app).toContain("mode.gameType === 'fifty-one' ? <FiftyOneLocalGame");
-    expect(app).toContain("import FiftyOneLocalGame from './ui/fiftyOne/FiftyOneLocalGame'");
+    expect(read('src/gameScreens.ts')).toContain("fiftyOne: () => import('./ui/fiftyOne/FiftyOneLocalGame')");
   });
 
   it('OnlineGame routes online fifty-one to FiftyOneOnlineGame (not King GameRouter)', () => {

@@ -35,7 +35,7 @@ describe('App routes local Tarneeb to its own screen', () => {
   it("routes gameType==='tarneeb' to TarneebLocalGame (not the King GameRouter)", () => {
     expect(app).toContain("mode.gameType === 'tarneeb'");
     expect(app).toContain('<TarneebLocalGame');
-    expect(app).toContain("import TarneebLocalGame from './ui/tarneeb/TarneebLocalGame'");
+    expect(read('../../gameScreens.ts')).toContain("tarneeb: () => import('./ui/tarneeb/TarneebLocalGame')");
     // King is still routed to its own LocalGame — behaviour unchanged.
     expect(app).toContain('<LocalGame practice={mode.practice} />');
   });

@@ -7,5 +7,7 @@ export default defineConfig({
     // the post-navigation proof validator. They are plain .mjs and browser-free, so CI runs
     // them with everything else; the browser-driven halves stay in `npm run layout:*`.
     include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
+    // uk/de/ar dictionaries are lazy chunks in the app; tests need them synchronously.
+    setupFiles: ['src/i18n/testSetup.ts'],
   },
 });

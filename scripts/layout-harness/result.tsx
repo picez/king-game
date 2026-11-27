@@ -10,7 +10,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
-import { LangProvider } from '../../src/i18n';
+import { LangProvider, preloadInitialLang } from '../../src/i18n';
 import MatchResult from '../../src/ui/components/MatchResult';
 import type { ResultOutcome, ResultSeat, ResultTeam } from '../../src/ui/components/matchResultModel';
 import type { GameType } from '../../src/games/catalog';
@@ -48,11 +48,13 @@ const SCENES: Record<string, { game: GameType; outcome: ResultOutcome; title: st
 };
 const scene = SCENES[mode] ?? SCENES.podium;
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LangProvider>
-      <MatchResult {...scene} outcome={(qs.get('outcome') as ResultOutcome) ?? scene.outcome}
-        actions={<><button className="btn btn--primary" type="button">Зіграти ще</button><button className="btn btn--ghost" type="button">До меню</button></>} />
-    </LangProvider>
-  </StrictMode>,
-);
+void preloadInitialLang().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <LangProvider>
+        <MatchResult {...scene} outcome={(qs.get('outcome') as ResultOutcome) ?? scene.outcome}
+          actions={<><button className="btn btn--primary" type="button">Зіграти ще</button><button className="btn btn--ghost" type="button">До меню</button></>} />
+      </LangProvider>
+    </StrictMode>,
+  );
+});

@@ -17,7 +17,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
-import { LangProvider } from '../../src/i18n';
+import { LangProvider, preloadInitialLang } from '../../src/i18n';
 import OnlineTrackerPanel from '../../src/ui/components/OnlineTrackerPanel';
 import {
   buildOnlineTracker, emptyTracker, TRACKED_ONLINE_GAMES,
@@ -97,13 +97,15 @@ function Harness() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LangProvider>
-      <Harness />
-    </LangProvider>
-  </StrictMode>,
-);
+void preloadInitialLang().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <LangProvider>
+        <Harness />
+      </LangProvider>
+    </StrictMode>,
+  );
+});
 
 // The QA script clicks a chip when `sel` is given; announce readiness after paint.
 requestAnimationFrame(() => requestAnimationFrame(() => {

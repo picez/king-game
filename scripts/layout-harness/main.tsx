@@ -18,7 +18,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../../src/App.css';
-import { LangProvider } from '../../src/i18n';
+import { LangProvider, preloadInitialLang } from '../../src/i18n';
 import { useState } from 'react';
 import RoomSocial, { type SocialPanel } from '../../src/ui/online/RoomSocial';
 import PokerGameScreen from '../../src/ui/poker/PokerGameScreen';
@@ -183,10 +183,12 @@ function Harness() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <LangProvider>
-      <Harness />
-    </LangProvider>
-  </StrictMode>,
-);
+void preloadInitialLang().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <LangProvider>
+        <Harness />
+      </LangProvider>
+    </StrictMode>,
+  );
+});

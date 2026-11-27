@@ -1,18 +1,24 @@
-import { useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import type { OnlineIntent } from './hooks/useNetworkGame';
 import type { ErrorCode } from './net/messages';
 import type { GameType } from './games/catalog';
 import StartMenu from './ui/StartMenu';
-import LocalGame from './ui/LocalGame';
-import DurakLocalGame from './ui/durak/DurakLocalGame';
-import DebercLocalGame from './ui/deberc/DebercLocalGame';
-import TarneebLocalGame from './ui/tarneeb/TarneebLocalGame';
-import PreferansLocalGame from './ui/preferans/PreferansLocalGame';
-import FiftyOneLocalGame from './ui/fiftyOne/FiftyOneLocalGame';
-import { PokerLocalGame } from './ui/poker';
-import OnlineGame from './ui/online/OnlineGame';
 import { usePwa } from './pwa/usePwa';
 import PwaBanners from './ui/components/PwaBanners';
+import { prefetchGameScreens, screenLoaders } from './gameScreens';
+import ScreenLoadBoundary from './ui/components/ScreenLoadBoundary';
+
+// Stage 44.2: each game screen is its own chunk (the menu no longer downloads all
+// seven tables up front). `prefetchGameScreens` warms them after the menu is idle,
+// so the service worker still has every game for offline play.
+const LocalGame = lazy(screenLoaders.king);
+const DurakLocalGame = lazy(screenLoaders.durak);
+const DebercLocalGame = lazy(screenLoaders.deberc);
+const TarneebLocalGame = lazy(screenLoaders.tarneeb);
+const PreferansLocalGame = lazy(screenLoaders.preferans);
+const FiftyOneLocalGame = lazy(screenLoaders.fiftyOne);
+const PokerLocalGame = lazy(screenLoaders.poker);
+const OnlineGame = lazy(screenLoaders.online);
 
 type Mode =
   | { kind: 'menu' }
@@ -33,6 +39,7 @@ export default function App() {
   // every screen so the banners persist across menu/local/online without unmounting.
   const pwa = usePwa();
   const toMenu = () => setMode({ kind: 'menu' });
+  useEffect(() => prefetchGameScreens(), []);
 
   let content: ReactNode;
   if (mode.kind === 'local') {
@@ -70,7 +77,9 @@ export default function App() {
 
   return (
     <>
-      {content}
+      <ScreenLoadBoundary key={mode.kind === 'local' ? `l:${mode.gameType}` : mode.kind}>
+        <Suspense fallback={<div className="screen-loading" role="status" aria-busy="true" />}>{content}</Suspense>
+      </ScreenLoadBoundary>
       {/* Install card is suppressed in a game; the thin update/offline strips stay. */}
       <PwaBanners pwa={pwa} inGame={mode.kind !== 'menu'} />
     </>
