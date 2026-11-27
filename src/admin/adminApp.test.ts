@@ -12,7 +12,7 @@ describe('admin shell (Stage 44.0)', () => {
     expect(parseAdminHash('#/nope/x')).toEqual({ tab: 'overview', arg: null });
   });
   it('carries every quiz-admin generic section, adapted', () => {
-    expect(ADMIN_TABS.map((t) => t.id)).toEqual(['overview', 'live', 'users', 'appeals', 'announcement', 'broadcast', 'log', 'backup']);
+    expect(ADMIN_TABS.map((t) => t.id)).toEqual(['overview', 'live', 'solitaire', 'users', 'appeals', 'announcement', 'broadcast', 'log', 'backup']);
   });
   it('chart axis maximum rounds to 1/2/5 × 10^n', () => {
     expect(niceMax(0)).toBe(1);

@@ -163,6 +163,20 @@ export async function handleAdminRoutes(h: RouteHelpers): Promise<void> {
       return h.json(200, { ok: true });
     }
 
+    // ── solitaire (verified wins)
+    if (a === 'solitaire' && !b && m === 'GET') {
+      const v = h.query.get('variant');
+      const { isVariantKey } = await import('../../src/solitaire/engine');
+      const variant = isVariantKey(v) ? v : null;
+      const [summary, list] = await Promise.all([store.solitaireSummary(), store.listSolitaire(pageOf(h.query), variant)]);
+      return h.json(200, { summary, ...list, pageSize: store.SOLITAIRE_PAGE });
+    }
+    if (a === 'solitaire' && b && UUID.test(b) && m === 'DELETE') {
+      const body = await h.readBody();
+      await store.deleteSolitaireResult(actor, b, clipText(body.reason, BAN_REASON_MAX) ?? '');
+      return h.json(200, { ok: true });
+    }
+
     // ── users
     if (a === 'users' && !b && m === 'GET') {
       const f = h.query.get('filter');

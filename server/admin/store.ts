@@ -13,7 +13,7 @@ import { getDb } from '../db/client';
 import {
   BACKUP_FORMAT, BACKUP_TABLES, BROADCAST_DAILY_MAX, BROADCAST_MIN_INTERVAL_MS, FEEDBACK_HOURLY_MAX, dayRange, kindsForGroups,
   type AdminActionKind, type AdminBadge, type AdminBroadcastRow, type AdminErrorRow, type AdminFeedbackRow,
-  type AdminLogRow, type AdminMetrics, type AdminUserDetail, type AdminUserRow, type Announcement,
+  type AdminLogRow, type AdminMetrics, type AdminSolitaireRow, type AdminSolitaireSummary, type AdminUserDetail, type AdminUserRow, type Announcement,
   type FeedbackInput, type FeedbackStatus, type InboxResponse, type MyFeedbackItem,
 } from '../../src/net/admin';
 
@@ -432,6 +432,51 @@ export async function logUserView(actor: Actor, targetId: string): Promise<void>
 export async function logRoomClose(actor: Actor, code: string, details: Record<string, unknown>): Promise<void> {
   const s = await sql();
   await logAction(s, actor, 'room_close', null, { code, ...details });
+}
+
+// ── solitaire (verified wins) ───────────────────────────────────────────────
+
+export const SOLITAIRE_PAGE = 50;
+
+export async function solitaireSummary(): Promise<AdminSolitaireSummary[]> {
+  const s = await sql();
+  const rows = await s`
+    SELECT variant, count(*)::int AS wins, count(DISTINCT user_id)::int AS players,
+           count(*) FILTER (WHERE created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS today,
+           min(duration_ms)::int AS best
+    FROM solitaire_results GROUP BY variant ORDER BY wins DESC`;
+  return rows.map((r) => ({ variant: String(r.variant), wins: num(r.wins), players: num(r.players), today: num(r.today), bestMs: r.best == null ? null : num(r.best) }));
+}
+
+export async function listSolitaire(page: number, variant: string | null): Promise<{ rows: AdminSolitaireRow[]; total: number }> {
+  const s = await sql();
+  const where = variant ? s`WHERE r.variant = ${variant}` : s``;
+  const [t] = await s`SELECT count(*)::int AS n FROM solitaire_results r ${where}`;
+  const rows = await s`
+    SELECT r.id, r.created_at, r.user_id, u.display_name, r.variant, r.daily::text AS daily, r.duration_ms, r.moves, r.undos, r.hints
+    FROM solitaire_results r JOIN users u ON u.id = r.user_id ${where}
+    ORDER BY r.created_at DESC LIMIT ${SOLITAIRE_PAGE} OFFSET ${page * SOLITAIRE_PAGE}`;
+  return {
+    total: num(t.n),
+    rows: rows.map((r) => ({
+      id: String(r.id), at: iso(r.created_at), userId: String(r.user_id), user: String(r.display_name ?? '—'),
+      variant: String(r.variant), daily: r.daily == null ? null : String(r.daily),
+      ms: num(r.duration_ms), moves: num(r.moves), undos: num(r.undos), hints: num(r.hints),
+    })),
+  };
+}
+
+/** Removes a (suspected) cheated result; logged with the reason in the same transaction. */
+export async function deleteSolitaireResult(actor: Actor, id: string, reason: string): Promise<void> {
+  const s = await sql();
+  await s.begin(async (tx) => {
+    const rows = await tx`DELETE FROM solitaire_results r USING users u WHERE r.id = ${id} AND u.id = r.user_id
+      RETURNING r.user_id, u.display_name, r.variant, r.duration_ms, r.moves, r.daily::text AS daily`;
+    const r = rows[0];
+    if (!r) throw new AdminError('not_found', 404);
+    await logAction(tx, actor, 'solitaire_delete', { id: String(r.user_id), label: String(r.display_name ?? '') },
+      { variant: r.variant, ms: num(r.duration_ms), moves: num(r.moves), daily: r.daily ?? null, reason });
+  });
 }
 
 // ── feedback (player side) ──────────────────────────────────────────────────

@@ -18,12 +18,12 @@ interface Props {
 
 /** A tiny emoji per group for the compact filter chip (Stage 37.0). */
 const GROUP_ICON: Record<AchievementGroupKey, string> = {
-  global: '🏆', king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️',
+  global: '🏆', king: '👑', durak: '🃏', deberc: '🎴', tarneeb: '♠️', preferans: '🎩', 'fifty-one': '🀄', poker: '♠️', solitaire: '🂡',
 };
 
 /** Segment label — 'global' has its own key; a game key reuses gameType.*. */
 function groupLabelKey(g: AchievementGroupKey): string {
-  return g === 'global' ? 'ach.group.global' : `gameType.${g}`;
+  return g === 'global' ? 'ach.group.global' : g === 'solitaire' ? 'sol.title' : `gameType.${g}`;
 }
 
 /**

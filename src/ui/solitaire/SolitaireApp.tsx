@@ -3,7 +3,8 @@
 // local stats. A lazy chunk of its own (src/gameScreens.ts).
 // ---------------------------------------------------------------------------
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { ACHIEVEMENTS, type Achievement, type AllStats } from '../../stats/achievements';
 import type { VariantKey } from '../../solitaire/engine';
 import { fromSaved, newSession, started, toSaved, type Session } from '../../solitaire/session';
 import { loadSavedGame, loadStats, recordResult, saveGame, saveStats, type GameResult, type SolitaireStats } from '../../solitaire/stats';
@@ -11,9 +12,19 @@ import { dailySeed, utcDay } from '../../solitaire/daily';
 import { startRankedDeal, submitSolitaireResult, type RankedOutcome } from '../../net/solitaireApi';
 import SolitaireHub from './SolitaireHub';
 import SolitaireGame from './SolitaireGame';
+import SolitaireTutorial from './SolitaireTutorial';
+import type { SolitaireId } from '../../solitaire/engine';
 import '../../styles/solitaire.css';
 
 interface Props { onExit: () => void }
+
+/** Only the solitaire group can change after a solitaire win. */
+const solitaireOnly = (solitaire: SolitaireStats): AllStats => ({
+  king: null, durak: null, deberc: null, tarneeb: null, preferans: null, fiftyOne: null, poker: null, solitaire,
+});
+export function newlyEarned(before: SolitaireStats, after: SolitaireStats): Achievement[] {
+  return ACHIEVEMENTS.filter((a) => a.group === 'solitaire' && !a.evaluate(solitaireOnly(before)) && a.evaluate(solitaireOnly(after)));
+}
 
 const resultOf = (s: Session, won: boolean): GameResult => ({
   key: s.key, won, ms: s.elapsedMs, moves: s.moves.length, undos: s.undos, hints: s.hints, daily: s.daily,
@@ -25,9 +36,19 @@ export default function SolitaireApp({ onExit }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [ranked, setRanked] = useState<RankedOutcome | 'pending' | null>(null);
   const [starting, setStarting] = useState(false);
+  const [badges, setBadges] = useState<Achievement[]>([]);
+  const [guide, setGuide] = useState<SolitaireId | null>(null);
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
 
-  const record = useCallback((r: GameResult) => {
-    setStats((prev) => { const next = recordResult(prev, r); saveStats(next); return next; });
+  /** Records a result; returns the solitaire badges it unlocked. */
+  const record = useCallback((r: GameResult): Achievement[] => {
+    const before = statsRef.current;
+    const next = recordResult(before, r);
+    statsRef.current = next;
+    saveStats(next);
+    setStats(next);
+    return newlyEarned(before, next);
   }, []);
 
   /** A started, unfinished game that is replaced counts as a loss (breaks the streak). */
@@ -41,6 +62,7 @@ export default function SolitaireApp({ onExit }: Props) {
     setSaved(null);
     saveGame(null);
     setRanked(null);
+    setBadges([]);
     setStarting(true);
     // A server-seeded deal can be ranked; offline / signed out → the same game, unranked.
     const srv = await startRankedDeal(key, daily);
@@ -62,7 +84,7 @@ export default function SolitaireApp({ onExit }: Props) {
     setSession(s);
     if (s.finished === 'won') {
       saveGame(null);
-      record(resultOf(s, true));
+      setBadges(record(resultOf(s, true)));
       setRanked('pending');
       void submitSolitaireResult(s).then(setRanked);
     } else if (started(s)) {
@@ -70,6 +92,9 @@ export default function SolitaireApp({ onExit }: Props) {
     }
   }, [record]);
 
+  if (guide) {
+    return <SolitaireTutorial id={guide} onExit={() => setGuide(null)} onPlay={(k) => { setGuide(null); void start(k, false); }} />;
+  }
   if (session) {
     return (
       <SolitaireGame
@@ -77,6 +102,7 @@ export default function SolitaireApp({ onExit }: Props) {
         session={session}
         stats={stats}
         ranked={ranked}
+        badges={badges}
         onChange={onChange}
         onNewDeal={() => void start(session.key, false)}
         onExit={() => {
@@ -87,5 +113,5 @@ export default function SolitaireApp({ onExit }: Props) {
       />
     );
   }
-  return <SolitaireHub stats={stats} saved={saved} busy={starting} onStart={(k, d) => void start(k, d)} onResume={resume} onExit={onExit} />;
+  return <SolitaireHub stats={stats} saved={saved} busy={starting} onStart={(k, d) => void start(k, d)} onResume={resume} onExit={onExit} onGuide={setGuide} />;
 }

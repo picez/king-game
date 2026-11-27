@@ -109,6 +109,10 @@
 .sol-win__burst { font-size: 2.6rem; }
 .sol-win__line { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .sol-win__best { color: var(--text-muted); }
+.sol-win__ranked { color: var(--text); font-size: 0.92rem; }
+.sol-win__badges { margin: 0.5rem 0; padding: 0.5rem 0.6rem; border-radius: 12px; background: rgb(var(--accent-rgb) / 0.14); text-align: start; }
+.sol-win__badges-title { font-weight: 700; margin: 0 0 0.25rem; }
+.sol-win__badge { margin: 0.2rem 0; font-size: 0.9rem; }
 .sol-win__actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 
 /* ── leaderboards (S3) ───────────────────────────────────────────────────── */
@@ -120,3 +124,11 @@
 .sol-lb__me td { background: rgb(var(--accent-rgb) / 0.14); }
 .sol-lb__name { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sol-lb__empty { color: var(--text-muted); }
+
+/* ── guide (S4) ──────────────────────────────────────────────────────────── */
+.sol-tutorial__caption { padding: 0.25rem 0.9rem 0.4rem; min-height: 4.6em; }
+.sol-tutorial__caption p { margin: 0.15rem 0; line-height: 1.35; font-size: 0.95rem; }
+.sol-tutorial__try { color: var(--accent-light); font-weight: 600; }
+.sol-tutorial__wrong { color: var(--card-red); font-weight: 600; }
+.sol-tutorial__done { color: var(--accent-light); font-weight: 700; }
+.sol-actions--tutorial { grid-template-columns: 1fr 3fr; }

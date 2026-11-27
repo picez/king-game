@@ -1,7 +1,7 @@
 # Card Majlis — MVP Status
 
 > **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, 51, **Poker**) ·
-> **56 achievements** · latest migration **`0016_solitaire.sql`** · version **`0.7.1`**.
+> **68 achievements** · latest migration **`0016_solitaire.sql`** · version **`0.7.1`**.
 > The stage-by-stage narrative below is a running log: entries describe what was true **at that
 > stage**, so their counts are historical. Where a stage entry disagrees with this block, this
 > block is current.

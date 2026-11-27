@@ -20,7 +20,13 @@ also reported at `GET /health/diagnostics` (`version` field).
 - **Server-verified leaderboards** per variant: fastest, fewest moves, most wins and today's deal.
   The server hands out the deal (signed start token), replays every move before a win counts, and
   times the game itself. Migration `0016_solitaire.sql` (applied in production).
-- Rules for every solitaire in four languages. Achievements, tutorials and the admin view follow.
+- Rules for every solitaire in four languages, and an **interactive guide** per solitaire (🎓): a
+  few prepared positions on the real board where you play the highlighted move yourself.
+- **12 solitaire achievements** in their own group (first win, 10 / 100 wins, Klondike draw 3,
+  FreeCell, Spider 4 suits, Forty Thieves, all seven solved, a 5-win streak, a win without undo,
+  Klondike under 3 minutes, 7 deals of the day) — 68 badges in all; new ones show on the win card.
+- **Admin → 🃏 Solitaire:** verified wins per variant, the latest results and removal of a
+  suspicious one (logged with its reason).
 
 ### Changed
 

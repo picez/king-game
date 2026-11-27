@@ -38,7 +38,7 @@ describe('admin contract (Stage 44.0)', () => {
 
   it('every log kind has a Ukrainian label; groups expand to their kinds', () => {
     for (const k of ADMIN_ACTION_KINDS) expect(ADMIN_ACTION_LABEL[k]).toBeTruthy();
-    expect(kindsForGroups(['games'])).toEqual(['room_close']);
+    expect(kindsForGroups(['games'])).toEqual(['room_close', 'solitaire_delete']);
     expect(kindsForGroups(['nope'])).toEqual([]);
     expect(kindsForGroups([])).toEqual([]);
   });

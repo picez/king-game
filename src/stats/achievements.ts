@@ -12,6 +12,8 @@
 
 import type { GameType } from '../games/catalog';
 import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats, PokerStats } from '../net/statsApi';
+import { totals as solitaireTotals, variantStats as solitaireVariant, type SolitaireStats } from '../solitaire/stats';
+import { VARIANT_KEYS as SOLITAIRE_VARIANTS, solitaireOf, type VariantKey } from '../solitaire/engine';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
@@ -42,6 +44,12 @@ export interface AllStats {
    * required for All-Rounder and the existing badges are unchanged. Missing → locked.
    */
   tarneebSolo?: TarneebStats | null;
+  /**
+   * Solitaire section stats (local, per device — solitaires are single-player and
+   * work offline). Feeds ONLY the 'solitaire' group; never part of the table-game
+   * aggregates (totalWins / All-Rounder). Missing → locked.
+   */
+  solitaire?: SolitaireStats | null;
 }
 
 export interface Achievement {
@@ -53,6 +61,8 @@ export interface Achievement {
   icon: string;
   /** Optional game scope; omitted for cross-game (aggregate) badges. */
   gameType?: GameType;
+  /** A non-table-game group (the solitaire section). Wins over `gameType` for grouping. */
+  group?: 'solitaire';
   rarity: Rarity;
   /** Pure predicate over the combined stats; MUST be null-safe. */
   evaluate: (s: AllStats) => boolean;
@@ -108,6 +118,19 @@ function contractSkill(
 //    + Stage 37.3 (+14, the full owner-requested pack, each backed by real
 //    per-round/per-hand/per-game telemetry — never an aggregate proxy)
 //    + Stage 37.4 (+4 Poker: winner / all-in survivor / big pot / royal flush)) ──
+
+// ── solitaire helpers (local stats; null-safe) ───────────────────────────────
+const solWon = (s: AllStats, k: VariantKey): number => (s.solitaire ? solitaireVariant(s.solitaire, k).won : 0);
+const solWins = (s: AllStats): number => (s.solitaire ? solitaireTotals(s.solitaire).won : 0);
+const solSum = (s: AllStats, f: 'cleanWins' | 'dailyWins'): number =>
+  SOLITAIRE_VARIANTS.reduce((n, k) => n + (s.solitaire ? solitaireVariant(s.solitaire, k)[f] : 0), 0);
+/** Distinct solitaires (not variants) with at least one win. */
+export function solitairesWon(s: AllStats): number {
+  const ids = new Set<string>();
+  for (const k of SOLITAIRE_VARIANTS) if (solWon(s, k) > 0) ids.add(solitaireOf(k));
+  return ids.size;
+}
+
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-win', titleKey: 'ach.firstWin.title', descriptionKey: 'ach.firstWin.desc',
@@ -419,6 +442,56 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'tarneeb-no-trump', titleKey: 'ach.tarneebNoTrump.title', descriptionKey: 'ach.tarneebNoTrump.desc',
     icon: '🚫', gameType: 'tarneeb', rarity: 'uncommon', evaluate: (s) => (s.tarneeb?.noTrumpMade ?? 0) >= 1,
   },
+  // ── Solitaire section (owner 2026-11-27) — local stats, group 'solitaire' ──
+  {
+    id: 'sol-first-win', titleKey: 'ach.solFirstWin.title', descriptionKey: 'ach.solFirstWin.desc',
+    icon: '🃏', group: 'solitaire', rarity: 'common', evaluate: (s) => solWins(s) >= 1,
+  },
+  {
+    id: 'sol-ten-wins', titleKey: 'ach.solTenWins.title', descriptionKey: 'ach.solTenWins.desc',
+    icon: '🔟', group: 'solitaire', rarity: 'uncommon', evaluate: (s) => solWins(s) >= 10,
+  },
+  {
+    id: 'sol-hundred', titleKey: 'ach.solHundred.title', descriptionKey: 'ach.solHundred.desc',
+    icon: '💯', group: 'solitaire', rarity: 'epic', evaluate: (s) => solWins(s) >= 100,
+  },
+  {
+    id: 'sol-klondike-3', titleKey: 'ach.solKlondike3.title', descriptionKey: 'ach.solKlondike3.desc',
+    icon: '🂡', group: 'solitaire', rarity: 'uncommon', evaluate: (s) => solWon(s, 'klondike-3') >= 1,
+  },
+  {
+    id: 'sol-freecell', titleKey: 'ach.solFreeCell.title', descriptionKey: 'ach.solFreeCell.desc',
+    icon: '🧩', group: 'solitaire', rarity: 'common', evaluate: (s) => solWon(s, 'freecell') >= 1,
+  },
+  {
+    id: 'sol-spider-4', titleKey: 'ach.solSpider4.title', descriptionKey: 'ach.solSpider4.desc',
+    icon: '🕷️', group: 'solitaire', rarity: 'epic', evaluate: (s) => solWon(s, 'spider-4') >= 1,
+  },
+  {
+    id: 'sol-forty-thieves', titleKey: 'ach.solForty.title', descriptionKey: 'ach.solForty.desc',
+    icon: '🗝️', group: 'solitaire', rarity: 'rare', evaluate: (s) => solWon(s, 'forty-thieves') >= 1,
+  },
+  {
+    id: 'sol-explorer', titleKey: 'ach.solExplorer.title', descriptionKey: 'ach.solExplorer.desc',
+    icon: '🧭', group: 'solitaire', rarity: 'rare', evaluate: (s) => solitairesWon(s) >= 7,
+  },
+  {
+    id: 'sol-streak-5', titleKey: 'ach.solStreak5.title', descriptionKey: 'ach.solStreak5.desc',
+    icon: '🔥', group: 'solitaire', rarity: 'rare', evaluate: (s) => (s.solitaire ? solitaireTotals(s.solitaire).bestStreak : 0) >= 5,
+  },
+  {
+    id: 'sol-clean', titleKey: 'ach.solClean.title', descriptionKey: 'ach.solClean.desc',
+    icon: '✨', group: 'solitaire', rarity: 'uncommon', evaluate: (s) => solSum(s, 'cleanWins') >= 1,
+  },
+  {
+    id: 'sol-speed', titleKey: 'ach.solSpeed.title', descriptionKey: 'ach.solSpeed.desc',
+    icon: '⚡', group: 'solitaire', rarity: 'rare',
+    evaluate: (s) => { const b = s.solitaire ? solitaireVariant(s.solitaire, 'klondike-1').bestMs : null; return b !== null && b <= 180_000; },
+  },
+  {
+    id: 'sol-daily-7', titleKey: 'ach.solDaily7.title', descriptionKey: 'ach.solDaily7.desc',
+    icon: '📅', group: 'solitaire', rarity: 'rare', evaluate: (s) => solSum(s, 'dailyWins') >= 7,
+  },
 ] as const;
 
 /** Evaluate every achievement against the combined stats, in catalog order. */
@@ -437,11 +510,11 @@ export function earnedCount(rows: AchievementProgress[]): number {
 // the totals — those still come from evaluateAchievements over the full stat set.
 
 /** A filter segment: cross-game badges ('global') or one game. */
-export type AchievementGroupKey = 'global' | GameType;
+export type AchievementGroupKey = 'global' | GameType | 'solitaire';
 
 /** Canonical segment order shown in the Profile (Global first, then the seven games). */
 export const ACHIEVEMENT_GROUP_ORDER: readonly AchievementGroupKey[] = [
-  'global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker',
+  'global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker', 'solitaire',
 ] as const;
 
 export interface AchievementGroup {
@@ -459,7 +532,7 @@ export interface AchievementGroup {
 export function groupAchievements(rows: AchievementProgress[]): AchievementGroup[] {
   const byKey = new Map<AchievementGroupKey, AchievementProgress[]>();
   for (const r of rows) {
-    const key: AchievementGroupKey = r.achievement.gameType ?? 'global';
+    const key: AchievementGroupKey = r.achievement.group ?? r.achievement.gameType ?? 'global';
     const bucket = byKey.get(key);
     if (bucket) bucket.push(r); else byKey.set(key, [r]);
   }

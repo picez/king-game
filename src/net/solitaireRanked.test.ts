@@ -181,5 +181,21 @@ describe.skipIf(!URL_)('ranked solitaire on Postgres (S3)', () => {
     const rows = await db`SELECT user_id, variant FROM solitaire_results WHERE user_id IN (${guest}, ${target}) ORDER BY variant`;
     expect(rows.map((r) => [r.user_id === target, r.variant])).toEqual([[true, 'freecell'], [true, 'tripeaks']]);
   });
+
+  it('admin: summary, list and a logged removal', async () => {
+    const store = await import('../../server/admin/store');
+    const sum = await store.solitaireSummary();
+    expect(sum.find((x) => x.variant === 'tripeaks')?.wins).toBeGreaterThan(0);
+    const list = await store.listSolitaire(0, 'tripeaks');
+    expect(list.total).toBeGreaterThan(0);
+    const victim = list.rows[0];
+    const actor = { id: a, label: 'test-admin' };
+    await store.deleteSolitaireResult(actor, victim.id, 'solver suspected');
+    expect((await store.listSolitaire(0, 'tripeaks')).total).toBe(list.total - 1);
+    await expect(store.deleteSolitaireResult(actor, victim.id, 'again')).rejects.toMatchObject({ code: 'not_found' });
+    const db = (await (await import('../../server/db/client')).getDb())!.sql as unknown as import('postgres').Sql;
+    const log = await db`SELECT kind, details FROM admin_actions WHERE kind = 'solitaire_delete' ORDER BY at DESC LIMIT 1`;
+    expect(log[0]?.kind).toBe('solitaire_delete');
+  });
 });
 

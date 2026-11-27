@@ -19,9 +19,11 @@ interface Props {
   onStart: (key: VariantKey, daily: boolean) => void;
   onResume: () => void;
   onExit: () => void;
+  /** Opens the interactive guide of a solitaire. */
+  onGuide: (id: SolitaireInfo['id']) => void;
 }
 
-export default function SolitaireHub({ stats, saved, busy, onStart, onResume, onExit }: Props) {
+export default function SolitaireHub({ stats, saved, busy, onStart, onResume, onExit, onGuide }: Props) {
   const { t } = useI18n();
   const [tab, setTab] = useState<'games' | 'leaders'>('games');
   const [rules, setRules] = useState<SolitaireInfo | null>(null);
@@ -57,7 +59,7 @@ export default function SolitaireHub({ stats, saved, busy, onStart, onResume, on
               </button>
             )}
             <div className="sol-list">
-              {SOLITAIRES.map((info) => <GameCard key={info.id} info={info} stats={stats} busy={busy} onStart={onStart} onRules={() => setRules(info)} />)}
+              {SOLITAIRES.map((info) => <GameCard key={info.id} info={info} stats={stats} busy={busy} onStart={onStart} onRules={() => setRules(info)} onGuide={() => onGuide(info.id)} />)}
             </div>
           </>
         )}
@@ -81,7 +83,7 @@ export function labelOf(t: (k: string) => string, key: VariantKey): string {
   return l.variant ? `${t(l.title)} · ${t(l.variant)}` : t(l.title);
 }
 
-function GameCard({ info, stats, busy, onStart, onRules }: { info: SolitaireInfo; stats: SolitaireStats; busy: boolean; onStart: Props['onStart']; onRules: () => void }) {
+function GameCard({ info, stats, busy, onStart, onRules, onGuide }: { info: SolitaireInfo; stats: SolitaireStats; busy: boolean; onStart: Props['onStart']; onRules: () => void; onGuide: () => void }) {
   const { t } = useI18n();
   const [key, setKey] = useState<VariantKey>(info.variants[0].key);
   const v = variantStats(stats, key);
@@ -123,6 +125,7 @@ function GameCard({ info, stats, busy, onStart, onRules }: { info: SolitaireInfo
         <button type="button" className="btn btn--small" disabled={busy} onClick={() => onStart(key, true)}>
           {dailyDone ? '✓ ' : '📅 '}{t('sol.daily')}
         </button>
+        <button type="button" className="btn btn--ghost btn--small" onClick={onGuide}>🎓 {t('solTut.open')}</button>
         <button type="button" className="btn btn--ghost btn--small" onClick={onRules}>❓ {t('sol.rules')}</button>
       </div>
     </article>

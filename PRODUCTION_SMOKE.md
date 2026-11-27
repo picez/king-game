@@ -18,7 +18,7 @@ A post-deploy pass. Run it after every production deploy (Render or VPS). It con
 - Release notes: [`CHANGELOG.md`](CHANGELOG.md). Confirm the deploy matches the intended
   release: `curl -s $HOST/health/diagnostics` → `version` should read **`0.7.1`** (tag `v0.7.1`).
 - **Current state of `main`:** **7 games** (King, Durak, Deberc, Tarneeb, Preferans, Fifty-One,
-  Poker) · **56 achievements** · latest migration **`0016_solitaire.sql`** · version
+  Poker) · **68 achievements** · latest migration **`0016_solitaire.sql`** · version
   **`0.7.1`**. Everything after v0.7.1 is **Unreleased** and ships only when a release stage says so.
 
 Set your host once and reuse it below:
@@ -148,7 +148,7 @@ per-area deep passes are §1–§11 below.
 
 > **This section is the v0.4.8 release-time pass, not current state.** It is preserved because its
 > per-feature detail is still useful, but where it disagrees with §0 about counts, migrations or the
-> chat UI, **§0 is correct**. Current state: 7 games · 56 achievements · latest migration `0016`.
+> chat UI, **§0 is correct**. Current state: 7 games · 68 achievements · latest migration `0016`.
 
 v0.4.8 (Stages 37.0–37.1) reshapes the Profile **Achievements** grid (per-game filter chip strip, no "All")
 and grows the released catalog **29 → 34**. **Unreleased Stage 37.3** adds the full owner-requested pack of

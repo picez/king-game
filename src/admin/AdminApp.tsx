@@ -10,11 +10,13 @@ import Appeals from './Appeals';
 import { AnnouncementTab, BroadcastTab } from './Messages';
 import Log from './Log';
 import Backup from './Backup';
+import Solitaire from './Solitaire';
 
 /** The admin tabs, in nav order (mirrors the quiz admin, adapted to card games). */
 export const ADMIN_TABS = [
   { id: 'overview', label: '📊 Огляд' },
   { id: 'live', label: '🟢 Наживо' },
+  { id: 'solitaire', label: '🃏 Пасьянси' },
   { id: 'users', label: '👥 Гравці' },
   { id: 'appeals', label: '📮 Звернення' },
   { id: 'announcement', label: '📣 Оголошення' },
@@ -98,6 +100,7 @@ export default function AdminApp() {
         {route.tab === 'broadcast' && <BroadcastTab />}
         {route.tab === 'log' && <Log target={route.arg} />}
         {route.tab === 'backup' && <Backup />}
+        {route.tab === 'solitaire' && <Solitaire />}
       </main>
     </div>
   );

@@ -19,6 +19,7 @@ import ProfilePanel from './menu/ProfilePanel';
 import FriendsPanel from './components/FriendsPanel';
 import AchievementsPanel from './components/AchievementsPanel';
 import AchievementToast from './components/AchievementToast';
+import { loadStats as loadSolitaireStats } from '../solitaire/stats';
 import {
   ACHIEVEMENTS, evaluateAchievements, type AllStats, type Achievement,
 } from '../stats/achievements';
@@ -327,6 +328,8 @@ export default function ProfileMenu({
     // Tarneeb SOLO (Stage 28.6) — its own dimension, feeds ONLY the solo badge; never
     // overwrites the canonical `tarneeb` (Pairs) used by All-Rounder + the pair badges.
     tarneebSolo: dataOf(tarneebSoloStats),
+    // Solitaire section — local per-device stats (works signed out too).
+    solitaire: loadSolitaireStats(),
   };
   const allResolved = !!(stats && durakStats && debercStats && tarneebStats && preferansStats && fiftyOneStats && pokerStats && tarneebSoloStats);
   const achLoading = tab === 'achievements' && !allResolved;

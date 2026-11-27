@@ -17,12 +17,15 @@ import { PyramidBoard, TriPeaksBoard } from './PeakBoards';
 import { formatClock } from './format';
 import { labelOf } from './SolitaireHub';
 import type { RankedOutcome } from '../../net/solitaireApi';
+import type { Achievement } from '../../stats/achievements';
 
 interface Props {
   session: Session;
   stats: SolitaireStats;
   /** The server's verdict on a won game (S3). */
   ranked: RankedOutcome | 'pending' | null;
+  /** Solitaire achievements this win unlocked. */
+  badges?: Achievement[];
   onChange: (s: Session) => void;
   onNewDeal: () => void;
   onExit: () => void;
@@ -43,7 +46,7 @@ function useBoxSize<T extends HTMLElement>() {
   return { ref, ...size };
 }
 
-export default function SolitaireGame({ session, stats, ranked, onChange, onNewDeal, onExit }: Props) {
+export default function SolitaireGame({ session, stats, ranked, badges = [], onChange, onNewDeal, onExit }: Props) {
   const { t } = useI18n();
   const info = infoOfVariant(session.key);
   const engine = engineFor(session.key);
@@ -149,6 +152,14 @@ export default function SolitaireGame({ session, stats, ranked, onChange, onNewD
                     : t('sol.ranked.local')}
             </p>
             {best.bestMs !== null && <p className="sol-win__best">{t('sol.best')}: {formatClock(best.bestMs)} · {t('sol.streak')}: {best.streak}</p>}
+            {badges.length > 0 && (
+              <div className="sol-win__badges">
+                <p className="sol-win__badges-title">🏆 {t('sol.newBadges')}</p>
+                {badges.map((a) => (
+                  <p key={a.id} className="sol-win__badge"><span aria-hidden="true">{a.icon}</span> <b>{t(a.titleKey)}</b> — {t(a.descriptionKey)}</p>
+                ))}
+              </div>
+            )}
             <div className="sol-win__actions">
               <button type="button" className="btn btn--primary" onClick={onNewDeal}>{t('sol.newDeal')}</button>
               <button type="button" className="btn btn--ghost" onClick={onExit}>{t('sol.toHub')}</button>

@@ -117,7 +117,7 @@ export function clipText(v: unknown, max: number): string | null { return clip(v
 export const ADMIN_ACTION_GROUPS = {
   moderation: ['user_ban', 'user_unban', 'nickname_reset', 'avatar_reset', 'user_delete', 'sessions_revoke'],
   players: ['user_view', 'chips_adjust', 'stats_reset'],
-  games: ['room_close'],
+  games: ['room_close', 'solitaire_delete'],
   appeals: ['feedback_resolve', 'feedback_reopen', 'feedback_reply', 'error_resolve'],
   announcements: ['announcement_set', 'announcement_clear', 'broadcast_send'],
   system: ['backup_export', 'backup_cloud_run', 'backup_cloud_download'],
@@ -131,7 +131,7 @@ export const ADMIN_ACTION_LABEL: Record<AdminActionKind, string> = {
   user_ban: 'Бан', user_unban: 'Розбан', nickname_reset: 'Скидання ніка', avatar_reset: 'Скидання аватара',
   user_delete: 'Видалення акаунта', sessions_revoke: 'Вихід з усіх пристроїв',
   user_view: 'Перегляд картки', chips_adjust: 'Корекція фішок', stats_reset: 'Скидання статистики',
-  room_close: 'Закриття кімнати',
+  room_close: 'Закриття кімнати', solitaire_delete: 'Видалення результату пасьянсу',
   feedback_resolve: 'Звернення закрито', feedback_reopen: 'Звернення відкрито знову', feedback_reply: 'Відповідь на звернення',
   error_resolve: 'Помилку закрито',
   announcement_set: 'Оголошення', announcement_clear: 'Оголошення знято', broadcast_send: 'Розсилка',
@@ -320,6 +320,13 @@ export interface AdminBroadcastRow {
 export const BROADCAST_MIN_INTERVAL_MS = 10 * 60 * 1000;
 export const BROADCAST_DAILY_MAX = 10;
 export const FEEDBACK_HOURLY_MAX = 5;
+/** One verified solitaire win (admin → Solitaire). */
+export interface AdminSolitaireRow {
+  id: string; at: string; userId: string; user: string; variant: string; daily: string | null;
+  ms: number; moves: number; undos: number; hints: number;
+}
+export interface AdminSolitaireSummary { variant: string; wins: number; players: number; today: number; bestMs: number | null }
+
 /** `meta.format` of every backup file (manual download and cloud copy alike). */
 export const BACKUP_FORMAT = 'card-majlis-backup';
 

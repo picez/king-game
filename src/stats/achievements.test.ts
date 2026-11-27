@@ -8,6 +8,15 @@ import {
 } from './achievements';
 import type { KingStats, DurakStats, DebercStats, TarneebStats, PreferansStats, FiftyOneStats, PokerStats } from '../net/statsApi';
 import { EN } from '../i18n/dictionaries/en';
+import { emptyStats, recordResult, type GameResult } from '../solitaire/stats';
+import type { VariantKey } from '../solitaire/engine';
+
+/** Local solitaire stats after the given wins (solitaire badges, owner 2026-11-27). */
+const solWins = (...rs: Array<[VariantKey, Partial<GameResult>?]>) =>
+  rs.reduce((st, [key, x]) => recordResult(st, { key, won: true, ms: 300_000, moves: 100, undos: 1, hints: 1, daily: null, ...x }), emptyStats());
+const many = (n: number, key: VariantKey, x: Partial<GameResult> = {}): Array<[VariantKey, Partial<GameResult>?]> =>
+  Array.from({ length: n }, (_, i) => [key, { ...x, daily: x.daily === undefined ? null : `2026-11-${String(i + 1).padStart(2, '0')}` }]);
+const ALL7: VariantKey[] = ['klondike-1', 'spider-1', 'freecell', 'pyramid', 'tripeaks', 'yukon', 'forty-thieves'];
 
 // ── zeroed stat factories (only the fields under test matter) ────────────────
 const king = (o: Partial<KingStats> = {}): KingStats => ({
@@ -54,8 +63,8 @@ const earnedId = (s: AllStats, id: string): boolean =>
   evaluateAchievements(s).find((r) => r.achievement.id === id)!.earned;
 
 describe('achievements catalog', () => {
-  it('has 56 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4 + 4 Stage 41.8)', () => {
-    expect(ACHIEVEMENTS.length).toBe(56);
+  it('has 68 badges with unique ids (14 original + 15 Stage 32.1 + 5 Stage 37.0 + 14 Stage 37.3 + 4 Stage 37.4 + 4 Stage 41.8 + 12 solitaire)', () => {
+    expect(ACHIEVEMENTS.length).toBe(68);
     const ids = ACHIEVEMENTS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain('tarneeb-soloist'); // Stage 28.6
@@ -127,6 +136,18 @@ describe('evaluateAchievements — graceful with missing stats', () => {
 // Each MVP badge: one state that earns it, one that does not.
 describe('each badge has a positive + negative case', () => {
   const cases: Array<{ id: string; earn: AllStats; lock: AllStats }> = [
+    { id: 'sol-first-win', earn: { ...zero(), solitaire: solWins(['pyramid']) }, lock: { ...zero(), solitaire: emptyStats() } },
+    { id: 'sol-ten-wins', earn: { ...zero(), solitaire: solWins(...many(10, 'tripeaks')) }, lock: { ...zero(), solitaire: solWins(...many(9, 'tripeaks')) } },
+    { id: 'sol-hundred', earn: { ...zero(), solitaire: solWins(...many(100, 'tripeaks')) }, lock: { ...zero(), solitaire: solWins(...many(99, 'tripeaks')) } },
+    { id: 'sol-klondike-3', earn: { ...zero(), solitaire: solWins(['klondike-3']) }, lock: { ...zero(), solitaire: solWins(['klondike-1']) } },
+    { id: 'sol-freecell', earn: { ...zero(), solitaire: solWins(['freecell']) }, lock: { ...zero(), solitaire: solWins(['yukon']) } },
+    { id: 'sol-spider-4', earn: { ...zero(), solitaire: solWins(['spider-4']) }, lock: { ...zero(), solitaire: solWins(['spider-2']) } },
+    { id: 'sol-forty-thieves', earn: { ...zero(), solitaire: solWins(['forty-thieves']) }, lock: { ...zero(), solitaire: solWins(['spider-1']) } },
+    { id: 'sol-explorer', earn: { ...zero(), solitaire: solWins(...ALL7.map((k): [VariantKey] => [k])) }, lock: { ...zero(), solitaire: solWins(...ALL7.slice(1).map((k): [VariantKey] => [k])) } },
+    { id: 'sol-streak-5', earn: { ...zero(), solitaire: solWins(...many(5, 'yukon')) }, lock: { ...zero(), solitaire: solWins(...many(4, 'yukon'), ...many(4, 'freecell')) } },
+    { id: 'sol-clean', earn: { ...zero(), solitaire: solWins(['freecell', { undos: 0 }]) }, lock: { ...zero(), solitaire: solWins(['freecell', { undos: 2 }]) } },
+    { id: 'sol-speed', earn: { ...zero(), solitaire: solWins(['klondike-1', { ms: 180_000 }]) }, lock: { ...zero(), solitaire: solWins(['klondike-1', { ms: 180_001 }], ['klondike-3', { ms: 60_000 }]) } },
+    { id: 'sol-daily-7', earn: { ...zero(), solitaire: solWins(...many(7, 'pyramid', { daily: 'x' })) }, lock: { ...zero(), solitaire: solWins(...many(6, 'pyramid', { daily: 'x' })) } },
     { id: 'first-win', earn: { ...zero(), king: king({ gamesWon: 1 }) }, lock: zero() },
     { id: 'veteran', earn: { ...zero(), king: king({ gamesPlayed: 25 }) }, lock: { ...zero(), king: king({ gamesPlayed: 24 }) } },
     { id: 'centurion', earn: { ...zero(), durak: durak({ gamesPlayed: 100 }) }, lock: { ...zero(), durak: durak({ gamesPlayed: 99 }) } },
@@ -418,7 +439,7 @@ describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)'
     const groups = groupAchievements(rows);
     // canonical order, only non-empty groups (every catalog game has ≥1 badge → all present)
     expect(groups.map((g) => g.key)).toEqual(
-      ['global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker'],
+      ['global', 'king', 'durak', 'deberc', 'tarneeb', 'preferans', 'fifty-one', 'poker', 'solitaire'],
     );
     const king_ = groups.find((g) => g.key === 'king')!;
     expect(king_.total).toBe(7);           // + king-perfect-negatives, king-trump-sweep, king-trump-fewest (Stage 37.3)
@@ -426,7 +447,7 @@ describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)'
     expect(king_.rows.every((r) => r.achievement.gameType === 'king')).toBe(true);
     // global bucket holds only cross-game (no gameType) badges
     const global = groups.find((g) => g.key === 'global')!;
-    expect(global.rows.every((r) => r.achievement.gameType === undefined)).toBe(true);
+    expect(global.rows.every((r) => r.achievement.gameType === undefined && r.achievement.group === undefined)).toBe(true);
     expect(global.earned).toBe(1);         // first-win only
   });
 
@@ -442,7 +463,7 @@ describe('groupAchievements (Stage 36.0 — UI grouping is pure & display-only)'
 
   it('every group key has a segment label in the i18n dictionary', () => {
     for (const g of groupAchievements(evaluateAchievements(zero()))) {
-      const key = g.key === 'global' ? 'ach.group.global' : `gameType.${g.key}`;
+      const key = g.key === 'global' ? 'ach.group.global' : g.key === 'solitaire' ? 'sol.title' : `gameType.${g.key}`;
       expect(EN[key as keyof typeof EN], `missing label for ${g.key}`).toBeTruthy();
     }
     expect(EN['ach.filter.all']).toBeTruthy();
