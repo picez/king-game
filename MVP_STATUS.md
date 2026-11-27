@@ -498,3 +498,20 @@ npm run e2e              # full online flow over WS (spawns + restarts a server)
    `VOICE_ICE_SERVERS`. Steps: [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) "Voice relay" and
    [`DEPLOYMENT.md`](DEPLOYMENT.md) §5. Done when `/health/diagnostics` shows
    `voice.ice: turn_configured`.
+8. (Backlog, owner idea 2026-11-27) **Solitaire section (Пасьянси)** — a separate single-player
+   section next to the seven table games, with its own infrastructure rather than a one-off game:
+   - **Games:** start with Klondike (draw 1 / draw 3), then Spider (1/2/4 suits), FreeCell,
+     Pyramid, Golf/TriPeaks; each a pure engine in `src/solitaire/<id>/` (deal from a seed,
+     legal moves, undo stack, win check, auto-finish) on the existing card faces/themes.
+   - **Seeds and fairness:** a seeded deal (`src/core/rng.ts`), a "deal of the day" with the same
+     seed for everyone, and solvable-only deals for FreeCell/Klondike where feasible.
+   - **Leaderboards:** per game/variant — best time, fewest moves, win streak, daily deal ranking;
+     results are submitted as seed + move list and replayed on the server before they count
+     (no trust in client-reported times).
+   - **Stats and achievements:** a `solitaire_stats` area (played/won/streak/best time per variant)
+     and a new achievement group (first win, streaks, no-undo win, speed runs, all variants won).
+   - **Guides:** rules page per variant in the help hub + a tutorial per variant in the existing
+     `TutorialPlayer`; hints ("show a move") as an optional, stats-neutral helper.
+   - **Infrastructure:** a catalog/registry entry type `kind: 'solitaire'` (no rooms, no WS,
+     offline-first in the PWA), a DB migration for results/daily seeds, i18n ×4, the admin panel
+     (results moderation, daily-seed overview) and layout gates for 360/390 + RTL.
