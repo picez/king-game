@@ -7,13 +7,15 @@ import CardView from '../components/CardView';
 import { toViewCard, type SCard } from '../../solitaire/cards';
 import type { HeartsMove } from '../../solitaire/engine';
 import { legalCards, passDirOf, type HeartsState, type TrickPlay } from '../../solitaire/hearts';
-import type { TapTarget } from '../../solitaire/tap';
+import { DROP_TRICK } from '../../solitaire/tap';
 import { HIDDEN } from './PileBoard';
+import { useCardDrag, type BoardInput } from './useCardDrag';
 
 interface Props {
   state: HeartsState;
   hint: HeartsMove | null;
-  onTap: (t: TapTarget) => void;
+  /** Play: drag a card onto the table (or double-tap it). Pass: tap to choose. */
+  input: BoardInput;
   /** Pass phase: the three chosen cards. */
   onPass?: (ids: number[]) => void;
   width: number;
@@ -22,9 +24,16 @@ interface Props {
 
 const SEAT_KEYS = ['hearts.seat.you', 'hearts.seat.1', 'hearts.seat.2', 'hearts.seat.3'];
 
-export default function HeartsBoard({ state, hint, onTap, onPass, width, height }: Props) {
+export default function HeartsBoard({ state, hint, input, onPass, width, height }: Props) {
   const { t } = useI18n();
   const [chosen, setChosen] = useState<number[]>([]);
+  const drag = useCardDrag({
+    onDrop: (from, target) => { if (state.phase === 'play') input.onDrop(from, target); },
+    onTap: (from, double) => {
+      if (state.phase === 'pass') { const c = state.hands[0].find((x) => from.kind === 'card' && x.id === from.id); if (c) toggle(c); }
+      else input.onTap(from, double);
+    },
+  });
   const hand = state.hands[0];
   const n = Math.max(hand.length, 1);
   // Hand card width: fit 13 overlapping cards (45 % visible each) into the width.
@@ -69,7 +78,7 @@ export default function HeartsBoard({ state, hint, onTap, onPass, width, height 
   return (
     <div className="hearts-board" style={{ width, height, '--sol-cw': `${cw}px`, '--sol-ch': `${ch}px`, '--h-tw': `${tw}px`, '--h-th': `${th}px` } as CSSProperties}>
       <div className="hearts-top">{seat(2)}</div>
-      <div className="hearts-mid">
+      <div className={`hearts-mid${drag.dragging ? ' hearts-mid--target' : ''}`} data-drop={DROP_TRICK}>
         {seat(1)}
         <div className={`hearts-trick${fadedTrick ? ' hearts-trick--last' : ''}`} style={{ width: tw * 3 + 12, height: th * 2 + 12 }}>
           {shownTrick.map((p) => (
@@ -97,14 +106,15 @@ export default function HeartsBoard({ state, hint, onTap, onPass, width, height 
             const isChosen = chosen.includes(c.id);
             const playable = passing || (myTurn && legal.has(c.id));
             return (
-              <div key={c.id} className={`sol-slot hearts-hand__card${isChosen ? ' hearts-hand__card--up' : ''}`} style={{ left: Math.round(i * step), top: 14, zIndex: i + 1 }}>
+              <div key={c.id} className={`sol-slot hearts-hand__card${isChosen ? ' hearts-hand__card--up' : ''}${playable ? ' sol-slot--drag' : ''}`}
+                style={drag.dragStyle(c.id, { left: Math.round(i * step), top: 14, zIndex: i + 1 })}
+                onPointerDown={playable ? (e) => drag.start(e, { kind: 'card', id: c.id, ids: [c.id] }) : undefined}>
                 <CardView
                   card={c.up ? toViewCard(c) : (HIDDEN as never)}
                   size="table"
                   selected={isChosen}
                   highlight={hintIds.has(c.id) || received.has(c.id)}
                   dimmed={myTurn && !legal.has(c.id)}
-                  onClick={playable ? () => (passing ? toggle(c) : onTap({ kind: 'card', id: c.id })) : undefined}
                 />
               </div>
             );

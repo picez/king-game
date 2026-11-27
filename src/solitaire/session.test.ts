@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoFinish, current, fromSaved, hint, newSession, play, restart, tick, toSaved, undo } from './session';
 import { emptyStats, parseStats, recordResult, totals, variantStats } from './stats';
-import { bestMove, tap, tapPile, tapPyramid } from './tap';
+import { DROP_TRICK, DROP_WASTE, autoMove, bestMove, dropCard, dropMove, tap, tapPile, tapPyramid } from './tap';
 import { engineFor } from './registry';
 import type { PileState } from './pileKit';
 import type { PyramidState } from './pyramid';
@@ -152,5 +152,68 @@ describe('catalog', () => {
     expect(SOLITAIRES.map((s) => s.id).sort()).toEqual([...SOLITAIRE_IDS].sort());
     expect(SOLITAIRES.flatMap((s) => s.variants.map((v) => v.key)).sort()).toEqual([...VARIANT_KEYS].sort());
     expect(variantLabelKeys('spider-2')).toEqual({ title: 'sol.spider.title', variant: 'sol.spider.suits2' });
+  });
+});
+
+describe('drag & drop / double tap', () => {
+  const e = engineFor('klondike-1') as never;
+  const base = (): PileState => ({ passes: 0, piles: { s: [], w: [], f0: [], f1: [], f2: [], f3: [], t0: [], t1: [], t2: [], t3: [], t4: [], t5: [], t6: [] } });
+
+  it('drops a run on the pile it lands on; an illegal drop or its own pile snaps back', () => {
+    const s = base();
+    s.piles.t0 = [c('hearts', 12, 1)];
+    s.piles.t1 = [c('spades', 13, 2)];
+    s.piles.t2 = [c('clubs', 13, 3)];
+    s.piles.t3 = [c('diamonds', 4, 4)];
+    const from = { kind: 'pile' as const, pile: 't0', n: 1 };
+    expect(dropMove('klondike', e, s, from, 't2')).toEqual({ t: 'move', from: 't0', n: 1, to: 't2' });
+    expect(dropMove('klondike', e, s, from, 't1')).toEqual({ t: 'move', from: 't0', n: 1, to: 't1' });
+    expect(dropMove('klondike', e, s, from, 't3')).toBeNull();
+    expect(dropMove('klondike', e, s, from, 't0')).toBeNull();
+    expect(dropMove('klondike', e, s, from, null)).toBeNull();
+  });
+
+  it('double tap sends a card to its best place', () => {
+    const s = base();
+    s.piles.t0 = [c('hearts', 1, 1)];
+    s.piles.t1 = [c('spades', 13, 2)];
+    s.piles.t2 = [c('clubs', 12, 3)];
+    expect(autoMove('klondike', e, s, { kind: 'pile', pile: 't0', n: 1 })).toEqual({ t: 'move', from: 't0', n: 1, to: 'f0' });
+    expect(autoMove('klondike', e, s, { kind: 'pile', pile: 't2', n: 1 })).toBeNull();
+  });
+
+  it('Pyramid: a card dropped on its partner pairs; a King leaves on any drop off itself', () => {
+    const board: (SCard | null)[] = Array(28).fill(null);
+    board[27] = c('spades', 13, 1);
+    board[26] = c('hearts', 6, 2);
+    board[25] = c('clubs', 7, 3);
+    const s: PyramidState = { board, stock: [], waste: [], passes: 0 };
+    const pe = engineFor('pyramid') as never;
+    expect(dropMove('pyramid', pe, s, { kind: 'card', id: 2 }, dropCard(3))).toEqual({ t: 'remove', ids: [3, 2] });
+    expect(dropMove('pyramid', pe, s, { kind: 'card', id: 2 }, dropCard(1))).toBeNull();
+    expect(dropMove('pyramid', pe, s, { kind: 'card', id: 1 }, null)).toEqual({ t: 'remove', ids: [1] });
+    expect(dropMove('pyramid', pe, s, { kind: 'card', id: 1 }, dropCard(1))).toBeNull();
+    expect(autoMove('pyramid', pe, s, { kind: 'card', id: 1 })).toEqual({ t: 'remove', ids: [1] });
+    expect(autoMove('pyramid', pe, s, { kind: 'card', id: 2 })).toBeNull();
+  });
+
+  it('TriPeaks plays onto the waste; Hearts onto the trick', () => {
+    const te = engineFor('tripeaks');
+    const ts = te.deal(11);
+    const m = te.legal(ts).find((x) => x.t === 'remove');
+    if (m && m.t === 'remove') {
+      expect(dropMove('tripeaks', te, ts, { kind: 'card', id: m.ids[0] }, DROP_WASTE)).toEqual(m);
+      expect(dropMove('tripeaks', te, ts, { kind: 'card', id: m.ids[0] }, 't0')).toBeNull();
+    }
+    const he = engineFor('hearts');
+    let hs = he.deal(5);
+    const pass = he.legal(hs).find((x) => x.t === 'pass');
+    if (pass) hs = he.apply(hs, pass)!;
+    const p = he.legal(hs).find((x) => x.t === 'play');
+    if (p && p.t === 'play') {
+      expect(dropMove('hearts', he, hs, { kind: 'card', id: p.id }, DROP_TRICK)).toEqual(p);
+      expect(dropMove('hearts', he, hs, { kind: 'card', id: p.id }, null)).toBeNull();
+      expect(autoMove('hearts', he, hs, { kind: 'card', id: p.id })).toEqual(p);
+    }
   });
 });

@@ -10,7 +10,7 @@ import { formatClock } from '../ui/solitaire/format';
 /** Ukrainian variant names (the admin is Ukrainian-only). */
 export const VARIANT_LABEL: Record<string, string> = {
   'klondike-1': 'Косинка · по 1', 'klondike-3': 'Косинка · по 3', 'spider-1': 'Павук · 1 масть', 'spider-2': 'Павук · 2 масті',
-  'spider-4': 'Павук · 4 масті', freecell: 'FreeCell', pyramid: 'Піраміда', tripeaks: 'Три вершини', yukon: 'Юкон', 'forty-thieves': 'Сорок розбійників', hearts: 'Черві',
+  'spider-4': 'Павук · 4 масті', freecell: 'Солітер (FreeCell)', pyramid: 'Піраміда', tripeaks: 'Три вершини', yukon: 'Юкон', 'forty-thieves': 'Сорок розбійників', hearts: 'Черві',
 };
 
 interface Data { summary: AdminSolitaireSummary[]; rows: AdminSolitaireRow[]; total: number; pageSize: number }

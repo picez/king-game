@@ -9,6 +9,18 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed — Solitaire play by drag & drop (owner feedback 2026-11-27)
+
+- **Cards are dragged**, not tapped: a run of cards follows the finger and lands on the pile under
+  it (Pyramid: a card onto its partner, a King anywhere off itself; TriPeaks: onto the waste;
+  Hearts: onto the table). A **double tap** still sends a card to its best place; a single tap does
+  nothing except the stock (and choosing cards to pass in Hearts). The guides accept drag and taps.
+- **Hint** glows warm gold instead of the theme accent (blue vanished on the Midnight felt).
+- Solitaire action buttons use the app's outline button style.
+- **Profile → My stats → 🃏 Solitaire**: totals plus one row per played variant (won/played, best
+  streak, best time, fewest moves); device-local like the rest of the solitaire stats.
+- FreeCell is titled **«Солітер (FreeCell)»** in Ukrainian.
+
 ### Added — Solitaire section (🃏)
 
 - **Seven solitaires** in their own menu section: Klondike (draw 1 / draw 3), Spider (1, 2 or 4

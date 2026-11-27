@@ -8,7 +8,8 @@ import type { Move, PairMove, PileMove } from '../../solitaire/engine';
 import { engineFor } from '../../solitaire/registry';
 import { autoFinish, current, hint as hintOf, play, restart, started, tick, undo, type Session } from '../../solitaire/session';
 import { variantStats, type SolitaireStats } from '../../solitaire/stats';
-import { tap, type Selection, type TapTarget } from '../../solitaire/tap';
+import { autoMove, dropMove, tap } from '../../solitaire/tap';
+import type { BoardInput } from './useCardDrag';
 import type { PileState } from '../../solitaire/pileKit';
 import type { PyramidState } from '../../solitaire/pyramid';
 import type { TriPeaksState } from '../../solitaire/triPeaks';
@@ -54,7 +55,6 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
   const info = infoOfVariant(session.key);
   const engine = engineFor(session.key);
   const state = current(session);
-  const [selection, setSelection] = useState<Selection>(null);
   const [hint, setHint] = useState<Move | null>(null);
   const [shake, setShake] = useState(false);
   const box = useBoxSize<HTMLDivElement>();
@@ -91,17 +91,31 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
   }, [hint]);
 
   function commit(m: Move) {
-    const next = play(session, m);
-    if (next !== session) { setHint(null); onChange(next); }
+    const s = latest.current; // a clock tick may have landed while a card was dragged
+    const next = play(s, m);
+    if (next !== s) { setHint(null); onChange(next); }
   }
 
-  function onTap(target: TapTarget) {
-    if (session.finished) return;
-    const r = tap(info.id, engine, state, selection, target);
-    setSelection(r.selection);
-    if (r.move) commit(r.move);
-    else if (!r.selection && target.kind !== 'stock') setShake(true);
-  }
+  // Cards are dragged; a double tap sends one to its best place; the stock is tapped.
+  const input: BoardInput = {
+    onStock: () => {
+      if (session.finished) return;
+      const m = tap(info.id, engine, state, null, { kind: 'stock' }).move;
+      if (m) commit(m);
+    },
+    onDrop: (from, target) => {
+      if (session.finished) return;
+      const m = dropMove(info.id, engine, state, from, target);
+      if (m) commit(m);
+      else if (target && !(from.kind === 'pile' && target === from.pile)) setShake(true);
+    },
+    onTap: (from, double) => {
+      if (session.finished || !double) return;
+      const m = autoMove(info.id, engine, state, from);
+      if (m) commit(m);
+      else setShake(true);
+    },
+  };
 
   const won = session.finished === 'won';
   const lost = session.finished === 'lost';
@@ -124,26 +138,26 @@ export default function SolitaireGame({ session, stats, ranked, badges = [], onC
 
       <div className={`sol-table${shake ? ' sol-table--shake' : ''}`} ref={box.ref}>
         {box.w > 0 && (info.id === 'hearts'
-          ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} onTap={onTap} onPass={(ids) => commit({ t: 'pass', ids })} width={box.w} height={box.h} />
+          ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} input={input} onPass={(ids) => commit({ t: 'pass', ids })} width={box.w} height={box.h} />
           : info.id === 'pyramid'
-          ? <PyramidBoard state={state as PyramidState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={box.w} height={box.h} />
+          ? <PyramidBoard state={state as PyramidState} hint={hint as PairMove | null} input={input} width={box.w} height={box.h} />
           : info.id === 'tripeaks'
-            ? <TriPeaksBoard state={state as TriPeaksState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={box.w} height={box.h} />
-            : <PileBoard variant={session.key} state={state as PileState} selection={selection} hint={hint as PileMove | null} onTap={onTap} width={box.w} height={box.h} />)}
+            ? <TriPeaksBoard state={state as TriPeaksState} hint={hint as PairMove | null} input={input} width={box.w} height={box.h} />
+            : <PileBoard variant={session.key} state={state as PileState} hint={hint as PileMove | null} input={input} width={box.w} height={box.h} />)}
       </div>
 
       {stuck && <p className="sol-note" role="status">{t('sol.stuck')}</p>}
 
       <nav className={`sol-actions${isHearts ? ' sol-actions--two' : ''}`} aria-label={t('sol.actions')}>
-        {!isHearts && <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
-          onClick={() => { setSelection(null); onChange(undo(session)); }}><span className="sol-act__icon" aria-hidden="true">↶</span><span className="sol-act__label">{t('sol.undo')}</span></button>}
-        <button type="button" className="btn btn--small" disabled={won || lost}
-          onClick={() => { const h = hintOf(session); setSelection(null); setHint(h.move); if (h.move) onChange(h.session); else setShake(true); }}><span className="sol-act__icon" aria-hidden="true">💡</span><span className="sol-act__label">{t('sol.hint')}</span></button>
+        {!isHearts && <button type="button" className="btn btn--outline btn--small" disabled={!session.moves.length || won}
+          onClick={() => onChange(undo(session))}><span className="sol-act__icon" aria-hidden="true">↶</span><span className="sol-act__label">{t('sol.undo')}</span></button>}
+        <button type="button" className="btn btn--outline btn--small" disabled={won || lost}
+          onClick={() => { const h = hintOf(session); setHint(h.move); if (h.move) onChange(h.session); else setShake(true); }}><span className="sol-act__icon" aria-hidden="true">💡</span><span className="sol-act__label">{t('sol.hint')}</span></button>
         {canFinish
           ? <button type="button" className="btn btn--primary btn--small" onClick={() => onChange(autoFinish(session))}><span className="sol-act__icon" aria-hidden="true">⚡</span><span className="sol-act__label">{t('sol.finish')}</span></button>
-          : !isHearts && <button type="button" className="btn btn--small" disabled={!session.moves.length || won}
-            onClick={() => { setSelection(null); onChange(restart(session)); }}><span className="sol-act__icon" aria-hidden="true">⟲</span><span className="sol-act__label">{t('sol.restart')}</span></button>}
-        <button type="button" className="btn btn--small" onClick={onNewDeal}><span className="sol-act__icon" aria-hidden="true">🂠</span><span className="sol-act__label">{t('sol.new')}</span></button>
+          : !isHearts && <button type="button" className="btn btn--outline btn--small" disabled={!session.moves.length || won}
+            onClick={() => onChange(restart(session))}><span className="sol-act__icon" aria-hidden="true">⟲</span><span className="sol-act__label">{t('sol.restart')}</span></button>}
+        <button type="button" className="btn btn--outline btn--small" onClick={onNewDeal}><span className="sol-act__icon" aria-hidden="true">🂠</span><span className="sol-act__label">{t('sol.new')}</span></button>
       </nav>
 
       {isHearts && (won || lost) && (

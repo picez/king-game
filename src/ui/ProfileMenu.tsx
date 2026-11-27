@@ -38,6 +38,7 @@ import FiftyOneStatsPanel from './components/FiftyOneStatsPanel';
 import OnlineTrackerPanel from './components/OnlineTrackerPanel';
 import FiftyOneLeaderboardPanel from './components/FiftyOneLeaderboardPanel';
 import PokerStatsPanel from './components/PokerStatsPanel';
+import SolitaireStatsPanel from './components/SolitaireStatsPanel';
 import PokerLeaderboardPanel from './components/PokerLeaderboardPanel';
 
 interface Props {
@@ -88,7 +89,9 @@ export default function ProfileMenu({
   // Section navigation (Stage 27.1): false = the section grid; true = viewing one section.
   const [inSection, setInSection] = useState(false);
   const openSection = (key: Tab) => { setTab(key); setInSection(true); };
-  const [statsGame, setStatsGame] = useState<GameKey>('king');
+  const [statsGame, setStatsGame] = useState<GameKey | 'solitaire'>('king');
+  // Solitaire stats are device-local: read on open and on ↻.
+  const [solStats, setSolStats] = useState(() => loadSolitaireStats());
   const [boardGame, setBoardGame] = useState<GameKey>('king');
 
   // Achievement unlock toast (Stage 16.1) — device-local, post-stats-load only.
@@ -287,6 +290,7 @@ export default function ProfileMenu({
       // Refresh updates the tracker AND the visible detailed panel (the tracker's own
       // single-flight guard keeps a rapid double-press to one request).
       void loadTracker();
+      if (statsGame === 'solitaire') { setSolStats(loadSolitaireStats()); return; }
       void (statsGame === 'durak' ? loadDurakStats() : statsGame === 'deberc' ? loadDebercStats()
         : statsGame === 'tarneeb' ? loadTarneebStatsFor(tarneebVariant) : statsGame === 'preferans' ? loadPreferansStats()
           : statsGame === 'fifty-one' ? loadFiftyOneStats() : statsGame === 'poker' ? loadPokerStats() : loadStats());
@@ -433,6 +437,11 @@ export default function ProfileMenu({
                       {t(`gameType.${g}`)}
                     </button>
                   ))}
+                  <button key="solitaire" role="tab" aria-selected={statsGame === 'solitaire'}
+                    className={`segmented__tab ${statsGame === 'solitaire' ? 'segmented__tab--active' : ''}`}
+                    onClick={() => { setSolStats(loadSolitaireStats()); setStatsGame('solitaire'); }}>
+                    🃏 {t('sol.title')}
+                  </button>
                 </div>
                 {statsGame === 'king' && <StatsPanel result={stats} loading={loadingStats} />}
                 {statsGame === 'durak' && <DurakStatsPanel result={durakStats} loading={loadingDurak} />}
@@ -448,6 +457,7 @@ export default function ProfileMenu({
                 {statsGame === 'preferans' && <PreferansStatsPanel result={preferansStats} loading={loadingPreferans} />}
                 {statsGame === 'fifty-one' && <FiftyOneStatsPanel result={fiftyOneStats} loading={loadingFiftyOne} />}
                 {statsGame === 'poker' && <PokerStatsPanel result={pokerStats} loading={loadingPoker} />}
+                {statsGame === 'solitaire' && <SolitaireStatsPanel stats={solStats} />}
               </>
             )}
             {tab === 'achievements' && (

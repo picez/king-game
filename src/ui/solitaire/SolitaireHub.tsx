@@ -8,7 +8,7 @@ import type { VariantKey } from '../../solitaire/engine';
 import type { Session } from '../../solitaire/session';
 import { totals, variantStats, type SolitaireStats } from '../../solitaire/stats';
 import { utcDay } from '../../solitaire/daily';
-import { formatClock } from './format';
+import { formatClock, labelOf } from './format';
 import SolitaireLeaderboard from './SolitaireLeaderboard';
 
 interface Props {
@@ -78,10 +78,7 @@ export default function SolitaireHub({ stats, saved, busy, onStart, onResume, on
   );
 }
 
-export function labelOf(t: (k: string) => string, key: VariantKey): string {
-  const l = variantLabelKeys(key);
-  return l.variant ? `${t(l.title)} · ${t(l.variant)}` : t(l.title);
-}
+export { labelOf };
 
 function GameCard({ info, stats, busy, onStart, onRules, onGuide }: { info: SolitaireInfo; stats: SolitaireStats; busy: boolean; onStart: Props['onStart']; onRules: () => void; onGuide: () => void }) {
   const { t } = useI18n();
@@ -122,7 +119,7 @@ function GameCard({ info, stats, busy, onStart, onRules, onGuide }: { info: Soli
       </p>
       <div className="sol-card__actions">
         <button type="button" className="btn btn--primary btn--small" disabled={busy} onClick={() => onStart(key, false)}>{t('sol.play')}</button>
-        <button type="button" className="btn btn--small" disabled={busy} onClick={() => onStart(key, true)}>
+        <button type="button" className="btn btn--outline btn--small" disabled={busy} onClick={() => onStart(key, true)}>
           {dailyDone ? '✓ ' : '📅 '}{t('sol.daily')}
         </button>
         <button type="button" className="btn btn--ghost btn--small" onClick={onGuide}>🎓 {t('solTut.open')}</button>

@@ -6,7 +6,8 @@ import { useI18n } from '../../i18n';
 import type { Move, PairMove, PileMove, SolitaireId, VariantKey } from '../../solitaire/engine';
 import { engineFor } from '../../solitaire/registry';
 import { tutorialFor } from '../../solitaire/tutorials';
-import { tap, type Selection, type TapTarget } from '../../solitaire/tap';
+import { autoMove, dropMove, tap, type DragFrom, type Selection, type TapTarget } from '../../solitaire/tap';
+import type { BoardInput } from './useCardDrag';
 import { solitaireInfo } from '../../solitaire/catalog';
 import type { PileState } from '../../solitaire/pileKit';
 import type { PyramidState } from '../../solitaire/pyramid';
@@ -55,17 +56,21 @@ export default function SolitaireTutorial({ id, onExit, onPlay }: Props) {
     setWrong(false);
   }
 
-  function onTap(target: TapTarget) {
+  function accept(m: Move | null): boolean {
+    if (!m || !same(m, step.expect)) return false;
+    setState(engine.apply(state, m));
+    setSelection(null);
+    setSolved(true);
+    setWrong(false);
+    return true;
+  }
+
+  // Tap-select flow kept for the guide: a learner may tap where the caption says "tap".
+  function onTapTarget(target: TapTarget) {
     if (!waiting) return;
     const r = tap(id, engine, state, selection, target);
-    if (r.move && same(r.move, step.expect)) {
-      setState(engine.apply(state, r.move));
-      setSelection(null);
-      setSolved(true);
-      setWrong(false);
-      return;
-    }
-    // The right card, picked for another place: keep it selected so the next tap chooses.
+    if (accept(r.move)) return;
+    // The right card, picked for another place: keep it selected so the next tap (or a drag) chooses.
     const exp = step.expect;
     if (r.move && exp?.t === 'move' && r.move.t === 'move' && r.move.from === exp.from && r.move.n === exp.n) {
       setSelection({ kind: 'pile', pile: exp.from, n: exp.n });
@@ -75,14 +80,33 @@ export default function SolitaireTutorial({ id, onExit, onPlay }: Props) {
     if (!r.selection) setWrong(true);
   }
 
+  const targetOf = (from: DragFrom): TapTarget => (from.kind === 'card'
+    ? { kind: 'card', id: from.id }
+    : { kind: 'pile', pile: from.pile, index: ((state as PileState).piles[from.pile]?.length ?? 0) - from.n });
+
+  // The guide is played like the game (drag, double tap) and also accepts plain taps.
+  const input: BoardInput = {
+    onStock: () => onTapTarget({ kind: 'stock' }),
+    onDrop: (from, target) => {
+      if (!waiting) return;
+      if (accept(dropMove(id, engine, state, from, target))) return;
+      if (target && !(from.kind === 'pile' && target === from.pile)) setWrong(true);
+    },
+    onTap: (from, double) => {
+      if (!waiting) return;
+      if (double && accept(autoMove(id, engine, state, from))) return;
+      onTapTarget(targetOf(from));
+    },
+  };
+
   const hint = waiting ? step.expect ?? null : null;
   const board = size.w > 0 && (id === 'hearts'
-    ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} onTap={onTap} width={size.w} height={size.h} />
+    ? <HeartsBoard state={state as HeartsState} hint={hint as HeartsMove | null} input={input} width={size.w} height={size.h} />
     : id === 'pyramid'
-    ? <PyramidBoard state={state as PyramidState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={size.w} height={size.h} />
+    ? <PyramidBoard state={state as PyramidState} selection={selection} hint={hint as PairMove | null} input={input} width={size.w} height={size.h} />
     : id === 'tripeaks'
-      ? <TriPeaksBoard state={state as TriPeaksState} selection={selection} hint={hint as PairMove | null} onTap={onTap} width={size.w} height={size.h} />
-      : <PileBoard variant={guide.key} state={state as PileState} selection={selection} hint={hint as PileMove | null} onTap={onTap} width={size.w} height={size.h} />);
+      ? <TriPeaksBoard state={state as TriPeaksState} selection={selection} hint={hint as PairMove | null} input={input} width={size.w} height={size.h} />
+      : <PileBoard variant={guide.key} state={state as PileState} selection={selection} hint={hint as PileMove | null} input={input} width={size.w} height={size.h} />);
 
   return (
     <div className="sol-screen sol-tutorial">
@@ -98,7 +122,7 @@ export default function SolitaireTutorial({ id, onExit, onPlay }: Props) {
       </div>
       <div className="sol-table" ref={ref}>{board}</div>
       <nav className="sol-actions sol-actions--tutorial">
-        <button type="button" className="btn btn--small" disabled={i === 0} onClick={() => go(i - 1)}>←</button>
+        <button type="button" className="btn btn--outline btn--small" disabled={i === 0} onClick={() => go(i - 1)}>←</button>
         {!last && <button type="button" className="btn btn--primary btn--small" disabled={waiting} onClick={() => go(i + 1)}>{solved ? '✓ ' : ''}{t('solTut.next')}</button>}
         {last && <button type="button" className="btn btn--primary btn--small" disabled={waiting} onClick={() => onPlay(guide.key)}>{t('solTut.play')}</button>}
       </nav>

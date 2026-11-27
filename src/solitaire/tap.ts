@@ -100,3 +100,44 @@ export function tap(id: SolitaireId, e: Engine<unknown, Move>, s: unknown, sel: 
   if (id === 'tripeaks') return tapTriPeaks(e as unknown as Engine<unknown, PairMove>, s, t);
   return tapPile(e as unknown as Engine<PileState, PileMove>, s as PileState, sel, t);
 }
+
+// ── drag & drop / double tap ────────────────────────────────────────────────
+// The boards are played by dragging: a run of cards from a pile is dropped on
+// another pile; a Pyramid card on its partner (a King anywhere off itself); a
+// TriPeaks card on the waste; a Hearts card on the trick. A double tap sends a
+// card to its best place (the old one-tap behaviour).
+
+/** What is dragged: `n` cards from a pile, or one positional card. */
+export type DragFrom = { kind: 'pile'; pile: string; n: number } | { kind: 'card'; id: number };
+
+/** Drop targets of the positional games (piles use their own ids). */
+export const DROP_WASTE = 'waste';
+export const DROP_TRICK = 'trick';
+export const dropCard = (id: number) => `card:${id}`;
+
+/** The move a drop makes, or null when it is not legal (the card snaps back). */
+export function dropMove(id: SolitaireId, e: Engine<unknown, Move>, s: unknown, from: DragFrom, target: string | null): Move | null {
+  const legal = e.legal(s);
+  if (from.kind === 'pile') {
+    if (!target || target === from.pile) return null;
+    return legal.find((m) => m.t === 'move' && m.from === from.pile && m.n === from.n && m.to === target) ?? null;
+  }
+  if (id === 'hearts') return target === DROP_TRICK ? legal.find((m) => m.t === 'play' && m.id === from.id) ?? null : null;
+  if (id === 'tripeaks') return target === DROP_WASTE ? legal.find((m) => m.t === 'remove' && m.ids[0] === from.id) ?? null : null;
+  // Pyramid: a King leaves on any drop off itself; a card pairs with the card it lands on.
+  if (target === dropCard(from.id)) return null;
+  const king = legal.find((m) => m.t === 'remove' && m.ids.length === 1 && m.ids[0] === from.id);
+  if (king) return king;
+  const other = target?.startsWith('card:') ? Number(target.slice(5)) : NaN;
+  return legal.find((m) => m.t === 'remove' && m.ids.length === 2 && m.ids.includes(from.id) && m.ids.includes(other)) ?? null;
+}
+
+/** Double tap: the best single move for that card (none for a Pyramid card that needs a partner). */
+export function autoMove(id: SolitaireId, e: Engine<unknown, Move>, s: unknown, from: DragFrom): Move | null {
+  if (from.kind === 'pile') {
+    const moves = e.legal(s).filter((m): m is Extract<PileMove, { t: 'move' }> => m.t === 'move' && m.from === from.pile && m.n === from.n);
+    return bestMove(s as PileState, moves);
+  }
+  if (id === 'hearts') return e.legal(s).find((m) => m.t === 'play' && m.id === from.id) ?? null;
+  return e.legal(s).find((m) => m.t === 'remove' && m.ids.length === 1 && m.ids[0] === from.id) ?? null;
+}

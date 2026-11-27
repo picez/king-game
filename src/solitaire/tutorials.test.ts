@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTutorials } from './tutorials';
 import { engineFor } from './registry';
 import { SOLITAIRE_IDS } from './engine';
-import { tap, type TapTarget } from './tap';
+import { DROP_TRICK, DROP_WASTE, dropCard, dropMove, tap, type TapTarget } from './tap';
 import type { PileState } from './pileKit';
 import { EN } from '../i18n/dictionaries/en';
 import { UK } from '../i18n/dictionaries/uk';
@@ -37,6 +37,16 @@ describe('solitaire guides', () => {
       if (!r.move && r.selection && m.t === 'remove' && m.ids[1] !== undefined) r = tap(t.id, e, st.state, r.selection, { kind: 'card', id: m.ids[1] });
       if (!r.move && r.selection && m.t === 'move') r = tap(t.id, e, st.state, r.selection, { kind: 'pile', pile: m.to, index: null });
       expect(JSON.stringify(r.move), st.textKey).toBe(JSON.stringify(m));
+      // …and so does dragging the highlighted card to where it goes.
+      if (m.t === 'stock') continue;
+      const dropped = m.t === 'move'
+        ? dropMove(t.id, e, st.state, { kind: 'pile', pile: m.from, n: m.n }, m.to)
+        : m.t === 'play'
+          ? dropMove(t.id, e, st.state, { kind: 'card', id: m.id }, DROP_TRICK)
+          : t.id === 'tripeaks'
+            ? dropMove(t.id, e, st.state, { kind: 'card', id: m.ids[0] }, DROP_WASTE)
+            : dropMove(t.id, e, st.state, { kind: 'card', id: m.ids[0] }, m.ids[1] !== undefined ? dropCard(m.ids[1]) : null);
+      expect(JSON.stringify(dropped), `drag ${st.textKey}`).toBe(JSON.stringify(m));
     }
   });
 
