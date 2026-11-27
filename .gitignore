@@ -33,3 +33,7 @@ android-twa/**/.gradle/
 
 # Playwright MCP screenshots / snapshots (local only)
 .playwright-mcp/
+
+# Local secrets (prod DB URL, API keys) — never commit. The template stays tracked.
+.env*
+!.env.example
