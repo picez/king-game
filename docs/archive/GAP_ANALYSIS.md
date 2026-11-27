@@ -2,10 +2,10 @@
 > This was a one-time gap analysis (2026-04-07) of an early build against the
 > original PRD. The gaps below have since been addressed. For the authoritative,
 > current state use:
-> - **Rules:** [`KING_RULES.md`](KING_RULES.md)
-> - **Online architecture:** [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md)
-> - **MVP status / how to run:** [`MVP_STATUS.md`](MVP_STATUS.md)
-> - **Deploy:** [`DEPLOYMENT.md`](DEPLOYMENT.md) · **QA:** [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
+> - **Rules:** [`KING_RULES.md`](../../KING_RULES.md)
+> - **Online architecture:** [`ONLINE_ARCHITECTURE.md`](../../ONLINE_ARCHITECTURE.md)
+> - **MVP status / how to run:** [`MVP_STATUS.md`](../../MVP_STATUS.md)
+> - **Deploy:** [`DEPLOYMENT.md`](../../DEPLOYMENT.md) · **QA:** [`QA_CHECKLIST.md`](../../QA_CHECKLIST.md)
 > Kept only for historical reference.
 
 # Gap Analysis — King Game vs PRD

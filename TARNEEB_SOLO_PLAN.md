@@ -15,7 +15,7 @@ and is not required for All-Rounder.
 > **28.0** spec → **28.1** pure core → **28.3** local UI → **28.4** full online + stats release.
 > The scoring model in §2 is the one that shipped.
 
-See `SOLO_VARIANTS_PLAN.md` for why **Variant B (4-player cutthroat)** was chosen over 3-player
+See `docs/archive/SOLO_VARIANTS_PLAN.md` for why **Variant B (4-player cutthroat)** was chosen over 3-player
 (Variant A, needs an invented reduced deck) and over deferring indefinitely (Variant C). Variant B
 reuses the released 52-card / 13-each deal unchanged — only teams and scoring differ.
 

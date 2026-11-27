@@ -53,7 +53,7 @@ online play both work end-to-end. This file is the running feature list; for the
 - Online design: [`ONLINE_ARCHITECTURE.md`](ONLINE_ARCHITECTURE.md)
 - Deploy: [`DEPLOYMENT.md`](DEPLOYMENT.md) (VPS/HTTPS/WSS) · [`RENDER_DEPLOY.md`](RENDER_DEPLOY.md) (hosted)
 - QA: [`QA_CHECKLIST.md`](QA_CHECKLIST.md)
-- `GAP_ANALYSIS.md` / `CHANGES_2026-07-06.md` are **historical** — ignore for current state.
+- `docs/archive/` (`GAP_ANALYSIS.md`, `CHANGES_2026-07-06.md`, `RULES_UX_TODO.md`, `SOLO_VARIANTS_PLAN.md`) is **historical** — ignore for current state.
 
 **Games shipped (all `available`, local + server-authoritative online, each
 recording its own per-`game_type` stats + leaderboard):**

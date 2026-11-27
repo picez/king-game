@@ -428,7 +428,7 @@ the same redaction/reconnect guarantees as the other three games.
 scoring, stats and lobby all assumed it. Nothing below changes any rule above.
 
 A "solo / every-player-for-self" Tarneeb was **designed and evaluated** (docs-only), not built —
-see **[`SOLO_VARIANTS_PLAN.md`](SOLO_VARIANTS_PLAN.md)**. Three shapes were considered: (A) a
+see **[`docs/archive/SOLO_VARIANTS_PLAN.md`](docs/archive/SOLO_VARIANTS_PLAN.md)**. Three shapes were considered: (A) a
 3-player solo game (needs an invented deck/deal since 52 doesn't divide by 3 — not recommended),
 (B) a 4-player cutthroat 1-vs-3 game (clean 52/13 deck — preferred *if* a solo mode is ever
 added), and (C) keeping Tarneeb team-only for now and adding solo later as a **separate variant**

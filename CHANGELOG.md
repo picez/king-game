@@ -9,6 +9,25 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ## [Unreleased]
 
+### Changed
+
+- **Faster first load (Stage 44.2).** Each game screen is now its own download, and only the
+  player's language is loaded (the other three arrive when chosen). The first load of the menu
+  drops from ~289 KB to ~144 KB of compressed script for a Ukrainian player. After the menu is
+  idle, the game screens are fetched in the background, so offline play keeps working. If a deploy
+  happens while the page is open, a missing old file triggers one automatic reload instead of a
+  blank screen.
+- Resolved planning docs moved to `docs/archive/`.
+
+### Added
+
+- **Daily database backup to Cloudflare R2 (Stage 44.1).** One gzipped JSON copy a day from one
+  consistent snapshot, 14 daily + 8 weekly copies kept, no new dependency (own SigV4 signer).
+  Admin → Backup lists the copies, makes one on demand and downloads any of them (all logged).
+  New `npm run db:restore -- <file>` loads a copy (or the manual JSON download) into an empty
+  database in one transaction (`--force` replaces existing data). Needs `R2_ACCOUNT_ID`,
+  `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
+
 ### Fixed
 
 - **51 final places follow the elimination order (Stage 43.1).** The winner is 1st, then the
