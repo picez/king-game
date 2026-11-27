@@ -21,6 +21,12 @@ also reported at `GET /health/diagnostics` (`version` field).
 
 ### Added
 
+- **Daily local copy of the production database (Stage 44.3).** `npm run db:backup:local` copies
+  prod (URL in the git-ignored `.env.production.local`) into `.data/prod-backups/<time>.json.gz`
+  from one read-only snapshot and deletes copies older than 30 days (the newest is always kept).
+  `scripts/schedule-local-backup.ps1` registers a daily Windows scheduled task (12:00; runs later
+  if the PC was off; `-Remove` deletes it). Restore with `npm run db:restore`. The R2 cloud backup
+  below stays optional.
 - **Daily database backup to Cloudflare R2 (Stage 44.1).** One gzipped JSON copy a day from one
   consistent snapshot, 14 daily + 8 weekly copies kept, no new dependency (own SigV4 signer).
   Admin → Backup lists the copies, makes one on demand and downloads any of them (all logged).

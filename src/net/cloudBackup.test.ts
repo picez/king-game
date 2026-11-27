@@ -6,7 +6,7 @@ import { gunzipSync } from 'node:zlib';
 import { awsEncode, encodeKeyPath, signRequest, sha256Hex } from '../../server/admin/s3sig';
 import { backupsScheduled, r2Client, r2SettingsFrom } from '../../server/admin/cloudBackup';
 import {
-  BACKUP_EVERY_MS, backupKey, chunks, expiredBackups, isBackupDue, parseBackupKey, planRestore, restoreColumns,
+  BACKUP_EVERY_MS, backupKey, chunks, expiredBackups, expiredLocalBackups, localBackupName, parseLocalBackupName, isBackupDue, parseBackupKey, planRestore, restoreColumns,
 } from './backupPolicy';
 import { BACKUP_FORMAT, BACKUP_TABLES } from './admin';
 
@@ -163,5 +163,31 @@ describe('wiring guards', () => {
     expect(s).toContain('sql.begin(');
     expect(s).toContain("(use --force to replace it)");
     expect(src('package.json')).toContain('"db:restore": "tsx server/db/restore.ts"');
+  });
+});
+
+describe('local copies (Stage 44.3)', () => {
+  it('names round-trip, a pre-migration prefix is allowed, other files are ignored', () => {
+    const n = localBackupName(new Date('2026-11-27T11:35:41.243Z'));
+    expect(n).toBe('2026-11-27T11-35-41Z.json.gz');
+    expect(parseLocalBackupName(n)?.toISOString()).toBe('2026-11-27T11:35:41.000Z');
+    expect(parseLocalBackupName('pre-0015-2026-11-27T11-31-54Z.json.gz')).not.toBeNull();
+    expect(parseLocalBackupName('backup.log')).toBeNull();
+  });
+
+  it('deletes copies older than 30 days, never the newest, never foreign files', () => {
+    const now = new Date('2026-12-31T12:00:00Z');
+    const day = (iso: string) => localBackupName(new Date(iso));
+    const names = [day('2026-12-30T12:00:00Z'), day('2026-12-01T13:00:00Z'), day('2026-11-30T11:00:00Z'), 'pre-0015-2026-11-01T00-00-00Z.json.gz', 'backup.log'];
+    expect(expiredLocalBackups(names, now)).toEqual([day('2026-11-30T11:00:00Z'), 'pre-0015-2026-11-01T00-00-00Z.json.gz']);
+    expect(expiredLocalBackups([day('2020-01-01T00:00:00Z')], now)).toEqual([]);
+  });
+
+  it('the local copy is a read-only snapshot from .env.production.local, kept out of git', () => {
+    expect(readFileSync('package.json', 'utf8')).toContain('"db:backup:local": "tsx --env-file=.env.production.local server/db/backupLocal.ts"');
+    expect(readFileSync('server/db/backupLocal.ts', 'utf8')).toContain("'isolation level repeatable read read only'");
+    const ignore = readFileSync('.gitignore', 'utf8');
+    expect(ignore).toMatch(/^\.env\*$/m);
+    expect(ignore).toMatch(/^\.data\/$/m);
   });
 });

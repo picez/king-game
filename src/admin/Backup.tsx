@@ -62,6 +62,12 @@ export default function Backup() {
             <code>R2_SECRET_ACCESS_KEY</code>, <code>R2_BUCKET</code> — після цього копія робитиметься щодня.
           </p>
         )}
+        {data && !data.configured && (
+          <p className="adm-muted">
+            Без хмари копії можна тримати на комп'ютері власника: <code>npm run db:backup:local</code> (щоденно через{' '}
+            <code>scripts/schedule-local-backup.ps1</code>, зберігаються 30 днів у <code>.data/prod-backups/</code>).
+          </p>
+        )}
         {data && data.configured && (
           <>
             <p className="adm-muted">

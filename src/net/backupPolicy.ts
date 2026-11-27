@@ -108,3 +108,29 @@ export function chunks<T>(list: readonly T[], size: number): T[][] {
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
   return out;
 }
+
+// ── local copies (Stage 44.3) ───────────────────────────────────────────────
+
+/** Local prod copies are kept 30 days (the newest one is never deleted). */
+export const LOCAL_KEEP_DAYS = 30;
+
+const LOCAL_NAME = /^(?:[a-z0-9-]+-)?(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.json\.gz$/;
+
+/** 2026-11-27T10-05-00Z.json.gz (a `pre-0015-` style prefix is allowed). */
+export function localBackupName(at: Date): string {
+  return `${at.toISOString().slice(0, 19).replace(/:/g, '-')}Z.json.gz`;
+}
+
+export function parseLocalBackupName(name: string): Date | null {
+  const m = LOCAL_NAME.exec(name);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  return new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}Z`);
+}
+
+/** File names older than `days` (foreign files and the newest copy are never listed). */
+export function expiredLocalBackups(names: readonly string[], now: Date, days = LOCAL_KEEP_DAYS): string[] {
+  const ours = names.filter((n) => parseLocalBackupName(n) !== null)
+    .sort((a, b) => parseLocalBackupName(b)!.getTime() - parseLocalBackupName(a)!.getTime());
+  return ours.slice(1).filter((n) => now.getTime() - parseLocalBackupName(n)!.getTime() > days * BACKUP_EVERY_MS);
+}

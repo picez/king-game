@@ -286,6 +286,13 @@ API** and **guest sessions** on the same port — no extra service. Add:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | _(optional)_ | **Stage 6: Google sign-in** (see below). Unset → `/auth/google/start` 503s `oauth_disabled`, server runs normally. |
 | `APP_ORIGIN` | `https://<your-domain>` | optional; canonical origin for the post-login redirect (defaults to the request host) |
 
+**Backups without R2 (Stage 44.3).** While the database is small, the owner's PC keeps the
+copies: put the External Database URL into `.env.production.local` (git-ignored) as
+`DATABASE_URL=…?sslmode=require`, run `npm run db:backup:local` once, then
+`powershell -ExecutionPolicy Bypass -File scripts\schedule-local-backup.ps1` for a daily task.
+Copies land in `.data/prod-backups/` and are kept 30 days. Restore into an empty database:
+`npm run db:migrate` then `npm run db:restore -- .data/prod-backups/<file>`.
+
 - The client is served from the **same origin**, so credentialed `/api` fetches
   and the CSRF origin check work with no extra config. (Only a **split-origin**
   client needs its origin added to `ALLOWED_ORIGINS`.)
