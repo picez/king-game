@@ -30,7 +30,8 @@ server/            migration 0016_solitaire.sql, /api/solitaire/* (start token, 
 **Moves are JSON** (`{t:'move', from:'t3', n:2, to:'f0'}` …), so a finished game is `seed + moves`.
 The server replays it with the same engine before a result counts. Time is measured server-side:
 `POST /api/solitaire/start` returns a signed token with the seed + start time; the result's duration
-is `max(claimed, finish − start)` bounded below by a per-move floor.
+is the SERVER's wall clock from the start token to the result (a pause counts); a result faster
+than 150 ms per move is refused.
 
 **Phone UX:** tap a card → it goes to the best legal destination (foundation first); if it has
 several, tap selects and the next tap on a pile drops it. Undo, hint, auto-finish, new deal,
@@ -38,7 +39,8 @@ restart. Cards scale to fit 7–10 columns at 360 px.
 
 ## Stages
 
-**Status (2026-11-27): all five stages shipped** — S1 `9305780`, S2+S3 `21e8082`, S4 `7e50911`, S5 (Hearts) next commit.
+**Status (2026-11-27): all five stages shipped** — S1 `9305780`, S2+S3 `21e8082`, S4 `7e50911`, S5 (Hearts) `1b3c69c`. Not done: a dedicated `layout:solitaire` gate (360/390/RTL were checked by
+hand in the browser), a real solver behind the FreeCell/Klondike hint.
 Hearts is built as one more variant of the same Engine contract: the bots play deterministically
 inside `apply`, so `seed + your moves` replays the whole game and ranks like a solitaire.
 
